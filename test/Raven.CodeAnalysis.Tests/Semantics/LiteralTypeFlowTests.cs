@@ -298,7 +298,7 @@ val mode: "on" | "off" = "unknown"
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'string'", "'string | string'")]);
+            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("\"unknown\"", "\"on\" | \"off\"")]);
         verifier.Verify();
     }
 

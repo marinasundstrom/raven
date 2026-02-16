@@ -63,9 +63,6 @@ public static partial class SymbolExtensions
 
     public static string ToDisplayStringForDiagnostics(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
-        if (typeSymbol is LiteralTypeSymbol literal)
-            typeSymbol = literal.UnderlyingType;
-
         return FormatType(typeSymbol, format);
     }
 
@@ -652,9 +649,9 @@ public static partial class SymbolExtensions
             typeSymbol = (ITypeSymbol)alias.UnderlyingSymbol;
         }
 
-        // Unwrap literal pseudo-types
+        // Format literal pseudo-types using their constant value
         if (typeSymbol is LiteralTypeSymbol literal)
-            return FormatType(literal.UnderlyingType, format);
+            return literal.Name;
 
         // Nullable<T> => T?
         if (typeSymbol is NullableTypeSymbol nullable)
