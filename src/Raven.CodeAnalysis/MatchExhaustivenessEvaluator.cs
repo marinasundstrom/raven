@@ -506,6 +506,18 @@ internal sealed class MatchExhaustivenessEvaluator
             case BoundPositionalPattern tuplePattern:
                 RemoveMembersAssignableToPattern(remaining, tuplePattern.Type, literalCoverage);
                 break;
+            case BoundDeconstructPattern deconstructPattern:
+                {
+                    var coverType = deconstructPattern.NarrowedType ?? deconstructPattern.ReceiverType;
+                    RemoveMembersAssignableToPattern(remaining, coverType, literalCoverage);
+                    break;
+                }
+            case BoundPropertyPattern propertyPattern:
+                {
+                    if (propertyPattern.NarrowedType is not null)
+                        RemoveMembersAssignableToPattern(remaining, propertyPattern.NarrowedType, literalCoverage);
+                    break;
+                }
         }
     }
 

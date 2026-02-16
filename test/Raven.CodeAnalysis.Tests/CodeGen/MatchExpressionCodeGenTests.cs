@@ -122,7 +122,7 @@ val tupleResult = describer.Describe(tuple)
 System.Console.WriteLine(boolResult + "," + tupleResult)
 
 class Describer {
-    Describe(value: bool | (flag: bool, text: string)) -> string {
+    public Describe(value: bool | (flag: bool, text: string)) -> string {
         return value match {
             true => "true"
             false => "false"
@@ -340,7 +340,7 @@ val tupleResult = describer.Describe(tupleValue)
 System.Console.WriteLine(boolResult + "," + tupleResult)
 
 class Describer {
-    Describe(value: bool | (flag: bool, text: string)) -> string {
+    public Describe(value: bool | (flag: bool, text: string)) -> string {
         return value match {
             false => "false"
             true => "true"

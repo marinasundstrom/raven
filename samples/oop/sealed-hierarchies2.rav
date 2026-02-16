@@ -1,0 +1,17 @@
+import System.*
+import System.Console.*
+
+val expr: Expr = Add(Lit(40), Lit(2))
+
+WriteLine(Evaluate(expr))
+
+func Evaluate(expr: Expr) -> int {
+    match expr {
+        Lit(val value) => value
+        Add(val left, val right) => Evaluate(left) + Evaluate(right)
+    }
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr

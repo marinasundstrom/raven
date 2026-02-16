@@ -734,4 +734,150 @@ record class Add : Expr {}
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
     }
+
+    // ── Record (deconstruct) pattern exhaustiveness ──
+
+    [Fact]
+    public void SealedHierarchy_Match_DeconstructPattern_ExhaustiveWhenAllCovered()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Lit(42)
+
+val result = expr match {
+    Lit(val value) => value
+    Add(val left, val right) => 0
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
+    }
+
+    [Fact]
+    public void SealedHierarchy_Match_DeconstructPattern_NotExhaustiveWhenMissing()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Lit(42)
+
+val result = expr match {
+    Lit(val value) => value
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2100");
+    }
+
+    [Fact]
+    public void SealedHierarchy_Match_MixedPatterns_ExhaustiveWhenAllCovered()
+    {
+        var source = """
+import System.*
+import System.Console.*
+
+val expr: Expr = Lit(42)
+
+match expr {
+    Lit(val value) => WriteLine(value)
+    Add add => WriteLine(add)
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
+    }
+
+    [Fact]
+    public void SealedHierarchy_Match_DeconstructPattern_SemanticModelReportsExhaustive()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Lit(42)
+
+val result = expr match {
+    Lit(val value) => value
+    Add(val left, val right) => 0
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var matchExpr = root.DescendantNodes().OfType<MatchExpressionSyntax>().First();
+        var info = model.GetMatchExhaustiveness(matchExpr);
+        Assert.True(info.IsExhaustive, $"Expected exhaustive match but missing: [{string.Join(", ", info.MissingCases)}]");
+    }
+
+    [Fact]
+    public void SealedHierarchy_Match_DeconstructPattern_SemanticModelReportsMissing()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Lit(42)
+
+val result = expr match {
+    Add(val left, val right) => 0
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var matchExpr = root.DescendantNodes().OfType<MatchExpressionSyntax>().First();
+        var info = model.GetMatchExhaustiveness(matchExpr);
+        Assert.False(info.IsExhaustive);
+        Assert.Contains("Lit", info.MissingCases);
+    }
+
+    [Fact]
+    public void SealedRecordHierarchy_Match_DeconstructPattern_WithPermits_Exhaustive()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Lit(42)
+
+val result = expr match {
+    Lit(val value) => value
+    Add(val left, val right) => 0
+}
+
+sealed record Expr permits Lit, Add
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
+    }
 }

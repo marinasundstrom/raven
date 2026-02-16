@@ -1,0 +1,13 @@
+import System.*
+import System.Console.*
+
+WriteLine(Test(false))
+
+func Test(value: bool) -> int {
+    var x = 0
+    match value {
+        true => x = 2
+        false => return 42
+    }
+    return x
+}

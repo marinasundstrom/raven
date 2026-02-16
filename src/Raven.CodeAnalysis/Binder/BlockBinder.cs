@@ -1970,7 +1970,79 @@ partial class BlockBinder : Binder
             matchStatement.Arms,
             allowReturnInArmExpressions: true,
             requireArmValue: false);
+
+        // When a match statement is the last statement in a function body that
+        // has a non-void return type, and at least one arm produces a value
+        // (i.e. it is not an explicit return/throw), promote it to a
+        // BoundMatchExpression wrapped in an ExpressionStatement so that the
+        // method body's implicit-return logic can emit `ret` for it.
+        if (IsMatchStatementImplicitReturn(matchStatement))
+        {
+            var hasContributingArm = arms.Any(arm => !IsAbruptMatchArmExpression(arm.Expression));
+
+            if (hasContributingArm)
+            {
+                var contributingArmTypes = arms
+                    .Select(arm => arm.Expression)
+                    .Where(static expression => !IsAbruptMatchArmExpression(expression))
+                    .Select(expression => expression.Type ?? Compilation.ErrorTypeSymbol)
+                    .ToArray();
+
+                var resultType = TypeSymbolNormalization.NormalizeUnion(contributingArmTypes);
+                var matchExpr = new BoundMatchExpression(scrutinee, arms, resultType);
+                return new BoundExpressionStatement(matchExpr);
+            }
+        }
+
         return new BoundMatchStatement(scrutinee, arms);
+    }
+
+    private bool IsMatchStatementImplicitReturn(MatchStatementSyntax matchStatement)
+    {
+        if (_containingSymbol is not IMethodSymbol method)
+            return false;
+
+        var returnType = GetReturnTargetType(method);
+        if (returnType is null ||
+            returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+            return false;
+
+        if (matchStatement.Parent is not BlockStatementSyntax block)
+            return false;
+
+        if (block.Statements.Count == 0 || block.Statements.LastOrDefault() != matchStatement)
+            return false;
+
+        return block.Parent switch
+        {
+            BaseMethodDeclarationSyntax => true,
+            FunctionStatementSyntax => true,
+            AccessorDeclarationSyntax => true,
+            _ => false,
+        };
+    }
+
+    private static bool IsAbruptMatchArmExpression(BoundExpression expression)
+    {
+        switch (expression)
+        {
+            case BoundReturnExpression:
+            case BoundThrowExpression:
+            case BoundRequiredResultExpression { Operand: BoundReturnExpression }:
+            case BoundRequiredResultExpression { Operand: BoundThrowExpression }:
+                return true;
+            case BoundBlockExpression block:
+                {
+                    var last = block.Statements.LastOrDefault();
+                    if (last is BoundReturnStatement or BoundThrowStatement)
+                        return true;
+                    if (last is BoundExpressionStatement exprStmt)
+                        return IsAbruptMatchArmExpression(exprStmt.Expression);
+                    return false;
+                }
+            default:
+                return false;
+        }
     }
 
     private BoundExpression BindMatchExpression(MatchExpressionSyntax matchExpression)
@@ -1998,18 +2070,6 @@ partial class BlockBinder : Binder
         var resultType = TypeSymbolNormalization.NormalizeUnion(contributingArmTypes);
 
         return new BoundMatchExpression(scrutinee, arms, resultType);
-
-        static bool IsAbruptMatchArmExpression(BoundExpression expression)
-        {
-            return expression switch
-            {
-                BoundReturnExpression => true,
-                BoundThrowExpression => true,
-                BoundRequiredResultExpression { Operand: BoundReturnExpression } => true,
-                BoundRequiredResultExpression { Operand: BoundThrowExpression } => true,
-                _ => false,
-            };
-        }
     }
 
     private (BoundExpression Scrutinee, ImmutableArray<BoundMatchArm> Arms) BindMatchCommon(
@@ -3402,6 +3462,18 @@ partial class BlockBinder : Binder
             case BoundPositionalPattern tuplePattern:
                 RemoveMembersAssignableToPattern(remaining, tuplePattern.Type, literalCoverage);
                 break;
+            case BoundDeconstructPattern deconstructPattern:
+                {
+                    var coverType = deconstructPattern.NarrowedType ?? deconstructPattern.ReceiverType;
+                    RemoveMembersAssignableToPattern(remaining, coverType, literalCoverage);
+                    break;
+                }
+            case BoundPropertyPattern propertyPattern:
+                {
+                    if (propertyPattern.NarrowedType is not null)
+                        RemoveMembersAssignableToPattern(remaining, propertyPattern.NarrowedType, literalCoverage);
+                    break;
+                }
         }
     }
 

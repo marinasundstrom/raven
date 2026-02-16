@@ -1,0 +1,16 @@
+import System.*
+import System.Console.*
+
+WriteLine(test())
+
+func test() -> int | Exception {
+    return 42
+}
+
+func test2() -> 1 {
+    return 1 //2
+}
+
+func test3() -> 0 | 1 {
+    return 1 //42
+}

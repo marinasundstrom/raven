@@ -1,13 +1,13 @@
 import System.*
 import System.Console.*
 
-val expr: Expr = Lit()
+val pet: Pet = Cat()
 
-match expr {
-    Lit lit => WriteLine(lit)
-    Add add => WriteLine(add)
+match pet {
+    Dog cat => WriteLine(cat)
+    Cat dog => WriteLine(dog)
 }
 
-sealed class Expr {}
-class Lit : Expr {}
-class Add : Expr {}
+sealed class Pet
+class Dog : Pet
+class Cat : Pet
