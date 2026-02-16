@@ -140,7 +140,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (hasRecordModifier && typeKeyword.IsKind(SyntaxKind.ClassKeyword))
         {
-            return RecordDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return RecordDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
         return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);

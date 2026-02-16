@@ -324,9 +324,10 @@ class Button {
 Classes are sealed by default. Marking a class `open` allows it to be used as a base type. This explicit opt-in keeps instantiable
 classes from being inherited accidentally—the class author must deliberately allow derivation before clients can extend it. The
 `abstract` modifier also enables inheritance: abstract classes are implicitly open and may serve as base types without the `open`
-keyword. Raven also supports **sealed hierarchies** in the style of Kotlin and modern Java. Applying the `sealed` modifier to a class keeps the hierarchy
-closed to a known set of subclasses declared in the same source file (including nested types). The compiler treats those
-subclasses as the exhaustive set for purposes such as pattern-matching analysis.
+keyword. Raven also supports **sealed hierarchies** in the style of Kotlin and modern Java. Applying the `sealed` modifier to a class
+or record class creates a closed hierarchy whose direct subtypes are fixed at compile time. A sealed class is implicitly
+abstract — it cannot be instantiated directly; only its permitted subtypes can be. The compiler treats those subtypes as
+the exhaustive set for purposes such as pattern-matching analysis.
 
 A base class is specified with a colon followed by the type name:
 
@@ -370,8 +371,22 @@ constructors continue to behave as user-defined factories without chaining.
 
 #### Sealed hierarchies and `permits`
 
-A class declared with the `sealed` modifier may optionally declare an explicit
-list of permitted direct subtypes using the `permits` clause:
+A class or record class declared with the `sealed` modifier creates a **sealed hierarchy**. The `sealed` modifier implies
+`abstract`: a sealed type cannot be instantiated directly. Its set of direct subtypes is fixed at compile time and is
+determined in one of two ways:
+
+**Same-file closure (default).** When no `permits` clause is given, any type in the same source file that directly
+inherits from the sealed type is automatically part of the hierarchy. Types in other files may not inherit from it:
+
+```raven
+// shapes.rvn
+sealed class Shape {}
+class Circle : Shape {}   // OK — same file
+class Square : Shape {}   // OK — same file
+```
+
+**Explicit permits.** An optional `permits` clause names the exact set of allowed direct subtypes. Only those types may
+inherit from the sealed type, regardless of file location:
 
 ```raven
 sealed class Expr permits Lit, Add {}
@@ -380,23 +395,36 @@ class Lit : Expr {}
 class Add : Expr {}
 ```
 
-The `permits` clause defines a **closed hierarchy**. Only the types listed in
-the clause may directly inherit from the sealed type. Any attempt to derive
-from the sealed type outside the permitted list produces a compile-time
-error.
+When a `permits` clause is present, any attempt to derive from the sealed type outside the permitted list produces
+`RAV0335`. If a type in the permits list does not actually inherit from the sealed base, the compiler reports `RAV0338`.
 
-A sealed type that declares a `permits` clause is implicitly treated as
-`abstract` unless explicitly marked otherwise. This ensures that exhaustive
-pattern matching over the hierarchy only requires handling the permitted
-concrete subtypes.
+**Sealed record classes** follow the same rules. Applying `sealed` to a record class creates a sealed hierarchy of
+records:
 
-If no `permits` clause is provided, `sealed` retains its ordinary meaning:
-the type cannot be inherited but may still be instantiated (unless marked
-`abstract`).
+```raven
+sealed record class Node {}
+record class Leaf : Node {}
+record class Branch : Node {}
+```
 
-> ❗ **Important:** Raven's `sealed` keyword follows Kotlin and Java's terminology rather than C#'s. In C#, `sealed` means "cannot be
-> inherited". In Raven that concept is already the default. The `sealed` modifier instead designates a hierarchy whose direct
-> subclasses are known at compile time.
+**Match exhaustiveness.** The compiler uses the sealed hierarchy's permitted subtypes for exhaustiveness analysis of
+`match` expressions. When all concrete leaf types are covered, the match is considered exhaustive:
+
+```raven
+val result = expr match {
+    Lit lit => lit.value
+    Add add => eval(add.left) + eval(add.right)
+}
+```
+
+**IL emission.** Sealed hierarchy base types are emitted as `abstract` (not IL `sealed`) so that the CLR allows
+subclassing by the permitted types. A `[ClosedHierarchy]` attribute is emitted on the base type carrying the permitted
+`Type[]` array for runtime reflection.
+
+> ❗ **Important:** Raven's `sealed` keyword follows Kotlin and Java's terminology rather than C#'s. In C#, `sealed`
+> means "cannot be inherited". In Raven that concept is already the default (classes are sealed by default). The `sealed`
+> modifier instead designates a hierarchy whose direct subclasses are known at compile time, and the type is implicitly
+> abstract.
 
 ### Partial classes
 

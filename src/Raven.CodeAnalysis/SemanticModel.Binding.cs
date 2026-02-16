@@ -181,7 +181,8 @@ public partial class SemanticModel
         var isSealedHierarchy = hasSealedModifier && !isStatic;
         var isSealed = isStatic || (!isSealedHierarchy && !classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
         var isPartial = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
-        var hasPermitsClause = classDecl is ClassDeclarationSyntax classDeclaration2 && classDeclaration2.PermitsClause is not null;
+        var hasPermitsClause = (classDecl is ClassDeclarationSyntax classDeclaration2 && classDeclaration2.PermitsClause is not null)
+            || (classDecl is RecordDeclarationSyntax recordDeclaration2 && recordDeclaration2.PermitsClause is not null);
 
         if (hasPermitsClause && !hasSealedModifier)
         {
@@ -1296,10 +1297,13 @@ public partial class SemanticModel
             if (!typeSymbol.IsSealedHierarchy || !typeSymbol.HasExplicitPermits)
                 continue;
 
-            if (classDecl is not ClassDeclarationSyntax classDeclarationSyntax)
-                continue;
+            PermitsClauseSyntax? permitsClause = classDecl switch
+            {
+                ClassDeclarationSyntax classDeclarationSyntax => classDeclarationSyntax.PermitsClause,
+                RecordDeclarationSyntax recordDeclarationSyntax => recordDeclarationSyntax.PermitsClause,
+                _ => null,
+            };
 
-            var permitsClause = classDeclarationSyntax.PermitsClause;
             if (permitsClause is null)
                 continue;
 
@@ -1361,10 +1365,13 @@ public partial class SemanticModel
         SourceNamedTypeSymbol typeSymbol,
         Binder declarationBinder)
     {
-        if (declaration is not ClassDeclarationSyntax classDecl)
-            return;
+        PermitsClauseSyntax? permitsClause = declaration switch
+        {
+            ClassDeclarationSyntax classDecl => classDecl.PermitsClause,
+            RecordDeclarationSyntax recordDecl => recordDecl.PermitsClause,
+            _ => null,
+        };
 
-        var permitsClause = classDecl.PermitsClause;
         if (permitsClause is null)
             return;
 

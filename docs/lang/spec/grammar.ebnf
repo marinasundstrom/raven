@@ -21,7 +21,7 @@ AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;
 AccessorModifier         ::= AccessModifier | 'async' | 'ref' | 'out' | 'in' ;
 
 TypeModifiers            ::= { TypeModifier } ;
-TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' | 'record' ;
+TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' ;
 
 FunctionModifiers        ::= { FunctionModifier } ;
 FunctionModifier         ::= AccessModifier | 'async' | 'extern' | 'static' ;
@@ -98,8 +98,15 @@ EnumMember               ::= Identifier ['=' Expression] ;
 
 ClassDeclaration         ::= TypeModifiers? 'class' Identifier TypeParameterList?
                              PrimaryConstructor? BaseList?
-                             WhereClauseList?
+                             WhereClauseList? PermitsClause?
                              ClassBody ;
+
+RecordDeclaration        ::= TypeModifiers? 'record' ['class' | 'struct'] Identifier TypeParameterList?
+                             BaseList? PrimaryConstructor?
+                             WhereClauseList? PermitsClause?
+                             ClassBody ;
+
+PermitsClause            ::= 'permits' Type {',' Type} ;
 
 PrimaryConstructor       ::= '(' ParameterList? ')' ;
 
