@@ -78,6 +78,8 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
 
+        PermitsClauseSyntax? permitsClause = ParsePermitsClause();
+
         List<GreenNode> memberList = new List<GreenNode>();
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
@@ -141,7 +143,7 @@ internal class TypeDeclarationParser : SyntaxParser
             return RecordDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
-        return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
     private static bool IsPossibleTypeMemberStart(SyntaxToken token)
@@ -351,6 +353,34 @@ internal class TypeDeclarationParser : SyntaxParser
             }
 
             return BaseList(colonToken, List(types));
+        }
+
+        return null;
+    }
+
+    private PermitsClauseSyntax? ParsePermitsClause()
+    {
+        if (ConsumeToken(SyntaxKind.PermitsKeyword, out var permitsKeyword))
+        {
+            var types = new List<GreenNode>();
+            while (true)
+            {
+                var type = new NameSyntaxParser(this).ParseTypeName();
+                types.Add(type);
+
+                var commaToken = PeekToken();
+                if (commaToken.IsKind(SyntaxKind.CommaToken))
+                {
+                    ReadToken();
+                    types.Add(commaToken);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return PermitsClause(permitsKeyword, List(types));
         }
 
         return null;

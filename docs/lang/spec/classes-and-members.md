@@ -328,10 +328,6 @@ keyword. Raven also supports **sealed hierarchies** in the style of Kotlin and m
 closed to a known set of subclasses declared in the same source file (including nested types). The compiler treats those
 subclasses as the exhaustive set for purposes such as pattern-matching analysis.
 
-> ❗ **Important:** Raven's `sealed` keyword follows Kotlin and Java's terminology rather than C#'s. In C#, `sealed` means "cannot be
-> inherited". In Raven that concept is already the default. The `sealed` modifier instead designates a hierarchy whose direct
-> subclasses are known at compile time.
-
 A base class is specified with a colon followed by the type name:
 
 ```raven
@@ -371,6 +367,36 @@ The initializer is only available on ordinary instance constructors. Static cons
 constructors continue to behave as user-defined factories without chaining.
 
 > ⚠️ **Limitation:** Only single inheritance is supported.
+
+#### Sealed hierarchies and `permits`
+
+A class declared with the `sealed` modifier may optionally declare an explicit
+list of permitted direct subtypes using the `permits` clause:
+
+```raven
+sealed class Expr permits Lit, Add {}
+
+class Lit : Expr {}
+class Add : Expr {}
+```
+
+The `permits` clause defines a **closed hierarchy**. Only the types listed in
+the clause may directly inherit from the sealed type. Any attempt to derive
+from the sealed type outside the permitted list produces a compile-time
+error.
+
+A sealed type that declares a `permits` clause is implicitly treated as
+`abstract` unless explicitly marked otherwise. This ensures that exhaustive
+pattern matching over the hierarchy only requires handling the permitted
+concrete subtypes.
+
+If no `permits` clause is provided, `sealed` retains its ordinary meaning:
+the type cannot be inherited but may still be instantiated (unless marked
+`abstract`).
+
+> ❗ **Important:** Raven's `sealed` keyword follows Kotlin and Java's terminology rather than C#'s. In C#, `sealed` means "cannot be
+> inherited". In Raven that concept is already the default. The `sealed` modifier instead designates a hierarchy whose direct
+> subclasses are known at compile time.
 
 ### Partial classes
 

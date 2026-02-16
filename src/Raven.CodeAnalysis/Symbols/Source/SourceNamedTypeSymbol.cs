@@ -18,6 +18,10 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
     private ITypeSymbol? _extensionReceiverType;
     private ImmutableArray<SourcePropertySymbol> _recordProperties = ImmutableArray<SourcePropertySymbol>.Empty;
+    private bool _isSealedHierarchy;
+    private bool _hasExplicitPermits;
+    private ImmutableArray<INamedTypeSymbol> _permittedDirectSubtypes = ImmutableArray<INamedTypeSymbol>.Empty;
+    private string? _sealedHierarchySourceFile;
 
     public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = false, Accessibility declaredAccessibility = Accessibility.NotApplicable)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
@@ -29,12 +33,12 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
         if (isStatic)
         {
-            IsSealed = true;
+            IsClosed = true;
             IsAbstract = true;
         }
         else
         {
-            IsSealed = true;
+            IsClosed = true;
             IsAbstract = false;
         }
     }
@@ -61,12 +65,12 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
         if (isStatic)
         {
-            IsSealed = true;
+            IsClosed = true;
             IsAbstract = true;
         }
         else
         {
-            IsSealed = isSealed;
+            IsClosed = isSealed;
             IsAbstract = isAbstract;
         }
     }
@@ -89,7 +93,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;
     public ITypeSymbol? ConstructedFrom => this;
     public bool IsAbstract { get; private set; }
-    public bool IsSealed { get; private set; }
+    public bool IsClosed { get; private set; }
     public override bool IsStatic => _isStatic;
     public bool IsGenericType => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0;
     public bool IsUnboundGenericType => false;
@@ -102,6 +106,10 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     internal ITypeSymbol? ExtensionReceiverType => _extensionReceiverType;
     internal bool IsRecord { get; private set; }
     internal ImmutableArray<SourcePropertySymbol> RecordProperties => _recordProperties;
+    public bool IsSealedHierarchy => _isSealedHierarchy;
+    public bool HasExplicitPermits => _hasExplicitPermits;
+    public ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes => _permittedDirectSubtypes;
+    internal string? SealedHierarchySourceFile => _sealedHierarchySourceFile;
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
@@ -208,13 +216,13 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         if (isStatic)
         {
             _isStatic = true;
-            IsSealed = true;
+            IsClosed = true;
             IsAbstract = true;
             return;
         }
 
         if (!isSealed)
-            IsSealed = false;
+            IsClosed = false;
 
         if (isAbstract)
             IsAbstract = true;
@@ -244,7 +252,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     internal void MarkAsExtensionContainer()
     {
         IsExtensionDeclaration = true;
-        IsSealed = true;
+        IsClosed = true;
     }
 
     internal void SetExtensionReceiverType(ITypeSymbol? receiverType)
@@ -372,6 +380,20 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         }
 
         return declaredTypeKind;
+    }
+
+    internal void MarkAsSealedHierarchy(string sourceFile, bool hasExplicitPermits)
+    {
+        _isSealedHierarchy = true;
+        _hasExplicitPermits = hasExplicitPermits;
+        _sealedHierarchySourceFile = sourceFile;
+        IsClosed = false;
+    }
+
+    internal void SetPermittedDirectSubtypes(ImmutableArray<INamedTypeSymbol> subtypes)
+    {
+        if (!subtypes.IsDefault)
+            _permittedDirectSubtypes = subtypes;
     }
 
     public void SetEnumUnderlyingType(ITypeSymbol underlyingType)

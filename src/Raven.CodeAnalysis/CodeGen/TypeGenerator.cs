@@ -81,8 +81,14 @@ internal class TypeGenerator
                 if (named.IsAbstract)
                     typeAttributes |= TypeAttributes.Abstract;
 
-                if (named.IsSealed)
+                if (named is SourceNamedTypeSymbol sn && sn.IsSealedHierarchy)
+                {
+                    // Sealed hierarchy: do NOT emit IL sealed — inheritance is allowed for permitted types
+                }
+                else if (named.IsClosed)
+                {
                     typeAttributes |= TypeAttributes.Sealed;
+                }
             }
 
             if (TypeSymbol is SourceDiscriminatedUnionSymbol unionSymbol)
@@ -201,7 +207,7 @@ internal class TypeGenerator
                 if (synthesizedType.IsAbstract)
                     synthesizedAttributes |= TypeAttributes.Abstract;
 
-                if (synthesizedType.IsSealed)
+                if (synthesizedType.IsClosed)
                     synthesizedAttributes |= TypeAttributes.Sealed;
             }
 
@@ -255,6 +261,15 @@ internal class TypeGenerator
             var unionType = TypeSymbolExtensionsForCodeGen.GetClrType(caseSymbol.Union, CodeGen);
             var discriminatedUnionCaseAttribute = CodeGen.CreateDiscriminatedUnionCaseAttribute(unionType);
             TypeBuilder!.SetCustomAttribute(discriminatedUnionCaseAttribute);
+        }
+
+        if (TypeSymbol is SourceNamedTypeSymbol sourceNamedType && sourceNamedType.IsSealedHierarchy)
+        {
+            var permittedClrTypes = sourceNamedType.PermittedDirectSubtypes
+                .Select(t => TypeSymbolExtensionsForCodeGen.GetClrType(t, CodeGen))
+                .ToArray();
+            var closedHierarchyAttribute = CodeGen.CreateClosedHierarchyAttribute(permittedClrTypes);
+            TypeBuilder!.SetCustomAttribute(closedHierarchyAttribute);
         }
 
         EnsureExtensionGroupingType();
@@ -946,7 +961,7 @@ internal class TypeGenerator
         if (named.IsAbstract)
             typeAttributes |= TypeAttributes.Abstract;
 
-        if (named.IsSealed)
+        if (named.IsClosed)
             typeAttributes |= TypeAttributes.Sealed;
 
         TypeBuilder? containingTypeBuilder = null;

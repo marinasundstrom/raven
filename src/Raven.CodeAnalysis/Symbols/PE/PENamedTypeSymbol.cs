@@ -514,8 +514,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         return (constructedFrom, originalDefinition);
     }
     public bool IsAbstract => _typeInfo.IsAbstract;
-    public bool IsSealed => _typeInfo.IsSealed;
-    public override bool IsStatic => TypeKind == TypeKind.Class && IsAbstract && IsSealed;
+    public bool IsClosed => _typeInfo.IsSealed;
+    public override bool IsStatic => TypeKind == TypeKind.Class && IsAbstract && IsClosed;
     public bool IsGenericType => _typeInfo.IsGenericType;
     public bool IsUnboundGenericType => _typeInfo.IsGenericTypeDefinition;
     public ImmutableArray<INamedTypeSymbol> Interfaces

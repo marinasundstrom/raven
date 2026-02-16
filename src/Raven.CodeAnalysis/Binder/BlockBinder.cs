@@ -2897,6 +2897,16 @@ partial class BlockBinder : Binder
             return;
         }
 
+        // Closed/sealed hierarchy exhaustiveness.
+        // Note: binders may wrap source named types, so check OriginalDefinition.
+        if (scrutineeType is INamedTypeSymbol namedScrutinee &&
+            namedScrutinee.OriginalDefinition is SourceNamedTypeSymbol sealedType &&
+            (sealedType.IsSealedHierarchy || sealedType.PermittedDirectSubtypes.Any()))
+        {
+            EnsureSealedHierarchyMatchExhaustive(matchSyntax, armSyntaxes, arms, scrutineeType, sealedType, catchAllIndex);
+            return;
+        }
+
         if (scrutineeType is not ITypeUnionSymbol union)
         {
             // Special-case: nullable scrutinee can be exhaustive without an explicit `_` arm
@@ -9470,5 +9480,83 @@ partial class BlockBinder : Binder
         public bool Equals(TSymbol? x, TSymbol? y) => ReferenceEquals(x, y);
 
         public int GetHashCode(TSymbol obj) => RuntimeHelpers.GetHashCode(obj);
+    }
+
+    // Sealed hierarchy exhaustiveness: ensures all concrete (non-abstract) leaves are covered.
+    private void EnsureSealedHierarchyMatchExhaustive(
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
+        ImmutableArray<BoundMatchArm> arms,
+        ITypeSymbol scrutineeType,
+        SourceNamedTypeSymbol sealedType,
+        int catchAllIndex)
+    {
+        var leafTypes = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        CollectConcreteLeafSubtypes(sealedType, leafTypes);
+
+        // If the sealed root is non-abstract, it is itself a possible runtime type and must be covered.
+        if (!sealedType.IsAbstract)
+            leafTypes.Add(sealedType);
+
+        if (leafTypes.Count == 0)
+            return;
+
+        var remaining = new HashSet<ITypeSymbol>(leafTypes.Cast<ITypeSymbol>(), TypeSymbolReferenceComparer.Instance);
+
+        // Keep behavior consistent with other exhaustiveness checks:
+        // only arms whose guard guarantees match participate in coverage.
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                continue;
+
+            RemoveCoveredUnionMembers(remaining, arm.Pattern);
+
+            if (remaining.Count == 0)
+            {
+                // If all cases are already covered, a catch-all arm is unreachable/redundant.
+                if (catchAllIndex >= 0)
+                    _diagnostics.ReportMatchExpressionCatchAllRedundant(armSyntaxes[catchAllIndex].GetLocation());
+                return;
+            }
+        }
+
+        if (catchAllIndex >= 0)
+            return;
+
+        foreach (var missing in remaining
+            .Select(t => t.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .OrderBy(s => s, StringComparer.Ordinal))
+        {
+            _diagnostics.ReportMatchExpressionNotExhaustive(missing, matchSyntax.GetLocation());
+        }
+    }
+
+    private static void CollectConcreteLeafSubtypes(
+        SourceNamedTypeSymbol sealedType,
+        HashSet<INamedTypeSymbol> results)
+    {
+        foreach (var subtype in sealedType.PermittedDirectSubtypes)
+        {
+            if (subtype is SourceNamedTypeSymbol sourceSubtype &&
+                (sourceSubtype.IsSealedHierarchy || sourceSubtype.PermittedDirectSubtypes.Any()))
+            {
+                // Recurse into nested sealed hierarchies.
+                CollectConcreteLeafSubtypes(sourceSubtype, results);
+
+                // If the subtype itself is non-abstract, it is also a possible runtime type and must be covered.
+                if (!sourceSubtype.IsAbstract)
+                    results.Add(sourceSubtype);
+            }
+            else if (subtype.IsAbstract)
+            {
+                // Abstract non-sealed-hierarchy: not a leaf, skip
+            }
+            else
+            {
+                results.Add(subtype);
+            }
+        }
     }
 }

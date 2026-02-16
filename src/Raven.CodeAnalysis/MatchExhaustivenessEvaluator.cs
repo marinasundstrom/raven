@@ -23,6 +23,10 @@ internal sealed class MatchExhaustivenessEvaluator
             return new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false);
 
         scrutineeType = UnwrapAlias(scrutineeType);
+        // Normalize named types so we can recognize source symbols even when the binder wraps them
+        // (e.g. substituted/constructed named types).
+        if (scrutineeType is INamedTypeSymbol namedScrutinee && namedScrutinee.OriginalDefinition is not null)
+            scrutineeType = (ITypeSymbol)namedScrutinee.OriginalDefinition;
 
         if (scrutineeType.TypeKind == TypeKind.Error)
             return new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false);
@@ -52,6 +56,14 @@ internal sealed class MatchExhaustivenessEvaluator
             else if (scrutineeType is ITypeUnionSymbol typeUnion)
             {
                 missingCases = GetMissingUnionCases(scrutineeType, arms, typeUnion, options);
+            }
+            else if (scrutineeType is INamedTypeSymbol named &&
+                     named.OriginalDefinition is SourceNamedTypeSymbol sealedType &&
+                     (sealedType.IsSealedHierarchy || sealedType.PermittedDirectSubtypes.Any()))
+            {
+                // Treat any source type that participates in a closed/sealed hierarchy as a sealed-hierarchy target.
+                // Note: binders may wrap source named types (constructed/substituted), so always check OriginalDefinition.
+                missingCases = GetMissingSealedHierarchyCases(scrutineeType, arms, sealedType, options);
             }
             else
             {
@@ -248,6 +260,72 @@ internal sealed class MatchExhaustivenessEvaluator
             .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToImmutableArray();
+    }
+
+    private ImmutableArray<string> GetMissingSealedHierarchyCases(
+        ITypeSymbol scrutineeType,
+        ImmutableArray<BoundMatchArm> arms,
+        SourceNamedTypeSymbol sealedType,
+        MatchExhaustivenessOptions options)
+    {
+        var leafTypes = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        CollectConcreteLeafSubtypes(sealedType, leafTypes);
+
+        // If the sealed root is non-abstract, it is itself a possible runtime type and must be covered.
+        // (Even if it has permitted subtypes.)
+        if (!sealedType.IsAbstract)
+            leafTypes.Add(sealedType);
+
+        if (leafTypes.Count == 0)
+            return ImmutableArray<string>.Empty;
+
+        var remaining = new HashSet<ITypeSymbol>(leafTypes.Cast<ITypeSymbol>(), TypeSymbolReferenceComparer.Instance);
+
+        foreach (var arm in arms)
+        {
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                continue;
+
+            if (options.IgnoreCatchAllPatterns && IsCatchAllPattern(scrutineeType, arm.Pattern))
+                continue;
+
+            RemoveCoveredUnionMembers(remaining, arm.Pattern);
+
+            if (remaining.Count == 0)
+                break;
+        }
+
+        return remaining
+            .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToImmutableArray();
+    }
+
+    private static void CollectConcreteLeafSubtypes(
+        SourceNamedTypeSymbol sealedType,
+        HashSet<INamedTypeSymbol> results)
+    {
+        foreach (var subtype in sealedType.PermittedDirectSubtypes)
+        {
+            if (subtype is SourceNamedTypeSymbol sourceSubtype &&
+                (sourceSubtype.IsSealedHierarchy || sourceSubtype.PermittedDirectSubtypes.Any()))
+            {
+                // Recurse into nested sealed hierarchies.
+                CollectConcreteLeafSubtypes(sourceSubtype, results);
+
+                // Only add concrete runtime types.
+                if (!sourceSubtype.IsAbstract)
+                    results.Add(sourceSubtype);
+            }
+            else if (subtype.IsAbstract)
+            {
+                // Abstract non-sealed-hierarchy: not a leaf, skip
+            }
+            else
+            {
+                results.Add(subtype);
+            }
+        }
     }
 
     private ImmutableArray<string> GetMissingLiteralCoverage(ITypeSymbol type, HashSet<object?> constants)

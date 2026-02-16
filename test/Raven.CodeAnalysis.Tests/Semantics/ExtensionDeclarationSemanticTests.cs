@@ -41,7 +41,7 @@ func Main() {
         var extensionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(extensionDecl));
 
         Assert.True(extensionSymbol.IsAbstract);
-        Assert.True(extensionSymbol.IsSealed);
+        Assert.True(extensionSymbol.IsClosed);
         Assert.Equal("MyIntEnumerableExt", extensionSymbol.MetadataName);
 
         var methodDecl = extensionDecl.Members.OfType<MethodDeclarationSyntax>().Single();

@@ -570,8 +570,11 @@ public interface INamedTypeSymbol : ITypeSymbol
     ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
     ITypeSymbol? ConstructedFrom { get; }
     bool IsAbstract { get; }
-    bool IsSealed { get; }
-    bool IsOpen => !IsSealed;
+    bool IsClosed { get; }
+    bool IsOpen => !IsClosed;
+    bool IsSealedHierarchy => false;
+    ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes => ImmutableArray<INamedTypeSymbol>.Empty;
+
     bool IsGenericType { get; }
     bool IsUnboundGenericType { get; }
 

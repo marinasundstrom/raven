@@ -199,7 +199,7 @@ public static class SymbolExtensions
                 AppendProperty(builder, "BaseType", FormatDisplay(typeSymbol.BaseType, displayFormat));
                 AppendSequence(builder, "Interfaces", typeSymbol.Interfaces.Select(t => t.ToDisplayString(displayFormat)));
                 AppendBooleanProperty(builder, "IsAbstract", typeSymbol.IsAbstract);
-                AppendBooleanProperty(builder, "IsSealed", typeSymbol.IsSealed);
+                AppendBooleanProperty(builder, "IsSealed", typeSymbol.IsClosed);
                 AppendBooleanProperty(builder, "IsGenericType", typeSymbol.IsGenericType);
                 AppendBooleanProperty(builder, "IsUnboundGenericType", typeSymbol.IsUnboundGenericType);
                 if (typeSymbol.TypeParameters.Length > 0)

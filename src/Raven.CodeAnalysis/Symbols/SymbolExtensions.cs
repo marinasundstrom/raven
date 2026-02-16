@@ -1404,7 +1404,7 @@ public static partial class SymbolExtensions
                             if (type.IsAbstract)
                                 parts.Add("abstract");
 
-                            if (!type.IsSealed)
+                            if (!type.IsClosed)
                                 parts.Add("open");
                         }
 

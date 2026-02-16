@@ -157,9 +157,9 @@
     Title="Type requires type arguments"
     Message="The type '{name}' requires {arity} type argument(s)" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0306" Identifier="CannotInheritFromSealedType"
-    Title="Cannot inherit from sealed type"
-    Message="Type '{typeName}' is sealed and cannot be inherited" Category="compiler"
+  <Descriptor Id="RAV0306" Identifier="CannotInheritFromClosedType"
+    Title="Cannot inherit from closed type"
+    Message="Type '{typeName}' is closed and cannot be inherited" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0307" Identifier="OverrideMemberNotFound" Title="No virtual member to override"
     Message="\'{memberName}': no suitable {memberType} found to override" Category="compiler"
@@ -176,6 +176,30 @@
     Title="Redundant open modifier on abstract class"
     Message="Modifier 'open' is redundant on abstract class '{typeName}'" Category="compiler"
     Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
+    Title="Cannot inherit from sealed type from a different file"
+    Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0335" Identifier="SealedHierarchyInheritanceDeniedNotPermitted"
+    Title="Type not listed in permits clause"
+    Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not listed in the 'permits' clause"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0336" Identifier="PermitsTypeNotFound"
+    Title="Unknown type in permits clause"
+    Message="Type '{typeName}' in permits clause could not be found"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0337" Identifier="PermitsTypeDuplicate"
+    Title="Duplicate type in permits clause"
+    Message="Type '{typeName}' is listed more than once in the permits clause"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0338" Identifier="PermitsTypeNotDirectSubtype"
+    Title="Permitted type does not directly inherit"
+    Message="Type '{typeName}' in permits clause does not directly inherit from '{baseName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0339" Identifier="PermitsClauseRequiresSealed"
+    Title="Permits clause requires sealed modifier"
+    Message="The 'permits' clause is only valid on sealed classes"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0608" Identifier="AbstractMemberCannotHaveBody"
     Title="Abstract member cannot have a body"
     Message="'{memberName}' cannot declare a body because it is marked abstract" Category="compiler"
@@ -185,6 +209,10 @@
     Message="'{memberName}' is abstract but is contained in non-abstract type '{typeName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="Abstract members are only permitted in abstract classes." HelpLinkUri="" />
+  <Descriptor Id="RAV0611" Identifier="CannotInstantiateAbstractType"
+    Title="Cannot instantiate abstract type"
+    Message="Type '{typeName}' is abstract and cannot be instantiated"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0308" Identifier="VirtualMemberInSealedType"
     Title="Virtual member in sealed type"
     Message="Member '{memberName}' cannot be virtual because the containing type '{typeName}' is sealed"

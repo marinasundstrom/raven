@@ -175,10 +175,19 @@ public partial class SemanticModel
             ? Compilation.GetSpecialType(SpecialType.System_ValueType)
             : objectType;
 
+        var hasSealedModifier = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
         var isStatic = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
-        var isAbstract = isStatic || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
-        var isSealed = isStatic || (!classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
+        var isAbstract = isStatic || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword) || hasSealedModifier;
+        var isSealedHierarchy = hasSealedModifier && !isStatic;
+        var isSealed = isStatic || (!isSealedHierarchy && !classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
         var isPartial = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+        var hasPermitsClause = classDecl is ClassDeclarationSyntax classDeclaration2 && classDeclaration2.PermitsClause is not null;
+
+        if (hasPermitsClause && !hasSealedModifier)
+        {
+            _declarationDiagnostics.ReportPermitsClauseRequiresSealed(
+                classDecl.Identifier.GetLocation());
+        }
         var isRecord = classDecl is RecordDeclarationSyntax || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
         var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
             classDecl.Modifiers,
@@ -225,6 +234,9 @@ public partial class SemanticModel
             existingType.RegisterPartialModifier(isPartial);
             existingType.RegisterRecordModifier(isRecord);
 
+            if (isSealedHierarchy)
+                existingType.MarkAsSealedHierarchy(classDecl.SyntaxTree.FilePath, hasPermitsClause);
+
             classSymbol = existingType;
             isNewSymbol = false;
         }
@@ -246,6 +258,9 @@ public partial class SemanticModel
 
             classSymbol.RegisterPartialModifier(isPartial);
             classSymbol.RegisterRecordModifier(isRecord);
+
+            if (isSealedHierarchy)
+                classSymbol.MarkAsSealedHierarchy(classDecl.SyntaxTree.FilePath, hasPermitsClause);
         }
 
         if (isNewSymbol)
@@ -1203,6 +1218,9 @@ public partial class SemanticModel
             }
         }
 
+        DiscoverSameFileSealedHierarchySubtypes(classBinders);
+        ValidatePermitsListEntries(classBinders);
+
         foreach (var (unionDecl, unionBinder, unionSymbol) in unionBinders)
             RegisterUnionCases(unionDecl, unionBinder, unionSymbol);
 
@@ -1260,11 +1278,122 @@ public partial class SemanticModel
         _binderCache[declaration] = declarationBinder;
         RegisterClassSymbol(declaration, typeSymbol);
 
+        if (typeSymbol.IsSealedHierarchy)
+            ResolveSealedHierarchyPermits(declaration, typeSymbol, declarationBinder);
+
         classBinders.Add((declaration, declarationBinder));
     }
 
     private static bool IsNominalTypeDeclaration(TypeDeclarationSyntax declaration)
         => declaration is ClassDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax;
+
+    private void ValidatePermitsListEntries(
+        List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders)
+    {
+        foreach (var (classDecl, classBinder) in classBinders)
+        {
+            var typeSymbol = (SourceNamedTypeSymbol)classBinder.ContainingSymbol;
+            if (!typeSymbol.IsSealedHierarchy || !typeSymbol.HasExplicitPermits)
+                continue;
+
+            if (classDecl is not ClassDeclarationSyntax classDeclarationSyntax)
+                continue;
+
+            var permitsClause = classDeclarationSyntax.PermitsClause;
+            if (permitsClause is null)
+                continue;
+
+            var typeIndex = 0;
+            foreach (var typeSyntax in permitsClause.Types)
+            {
+                if (typeIndex >= typeSymbol.PermittedDirectSubtypes.Length)
+                    break;
+
+                var permitted = typeSymbol.PermittedDirectSubtypes[typeIndex];
+                typeIndex++;
+
+                if (permitted.BaseType is null ||
+                    !SymbolEqualityComparer.Default.Equals(permitted.BaseType, typeSymbol))
+                {
+                    _declarationDiagnostics.ReportPermitsTypeNotDirectSubtype(
+                        permitted.Name,
+                        typeSymbol.Name,
+                        typeSyntax.GetLocation());
+                }
+            }
+        }
+    }
+
+    private void DiscoverSameFileSealedHierarchySubtypes(
+        List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders)
+    {
+        foreach (var (classDecl, classBinder) in classBinders)
+        {
+            var typeSymbol = (SourceNamedTypeSymbol)classBinder.ContainingSymbol;
+            if (!typeSymbol.IsSealedHierarchy || typeSymbol.HasExplicitPermits)
+                continue;
+
+            var sealedFile = typeSymbol.SealedHierarchySourceFile;
+            var directSubtypes = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+
+            foreach (var (otherDecl, otherBinder) in classBinders)
+            {
+                var otherSymbol = (SourceNamedTypeSymbol)otherBinder.ContainingSymbol;
+                if (ReferenceEquals(otherSymbol, typeSymbol))
+                    continue;
+
+                if (otherSymbol.BaseType is null)
+                    continue;
+
+                if (!SymbolEqualityComparer.Default.Equals(otherSymbol.BaseType, typeSymbol))
+                    continue;
+
+                if (string.Equals(otherDecl.SyntaxTree?.FilePath, sealedFile, StringComparison.Ordinal))
+                    directSubtypes.Add(otherSymbol);
+            }
+
+            typeSymbol.SetPermittedDirectSubtypes(directSubtypes.ToImmutable());
+        }
+    }
+
+    private void ResolveSealedHierarchyPermits(
+        TypeDeclarationSyntax declaration,
+        SourceNamedTypeSymbol typeSymbol,
+        Binder declarationBinder)
+    {
+        if (declaration is not ClassDeclarationSyntax classDecl)
+            return;
+
+        var permitsClause = classDecl.PermitsClause;
+        if (permitsClause is null)
+            return;
+
+        var permitted = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var typeSyntax in permitsClause.Types)
+        {
+            if (!declarationBinder.TryResolveNamedTypeFromTypeSyntax(typeSyntax, out var resolved) || resolved is null)
+            {
+                _declarationDiagnostics.ReportPermitsTypeNotFound(
+                    typeSyntax.ToString(),
+                    typeSyntax.GetLocation());
+                continue;
+            }
+
+            if (!seen.Add(resolved.Name))
+            {
+                _declarationDiagnostics.ReportPermitsTypeDuplicate(
+                    resolved.Name,
+                    typeSyntax.GetLocation());
+                continue;
+            }
+
+            permitted.Add(resolved);
+        }
+
+        typeSymbol.SetPermittedDirectSubtypes(permitted.ToImmutable());
+    }
 
     private static void ReportRedundantOpenModifierOnAbstractClass(
         TypeDeclarationSyntax declaration,

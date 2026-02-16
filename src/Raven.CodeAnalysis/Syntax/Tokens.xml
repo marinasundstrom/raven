@@ -90,6 +90,7 @@
   <TokenKind Name="SealedKeyword" Text="sealed" IsReservedWord="false" />
   <TokenKind Name="PartialKeyword" Text="partial" IsReservedWord="false" />
   <TokenKind Name="OpenKeyword" Text="open" IsReservedWord="false" />
+  <TokenKind Name="PermitsKeyword" Text="permits" IsReservedWord="false" />
   <TokenKind Name="VirtualKeyword" Text="virtual" IsReservedWord="false" />
   <TokenKind Name="AsyncKeyword" Text="async" IsReservedWord="false" />
   <TokenKind Name="UnsafeKeyword" Text="unsafe" IsReservedWord="false" />

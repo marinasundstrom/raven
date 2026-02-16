@@ -1,0 +1,13 @@
+import System.*
+import System.Console.*
+
+val expr: Expr = Lit()
+
+match expr {
+    Lit lit => WriteLine(lit)
+    Add add => WriteLine(add)
+}
+
+sealed class Expr {}
+class Lit : Expr {}
+class Add : Expr {}

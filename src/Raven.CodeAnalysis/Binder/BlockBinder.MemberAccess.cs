@@ -681,6 +681,11 @@ partial class BlockBinder
             _diagnostics.ReportStaticTypeCannotBeInstantiated(typeSymbol.Name, callSyntax.GetLocation());
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
         }
+        if (typeSymbol.IsAbstract)
+        {
+            _diagnostics.ReportCannotInstantiateAbstractType(typeSymbol.Name, callSyntax.GetLocation());
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
+        }
 
         var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
         if (resolution.Success)
@@ -833,6 +838,11 @@ partial class BlockBinder
         if (typeSymbol.IsStatic)
         {
             _diagnostics.ReportStaticTypeCannotBeInstantiated(typeSymbol.Name, syntax.Type.GetLocation());
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
+        }
+        if (typeSymbol.IsAbstract)
+        {
+            _diagnostics.ReportCannotInstantiateAbstractType(typeSymbol.Name, syntax.Type.GetLocation());
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
         }
 

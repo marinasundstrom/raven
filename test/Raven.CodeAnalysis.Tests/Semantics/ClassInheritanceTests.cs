@@ -48,7 +48,7 @@ class Dog : Animal {}
         var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(abstractDeclaration));
 
         Assert.True(symbol.IsAbstract);
-        Assert.False(symbol.IsSealed);
+        Assert.False(symbol.IsClosed);
     }
 
     [Fact]

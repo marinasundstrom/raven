@@ -839,7 +839,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         _typeParameters.IsDefault ? _typeParameters = BuildTypeParameters() : _typeParameters;
     public ITypeSymbol? ConstructedFrom { get; }
     public bool IsAbstract => _originalDefinition.IsAbstract;
-    public bool IsSealed => _originalDefinition.IsSealed;
+    public bool IsClosed => _originalDefinition.IsClosed;
     public bool IsGenericType => _originalDefinition.IsGenericType;
     public bool IsUnboundGenericType => false;
     public ImmutableArray<INamedTypeSymbol> Interfaces =>

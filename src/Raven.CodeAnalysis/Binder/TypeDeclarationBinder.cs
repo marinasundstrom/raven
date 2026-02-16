@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -86,13 +87,13 @@ internal abstract class TypeDeclarationBinder : Binder
             if (resolvedInterfaces.Count > 0)
                 interfaces = MergeInterfaceSets(interfaces, resolvedInterfaces.ToImmutable());
 
-            ReportInvalidInheritedBaseType(baseList, baseType);
+            ReportInvalidInheritedBaseType(declaration, baseList, baseType);
         }
 
         return new NominalTypeShape(baseType, interfaces);
     }
 
-    private void ReportInvalidInheritedBaseType(BaseListSyntax baseList, INamedTypeSymbol? baseType)
+    private void ReportInvalidInheritedBaseType(TypeDeclarationSyntax declaration, BaseListSyntax baseList, INamedTypeSymbol? baseType)
     {
         if (baseType is null)
             return;
@@ -105,9 +106,48 @@ internal abstract class TypeDeclarationBinder : Binder
             return;
         }
 
-        if (baseType.IsSealed)
+        if (baseType is SourceNamedTypeSymbol sourceBase && sourceBase.IsSealedHierarchy)
         {
-            Diagnostics.ReportCannotInheritFromSealedType(
+            if (sourceBase.HasExplicitPermits)
+            {
+                var derivingName = declaration.Identifier.ValueText;
+                var isPermitted = false;
+                foreach (var permitted in sourceBase.PermittedDirectSubtypes)
+                {
+                    if (string.Equals(permitted.Name, derivingName, StringComparison.Ordinal))
+                    {
+                        isPermitted = true;
+                        break;
+                    }
+                }
+
+                if (!isPermitted)
+                {
+                    Diagnostics.ReportSealedHierarchyInheritanceDeniedNotPermitted(
+                        derivingName,
+                        baseType.Name,
+                        baseList.Types[0].GetLocation());
+                }
+            }
+            else
+            {
+                var derivingFile = declaration.SyntaxTree?.FilePath;
+                var baseFile = sourceBase.SealedHierarchySourceFile;
+
+                if (!string.Equals(derivingFile, baseFile, StringComparison.Ordinal))
+                {
+                    Diagnostics.ReportSealedHierarchyInheritanceDeniedSameFile(
+                        declaration.Identifier.ValueText,
+                        baseType.Name,
+                        baseList.Types[0].GetLocation());
+                }
+            }
+            return;
+        }
+
+        if (baseType.IsClosed)
+        {
+            Diagnostics.ReportCannotInheritFromClosedType(
                 baseType.Name,
                 baseList.Types[0].GetLocation());
         }

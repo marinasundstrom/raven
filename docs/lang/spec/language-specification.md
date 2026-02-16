@@ -58,7 +58,7 @@ classifies each keyword as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
-| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `each`, `else`, `enum`, `false`, `finally`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `return`, `sbyte`, `self`, `short`, `sizeof`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
+| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `each`, `else`, `enum`, `false`, `finally`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `permits`, `return`, `sbyte`, `self`, `short`, `sizeof`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
 | Contextual | `abstract`, `alias`, `explicit`, `final`, `get`, `implicit`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `operator`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `use`, `val`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
@@ -1891,6 +1891,67 @@ enumeration APIs. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer
 Patterns let you inspect values using concise, algebraic syntax. They appear in `is`
 predicates and in `match` expressions and participate in Raven’s flow-sensitive
 type analysis.
+
+Patterns can be used in `match` expressions or statements, or as conditions with
+`is` patterns:
+
+```raven
+val obj: object? = /* ... */
+
+match obj {
+    Foo foo => /* Hit Foo case */
+    _ => /* Covers remaining cases for object */
+}
+
+if obj is Foo foo {
+    // foo is assigned, and not null
+}
+```
+
+Only `match` participates in exhaustiveness checking.
+
+### Exhaustiveness
+
+A `match` expression is **exhaustive** when its set of arms covers every
+possible runtime value of the input expression (the *scrutinee*).
+
+When a `match` expression (and statement form) is exhaustive, a discard arm (`_ => ...`) is
+unnecessary and is reported as unreachable.
+
+Exhaustiveness is determined by analyzing the *runtime value space* implied by
+the scrutinee’s static type. The compiler can prove exhaustiveness without a
+discard arm when that value space is finite or otherwise fully covered by the
+provided patterns.
+
+Exhaustiveness analysis applies in particular to:
+
+* **Discriminated unions** declared with the `union` keyword.
+* **Enums**.
+* **`bool`** (`true` and `false`).
+* **Sealed hierarchies** — a `sealed` class with a `permits` clause (or
+  otherwise participating in a closed inheritance set). The permitted
+  concrete subtypes are treated as the complete set of runtime cases.
+* **Type unions** — all constituent types must be covered.
+
+In addition, exhaustiveness may be proven through type analysis even when no
+explicit finite-case construct is involved. For example:
+
+* Covering all concrete types in a **closed inheritance chain**.
+* Covering both the non-null and `null` cases of a nullable type.
+* Using **type patterns** (for example, `string`, `MyBaseType`, or other
+  concrete runtime types) such that all possible runtime types implied by the
+  scrutinee are handled.
+
+If every possible runtime value implied by the scrutinee type is handled by
+explicit pattern arms, a discard arm is redundant.
+
+When the scrutinee type is open-ended (for example, `object` or another
+extensible base type), exhaustiveness generally cannot be proven without a
+discard arm, or type pattern for type `object`.
+
+Patterns let you inspect values using concise, algebraic syntax. They appear in
+`is` predicates and in `match` expressions and participate in Raven’s
+flow-sensitive type analysis.
 
 ### `match` forms
 

@@ -238,12 +238,14 @@ internal class CodeGenerator
     public Type? DiscriminatedUnionCaseAttributeType { get; private set; }
     public Type? ExtensionAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
+    public Type? ClosedHierarchyAttributeType { get; private set; }
     ConstructorInfo? _nullableCtor;
     ConstructorInfo? _tupleElementNamesCtor;
     ConstructorInfo? _discriminatedUnionCtor;
     ConstructorInfo? _discriminatedUnionCaseCtor;
     ConstructorInfo? _extensionMarkerNameCtor;
     ConstructorInfo? _extensionAttributeCtor;
+    ConstructorInfo? _closedHierarchyCtor;
 
     readonly bool _emitTypeUnionAttribute = true;
     readonly bool _emitNullType = true;
@@ -448,6 +450,12 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_discriminatedUnionCaseCtor!, new object?[] { unionType });
     }
 
+    internal CustomAttributeBuilder CreateClosedHierarchyAttribute(Type[] permittedTypes)
+    {
+        EnsureClosedHierarchyAttributeType();
+        return new CustomAttributeBuilder(_closedHierarchyCtor!, new object[] { permittedTypes });
+    }
+
     static IEnumerable<ITypeSymbol> Flatten(IEnumerable<ITypeSymbol> types)
         => types.SelectMany(t => t is ITypeUnionSymbol u ? Flatten(u.Types) : new[] { t });
 
@@ -605,6 +613,69 @@ internal class CodeGenerator
         DiscriminatedUnionCaseAttributeType = attrBuilder.CreateType();
         _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType.GetConstructor(new[] { typeType })
             ?? throw new InvalidOperationException("Missing DiscriminatedUnionCaseAttribute(Type) constructor.");
+    }
+
+    void EnsureClosedHierarchyAttributeType()
+    {
+        if (ClosedHierarchyAttributeType is not null)
+            return;
+
+        var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Attribute"), this);
+        var typeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Type), this);
+
+        var attrBuilder = ModuleBuilder.DefineType(
+            "System.Runtime.CompilerServices.ClosedHierarchyAttribute",
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
+            attributeType);
+
+        var permittedTypesField = attrBuilder.DefineField(
+            "_permittedTypes",
+            typeType.MakeArrayType(),
+            FieldAttributes.Private | FieldAttributes.InitOnly);
+
+        var propertyBuilder = attrBuilder.DefineProperty(
+            "PermittedTypes",
+            PropertyAttributes.None,
+            typeType.MakeArrayType(),
+            null);
+
+        var getterMethod = attrBuilder.DefineMethod(
+            "get_PermittedTypes",
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
+            typeType.MakeArrayType(),
+            Type.EmptyTypes);
+
+        var getterIl = getterMethod.GetILGenerator();
+        getterIl.Emit(OpCodes.Ldarg_0);
+        getterIl.Emit(OpCodes.Ldfld, permittedTypesField);
+        getterIl.Emit(OpCodes.Ret);
+
+        propertyBuilder.SetGetMethod(getterMethod);
+
+        var ctorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            new[] { typeType.MakeArrayType() });
+
+        var il = ctorBuilder.GetILGenerator();
+        var baseCtor = attributeType.GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            types: Type.EmptyTypes,
+            modifiers: null);
+        if (baseCtor is null)
+            throw new InvalidOperationException("Missing Attribute base constructor.");
+
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Call, baseCtor);
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Ldarg_1);
+        il.Emit(OpCodes.Stfld, permittedTypesField);
+        il.Emit(OpCodes.Ret);
+
+        ClosedHierarchyAttributeType = attrBuilder.CreateType();
+        _closedHierarchyCtor = ClosedHierarchyAttributeType.GetConstructor(new[] { typeType.MakeArrayType() })
+            ?? throw new InvalidOperationException("Missing ClosedHierarchyAttribute(Type[]) constructor.");
     }
 
     bool TryCollectTupleElementNames(ITypeSymbol type, List<string?> transformNames)

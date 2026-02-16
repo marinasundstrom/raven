@@ -69,7 +69,7 @@ internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
 
     public bool IsAbstract => false;
 
-    public bool IsSealed => true;
+    public bool IsClosed => true;
 
     public bool IsGenericType => false;
 

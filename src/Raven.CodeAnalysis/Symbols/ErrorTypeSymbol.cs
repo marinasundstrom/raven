@@ -26,7 +26,7 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
     public ITypeSymbol? ConstructedFrom { get; }
     public bool IsAbstract { get; }
-    public bool IsSealed { get; }
+    public bool IsClosed { get; }
     public bool IsGenericType { get; }
     public bool IsUnboundGenericType { get; }
 
