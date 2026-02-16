@@ -17,7 +17,10 @@ func ping(name: string) -> PingResult {
 app.MapGet("/ping0", ping)
 
 func ping1(name: string) -> Result<PingResult, CustomError> {
-    .Ok(PingResult("pong ${name}"))
+    match name {
+        "Bob" | "bob" => Result<PingResult, CustomError>.Ok(PingResult("pong ${name}"))
+        _ => Result<PingResult, CustomError>.Error(CustomError("Invalid name"))
+    }
 }
 
 app.MapGet("/ping1", ping1)
