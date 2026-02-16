@@ -3,7 +3,7 @@ import System.Console.*
 
 val expr: Expr = Add(Lit(40), Lit(2))
 
-WriteLine(Evaluate(expr))
+Evaluate(expr) |> WriteLine
 
 func Evaluate(expr: Expr) -> int {
     match expr {
