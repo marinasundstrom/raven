@@ -92,13 +92,13 @@ internal class TypeDeclarationParser : SyntaxParser
         }
         else
         {
-            openBraceToken = MissingToken(SyntaxKind.OpenBraceToken);
+            openBraceToken = Token(SyntaxKind.None);
         }
 
         SyntaxToken closeBraceToken;
         if (!hasOpenBrace)
         {
-            closeBraceToken = MissingToken(SyntaxKind.CloseBraceToken);
+            closeBraceToken = Token(SyntaxKind.None);
         }
         else
         {
