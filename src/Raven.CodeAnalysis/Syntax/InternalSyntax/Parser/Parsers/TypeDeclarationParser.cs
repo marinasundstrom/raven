@@ -82,10 +82,21 @@ internal class TypeDeclarationParser : SyntaxParser
 
         List<GreenNode> memberList = new List<GreenNode>();
 
-        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
+        var nextToken = PeekToken();
+        var hasOpenBrace = nextToken.IsKind(SyntaxKind.OpenBraceToken);
+
+        SyntaxToken openBraceToken;
+        if (hasOpenBrace)
+        {
+            openBraceToken = ReadToken();
+        }
+        else
+        {
+            openBraceToken = MissingToken(SyntaxKind.OpenBraceToken);
+        }
 
         SyntaxToken closeBraceToken;
-        if (openBraceToken.IsMissing && typeKeyword.IsKind(SyntaxKind.ClassKeyword) && hasRecordModifier)
+        if (!hasOpenBrace)
         {
             closeBraceToken = MissingToken(SyntaxKind.CloseBraceToken);
         }

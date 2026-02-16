@@ -458,6 +458,109 @@ record class Other {}
         Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV0338");
     }
 
+    // ── Body-less (marker) type declarations ──
+
+    [Fact]
+    public void SealedHierarchy_BodylessDeclarations_Succeed()
+    {
+        var source = """
+sealed class Expr
+class Lit : Expr
+class Add : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success);
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var classDecl = (ClassDeclarationSyntax)root.Members[0];
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
+        Assert.True(symbol.IsSealedHierarchy);
+        Assert.True(symbol.IsAbstract);
+        Assert.Equal(2, symbol.PermittedDirectSubtypes.Length);
+    }
+
+    [Fact]
+    public void BodylessClass_ParsesSuccessfully()
+    {
+        var source = """
+class Marker
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var classDecl = Assert.IsType<ClassDeclarationSyntax>(root.Members[0]);
+        Assert.Equal("Marker", classDecl.Identifier.Text);
+    }
+
+    [Fact]
+    public void BodylessStruct_ParsesSuccessfully()
+    {
+        var source = """
+struct Unit
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var structDecl = Assert.IsType<StructDeclarationSyntax>(root.Members[0]);
+        Assert.Equal("Unit", structDecl.Identifier.Text);
+    }
+
+    [Fact]
+    public void BodylessInterface_ParsesSuccessfully()
+    {
+        var source = """
+interface IMarker
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var ifaceDecl = Assert.IsType<InterfaceDeclarationSyntax>(root.Members[0]);
+        Assert.Equal("IMarker", ifaceDecl.Identifier.Text);
+    }
+
+    [Fact]
+    public void BodylessRecordClass_ParsesSuccessfully()
+    {
+        var source = """
+record class Event
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var recordDecl = Assert.IsType<RecordDeclarationSyntax>(root.Members[0]);
+        Assert.Equal("Event", recordDecl.Identifier.Text);
+    }
+
+    [Fact]
+    public void BodylessSealedClass_WithPermits_Succeeds()
+    {
+        var source = """
+sealed class Expr permits Lit, Add
+class Lit : Expr
+class Add : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public void BodylessSealedRecordClass_WithPermits_Succeeds()
+    {
+        var source = """
+sealed record class Node permits Leaf, Branch
+record class Leaf : Node
+record class Branch : Node
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success);
+    }
+
     // ── Match exhaustiveness ──
 
     [Fact]

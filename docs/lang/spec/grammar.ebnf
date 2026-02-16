@@ -99,12 +99,12 @@ EnumMember               ::= Identifier ['=' Expression] ;
 ClassDeclaration         ::= TypeModifiers? 'class' Identifier TypeParameterList?
                              PrimaryConstructor? BaseList?
                              WhereClauseList? PermitsClause?
-                             ClassBody ;
+                             ClassBody? ;
 
 RecordDeclaration        ::= TypeModifiers? 'record' ['class' | 'struct'] Identifier TypeParameterList?
                              BaseList? PrimaryConstructor?
                              WhereClauseList? PermitsClause?
-                             ClassBody ;
+                             ClassBody? ;
 
 PermitsClause            ::= 'permits' Type {',' Type} ;
 
@@ -113,12 +113,12 @@ PrimaryConstructor       ::= '(' ParameterList? ')' ;
 StructDeclaration        ::= TypeModifiers? 'struct' Identifier TypeParameterList?
                              BaseList?
                              WhereClauseList?
-                             ClassBody ;
+                             ClassBody? ;
 
 InterfaceDeclaration     ::= TypeModifiers? 'interface' Identifier TypeParameterList?
                              BaseList?
                              WhereClauseList?
-                             ClassBody ;
+                             ClassBody? ;
 
 UnionDeclaration         ::= TypeModifiers? 'union' Identifier TypeParameterList?
                              WhereClauseList?
