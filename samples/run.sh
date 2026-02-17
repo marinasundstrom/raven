@@ -8,9 +8,54 @@ shopt -s nullglob
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+DOTNET_VERSION="${DOTNET_VERSION:-net9.0}"
+
+usage() {
+  cat <<EOF
+Usage: ./run.sh [options]
+
+Options:
+  -f, --framework <tfm>   Target runtime framework to execute with (default: ${DOTNET_VERSION})
+  -h, --help              Show this help
+
+Environment overrides:
+  DOTNET_VERSION, OUTPUT_DIR
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f|--framework)
+      [[ $# -lt 2 ]] && { echo "Missing value for $1"; exit 2; }
+      DOTNET_VERSION="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      usage
+      exit 2
+      ;;
+  esac
+done
+
 OUTPUT_DIR="${OUTPUT_DIR:-output}"
 if [[ "$OUTPUT_DIR" != /* ]]; then
   OUTPUT_DIR="$SCRIPT_DIR/$OUTPUT_DIR"
+fi
+
+TARGET_MM="${DOTNET_VERSION#net}"
+FX_VERSION="$(dotnet --list-runtimes | awk -v mm="$TARGET_MM" '$1 == "Microsoft.NETCore.App" && index($2, mm ".") == 1 { latest = $2 } END { print latest }')"
+
+if [[ -n "$FX_VERSION" ]]; then
+  DOTNET_CMD=(dotnet exec --fx-version "$FX_VERSION")
+  echo "Using Microsoft.NETCore.App $FX_VERSION for execution."
+else
+  DOTNET_CMD=(dotnet)
+  echo "Warning: could not resolve installed runtime for '$DOTNET_VERSION'; using default dotnet host selection."
 fi
 
 # List of dlls to exclude (filenames only)
@@ -56,8 +101,8 @@ for dll in "${dlls[@]}"; do
     continue
   fi
 
-  echo "Running: dotnet \"$dll\""
-  if dotnet "$dll"; then
+  echo "Running: ${DOTNET_CMD[*]} \"$dll\""
+  if "${DOTNET_CMD[@]}" "$dll"; then
     echo "✅ Success: $filename"
     successes+=("$filename")
   else

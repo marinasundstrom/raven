@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.ComponentModel;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -18,6 +18,8 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal class MethodGenerator
 {
+    private const int RuntimeAsyncMethodImplBit = 0x2000;
+    private static readonly MethodImplAttributes RuntimeAsyncMethodImplFlag = ResolveRuntimeAsyncMethodImplFlag();
     private readonly List<(IParameterSymbol Symbol, ParameterBuilder Builder)> _parameterBuilders = new();
     private bool _bodyEmitted;
     private Compilation _compilation;
@@ -318,6 +320,7 @@ internal class MethodGenerator
         TypeGenerator.ApplyExtensionMarkerNameAttribute(MethodSymbol, applyMethodAttribute);
 
         ApplyAsyncStateMachineMetadata(applyMethodAttribute);
+        ApplyRuntimeAsyncMethodImplFlags();
 
         if (TypeGenerator.CodeGen.Compilation.IsEntryPointCandidate(MethodSymbol))
         {
@@ -392,6 +395,29 @@ internal class MethodGenerator
             }
         }
     }
+
+    private void ApplyRuntimeAsyncMethodImplFlags()
+    {
+        if (!Compilation.Options.UseRuntimeAsync)
+            return;
+
+        if (!MethodSymbol.IsAsync)
+            return;
+
+        if (MethodBase is not MethodBuilder methodBuilder)
+            return;
+
+        if (RuntimeAsyncMethodImplFlag == default)
+            return;
+
+        var currentFlags = methodBuilder.GetMethodImplementationFlags();
+        methodBuilder.SetImplementationFlags(currentFlags | RuntimeAsyncMethodImplFlag);
+    }
+
+    private static MethodImplAttributes ResolveRuntimeAsyncMethodImplFlag()
+        => Enum.TryParse<MethodImplAttributes>("Async", ignoreCase: false, out var flag)
+            ? flag
+            : (MethodImplAttributes)RuntimeAsyncMethodImplBit;
 
     private static bool ContainsMethodOwnedTypeParameters(ITypeSymbol type)
     {
@@ -662,7 +688,9 @@ internal class MethodGenerator
         BoundBlockStatement? rewrittenBody = null;
         ITypeSymbol? closureSelfType = null;
 
-        if (lambda.Symbol is SourceLambdaSymbol sourceLambda && sourceLambda.IsAsync)
+        if (!Compilation.Options.UseRuntimeAsync &&
+            lambda.Symbol is SourceLambdaSymbol sourceLambda &&
+            sourceLambda.IsAsync)
         {
             var block = ConvertToBlockStatement(sourceLambda, lambda.Body);
             if (closure is not null)

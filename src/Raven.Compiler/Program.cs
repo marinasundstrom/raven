@@ -26,6 +26,8 @@ var stopwatch = Stopwatch.StartNew();
 // --emit-core-types-only - embed the Raven.Core shims instead of referencing Raven.Core.dll
 // --output-type <console|classlib> - output kind
 // --unsafe           - enable unsafe mode (required for pointer declarations/usages)
+// --runtime-async    - enable runtime-async metadata emission
+// --no-runtime-async - disable runtime-async metadata emission
 // -o <path>         - output assembly path
 // -s [flat|group]   - display the syntax tree (single file only)
 // -d [plain|pretty[:no-diagnostics]] - dump syntax (single file only)
@@ -61,6 +63,7 @@ var ravenCoreExplicitlyProvided = false;
 var embedCoreTypes = false;
 var skipDefaultRavenCoreLookup = false;
 var allowUnsafe = false;
+bool? runtimeAsyncOverride = null;
 
 var printSyntaxTree = false;
 var printSyntaxTreeInternal = false;
@@ -296,6 +299,12 @@ for (int i = 0; i < args.Length; i++)
         case "--unsafe":
             allowUnsafe = true;
             break;
+        case "--runtime-async":
+            runtimeAsyncOverride = true;
+            break;
+        case "--no-runtime-async":
+            runtimeAsyncOverride = false;
+            break;
         case "--framework":
             if (i + 1 < args.Length)
                 targetFrameworkTfm = args[++i];
@@ -371,6 +380,8 @@ if (!ravenCoreExplicitlyProvided && !skipDefaultRavenCoreLookup)
     var ravenCoreCandidates = new[]
     {
         Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll"),
+        Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net11.0/Raven.Core.dll"),
+        Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net11.0/net11.0/Raven.Core.dll"),
         Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net9.0/Raven.Core.dll"),
         Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll"),
     };
@@ -594,21 +605,28 @@ var testDepPath = ResolveAndCopyLocalDependency(
     "TestDep.dll",
     Path.Combine(AppContext.BaseDirectory, "TestDep.dll"),
     Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "TestDep.dll"),
+    Path.GetFullPath("../../../../../src/TestDep/bin/Debug/net11.0/TestDep.dll"),
+    Path.GetFullPath("../../../../../src/TestDep/bin/Debug/net11.0/net11.0/TestDep.dll"),
     Path.GetFullPath("../../../../../src/TestDep/bin/Debug/net9.0/TestDep.dll"),
     Path.GetFullPath("../../../../../src/TestDep/bin/Debug/net9.0/net9.0/TestDep.dll"));
 
 var ravenCodeAnalysisPath = ResolveAndCopyLocalDependency(
     "Raven.CodeAnalysis.dll",
     Path.Combine(AppContext.BaseDirectory, "Raven.CodeAnalysis.dll"),
+    Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net11.0/Raven.CodeAnalysis.dll"),
+    Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net11.0/net11.0/Raven.CodeAnalysis.dll"),
     Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net9.0/Raven.CodeAnalysis.dll"),
     Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net9.0/net9.0/Raven.CodeAnalysis.dll"));
 
 var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
 var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
+var useRuntimeAsync = runtimeAsyncOverride
+    ?? (version.Moniker.Framework == FrameworkId.NetCoreApp && version.Moniker.Version.Major >= 11);
 
 var executionOptions = new CompilerExecutionOptions(
     outputKind,
     allowUnsafe,
+    useRuntimeAsync,
     enableAsyncInvestigation,
     asyncInvestigationLabel,
     asyncInvestigationScope,
@@ -696,7 +714,20 @@ foreach (var r in additionalRefs)
 
 if (projectFileInput is not null)
 {
-    options = project.CompilationOptions ?? options;
+    if (project.CompilationOptions is { } projectOptions)
+    {
+        options = projectOptions
+            .WithSpecificDiagnosticOptions(options.SpecificDiagnosticOptions)
+            .WithRunAnalyzers(options.RunAnalyzers)
+            .WithPerformanceInstrumentation(options.PerformanceInstrumentation)
+            .WithLoweringTrace(options.LoweringTrace)
+            .WithAsyncInvestigation(options.AsyncInvestigation)
+            .WithOverloadResolutionLogger(options.OverloadResolutionLogger)
+            .WithEmbedCoreTypes(options.EmbedCoreTypes)
+            .WithAllowUnsafe(options.AllowUnsafe)
+            .WithRuntimeAsync(options.UseRuntimeAsync);
+    }
+
     assemblyName = project.AssemblyName ?? project.Name;
     outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
 }
@@ -1128,6 +1159,7 @@ static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog
 {
     var options = new CompilationOptions(executionOptions.OutputKind)
         .WithAllowUnsafe(executionOptions.AllowUnsafe)
+        .WithRuntimeAsync(executionOptions.UseRuntimeAsync)
         .WithEmbedCoreTypes(executionOptions.EmbedCoreTypes);
 
     if (executionOptions.EnableAsyncInvestigation)
@@ -1459,6 +1491,9 @@ static void PrintHelp()
     Console.WriteLine("  --output-type <console|classlib>");
     Console.WriteLine("                     Output kind for the produced assembly.");
     Console.WriteLine("  --unsafe         Enable unsafe mode (required for pointer declarations/usages)");
+    Console.WriteLine("  --runtime-async  Enable runtime-async metadata emission");
+    Console.WriteLine("  --no-runtime-async");
+    Console.WriteLine("                     Disable runtime-async metadata emission (auto-enabled for net11+)");
     Console.WriteLine("  -o <path>          Output path.");
     Console.WriteLine("                     For .rav inputs: output assembly path.");
     Console.WriteLine("                     For .ravenproj inputs: output directory path (default: <project-dir>/bin).");
@@ -1926,6 +1961,7 @@ enum DocumentationTool
 readonly record struct CompilerExecutionOptions(
     OutputKind OutputKind,
     bool AllowUnsafe,
+    bool UseRuntimeAsync,
     bool EnableAsyncInvestigation,
     string AsyncInvestigationLabel,
     AsyncInvestigationPointerLabelScope AsyncInvestigationScope,

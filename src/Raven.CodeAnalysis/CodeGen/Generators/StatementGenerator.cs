@@ -153,7 +153,7 @@ internal class StatementGenerator : Generator
         }
 
         var localsToDispose = EnumerateLocalsToDispose().ToImmutableArray();
-        var returnType = MethodSymbol.ReturnType;
+        var returnType = GetEffectiveReturnTypeForEmission();
         var expression = returnStatement.Expression;
         ITypeSymbol? expressionType = expression?.Type;
         IILocal? resultTemp = null;
@@ -212,6 +212,15 @@ internal class StatementGenerator : Generator
         {
             ILGenerator.Emit(OpCodes.Ret);
         }
+    }
+
+    private ITypeSymbol GetEffectiveReturnTypeForEmission()
+    {
+        if (!Compilation.Options.UseRuntimeAsync || !MethodSymbol.IsAsync)
+            return MethodSymbol.ReturnType;
+
+        return AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, MethodSymbol.ReturnType)
+            ?? MethodSymbol.ReturnType;
     }
 
     private void EmitAsyncMoveNextReturn(BoundReturnStatement returnStatement, SynthesizedAsyncStateMachineTypeSymbol.ConstructedMembers members)

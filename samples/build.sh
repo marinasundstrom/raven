@@ -10,35 +10,57 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$SCRIPT_DIR"
 
 PROJECT_DIR="$REPO_ROOT/src/Raven.Compiler"
+DOTNET_VERSION="${DOTNET_VERSION:-net9.0}"
+BUILD_CONFIG="${BUILD_CONFIG:-Debug}"
+COMPILER_EXC="ravc"
 
-# Prefer the freshly built Raven.Core from this workspace.
+usage() {
+  cat <<EOF
+Usage: ./build.sh [options]
+
+Options:
+  -f, --framework <tfm>   Target framework used for compiler/dependencies (default: ${DOTNET_VERSION})
+  -c, --configuration <c> Build configuration (default: ${BUILD_CONFIG})
+  -h, --help              Show this help
+
+Environment overrides:
+  DOTNET_VERSION, BUILD_CONFIG, OUTPUT_DIR, RAVEN_CORE, RAVEN_CODE_ANALYSIS
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f|--framework)
+      [[ $# -lt 2 ]] && { echo "Missing value for $1"; exit 2; }
+      DOTNET_VERSION="$2"
+      shift 2
+      ;;
+    -c|--configuration)
+      [[ $# -lt 2 ]] && { echo "Missing value for $1"; exit 2; }
+      BUILD_CONFIG="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+# Prefer a freshly built Raven.Core from this workspace.
 # Do not fall back to a local samples copy because it can go stale.
-if [[ -z "${RAVEN_CORE:-}" ]]; then
-  for candidate in \
-    "$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/Raven.Core.dll" \
-    "$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll"
-  do
-    if [[ -f "$candidate" ]]; then
-      RAVEN_CORE="$candidate"
-      break
-    fi
-  done
-else
+if [[ -n "${RAVEN_CORE:-}" ]]; then
   RAVEN_CORE="$RAVEN_CORE"
 fi
 
-# Resolve Raven.CodeAnalysis.dll
-RAVEN_CODE_ANALYSIS="${RAVEN_CODE_ANALYSIS:-$SCRIPT_DIR/Raven.CodeAnalysis.dll}"
-
-if [[ ! -f "$RAVEN_CODE_ANALYSIS" ]]; then
-  BUILD_RAVEN_CODE_ANALYSIS="$REPO_ROOT/src/Raven.CodeAnalysis/bin/Debug/net9.0/Raven.CodeAnalysis.dll"
-  BUILD_RAVEN_CODE_ANALYSIS_ALT="$REPO_ROOT/src/Raven.CodeAnalysis/bin/Debug/net9.0/net9.0/Raven.CodeAnalysis.dll"
-  if [[ -f "$BUILD_RAVEN_CODE_ANALYSIS" ]]; then
-    RAVEN_CODE_ANALYSIS="$BUILD_RAVEN_CODE_ANALYSIS"
-  elif [[ -f "$BUILD_RAVEN_CODE_ANALYSIS_ALT" ]]; then
-    RAVEN_CODE_ANALYSIS="$BUILD_RAVEN_CODE_ANALYSIS_ALT"
-  fi
-fi
+# Resolve Raven.CodeAnalysis.dll.
+# Prefer the workspace build output for the selected TFM to avoid stale local copies.
+RAVEN_CODE_ANALYSIS="${RAVEN_CODE_ANALYSIS:-}"
 
 OUTPUT_DIR="${OUTPUT_DIR:-output}"
 if [[ "$OUTPUT_DIR" != /* ]]; then
@@ -48,10 +70,6 @@ if [[ -d "$OUTPUT_DIR" ]]; then
   rm -rf "$OUTPUT_DIR"
 fi
 mkdir -p "$OUTPUT_DIR"
-
-DOTNET_VERSION="net9.0"
-BUILD_CONFIG="Debug"
-COMPILER_EXC="ravc"
 
 # List of sample files (filenames only) to exclude
 EXCLUDE=(
@@ -78,15 +96,45 @@ fi
 
 #
 # Make sure the compiler has been built
-dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG"
-dotnet build "$REPO_ROOT/src/Raven.CodeAnalysis" -c "$BUILD_CONFIG"
+dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+dotnet build "$REPO_ROOT/src/Raven.CodeAnalysis" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+# TestDep is currently net9.0-only, so build it with its declared framework.
 dotnet build "$REPO_ROOT/src/TestDep" -c "$BUILD_CONFIG"
+
+if [[ -z "${RAVEN_CORE:-}" ]]; then
+  rm -f "$REPO_ROOT/src/Raven.Core/bin/$BUILD_CONFIG/$DOTNET_VERSION/Raven.Core.dll"
+  dotnet build "$REPO_ROOT/src/Raven.Core" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+
+  for candidate in \
+    "$REPO_ROOT/src/Raven.Core/bin/$BUILD_CONFIG/$DOTNET_VERSION/Raven.Core.dll" \
+    "$REPO_ROOT/src/Raven.Core/bin/$BUILD_CONFIG/$DOTNET_VERSION/$DOTNET_VERSION/Raven.Core.dll"
+  do
+    if [[ -f "$candidate" ]]; then
+      RAVEN_CORE="$candidate"
+      break
+    fi
+  done
+fi
+
 COMPILER_BIN="$PROJECT_DIR/bin/$BUILD_CONFIG/$DOTNET_VERSION/$COMPILER_EXC"
+
+if [[ -z "${RAVEN_CODE_ANALYSIS:-}" ]]; then
+  for candidate in \
+    "$REPO_ROOT/src/Raven.CodeAnalysis/bin/$BUILD_CONFIG/$DOTNET_VERSION/Raven.CodeAnalysis.dll" \
+    "$REPO_ROOT/src/Raven.CodeAnalysis/bin/$BUILD_CONFIG/$DOTNET_VERSION/$DOTNET_VERSION/Raven.CodeAnalysis.dll" \
+    "$SCRIPT_DIR/Raven.CodeAnalysis.dll"
+  do
+    if [[ -f "$candidate" ]]; then
+      RAVEN_CODE_ANALYSIS="$candidate"
+      break
+    fi
+  done
+fi
 
 failures=()
 successes=()
 
-if [[ ! -f "$RAVEN_CORE" ]]; then
+if [[ -z "${RAVEN_CORE:-}" || ! -f "$RAVEN_CORE" ]]; then
   echo "Warning: Raven.Core.dll not found; samples will be built without --raven-core"
 fi
 
@@ -103,8 +151,8 @@ for file in "${rav_files[@]}"; do
 
   echo "Compiling: $file -> $output"
 
-  cmd=("$COMPILER_BIN" -- "$file" -o "$output")
-  if [[ -f "$RAVEN_CORE" ]]; then
+  cmd=("$COMPILER_BIN" -- "$file" -o "$output" --framework "$DOTNET_VERSION")
+  if [[ -n "${RAVEN_CORE:-}" && -f "$RAVEN_CORE" ]]; then
     cmd+=(--raven-core "$RAVEN_CORE")
   fi
 
@@ -120,11 +168,24 @@ for file in "${rav_files[@]}"; do
 done
 
 # Copy dependency (this should not stop script if missing)
-TEST_DEP_DLL="$REPO_ROOT/src/TestDep/bin/$BUILD_CONFIG/$DOTNET_VERSION/TestDep.dll"
-cp "$TEST_DEP_DLL" "$OUTPUT_DIR"/TestDep.dll 2>/dev/null || \
-  echo "Warning: Could not copy TestDep.dll"
+TEST_DEP_DLL=""
+for candidate in \
+  "$REPO_ROOT/src/TestDep/bin/$BUILD_CONFIG/$DOTNET_VERSION/TestDep.dll" \
+  "$REPO_ROOT/src/TestDep/bin/$BUILD_CONFIG/net9.0/TestDep.dll"
+do
+  if [[ -f "$candidate" ]]; then
+    TEST_DEP_DLL="$candidate"
+    break
+  fi
+done
+if [[ -n "$TEST_DEP_DLL" ]]; then
+  cp "$TEST_DEP_DLL" "$OUTPUT_DIR"/TestDep.dll 2>/dev/null || \
+    echo "Warning: Could not copy TestDep.dll"
+else
+  echo "Warning: TestDep.dll not found"
+fi
 
-if [[ -f "$RAVEN_CORE" ]]; then
+if [[ -n "${RAVEN_CORE:-}" && -f "$RAVEN_CORE" ]]; then
   cp "$RAVEN_CORE" "$OUTPUT_DIR"/ 2>/dev/null || \
     echo "Warning: Could not copy Raven.Core.dll"
 fi

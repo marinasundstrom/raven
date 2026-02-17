@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks>net9.0;net11.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <!-- <WarningsAsErrors>Nullable</WarningsAsErrors> -->
     <ImplicitUsings>enable</ImplicitUsings>

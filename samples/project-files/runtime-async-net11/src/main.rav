@@ -1,0 +1,17 @@
+import System.*
+import System.Threading.Tasks.*
+
+async func ComputeTask(x: int) -> Task<int> {
+    return await Task.FromResult(x * 2).ConfigureAwait(false)
+}
+
+async func ComputeValueTask(x: int) -> Task<int> {
+    return await ValueTask.FromResult(x + 1).ConfigureAwait(false)
+}
+
+async func Main() -> Task {
+    await Task.Delay(1).ConfigureAwait(false)
+    val taskValue = await ComputeTask(21)
+    val valueTaskValue = await ComputeValueTask(taskValue)
+    Console.WriteLine("Runtime async sample: ${valueTaskValue}")
+}

@@ -304,6 +304,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitThrowExpression(throwExpression);
                 break;
 
+            case BoundAwaitExpression awaitExpression:
+                EmitAwaitExpression(awaitExpression);
+                break;
+
             case BoundReturnExpression returnExpression:
                 EmitReturnExpression(returnExpression);
                 break;
@@ -333,6 +337,188 @@ internal partial class ExpressionGenerator : Generator
         {
             _preserveResult = saved;
         }
+    }
+
+    private void EmitAwaitExpression(BoundAwaitExpression awaitExpression)
+    {
+        if (Compilation.Options.UseRuntimeAsync && TryEmitRuntimeAsyncAwait(awaitExpression))
+            return;
+
+        // Runtime-async mode keeps awaits in method bodies instead of rewriting to
+        // synthesized state-machine types. Emit the await pattern directly:
+        // expression.GetAwaiter().GetResult()
+        EmitExpression(awaitExpression.Expression);
+
+        var getAwaiterMethod = awaitExpression.GetAwaiterMethod;
+        var getAwaiterInfo = GetMethodInfo(getAwaiterMethod);
+
+        if (getAwaiterMethod.IsStatic)
+        {
+            ILGenerator.Emit(OpCodes.Call, getAwaiterInfo);
+        }
+        else
+        {
+            var getAwaiterCall = awaitExpression.Expression.Type.IsValueType ? OpCodes.Call : OpCodes.Callvirt;
+            ILGenerator.Emit(getAwaiterCall, getAwaiterInfo);
+        }
+
+        var awaiterClrType = ResolveClrType(awaitExpression.AwaiterType);
+        var awaiterLocal = ILGenerator.DeclareLocal(awaiterClrType);
+        ILGenerator.Emit(OpCodes.Stloc, awaiterLocal);
+
+        var getResultMethod = awaitExpression.GetResultMethod;
+        var getResultInfo = GetMethodInfo(getResultMethod);
+
+        if (getResultMethod.IsStatic)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, awaiterLocal);
+            ILGenerator.Emit(OpCodes.Call, getResultInfo);
+            return;
+        }
+
+        if (awaitExpression.AwaiterType.IsValueType)
+        {
+            ILGenerator.Emit(OpCodes.Ldloca, awaiterLocal);
+            ILGenerator.Emit(OpCodes.Call, getResultInfo);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, awaiterLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, getResultInfo);
+    }
+
+    private bool TryEmitRuntimeAsyncAwait(BoundAwaitExpression awaitExpression)
+    {
+        var asyncHelpersType = typeof(AsyncTaskMethodBuilder).Assembly.GetType("System.Runtime.CompilerServices.AsyncHelpers", throwOnError: false)
+            ?? Type.GetType("System.Runtime.CompilerServices.AsyncHelpers, System.Private.CoreLib", throwOnError: false);
+        if (asyncHelpersType is null)
+            return false;
+
+        var awaitedTypeSymbol = awaitExpression.Expression.Type.GetPlainType();
+        var helper = ResolveRuntimeAsyncAwaitHelper(asyncHelpersType, awaitedTypeSymbol, awaitExpression.ResultType);
+        if (helper is null)
+            return false;
+
+        EmitExpression(awaitExpression.Expression);
+        ILGenerator.Emit(OpCodes.Call, helper);
+        return true;
+    }
+
+    private MethodInfo? ResolveRuntimeAsyncAwaitHelper(
+        Type asyncHelpersType,
+        ITypeSymbol awaitedTypeSymbol,
+        ITypeSymbol resultType)
+    {
+        var methods = asyncHelpersType
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(static m => string.Equals(m.Name, "Await", StringComparison.Ordinal))
+            .ToArray();
+
+        if (methods.Length == 0)
+            return null;
+
+        static bool IsParameterMetadataName(MethodInfo method, string metadataName)
+        {
+            var parameters = method.GetParameters();
+            if (parameters.Length != 1)
+                return false;
+
+            var parameterType = parameters[0].ParameterType;
+            return string.Equals(parameterType.FullName, metadataName, StringComparison.Ordinal);
+        }
+
+        static bool IsGenericParameterDefinitionMetadataName(MethodInfo method, string metadataName)
+        {
+            var parameters = method.GetParameters();
+            if (parameters.Length != 1)
+                return false;
+
+            var parameterType = parameters[0].ParameterType;
+            if (!parameterType.IsGenericType)
+                return false;
+
+            var definition = parameterType.GetGenericTypeDefinition();
+            return string.Equals(definition.FullName, metadataName, StringComparison.Ordinal);
+        }
+
+        var awaitedNamedType = awaitedTypeSymbol as INamedTypeSymbol;
+        if (awaitedNamedType is null)
+            return null;
+
+        var awaitedDefinition = awaitedNamedType.OriginalDefinition as INamedTypeSymbol ?? awaitedNamedType;
+        var awaitedMetadataName = awaitedDefinition.ToFullyQualifiedMetadataName();
+
+        // Prefer symbol identity for BCL types that have SpecialType entries.
+        if (awaitedDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task)
+        {
+            return methods.FirstOrDefault(m =>
+                !m.IsGenericMethodDefinition &&
+                IsParameterMetadataName(m, "System.Threading.Tasks.Task"));
+        }
+
+        if (awaitedDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T)
+        {
+            var resultClrType = ResolveClrType(resultType.GetPlainType());
+            var genericTaskAwait = methods.FirstOrDefault(m =>
+                m.IsGenericMethodDefinition &&
+                IsGenericParameterDefinitionMetadataName(m, "System.Threading.Tasks.Task`1"));
+
+            return genericTaskAwait?.MakeGenericMethod(resultClrType);
+        }
+
+        if (string.Equals(awaitedMetadataName, "System.Threading.Tasks.ValueTask", StringComparison.Ordinal))
+        {
+            return methods.FirstOrDefault(m =>
+                !m.IsGenericMethodDefinition &&
+                IsParameterMetadataName(m, "System.Threading.Tasks.ValueTask"));
+        }
+
+        if (string.Equals(awaitedMetadataName, "System.Threading.Tasks.ValueTask`1", StringComparison.Ordinal))
+        {
+            var resultClrType = ResolveClrType(resultType.GetPlainType());
+            var genericValueTaskAwait = methods.FirstOrDefault(m =>
+                m.IsGenericMethodDefinition &&
+                IsGenericParameterDefinitionMetadataName(m, "System.Threading.Tasks.ValueTask`1"));
+
+            return genericValueTaskAwait?.MakeGenericMethod(resultClrType);
+        }
+
+        // .ConfigureAwait(...) paths in net11 runtime async.
+        if (string.Equals(awaitedMetadataName, "System.Runtime.CompilerServices.ConfiguredTaskAwaitable", StringComparison.Ordinal))
+        {
+            return methods.FirstOrDefault(m =>
+                !m.IsGenericMethodDefinition &&
+                IsParameterMetadataName(m, "System.Runtime.CompilerServices.ConfiguredTaskAwaitable"));
+        }
+
+        if (string.Equals(awaitedMetadataName, "System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1", StringComparison.Ordinal))
+        {
+            var resultClrType = ResolveClrType(resultType.GetPlainType());
+            var genericConfiguredTaskAwait = methods.FirstOrDefault(m =>
+                m.IsGenericMethodDefinition &&
+                IsGenericParameterDefinitionMetadataName(m, "System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1"));
+
+            return genericConfiguredTaskAwait?.MakeGenericMethod(resultClrType);
+        }
+
+        if (string.Equals(awaitedMetadataName, "System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable", StringComparison.Ordinal))
+        {
+            return methods.FirstOrDefault(m =>
+                !m.IsGenericMethodDefinition &&
+                IsParameterMetadataName(m, "System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable"));
+        }
+
+        if (string.Equals(awaitedMetadataName, "System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable`1", StringComparison.Ordinal))
+        {
+            var resultClrType = ResolveClrType(resultType.GetPlainType());
+            var genericConfiguredValueTaskAwait = methods.FirstOrDefault(m =>
+                m.IsGenericMethodDefinition &&
+                IsGenericParameterDefinitionMetadataName(m, "System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable`1"));
+
+            return genericConfiguredValueTaskAwait?.MakeGenericMethod(resultClrType);
+        }
+
+        return null;
     }
 
     private EmitInfo TryEmitAddress(BoundExpression expression)

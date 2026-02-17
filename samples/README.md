@@ -12,12 +12,41 @@
    Use the relative path for nested samples (for example, `dotnet run --project ../src/Raven.Compiler  --property WarningLevel=0 -- async/async-await.rav -o async-await.dll`).
 3. Execute the emitted assembly with `dotnet <file>.dll` (or rely on `build.sh`/`run.sh` for batch work).
 
+## Batch scripts and framework selection
+
+`build.sh` now accepts a target framework flag and defaults to `net9.0`:
+
+```bash
+# default
+./build.sh
+
+# explicit
+./build.sh -f net11.0
+```
+
+Equivalent environment override:
+
+```bash
+DOTNET_VERSION=net11.0 ./build.sh
+```
+
+`run.sh` also accepts the same framework flag and defaults to `net9.0`:
+
+```bash
+# default
+./run.sh
+
+# explicit
+./run.sh -f net11.0
+```
+
 ## Project-file sample
 
 For `.ravenproj` + NuGet restore/cache behavior, see:
 
 - `samples/project-files/nuget-demo/README.md`
 - `samples/project-files/aspnet-minimal-api/README.md`
+- `samples/project-files/runtime-async-net11/README.md`
 - `samples/project-files/analyzer-editorconfig/README.md` (project-local `.editorconfig` analyzer severity overrides)
 - `samples/project-files/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
 

@@ -1,0 +1,1 @@
+<Project Name="RuntimeAsyncNet11" TargetFramework="net11.0" Output="RuntimeAsyncNet11" OutputKind="ConsoleApplication" />

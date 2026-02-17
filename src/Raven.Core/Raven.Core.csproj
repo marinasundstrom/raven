@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks>net9.0;net11.0</TargetFrameworks>
     <ImplicitUsings>false</ImplicitUsings>
     <Nullable>disable</Nullable>
     <OutputPath>$(MSBuildThisFileDirectory)bin/$(Configuration)/</OutputPath>
@@ -23,7 +23,7 @@
     Outputs="$(RavenCoreOutputDirectory)Raven.Core.dll">
     <MakeDir Directories="$(RavenCoreOutputDirectory)" />
     <Exec
-      Command="dotnet run --property WarningLevel=0 --project ../Raven.Compiler/Raven.Compiler.csproj -p:UseRavenCoreReference=false -- --emit-core-types-only --framework $(TargetFramework) --output-type classlib -o &quot;$(RavenCoreOutputDirectory)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
+      Command="dotnet run -f $(TargetFramework) --property WarningLevel=0 --project ../Raven.Compiler/Raven.Compiler.csproj -p:UseRavenCoreReference=false -- --emit-core-types-only --framework $(TargetFramework) --output-type classlib -o &quot;$(RavenCoreOutputDirectory)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
   </Target>
 
   <Target Name="CleanRavenCore"

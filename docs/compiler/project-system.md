@@ -129,6 +129,26 @@ Sample:
 
 - `samples/project-files/nuget-demo/README.md`
 - `samples/project-files/raven-msbuild-integration/README.md`
+- `samples/project-files/runtime-async-net11/README.md`
+
+## Runtime async for `net11.0`
+
+If a `.ravenproj` sets `TargetFramework="net11.0"` (or newer), Raven enables runtime-async mode by default.
+
+- Async methods emit with runtime async metadata.
+- Await expressions emit `System.Runtime.CompilerServices.AsyncHelpers.Await(...)` calls when available.
+- State-machine type synthesis is skipped.
+
+When invoking the compiler through `dotnet run`, make sure the compiler host itself runs as `net11.0`:
+
+```bash
+dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.ravenproj --run
+```
+
+You can still override behavior explicitly:
+
+- `--runtime-async` to force on.
+- `--no-runtime-async` to force off.
 
 ## Temporary C# MSBuild bridge
 

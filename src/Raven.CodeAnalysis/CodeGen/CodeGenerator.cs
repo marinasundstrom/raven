@@ -1326,6 +1326,9 @@ internal class CodeGenerator
 
     private void EnsureAsyncStateMachines()
     {
+        if (Compilation.Options.UseRuntimeAsync)
+            return;
+
         var processedTopLevelMethods = new HashSet<SourceMethodSymbol>(ReferenceEqualityComparer.Instance);
 
         foreach (var tree in Compilation.SyntaxTrees)
