@@ -1812,14 +1812,28 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
 
         if (_original is PEFieldSymbol peField)
         {
-            var field = peField.GetFieldInfo();
             var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
             var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
-            var resolved = constructedType.GetField(field.Name, bindingFlags);
-            if (resolved is not null)
-                return resolved;
+            var expectedType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(Type, codeGen);
 
-            throw new MissingFieldException(constructedType.FullName, field.Name);
+            foreach (var candidate in constructedType.GetFields(bindingFlags))
+            {
+                if (!string.Equals(candidate.Name, peField.MetadataName, StringComparison.Ordinal))
+                    continue;
+
+                if (candidate.IsStatic != peField.IsStatic)
+                    continue;
+
+                var candidateFieldType = candidate.FieldType;
+                if (candidateFieldType == expectedType ||
+                    (candidateFieldType.IsGenericTypeDefinition && expectedType.IsGenericType && candidateFieldType == expectedType.GetGenericTypeDefinition()) ||
+                    (candidateFieldType.IsGenericType && expectedType.IsGenericTypeDefinition && candidateFieldType.GetGenericTypeDefinition() == expectedType))
+                {
+                    return candidate;
+                }
+            }
+
+            throw new MissingFieldException(constructedType.FullName, peField.MetadataName);
         }
 
         if (_original is SourceFieldSymbol sourceField)

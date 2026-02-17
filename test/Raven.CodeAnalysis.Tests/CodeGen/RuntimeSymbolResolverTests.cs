@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
@@ -74,35 +75,35 @@ async func Compute<T>(value: T) -> Task<T> {
         var (resultReference, path) = CreateRavenCoreResultReference();
         try
         {
-        var compilation = Compilation.Create(
-                "runtime_resolver_result_trygetok",
-                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences([.. TestMetadataReferences.Default, resultReference]);
+            var compilation = Compilation.Create(
+                    "runtime_resolver_result_trygetok",
+                    new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddReferences([.. TestMetadataReferences.Default, resultReference]);
 
-        var resultDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Result`2"));
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var exceptionType = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Exception"));
-        var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            resultDefinition.Construct(intType, exceptionType));
-        var tryGetOkSymbol = Assert.Single(constructedResult.GetMembers("TryGetOk").OfType<IMethodSymbol>());
+            var resultDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+                compilation.GetTypeByMetadataName("System.Result`2"));
+            var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+            var exceptionType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+                compilation.GetTypeByMetadataName("System.Exception"));
+            var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
+                resultDefinition.Construct(intType, exceptionType));
+            var tryGetOkSymbol = Assert.Single(constructedResult.GetMembers("TryGetOk").OfType<IMethodSymbol>());
 
-        var codeGenerator = new CodeGenerator(compilation)
-        {
-            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
-        };
+            var codeGenerator = new CodeGenerator(compilation)
+            {
+                ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+            };
 
-        var tryGetOk = codeGenerator.RuntimeSymbolResolver.GetMethodInfo(tryGetOkSymbol);
-        Assert.False(tryGetOk.ContainsGenericParameters);
+            var tryGetOk = codeGenerator.RuntimeSymbolResolver.GetMethodInfo(tryGetOkSymbol);
+            Assert.False(tryGetOk.ContainsGenericParameters);
 
-        var outParameter = Assert.Single(tryGetOk.GetParameters());
-        Assert.True(outParameter.ParameterType.IsByRef);
+            var outParameter = Assert.Single(tryGetOk.GetParameters());
+            Assert.True(outParameter.ParameterType.IsByRef);
 
-        var outElementType = outParameter.ParameterType.GetElementType();
-        Assert.NotNull(outElementType);
-        Assert.False(outElementType!.ContainsGenericParameters);
-        Assert.Contains("+Ok", outElementType.FullName ?? outElementType.Name, StringComparison.Ordinal);
+            var outElementType = outParameter.ParameterType.GetElementType();
+            Assert.NotNull(outElementType);
+            Assert.False(outElementType!.ContainsGenericParameters);
+            Assert.Contains("+Ok", outElementType.FullName ?? outElementType.Name, StringComparison.Ordinal);
         }
         finally
         {
@@ -144,6 +145,38 @@ async func Compute() -> Task<Dictionary<string, int>> {
         Assert.False(awaiterType.ContainsGenericParameters);
         Assert.Contains("TaskAwaiter`1", awaiterType.ToString(), StringComparison.Ordinal);
         Assert.Contains("Dictionary`2[System.String,System.Int32]", awaiterType.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void JsonSerializerCalls_InGenericConverter_ResolveExpectedOverloads()
+    {
+        const string source = """
+import System.Text.Json.*
+
+func Test(element: JsonElement, writer: Utf8JsonWriter, options: JsonSerializerOptions) -> unit {
+    val value = JsonSerializer.Deserialize<int>(element, options)
+    JsonSerializer.Serialize<int>(writer, value, options)
+}
+""";
+
+        var calls = CaptureMethodCalls(
+            source,
+            static generator =>
+                generator.MethodSymbol.Name == "Test" &&
+                generator.MethodSymbol.ContainingType?.Name == "Program",
+            OutputKind.DynamicallyLinkedLibrary);
+
+        var deserializeCall = Assert.Single(calls.Where(static call =>
+            call.DeclaringType == typeof(JsonSerializer) &&
+            call.Name == "Deserialize" &&
+            call.GetParameters().Length == 2));
+        Assert.Equal(typeof(JsonElement), deserializeCall.GetParameters()[0].ParameterType);
+
+        var serializeCall = Assert.Single(calls.Where(static call =>
+            call.DeclaringType == typeof(JsonSerializer) &&
+            call.Name == "Serialize" &&
+            call.GetParameters().Length == 3));
+        Assert.Equal(typeof(Utf8JsonWriter), serializeCall.GetParameters()[0].ParameterType);
     }
 
     private static MethodInfo[] CaptureMethodCalls(

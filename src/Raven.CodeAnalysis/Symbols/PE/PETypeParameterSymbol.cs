@@ -11,7 +11,15 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
 {
-    private readonly Type _type;
+    private readonly Type _runtimeType;
+    private readonly MethodBase? _declaringMethod;
+    private readonly Type[] _constraintRuntimeTypes;
+    private readonly string _name;
+    private readonly int _ordinal;
+    private readonly TypeParameterOwnerKind _ownerKind;
+    private readonly VarianceKind _variance;
+    private readonly GenericParameterAttributes _genericParameterAttributes;
+    private readonly PETypeParameterIdentity _metadataIdentity;
 
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private TypeParameterConstraintKind? _lazyConstraintKind;
@@ -29,11 +37,28 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
         if (!type.IsGenericParameter)
             throw new ArgumentException("Type must be a generic parameter", nameof(type));
 
-        _type = type;
+        _runtimeType = type;
+        _declaringMethod = type.DeclaringMethod;
+        _constraintRuntimeTypes = type.GetGenericParameterConstraints();
+        _name = type.Name;
+        _ordinal = type.GenericParameterPosition;
+        _ownerKind = _declaringMethod is null ? TypeParameterOwnerKind.Type : TypeParameterOwnerKind.Method;
+        _genericParameterAttributes = type.GenericParameterAttributes;
+        _variance = (_genericParameterAttributes & GenericParameterAttributes.VarianceMask) switch
+        {
+            GenericParameterAttributes.Covariant => VarianceKind.Out,
+            GenericParameterAttributes.Contravariant => VarianceKind.In,
+            _ => VarianceKind.None
+        };
+        _metadataIdentity = new PETypeParameterIdentity(
+            _ownerKind,
+            _ordinal,
+            GetOwnerIdentity(containingSymbol),
+            _name);
         _reflectionTypeLoader = reflectionTypeLoader;
     }
 
-    public override string Name => _type.Name;
+    public override string Name => _name;
 
     public override SymbolKind Kind => SymbolKind.TypeParameter;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace?.ContainingAssembly!;
@@ -41,10 +66,10 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
     protected PEAssemblySymbol PEContainingAssembly => (PEAssemblySymbol)ContainingAssembly;
     protected PEModuleSymbol PEContainingModule => (PEModuleSymbol)ContainingModule;
 
-    public int Ordinal => _type.GenericParameterPosition;
+    public int Ordinal => _ordinal;
 
-    public TypeParameterOwnerKind OwnerKind =>
-        _type.DeclaringMethod is null ? TypeParameterOwnerKind.Type : TypeParameterOwnerKind.Method;
+    public TypeParameterOwnerKind OwnerKind => _ownerKind;
+    internal PETypeParameterIdentity MetadataIdentity => _metadataIdentity;
 
     public INamedTypeSymbol? DeclaringTypeParameterOwner =>
         OwnerKind == TypeParameterOwnerKind.Type ? (ContainingSymbol as INamedTypeSymbol) : null;
@@ -59,7 +84,7 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
             if (_lazyConstraintKind is not null)
                 return _lazyConstraintKind.Value;
 
-            var attributes = _type.GenericParameterAttributes;
+            var attributes = _genericParameterAttributes;
             var kind = TypeParameterConstraintKind.None;
 
             if ((attributes & GenericParameterAttributes.ReferenceTypeConstraint) != 0)
@@ -71,7 +96,7 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
             if ((attributes & GenericParameterAttributes.NotNullableValueTypeConstraint) != 0)
                 kind |= TypeParameterConstraintKind.ValueType;
 
-            if (_type.GetGenericParameterConstraints().Length > 0)
+            if (_constraintRuntimeTypes.Length > 0)
                 kind |= TypeParameterConstraintKind.TypeConstraint;
 
             _lazyConstraintKind = kind;
@@ -87,13 +112,7 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
     //public bool HasReferenceTypeConstraint => (_type.GenericParameterAttributes & GenericParameterAttributes.ReferenceTypeConstraint) != 0;
     //public bool HasValueTypeConstraint => (_type.GenericParameterAttributes & GenericParameterAttributes.NotNullableValueTypeConstraint) != 0;
 
-    public VarianceKind Variance =>
-        (_type.GenericParameterAttributes & GenericParameterAttributes.VarianceMask) switch
-        {
-            GenericParameterAttributes.Covariant => VarianceKind.Out,
-            GenericParameterAttributes.Contravariant => VarianceKind.In,
-            _ => VarianceKind.None
-        };
+    public VarianceKind Variance => _variance;
 
     /*
 public ImmutableArray<ITypeSymbol> ConstraintTypes =>
@@ -110,7 +129,7 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
             if (_lazyConstraintTypes.HasValue)
                 return _lazyConstraintTypes.Value;
 
-            var constraints = _type.GetGenericParameterConstraints();
+            var constraints = _constraintRuntimeTypes;
             if (constraints.Length == 0)
             {
                 _lazyConstraintTypes = ImmutableArray<ITypeSymbol>.Empty;
@@ -120,7 +139,7 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
             var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(constraints.Length);
             foreach (var constraint in constraints)
             {
-                var resolved = _reflectionTypeLoader.ResolveType(constraint, _type.DeclaringMethod);
+                var resolved = _reflectionTypeLoader.ResolveType(constraint, _declaringMethod);
                 if (resolved is not null)
                     builder.Add(resolved);
             }
@@ -151,7 +170,7 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
         return false;
     }
 
-    internal Type GetTypeInfo() => _type;
+    internal Type GetTypeInfo() => _runtimeType;
 
     private ImmutableArray<INamedTypeSymbol> GetConstraintInterfaces(bool includeInherited)
     {
@@ -186,5 +205,22 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
         foreach (var inherited in interfaceSymbol.AllInterfaces)
             if (seen.Add(inherited))
                 builder.Add(inherited);
+    }
+
+    private static string GetOwnerIdentity(ISymbol containingSymbol)
+    {
+        return containingSymbol switch
+        {
+            PEMethodSymbol peMethod => BuildMethodOwnerIdentity(peMethod.GetMethodBase()),
+            IMethodSymbol method => $"{method.ContainingType?.ToFullyQualifiedMetadataName()}::{method.MetadataName}",
+            INamedTypeSymbol type => type.ToFullyQualifiedMetadataName(),
+            _ => containingSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+        };
+    }
+
+    private static string BuildMethodOwnerIdentity(MethodBase methodBase)
+    {
+        var declaringTypeName = methodBase.DeclaringType?.FullName ?? string.Empty;
+        return $"{declaringTypeName}::{methodBase.Name}";
     }
 }

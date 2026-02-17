@@ -196,8 +196,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
 
     private static bool TypesEqual(Type a, Type b)
     {
-        // In MetadataLoadContext, Type instances from the same context are comparable by reference.
-        return a == b;
+        return PEReflectionTypeIdentity.AreEquivalent(a, b);
     }
 
     public PropertyInfo GetPropertyInfo()

@@ -10,6 +10,7 @@ namespace Raven.CodeAnalysis;
 internal class ReflectionTypeLoader(Compilation compilation)
 {
     private readonly Dictionary<Type, ITypeSymbol> _cache = new();
+    private readonly Dictionary<string, ITypeSymbol> _metadataCache = new(StringComparer.Ordinal);
     private readonly NullabilityInfoContext _nullabilityContext = new();
     private readonly Dictionary<MethodBase, PEMethodSymbol> _methodSymbols = new();
     private readonly Dictionary<(PEMethodSymbol method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
@@ -204,10 +205,17 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (_cache.TryGetValue(type, out var cached))
             return cached;
 
+        var hasMetadataCacheKey = TryGetMetadataCacheKey(type, out var metadataCacheKey);
+        if (hasMetadataCacheKey && _metadataCache.TryGetValue(metadataCacheKey!, out var metadataCached))
+        {
+            _cache[type] = metadataCached;
+            return metadataCached;
+        }
+
         if (type.Name == "Void")
         {
             var unit = compilation.GetSpecialType(SpecialType.System_Unit);
-            _cache[type] = unit;
+            CacheResolvedType(type, metadataCacheKey, unit);
             return unit;
         }
 
@@ -218,7 +226,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
         {
             var underlying = ResolveType(type.GetGenericArguments()[0], methodContext);
             var nullable = underlying!.MakeNullable();
-            _cache[type] = nullable;
+            CacheResolvedType(type, metadataCacheKey, nullable);
             return nullable;
         }
 
@@ -231,14 +239,14 @@ internal class ReflectionTypeLoader(Compilation compilation)
                 return null;
 
             var pointer = new PointerTypeSymbol(element);
-            _cache[type] = pointer;
+            CacheResolvedType(type, metadataCacheKey, pointer);
             return pointer;
         }
 
         if (type.IsGenericTypeDefinition)
         {
             var definition = ResolveTypeCore(type);
-            _cache[type] = definition;
+            CacheResolvedType(type, metadataCacheKey, definition);
             return definition;
         }
 
@@ -263,7 +271,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             if (constructed is null)
                 return compilation.ErrorTypeSymbol;
 
-            _cache[type] = constructed;
+            CacheResolvedType(type, metadataCacheKey, constructed);
             return constructed;
         }
 
@@ -295,7 +303,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
         var symbol = ResolveTypeCore(type);
 
-        _cache[type] = symbol!;
+        CacheResolvedType(type, metadataCacheKey, symbol!);
 
         return symbol;
     }
@@ -430,16 +438,22 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (string.IsNullOrEmpty(metadataName))
             return compilation.ErrorTypeSymbol;
 
-        var assemblyName = type.Assembly.GetName().Name;
         var corLibrary = (PEAssemblySymbol)compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
-        var assemblySymbol = (PEAssemblySymbol?)compilation.ReferencedAssemblySymbols.FirstOrDefault(x => x.Name == assemblyName)
+        var assemblyIdentity = type.Assembly.GetName().Name;
+        var preferredAssemblyNames = GetPreferredAssemblyNames(assemblyIdentity);
+        var assemblySymbol = preferredAssemblyNames
+            .Select(name => (PEAssemblySymbol?)compilation.ReferencedAssemblySymbols.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)))
+            .FirstOrDefault(x => x is not null)
             ?? corLibrary;
 
         if (assemblySymbol is null)
             return compilation.GetTypeByMetadataName(metadataName) ?? compilation.ErrorTypeSymbol;
 
-        // When we already have a runtime Type, always intern through the module's Type-based cache
-        // to ensure we never create a second instance for the same type via the metadata-name path.
+        var metadataMatch = assemblySymbol.GetTypeByMetadataName(metadataName);
+        if (metadataMatch is not null)
+            return metadataMatch;
+
+        // Fallback to Type-based interning when metadata lookup cannot find a symbol in the preferred assembly.
         if (assemblySymbol.PrimaryModule is PEModuleSymbol peModule)
         {
             var r = peModule.GetType(type);
@@ -451,6 +465,42 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
         return compilation.GetTypeByMetadataName(metadataName)
             ?? compilation.ErrorTypeSymbol;
+    }
+
+    private static IEnumerable<string> GetPreferredAssemblyNames(string? assemblyName)
+    {
+        if (!string.IsNullOrEmpty(assemblyName))
+            yield return assemblyName;
+
+        if (string.Equals(assemblyName, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase))
+            yield return "System.Runtime";
+
+        if (string.Equals(assemblyName, "System.Runtime", StringComparison.OrdinalIgnoreCase))
+            yield return "System.Private.CoreLib";
+    }
+
+    private static bool TryGetMetadataCacheKey(Type type, out string? key)
+    {
+        key = null;
+
+        if (type.IsGenericParameter || type.ContainsGenericParameters)
+            return false;
+
+        var metadataName = GetMetadataName(type);
+        if (string.IsNullOrEmpty(metadataName))
+            return false;
+
+        var assemblyName = type.Assembly.GetName().Name;
+        key = $"{assemblyName ?? string.Empty}:{metadataName}";
+        return true;
+    }
+
+    private void CacheResolvedType(Type runtimeType, string? metadataCacheKey, ITypeSymbol symbol)
+    {
+        _cache[runtimeType] = symbol;
+
+        if (!string.IsNullOrEmpty(metadataCacheKey))
+            _metadataCache[metadataCacheKey] = symbol;
     }
 
     private static string? GetMetadataName(Type type)

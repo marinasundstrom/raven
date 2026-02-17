@@ -7,6 +7,7 @@ using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
+
 using static Raven.CodeAnalysis.CodeGen.DebugUtils;
 
 namespace Raven.CodeAnalysis;
@@ -638,11 +639,10 @@ internal static class MethodSymbolCodeGenResolver
     {
         var runtimeType = GetContainingRuntimeType(methodSymbol, codeGen);
         var bindingFlags = GetBindingFlags(methodSymbol);
-        var metadataMethod = methodSymbol.GetMethodBase() as MethodInfo;
 
         foreach (var candidate in GetCandidateRuntimeMethods(runtimeType, methodSymbol, bindingFlags))
         {
-            if (!RuntimeMethodMatchesSymbol(candidate, methodSymbol, metadataMethod, codeGen))
+            if (!RuntimeMethodMatchesSymbol(candidate, methodSymbol, codeGen))
                 continue;
 
             return candidate;
@@ -673,11 +673,10 @@ internal static class MethodSymbolCodeGenResolver
 
         var runtimeType = GetContainingRuntimeType(constructorSymbol, codeGen);
         var bindingFlags = GetBindingFlags(constructorSymbol);
-        var metadataCtor = constructorSymbol.GetMethodBase() as ConstructorInfo;
 
         foreach (var candidate in runtimeType.GetConstructors(bindingFlags))
         {
-            if (!RuntimeConstructorMatchesSymbol(candidate, constructorSymbol, metadataCtor, codeGen))
+            if (!RuntimeConstructorMatchesSymbol(candidate, constructorSymbol, codeGen))
                 continue;
 
             return candidate;
@@ -702,7 +701,7 @@ internal static class MethodSymbolCodeGenResolver
         return flags;
     }
 
-    private static bool RuntimeMethodMatchesSymbol(MethodInfo candidate, PEMethodSymbol methodSymbol, MethodInfo? metadataMethod, CodeGenerator codeGen)
+    private static bool RuntimeMethodMatchesSymbol(MethodInfo candidate, PEMethodSymbol methodSymbol, CodeGenerator codeGen)
     {
         if (!string.Equals(candidate.Name, methodSymbol.MetadataName, StringComparison.Ordinal))
             return false;
@@ -710,8 +709,20 @@ internal static class MethodSymbolCodeGenResolver
         if (!RuntimeTypeMatches(candidate.DeclaringType, methodSymbol.ContainingType, codeGen))
             return false;
 
-        if (metadataMethod is not null)
-            return RuntimeMethodMatchesMetadataSignature(candidate, metadataMethod);
+        if (candidate.IsStatic != methodSymbol.IsStatic)
+            return false;
+
+        if (candidate.IsGenericMethod != methodSymbol.IsGenericMethod)
+            return false;
+
+        if (candidate.IsGenericMethod && candidate.GetGenericArguments().Length != methodSymbol.TypeParameters.Length)
+            return false;
+
+        if (methodSymbol.ReflectionMethodBase is MethodInfo metadataMethod &&
+            !RuntimeMethodMatchesMetadataSignature(candidate, metadataMethod))
+        {
+            return false;
+        }
 
         if (!ParametersMatch(candidate.GetParameters(), methodSymbol.Parameters, codeGen))
             return false;
@@ -719,7 +730,122 @@ internal static class MethodSymbolCodeGenResolver
         return ReturnTypesMatch(candidate.ReturnType, methodSymbol.ReturnType, codeGen);
     }
 
-    private static bool RuntimeConstructorMatchesSymbol(ConstructorInfo candidate, PEMethodSymbol constructorSymbol, ConstructorInfo? metadataCtor, CodeGenerator codeGen)
+    private static bool RuntimeMethodMatchesMetadataSignature(MethodInfo runtimeMethod, MethodInfo metadataMethod)
+    {
+        if (!string.Equals(runtimeMethod.Name, metadataMethod.Name, StringComparison.Ordinal))
+            return false;
+
+        if (runtimeMethod.IsStatic != metadataMethod.IsStatic)
+            return false;
+
+        if (runtimeMethod.IsGenericMethod != metadataMethod.IsGenericMethod)
+            return false;
+
+        if (runtimeMethod.IsGenericMethod &&
+            runtimeMethod.GetGenericArguments().Length != metadataMethod.GetGenericArguments().Length)
+        {
+            return false;
+        }
+
+        var runtimeParameters = runtimeMethod.GetParameters();
+        var metadataParameters = metadataMethod.GetParameters();
+        if (runtimeParameters.Length != metadataParameters.Length)
+            return false;
+
+        for (var i = 0; i < runtimeParameters.Length; i++)
+        {
+            if (!RuntimeTypeMatchesMetadataType(runtimeParameters[i].ParameterType, metadataParameters[i].ParameterType))
+                return false;
+        }
+
+        return RuntimeTypeMatchesMetadataType(runtimeMethod.ReturnType, metadataMethod.ReturnType);
+    }
+
+    private static bool RuntimeTypeMatchesMetadataType(Type runtimeType, Type metadataType)
+    {
+        if (runtimeType.IsByRef || metadataType.IsByRef)
+        {
+            if (runtimeType.IsByRef != metadataType.IsByRef)
+                return false;
+
+            return RuntimeTypeMatchesMetadataType(runtimeType.GetElementType()!, metadataType.GetElementType()!);
+        }
+
+        if (runtimeType.IsPointer || metadataType.IsPointer)
+        {
+            if (runtimeType.IsPointer != metadataType.IsPointer)
+                return false;
+
+            return RuntimeTypeMatchesMetadataType(runtimeType.GetElementType()!, metadataType.GetElementType()!);
+        }
+
+        if (runtimeType.IsArray || metadataType.IsArray)
+        {
+            if (runtimeType.IsArray != metadataType.IsArray)
+                return false;
+
+            if (runtimeType.GetArrayRank() != metadataType.GetArrayRank())
+                return false;
+
+            return RuntimeTypeMatchesMetadataType(runtimeType.GetElementType()!, metadataType.GetElementType()!);
+        }
+
+        if (runtimeType.IsGenericParameter || metadataType.IsGenericParameter)
+        {
+            if (runtimeType.IsGenericParameter != metadataType.IsGenericParameter)
+                return false;
+
+            if (runtimeType.GenericParameterPosition != metadataType.GenericParameterPosition)
+                return false;
+
+            return (runtimeType.DeclaringMethod is not null) == (metadataType.DeclaringMethod is not null);
+        }
+
+        if (runtimeType.IsGenericType || metadataType.IsGenericType)
+        {
+            if (runtimeType.IsGenericType != metadataType.IsGenericType)
+                return false;
+
+            var runtimeDefinition = runtimeType.IsGenericTypeDefinition
+                ? runtimeType
+                : runtimeType.GetGenericTypeDefinition();
+            var metadataDefinition = metadataType.IsGenericTypeDefinition
+                ? metadataType
+                : metadataType.GetGenericTypeDefinition();
+
+            if (!MetadataTypeIdentityEquals(runtimeDefinition, metadataDefinition))
+                return false;
+
+            var runtimeArgs = runtimeType.GetGenericArguments();
+            var metadataArgs = metadataType.GetGenericArguments();
+            if (runtimeArgs.Length != metadataArgs.Length)
+                return false;
+
+            for (var i = 0; i < runtimeArgs.Length; i++)
+            {
+                if (!RuntimeTypeMatchesMetadataType(runtimeArgs[i], metadataArgs[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        return MetadataTypeIdentityEquals(runtimeType, metadataType);
+    }
+
+    private static bool MetadataTypeIdentityEquals(Type runtimeType, Type metadataType)
+    {
+        if (runtimeType == metadataType)
+            return true;
+
+        if (string.Equals(runtimeType.FullName, metadataType.FullName, StringComparison.Ordinal))
+            return true;
+
+        return string.Equals(runtimeType.Name, metadataType.Name, StringComparison.Ordinal)
+               && string.Equals(runtimeType.Namespace, metadataType.Namespace, StringComparison.Ordinal);
+    }
+
+    private static bool RuntimeConstructorMatchesSymbol(ConstructorInfo candidate, PEMethodSymbol constructorSymbol, CodeGenerator codeGen)
     {
         if (!string.Equals(candidate.Name, constructorSymbol.MetadataName, StringComparison.Ordinal))
             return false;
@@ -727,87 +853,10 @@ internal static class MethodSymbolCodeGenResolver
         if (!RuntimeTypeMatches(candidate.DeclaringType, constructorSymbol.ContainingType, codeGen))
             return false;
 
-        if (metadataCtor is not null)
-            return RuntimeConstructorMatchesMetadataSignature(candidate, metadataCtor);
+        if (candidate.IsStatic != constructorSymbol.IsStatic)
+            return false;
 
         return ParametersMatch(candidate.GetParameters(), constructorSymbol.Parameters, codeGen);
-    }
-
-    private static bool RuntimeMethodMatchesMetadataSignature(MethodInfo candidate, MethodInfo metadataMethod)
-    {
-        if (candidate.IsStatic != metadataMethod.IsStatic)
-            return false;
-
-        if (candidate.IsGenericMethod != metadataMethod.IsGenericMethod)
-            return false;
-
-        if (candidate.IsGenericMethod &&
-            candidate.GetGenericArguments().Length != metadataMethod.GetGenericArguments().Length)
-            return false;
-
-        if (!ParameterSignaturesMatch(candidate.GetParameters(), metadataMethod.GetParameters()))
-            return false;
-
-        return TypeSignatureEquals(candidate.ReturnType, metadataMethod.ReturnType);
-    }
-
-    private static bool RuntimeConstructorMatchesMetadataSignature(ConstructorInfo candidate, ConstructorInfo metadataCtor)
-    {
-        if (candidate.IsStatic != metadataCtor.IsStatic)
-            return false;
-
-        return ParameterSignaturesMatch(candidate.GetParameters(), metadataCtor.GetParameters());
-    }
-
-    private static bool ParameterSignaturesMatch(ParameterInfo[] runtimeParameters, ParameterInfo[] metadataParameters)
-    {
-        if (runtimeParameters.Length != metadataParameters.Length)
-            return false;
-
-        for (var i = 0; i < runtimeParameters.Length; i++)
-        {
-            if (runtimeParameters[i].IsOut != metadataParameters[i].IsOut)
-                return false;
-
-            if (!TypeSignatureEquals(runtimeParameters[i].ParameterType, metadataParameters[i].ParameterType))
-                return false;
-        }
-
-        return true;
-    }
-
-    private static bool TypeSignatureEquals(Type runtimeType, Type metadataType)
-        => string.Equals(GetTypeSignature(runtimeType), GetTypeSignature(metadataType), StringComparison.Ordinal);
-
-    private static string GetTypeSignature(Type type)
-    {
-        if (type.IsByRef)
-            return $"{GetTypeSignature(type.GetElementType()!)}&";
-
-        if (type.IsPointer)
-            return $"{GetTypeSignature(type.GetElementType()!)}*";
-
-        if (type.IsArray)
-        {
-            var rank = type.GetArrayRank();
-            var suffix = rank == 1 ? "[]" : $"[{new string(',', rank - 1)}]";
-            return $"{GetTypeSignature(type.GetElementType()!)}{suffix}";
-        }
-
-        if (type.IsGenericParameter)
-        {
-            var kind = type.DeclaringMethod is null ? "!" : "!!";
-            return $"{kind}{type.GenericParameterPosition}";
-        }
-
-        if (type.IsGenericType)
-        {
-            var definition = type.IsGenericTypeDefinition ? type : type.GetGenericTypeDefinition();
-            var args = type.GetGenericArguments();
-            return $"{definition.FullName}<{string.Join(",", args.Select(GetTypeSignature))}>";
-        }
-
-        return type.FullName ?? type.Name;
     }
 
     private static bool RuntimeTypeMatches(Type? runtimeType, ITypeSymbol? symbolType, CodeGenerator codeGen)

@@ -19,6 +19,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
 
     public override SymbolKind Kind => SymbolKind.Field;
     public override string Name => _fieldInfo.Name;
+    public override string MetadataName => _fieldInfo.Name;
 
     public virtual ITypeSymbol Type
     {
@@ -34,7 +35,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
     {
         get
         {
-            return _isRequired ??= _fieldInfo.GetCustomAttributesData().Any(attribute => attribute.AttributeType.FullName != "System.Runtime.CompilerServices.RequiredMemberAttribute");
+            return _isRequired ??= _fieldInfo.GetCustomAttributesData().Any(attribute => attribute.AttributeType.FullName == "System.Runtime.CompilerServices.RequiredMemberAttribute");
         }
     }
 

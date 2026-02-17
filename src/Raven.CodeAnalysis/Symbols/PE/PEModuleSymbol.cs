@@ -6,6 +6,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 {
     readonly Dictionary<Type, ITypeSymbol> _typeSymbolTypeInfoMapping = new Dictionary<Type, ITypeSymbol>();
+    readonly Dictionary<string, INamedTypeSymbol> _metadataIdentityTypeMapping = new(StringComparer.Ordinal);
     readonly Dictionary<string, INamedTypeSymbol> _resolvedMetadataTypes = new();
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PEAssemblySymbol _assembly;
@@ -46,6 +47,10 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
     {
         if (_typeSymbolTypeInfoMapping.TryGetValue(type, out var typeSymbol))
             return typeSymbol;
+
+        var metadataIdentity = BuildMetadataIdentity(type);
+        if (_metadataIdentityTypeMapping.TryGetValue(metadataIdentity, out var metadataType))
+            return metadataType;
 
         // If the runtime type belongs to this module's assembly, we can intern it directly.
         // Avoid walking namespaces/members first, as that can create alternate symbol instances.
@@ -89,7 +94,10 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
         var t = currentNamespace.GetMembers(typeName)
                                .OfType<PENamedTypeSymbol>()
-                               .Where(x => x.GetTypeInfo() == type)
+                               .Where(x => string.Equals(
+                                   BuildMetadataIdentity(x.GetTypeInfo().AsType()),
+                                   BuildMetadataIdentity(type),
+                                   StringComparison.Ordinal))
                                .FirstOrDefault();
 
         if (t is not null) return t;
@@ -162,6 +170,10 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         // may interpret the comma in generic argument lists as an assembly separator and throw.
         if (LooksLikeNonMetadataTypeName(fullName))
             return null;
+
+        var metadataIdentity = BuildMetadataIdentity(assembly, fullName);
+        if (_metadataIdentityTypeMapping.TryGetValue(metadataIdentity, out var cached))
+            return cached;
 
         var type = assembly.GetType(fullName, throwOnError: false, ignoreCase: false);
         if (type is not null)
@@ -262,8 +274,21 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         }
 
         _typeSymbolTypeInfoMapping[typeInfo.AsType()] = typeSymbol;
+        _metadataIdentityTypeMapping[BuildMetadataIdentity(typeInfo.AsType())] = typeSymbol;
 
         return typeSymbol;
+    }
+
+    private static string BuildMetadataIdentity(Type type)
+    {
+        var metadataName = type.FullName ?? type.Name;
+        return BuildMetadataIdentity(type.Assembly, metadataName);
+    }
+
+    private static string BuildMetadataIdentity(Assembly assembly, string metadataName)
+    {
+        var assemblyName = assembly.GetName().Name ?? string.Empty;
+        return $"{assemblyName}:{metadataName}";
     }
 
     private INamespaceSymbol GetOrCreateNamespaceSymbol(string? ns)

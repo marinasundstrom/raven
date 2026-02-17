@@ -418,6 +418,39 @@ class Foo : IDisposable {
     }
 
     [Fact]
+    public void Emit_ClassLibrary_UsesSystemRuntimeAssemblyReference()
+    {
+        var code = """
+class Greeter {
+    static Message() -> string {
+        return "Hello";
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        peStream.Position = 0;
+        using var peReader = new PEReader(peStream, PEStreamOptions.PrefetchEntireImage);
+        var metadataReader = peReader.GetMetadataReader();
+
+        var assemblyReferences = metadataReader.AssemblyReferences
+            .Select(metadataReader.GetAssemblyReference)
+            .Select(reference => metadataReader.GetString(reference.Name))
+            .ToArray();
+
+        Assert.Contains("System.Runtime", assemblyReferences);
+        Assert.DoesNotContain("System.Private.CoreLib", assemblyReferences);
+    }
+
+    [Fact]
     public void Emit_InterfaceStaticMembers_EmitsCallableStatics()
     {
         var code = """

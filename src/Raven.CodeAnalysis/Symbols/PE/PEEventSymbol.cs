@@ -155,7 +155,7 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
 
     private static bool TypesEqual(Type? a, Type? b)
     {
-        return a == b;
+        return PEReflectionTypeIdentity.AreEquivalent(a, b);
     }
 
     public EventInfo GetEventInfo()

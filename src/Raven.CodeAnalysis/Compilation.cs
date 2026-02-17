@@ -95,6 +95,7 @@ public partial class Compilation
 
     public Assembly CoreAssembly { get; private set; }
     public Assembly RuntimeCoreAssembly { get; private set; }
+    internal Assembly EmitCoreAssembly { get; private set; }
 
     internal BinderFactory BinderFactory { get; private set; }
 
@@ -221,6 +222,7 @@ public partial class Compilation
 
         CoreAssembly = _metadataLoadContext.CoreAssembly!;
         RuntimeCoreAssembly = typeof(object).Assembly;
+        EmitCoreAssembly = ResolveEmitCoreAssembly() ?? RuntimeCoreAssembly;
         RegisterRuntimeAssembly(CoreAssembly, RuntimeCoreAssembly.Location);
 
         foreach (var metadataReference in References)
@@ -308,6 +310,39 @@ public partial class Compilation
     }
 
     internal ReflectionTypeLoader ReflectionTypeLoader => _reflectionTypeLoader ??= new ReflectionTypeLoader(this);
+
+    private Assembly? ResolveEmitCoreAssembly()
+    {
+        var loadedSystemRuntime = AppDomain.CurrentDomain
+            .GetAssemblies()
+            .FirstOrDefault(static assembly =>
+                string.Equals(assembly.GetName().Name, "System.Runtime", StringComparison.OrdinalIgnoreCase));
+        if (loadedSystemRuntime is not null)
+            return loadedSystemRuntime;
+
+        if (_assemblyPathMap.TryGetValue("System.Runtime", out var systemRuntimePath))
+        {
+            try
+            {
+                var identity = System.Reflection.AssemblyName.GetAssemblyName(systemRuntimePath);
+                var loaded = LoadRuntimeAssemblyFromPath(identity, systemRuntimePath);
+                if (loaded is not null)
+                    return loaded;
+            }
+            catch
+            {
+            }
+        }
+
+        try
+        {
+            return System.Reflection.Assembly.Load("System.Runtime");
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     private void InitializeTopLevelPrograms()
     {

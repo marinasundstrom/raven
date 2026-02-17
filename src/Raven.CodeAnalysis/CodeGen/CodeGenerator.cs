@@ -795,7 +795,7 @@ internal class CodeGenerator
                 Version = new Version(1, 0, 0, 0)
             };
 
-            AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.RuntimeCoreAssembly);
+            AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.EmitCoreAssembly);
             ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
             ApplyCustomAttributes(_compilation.Assembly.GetAttributes(), attribute => AssemblyBuilder.SetCustomAttribute(attribute));
 
@@ -932,7 +932,15 @@ internal class CodeGenerator
             BlobBuilder peBlob = new BlobBuilder();
             peBuilder.Serialize(peBlob);
 
-            peBlob.WriteContentTo(peStream);
+            using var rawPeStream = new MemoryStream();
+            peBlob.WriteContentTo(rawPeStream);
+
+            // Reflection.Emit binds core types to System.Private.CoreLib runtime identities.
+            // Normalize to System.Runtime so emitted assemblies are consumable from regular .NET projects.
+            if (_compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
+                AssemblyReferenceNormalizer.NormalizeCoreLibReference(rawPeStream, peStream);
+            else
+                rawPeStream.WriteTo(peStream);
         }
         catch (Exception ex)
         {

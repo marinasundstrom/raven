@@ -132,6 +132,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     }
 
     public override SymbolKind Kind => SymbolKind.Method;
+    internal MethodBase ReflectionMethodBase => _methodInfo;
 
     public override string Name
     {
@@ -450,8 +451,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     private static bool TypesEqual(Type a, Type b)
     {
-        // In MetadataLoadContext, Type objects from the same context are comparable by reference
-        return a == b;
+        return PEReflectionTypeIdentity.AreEquivalent(a, b);
     }
 
     public ImmutableArray<ITypeParameterSymbol> TypeParameters =>

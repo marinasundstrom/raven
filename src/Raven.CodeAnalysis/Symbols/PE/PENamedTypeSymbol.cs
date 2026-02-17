@@ -78,6 +78,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     protected readonly ReflectionTypeLoader _reflectionTypeLoader;
     protected readonly System.Reflection.TypeInfo _typeInfo;
+    private readonly PETypeIdentity _metadataIdentity;
     private readonly bool _isValueType;
     private readonly List<ISymbol> _members = new(); //new(SymbolEqualityComparer.Default);
     private INamedTypeSymbol? _baseType;
@@ -264,6 +265,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     {
         _reflectionTypeLoader = reflectionTypeLoader;
         _typeInfo = typeInfo;
+        _metadataIdentity = new PETypeIdentity(
+            typeInfo.Assembly.GetName().Name ?? string.Empty,
+            BuildMetadataName(typeInfo.AsType()));
 
         _isValueType = IsValueTypeLike(typeInfo);
 
@@ -291,6 +295,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         (_constructedFrom, _originalDefinition) = ResolveGenericOrigins();
     }
+
+    internal PETypeIdentity MetadataIdentity => _metadataIdentity;
 
     internal ITypeSymbol? GetExtensionReceiverType()
     {
@@ -831,5 +837,13 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public override void Complete()
     {
         IsCompleted = true;
+    }
+
+    private static string BuildMetadataName(Type type)
+    {
+        if (type.DeclaringType is { } declaringType)
+            return $"{BuildMetadataName(declaringType)}+{type.Name}";
+
+        return type.FullName ?? type.Name;
     }
 }

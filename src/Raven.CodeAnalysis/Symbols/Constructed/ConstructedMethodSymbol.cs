@@ -613,8 +613,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         var peDefinitionMethod = _definition as PEMethodSymbol;
-        var peMetadataMethodInfo = peDefinitionMethod?.GetMethodBase() as MethodInfo;
-        var usePeDefinitionSignatureMatch = peMetadataMethodInfo is not null;
+        var usePeDefinitionSymbolMatch = peDefinitionMethod is not null;
 
         foreach (var method in methodSearchType.GetMethods(Flags))
         {
@@ -664,22 +663,20 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 ? candidate.DeclaringType.GetGenericArguments()
                 : Array.Empty<Type>();
 
-            if (usePeDefinitionSignatureMatch)
+            if (usePeDefinitionSymbolMatch)
             {
                 var candidateDefinition = candidate.IsGenericMethod && !candidate.IsGenericMethodDefinition
                     ? candidate.GetGenericMethodDefinition()
                     : candidate;
 
-                if (!MethodDefinitionSignatureMatches(candidateDefinition, peMetadataMethodInfo!))
+                if (!MethodDefinitionMatchesPeSymbol(candidateDefinition, peDefinitionMethod!))
                 {
                     if (debug)
                     {
-                        Console.Error.WriteLine($"  Rejected candidate {candidate} due to definition-signature mismatch.");
+                        Console.Error.WriteLine($"  Rejected candidate {candidate} due to symbol-signature mismatch.");
                     }
                     continue;
                 }
-
-                return candidate;
             }
 
             var parametersMatch = ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen, debug);
@@ -751,46 +748,165 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
     }
 
-    private static bool MethodDefinitionSignatureMatches(MethodInfo runtimeDefinition, MethodInfo metadataDefinition)
+    private static bool MethodDefinitionMatchesPeSymbol(MethodInfo runtimeDefinition, PEMethodSymbol symbolDefinition)
     {
-        if (!string.Equals(runtimeDefinition.Name, metadataDefinition.Name, StringComparison.Ordinal))
+        if (symbolDefinition.ReflectionMethodBase is MethodInfo metadataMethod)
+            return RuntimeDefinitionMatchesMetadataMethod(runtimeDefinition, metadataMethod);
+
+        if (!string.Equals(runtimeDefinition.Name, symbolDefinition.MetadataName, StringComparison.Ordinal))
             return false;
 
-        if (runtimeDefinition.IsStatic != metadataDefinition.IsStatic)
+        if (runtimeDefinition.IsStatic != symbolDefinition.IsStatic)
             return false;
 
-        if (runtimeDefinition.IsGenericMethod != metadataDefinition.IsGenericMethod)
+        if (runtimeDefinition.IsGenericMethod != symbolDefinition.IsGenericMethod)
             return false;
 
         if (runtimeDefinition.IsGenericMethod &&
-            runtimeDefinition.GetGenericArguments().Length != metadataDefinition.GetGenericArguments().Length)
+            runtimeDefinition.GetGenericArguments().Length != symbolDefinition.TypeParameters.Length)
             return false;
 
-        if (!ParameterSignatureMatches(runtimeDefinition.GetParameters(), metadataDefinition.GetParameters()))
+        var runtimeParameters = runtimeDefinition.GetParameters();
+        if (runtimeParameters.Length != symbolDefinition.Parameters.Length)
             return false;
 
-        return TypeSignatureEquals(runtimeDefinition.ReturnType, metadataDefinition.ReturnType);
+        for (var i = 0; i < runtimeParameters.Length; i++)
+        {
+            var runtimeParameter = runtimeParameters[i];
+            var symbolParameter = symbolDefinition.Parameters[i];
+
+            if (symbolParameter.RefKind == RefKind.Out && !runtimeParameter.IsOut)
+                return false;
+
+            if (symbolParameter.RefKind == RefKind.Ref && !runtimeParameter.ParameterType.IsByRef)
+                return false;
+
+            if (!TypeSignatureEquals(runtimeParameter.ParameterType, symbolParameter.Type))
+                return false;
+        }
+
+        return TypeSignatureEquals(runtimeDefinition.ReturnType, symbolDefinition.ReturnType);
     }
 
-    private static bool ParameterSignatureMatches(ParameterInfo[] runtimeParameters, ParameterInfo[] metadataParameters)
+    private static bool RuntimeDefinitionMatchesMetadataMethod(MethodInfo runtimeDefinition, MethodInfo metadataMethod)
     {
+        if (!string.Equals(runtimeDefinition.Name, metadataMethod.Name, StringComparison.Ordinal))
+            return false;
+
+        if (runtimeDefinition.IsStatic != metadataMethod.IsStatic)
+            return false;
+
+        if (runtimeDefinition.IsGenericMethod != metadataMethod.IsGenericMethod)
+            return false;
+
+        if (runtimeDefinition.IsGenericMethod &&
+            runtimeDefinition.GetGenericArguments().Length != metadataMethod.GetGenericArguments().Length)
+        {
+            return false;
+        }
+
+        var runtimeParameters = runtimeDefinition.GetParameters();
+        var metadataParameters = metadataMethod.GetParameters();
         if (runtimeParameters.Length != metadataParameters.Length)
             return false;
 
         for (var i = 0; i < runtimeParameters.Length; i++)
         {
-            if (runtimeParameters[i].IsOut != metadataParameters[i].IsOut)
-                return false;
-
-            if (!TypeSignatureEquals(runtimeParameters[i].ParameterType, metadataParameters[i].ParameterType))
+            if (!RuntimeTypeMatchesMetadataType(runtimeParameters[i].ParameterType, metadataParameters[i].ParameterType))
                 return false;
         }
 
-        return true;
+        return RuntimeTypeMatchesMetadataType(runtimeDefinition.ReturnType, metadataMethod.ReturnType);
+    }
+
+    private static bool RuntimeTypeMatchesMetadataType(Type runtimeType, Type metadataType)
+    {
+        if (runtimeType.IsByRef || metadataType.IsByRef)
+        {
+            if (runtimeType.IsByRef != metadataType.IsByRef)
+                return false;
+
+            return RuntimeTypeMatchesMetadataType(runtimeType.GetElementType()!, metadataType.GetElementType()!);
+        }
+
+        if (runtimeType.IsPointer || metadataType.IsPointer)
+        {
+            if (runtimeType.IsPointer != metadataType.IsPointer)
+                return false;
+
+            return RuntimeTypeMatchesMetadataType(runtimeType.GetElementType()!, metadataType.GetElementType()!);
+        }
+
+        if (runtimeType.IsArray || metadataType.IsArray)
+        {
+            if (runtimeType.IsArray != metadataType.IsArray)
+                return false;
+
+            if (runtimeType.GetArrayRank() != metadataType.GetArrayRank())
+                return false;
+
+            return RuntimeTypeMatchesMetadataType(runtimeType.GetElementType()!, metadataType.GetElementType()!);
+        }
+
+        if (runtimeType.IsGenericParameter || metadataType.IsGenericParameter)
+        {
+            if (runtimeType.IsGenericParameter != metadataType.IsGenericParameter)
+                return false;
+
+            if (runtimeType.GenericParameterPosition != metadataType.GenericParameterPosition)
+                return false;
+
+            return (runtimeType.DeclaringMethod is not null) == (metadataType.DeclaringMethod is not null);
+        }
+
+        if (runtimeType.IsGenericType || metadataType.IsGenericType)
+        {
+            if (runtimeType.IsGenericType != metadataType.IsGenericType)
+                return false;
+
+            var runtimeDefinition = runtimeType.IsGenericTypeDefinition
+                ? runtimeType
+                : runtimeType.GetGenericTypeDefinition();
+            var metadataDefinition = metadataType.IsGenericTypeDefinition
+                ? metadataType
+                : metadataType.GetGenericTypeDefinition();
+
+            if (!string.Equals(runtimeDefinition.FullName, metadataDefinition.FullName, StringComparison.Ordinal) &&
+                !(string.Equals(runtimeDefinition.Name, metadataDefinition.Name, StringComparison.Ordinal) &&
+                  string.Equals(runtimeDefinition.Namespace, metadataDefinition.Namespace, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            var runtimeArgs = runtimeType.GetGenericArguments();
+            var metadataArgs = metadataType.GetGenericArguments();
+            if (runtimeArgs.Length != metadataArgs.Length)
+                return false;
+
+            for (var i = 0; i < runtimeArgs.Length; i++)
+            {
+                if (!RuntimeTypeMatchesMetadataType(runtimeArgs[i], metadataArgs[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        if (runtimeType == metadataType)
+            return true;
+
+        if (string.Equals(runtimeType.FullName, metadataType.FullName, StringComparison.Ordinal))
+            return true;
+
+        return string.Equals(runtimeType.Name, metadataType.Name, StringComparison.Ordinal)
+               && string.Equals(runtimeType.Namespace, metadataType.Namespace, StringComparison.Ordinal);
     }
 
     private static bool TypeSignatureEquals(Type runtimeType, Type metadataType)
         => string.Equals(GetTypeSignature(runtimeType), GetTypeSignature(metadataType), StringComparison.Ordinal);
+
+    private static bool TypeSignatureEquals(Type runtimeType, ITypeSymbol symbolType)
+        => string.Equals(GetTypeSignature(runtimeType), GetTypeSignature(symbolType), StringComparison.Ordinal);
 
     private static string GetTypeSignature(Type type)
     {
@@ -821,6 +937,42 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         return type.FullName ?? type.Name;
+    }
+
+    private static string GetTypeSignature(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            var rank = arrayType.Rank;
+            var suffix = rank == 1 ? "[]" : $"[{new string(',', rank - 1)}]";
+            return $"{GetTypeSignature(arrayType.ElementType)}{suffix}";
+        }
+
+        if (typeSymbol is IPointerTypeSymbol pointerType)
+            return $"{GetTypeSignature(pointerType.PointedAtType)}*";
+
+        if (typeSymbol is RefTypeSymbol refType)
+            return $"{GetTypeSignature(refType.ElementType)}&";
+
+        if (typeSymbol is ITypeParameterSymbol typeParameter)
+        {
+            var kind = typeParameter.OwnerKind == TypeParameterOwnerKind.Method ? "!!" : "!";
+            return $"{kind}{typeParameter.Ordinal}";
+        }
+
+        if (typeSymbol is INamedTypeSymbol namedType)
+        {
+            var definition = namedType.OriginalDefinition;
+            var typeArguments = namedType.TypeArguments;
+            var metadataName = definition.ToFullyQualifiedMetadataName();
+
+            if (typeArguments.IsDefaultOrEmpty || typeArguments.Length == 0)
+                return metadataName;
+
+            return $"{metadataName}<{string.Join(",", typeArguments.Select(GetTypeSignature))}>";
+        }
+
+        return typeSymbol.ToDisplayString();
     }
 
     private bool TryResolveFromCachedDefinition(
