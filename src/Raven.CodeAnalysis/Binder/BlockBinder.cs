@@ -2185,16 +2185,7 @@ partial class BlockBinder : Binder
         if (resultDefinition is null)
             return ErrorExpression();
 
-        INamedTypeSymbol? resultType = null;
-
-        if (expressionType is INamedTypeSymbol nt && (nt.ConstructedFrom?.Equals(resultDefinition, SymbolEqualityComparer.Default) ?? false))
-        {
-            resultType = (INamedTypeSymbol?)expressionType;
-        }
-        else
-        {
-            resultType = (INamedTypeSymbol?)resultDefinition.Construct(expressionType, exceptionType);
-        }
+        var resultType = (INamedTypeSymbol?)resultDefinition.Construct(expressionType, exceptionType);
 
         var union = resultType.TryGetDiscriminatedUnion();
         if (union is null)

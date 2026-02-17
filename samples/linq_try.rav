@@ -1,0 +1,14 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+
+val arr = [1, 2, 3]
+
+val x = try arr.FirstOrError(() => DomainError.NotFound)
+
+WriteLine(x)
+
+union DomainError {
+    NotFound
+    Unexpected(exception: Exception)
+}
