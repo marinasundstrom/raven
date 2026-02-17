@@ -166,6 +166,7 @@ public partial class SemanticModel
         INamespaceSymbol parentNamespace,
         INamedTypeSymbol? objectType)
     {
+        ReportInvalidTypeModifiers(classDecl, isNestedType: false, _declarationDiagnostics);
         ReportRedundantTypeModifiers(classDecl, _declarationDiagnostics);
 
         var declaredTypeKind = IsStructLikeNominalType(classDecl)
@@ -284,6 +285,7 @@ public partial class SemanticModel
             {
                 case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
                     {
+                        ReportInvalidTypeModifiers(nestedClass, isNestedType: true, _declarationDiagnostics);
                         ReportRedundantTypeModifiers(nestedClass, _declarationDiagnostics);
 
                         var nestedTypeKind = IsStructLikeNominalType(nestedClass)
@@ -368,6 +370,8 @@ public partial class SemanticModel
 
                 case InterfaceDeclarationSyntax nestedInterface:
                     {
+                        ReportInvalidTypeModifiers(nestedInterface, isNestedType: true, _declarationDiagnostics);
+
                         var nestedInterfaceSymbol = new SourceNamedTypeSymbol(
                             nestedInterface.Identifier.ValueText,
                             objectType!,
@@ -391,6 +395,8 @@ public partial class SemanticModel
 
                 case EnumDeclarationSyntax enumDecl:
                     {
+                        ReportInvalidTypeModifiers(enumDecl, isNestedType: true, _declarationDiagnostics);
+
                         var enumSymbol = new SourceNamedTypeSymbol(
                             enumDecl.Identifier.ValueText,
                             Compilation.GetTypeByMetadataName("System.Enum"),
@@ -412,6 +418,8 @@ public partial class SemanticModel
 
                 case UnionDeclarationSyntax nestedUnion:
                     {
+                        ReportInvalidTypeModifiers(nestedUnion, isNestedType: true, _declarationDiagnostics);
+
                         var unionSymbol = new SourceDiscriminatedUnionSymbol(
                             nestedUnion.Identifier.ValueText,
                             Compilation.GetSpecialType(SpecialType.System_ValueType)!,
@@ -431,6 +439,8 @@ public partial class SemanticModel
 
                 case DelegateDeclarationSyntax delegateDecl:
                     {
+                        ReportInvalidTypeModifiers(delegateDecl, isNestedType: true, _declarationDiagnostics);
+
                         var delegateAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             delegateDecl.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
@@ -459,6 +469,8 @@ public partial class SemanticModel
 
     private void DeclareDelegateSymbol(DelegateDeclarationSyntax delegateDecl, INamespaceSymbol parentNamespace)
     {
+        ReportInvalidTypeModifiers(delegateDecl, isNestedType: false, _declarationDiagnostics);
+
         ReportExternalTypeRedeclaration(
             parentNamespace,
             delegateDecl.Identifier,
@@ -491,6 +503,8 @@ public partial class SemanticModel
 
     private void DeclareInterfaceSymbol(InterfaceDeclarationSyntax interfaceDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
     {
+        ReportInvalidTypeModifiers(interfaceDecl, isNestedType: false, _declarationDiagnostics);
+
         ReportExternalTypeRedeclaration(
             parentNamespace,
             interfaceDecl.Identifier,
@@ -518,6 +532,8 @@ public partial class SemanticModel
 
     private void DeclareExtensionSymbol(ExtensionDeclarationSyntax extensionDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
     {
+        ReportInvalidTypeModifiers(extensionDecl, isNestedType: false, _declarationDiagnostics);
+
         var extensionAccessibility = AccessibilityUtilities.DetermineAccessibility(
             extensionDecl.Modifiers,
             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
@@ -560,6 +576,8 @@ public partial class SemanticModel
 
     private void DeclareEnumSymbol(EnumDeclarationSyntax enumDecl, INamespaceSymbol parentNamespace)
     {
+        ReportInvalidTypeModifiers(enumDecl, isNestedType: false, _declarationDiagnostics);
+
         var enumAccessibility = AccessibilityUtilities.DetermineAccessibility(
             enumDecl.Modifiers,
             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
@@ -587,6 +605,8 @@ public partial class SemanticModel
 
     private void DeclareUnionSymbol(UnionDeclarationSyntax unionDecl, INamespaceSymbol parentNamespace)
     {
+        ReportInvalidTypeModifiers(unionDecl, isNestedType: false, _declarationDiagnostics);
+
         var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
         var namespaceSymbol = parentNamespace.AsSourceNamespace();
         ReportExternalTypeRedeclaration(
@@ -1430,6 +1450,136 @@ public partial class SemanticModel
         diagnostics.ReportAbstractModifierRedundantOnSealedClass(
             declaration.Identifier.ValueText,
             abstractModifier.GetLocation());
+    }
+
+    private static void ReportInvalidTypeModifiers(
+        MemberDeclarationSyntax declaration,
+        bool isNestedType,
+        DiagnosticBag diagnostics)
+    {
+        var (typeName, typeKind, modifiers, allowed) = declaration switch
+        {
+            ClassDeclarationSyntax classDecl => (
+                classDecl.Identifier.ValueText,
+                "class",
+                classDecl.Modifiers,
+                new HashSet<SyntaxKind>
+                {
+                    SyntaxKind.PublicKeyword,
+                    SyntaxKind.PrivateKeyword,
+                    SyntaxKind.InternalKeyword,
+                    SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.StaticKeyword,
+                    SyntaxKind.AbstractKeyword,
+                    SyntaxKind.SealedKeyword,
+                    SyntaxKind.PartialKeyword,
+                    SyntaxKind.OpenKeyword,
+                }),
+            RecordDeclarationSyntax recordDecl => (
+                recordDecl.Identifier.ValueText,
+                "record",
+                recordDecl.Modifiers,
+                new HashSet<SyntaxKind>
+                {
+                    SyntaxKind.PublicKeyword,
+                    SyntaxKind.PrivateKeyword,
+                    SyntaxKind.InternalKeyword,
+                    SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.StaticKeyword,
+                    SyntaxKind.AbstractKeyword,
+                    SyntaxKind.SealedKeyword,
+                    SyntaxKind.PartialKeyword,
+                    SyntaxKind.OpenKeyword,
+                    SyntaxKind.RecordKeyword,
+                }),
+            StructDeclarationSyntax structDecl => (
+                structDecl.Identifier.ValueText,
+                "struct",
+                structDecl.Modifiers,
+                new HashSet<SyntaxKind>
+                {
+                    SyntaxKind.PublicKeyword,
+                    SyntaxKind.PrivateKeyword,
+                    SyntaxKind.InternalKeyword,
+                    SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.PartialKeyword,
+                }),
+            InterfaceDeclarationSyntax interfaceDecl => (
+                interfaceDecl.Identifier.ValueText,
+                "interface",
+                interfaceDecl.Modifiers,
+                new HashSet<SyntaxKind>
+                {
+                    SyntaxKind.PublicKeyword,
+                    SyntaxKind.PrivateKeyword,
+                    SyntaxKind.InternalKeyword,
+                    SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.PartialKeyword,
+                }),
+            EnumDeclarationSyntax enumDecl => (
+                enumDecl.Identifier.ValueText,
+                "enum",
+                enumDecl.Modifiers,
+                new HashSet<SyntaxKind>
+                {
+                    SyntaxKind.PublicKeyword,
+                    SyntaxKind.PrivateKeyword,
+                    SyntaxKind.InternalKeyword,
+                    SyntaxKind.ProtectedKeyword,
+                }),
+            DelegateDeclarationSyntax delegateDecl => (
+                delegateDecl.Identifier.ValueText,
+                "delegate",
+                delegateDecl.Modifiers,
+                new HashSet<SyntaxKind>
+                {
+                    SyntaxKind.PublicKeyword,
+                    SyntaxKind.PrivateKeyword,
+                    SyntaxKind.InternalKeyword,
+                    SyntaxKind.ProtectedKeyword,
+                }),
+            ExtensionDeclarationSyntax extensionDecl => (
+                extensionDecl.Identifier.ValueText,
+                "extension",
+                extensionDecl.Modifiers,
+                new HashSet<SyntaxKind>
+                {
+                    SyntaxKind.PublicKeyword,
+                    SyntaxKind.PrivateKeyword,
+                    SyntaxKind.InternalKeyword,
+                    SyntaxKind.ProtectedKeyword,
+                }),
+            UnionDeclarationSyntax unionDecl => (
+                unionDecl.Identifier.ValueText,
+                "union",
+                unionDecl.Modifiers,
+                new HashSet<SyntaxKind>
+                {
+                    SyntaxKind.PublicKeyword,
+                    SyntaxKind.PrivateKeyword,
+                    SyntaxKind.InternalKeyword,
+                    SyntaxKind.ProtectedKeyword,
+                }),
+            _ => (null, null, default, null),
+        };
+
+        if (typeName is null || typeKind is null || allowed is null)
+            return;
+
+        foreach (var modifier in modifiers)
+        {
+            var kind = modifier.Kind;
+            var text = modifier.Text;
+
+            if (kind is SyntaxKind.PrivateKeyword or SyntaxKind.ProtectedKeyword && !isNestedType)
+            {
+                diagnostics.ReportModifierNotValidOnMember(text, typeKind, typeName, modifier.GetLocation());
+                continue;
+            }
+
+            if (!allowed.Contains(kind))
+                diagnostics.ReportModifierNotValidOnMember(text, typeKind, typeName, modifier.GetLocation());
+        }
     }
 
     private static INamedTypeSymbol? GetDefaultBaseTypeForNominalDeclaration(
