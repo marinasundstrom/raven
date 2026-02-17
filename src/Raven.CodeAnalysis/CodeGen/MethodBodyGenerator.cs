@@ -2725,7 +2725,7 @@ internal class MethodBodyGenerator
             return;
 
         var endsWithTerminator = statements.Count > 0 &&
-            statements[^1] is BoundReturnStatement or BoundThrowStatement;
+            IsTerminatingStatement(statements[^1]);
 
         if (!endsWithTerminator && ShouldEmitImplicitReturn())
         {
@@ -2745,6 +2745,21 @@ internal class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Newobj, invalidOperationCtor);
             ILGenerator.Emit(OpCodes.Throw);
         }
+    }
+
+    private static bool IsTerminatingStatement(BoundStatement statement)
+    {
+        return statement switch
+        {
+            BoundReturnStatement => true,
+            BoundThrowStatement => true,
+            BoundExpressionStatement { Expression: BoundReturnExpression or BoundThrowExpression } => true,
+            BoundBlockStatement block when block.Statements.Any() => IsTerminatingStatement(block.Statements.Last()),
+            BoundIfStatement { ElseNode: not null } ifStatement =>
+                IsTerminatingStatement(ifStatement.ThenNode) &&
+                IsTerminatingStatement(ifStatement.ElseNode!),
+            _ => false,
+        };
     }
 
     private sealed class LocalCollector : Raven.CodeAnalysis.BoundTreeWalker

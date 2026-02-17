@@ -84,6 +84,9 @@ internal class StatementGenerator : Generator
     {
         var scope = new Scope(this);
         var hasElse = ifStatement.ElseNode is not null;
+        var thenTerminates = IsTerminatingStatement(ifStatement.ThenNode);
+        var elseTerminates = hasElse && IsTerminatingStatement(ifStatement.ElseNode!);
+        var bothBranchesTerminate = hasElse && thenTerminates && elseTerminates;
         var endLabel = ILGenerator.DefineLabel();
         var elseLabel = hasElse
             ? ILGenerator.DefineLabel()
@@ -101,6 +104,9 @@ internal class StatementGenerator : Generator
 
             ILGenerator.MarkLabel(elseLabel);
             new StatementGenerator(new Scope(this), ifStatement.ElseNode!).Emit();
+
+            if (bothBranchesTerminate)
+                return;
         }
 
         ILGenerator.MarkLabel(endLabel);

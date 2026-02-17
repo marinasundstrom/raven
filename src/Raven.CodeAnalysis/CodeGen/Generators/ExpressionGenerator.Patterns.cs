@@ -1230,6 +1230,16 @@ internal partial class ExpressionGenerator
             return;
         }
 
+        // String fast path: compare directly via string.op_Equality.
+        // This avoids object temp/null/isinst scaffolding for common string cases.
+        if (scrutineeType.SpecialType == SpecialType.System_String && value is string stringValue)
+        {
+            ILGenerator.Emit(OpCodes.Ldstr, stringValue);
+            var opEq = typeof(string).GetMethod("op_Equality", new[] { typeof(string), typeof(string) })!;
+            ILGenerator.Emit(OpCodes.Call, opEq);
+            return;
+        }
+
         // Nullable<T> value types
         if (scrutineeType.IsNullable && scrutineeType.GetNullableUnderlyingType()!.IsValueType)
         {
@@ -2225,6 +2235,64 @@ internal partial class ExpressionGenerator
             }
 
             return;
+        }
+
+        // Unary/binary logical patterns can be emitted in branch form directly.
+        if (pattern is BoundUnaryPattern unaryPattern)
+        {
+            if (unaryPattern.Kind == BoundUnaryPatternKind.Not)
+            {
+                var scrutineeClr = ResolveClrType(inputType);
+                var scrutineeLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(scrutineeClr);
+                ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
+
+                var labelInnerFailed = ILGenerator.DefineLabel();
+                ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+                EmitPatternBranchFalse(unaryPattern.Pattern, inputType, scope, labelInnerFailed, scrutineeLocal);
+
+                // Inner pattern matched => `not` fails.
+                ILGenerator.Emit(OpCodes.Br, labelFail);
+                ILGenerator.MarkLabel(labelInnerFailed);
+                return;
+            }
+
+            throw new NotSupportedException("Unsupported unary pattern kind");
+        }
+
+        if (pattern is BoundBinaryPattern binaryPattern)
+        {
+            var scrutineeClr = ResolveClrType(inputType);
+            var scrutineeLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(scrutineeClr);
+            ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
+
+            if (binaryPattern.Kind == BoundPatternKind.And)
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+                EmitPatternBranchFalse(binaryPattern.Left, inputType, scope, labelFail, scrutineeLocal);
+
+                ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+                EmitPatternBranchFalse(binaryPattern.Right, inputType, scope, labelFail, scrutineeLocal);
+                return;
+            }
+
+            if (binaryPattern.Kind == BoundPatternKind.Or)
+            {
+                var labelTryRight = ILGenerator.DefineLabel();
+                var labelSuccess = ILGenerator.DefineLabel();
+
+                ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+                EmitPatternBranchFalse(binaryPattern.Left, inputType, scope, labelTryRight, scrutineeLocal);
+                ILGenerator.Emit(OpCodes.Br, labelSuccess);
+
+                ILGenerator.MarkLabel(labelTryRight);
+                ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+                EmitPatternBranchFalse(binaryPattern.Right, inputType, scope, labelFail, scrutineeLocal);
+
+                ILGenerator.MarkLabel(labelSuccess);
+                return;
+            }
+
+            throw new NotSupportedException("Unsupported binary pattern kind");
         }
 
         // Unary/binary/tuple/property/deconstruct: fall back to bool form for now.

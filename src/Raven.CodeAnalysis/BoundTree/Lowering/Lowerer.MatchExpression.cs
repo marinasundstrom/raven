@@ -31,9 +31,11 @@ internal sealed partial class Lowerer
         }
 
         var endLabel = CreateLabel("match_end");
+        var needsEndLabel = false;
 
-        foreach (var arm in node.Arms)
+        for (var armIndex = 0; armIndex < node.Arms.Length; armIndex++)
         {
+            var arm = node.Arms[armIndex];
             var pattern = RewriteNullDiscardPattern(arm.Pattern, compilation);
             var guard = (BoundExpression?)VisitExpression(arm.Guard);
             var expression = (BoundExpression)VisitExpression(arm.Expression)!;
@@ -46,6 +48,18 @@ internal sealed partial class Lowerer
                     new BoundGotoStatement(endLabel)
                 ]);
 
+            if (!IsTerminatingStatement(armStatement))
+                needsEndLabel = true;
+
+            // Final catch-all arm without guard can be emitted directly.
+            // This avoids generating redundant always-true condition scaffolding.
+            var isFinalArm = armIndex == node.Arms.Length - 1;
+            if (isFinalArm && guard is null && pattern is BoundDiscardPattern)
+            {
+                statements.Add(armResult);
+                break;
+            }
+
             if (guard is not null)
                 armResult = new BoundIfStatement(guard, armResult, null);
 
@@ -57,7 +71,8 @@ internal sealed partial class Lowerer
             statements.Add(new BoundIfStatement(condition, armResult, null));
         }
 
-        statements.Add(CreateLabelStatement(endLabel));
+        if (needsEndLabel)
+            statements.Add(CreateLabelStatement(endLabel));
         return new BoundBlockStatement(statements);
     }
 
