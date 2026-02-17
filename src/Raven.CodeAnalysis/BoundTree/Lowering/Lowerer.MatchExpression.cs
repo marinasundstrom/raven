@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -37,10 +38,13 @@ internal sealed partial class Lowerer
             var guard = (BoundExpression?)VisitExpression(arm.Guard);
             var expression = (BoundExpression)VisitExpression(arm.Expression)!;
 
-            BoundStatement armResult = new BoundBlockStatement([
-                new BoundExpressionStatement(expression),
-                new BoundGotoStatement(endLabel)
-            ]);
+            var armStatement = ConvertExpressionToStatement(expression);
+            BoundStatement armResult = IsTerminatingStatement(armStatement)
+                ? armStatement
+                : new BoundBlockStatement([
+                    armStatement,
+                    new BoundGotoStatement(endLabel)
+                ]);
 
             if (guard is not null)
                 armResult = new BoundIfStatement(guard, armResult, null);
@@ -138,5 +142,35 @@ internal sealed partial class Lowerer
         }
 
         return pattern;
+    }
+
+    private static BoundStatement ConvertExpressionToStatement(BoundExpression expression)
+    {
+        return expression switch
+        {
+            BoundIfExpression ifExpr => new BoundIfStatement(
+                ifExpr.Condition,
+                ConvertExpressionToStatement(ifExpr.ThenBranch),
+                ifExpr.ElseBranch is not null ? ConvertExpressionToStatement(ifExpr.ElseBranch) : null),
+            BoundBlockExpression blockExpr => new BoundBlockStatement(blockExpr.Statements, blockExpr.LocalsToDispose),
+            BoundReturnExpression returnExpr => new BoundReturnStatement(returnExpr.Expression),
+            BoundThrowExpression throwExpr => new BoundThrowStatement(throwExpr.Expression),
+            BoundAssignmentExpression assignmentExpr => new BoundAssignmentStatement(assignmentExpr),
+            _ => new BoundExpressionStatement(expression),
+        };
+    }
+
+    private static bool IsTerminatingStatement(BoundStatement statement)
+    {
+        return statement switch
+        {
+            BoundReturnStatement => true,
+            BoundThrowStatement => true,
+            BoundBlockStatement block when block.Statements.Any() => IsTerminatingStatement(block.Statements.Last()),
+            BoundIfStatement { ElseNode: not null } nestedIf =>
+                IsTerminatingStatement(nestedIf.ThenNode) &&
+                IsTerminatingStatement(nestedIf.ElseNode!),
+            _ => false,
+        };
     }
 }

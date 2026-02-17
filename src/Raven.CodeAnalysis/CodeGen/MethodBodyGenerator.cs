@@ -2731,6 +2731,19 @@ internal class MethodBodyGenerator
         {
             ILGenerator.Emit(OpCodes.Nop);
             ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        if (!endsWithTerminator &&
+            MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit)
+        {
+            // Defensive fallback: keep emitted IL verifiable even when branch-shape analysis
+            // cannot prove all paths in a non-void method return.
+            var invalidOperationCtor = typeof(InvalidOperationException)
+                .GetConstructor(new[] { typeof(string) })!;
+            ILGenerator.Emit(OpCodes.Ldstr, "Control reached end of non-void member without returning a value.");
+            ILGenerator.Emit(OpCodes.Newobj, invalidOperationCtor);
+            ILGenerator.Emit(OpCodes.Throw);
         }
     }
 

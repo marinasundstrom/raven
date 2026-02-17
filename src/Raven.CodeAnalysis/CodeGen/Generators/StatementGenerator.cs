@@ -96,13 +96,30 @@ internal class StatementGenerator : Generator
 
         if (hasElse)
         {
-            ILGenerator.Emit(OpCodes.Br, endLabel);
+            if (!IsTerminatingStatement(ifStatement.ThenNode))
+                ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(elseLabel);
             new StatementGenerator(new Scope(this), ifStatement.ElseNode!).Emit();
         }
 
         ILGenerator.MarkLabel(endLabel);
+        ILGenerator.Emit(OpCodes.Nop);
+    }
+
+    private static bool IsTerminatingStatement(BoundStatement statement)
+    {
+        return statement switch
+        {
+            BoundReturnStatement => true,
+            BoundThrowStatement => true,
+            BoundExpressionStatement { Expression: BoundReturnExpression or BoundThrowExpression } => true,
+            BoundBlockStatement block when block.Statements.Any() => IsTerminatingStatement(block.Statements.Last()),
+            BoundIfStatement { ElseNode: not null } nestedIf =>
+                IsTerminatingStatement(nestedIf.ThenNode) &&
+                IsTerminatingStatement(nestedIf.ElseNode!),
+            _ => false,
+        };
     }
 
     private IILocal SpillValueToLocalIfNeeded(Type clrType, EmitInfo info)
@@ -328,6 +345,21 @@ internal class StatementGenerator : Generator
     private void EmitExpressionStatement(BoundExpressionStatement expressionStatement)
     {
         var expression = expressionStatement.Expression;
+
+        // In statement position, `return <expr>` / `throw <expr>` can be represented
+        // as expression forms. Emit them as real statements so we do not attempt to
+        // pop a non-existent value from the stack after control-flow exits.
+        if (expression is BoundReturnExpression returnExpression)
+        {
+            EmitReturnStatement(new BoundReturnStatement(returnExpression.Expression));
+            return;
+        }
+
+        if (expression is BoundThrowExpression throwExpression)
+        {
+            EmitThrowStatement(new BoundThrowStatement(throwExpression.Expression));
+            return;
+        }
 
         // We are discarding the value of the expression. Never materialize Unit.Value in this case.
         // (ExpressionGenerator will still emit side-effects.)
@@ -654,6 +686,7 @@ internal class StatementGenerator : Generator
 
         var ilLabel = MethodBodyGenerator.GetOrCreateLabel(labeledStatement.Label);
         ILGenerator.MarkLabel(ilLabel);
+        ILGenerator.Emit(OpCodes.Nop);
 
         new StatementGenerator(scope, labeledStatement.Statement).Emit();
     }

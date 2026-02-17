@@ -33,6 +33,27 @@ match condition {
         Assert.Equal("ok", output);
     }
 
+    [Fact]
+    public void MatchStatement_WithReturnExpressionsInArms_EmitsAndRuns()
+    {
+        const string code = """
+import System.*
+
+func ping(name: string) -> int {
+    match name {
+        "Bob" | "bob" => return 1
+        _ => return 0
+    }
+}
+
+Console.WriteLine(ping("bob"))
+Console.WriteLine(ping("alice"))
+""";
+
+        var output = EmitAndRun(code, "match_statement_return_expr_arms");
+        Assert.Equal("1\n0", output);
+    }
+
     private static string EmitAndRun(string code, string assemblyName)
     {
         var syntaxTree = RavenSyntaxTree.ParseText(code);
