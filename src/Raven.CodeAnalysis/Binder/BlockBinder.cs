@@ -4090,7 +4090,7 @@ partial class BlockBinder : Binder
         return parameterType;
     }
 
-    private static ITypeSymbol GetReturnTargetType(IMethodSymbol method)
+    private ITypeSymbol GetReturnTargetType(IMethodSymbol method)
     {
         if (method is SourceMethodSymbol { HasAsyncReturnTypeError: true } or SourceLambdaSymbol { HasAsyncReturnTypeError: true })
             return method.ReturnType;
@@ -4103,10 +4103,8 @@ partial class BlockBinder : Binder
         }
 
         if (method.IsAsync &&
-            returnType is INamedTypeSymbol namedReturn &&
-            namedReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
-            namedReturn.TypeArguments.Length == 1 &&
-            namedReturn.TypeArguments[0] is { } resultType)
+            AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType) is { } resultType &&
+            resultType.SpecialType is not SpecialType.System_Unit and not SpecialType.System_Void)
         {
             return resultType;
         }
@@ -8706,7 +8704,12 @@ partial class BlockBinder : Binder
                 if (!skipReturnConversions && converted.Type is not null && ShouldAttemptConversion(converted) &&
                     returnType.TypeKind != TypeKind.Error)
                 {
-                    if (symbol.IsAsync && returnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                    var asyncResultType = symbol.IsAsync
+                        ? AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType)
+                        : null;
+
+                    if (symbol.IsAsync &&
+                        asyncResultType is { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
                     {
                         var methodDisplay = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
                         expressionBinder.Diagnostics.ReportAsyncTaskReturnCannotHaveExpression(

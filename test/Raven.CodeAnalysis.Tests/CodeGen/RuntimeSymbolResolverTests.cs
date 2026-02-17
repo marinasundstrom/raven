@@ -70,6 +70,55 @@ async func Compute<T>(value: T) -> Task<T> {
     }
 
     [Fact]
+    public void AsyncValueTaskKickoff_UsesValueTaskBuilder()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+async func Compute() -> ValueTask<int> {
+    await Task.Delay(1)
+    return 42
+}
+""";
+
+        var calls = CaptureMethodCalls(
+            source,
+            static generator =>
+                generator.MethodSymbol.Name == "MoveNext" &&
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                stateMachine.AsyncMethod.Name == "Compute",
+            OutputKind.ConsoleApplication);
+
+        Assert.Contains(
+            calls,
+            static call => call.DeclaringType?.Name.Contains("AsyncValueTaskMethodBuilder", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public void AsyncNonGenericValueTaskKickoff_UsesValueTaskBuilder()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+async func Compute() -> ValueTask {
+    await Task.Delay(1)
+}
+""";
+
+        var calls = CaptureMethodCalls(
+            source,
+            static generator =>
+                generator.MethodSymbol.Name == "MoveNext" &&
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                stateMachine.AsyncMethod.Name == "Compute",
+            OutputKind.ConsoleApplication);
+
+        Assert.Contains(
+            calls,
+            static call => call.DeclaringType?.Name.Contains("AsyncValueTaskMethodBuilder", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
     public void ResultTryGetOkCall_UsesClosedNestedOutType()
     {
         var (resultReference, path) = CreateRavenCoreResultReference();

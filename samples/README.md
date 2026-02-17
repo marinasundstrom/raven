@@ -12,6 +12,9 @@
    Use the relative path for nested samples (for example, `dotnet run --project ../src/Raven.Compiler  --property WarningLevel=0 -- async/async-await.rav -o async-await.dll`).
 3. Execute the emitted assembly with `dotnet <file>.dll` (or rely on `build.sh`/`run.sh` for batch work).
 
+Async sample note:
+- `samples/async/async-valuetask.rav` demonstrates `ValueTask` and `ValueTask<T>` in async functions.
+
 ## Batch scripts and framework selection
 
 `build.sh` now accepts a target framework flag and defaults to `net9.0`:

@@ -4510,8 +4510,14 @@ internal partial class ExpressionGenerator : Generator
     {
         var definition = type.ConstructedFrom as INamedTypeSymbol ?? type;
 
-        return definition.SpecialType is SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder
-            or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T;
+        if (definition.SpecialType is SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder
+            or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
+        {
+            return true;
+        }
+
+        return definition.MetadataName is "AsyncValueTaskMethodBuilder" or "AsyncValueTaskMethodBuilder`1" &&
+            definition.ContainingNamespace?.ToDisplayString() == "System.Runtime.CompilerServices";
     }
 
     private bool TryGetAsyncInvestigationFieldLabel(IFieldSymbol fieldSymbol, out string fieldLabel)

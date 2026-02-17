@@ -1000,7 +1000,8 @@ partial class BlockBinder
                             returnSyntax.GetLocation());
                 }
                 else if (method.IsAsync &&
-                    methodReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                    AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, methodReturnType) is
+                        { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
                 {
                     var methodDisplay = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
                     _diagnostics.ReportAsyncTaskReturnCannotHaveExpression(
@@ -1013,10 +1014,7 @@ partial class BlockBinder
 
                     if (method.IsAsync &&
                         methodReturnType.TypeKind != TypeKind.Error &&
-                        methodReturnType is INamedTypeSymbol namedReturn &&
-                        namedReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
-                        namedReturn.TypeArguments.Length == 1 &&
-                        namedReturn.TypeArguments[0] is { } resultType)
+                        AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, methodReturnType) is { } resultType)
                     {
                         targetType = resultType;
                     }

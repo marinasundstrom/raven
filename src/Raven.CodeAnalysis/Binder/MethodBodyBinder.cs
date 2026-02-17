@@ -147,14 +147,8 @@ class MethodBodyBinder : BlockBinder
         if (returnType is ErrorTypeSymbol)
             return false;
 
-        if (returnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
-            return true;
-
-        if (returnType is INamedTypeSymbol named &&
-            named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
-            named.TypeArguments.Length == 1)
+        if (AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType) is { } resultType)
         {
-            var resultType = named.TypeArguments[0];
             if (resultType is not null && SymbolEqualityComparer.Default.Equals(resultType, unitType))
                 return true;
         }
@@ -162,7 +156,7 @@ class MethodBodyBinder : BlockBinder
         return false;
     }
 
-    private static ITypeSymbol GetTrailingExpressionTargetType(IMethodSymbol method)
+    private ITypeSymbol GetTrailingExpressionTargetType(IMethodSymbol method)
     {
         if (method is SourceMethodSymbol { HasAsyncReturnTypeError: true } or SourceLambdaSymbol { HasAsyncReturnTypeError: true })
             return method.ReturnType;
@@ -172,10 +166,8 @@ class MethodBodyBinder : BlockBinder
             return returnType;
 
         if (method.IsAsync &&
-            returnType is INamedTypeSymbol namedReturn &&
-            namedReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
-            namedReturn.TypeArguments.Length == 1 &&
-            namedReturn.TypeArguments[0] is { } resultType)
+            AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation: Compilation, asyncReturnType: returnType) is { } resultType &&
+            resultType.SpecialType is not SpecialType.System_Unit and not SpecialType.System_Void)
         {
             return resultType;
         }

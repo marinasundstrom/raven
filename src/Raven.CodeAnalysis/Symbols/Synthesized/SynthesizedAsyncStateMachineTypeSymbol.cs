@@ -803,6 +803,12 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         if (returnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
             return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
 
+        if (IsNonGenericValueTask(returnType))
+        {
+            return compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncValueTaskMethodBuilder")
+                ?? compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
+        }
+
         if (returnType is INamedTypeSymbol named &&
             named.TypeArguments.Length == 1 &&
             named.ConstructedFrom is INamedTypeSymbol constructed &&
@@ -821,6 +827,25 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             }
         }
 
+        if (returnType is INamedTypeSymbol valueTaskNamed &&
+            valueTaskNamed.TypeArguments.Length == 1 &&
+            valueTaskNamed.ConstructedFrom is INamedTypeSymbol valueTaskConstructed &&
+            IsValueTaskOfT(valueTaskConstructed))
+        {
+            var awaitedType = SubstituteAsyncMethodTypeParameters(valueTaskNamed.TypeArguments[0]);
+            if (awaitedType.TypeKind == TypeKind.Error)
+                return compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncValueTaskMethodBuilder")
+                    ?? compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
+
+            var valueTaskBuilderDefinition = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncValueTaskMethodBuilder`1")
+                as INamedTypeSymbol;
+            if (valueTaskBuilderDefinition is not null &&
+                valueTaskBuilderDefinition.TypeKind != TypeKind.Error)
+            {
+                return valueTaskBuilderDefinition.Construct(awaitedType);
+            }
+        }
+
         return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
     }
 
@@ -830,6 +855,46 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             return true;
 
         return definition.MetadataName == "Task`1" &&
+            definition.ContainingNamespace is
+            {
+                Name: "Tasks",
+                ContainingNamespace:
+                {
+                    Name: "Threading",
+                    ContainingNamespace:
+                    {
+                        Name: "System",
+                        ContainingNamespace.IsGlobalNamespace: true
+                    }
+                }
+            };
+    }
+
+    private static bool IsNonGenericValueTask(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+
+        return named.MetadataName == "ValueTask" &&
+            named.TypeArguments.IsDefaultOrEmpty &&
+            named.ContainingNamespace is
+            {
+                Name: "Tasks",
+                ContainingNamespace:
+                {
+                    Name: "Threading",
+                    ContainingNamespace:
+                    {
+                        Name: "System",
+                        ContainingNamespace.IsGlobalNamespace: true
+                    }
+                }
+            };
+    }
+
+    private static bool IsValueTaskOfT(INamedTypeSymbol definition)
+    {
+        return definition.MetadataName == "ValueTask`1" &&
             definition.ContainingNamespace is
             {
                 Name: "Tasks",

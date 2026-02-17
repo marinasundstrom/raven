@@ -25,7 +25,9 @@ internal static class AsyncReturnTypeUtilities
         normalized = normalized.GetPlainType();
 
         if (normalized.SpecialType == SpecialType.System_Threading_Tasks_Task ||
-            normalized is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Threading_Tasks_Task_T })
+            normalized is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Threading_Tasks_Task_T } ||
+            IsNonGenericValueTask(normalized) ||
+            IsGenericValueTask(normalized))
         {
             return normalized;
         }
@@ -65,6 +67,54 @@ internal static class AsyncReturnTypeUtilities
             return named.TypeArguments[0];
         }
 
+        if (IsNonGenericValueTask(asyncReturnType))
+            return compilation.GetSpecialType(SpecialType.System_Unit);
+
+        if (asyncReturnType is INamedTypeSymbol valueTaskNamed &&
+            IsGenericValueTask(valueTaskNamed) &&
+            valueTaskNamed.TypeArguments.Length == 1)
+        {
+            return valueTaskNamed.TypeArguments[0];
+        }
+
         return null;
+    }
+
+    internal static bool IsNonGenericValueTask(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+
+        return named.MetadataName == "ValueTask" &&
+            named.TypeArguments.IsDefaultOrEmpty &&
+            IsSystemThreadingTasksNamespace(named.ContainingNamespace);
+    }
+
+    internal static bool IsGenericValueTask(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+
+        var definition = named.OriginalDefinition as INamedTypeSymbol ?? named.ConstructedFrom as INamedTypeSymbol ?? named;
+        return definition.MetadataName == "ValueTask`1" &&
+            definition.Arity == 1 &&
+            IsSystemThreadingTasksNamespace(definition.ContainingNamespace);
+    }
+
+    private static bool IsSystemThreadingTasksNamespace(INamespaceSymbol? ns)
+    {
+        return ns is
+        {
+            Name: "Tasks",
+            ContainingNamespace:
+            {
+                Name: "Threading",
+                ContainingNamespace:
+                {
+                    Name: "System",
+                    ContainingNamespace.IsGlobalNamespace: true
+                }
+            }
+        };
     }
 }

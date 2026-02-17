@@ -87,6 +87,7 @@ Classic async lowering (runtime-async off):
 
 - Raven synthesizes async state-machine types and rewrites `await` into explicit awaiter calls.
 - Generated IL uses `GetAwaiter` / `GetResult` patterns from compiler-generated machinery.
+- Async return types in this mode include `Task`, `Task<T>`, `ValueTask`, and `ValueTask<T>`.
 
 What this leaves on the compiler side:
 
@@ -105,3 +106,4 @@ Current limitations:
 - To emit `AsyncHelpers.Await(...)`, the compiler host process must run on `net11.0` (for example `dotnet run -f net11.0 ...`).
 - If the host runtime does not expose `AsyncHelpers`, Raven falls back to awaiter calls (`GetAwaiter`/`GetResult`).
 - Entry-point bridge methods remain synchronous wrappers that block via awaiter calls.
+- Custom task-like return types that rely on `AsyncMethodBuilderAttribute` are not supported yet.

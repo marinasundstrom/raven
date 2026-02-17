@@ -2038,6 +2038,12 @@ internal abstract partial class Binder
             return true;
         }
 
+        if (AsyncReturnTypeUtilities.IsNonGenericValueTask(type) ||
+            AsyncReturnTypeUtilities.IsGenericValueTask(type))
+        {
+            return true;
+        }
+
         return false;
     }
 }

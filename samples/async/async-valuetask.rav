@@ -1,0 +1,15 @@
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Compute() -> ValueTask<int> {
+    await Task.Delay(10)
+    return 42
+}
+
+async func Ping() -> ValueTask {
+    await Task.Delay(5)
+}
+
+await Ping()
+val value = await Compute()
+WriteLine("ValueTask result: $value")
