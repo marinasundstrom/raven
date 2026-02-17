@@ -331,31 +331,31 @@ internal class MethodBodyGenerator
 
         BoundBlockStatement? boundBody = syntax switch
         {
-            MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body) as BoundBlockStatement,
-            OperatorDeclarationSyntax o when o.Body != null => semanticModel.GetBoundNode(o.Body) as BoundBlockStatement,
-            ConversionOperatorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockStatement,
-            FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body) as BoundBlockStatement,
-            BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockStatement,
-            AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body) as BoundBlockStatement,
+            MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            OperatorDeclarationSyntax o when o.Body != null => semanticModel.GetBoundNode(o.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            ConversionOperatorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             _ => null
         };
 
         BoundExpression? expressionBody = syntax switch
         {
             MethodDeclarationSyntax m when m.ExpressionBody is not null
-                => semanticModel.GetBoundNode(m.ExpressionBody.Expression) as BoundExpression,
+                => semanticModel.GetBoundNode(m.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             OperatorDeclarationSyntax o when o.ExpressionBody is not null
-                => semanticModel.GetBoundNode(o.ExpressionBody.Expression) as BoundExpression,
+                => semanticModel.GetBoundNode(o.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             ConversionOperatorDeclarationSyntax c when c.ExpressionBody is not null
-                => semanticModel.GetBoundNode(c.ExpressionBody.Expression) as BoundExpression,
+                => semanticModel.GetBoundNode(c.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             BaseConstructorDeclarationSyntax c when c.ExpressionBody is not null
-                => semanticModel.GetBoundNode(c.ExpressionBody.Expression) as BoundExpression,
+                => semanticModel.GetBoundNode(c.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             AccessorDeclarationSyntax a when a.ExpressionBody is not null
-                => semanticModel.GetBoundNode(a.ExpressionBody.Expression) as BoundExpression,
+                => semanticModel.GetBoundNode(a.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             PropertyDeclarationSyntax p when p.ExpressionBody is not null
-                => semanticModel.GetBoundNode(p.ExpressionBody.Expression) as BoundExpression,
+                => semanticModel.GetBoundNode(p.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             FunctionStatementSyntax l when l.ExpressionBody is not null
-                => semanticModel.GetBoundNode(l.ExpressionBody.Expression) as BoundExpression,
+                => semanticModel.GetBoundNode(l.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             _ => null
         };
 
@@ -378,7 +378,7 @@ internal class MethodBodyGenerator
         {
             case CompilationUnitSyntax compilationUnit:
                 if (MethodSymbol is SourceMethodSymbol &&
-                    semanticModel.GetBoundNode(compilationUnit) is BoundBlockStatement topLevelBody)
+                    semanticModel.GetBoundNode(compilationUnit, BoundTreeView.Lowered) is BoundBlockStatement topLevelBody)
                 {
                     DeclareLocals(topLevelBody);
                     EmitMethodBlock(topLevelBody);
@@ -2674,7 +2674,6 @@ internal class MethodBodyGenerator
 
     private void EmitBlock(BoundBlockStatement block, bool treatAsMethodBody, bool includeImplicitReturn)
     {
-        block = Lowerer.LowerBlock(MethodSymbol, block);
         var statements = block.Statements as IReadOnlyList<BoundStatement> ?? block.Statements.ToArray();
         var blockScope = new Scope(scope, block.LocalsToDispose);
 
@@ -2820,12 +2819,11 @@ internal class MethodBodyGenerator
 
         foreach (var statement in statementArray)
         {
-            var boundNode = semanticModel.GetBoundNode(statement) as BoundStatement;
+            var boundNode = semanticModel.GetBoundNode(statement, BoundTreeView.Lowered) as BoundStatement;
 
             if (boundNode is null)
                 continue;
 
-            boundNode = Lowerer.LowerStatement(MethodSymbol, boundNode);
             new StatementGenerator(executionScope, boundNode).Emit();
         }
 

@@ -1,16 +1,14 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
-
-using System;
-
-using Raven.CodeAnalysis.Text;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
-using System.Linq.Expressions;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
@@ -41,18 +39,29 @@ public static class BoundTreePrinter
         bool includeBinderInfo = true,
         bool includeBinderChainOnRoots = true,
         bool showBinderOnlyOnChange = true,
-        bool colorize = true)
+        bool colorize = true,
+        BoundTreeView view = BoundTreeView.Original)
     {
         if (model is null)
             throw new ArgumentNullException(nameof(model));
 
         Colorize = colorize;
 
-        var cache = GetBoundNodeCache(model);
+        if (view is BoundTreeView.Both)
+        {
+            Console.WriteLine(MaybeColorize("=== Original Bound Tree ===", AnsiColor.BrightCyan));
+            PrintBoundTree(model, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, onlyBlockRoots, includeErrorNodes, includeBinderInfo, includeBinderChainOnRoots, showBinderOnlyOnChange, colorize, BoundTreeView.Original);
+            Console.WriteLine();
+            Console.WriteLine(MaybeColorize("=== Lowered Bound Tree ===", AnsiColor.BrightCyan));
+            PrintBoundTree(model, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, onlyBlockRoots, includeErrorNodes, includeBinderInfo, includeBinderChainOnRoots, showBinderOnlyOnChange, colorize, BoundTreeView.Lowered);
+            return;
+        }
+
+        var cache = GetBoundNodeCache(model, view);
         if (cache.Count == 0)
         {
-            ForceBind(model);
-            cache = GetBoundNodeCache(model);
+            ForceBind(model, view);
+            cache = GetBoundNodeCache(model, view);
         }
 
         if (cache.Count == 0)
@@ -151,13 +160,19 @@ public static class BoundTreePrinter
         return (Dictionary<SyntaxNode, BoundNode>)field!.GetValue(model)!;
     }*/
 
-    private static Dictionary<SyntaxNode, (Binder, BoundNode)> GetBoundNodeCache(SemanticModel model)
+    private static Dictionary<SyntaxNode, (Binder, BoundNode)> GetBoundNodeCache(SemanticModel model, BoundTreeView view)
     {
-        var field = typeof(SemanticModel).GetField("_boundNodeCache2", BindingFlags.NonPublic | BindingFlags.Instance);
+        var fieldName = view switch
+        {
+            BoundTreeView.Original => "_boundNodeCache2",
+            BoundTreeView.Lowered => "_loweredBoundNodeCache2",
+            _ => "_boundNodeCache2"
+        };
+        var field = typeof(SemanticModel).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
         return (Dictionary<SyntaxNode, (Binder, BoundNode)>)field!.GetValue(model)!;
     }
 
-    private static void ForceBind(SemanticModel model)
+    private static void ForceBind(SemanticModel model, BoundTreeView view)
     {
         var root = model.SyntaxTree.GetRoot();
         foreach (var node in root.DescendantNodesAndSelf())
@@ -168,7 +183,7 @@ public static class BoundTreePrinter
                 case ExpressionSyntax:
                     try
                     {
-                        model.GetBoundNode(node);
+                        model.GetBoundNode(node, view);
                     }
                     catch
                     {

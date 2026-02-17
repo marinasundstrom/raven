@@ -3532,6 +3532,9 @@ public partial class SemanticModel
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)
         => _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
 
+    internal BoundNode? TryGetCachedLoweredBoundNode(SyntaxNode node)
+        => _loweredBoundNodeCache.TryGetValue(node, out var bound) ? bound : null;
+
     internal void CacheBoundNode(SyntaxNode node, BoundNode bound, Binder? binder = null)
     {
         _boundNodeCache[node] = bound;
@@ -3542,21 +3545,40 @@ public partial class SemanticModel
         }
     }
 
+    internal void CacheLoweredBoundNode(SyntaxNode node, BoundNode bound, Binder? binder = null)
+    {
+        _loweredBoundNodeCache[node] = bound;
+        _loweredSyntaxCache[bound] = node;
+        if (IsDebuggingEnabled && binder is not null)
+        {
+            _loweredBoundNodeCache2[node] = (binder, bound);
+        }
+    }
+
     internal void RemoveCachedBoundNode(SyntaxNode node)
     {
         if (_boundNodeCache.TryGetValue(node, out var bound))
             _syntaxCache.Remove(bound);
 
         _boundNodeCache.Remove(node);
+        if (_loweredBoundNodeCache.TryGetValue(node, out var loweredBound))
+            _loweredSyntaxCache.Remove(loweredBound);
+
+        _loweredBoundNodeCache.Remove(node);
 
         if (IsDebuggingEnabled)
         {
             _boundNodeCache2.Remove(node);
+            _loweredBoundNodeCache2.Remove(node);
         }
     }
 
     internal SyntaxNode? GetSyntax(BoundNode node)
-        => _syntaxCache.TryGetValue(node, out var syntax) ? syntax : null;
+        => _syntaxCache.TryGetValue(node, out var syntax)
+            ? syntax
+            : _loweredSyntaxCache.TryGetValue(node, out var loweredSyntax)
+                ? loweredSyntax
+                : null;
 
     private readonly Dictionary<SyntaxNode, SourceNamedTypeSymbol> _declaredTypeSymbols = new();
 

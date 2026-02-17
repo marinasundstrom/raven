@@ -18,8 +18,11 @@ public partial class SemanticModel
     private readonly Dictionary<SyntaxNode, SymbolInfo> _symbolMappings = new();
     private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
     private readonly Dictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 = new Dictionary<SyntaxNode, (Binder, BoundNode)>();
+    private readonly Dictionary<SyntaxNode, BoundNode> _loweredBoundNodeCache = new();
+    private readonly Dictionary<SyntaxNode, (Binder, BoundNode)> _loweredBoundNodeCache2 = new Dictionary<SyntaxNode, (Binder, BoundNode)>();
 
     private readonly Dictionary<BoundNode, SyntaxNode> _syntaxCache = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<BoundNode, SyntaxNode> _loweredSyntaxCache = new(ReferenceEqualityComparer.Instance);
     private IImmutableList<Diagnostic>? _diagnostics;
     private readonly DiagnosticBag _declarationDiagnostics = new();
     private bool _declarationsComplete;
@@ -294,9 +297,28 @@ public partial class SemanticModel
     /// <returns>The bound node</returns>
     internal BoundNode GetBoundNode(SyntaxNode node)
     {
-        var binder = GetBinder(node);
-        var boundNode = binder.GetOrBind(node);
-        return boundNode;
+        return GetBoundNode(node, BoundTreeView.Original);
+    }
+
+    internal BoundNode GetBoundNode(SyntaxNode node, BoundTreeView view)
+    {
+        if (view is BoundTreeView.Both)
+            throw new ArgumentOutOfRangeException(nameof(view));
+
+        if (view is BoundTreeView.Original)
+        {
+            var binder = GetBinder(node);
+            return binder.GetOrBind(node);
+        }
+
+        if (TryGetCachedLoweredBoundNode(node) is { } loweredCached)
+            return loweredCached;
+
+        var binderForLowering = GetBinder(node);
+        var boundNode = binderForLowering.GetOrBind(node);
+        var loweredNode = LowerBoundNode(binderForLowering, boundNode);
+        CacheLoweredBoundNode(node, loweredNode, binderForLowering);
+        return loweredNode;
     }
 
     /// <summary>
@@ -308,6 +330,28 @@ public partial class SemanticModel
     internal BoundExpression GetBoundNode(ExpressionSyntax expression)
     {
         return (BoundExpression)GetBoundNode((SyntaxNode)expression);
+    }
+
+    private BoundNode LowerBoundNode(Binder binder, BoundNode boundNode)
+    {
+        var containingSymbol = binder.ContainingSymbol;
+        if (containingSymbol is null)
+            return boundNode;
+
+        try
+        {
+            return boundNode switch
+            {
+                BoundBlockStatement block => Lowerer.LowerBlock(containingSymbol, block),
+                BoundStatement statement => Lowerer.LowerStatement(containingSymbol, statement),
+                BoundExpression expression => Lowerer.LowerExpression(containingSymbol, expression),
+                _ => boundNode
+            };
+        }
+        catch
+        {
+            return boundNode;
+        }
     }
 
     /// <summary>

@@ -1491,7 +1491,7 @@ internal class CodeGenerator
             return;
 
         var rewritten = AsyncLowerer.Rewrite(mainMethod, body);
-        semanticModel.CacheBoundNode(compilationUnit, rewritten);
+        semanticModel.CacheLoweredBoundNode(compilationUnit, rewritten, semanticModel.GetBinder(compilationUnit));
     }
 
     private static IEnumerable<GlobalStatementSyntax> GetTopLevelGlobalStatements(CompilationUnitSyntax compilationUnit)
@@ -1530,11 +1530,11 @@ internal class CodeGenerator
 
         if (bodySyntax is not null)
         {
-            semanticModel.CacheBoundNode(bodySyntax, rewritten);
+            semanticModel.CacheLoweredBoundNode(bodySyntax, rewritten, semanticModel.GetBinder(bodySyntax));
         }
         else if (expressionBody is not null)
         {
-            semanticModel.CacheBoundNode(expressionBody, rewritten);
+            semanticModel.CacheLoweredBoundNode(expressionBody, rewritten, semanticModel.GetBinder(expressionBody));
         }
     }
 

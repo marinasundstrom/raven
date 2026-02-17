@@ -74,6 +74,7 @@ var prettyIncludeDiagnostics = true;
 var printBinders = false;
 var printBoundTree = false;
 var printBoundTreeErrors = true;
+var boundTreeView = BoundTreeView.Original;
 var symbolDumpMode = SymbolDumpMode.None;
 var printParseSequence = false;
 var parseSequenceThrottleMilliseconds = 0;
@@ -157,6 +158,13 @@ for (int i = 0; i < args.Length; i++)
         case "--bound-tree":
         case "--display-bound-tree":
             printBoundTree = true;
+            break;
+        case "--bound-tree-view":
+        case "--bt-view":
+            if (!TryParseBoundTreeView(args, ref i, out var parsedBoundTreeView))
+                hasInvalidOption = true;
+            else
+                boundTreeView = parsedBoundTreeView;
             break;
         case "-bte":
             printBoundTree = true;
@@ -1013,7 +1021,7 @@ if (allowConsoleOutput)
                 Console.WriteLine();
             }
 
-            semanticModel.PrintBoundTree(includeChildPropertyNames: true, groupChildCollections: true, displayCollectionIndices: false, onlyBlockRoots: !printBoundTreeErrors, includeErrorNodes: printBoundTreeErrors);
+            semanticModel.PrintBoundTree(includeChildPropertyNames: true, groupChildCollections: true, displayCollectionIndices: false, onlyBlockRoots: !printBoundTreeErrors, includeErrorNodes: printBoundTreeErrors, view: boundTreeView);
             Console.WriteLine();
         }
     }
@@ -1511,6 +1519,8 @@ static void PrintHelp()
     Console.WriteLine("  -b                 Print binder tree (single file only)");
     Console.WriteLine("  -bt                Print binder and bound tree (single file only)");
     Console.WriteLine("  -bte               Print binder and bound tree with error nodes (single file only)");
+    Console.WriteLine("  --bound-tree-view [original|lowered|both]");
+    Console.WriteLine("                     Select which bound tree view to print (default: original).");
     Console.WriteLine("  --symbols [list|hierarchy]");
     Console.WriteLine("                     Inspect symbols produced from source.");
     Console.WriteLine("                     'list' dumps properties, 'hierarchy' prints the tree.");
@@ -1923,6 +1933,34 @@ static bool TryParseSymbolDumpMode(string[] args, ref int index, out SymbolDumpM
 
     AnsiConsole.MarkupLine($"[red]Unknown symbol dump format '{value}'.[/]");
     mode = SymbolDumpMode.None;
+    return false;
+}
+
+static bool TryParseBoundTreeView(string[] args, ref int index, out BoundTreeView view)
+{
+    var value = ConsumeOptionValue(args, ref index);
+
+    if (value is null)
+    {
+        view = BoundTreeView.Original;
+        return true;
+    }
+
+    switch (value.ToLowerInvariant())
+    {
+        case "original":
+            view = BoundTreeView.Original;
+            return true;
+        case "lowered":
+            view = BoundTreeView.Lowered;
+            return true;
+        case "both":
+            view = BoundTreeView.Both;
+            return true;
+    }
+
+    AnsiConsole.MarkupLine($"[red]Unknown bound tree view '{value}'.[/]");
+    view = BoundTreeView.Original;
     return false;
 }
 
