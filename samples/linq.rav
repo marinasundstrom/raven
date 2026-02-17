@@ -4,12 +4,7 @@ import System.Collections.Generic.*
 
 val arr = [1, 2, 3]
 
-val x = arr.TryFirstOrError(ex =>
-    ex match {
-        .None => DomainError.NotFound
-        .Some(val e) => DomainError.Unexpected(e)
-    }
-)
+val x = arr.FirstOrError(() => DomainError.NotFound)
 
 WriteLine(x)
 
