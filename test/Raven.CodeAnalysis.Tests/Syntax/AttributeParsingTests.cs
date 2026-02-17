@@ -249,7 +249,7 @@ public class AttributeParsingTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void CompilationUnit_AssemblyAttributeSeparatedByBlankLine_PreservesSourceOrder()
+    public void CompilationUnit_AssemblyAttributeSeparatedByBlankLine_IsCompilationAttribute()
     {
         const string code = """
             import System.Runtime.Versioning.*
@@ -262,15 +262,15 @@ public class AttributeParsingTests : DiagnosticTestBase
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
 
-        Assert.Empty(root.AttributeLists);
+        var rootAttributeList = Assert.Single(root.AttributeLists);
+        Assert.Equal("assembly", rootAttributeList.Target?.Identifier.Text);
 
         var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(root.Members));
-        var declarationAttributeList = Assert.Single(declaration.AttributeLists);
-        Assert.Equal("assembly", declarationAttributeList.Target?.Identifier.Text);
+        Assert.Empty(declaration.AttributeLists);
     }
 
     [Fact]
-    public void CompilationUnit_AssemblyAttributeWithoutBlankLine_RemainsOnFollowingDeclaration()
+    public void CompilationUnit_AssemblyAttributeWithoutBlankLine_IsCompilationAttribute()
     {
         const string code = """
             import System.Runtime.Versioning.*
@@ -280,11 +280,11 @@ public class AttributeParsingTests : DiagnosticTestBase
 
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
-        Assert.Empty(root.AttributeLists);
+        var rootAttributeList = Assert.Single(root.AttributeLists);
+        Assert.Equal("assembly", rootAttributeList.Target?.Identifier.Text);
 
         var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(root.Members));
-        var declarationAttributeList = Assert.Single(declaration.AttributeLists);
-        Assert.Equal("assembly", declarationAttributeList.Target?.Identifier.Text);
+        Assert.Empty(declaration.AttributeLists);
     }
 
     [Fact]

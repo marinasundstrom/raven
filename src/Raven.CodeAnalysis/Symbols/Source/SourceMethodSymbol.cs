@@ -423,6 +423,15 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         foreach (var syntaxReference in DeclaringSyntaxReferences)
         {
             var syntax = syntaxReference.GetSyntax();
+            var declarationReturnTargetLists = syntax switch
+            {
+                MethodDeclarationSyntax method => method.AttributeLists
+                    .Where(static list => string.Equals(list.Target?.Identifier.ValueText, "return", StringComparison.OrdinalIgnoreCase)),
+                FunctionStatementSyntax function => function.AttributeLists
+                    .Where(static list => string.Equals(list.Target?.Identifier.ValueText, "return", StringComparison.OrdinalIgnoreCase)),
+                _ => Enumerable.Empty<AttributeListSyntax>()
+            };
+
             var returnClause = syntax switch
             {
                 MethodDeclarationSyntax method => method.ReturnType,
@@ -431,12 +440,13 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
                 _ => null
             };
 
-            if (returnClause is null || returnClause.AttributeLists.Count == 0)
-                continue;
+            var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
 
-            var semanticModel = compilation.GetSemanticModel(returnClause.SyntaxTree);
+            IEnumerable<AttributeSyntax> returnAttributes = declarationReturnTargetLists.SelectMany(static list => list.Attributes);
+            if (returnClause is not null && returnClause.AttributeLists.Count > 0)
+                returnAttributes = returnAttributes.Concat(returnClause.AttributeLists.SelectMany(static list => list.Attributes));
 
-            foreach (var attribute in returnClause.AttributeLists.SelectMany(static list => list.Attributes))
+            foreach (var attribute in returnAttributes)
             {
                 var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
                 var binder = semanticModel.GetBinder(binderNode);
@@ -453,7 +463,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
                         attribute,
                         data,
                         defaultTarget,
-                        seenAttributes))
+                        seenAttributes,
+                        out var appliedTarget) &&
+                    appliedTarget == AttributeTargets.ReturnValue)
                 {
                     builder.Add(data);
                 }

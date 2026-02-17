@@ -26,6 +26,25 @@ internal static class AttributeUsageHelper
         AttributeData data,
         AttributeTargets defaultTarget,
         Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>> seenAttributes)
+        => TryValidateAttribute(
+            compilation,
+            semanticModel,
+            owner,
+            attributeSyntax,
+            data,
+            defaultTarget,
+            seenAttributes,
+            out _);
+
+    public static bool TryValidateAttribute(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        ISymbol owner,
+        AttributeSyntax attributeSyntax,
+        AttributeData data,
+        AttributeTargets defaultTarget,
+        Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>> seenAttributes,
+        out AttributeTargets appliedTarget)
     {
         if (compilation is null)
             throw new ArgumentNullException(nameof(compilation));
@@ -53,7 +72,8 @@ internal static class AttributeUsageHelper
             attributeSyntax,
             data,
             defaultTarget,
-            seenAttributes);
+            seenAttributes,
+            out appliedTarget);
     }
 
     public static bool TryValidateAttribute(
@@ -64,6 +84,25 @@ internal static class AttributeUsageHelper
         AttributeData data,
         AttributeTargets defaultTarget,
         Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>> seenAttributes)
+        => TryValidateAttribute(
+            compilation,
+            binder,
+            owner,
+            attributeSyntax,
+            data,
+            defaultTarget,
+            seenAttributes,
+            out _);
+
+    public static bool TryValidateAttribute(
+        Compilation compilation,
+        AttributeBinder? binder,
+        ISymbol owner,
+        AttributeSyntax attributeSyntax,
+        AttributeData data,
+        AttributeTargets defaultTarget,
+        Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>> seenAttributes,
+        out AttributeTargets appliedTarget)
     {
         if (compilation is null)
             throw new ArgumentNullException(nameof(compilation));
@@ -80,11 +119,19 @@ internal static class AttributeUsageHelper
         if (seenAttributes is null)
             throw new ArgumentNullException(nameof(seenAttributes));
 
+        appliedTarget = defaultTarget;
+
         var attributeClass = data.AttributeClass;
         if (attributeClass is null)
             return false;
 
-        var target = ResolveAttributeTarget(attributeSyntax, owner, defaultTarget);
+        if (!TryResolveAttributeTarget(attributeSyntax, owner, defaultTarget, out var target, out var validContextTargets))
+        {
+            ReportAttributeNotValidForTarget(binder, attributeSyntax, attributeClass.Name, target, validContextTargets);
+            return false;
+        }
+
+        appliedTarget = target;
         var usage = GetAttributeUsageInfo(compilation, attributeClass);
 
         if (!IsTargetAllowed(target, usage.ValidTargets))
@@ -156,19 +203,38 @@ internal static class AttributeUsageHelper
             attributeSyntax.GetLocation());
     }
 
-    private static AttributeTargets ResolveAttributeTarget(AttributeSyntax attributeSyntax, ISymbol owner, AttributeTargets defaultTarget)
+    public static bool HasExplicitTarget(AttributeSyntax attributeSyntax, string targetName)
     {
+        if (attributeSyntax.Parent is not AttributeListSyntax list || list.Target is null)
+            return false;
+
+        return string.Equals(list.Target.Identifier.ValueText, targetName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryResolveAttributeTarget(
+        AttributeSyntax attributeSyntax,
+        ISymbol owner,
+        AttributeTargets defaultTarget,
+        out AttributeTargets target,
+        out AttributeTargets validContextTargets)
+    {
+        target = defaultTarget;
+        validContextTargets = GetValidTargetsForContext(owner, defaultTarget);
+
         if (attributeSyntax.Parent is AttributeListSyntax list && list.Target is { } targetSpecifier)
         {
             var identifier = targetSpecifier.Identifier.ValueText;
             if (!string.IsNullOrWhiteSpace(identifier))
             {
-                if (TryMapExplicitTarget(identifier, owner, out var explicitTarget))
-                    return explicitTarget;
+                if (!TryMapExplicitTarget(identifier, owner, out var explicitTarget))
+                    return false;
+
+                target = explicitTarget;
+                return IsTargetAllowed(explicitTarget, validContextTargets);
             }
         }
 
-        return defaultTarget;
+        return true;
     }
 
     private static bool TryMapExplicitTarget(string identifier, ISymbol owner, out AttributeTargets target)
@@ -209,6 +275,12 @@ internal static class AttributeUsageHelper
                 target = AttributeTargets.ReturnValue;
                 return true;
             case "type":
+                if (owner.Kind != SymbolKind.Type)
+                {
+                    target = default;
+                    return false;
+                }
+
                 target = GetDefaultTargetForOwner(owner);
                 return true;
         }
@@ -362,6 +434,29 @@ internal static class AttributeUsageHelper
 
     private static string GetTargetDisplay(AttributeTargets target)
         => GetTargetsDisplay(target);
+
+    private static AttributeTargets GetValidTargetsForContext(ISymbol owner, AttributeTargets defaultTarget)
+    {
+        if (defaultTarget == AttributeTargets.ReturnValue)
+            return AttributeTargets.ReturnValue;
+
+        if (owner.Kind == SymbolKind.Assembly)
+            return AttributeTargets.Assembly;
+
+        if (owner.Kind == SymbolKind.Module)
+            return AttributeTargets.Module;
+
+        if (owner.Kind == SymbolKind.Method)
+        {
+            if (defaultTarget == AttributeTargets.Method)
+                return AttributeTargets.Method | AttributeTargets.ReturnValue;
+
+            if (defaultTarget == AttributeTargets.Constructor)
+                return AttributeTargets.Constructor;
+        }
+
+        return defaultTarget;
+    }
 
     private static string GetTargetsDisplay(AttributeTargets targets)
     {

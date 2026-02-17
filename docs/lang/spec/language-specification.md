@@ -2569,6 +2569,17 @@ Return-targeted attribute lists are also supported on functions:
 func find(name: string) -> string { /* ... */ }
 ```
 
+Attribute target prefixes are validated by declaration context:
+
+* `[assembly: ...]` is only valid as a compilation-unit attribute list (before
+  top-level members).
+* `[return: ...]` is only valid on callable return positions (function/method
+  return metadata).
+* Other explicit targets must match the declaration kind they annotate.
+
+If a target prefix is syntactically recognized but not valid in that position,
+the compiler reports an attribute-target diagnostic.
+
 ### Parameters
 
 Function, method, and accessor parameters use the `name: Type` syntax. Parameter

@@ -152,7 +152,7 @@ class C { }
     }
 
     [Fact]
-    public void AssemblyTargetedAttribute_OnTypeWithoutBlankLine_ReportsInvalidTarget()
+    public void AssemblyTargetedAttribute_WithoutBlankLine_BindsToAssemblySymbol()
     {
         const string source = """
 import System.Runtime.Versioning.*
@@ -165,7 +165,78 @@ class C { }
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
         var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
         _ = type.GetAttributes();
+        Assert.Single(compilation.Assembly.GetAttributes());
+        Assert.Empty(type.GetAttributes());
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void AssemblyTargetedAttribute_InsideNamespace_ReportsInvalidTargetContext()
+    {
+        const string source = """
+import System.Runtime.Versioning.*
+
+namespace N
+{
+    [assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
+    class C { }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        _ = type.GetAttributes();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor.Id == "RAV0502");
+        Assert.Equal("Attribute 'TargetFrameworkAttribute' is not valid on target 'assembly'. Valid targets are 'class'", diagnostic.GetMessage());
         Assert.Empty(compilation.Assembly.GetAttributes());
-        Assert.Single(type.GetAttributes());
+        Assert.Empty(type.GetAttributes());
+    }
+
+    [Fact]
+    public void ReturnTargetedAttribute_OnMethod_BindsToReturnAttributesOnly()
+    {
+        const string source = """
+import System.Diagnostics.CodeAnalysis.*
+
+class C
+{
+    [return: MaybeNull]
+    public GetName() -> string => "ok"
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)model.GetDeclaredSymbol(declaration)!;
+
+        Assert.Empty(method.GetAttributes());
+        var returnAttribute = Assert.Single(method.GetReturnTypeAttributes());
+        Assert.Equal("MaybeNullAttribute", returnAttribute.AttributeClass?.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ReturnTargetedAttribute_OnType_ReportsInvalidTargetContext()
+    {
+        const string source = """
+import System.*
+
+[return: Obsolete]
+class C { }
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        _ = type.GetAttributes();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor.Id == "RAV0502");
+        Assert.Equal("Attribute 'ObsoleteAttribute' is not valid on target 'return value'. Valid targets are 'class'", diagnostic.GetMessage());
+        Assert.Empty(type.GetAttributes());
     }
 }

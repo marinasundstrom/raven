@@ -52,7 +52,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             // Allow compilation-level attributes (e.g. [assembly: ...]) to appear after imports/aliases,
             // before any other members/statements.
-            if (nextToken.IsKind(SyntaxKind.OpenBracketToken) &&
+            if (order != MemberOrder.Members &&
+                nextToken.IsKind(SyntaxKind.OpenBracketToken) &&
                 TryParseCompilationAttributeList(out var compilationAttributeList))
             {
                 compilationAttributeLists.Add(compilationAttributeList);

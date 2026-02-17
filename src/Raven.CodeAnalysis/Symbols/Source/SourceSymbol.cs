@@ -82,6 +82,13 @@ internal abstract class SourceSymbol : Symbol
                 if (!ShouldBindAttributeForOwner(attribute))
                     continue;
 
+                if (this is IMethodSymbol method &&
+                    method.MethodKind == MethodKind.Ordinary &&
+                    AttributeUsageHelper.HasExplicitTarget(attribute, "return"))
+                {
+                    continue;
+                }
+
                 var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
                 var binder = semanticModel.GetBinder(binderNode);
                 var attributeBinder = binder as AttributeBinder ?? new AttributeBinder(this, binder);
@@ -188,7 +195,7 @@ internal abstract class SourceSymbol : Symbol
         => syntax switch
         {
             CompilationUnitSyntax compilationUnit when this is IAssemblySymbol => compilationUnit
-                .DescendantNodesAndSelf()
+                .AttributeLists
                 .OfType<AttributeListSyntax>()
                 .Where(static list => HasExplicitTarget(list, "assembly")),
             BaseTypeDeclarationSyntax typeDeclaration when this is ITypeSymbol => typeDeclaration.AttributeLists,
@@ -226,45 +233,5 @@ internal abstract class SourceSymbol : Symbol
             StringComparison.OrdinalIgnoreCase);
 
     private static bool IsAssemblyAttributeDeclarationContext(AttributeListSyntax list)
-    {
-        return list.Parent is CompilationUnitSyntax
-            or NamespaceDeclarationSyntax
-            or FileScopedNamespaceDeclarationSyntax
-            || IsDetachedContainerAttributeList(list);
-    }
-
-    private static bool IsDetachedContainerAttributeList(AttributeListSyntax list)
-    {
-        if (list.Parent is not MemberDeclarationSyntax member)
-            return false;
-
-        var container = member.Parent;
-        if (container is not CompilationUnitSyntax
-            and not NamespaceDeclarationSyntax
-            and not FileScopedNamespaceDeclarationSyntax)
-        {
-            return false;
-        }
-
-        var tokenAfterAttributeList = member
-            .DescendantTokens()
-            .FirstOrDefault(token => token.Span.Start >= list.Span.End);
-
-        if (tokenAfterAttributeList.Kind == SyntaxKind.None)
-            return false;
-
-        return CountLeadingEndOfLineTrivia(tokenAfterAttributeList) >= 2;
-    }
-
-    private static int CountLeadingEndOfLineTrivia(SyntaxToken token)
-    {
-        var count = 0;
-        foreach (var trivia in token.LeadingTrivia)
-        {
-            if (trivia.Kind == SyntaxKind.EndOfLineTrivia)
-                count++;
-        }
-
-        return count;
-    }
+        => list.Parent is CompilationUnitSyntax;
 }

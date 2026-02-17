@@ -11,6 +11,14 @@ A `return` without an expression in a method that returns `unit` emits IL with n
 ## Attributes
 Source attributes are bound using the same import and namespace lookup rules as other type references, so `import System.*` enables `[Obsolete]` without a fully qualified name. When Raven creates metadata `AttributeData`, it accepts the subset of argument expressions supported by the runtime: literals (including `null`), `typeof` expressions, array/collection literals (including empty collections when a target type is known), and conversions among those forms. The compiler lowers these argument forms to typed constants before emitting the attribute payload.
 
+Raven also validates explicit target prefixes (`assembly:`, `return:`, etc.)
+against declaration position:
+
+* `assembly:` binds only at the compilation-unit level.
+* `return:` binds to callable return metadata, not to declaration-level method attributes.
+* Target prefixes used in an invalid declaration context are rejected with an
+  attribute-target diagnostic.
+
 ## Extension members
 Raven both declares and consumes extension members using the CLR's
 `ExtensionAttribute`. Source extensions arise from two forms:
