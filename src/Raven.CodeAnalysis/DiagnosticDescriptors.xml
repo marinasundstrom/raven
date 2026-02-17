@@ -176,6 +176,10 @@
     Title="Redundant open modifier on abstract class"
     Message="Modifier 'open' is redundant on abstract class '{typeName}'" Category="compiler"
     Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0340" Identifier="AbstractModifierRedundantOnSealedClass"
+    Title="Redundant abstract modifier on sealed class"
+    Message="Modifier 'abstract' is redundant on sealed class '{typeName}'" Category="compiler"
+    Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"

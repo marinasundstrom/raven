@@ -46,4 +46,23 @@ class Outer {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void AbstractModifierOnSealedClass_ReportsWarning()
+    {
+        const string source = """
+sealed abstract class Expr {}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult("RAV0340")
+                    .WithSeverity(DiagnosticSeverity.Warning)
+                    .WithSpan(1, 8, 1, 16)
+                    .WithArguments("Expr")
+            ]);
+
+        verifier.Verify();
+    }
 }

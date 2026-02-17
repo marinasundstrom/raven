@@ -92,6 +92,7 @@ Return/throw context note:
 | `RAV0331` | Warning | Member hides inherited member | Member '{memberName}' hides inherited member '{hiddenMemberName}'. Add the 'new' modifier if hiding was intended. | — |
 | `RAV0332` | Error | Modifier not valid on member | Modifier '{modifier}' is not valid on {memberKind} '{memberName}' | — |
 | `RAV0333` | Warning | Redundant open modifier on abstract class | Modifier 'open' is redundant on abstract class '{typeName}' | — |
+| `RAV0340` | Warning | Redundant abstract modifier on sealed class | Modifier 'abstract' is redundant on sealed class '{typeName}' | — |
 | `RAV0400` | Error | Nullable type not allowed in union | Nullable types are not allowed in union types | `samples/nullable-reference.rav`, `samples/nullable-value.rav` |
 | `RAV0401` | Error | Type parameter cannot be nullable | Type parameter '{typeParameter}' has a 'notnull' constraint and cannot be made nullable | `samples/nullable-reference.rav`, `samples/nullable-value.rav` |
 | `RAV0402` | Error | Possible null reference access | Possible null reference access | `samples/nullable-reference.rav`, `samples/nullable-value.rav` |
@@ -110,6 +111,7 @@ Return/throw context note:
 | `RAV0601` | Error | 'partial' modifier missing | Type '{name}' has multiple declarations; all declarations must include the 'partial' modifier | — |
 | `RAV0608` | Error | Abstract member cannot have a body | '{memberName}' cannot declare a body because it is marked abstract | — |
 | `RAV0610` | Error | Abstract member declared in non-abstract type | '{memberName}' is abstract but is contained in non-abstract type '{typeName}' | — |
+| `RAV0611` | Error | Cannot instantiate abstract type | Type '{typeName}' is abstract and cannot be instantiated | — |
 | `RAV0815` | Error | Cannot assign void to an implicitly-typed variable | Cannot assign void to an implicitly-typed variable | — |
 | `RAV0905` | Error | Required member must be set | Required member '{memberName}' must be set | `samples/required.rav` |
 | `RAV0906` | Error | Required field must be mutable | Required field '{fieldName}' must be mutable | `samples/required.rav` |

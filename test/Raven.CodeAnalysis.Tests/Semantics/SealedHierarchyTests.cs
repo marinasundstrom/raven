@@ -588,6 +588,28 @@ class Add : Expr {}
     }
 
     [Fact]
+    public void SealedHierarchy_Match_ExhaustiveWithAbstractIntermediateSubtype()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Lit()
+
+val result = expr match {
+    Lit lit => 1
+}
+
+sealed class Expr {}
+sealed abstract class Node : Expr {}
+class Lit : Node {}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
+    }
+
+    [Fact]
     public void SealedHierarchy_Match_NotExhaustiveWhenSubtypeMissing()
     {
         var source = """

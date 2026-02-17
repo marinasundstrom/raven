@@ -166,7 +166,7 @@ public partial class SemanticModel
         INamespaceSymbol parentNamespace,
         INamedTypeSymbol? objectType)
     {
-        ReportRedundantOpenModifierOnAbstractClass(classDecl, _declarationDiagnostics);
+        ReportRedundantTypeModifiers(classDecl, _declarationDiagnostics);
 
         var declaredTypeKind = IsStructLikeNominalType(classDecl)
             ? TypeKind.Struct
@@ -284,7 +284,7 @@ public partial class SemanticModel
             {
                 case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
                     {
-                        ReportRedundantOpenModifierOnAbstractClass(nestedClass, _declarationDiagnostics);
+                        ReportRedundantTypeModifiers(nestedClass, _declarationDiagnostics);
 
                         var nestedTypeKind = IsStructLikeNominalType(nestedClass)
                             ? TypeKind.Struct
@@ -1402,7 +1402,7 @@ public partial class SemanticModel
         typeSymbol.SetPermittedDirectSubtypes(permitted.ToImmutable());
     }
 
-    private static void ReportRedundantOpenModifierOnAbstractClass(
+    private static void ReportRedundantTypeModifiers(
         TypeDeclarationSyntax declaration,
         DiagnosticBag diagnostics)
     {
@@ -1414,13 +1414,22 @@ public partial class SemanticModel
             return;
 
         var hasOpenModifier = declaration.Modifiers.Any(static m => m.Kind == SyntaxKind.OpenKeyword);
-        if (!hasOpenModifier)
+        if (hasOpenModifier)
+        {
+            var openModifier = declaration.Modifiers.First(static m => m.Kind == SyntaxKind.OpenKeyword);
+            diagnostics.ReportOpenModifierRedundantOnAbstractClass(
+                declaration.Identifier.ValueText,
+                openModifier.GetLocation());
+        }
+
+        var hasSealedModifier = declaration.Modifiers.Any(static m => m.Kind == SyntaxKind.SealedKeyword);
+        if (!hasSealedModifier)
             return;
 
-        var openModifier = declaration.Modifiers.First(static m => m.Kind == SyntaxKind.OpenKeyword);
-        diagnostics.ReportOpenModifierRedundantOnAbstractClass(
+        var abstractModifier = declaration.Modifiers.First(static m => m.Kind == SyntaxKind.AbstractKeyword);
+        diagnostics.ReportAbstractModifierRedundantOnSealedClass(
             declaration.Identifier.ValueText,
-            openModifier.GetLocation());
+            abstractModifier.GetLocation());
     }
 
     private static INamedTypeSymbol? GetDefaultBaseTypeForNominalDeclaration(

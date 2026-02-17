@@ -324,9 +324,10 @@ class Button {
 Classes are sealed by default. Marking a class `open` allows it to be used as a base type. This explicit opt-in keeps instantiable
 classes from being inherited accidentally—the class author must deliberately allow derivation before clients can extend it. The
 `abstract` modifier also enables inheritance: abstract classes are implicitly open and may serve as base types without the `open`
-keyword. Raven also supports **sealed hierarchies** in the style of Kotlin and modern Java. Applying the `sealed` modifier to a class
+keyword. Abstract classes cannot be instantiated directly (`RAV0611`). Raven also supports **sealed hierarchies** in the style of Kotlin and modern Java. Applying the `sealed` modifier to a class
 or record class creates a closed hierarchy whose direct subtypes are fixed at compile time. A sealed class is implicitly
-abstract — it cannot be instantiated directly; only its permitted subtypes can be. The compiler treats those subtypes as
+abstract — it cannot be instantiated directly; only its permitted subtypes can be. Writing `sealed abstract` is allowed but the
+`abstract` modifier is redundant and produces warning `RAV0340`. The compiler treats those subtypes as
 the exhaustive set for purposes such as pattern-matching analysis.
 
 A base class is specified with a colon followed by the type name:
