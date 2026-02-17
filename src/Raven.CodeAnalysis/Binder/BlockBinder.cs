@@ -2205,7 +2205,25 @@ partial class BlockBinder : Binder
 
         if (tryExpression.QuestionToken.Kind != SyntaxKind.None)
         {
-            return BindPropagateExpressionCore(boundTry, tryExpression.QuestionToken, tryExpression);
+            var propagated = BindPropagateExpressionCore(boundTry, tryExpression.QuestionToken, tryExpression);
+            if (propagated is BoundErrorExpression)
+                return propagated;
+
+            // `try?` starts from `try <expr>` and therefore adds one extra Result/Option layer.
+            // If the first propagation still yields a compatible carrier, propagate once more so
+            // `try? await Task<Result<T, E>>` produces `T` (while preserving plain `try` wrapping).
+            var propagatedType = UnwrapAlias(propagated.Type ?? Compilation.ErrorTypeSymbol) as INamedTypeSymbol;
+            if (propagatedType is not null &&
+                TryGetPropagationInfo(propagatedType, out var operandInfo) &&
+                TryGetEnclosingCarrierReturnType(out var enclosingReturnType) &&
+                enclosingReturnType is not null &&
+                TryGetPropagationInfo(enclosingReturnType, out var enclosingInfo) &&
+                operandInfo.Kind == enclosingInfo.Kind)
+            {
+                return BindPropagateExpressionCore(propagated, tryExpression.QuestionToken, tryExpression);
+            }
+
+            return propagated;
         }
 
         return boundTry;
