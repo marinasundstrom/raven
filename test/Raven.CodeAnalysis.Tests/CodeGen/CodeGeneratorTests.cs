@@ -56,6 +56,58 @@ class Foo {
     }
 
     [Fact]
+    public void Emit_WithPdbFileStream_WritesPdbToProvidedPathAndUsesFileNameInCodeView()
+    {
+        var code = """
+class Foo {
+    static Main() -> int {
+        return 0;
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("MyAssembly", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        var outputDirectory = Path.Combine(Path.GetTempPath(), $"raven-pdb-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(outputDirectory);
+
+        try
+        {
+            var assemblyPath = Path.Combine(outputDirectory, "MyAssembly.dll");
+            var pdbPath = Path.Combine(outputDirectory, "MyAssembly.pdb");
+
+            using (var peStream = File.Open(assemblyPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var pdbStream = File.Open(pdbPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                var result = compilation.Emit(peStream, pdbStream);
+                Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+            }
+
+            Assert.True(File.Exists(pdbPath));
+            Assert.True(new FileInfo(pdbPath).Length > 0);
+
+            using var peReadStream = File.OpenRead(assemblyPath);
+            using var peReader = new PEReader(peReadStream, PEStreamOptions.PrefetchEntireImage);
+
+            var codeViewEntry = peReader.ReadDebugDirectory()
+                .First(entry => entry.Type == DebugDirectoryEntryType.CodeView);
+            var codeViewData = peReader.ReadCodeViewDebugDirectoryData(codeViewEntry);
+
+            Assert.Equal("MyAssembly.pdb", codeViewData.Path);
+            Assert.DoesNotContain("EmbeddedSource", codeViewData.Path);
+        }
+        finally
+        {
+            Directory.Delete(outputDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Emit_WithSingleMainInNonProgramType_UsesThatEntryPoint()
     {
         var code = """

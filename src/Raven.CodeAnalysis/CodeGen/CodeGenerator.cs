@@ -913,7 +913,12 @@ internal class CodeGenerator
             MethodDefinitionHandle entryPointHandle = EntryPoint is not null
                 ? MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken)
                 : default;
-            DebugDirectoryBuilder debugDirectoryBuilder = EmitPdb(pdbBuilder, metadataBuilder.GetRowCounts(), entryPointHandle);
+            DebugDirectoryBuilder debugDirectoryBuilder = EmitPdb(
+                pdbBuilder,
+                metadataBuilder.GetRowCounts(),
+                entryPointHandle,
+                pdbStream,
+                _compilation.AssemblyName);
 
             Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
             {
@@ -1903,18 +1908,26 @@ internal class CodeGenerator
         }
     }
 
-    static DebugDirectoryBuilder EmitPdb(MetadataBuilder pdbBuilder, ImmutableArray<int> rowCounts, MethodDefinitionHandle entryPointHandle)
+    static DebugDirectoryBuilder EmitPdb(
+        MetadataBuilder pdbBuilder,
+        ImmutableArray<int> rowCounts,
+        MethodDefinitionHandle entryPointHandle,
+        Stream? pdbStream,
+        string assemblyName)
     {
         BlobBuilder portablePdbBlob = new BlobBuilder();
         PortablePdbBuilder portablePdbBuilder = new PortablePdbBuilder(pdbBuilder, rowCounts, entryPointHandle);
         BlobContentId pdbContentId = portablePdbBuilder.Serialize(portablePdbBlob);
 
-        // In case saving PDB to a file
-        using FileStream fileStream = new FileStream("MyAssemblyEmbeddedSource.pdb", FileMode.Create, FileAccess.Write);
-        portablePdbBlob.WriteContentTo(fileStream);
+        if (pdbStream is not null)
+            portablePdbBlob.WriteContentTo(pdbStream);
+
+        var pdbFileName = $"{assemblyName}.pdb";
+        if (pdbStream is FileStream fileStream && !string.IsNullOrWhiteSpace(fileStream.Name))
+            pdbFileName = Path.GetFileName(fileStream.Name);
 
         DebugDirectoryBuilder debugDirectoryBuilder = new DebugDirectoryBuilder();
-        debugDirectoryBuilder.AddCodeViewEntry("MyAssemblyEmbeddedSource.pdb", pdbContentId, portablePdbBuilder.FormatVersion);
+        debugDirectoryBuilder.AddCodeViewEntry(pdbFileName, pdbContentId, portablePdbBuilder.FormatVersion);
 
         // In case embedded in PE:
         // debugDirectoryBuilder.AddEmbeddedPortablePdbEntry(portablePdbBlob, portablePdbBuilder.FormatVersion);

@@ -830,9 +830,12 @@ var diagnostics = workspace.GetDiagnostics(projectId);
 EmitResult? result = null;
 if (!noEmit)
 {
+    var pdbFilePath = Path.ChangeExtension(outputFilePath, ".pdb");
+
     using (var stream = File.Open(outputFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+    using (var pdbStream = File.Open(pdbFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
     {
-        result = compilation.Emit(stream);
+        result = compilation.Emit(stream, pdbStream);
     }
 
     diagnostics = diagnostics.Concat(result!.Diagnostics).Distinct().ToImmutableArray();
