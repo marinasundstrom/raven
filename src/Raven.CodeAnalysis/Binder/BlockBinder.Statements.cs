@@ -107,6 +107,20 @@ partial class BlockBinder
             _nonNullSymbols.UnionWith(IntersectFlowStates(entryState, thenExitState));
         }
 
+        if (_containingSymbol is IMethodSymbol containingMethod &&
+            GetReturnTargetType(containingMethod) is { } methodReturnType &&
+            methodReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
+            elseBound is not null &&
+            TryGetIgnoredValueExpression(thenBound, out var thenExpression) &&
+            TryGetIgnoredValueExpression(elseBound, out var elseExpression) &&
+            !HasExpressionErrors(thenExpression) &&
+            !HasExpressionErrors(elseExpression) &&
+            thenExpression.Type is { SpecialType: not SpecialType.System_Void and not SpecialType.System_Unit } &&
+            elseExpression.Type is { SpecialType: not SpecialType.System_Void and not SpecialType.System_Unit })
+        {
+            _diagnostics.ReportIfStatementValueIgnored(ifStmt.IfKeyword.GetLocation());
+        }
+
         return new BoundIfStatement(condition, thenBound, elseBound);
     }
 
@@ -121,6 +135,21 @@ partial class BlockBinder
             BlockStatementSyntax block when block.Statements.Count == 1 => IsEarlyExitStatement(block.Statements[0]),
             _ => false
         };
+    }
+
+    private static bool TryGetIgnoredValueExpression(BoundStatement statement, out BoundExpression expression)
+    {
+        switch (statement)
+        {
+            case BoundExpressionStatement expressionStatement:
+                expression = expressionStatement.Expression;
+                return true;
+            case BoundBlockStatement blockStatement when blockStatement.Statements.Count() == 1:
+                return TryGetIgnoredValueExpression(blockStatement.Statements.First(), out expression);
+            default:
+                expression = null!;
+                return false;
+        }
     }
 
     private BoundStatement BindWhileStatement(WhileStatementSyntax whileStmt)
@@ -146,10 +175,36 @@ partial class BlockBinder
         if (tryStmt.FinallyClause is { } finallyClause)
             finallyBlock = BindBlockStatement(finallyClause.Block);
 
+        if (_containingSymbol is IMethodSymbol containingMethod &&
+            GetReturnTargetType(containingMethod) is { } methodReturnType &&
+            methodReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
+            TryGetIgnoredValueExpression(tryBlock, out var tryExpression) &&
+            !HasExpressionErrors(tryExpression) &&
+            tryExpression.Type is { SpecialType: not SpecialType.System_Void and not SpecialType.System_Unit } &&
+            (catchBuilder.Count == 0 || AllCatchBlocksProduceIgnoredValues(catchBuilder)))
+        {
+            _diagnostics.ReportTryStatementValueIgnored(tryStmt.TryKeyword.GetLocation());
+        }
+
         if (catchBuilder.Count == 0 && finallyBlock is null)
             return tryBlock;
 
         return new BoundTryStatement(tryBlock, catchBuilder.ToImmutable(), finallyBlock);
+    }
+
+    private bool AllCatchBlocksProduceIgnoredValues(ImmutableArray<BoundCatchClause>.Builder catchBuilder)
+    {
+        foreach (var catchClause in catchBuilder)
+        {
+            if (!TryGetIgnoredValueExpression(catchClause.Block, out var catchExpression) ||
+                HasExpressionErrors(catchExpression) ||
+                catchExpression.Type is not { SpecialType: not SpecialType.System_Void and not SpecialType.System_Unit })
+            {
+                return false;
+            }
+        }
+
+        return catchBuilder.Count > 0;
     }
 
     public Dictionary<string, IMethodSymbol> _functions = new();

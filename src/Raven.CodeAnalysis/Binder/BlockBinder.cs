@@ -1964,19 +1964,34 @@ partial class BlockBinder : Binder
 
     private BoundStatement BindMatchStatement(MatchStatementSyntax matchStatement)
     {
+        var isImplicitReturn = IsMatchStatementImplicitReturn(matchStatement);
+        var armTargetType = _containingSymbol is IMethodSymbol method
+            ? GetReturnTargetType(method)
+            : null;
+
         var (scrutinee, arms) = BindMatchCommon(
             matchStatement,
             matchStatement.Expression,
             matchStatement.Arms,
             allowReturnInArmExpressions: true,
-            requireArmValue: false);
+            requireArmValue: false,
+            armTargetType: armTargetType);
+
+        if (!isImplicitReturn &&
+            _containingSymbol is IMethodSymbol containingMethod &&
+            GetReturnTargetType(containingMethod) is { } methodReturnType &&
+            methodReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
+            HasIgnoredValueProducingMatchArm(arms))
+        {
+            _diagnostics.ReportMatchStatementValueIgnored(matchStatement.MatchKeyword.GetLocation());
+        }
 
         // When a match statement is the last statement in a function body that
         // has a non-void return type, and at least one arm produces a value
         // (i.e. it is not an explicit return/throw), promote it to a
         // BoundMatchExpression wrapped in an ExpressionStatement so that the
         // method body's implicit-return logic can emit `ret` for it.
-        if (IsMatchStatementImplicitReturn(matchStatement))
+        if (isImplicitReturn)
         {
             var hasContributingArm = arms.Any(arm => !IsAbruptMatchArmExpression(arm.Expression));
 
@@ -2045,14 +2060,35 @@ partial class BlockBinder : Binder
         }
     }
 
+    private static bool HasIgnoredValueProducingMatchArm(ImmutableArray<BoundMatchArm> arms)
+    {
+        foreach (var arm in arms)
+        {
+            var expression = arm.Expression;
+            if (IsAbruptMatchArmExpression(expression) || HasExpressionErrors(expression))
+                continue;
+
+            var type = expression.Type;
+            if (type is null || type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+                continue;
+
+            return true;
+        }
+
+        return false;
+    }
+
     private BoundExpression BindMatchExpression(MatchExpressionSyntax matchExpression)
     {
+        var armTargetType = GetTargetType(matchExpression);
+
         var (scrutinee, arms) = BindMatchCommon(
             matchExpression,
             matchExpression.Expression,
             matchExpression.Arms,
             allowReturnInArmExpressions: _allowReturnsInExpression,
-            requireArmValue: true);
+            requireArmValue: true,
+            armTargetType: armTargetType);
         var contributingArmTypes = arms
             .Select(arm => arm.Expression)
             .Where(static expression => !IsAbruptMatchArmExpression(expression))
@@ -2077,7 +2113,8 @@ partial class BlockBinder : Binder
         ExpressionSyntax scrutineeSyntax,
         SyntaxList<MatchArmSyntax> armSyntaxes,
         bool allowReturnInArmExpressions,
-        bool requireArmValue)
+        bool requireArmValue,
+        ITypeSymbol? armTargetType)
     {
         var scrutinee = BindExpression(scrutineeSyntax);
 
@@ -2097,7 +2134,10 @@ partial class BlockBinder : Binder
             if (arm.WhenClause is { } whenClause)
                 guard = BindExpression(whenClause.Condition);
 
-            var expression = BindExpression(arm.Expression, allowReturn: allowReturnInArmExpressions);
+            var expression = BindExpressionWithTargetType(
+                arm.Expression,
+                armTargetType,
+                allowReturn: allowReturnInArmExpressions);
             if (requireArmValue)
                 expression = expression.RequireValue();
 

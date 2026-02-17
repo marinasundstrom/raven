@@ -139,7 +139,8 @@ discard identifier (either via a discard pattern or the discard expression).
 
 Most other expressions can appear as statements.
 
-Control flow constructs such as `if`, `while`, `for`, and statement-form `match`
+Control flow constructs such as `if`, `while`, `for`, statement-form `match`,
+and statement-form `try`
 also have dedicated
 statement forms for convenience. The parser rewrites an expression in statement
 position to the corresponding statement node when the value is discarded.
@@ -149,11 +150,34 @@ own line and always evaluates to `unit`.
 Values produced by expression statements are discarded and do not become implicit
 function return values.
 
+Rule of thumb for statement-form control flow:
+
+* Statement-form control flow may contain value-producing expressions in its
+  branches/arms.
+* Those values are discarded unless the construct participates in tail implicit
+  return rewriting and appears as the final statement of a value-returning
+  member.
+* Today, that tail implicit-return behavior applies to statement-form `match`.
+
+In value-returning functions, Raven warns when statement-form control flow
+produces branch values that are discarded instead of returned:
+
+* `RAV2107` for statement-form `match`.
+* `RAV2108` for statement-form `if`.
+* `RAV2109` for statement-form `try`.
+
+To address these warnings, either add explicit `return` statements in statement
+form, or use expression form in a value context.
+
 ## Match statement
 
 Statement-form `match` (`match expr { ... }`) is a control-flow statement. Its
-arms are evaluated for effects, and arm values are discarded. It never
-contributes an implicit return value for the enclosing function or block.
+arms are evaluated for effects, and arm values are discarded by default. When a
+statement-form `match` is the final statement in a value-returning member, it
+is treated as an implicit tail return.
+
+When a statement-form `match` produces values but is not in implicit-return
+position, the compiler reports warning `RAV2107`.
 
 ## Return statements and expressions
 

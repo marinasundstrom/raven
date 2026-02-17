@@ -631,6 +631,18 @@
     Title="Case pattern payload count mismatch"
     Message="Case '{caseName}' expects {expected} argument(s) but received {actual}"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2107" Identifier="MatchStatementValueIgnored"
+    Title="Match statement value is ignored"
+    Message="This match statement produces a value, but it will not be returned. Either add explicit 'return' statements in statement form, or use expression form where the surrounding context expects a value."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2108" Identifier="IfStatementValueIgnored"
+    Title="If statement value is ignored"
+    Message="This if statement produces values in its branches, but statement-form 'if' does not return a value. Either add explicit 'return' statements in statement form, or use expression form where the surrounding context expects a value."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2109" Identifier="TryStatementValueIgnored"
+    Title="Try statement value is ignored"
+    Message="This try statement produces values in its try/catch blocks, but statement-form 'try' does not return a value. Either add explicit 'return' statements in statement form, or use expression form where the surrounding context expects a value."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1602" Identifier="PropertyPatternMemberNotFound"
     Title="Property not found in property pattern"
     Message="Property '{name}' does not exist on type '{type}'" Category="compiler" Severity="Error"

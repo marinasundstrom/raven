@@ -105,4 +105,92 @@ class Evaluator {
         var verifier = CreateVerifier(code);
         verifier.Verify();
     }
+
+    [Fact]
+    public void MatchStatement_ImplicitReturn_LastInBlock_TargetTypesArmMemberBindings()
+    {
+        const string code = """
+enum PingStatus {
+    Ok,
+    Error
+}
+
+func ping(name: string) -> PingStatus {
+    match name {
+        "Bob" | "bob" => .Ok
+        _ => .Error
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_NotLastInBlock_TargetTypesArmMemberBindings_AndWarnsValueIgnored()
+    {
+        const string code = """
+enum PingStatus {
+    Ok,
+    Error
+}
+
+func ping(name: string) -> PingStatus {
+    match name {
+        "Bob" | "bob" => .Ok
+        _ => .Error
+    }
+
+    return PingStatus.Error
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult("RAV2107").WithAnySpan(),
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_NotLastInReturningMethod_ValueArmsReportIgnoredValueWarning()
+    {
+        const string code = """
+func evaluate(flag: bool) -> int {
+    match flag {
+        true => 1
+        false => 0
+    }
+
+    return 42
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult("RAV2107").WithAnySpan(),
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_LastInReturningMethod_DoesNotReportIgnoredValueWarning()
+    {
+        const string code = """
+func evaluate(flag: bool) -> int {
+    match flag {
+        true => 1
+        false => 0
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
 }

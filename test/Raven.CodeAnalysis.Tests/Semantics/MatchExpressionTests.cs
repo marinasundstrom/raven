@@ -233,6 +233,27 @@ val result = value match {
     }
 
     [Fact]
+    public void MatchExpression_InReturnContext_TargetTypesArmMemberBindings()
+    {
+        const string code = """
+enum PingStatus {
+    Ok,
+    Error
+}
+
+func ping(name: string) -> PingStatus {
+    return name match {
+        "Bob" | "bob" => .Ok
+        _ => .Error
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithPositionalPatternOnUnion_BindsElementDesignations()
     {
         const string code = """
