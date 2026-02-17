@@ -101,7 +101,7 @@ internal class MethodBodyGenerator
         if (_returnValueLocal is not null)
             return _returnValueLocal;
 
-        var returnType = MethodSymbol.ReturnType;
+        var returnType = GetEffectiveReturnTypeForEmission();
         if (returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
             throw new InvalidOperationException("Void-like methods do not require a return value local.");
 
@@ -2567,7 +2567,7 @@ internal class MethodBodyGenerator
 
     private void EmitExpressionBody(BoundExpression expression, bool includeReturn = true)
     {
-        var returnType = MethodSymbol.ReturnType;
+        var returnType = GetEffectiveReturnTypeForEmission();
 
         if (returnType is null || returnType.SpecialType == SpecialType.System_Void)
         {
@@ -2694,7 +2694,7 @@ internal class MethodBodyGenerator
             // expression, while still emitting any required boxing.
             if (treatAsMethodBody && includeImplicitReturn &&
                 i == statements.Count - 1 &&
-                MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
+                GetEffectiveReturnTypeForEmission().SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
                 statement is BoundExpressionStatement exprStmt)
             {
                 var returnStatement = new BoundReturnStatement(exprStmt.Expression);
@@ -2735,7 +2735,7 @@ internal class MethodBodyGenerator
         }
 
         if (!endsWithTerminator &&
-            MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit)
+            GetEffectiveReturnTypeForEmission().SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit)
         {
             // Defensive fallback: keep emitted IL verifiable even when branch-shape analysis
             // cannot prove all paths in a non-void method return.
@@ -2840,11 +2840,20 @@ internal class MethodBodyGenerator
 
     private bool ShouldEmitImplicitReturn()
     {
-        var returnType = MethodSymbol.ReturnType;
+        var returnType = GetEffectiveReturnTypeForEmission();
         if (returnType is null)
             return true;
 
         return returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
+    }
+
+    private ITypeSymbol GetEffectiveReturnTypeForEmission()
+    {
+        if (!Compilation.Options.UseRuntimeAsync || !MethodSymbol.IsAsync)
+            return MethodSymbol.ReturnType;
+
+        return AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, MethodSymbol.ReturnType)
+            ?? MethodSymbol.ReturnType;
     }
 
     private void EmitStatement(BoundStatement statement)

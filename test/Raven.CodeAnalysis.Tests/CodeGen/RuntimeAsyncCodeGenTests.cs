@@ -174,6 +174,41 @@ class Program {
             static member => member.EndsWith("::GetResult", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void RuntimeAsyncEnabled_TryCatchReturn_UsesEffectiveReturnTypeForExitLocal()
+    {
+        const string code = """
+import System.*
+import System.IO.*
+import System.Threading.Tasks.*
+
+class Program {
+    async Fetch() -> Task<int> {
+        use stream = MemoryStream()
+        try {
+            val value = await Task.FromResult(42)
+            return value
+        } catch (Exception e) {
+            return -1
+        }
+    }
+}
+""";
+
+        using var loaded = EmitAssembly(code, useRuntimeAsync: true);
+
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var methodFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        var fetchMethod = programType.GetMethod("Fetch", methodFlags)!;
+        var methodBody = fetchMethod.GetMethodBody();
+        Assert.NotNull(methodBody);
+
+        Assert.DoesNotContain(
+            methodBody!.LocalVariables,
+            local => local.LocalType == fetchMethod.ReturnType);
+
+    }
+
     private static TestAssemblyLoader.LoadedAssembly EmitAssembly(string code, bool useRuntimeAsync)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
