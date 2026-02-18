@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection.PortableExecutable;
 using System.Text;
+using System.Xml.Linq;
 
 using Raven;
 using Raven.CodeAnalysis;
@@ -391,32 +392,31 @@ static bool IsValidAssemblyReference(string path)
     }
 }
 
-if (!ravenCoreExplicitlyProvided && !skipDefaultRavenCoreLookup)
+static string? TryReadProjectTargetFramework(string projectFilePath)
 {
-    var ravenCoreCandidates = new[]
+    try
     {
-        Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll"),
-        Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net11.0/Raven.Core.dll"),
-        Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net11.0/net11.0/Raven.Core.dll"),
-        Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net9.0/Raven.Core.dll"),
-        Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll"),
-    };
-
-    foreach (var candidate in ravenCoreCandidates)
-    {
-        if (File.Exists(candidate) && IsValidAssemblyReference(candidate))
-        {
-            ravenCorePath = candidate;
-            break;
-        }
+        var xdoc = XDocument.Load(projectFilePath);
+        return (string?)xdoc.Root?.Attribute("TargetFramework");
     }
-
-    if (string.IsNullOrWhiteSpace(ravenCorePath))
-        embedCoreTypes = true;
+    catch
+    {
+        return null;
+    }
 }
-else if (string.IsNullOrWhiteSpace(ravenCorePath))
+
+static string TryReadProjectConfiguration(string projectFilePath)
 {
-    embedCoreTypes = true;
+    try
+    {
+        var xdoc = XDocument.Load(projectFilePath);
+        var configuration = (string?)xdoc.Root?.Attribute("Configuration");
+        return RavenProjectConventions.Default.NormalizeConfiguration(configuration);
+    }
+    catch
+    {
+        return RavenProjectConventions.Default.DefaultConfiguration;
+    }
 }
 
 for (int i = 0; i < sourceFiles.Count; i++)
@@ -434,6 +434,69 @@ var projectFileInput = sourceFiles.Count == 1 &&
                        string.Equals(Path.GetExtension(sourceFiles[0]), ".ravenproj", StringComparison.OrdinalIgnoreCase)
     ? sourceFiles[0]
     : null;
+
+var projectTargetFramework = projectFileInput is null ? null : TryReadProjectTargetFramework(projectFileInput);
+var projectConfiguration = projectFileInput is null ? RavenProjectConventions.Default.DefaultConfiguration : TryReadProjectConfiguration(projectFileInput);
+var targetFramework = targetFrameworkTfm
+    ?? projectTargetFramework
+    ?? TargetFrameworkUtil.GetLatestFramework();
+var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
+var preferredCoreTfm = version.Moniker.ToTfm();
+
+if (!ravenCoreExplicitlyProvided && !skipDefaultRavenCoreLookup)
+{
+    var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
+    var specificCoreCandidates = new[]
+    {
+        Path.Combine(repositoryRoot, "src", "Raven.Core", "bin", "Debug", preferredCoreTfm, "Raven.Core.dll"),
+        Path.Combine(repositoryRoot, "src", "Raven.Core", "bin", "Debug", preferredCoreTfm, preferredCoreTfm, "Raven.Core.dll"),
+    };
+
+    var baseCandidate = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");
+    var invalidSpecificCandidate = specificCoreCandidates.FirstOrDefault(File.Exists) is { } existingSpecific
+        && !IsValidAssemblyReference(existingSpecific)
+        ? existingSpecific
+        : null;
+
+    if (invalidSpecificCandidate is not null)
+    {
+        AnsiConsole.MarkupLine(
+            $"[red]Raven core assembly '{Markup.Escape(invalidSpecificCandidate)}' for target framework '{Markup.Escape(preferredCoreTfm)}' is invalid (possibly empty or stale).[/]");
+        AnsiConsole.MarkupLine("[yellow]Rebuild Raven.Core for that target before compiling, for example via scripts/codex-build.sh.[/]");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    foreach (var candidate in specificCoreCandidates)
+    {
+        if (File.Exists(candidate) && IsValidAssemblyReference(candidate))
+        {
+            ravenCorePath = candidate;
+            break;
+        }
+    }
+
+    if (string.IsNullOrWhiteSpace(ravenCorePath) && File.Exists(baseCandidate) && IsValidAssemblyReference(baseCandidate))
+        ravenCorePath = baseCandidate;
+
+    if (string.IsNullOrWhiteSpace(ravenCorePath))
+    {
+        if (File.Exists(baseCandidate) && !IsValidAssemblyReference(baseCandidate))
+        {
+            AnsiConsole.MarkupLine(
+                $"[red]Found Raven core assembly at '{Markup.Escape(baseCandidate)}' but it is invalid (possibly empty or stale).[/]");
+            AnsiConsole.MarkupLine("[yellow]Rebuild Raven.Core for the selected target framework before compiling.[/]");
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        embedCoreTypes = true;
+    }
+}
+else if (string.IsNullOrWhiteSpace(ravenCorePath))
+{
+    embedCoreTypes = true;
+}
 
 if (!string.IsNullOrWhiteSpace(ravenCorePath))
 {
@@ -483,8 +546,8 @@ if (projectFileInput is not null)
     outputDirectory = explicitOutputPath
         ? Path.GetFullPath(outputPath!)
         : publish
-            ? Path.Combine(projectDirectory, "bin", "publish")
-            : Path.Combine(projectDirectory, "bin");
+            ? Path.Combine(projectDirectory, "bin", projectConfiguration, "publish")
+            : Path.Combine(projectDirectory, "bin", projectConfiguration);
     assemblyName = defaultAssemblyBaseName;
     outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
 }
@@ -634,8 +697,6 @@ var ravenCodeAnalysisPath = ResolveAndCopyLocalDependency(
     Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net9.0/Raven.CodeAnalysis.dll"),
     Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net9.0/net9.0/Raven.CodeAnalysis.dll"));
 
-var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
-var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 var useRuntimeAsync = runtimeAsyncOverride
     ?? (version.Moniker.Framework == FrameworkId.NetCoreApp && version.Moniker.Version.Major >= 11);
 
@@ -1522,7 +1583,7 @@ static void PrintHelp()
     Console.WriteLine("                     Disable runtime-async metadata emission (auto-enabled for net11+)");
     Console.WriteLine("  -o <path>          Output path.");
     Console.WriteLine("                     For .rav inputs: output assembly path.");
-    Console.WriteLine("                     For .ravenproj inputs: output directory path (default: <project-dir>/bin).");
+    Console.WriteLine("                     For .ravenproj inputs: output directory path (default: <project-dir>/bin/<Configuration>).");
     Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");
     Console.WriteLine("                     Use 'group' to display syntax lists grouped by property.");
     Console.WriteLine("  -ps                Print the parsing sequence");
@@ -1545,7 +1606,7 @@ static void PrintHelp()
     Console.WriteLine("  --suggestions    Display educational rewrite suggestions for diagnostics that provide them");
     Console.WriteLine("  -q                 Display AST as compilable C# code");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
-    Console.WriteLine("  --publish        Emit runtime artifacts; for .ravenproj defaults output to <project-dir>/bin/publish");
+    Console.WriteLine("  --publish        Emit runtime artifacts; for .ravenproj defaults output to <project-dir>/bin/<Configuration>/publish");
     Console.WriteLine("  --fix            Apply supported code fixes to source files before compiling");
     Console.WriteLine("  --format         Normalize whitespace and indentation in source files before compiling");
     Console.WriteLine("  --doc-tool [ravendoc|comments]");

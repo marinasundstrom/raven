@@ -20,8 +20,8 @@ dotnet run --project src/Raven.Compiler -- init [--name <project-name>] [--frame
 - `--framework <tfm>` &ndash; target framework (e.g. `net8.0`)
 - `--refs <path>` &ndash; additional metadata reference (repeatable)
 - `-o <path>` &ndash; output path (`.rav` inputs: assembly file path; `.ravenproj` inputs: output directory path)
-- `--publish` &ndash; publish-style output (copies runtime dependencies, emits runtime artifacts, and defaults `.ravenproj` output to `<project-dir>/bin/publish`)
-- `--run` &ndash; execute after successful compile (console apps only); runs from normal output (`bin` for `.ravenproj`) and stages runtime dependencies there as needed
+- `--publish` &ndash; publish-style output (copies runtime dependencies, emits runtime artifacts, and defaults `.ravenproj` output to `<project-dir>/bin/<Configuration>/publish`)
+- `--run` &ndash; execute after successful compile (console apps only); runs from normal output (`bin/<Configuration>` for `.ravenproj`) and stages runtime dependencies there as needed
 - `--runtime-async` &ndash; force .NET 11 runtime-async emission for async methods (`Async` method impl flag + `AsyncHelpers.Await` calls when available)
 - `--no-runtime-async` &ndash; disable runtime-async emission and keep classic awaiter pattern/state-machine lowering
 - `--global-statements` &ndash; enable top-level/global statements (default)

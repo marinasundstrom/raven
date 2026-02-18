@@ -93,15 +93,15 @@ When a `.ravenproj` includes `<FrameworkReference>`:
 Raven now separates normal build output from publish-style output:
 
 - Normal compile (`ravenc App.ravenproj`)
-  - default output directory: `<project-dir>/bin`
+  - default output directory: `<project-dir>/bin/<Configuration>`
   - emits apphost + `.dll` + `.runtimeconfig.json` for console apps
   - does **not** copy package/runtime dependency sets
 - Publish (`ravenc App.ravenproj --publish`)
-  - default output directory: `<project-dir>/bin/publish`
+  - default output directory: `<project-dir>/bin/<Configuration>/publish`
   - copies runtime dependencies (NuGet/framework/local assemblies) to output
   - emits runtime artifacts (`.runtimeconfig.json`, apphost)
 
-`--run` uses the normal output directory (`bin` for `.ravenproj`) and stages runtime dependencies there as needed so the produced program can execute immediately.
+`--run` uses the normal output directory (`bin/<Configuration>` for `.ravenproj`) and stages runtime dependencies there as needed so the produced program can execute immediately.
 
 Dependency copy details:
 
