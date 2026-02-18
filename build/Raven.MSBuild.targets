@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
     <RavenCompilerProject Condition="'$(RavenCompilerProject)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\Raven.Compiler.csproj'))</RavenCompilerProject>
+    <RavenCompilerFramework Condition="'$(RavenCompilerFramework)' == ''">net9.0</RavenCompilerFramework>
     <RavenProjectFile Condition="'$(RavenProjectFile)' == ''">$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(MSBuildProjectName).ravenproj'))</RavenProjectFile>
     <RavenOutputDir Condition="'$(RavenOutputDir)' == ''">$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', 'obj', 'raven'))</RavenOutputDir>
     <RavenBuildArgs Condition="'$(RavenBuildArgs)' == ''">--property WarningLevel=0</RavenBuildArgs>
@@ -20,7 +21,7 @@
           Condition="Exists('$(RavenProjectFile)')">
     <MakeDir Directories="$(RavenOutputDir)" />
 
-    <Exec Command="dotnet run --project &quot;$(RavenCompilerProject)&quot; $(RavenBuildArgs) -- &quot;$(RavenProjectFile)&quot; -o &quot;$(RavenOutputDir)&quot;" />
+    <Exec Command="dotnet run --framework $(RavenCompilerFramework) --project &quot;$(RavenCompilerProject)&quot; $(RavenBuildArgs) -- &quot;$(RavenProjectFile)&quot; -o &quot;$(RavenOutputDir)&quot;" />
 
   </Target>
 
