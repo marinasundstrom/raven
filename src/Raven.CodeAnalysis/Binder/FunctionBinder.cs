@@ -34,10 +34,9 @@ class FunctionBinder : Binder
         if (_methodSymbol is not null)
             return _methodSymbol;
 
-        //ISymbol container = null; //this.ContainingSymbol;
-        var container = Compilation.SourceGlobalNamespace.LookupType("Program") as INamedTypeSymbol;
+        var container = ResolveContainingType();
         if (container is null)
-            throw new InvalidOperationException("Synthesized Program type not found.");
+            throw new InvalidOperationException("Unable to resolve containing type for function declaration.");
 
         var existingMethod = container
             .GetMembers(_syntax.Identifier.ValueText)
@@ -166,6 +165,24 @@ class FunctionBinder : Binder
 
         _methodSymbol.SetParameters(parameters);
         return _methodSymbol;
+    }
+
+    private INamedTypeSymbol? ResolveContainingType()
+    {
+        // Local functions should bind within the enclosing type context, not
+        // require a synthesized Program type.
+        for (var current = ParentBinder; current is not null; current = current.ParentBinder)
+        {
+            switch (current.ContainingSymbol)
+            {
+                case INamedTypeSymbol namedType:
+                    return namedType;
+                case IMethodSymbol method when method.ContainingType is not null:
+                    return method.ContainingType;
+            }
+        }
+
+        return Compilation.SourceGlobalNamespace.LookupType("Program") as INamedTypeSymbol;
     }
 
     public MethodBinder GetMethodBodyBinder()

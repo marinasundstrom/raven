@@ -72,6 +72,7 @@ public static class BoundTreePrinter
 
         var nodeToSyntax = BuildNodeToSyntaxMap(cache);
         var roots = GetSyntacticRootNodes(cache);
+        PopulateMissingSyntaxMappings(model, roots, nodeToSyntax);
 
         var visitedNodes = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);
         var visitedSyntaxes = new HashSet<SyntaxNode>(ReferenceEqualityComparer.Instance);
@@ -211,6 +212,46 @@ public static class BoundTreePrinter
         }
 
         return map;
+    }
+
+    private static void PopulateMissingSyntaxMappings(
+        SemanticModel model,
+        IEnumerable<BoundNode> roots,
+        Dictionary<BoundNode, (SyntaxNode Syntax, Binder Binder)> nodeToSyntax)
+    {
+        var visited = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);
+        foreach (var root in roots)
+            PopulateMissingSyntaxMappings(model, root, nodeToSyntax, visited, parentBinder: null);
+    }
+
+    private static void PopulateMissingSyntaxMappings(
+        SemanticModel model,
+        BoundNode node,
+        Dictionary<BoundNode, (SyntaxNode Syntax, Binder Binder)> nodeToSyntax,
+        HashSet<BoundNode> visited,
+        Binder? parentBinder)
+    {
+        if (!visited.Add(node))
+            return;
+
+        Binder? binderForChildren = parentBinder;
+
+        if (!nodeToSyntax.TryGetValue(node, out var info))
+        {
+            var syntax = model.GetSyntax(node);
+            if (syntax is not null)
+            {
+                var binder = parentBinder ?? model.GetBinder(syntax);
+                info = (syntax, binder);
+                nodeToSyntax[node] = info;
+            }
+        }
+
+        if (nodeToSyntax.TryGetValue(node, out info))
+            binderForChildren = info.Binder;
+
+        foreach (var child in EnumerateChildNodes(GetChildren(node, includeChildPropertyNames: false, groupChildCollections: false, displayCollectionIndices: false)))
+            PopulateMissingSyntaxMappings(model, child, nodeToSyntax, visited, binderForChildren);
     }
 
     private static List<BoundNode> GetSyntacticRootNodes(Dictionary<SyntaxNode, (Binder Binder, BoundNode Node)> cache)

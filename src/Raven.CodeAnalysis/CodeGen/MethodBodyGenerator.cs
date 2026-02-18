@@ -27,6 +27,7 @@ internal class MethodBodyGenerator
     private ILLabel? _returnLabel;
     private IILocal? _returnValueLocal;
     private readonly Dictionary<SyntaxTree, ISymbolDocumentWriter> _symbolDocuments = new();
+    private bool _emittedMethodEntrySequencePoint;
     private static readonly Guid CSharpLanguageId = new("3f5162f8-07c6-11d3-9053-00c04fa302a1");
     private static readonly Guid DocumentTypeId = new("5a869d0b-6611-11d3-bd2a-0000f80849bd");
     private static readonly Guid DocumentVendorId = new("994b45c4-e6e9-11d2-903f-00c04fa302a1");
@@ -146,7 +147,7 @@ internal class MethodBodyGenerator
 
     internal void EmitSequencePoint(BoundStatement statement)
     {
-        var syntax = TryGetSyntax(statement);
+        var syntax = TryGetSequencePointSyntax(statement);
         if (syntax is null)
             return;
 
@@ -179,6 +180,33 @@ internal class MethodBodyGenerator
 
         var semanticModel = Compilation.GetSemanticModel(syntaxRef.SyntaxTree);
         return semanticModel.GetSyntax(node);
+    }
+
+    private SyntaxNode? TryGetSequencePointSyntax(BoundStatement statement)
+    {
+        var direct = TryGetSyntax(statement);
+        if (direct is not null)
+            return direct;
+
+        return statement switch
+        {
+            BoundExpressionStatement expressionStatement => TryGetSyntax(expressionStatement.Expression),
+            BoundAssignmentStatement assignmentStatement => TryGetSyntax(assignmentStatement.Expression),
+            BoundReturnStatement { Expression: not null } returnStatement => TryGetSyntax(returnStatement.Expression),
+            BoundThrowStatement { Expression: not null } throwStatement => TryGetSyntax(throwStatement.Expression),
+            BoundIfStatement ifStatement => TryGetSyntax(ifStatement.Condition)
+                ?? TryGetSequencePointSyntax(ifStatement.ThenNode)
+                ?? (ifStatement.ElseNode is null ? null : TryGetSequencePointSyntax(ifStatement.ElseNode)),
+            BoundLocalDeclarationStatement localDeclaration => localDeclaration.Declarators
+                .Select(static d => d.Initializer)
+                .Where(static i => i is not null)
+                .Select(i => TryGetSyntax(i!))
+                .FirstOrDefault(s => s is not null),
+            BoundBlockStatement block => block.Statements
+                .Select(TryGetSequencePointSyntax)
+                .FirstOrDefault(s => s is not null),
+            _ => null
+        };
     }
 
     internal void EmitLoadClosure()
@@ -2664,12 +2692,63 @@ internal class MethodBodyGenerator
 
     private void EmitMethodBlock(BoundBlockStatement block, bool includeImplicitReturn = true)
     {
+        EmitMethodEntrySequencePointOnce();
         EmitBlock(block, treatAsMethodBody: true, includeImplicitReturn);
     }
 
     private void EmitBoundBlock(BoundBlockStatement block)
     {
         EmitBlock(block, treatAsMethodBody: false, includeImplicitReturn: false);
+    }
+
+    private void EmitMethodEntrySequencePointOnce()
+    {
+        if (_emittedMethodEntrySequencePoint)
+            return;
+
+        var syntax = GetMethodEntrySequencePointSyntax();
+        if (syntax is null)
+            return;
+
+        _emittedMethodEntrySequencePoint = true;
+        EmitSequencePoint(syntax);
+    }
+
+    private SyntaxNode? GetMethodEntrySequencePointSyntax()
+    {
+        static SyntaxNode? SelectBodySyntax(SyntaxNode? syntax)
+        {
+            return syntax switch
+            {
+                MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? (SyntaxNode?)method.ExpressionBody?.Expression ?? method,
+                FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? (SyntaxNode?)function.ExpressionBody?.Expression ?? function,
+                AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? (SyntaxNode?)accessor.ExpressionBody?.Expression ?? accessor,
+                BaseConstructorDeclarationSyntax ctor => (SyntaxNode?)ctor.Body ?? (SyntaxNode?)ctor.ExpressionBody?.Expression ?? ctor,
+                ArrowExpressionClauseSyntax arrow => arrow.Expression,
+                LambdaExpressionSyntax lambda => lambda.ExpressionBody,
+                _ => syntax
+            };
+        }
+
+        var syntax = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+        if (syntax is not null)
+            return SelectBodySyntax(syntax);
+
+        if (MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+        {
+            var asyncSyntax = asyncStateMachine.AsyncMethod.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+            if (asyncSyntax is not null)
+                return SelectBodySyntax(asyncSyntax);
+        }
+
+        if (MethodSymbol.ContainingType is SynthesizedIteratorTypeSymbol iteratorType)
+        {
+            var iteratorSyntax = iteratorType.IteratorMethod.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+            if (iteratorSyntax is not null)
+                return SelectBodySyntax(iteratorSyntax);
+        }
+
+        return null;
     }
 
     private void EmitBlock(BoundBlockStatement block, bool treatAsMethodBody, bool includeImplicitReturn)

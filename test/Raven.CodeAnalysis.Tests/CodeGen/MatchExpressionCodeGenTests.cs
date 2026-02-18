@@ -46,7 +46,7 @@ public class MatchExpressionCodeGenTests
     public void MatchExpression_WithValueTypeArm_EmitsAndRuns()
     {
         const string code = """
-val value = 42
+val value: object = 42
 val result = value match {
     int i => i.ToString()
     _ => "None"
@@ -65,14 +65,17 @@ System.Console.WriteLine(result)
     public void MatchExpression_AsReturnValue_EmitsAndRuns()
     {
         const string code = """
-val describer = Describer()
-val zero = describer.Describe(0)
-val two = describer.Describe(2)
-
-System.Console.WriteLine(zero + "," + two)
+class Program {
+    static Main() {
+        val describer = Describer()
+        val zero = describer.Describe(0)
+        val two = describer.Describe(2)
+        System.Console.WriteLine(zero + "," + two)
+    }
+}
 
 class Describer {
-    Describe(value: int) -> string {
+    public Describe(value: int) -> string {
         return value match {
             0 => "zero"
             _ => value.ToString()
@@ -91,12 +94,14 @@ class Describer {
     public void MatchExpression_WithStringLiteralPattern_MatchesExactValue()
     {
         const string code = """
-val foo = "foo" match {
+val fooValue: string = "foo"
+val foo = fooValue match {
     "foo" => "str"
     _ => "None"
 }
 
-val empty = "" match {
+val emptyValue: string = ""
+val empty = emptyValue match {
     "foo" => "str"
     _ => "None"
 }
@@ -126,7 +131,7 @@ class Describer {
         return value match {
             true => "true"
             false => "false"
-            (flag: bool, text: string) => text
+            (val flag: bool, val text: string) => text
         }
     }
 }
@@ -170,16 +175,16 @@ class Program {
     public void MatchExpression_WithDiscriminatedUnion_UsesTryGetAndCaseProperties()
     {
         const string code = """
-union Result<T> {
+union Result<T, TError> {
     Ok(value: T)
-    Error(message: string)
+    Error(message: TError)
 }
 
 class Formatter {
     public Format(result: Result<int, string>) -> string {
         return result match {
-            .Ok(value) => "ok ${value}"
-            .Error(message) => "error ${message}"
+            .Ok(val value) => "ok ${value}"
+            .Error(val message) => "error ${message}"
         }
     }
 }
@@ -220,17 +225,20 @@ union Test {
 class Formatter {
     public Describe(value: Test) -> string {
         return value match {
-            .Something(text) => text
+            .Something(val text) => text
             .Nothing => "none"
         }
     }
 }
 
-val formatter = Formatter()
-val something = Test.Something("hello")
-val nothing = Test.Nothing
-
-System.Console.WriteLine(formatter.Describe(something) + "," + formatter.Describe(nothing))
+class Program {
+    static Main() {
+        val formatter = Formatter()
+        val something = Test.Something("hello")
+        val nothing = Test.Nothing
+        System.Console.WriteLine(formatter.Describe(something) + "," + formatter.Describe(nothing))
+    }
+}
 """;
 
         var output = EmitAndRun(code, "match_union_identifier_expression");
@@ -252,16 +260,16 @@ val err = Result<int, string>.Error("boom")
 System.Console.WriteLine(format(ok))
 System.Console.WriteLine(format((Result<int, string>)err))
 
-func format<T>(result: Result<T>) -> string {
+func format<T>(result: Result<T, string>) -> string {
     return result match {
-        .Ok(value) => "ok ${value}"
-        .Error(message) => "error '${message}'"
+        .Ok(val value) => "ok ${value}"
+        .Error(val message) => "error '${message}'"
     }
 }
 
-union Result<T> {
+union Result<T, TError> {
     Ok(value: T)
-    Error(message: string)
+    Error(message: TError)
 }
 """;
 
@@ -276,23 +284,24 @@ union Result<T> {
     public void MatchExpression_ParameterlessUnionCase_AllowsOmittedInvocation()
     {
         const string code = """
-import System.Console.*
-
-val a = Test.Something("foo")
-val b = Test.Nothing
-
-WriteLine(describe(a) + "," + describe(b))
-
-func describe(value: Test) -> string {
-    return value match {
-        .Something(text) => text
-        .Nothing => "none"
-    }
-}
-
 union Test {
     Something(value: string)
     Nothing
+}
+
+class Program {
+    static describe(value: Test) -> string {
+        return value match {
+            .Something(val text) => text
+            .Nothing => "none"
+        }
+    }
+
+    static Main() {
+        val a = Test.Something("foo")
+        val b = Test.Nothing
+        System.Console.WriteLine(describe(a) + "," + describe(b))
+    }
 }
 """;
 
@@ -314,7 +323,7 @@ val name = tuple2.Item2
 val x: bool | (flag: bool, text: string) = false
 
 val r = x match {
-    (flag: bool, text: string) => "tuple"
+    (val flag: bool, val text: string) => "tuple"
     _ => "none"
 }
 
@@ -344,7 +353,7 @@ class Describer {
         return value match {
             false => "false"
             true => "true"
-            (flag: bool, text: string) => text
+            (val flag: bool, val text: string) => text
             _ => "none"
         }
     }

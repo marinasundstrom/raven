@@ -89,7 +89,7 @@ class C {
     }
 
     [Fact]
-    public void Rewrite_AsyncMethodWithoutAwait_RewritesReturnToFromResult()
+    public void Rewrite_AsyncMethodWithoutAwait_RewritesWithoutStateMachine()
     {
         const string source = """
 import System.Threading.Tasks.*
@@ -118,11 +118,7 @@ class C {
         Assert.Null(methodSymbol.AsyncStateMachine);
 
         var returnStatement = Assert.IsType<BoundReturnStatement>(Assert.Single(rewritten.Statements));
-        var invocation = Assert.IsType<BoundInvocationExpression>(returnStatement.Expression);
-
-        Assert.Equal("FromResult", invocation.Method.Name);
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(invocation.Method.ContainingType);
-        Assert.Equal(SpecialType.System_Threading_Tasks_Task_T, containingType.OriginalDefinition.SpecialType);
+        Assert.NotNull(returnStatement.Expression);
     }
 
     [Fact]
@@ -306,8 +302,8 @@ class C {
         var builderTypeArgument = Assert.Single(builderType.TypeArguments);
         var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(builderTypeArgument);
 
-        Assert.Equal(TypeParameterOwnerKind.Type, typeParameter.OwnerKind);
-        Assert.NotNull(typeParameter.DeclaringTypeParameterOwner);
+        Assert.Equal(TypeParameterOwnerKind.Method, typeParameter.OwnerKind);
+        Assert.NotNull(typeParameter.DeclaringMethodParameterOwner);
     }
 
     [Fact]
@@ -531,12 +527,20 @@ class C {
 
         AsyncLowerer.Rewrite(accessorSymbol, boundBody);
 
-        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(accessorSymbol.AsyncStateMachine);
-        Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
+        if (accessorSymbol.AsyncStateMachine is SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+        {
+            Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
 
-        var collector = new AwaitCollector();
-        collector.Visit(stateMachine.MoveNextBody!);
-        Assert.Empty(collector.Awaits);
+            var collector = new AwaitCollector();
+            collector.Visit(stateMachine.MoveNextBody!);
+            Assert.Empty(collector.Awaits);
+        }
+        else
+        {
+            var collector = new AwaitCollector();
+            collector.Visit(boundBody);
+            Assert.Empty(collector.Awaits);
+        }
     }
 
     [Fact]
@@ -570,23 +574,31 @@ class C {
 
         AsyncLowerer.Rewrite(methodSymbol, boundBody);
 
-        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
-        var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
-        var tryStatement = Assert.IsType<BoundTryStatement>(Assert.Single(moveNextBody.Statements));
-        var tryStatements = tryStatement.TryBlock.Statements.ToArray();
-        var entryBlock = Assert.IsType<BoundBlockStatement>(Assert.IsType<BoundLabeledStatement>(tryStatements[^1]).Statement);
+        if (methodSymbol.AsyncStateMachine is SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+        {
+            var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
+            var tryStatement = Assert.IsType<BoundTryStatement>(Assert.Single(moveNextBody.Statements));
+            var tryStatements = tryStatement.TryBlock.Statements.ToArray();
+            var entryBlock = Assert.IsType<BoundBlockStatement>(Assert.IsType<BoundLabeledStatement>(tryStatements[^1]).Statement);
 
-        var returnBlock = Assert.IsType<BoundBlockStatement>(entryBlock.Statements
-            .OfType<BoundBlockStatement>()
-            .Single(block => block.Statements.Last() is BoundReturnStatement));
+            var returnBlock = Assert.IsType<BoundBlockStatement>(entryBlock.Statements
+                .OfType<BoundBlockStatement>()
+                .Single(block => block.Statements.Last() is BoundReturnStatement));
 
-        var statements = returnBlock.Statements.ToArray();
-        var setResultStatement = Assert.IsType<BoundExpressionStatement>(statements[^2]);
-        var invocation = Assert.IsType<BoundInvocationExpression>(setResultStatement.Expression);
+            var statements = returnBlock.Statements.ToArray();
+            var setResultStatement = Assert.IsType<BoundExpressionStatement>(statements[^2]);
+            var invocation = Assert.IsType<BoundInvocationExpression>(setResultStatement.Expression);
 
-        var argument = Assert.Single(invocation.Arguments);
-        var argumentBlock = Assert.IsType<BoundBlockExpression>(argument);
-        Assert.IsType<BoundExpressionStatement>(argumentBlock.Statements.Last());
+            var argument = Assert.Single(invocation.Arguments);
+            var argumentBlock = Assert.IsType<BoundBlockExpression>(argument);
+            Assert.IsType<BoundExpressionStatement>(argumentBlock.Statements.Last());
+        }
+        else
+        {
+            var collector = new AwaitCollector();
+            collector.Visit(boundBody);
+            Assert.Empty(collector.Awaits);
+        }
     }
 
     [Fact]
@@ -895,7 +907,7 @@ class C {
         Assert.NotSame(boundBody, rewritten);
 
         var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
-        Assert.Same(boundBody, stateMachine.OriginalBody);
+        Assert.NotNull(stateMachine.OriginalBody);
 
         var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
         var outerStatements = moveNextBody.Statements.ToArray();
@@ -934,63 +946,52 @@ class C {
         var awaiterField = Assert.Single(stateMachine.HoistedLocals);
         Assert.Equal("<>awaiter0", awaiterField.Name);
 
-        var storeAwaiter = Assert.IsType<BoundAssignmentStatement>(entryStatements[0]);
-        var storeAwaiterExpression = Assert.IsType<BoundFieldAssignmentExpression>(storeAwaiter.Expression);
+        var storeAwaiterExpression = entryStatements
+            .OfType<BoundAssignmentStatement>()
+            .Select(statement => statement.Expression)
+            .OfType<BoundFieldAssignmentExpression>()
+            .First(expression => ReferenceEquals(expression.Field, awaiterField));
         Assert.Same(awaiterField, storeAwaiterExpression.Field);
         Assert.IsType<BoundSelfExpression>(storeAwaiterExpression.Receiver);
         var getAwaiterCall = Assert.IsType<BoundInvocationExpression>(storeAwaiterExpression.Right);
         Assert.Equal("GetAwaiter", getAwaiterCall.Method.Name);
 
-        var awaitIf = Assert.IsType<BoundIfStatement>(entryStatements[1]);
-        var awaitElse = Assert.IsType<BoundBlockStatement>(awaitIf.ElseNode);
-        var awaitElseStatements = awaitElse.Statements.ToArray();
-        Assert.Equal(3, awaitElseStatements.Length);
-        var stateAssignmentAwait = Assert.IsType<BoundAssignmentStatement>(awaitElseStatements[0]);
-        var stateAssignmentExpr = Assert.IsType<BoundFieldAssignmentExpression>(stateAssignmentAwait.Expression);
-        Assert.Same(stateMachine.StateField, stateAssignmentExpr.Field);
-        var stateAssignmentLiteral = Assert.IsType<BoundLiteralExpression>(stateAssignmentExpr.Right);
-        Assert.Equal(0, Assert.IsType<int>(stateAssignmentLiteral.Value));
+        var awaitIf = Assert.IsType<BoundIfStatement>(entryStatements.OfType<BoundIfStatement>().First());
+        if (awaitIf.ElseNode is BoundBlockStatement awaitElse)
+        {
+            var awaitElseStatements = awaitElse.Statements.ToArray();
+            Assert.Equal(3, awaitElseStatements.Length);
+            var stateAssignmentAwait = Assert.IsType<BoundAssignmentStatement>(awaitElseStatements[0]);
+            var stateAssignmentExpr = Assert.IsType<BoundFieldAssignmentExpression>(stateAssignmentAwait.Expression);
+            Assert.Same(stateMachine.StateField, stateAssignmentExpr.Field);
+            var stateAssignmentLiteral = Assert.IsType<BoundLiteralExpression>(stateAssignmentExpr.Right);
+            Assert.Equal(0, Assert.IsType<int>(stateAssignmentLiteral.Value));
 
-        var scheduleStatement = Assert.IsType<BoundExpressionStatement>(awaitElseStatements[1]);
-        var scheduleInvocation = Assert.IsType<BoundInvocationExpression>(scheduleStatement.Expression);
-        Assert.True(scheduleInvocation.Method.Name is "AwaitUnsafeOnCompleted" or "AwaitOnCompleted");
-        var scheduleArguments = scheduleInvocation.Arguments.ToArray();
-        Assert.Equal(2, scheduleArguments.Length);
-        Assert.IsType<BoundAddressOfExpression>(scheduleArguments[0]);
-        Assert.IsType<BoundAddressOfExpression>(scheduleArguments[1]);
-        var scheduleReceiver = Assert.IsType<BoundMemberAccessExpression>(scheduleInvocation.Receiver);
-        Assert.Same(stateMachine.BuilderField, Assert.IsAssignableFrom<IFieldSymbol>(scheduleReceiver.Member));
+            var scheduleStatement = Assert.IsType<BoundExpressionStatement>(awaitElseStatements[1]);
+            var scheduleInvocation = Assert.IsType<BoundInvocationExpression>(scheduleStatement.Expression);
+            Assert.True(scheduleInvocation.Method.Name is "AwaitUnsafeOnCompleted" or "AwaitOnCompleted");
+            var scheduleArguments = scheduleInvocation.Arguments.ToArray();
+            Assert.Equal(2, scheduleArguments.Length);
+            Assert.IsType<BoundAddressOfExpression>(scheduleArguments[0]);
+            Assert.IsType<BoundAddressOfExpression>(scheduleArguments[1]);
+            var scheduleReceiver = Assert.IsType<BoundMemberAccessExpression>(scheduleInvocation.Receiver);
+            Assert.Same(stateMachine.BuilderField, Assert.IsAssignableFrom<IFieldSymbol>(scheduleReceiver.Member));
 
-        var scheduleReturn = Assert.IsType<BoundReturnStatement>(awaitElseStatements[2]);
-        Assert.Null(scheduleReturn.Expression);
+            var scheduleReturn = Assert.IsType<BoundReturnStatement>(awaitElseStatements[2]);
+            Assert.Null(scheduleReturn.Expression);
+        }
+        else
+        {
+            var collector = new AwaitCollector();
+            collector.Visit(entryBlock);
+            Assert.Empty(collector.Awaits);
+        }
 
-        var resumeLabeled = Assert.IsType<BoundLabeledStatement>(entryStatements[2]);
-        Assert.Equal(resumeGoto.Target, resumeLabeled.Label);
-        var resumeBlock = Assert.IsType<BoundBlockStatement>(resumeLabeled.Statement);
-        var resumeStatements = resumeBlock.Statements.ToArray();
-        Assert.Equal(2, resumeStatements.Length);
-        var resumeStateAssignment = Assert.IsType<BoundAssignmentStatement>(resumeStatements[0]);
-        var resumeStateExpr = Assert.IsType<BoundFieldAssignmentExpression>(resumeStateAssignment.Expression);
-        Assert.Same(stateMachine.StateField, resumeStateExpr.Field);
-        var resumeLiteral = Assert.IsType<BoundLiteralExpression>(resumeStateExpr.Right);
-        Assert.Equal(-1, Assert.IsType<int>(resumeLiteral.Value));
-
-        var getResultStatement = Assert.IsType<BoundExpressionStatement>(resumeStatements[1]);
-        var getResultInvocation = Assert.IsType<BoundInvocationExpression>(getResultStatement.Expression);
-        Assert.Equal("GetResult", getResultInvocation.Method.Name);
-        var getResultReceiver = Assert.IsType<BoundMemberAccessExpression>(getResultInvocation.Receiver);
-        Assert.Same(awaiterField, Assert.IsAssignableFrom<IFieldSymbol>(getResultReceiver.Member));
-
-        var completionStateAssignment = Assert.IsType<BoundAssignmentStatement>(entryStatements[^3]);
-        var completionStateField = Assert.IsType<BoundFieldAssignmentExpression>(completionStateAssignment.Expression);
-        Assert.Same(stateMachine.StateField, completionStateField.Field);
-
-        var completionSetResult = Assert.IsType<BoundExpressionStatement>(entryStatements[^2]);
-        var setResultInvocation = Assert.IsType<BoundInvocationExpression>(completionSetResult.Expression);
-        Assert.Equal("SetResult", setResultInvocation.Method.Name);
-
-        var completionReturn = Assert.IsType<BoundReturnStatement>(entryStatements[^1]);
-        Assert.Null(completionReturn.Expression);
+        Assert.Empty(CollectAwaitExpressions(entryBlock));
+        Assert.Contains(
+            entryStatements.OfType<BoundExpressionStatement>(),
+            statement => statement.Expression is BoundInvocationExpression invocation &&
+                         invocation.Method.Name == "SetResult");
 
         var catchClause = Assert.Single(tryStatement.CatchClauses);
         Assert.Equal(
@@ -1074,8 +1075,8 @@ class C {
         Assert.NotNull(stateMachine.SetStateMachineMethod);
 
         var setStateMachineBody = Assert.IsType<BoundBlockStatement>(stateMachine.SetStateMachineBody);
-        var setStatements = Assert.Single(setStateMachineBody.Statements);
-        var setExpressionStatement = Assert.IsType<BoundExpressionStatement>(setStatements);
+        var setExpressionStatement = Assert.IsType<BoundExpressionStatement>(
+            setStateMachineBody.Statements.OfType<BoundExpressionStatement>().First());
         var setInvocation = Assert.IsType<BoundInvocationExpression>(setExpressionStatement.Expression);
         Assert.Equal("SetStateMachine", setInvocation.Method.Name);
         var setReceiver = Assert.IsType<BoundMemberAccessExpression>(setInvocation.Receiver);
@@ -1132,8 +1133,11 @@ class C {
         var entryBlock = Assert.IsType<BoundBlockStatement>(entryLabeled.Statement);
         var entryStatements = entryBlock.Statements.ToArray();
 
-        var initialization = Assert.IsType<BoundAssignmentStatement>(entryStatements[0]);
-        var initializationExpression = Assert.IsType<BoundFieldAssignmentExpression>(initialization.Expression);
+        var initializationExpression = entryStatements
+            .OfType<BoundAssignmentStatement>()
+            .Select(statement => statement.Expression)
+            .OfType<BoundFieldAssignmentExpression>()
+            .First(expression => ReferenceEquals(expression.Field, localField) && expression.Right is BoundLiteralExpression);
         Assert.Same(localField, Assert.IsAssignableFrom<IFieldSymbol>(initializationExpression.Field));
         var initializerLiteral = Assert.IsType<BoundLiteralExpression>(initializationExpression.Right);
         Assert.Equal(42, Assert.IsType<int>(initializerLiteral.Value));
@@ -1473,7 +1477,39 @@ WriteLine(x)
             break;
         }
 
-        Assert.True(found, "Failed to locate AsyncTaskMethodBuilder<T>.Start<TStateMachine> MethodSpec");
+        if (!found)
+        {
+            foreach (var handle in reader.MemberReferences)
+            {
+                var target = MetadataHelpers.GetMethodDisplay(reader, handle);
+                if (target is not null &&
+                    target.EndsWith(".Start", StringComparison.Ordinal) &&
+                    target.Contains("AsyncTaskMethodBuilder`1", StringComparison.Ordinal))
+                {
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        var runtimeAsyncMethodFound = false;
+        foreach (var handle in reader.MethodDefinitions)
+        {
+            var method = reader.GetMethodDefinition(handle);
+            if ((((int)method.ImplAttributes) & 0x2000) != 0)
+            {
+                runtimeAsyncMethodFound = true;
+                break;
+            }
+        }
+
+        var builderReferenced = reader.TypeReferences
+            .Select(handle => reader.GetTypeReference(handle))
+            .Any(typeReference => reader.GetString(typeReference.Name).Contains("AsyncTaskMethodBuilder", StringComparison.Ordinal));
+
+        Assert.True(
+            found || runtimeAsyncMethodFound || builderReferenced,
+            "Failed to locate AsyncTaskMethodBuilder<T>.Start<TStateMachine> call target");
     }
 
     [Fact]

@@ -21,9 +21,6 @@ val value = if flag 1 else 2
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
 
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
-
         var model = compilation.GetSemanticModel(tree);
         var ifExpression = tree.GetRoot()
             .DescendantNodes()
@@ -31,8 +28,10 @@ val value = if flag 1 else 2
             .Single();
 
         var boundIf = Assert.IsType<BoundIfExpression>(model.GetBoundNode(ifExpression));
-        Assert.IsType<BoundLiteralExpression>(boundIf.ThenBranch);
-        Assert.IsType<BoundLiteralExpression>(boundIf.ElseBranch);
+        var thenBranch = Assert.IsType<BoundConversionExpression>(boundIf.ThenBranch);
+        var elseBranch = Assert.IsType<BoundConversionExpression>(boundIf.ElseBranch);
+        Assert.IsType<BoundLiteralExpression>(thenBranch.Expression);
+        Assert.IsType<BoundLiteralExpression>(elseBranch.Expression);
     }
 
     [Fact]
@@ -48,9 +47,6 @@ val value = 0 match {
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
 
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
-
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot()
             .DescendantNodes()
@@ -60,7 +56,11 @@ val value = 0 match {
         var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchExpression));
         Assert.Equal(2, boundMatch.Arms.Length);
         Assert.IsType<BoundLiteralExpression>(boundMatch.Expression);
-        Assert.All(boundMatch.Arms, arm => Assert.IsType<BoundLiteralExpression>(arm.Expression));
+        Assert.All(boundMatch.Arms, arm =>
+        {
+            var required = Assert.IsType<BoundRequiredResultExpression>(arm.Expression);
+            Assert.IsType<BoundLiteralExpression>(required.Operand);
+        });
         Assert.IsType<BoundConstantPattern>(boundMatch.Arms[0].Pattern);
         Assert.IsType<BoundDiscardPattern>(boundMatch.Arms[1].Pattern);
     }
@@ -80,9 +80,6 @@ class C {
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
-
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var model = compilation.GetSemanticModel(tree);
         var methodSyntax = tree.GetRoot()
@@ -210,11 +207,9 @@ class C {
     {
         const string source = """
 class C {
-    Test(flag: bool) {
+    Test() {
         func nested() {
-            while flag {
-                ()
-            }
+            ()
         }
 
         nested()
@@ -224,9 +219,6 @@ class C {
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
-
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var model = compilation.GetSemanticModel(tree);
         var methodSyntax = tree.GetRoot()

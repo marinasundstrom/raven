@@ -23,6 +23,8 @@ public partial class SemanticModel
     private readonly Dictionary<string, List<ILabelSymbol>> _labelsByName = new(StringComparer.Ordinal);
     private readonly Dictionary<GotoStatementSyntax, ILabelSymbol> _gotoTargets = new();
     private readonly Dictionary<AttributeSyntax, AttributeData?> _attributeCache = new();
+    private static readonly object s_boundChildPropertyCacheGate = new();
+    private static readonly Dictionary<Type, PropertyInfo[]> s_boundChildPropertyCache = new();
 
     internal AttributeData? BindAttribute(AttributeSyntax attribute)
     {
@@ -3549,10 +3551,135 @@ public partial class SemanticModel
     {
         _loweredBoundNodeCache[node] = bound;
         _loweredSyntaxCache[bound] = node;
+        PropagateLoweredSyntaxMappings(bound, node);
         if (IsDebuggingEnabled && binder is not null)
         {
             _loweredBoundNodeCache2[node] = (binder, bound);
         }
+    }
+
+    private void PropagateLoweredSyntaxMappings(BoundNode loweredRoot, SyntaxNode fallbackSyntax)
+    {
+        var resolving = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);
+        if (!_loweredSyntaxCache.ContainsKey(loweredRoot))
+            _loweredSyntaxCache[loweredRoot] = fallbackSyntax;
+
+        foreach (var child in EnumerateBoundChildren(loweredRoot))
+            _ = ResolveLoweredSyntax(child, fallbackSyntax, resolving);
+    }
+
+    private SyntaxNode ResolveLoweredSyntax(
+        BoundNode node,
+        SyntaxNode fallbackSyntax,
+        HashSet<BoundNode> resolving)
+    {
+        if (_loweredSyntaxCache.TryGetValue(node, out var loweredSyntax))
+            return loweredSyntax;
+
+        if (_syntaxCache.TryGetValue(node, out var originalSyntax))
+        {
+            _loweredSyntaxCache[node] = originalSyntax;
+            return originalSyntax;
+        }
+
+        if (!resolving.Add(node))
+            return fallbackSyntax;
+
+        SyntaxNode? resolvedSyntax = null;
+        foreach (var child in EnumerateBoundChildren(node))
+        {
+            var childSyntax = ResolveLoweredSyntax(child, fallbackSyntax, resolving);
+            if (childSyntax is null)
+                continue;
+
+            resolvedSyntax = ChoosePreferredLoweredSyntax(fallbackSyntax, resolvedSyntax, childSyntax);
+        }
+
+        resolving.Remove(node);
+
+        resolvedSyntax ??= fallbackSyntax;
+        _loweredSyntaxCache[node] = resolvedSyntax;
+        return resolvedSyntax;
+    }
+
+    private static SyntaxNode ChoosePreferredLoweredSyntax(
+        SyntaxNode fallbackSyntax,
+        SyntaxNode? currentBest,
+        SyntaxNode candidate)
+    {
+        if (currentBest is null)
+            return candidate;
+
+        var candidateScore = ScoreLoweredSyntaxCandidate(candidate, fallbackSyntax);
+        var currentScore = ScoreLoweredSyntaxCandidate(currentBest, fallbackSyntax);
+
+        if (candidateScore.CompareTo(currentScore) > 0)
+            return candidate;
+
+        return currentBest;
+    }
+
+    private static (int DiffersFromFallback, int IsContainedByFallback, int SpanLength, int EarlierStart) ScoreLoweredSyntaxCandidate(
+        SyntaxNode candidate,
+        SyntaxNode fallbackSyntax)
+    {
+        var differsFromFallback = candidate.Span != fallbackSyntax.Span ? 1 : 0;
+        var isContainedByFallback = ContainsSpan(fallbackSyntax.Span, candidate.Span) ? 1 : 0;
+        var spanLength = candidate.Span.Length;
+        var earlierStart = -candidate.Span.Start;
+        return (differsFromFallback, isContainedByFallback, spanLength, earlierStart);
+    }
+
+    private static bool ContainsSpan(TextSpan outer, TextSpan inner)
+        => outer.Start <= inner.Start && outer.End >= inner.End;
+
+    private static IEnumerable<BoundNode> EnumerateBoundChildren(BoundNode node)
+    {
+        foreach (var property in GetBoundChildProperties(node.GetType()))
+        {
+            var value = property.GetValue(node);
+            switch (value)
+            {
+                case null:
+                    continue;
+                case BoundNode child:
+                    yield return child;
+                    break;
+                case IEnumerable enumerable:
+                    foreach (var item in enumerable)
+                    {
+                        if (item is BoundNode boundChild)
+                            yield return boundChild;
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private static PropertyInfo[] GetBoundChildProperties(Type type)
+    {
+        lock (s_boundChildPropertyCacheGate)
+        {
+            if (s_boundChildPropertyCache.TryGetValue(type, out var cached))
+                return cached;
+
+            var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(static p => p.GetIndexParameters().Length == 0)
+                .Where(static p => IsCandidateBoundChildProperty(p.PropertyType))
+                .ToArray();
+
+            s_boundChildPropertyCache[type] = properties;
+            return properties;
+        }
+    }
+
+    private static bool IsCandidateBoundChildProperty(Type propertyType)
+    {
+        if (typeof(BoundNode).IsAssignableFrom(propertyType))
+            return true;
+
+        return propertyType != typeof(string) && typeof(IEnumerable).IsAssignableFrom(propertyType);
     }
 
     internal void RemoveCachedBoundNode(SyntaxNode node)
