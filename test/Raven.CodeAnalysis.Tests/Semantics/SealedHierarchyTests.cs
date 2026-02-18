@@ -630,6 +630,7 @@ class Add : Expr {}
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2100");
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2110" && d.GetMessage().Contains("Lit"));
     }
 
     [Fact]
@@ -654,6 +655,70 @@ class Add : Expr {}
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
+    }
+
+    [Fact]
+    public void SealedHierarchy_MatchExpression_FullyCoveredCatchAll_IsRedundantAtCatchAllPattern()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Lit()
+
+val result = expr match {
+    Lit lit => 1
+    Add add => 2
+    _ => 0
+}
+
+sealed class Expr {}
+class Lit : Expr {}
+class Add : Expr {}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
+
+        var redundant = Assert.Single(diagnostics.Where(d => d.Descriptor.Id == "RAV2103"));
+        Assert.Equal(DiagnosticSeverity.Warning, redundant.Severity);
+
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var catchAllPatternLocation = matchExpression.Arms[2].Pattern.GetLocation();
+        Assert.Equal(catchAllPatternLocation, redundant.Location);
+    }
+
+    [Fact]
+    public void SealedHierarchy_MatchStatement_FullyCoveredCatchAll_IsRedundantAtCatchAllPattern()
+    {
+        var source = """
+import System.*
+
+func Evaluate(expr: Expr) -> int {
+    match expr {
+        Lit lit => 1
+        Add add => 2
+        _ => 0
+    }
+}
+
+sealed class Expr {}
+class Lit : Expr {}
+class Add : Expr {}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
+
+        var redundant = Assert.Single(diagnostics.Where(d => d.Descriptor.Id == "RAV2103"));
+        Assert.Equal(DiagnosticSeverity.Warning, redundant.Severity);
+
+        var matchStatement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        var catchAllPatternLocation = matchStatement.Arms[2].Pattern.GetLocation();
+        Assert.Equal(catchAllPatternLocation, redundant.Location);
     }
 
     [Fact]
@@ -802,6 +867,54 @@ record Add(Left: Expr, Right: Expr) : Expr
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2100");
+    }
+
+    [Fact]
+    public void SealedHierarchy_Match_DeconstructPatternWithValueConstraint_NotExhaustive()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Lit(42)
+
+val result = expr match {
+    Lit(0) => 0
+    Add(val left, val right) => 1
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2100");
+    }
+
+    [Fact]
+    public void SealedHierarchy_Match_DeconstructPatternWithValueConstraint_CatchAllNotRedundant()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Lit(42)
+
+val result = expr match {
+    Lit(0) => 0
+    Add(val left, val right) => 1
+    _ => -1
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2103");
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2110");
     }
 
     [Fact]

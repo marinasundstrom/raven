@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -3063,9 +3064,7 @@ partial class BlockBinder : Binder
             if (catchAllIndex >= 0)
                 return;
 
-            _diagnostics.ReportMatchExpressionNotExhaustive(
-                "_",
-                matchSyntax.GetLocation());
+            ReportMatchNotExhaustive(matchSyntax, "_");
             return;
         }
 
@@ -3084,11 +3083,23 @@ partial class BlockBinder : Binder
         }
 
         var reportedRedundantCatchAll = false;
+        var reportedPartialCoverageTypes = new HashSet<string>(StringComparer.Ordinal);
 
         for (var i = 0; i < arms.Length; i++)
         {
             var arm = arms[i];
             var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
+
+            if (catchAllIndex < 0 &&
+                guardGuaranteesMatch &&
+                arm.Pattern is BoundCasePattern casePattern &&
+                AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
+                !CasePatternCoversAllArguments(casePattern))
+            {
+                var caseName = casePattern.CaseSymbol.Name;
+                if (reportedPartialCoverageTypes.Add(caseName))
+                    ReportMatchArmPatternNotFullyCovered(armSyntaxes[i].Pattern.GetLocation(), caseName);
+            }
 
             if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
                 RemoveCoveredUnionMembers(guaranteedRemaining, arm.Pattern, guaranteedLiteralCoverage);
@@ -3098,27 +3109,16 @@ partial class BlockBinder : Binder
 
             if (remaining.Count == 0)
             {
-                if (catchAllIndex >= 0 && !reportedRedundantCatchAll)
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
                 {
-                    if (i < catchAllIndex)
-                    {
-                        if (guaranteedRemaining is null || guaranteedRemaining.Count == 0)
-                        {
-                            ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
-                            reportedRedundantCatchAll = true;
-                        }
-                    }
-                    else if (i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
-                    {
-                        ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
-                        reportedRedundantCatchAll = true;
-                    }
+                    ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                    reportedRedundantCatchAll = true;
                 }
 
                 return;
             }
 
-            if (catchAllIndex >= 0 && !reportedRedundantCatchAll && i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
             {
                 ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                 reportedRedundantCatchAll = true;
@@ -3144,9 +3144,7 @@ partial class BlockBinder : Binder
             .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
             .OrderBy(name => name, StringComparer.Ordinal))
         {
-            _diagnostics.ReportMatchExpressionNotExhaustive(
-                missing,
-                matchSyntax.GetLocation());
+            ReportMatchNotExhaustive(matchSyntax, missing);
         }
 
         static bool IsNullConstantPattern(BoundPattern pattern)
@@ -3264,27 +3262,16 @@ partial class BlockBinder : Binder
 
             if (remaining.Count == 0)
             {
-                if (catchAllIndex >= 0 && !reportedRedundantCatchAll)
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
                 {
-                    if (i < catchAllIndex)
-                    {
-                        if (guaranteedRemaining is null || guaranteedRemaining.Count == 0)
-                        {
-                            ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
-                            reportedRedundantCatchAll = true;
-                        }
-                    }
-                    else if (i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
-                    {
-                        ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
-                        reportedRedundantCatchAll = true;
-                    }
+                    ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                    reportedRedundantCatchAll = true;
                 }
 
                 return;
             }
 
-            if (catchAllIndex >= 0 && !reportedRedundantCatchAll && i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
             {
                 ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                 reportedRedundantCatchAll = true;
@@ -3295,9 +3282,9 @@ partial class BlockBinder : Binder
 
         if (missingCase is not null)
         {
-            _diagnostics.ReportMatchExpressionNotExhaustive(
-                missingCase.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                matchSyntax.GetLocation());
+            ReportMatchNotExhaustive(
+                matchSyntax,
+                missingCase.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat));
         }
     }
 
@@ -3332,9 +3319,7 @@ partial class BlockBinder : Binder
 
         foreach (var missing in remaining.Select(field => field.Name).OrderBy(name => name, StringComparer.Ordinal))
         {
-            _diagnostics.ReportMatchExpressionNotExhaustive(
-                missing,
-                matchSyntax.GetLocation());
+            ReportMatchNotExhaustive(matchSyntax, missing);
         }
     }
 
@@ -3388,6 +3373,29 @@ partial class BlockBinder : Binder
                     for (var i = 0; i < tuplePattern.Elements.Length; i++)
                     {
                         if (!IsTotalPattern(elementTypes[i], tuplePattern.Elements[i]))
+                            return false;
+                    }
+
+                    return true;
+                }
+            case BoundDeconstructPattern deconstructPattern:
+                {
+                    if (CanBeNull(inputType))
+                        return false;
+
+                    if (deconstructPattern.NarrowedType is not null &&
+                        !IsAssignable(deconstructPattern.NarrowedType, inputType, out _))
+                    {
+                        return false;
+                    }
+
+                    var parameters = deconstructPattern.DeconstructMethod.Parameters;
+                    if (parameters.Length != deconstructPattern.Arguments.Length)
+                        return false;
+
+                    for (var i = 0; i < parameters.Length; i++)
+                    {
+                        if (!IsTotalPattern(parameters[i].Type, deconstructPattern.Arguments[i]))
                             return false;
                     }
 
@@ -3509,18 +3517,16 @@ partial class BlockBinder : Binder
                 RemoveCoveredUnionMembers(remaining, orPattern.Right, literalCoverage);
                 break;
             case BoundPositionalPattern tuplePattern:
-                RemoveMembersAssignableToPattern(remaining, tuplePattern.Type, literalCoverage);
+                RemoveMembersTotallyMatchedByPattern(remaining, tuplePattern, literalCoverage);
                 break;
             case BoundDeconstructPattern deconstructPattern:
                 {
-                    var coverType = deconstructPattern.NarrowedType ?? deconstructPattern.ReceiverType;
-                    RemoveMembersAssignableToPattern(remaining, coverType, literalCoverage);
+                    RemoveMembersTotallyMatchedByPattern(remaining, deconstructPattern, literalCoverage);
                     break;
                 }
             case BoundPropertyPattern propertyPattern:
                 {
-                    if (propertyPattern.NarrowedType is not null)
-                        RemoveMembersAssignableToPattern(remaining, propertyPattern.NarrowedType, literalCoverage);
+                    RemoveMembersTotallyMatchedByPattern(remaining, propertyPattern, literalCoverage);
                     break;
                 }
         }
@@ -3681,6 +3687,22 @@ partial class BlockBinder : Binder
         }
     }
 
+    private void RemoveMembersTotallyMatchedByPattern(
+        HashSet<ITypeSymbol> remaining,
+        BoundPattern pattern,
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage = null)
+    {
+        foreach (var candidate in remaining.ToArray())
+        {
+            var candidateType = UnwrapAlias(candidate);
+            if (!IsTotalPattern(candidateType, pattern))
+                continue;
+
+            remaining.Remove(candidate);
+            literalCoverage?.Remove(candidate);
+        }
+    }
+
     private static IEnumerable<ITypeSymbol> GetUnionMembers(ITypeUnionSymbol union)
     {
         foreach (var member in union.Types)
@@ -3743,10 +3765,10 @@ partial class BlockBinder : Binder
             return;
 
         if ((remaining & BooleanCoverage.True) != 0)
-            _diagnostics.ReportMatchExpressionNotExhaustive("true", matchSyntax.GetLocation());
+            ReportMatchNotExhaustive(matchSyntax, "true");
 
         if ((remaining & BooleanCoverage.False) != 0)
-            _diagnostics.ReportMatchExpressionNotExhaustive("false", matchSyntax.GetLocation());
+            ReportMatchNotExhaustive(matchSyntax, "false");
     }
 
     private BooleanCoverage GetBooleanCoverage(BoundPattern pattern)
@@ -3857,10 +3879,10 @@ partial class BlockBinder : Binder
         if (targetType.SpecialType == SpecialType.System_Boolean)
         {
             if (!constants.Contains(true))
-                _diagnostics.ReportMatchExpressionNotExhaustive("true", matchSyntax.GetLocation());
+                ReportMatchNotExhaustive(matchSyntax, "true");
 
             if (!constants.Contains(false))
-                _diagnostics.ReportMatchExpressionNotExhaustive("false", matchSyntax.GetLocation());
+                ReportMatchNotExhaustive(matchSyntax, "false");
         }
     }
 
@@ -9606,6 +9628,7 @@ partial class BlockBinder : Binder
         public int GetHashCode(TSymbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
+
     // Sealed hierarchy exhaustiveness: ensures all concrete (non-abstract) leaves are covered.
     private void EnsureSealedHierarchyMatchExhaustive(
         SyntaxNode matchSyntax,
@@ -9626,23 +9649,48 @@ partial class BlockBinder : Binder
             return;
 
         var remaining = new HashSet<ITypeSymbol>(leafTypes.Cast<ITypeSymbol>(), TypeSymbolReferenceComparer.Instance);
+        HashSet<ITypeSymbol>? guaranteedRemaining = null;
+        if (catchAllIndex >= 0)
+            guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, TypeSymbolReferenceComparer.Instance);
+        var reportedRedundantCatchAll = false;
+        var reportedPartialCoverageTypes = new HashSet<string>(StringComparer.Ordinal);
 
         // Keep behavior consistent with other exhaustiveness checks:
         // only arms whose guard guarantees match participate in coverage.
         for (var i = 0; i < arms.Length; i++)
         {
             var arm = arms[i];
-            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+            var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
+            if (!guardGuaranteesMatch)
                 continue;
+
+            if (catchAllIndex < 0 &&
+                TryGetPartiallyCoveredTypeName(remaining, arm.Pattern, out var partialTypeName) &&
+                reportedPartialCoverageTypes.Add(partialTypeName))
+            {
+                ReportMatchArmPatternNotFullyCovered(armSyntaxes[i].Pattern.GetLocation(), partialTypeName);
+            }
+
+            if (guaranteedRemaining is not null && i < catchAllIndex)
+                RemoveCoveredUnionMembers(guaranteedRemaining, arm.Pattern);
 
             RemoveCoveredUnionMembers(remaining, arm.Pattern);
 
             if (remaining.Count == 0)
             {
-                // If all cases are already covered, a catch-all arm is unreachable/redundant.
-                if (catchAllIndex >= 0)
-                    _diagnostics.ReportMatchExpressionCatchAllRedundant(armSyntaxes[catchAllIndex].GetLocation());
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+                {
+                    _diagnostics.ReportMatchExpressionCatchAllRedundant(armSyntaxes[catchAllIndex].Pattern.GetLocation());
+                    reportedRedundantCatchAll = true;
+                }
+
                 return;
+            }
+
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+            {
+                _diagnostics.ReportMatchExpressionCatchAllRedundant(armSyntaxes[catchAllIndex].Pattern.GetLocation());
+                reportedRedundantCatchAll = true;
             }
         }
 
@@ -9653,8 +9701,83 @@ partial class BlockBinder : Binder
             .Select(t => t.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
             .OrderBy(s => s, StringComparer.Ordinal))
         {
-            _diagnostics.ReportMatchExpressionNotExhaustive(missing, matchSyntax.GetLocation());
+            ReportMatchNotExhaustive(matchSyntax, missing);
         }
+    }
+
+    private void ReportMatchNotExhaustive(SyntaxNode matchSyntax, string missingCase)
+        => _diagnostics.ReportMatchExpressionNotExhaustive(missingCase, GetMatchKeywordLocation(matchSyntax));
+
+    private void ReportMatchArmPatternNotFullyCovered(Location location, string typeName)
+        => _diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MatchArmPatternNotFullyCovered, location, typeName));
+
+    private bool TryGetPartiallyCoveredTypeName(
+        HashSet<ITypeSymbol> remaining,
+        BoundPattern pattern,
+        out string typeName)
+    {
+        foreach (var candidate in remaining)
+        {
+            var candidateType = UnwrapAlias(candidate);
+            if (!PatternTargetsType(pattern, candidateType))
+                continue;
+
+            if (IsTotalPattern(candidateType, pattern))
+                continue;
+
+            typeName = candidateType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            return true;
+        }
+
+        typeName = string.Empty;
+        return false;
+    }
+
+    private bool PatternTargetsType(BoundPattern pattern, ITypeSymbol candidateType)
+    {
+        static bool TargetsType(BlockBinder binder, ITypeSymbol targetType, ITypeSymbol candidate)
+            => binder.IsAssignable(targetType, candidate, out _);
+
+        return pattern switch
+        {
+            BoundDeconstructPattern deconstructPattern => TargetsType(this, UnwrapAlias(deconstructPattern.NarrowedType ?? deconstructPattern.ReceiverType), candidateType),
+            BoundPropertyPattern propertyPattern => TargetsType(this, UnwrapAlias(propertyPattern.NarrowedType ?? propertyPattern.ReceiverType), candidateType),
+            BoundPositionalPattern positionalPattern => TargetsType(this, UnwrapAlias(positionalPattern.Type), candidateType),
+            BoundDeclarationPattern declarationPattern => TargetsType(this, UnwrapAlias(declarationPattern.DeclaredType), candidateType),
+            _ => false,
+        };
+    }
+
+    private static Location GetMatchKeywordLocation(SyntaxNode matchSyntax)
+    {
+        return matchSyntax switch
+        {
+            MatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
+            MatchStatementSyntax matchStatement => matchStatement.MatchKeyword.GetLocation(),
+            _ => UnexpectedMatchSyntaxLocation(matchSyntax),
+        };
+    }
+
+    private static bool ShouldReportRedundantCatchAll<T>(
+        int armIndex,
+        int catchAllIndex,
+        ICollection<T>? guaranteedRemaining)
+    {
+        if (catchAllIndex < 0)
+            return false;
+
+        if (armIndex < catchAllIndex)
+            return guaranteedRemaining is null || guaranteedRemaining.Count == 0;
+
+        return armIndex == catchAllIndex &&
+               guaranteedRemaining is not null &&
+               guaranteedRemaining.Count == 0;
+    }
+
+    private static Location UnexpectedMatchSyntaxLocation(SyntaxNode matchSyntax)
+    {
+        Debug.Fail($"Unexpected match syntax node kind for exhaustiveness diagnostics: {matchSyntax.Kind}");
+        return Location.None;
     }
 
     private static void CollectConcreteLeafSubtypes(

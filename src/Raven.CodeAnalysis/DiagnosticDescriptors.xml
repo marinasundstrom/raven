@@ -647,6 +647,10 @@
     Title="Try statement value is ignored"
     Message="This try statement produces values in its try/catch blocks, but statement-form 'try' does not return a value. Either add explicit 'return' statements in statement form, or use expression form where the surrounding context expects a value."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2110" Identifier="MatchArmPatternNotFullyCovered"
+    Title="Match arm pattern does not fully cover subtype/case"
+    Message="Pattern for '{typeName}' does not cover all values. Add broader sub-patterns or a catch-all arm."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1602" Identifier="PropertyPatternMemberNotFound"
     Title="Property not found in property pattern"
     Message="Property '{name}' does not exist on type '{type}'" Category="compiler" Severity="Error"

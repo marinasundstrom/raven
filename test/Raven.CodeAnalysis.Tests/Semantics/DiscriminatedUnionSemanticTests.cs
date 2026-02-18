@@ -466,6 +466,7 @@ union Result<T> {
 
         var model = compilation.GetSemanticModel(tree);
         var matchSyntax = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        Assert.Equal(matchSyntax.MatchKeyword.GetLocation(), diagnostic.Location);
         var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchSyntax));
 
         var okPattern = Assert.IsType<BoundCasePattern>(boundMatch.Arms[0].Pattern);

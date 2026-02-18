@@ -210,6 +210,36 @@ val result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithEnumArms_MissingCaseReportsDiagnosticAtMatchKeyword()
+    {
+        const string code = """
+enum Color {
+    Red
+    Blue
+}
+
+func eval(color: Color) -> int {
+    return color match {
+        .Red => 1
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_expression_enum_missing_case_location",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2100"));
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(match.MatchKeyword.GetLocation(), diagnostic.Location);
+    }
+
+    [Fact]
     public void MatchExpression_WithTypedDiscardArm_IsCatchAll()
     {
         const string code = """
@@ -655,9 +685,34 @@ val result = state match {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("string")]);
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"off\"")]);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnionScrutinee_MissingArmReportsDiagnosticAtMatchKeyword()
+    {
+        const string code = """
+val state: "on" | "off" = "on"
+
+val result = state match {
+    "on" => 1
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_expression_missing_arm_location",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2100"));
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(match.MatchKeyword.GetLocation(), diagnostic.Location);
     }
 
     [Fact]
@@ -673,9 +728,39 @@ val result = state match {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("string")]);
+            [
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"off\""),
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"unknown\"")
+            ]);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnionScrutinee_MultipleMissingArmsReportDiagnosticsAtMatchKeyword()
+    {
+        const string code = """
+val state: "on" | "off" | "unknown" = "on"
+
+val result = state match {
+    "on" => 1
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_expression_union_multiple_missing_location",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2100").ToArray();
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var expectedLocation = match.MatchKeyword.GetLocation();
+
+        Assert.NotEmpty(diagnostics);
+        Assert.All(diagnostics, d => Assert.Equal(expectedLocation, d.Location));
     }
 
     [Fact]
@@ -699,6 +784,33 @@ val result = state match {
     }
 
     [Fact]
+    public void MatchExpression_WithUnionScrutinee_RedundantCatchAllReportsDiagnosticAtCatchAllPattern()
+    {
+        const string code = """
+val state: "on" | "off" = "on"
+
+val result = state match {
+    "on" => 1
+    "off" => 0
+    _ => -1
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_expression_redundant_catch_all_location",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2103"));
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(match.Arms[2].Pattern.GetLocation(), diagnostic.Location);
+    }
+
+    [Fact]
     public void MatchExpression_WithUnionScrutinee_CatchAllWithGuardDoesNotReportDiagnostic()
     {
         const string code = """
@@ -714,6 +826,63 @@ val result = state match {
         var verifier = CreateVerifier(code);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithDiscriminatedUnionScrutinee_RedundantCatchAllReportsDiagnostic()
+    {
+        const string code = """
+val result: Result<int> = .Ok(value: 1)
+
+val value = result match {
+    .Ok(val payload) => payload
+    .Error(val message) => 0
+    _ => -1
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan().WithSeverity(DiagnosticSeverity.Warning)]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithDiscriminatedUnionScrutinee_RedundantCatchAllReportsDiagnosticAtCatchAllPattern()
+    {
+        const string code = """
+val result: Result<int> = .Ok(value: 1)
+
+val value = result match {
+    .Ok(val payload) => payload
+    .Error(val message) => 0
+    _ => -1
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_expression_du_redundant_catch_all_location",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2103"));
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(match.Arms[2].Pattern.GetLocation(), diagnostic.Location);
     }
 
     [Fact]
@@ -734,6 +903,33 @@ val result = input match {
             [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("string")]);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnionScrutineeAndGuard_NotExhaustiveWithoutCatchAll_ReportsAtMatchKeyword()
+    {
+        const string code = """
+val input: string | int | null = ""
+
+val result = input match {
+    null => "Nothing to report."
+    string text when text.Length > 0 => "Saw \"${text}\""
+    int number => "Counted ${number}"
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_expression_union_guard_missing_location",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2100"));
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(match.MatchKeyword.GetLocation(), diagnostic.Location);
     }
 
     [Fact]
@@ -812,6 +1008,31 @@ val result = pair match {
             ]);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithPositionalPatternLengthMismatch_ReportsExhaustivenessAtMatchKeyword()
+    {
+        const string code = """
+val pair: (int, int) = (1, 2)
+
+val result = pair match {
+    (int a, int b, int c) => c
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_expression_tuple_length_mismatch_location",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2100"));
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(match.MatchKeyword.GetLocation(), diagnostic.Location);
     }
 
     [Fact]
