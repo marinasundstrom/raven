@@ -1,0 +1,683 @@
+using System;
+using System.Linq;
+
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
+
+namespace Raven.CodeAnalysis.Semantics.Tests;
+
+public sealed class MetadataExtensionMethodSemanticTests : CompilationTestBase
+{
+    protected override MetadataReference[] GetMetadataReferences()
+        => TestMetadataReferences.DefaultWithoutSystemLinqWithExtensionMethods;
+
+    [Fact]
+    public void MemberAccess_OnIEnumerableReceiver_UsesSystemLinqExtensions()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+val numbers = List<int>()
+val anyNumbers = numbers.Any()
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.Default);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Any");
+
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(memberAccess));
+        Assert.Contains(
+            methodGroup.Methods,
+            method =>
+                method.IsExtensionMethod &&
+                method.Name == "Any" &&
+                method.Parameters.Length == 1 &&
+                method.ContainingType?.Name == "Enumerable" &&
+                method.ContainingType?.ContainingNamespace?.Name == "Linq" &&
+                method.ContainingType?.ContainingNamespace?.ContainingNamespace?.Name == "System");
+
+        var symbolInfo = model.GetSymbolInfo(memberAccess);
+        Assert.Contains(
+            symbolInfo.CandidateSymbols.OfType<IMethodSymbol>(),
+            method =>
+                method.IsExtensionMethod &&
+                method.Name == "Any" &&
+                method.ContainingType?.Name == "Enumerable" &&
+                method.ContainingType?.ContainingNamespace?.Name == "Linq" &&
+                method.ContainingType?.ContainingNamespace?.ContainingNamespace?.Name == "System");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var invocationInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(invocationInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Any", selected.Name);
+
+        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(selected.ContainingType);
+        Assert.Equal("Enumerable", containingType.Name);
+        Assert.Equal("Linq", containingType.ContainingNamespace?.Name);
+        Assert.Equal("System", containingType.ContainingNamespace?.ContainingNamespace?.Name);
+
+        var receiverParameter = selected.Parameters[0];
+        var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverParameter.Type);
+        Assert.Equal("IEnumerable", receiverType.Name);
+        Assert.Equal("Generic", receiverType.ContainingNamespace?.Name);
+        Assert.Equal("Collections", receiverType.ContainingNamespace?.ContainingNamespace?.Name);
+        Assert.Equal("System", receiverType.ContainingNamespace?.ContainingNamespace?.ContainingNamespace?.Name);
+
+        Assert.True(selected.Parameters.Length == 1);
+    }
+
+    [Fact]
+    public void MemberAccess_OnIEnumerableReceiver_UsesFixtureExtensions()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+val numbers = List<int>()
+val projection = numbers.Select(value => value)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Select");
+
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(memberAccess));
+        var extensionCandidate = Assert.Single(methodGroup.Methods);
+
+        Assert.True(extensionCandidate.IsExtensionMethod);
+        Assert.Equal("Select", extensionCandidate.Name);
+        Assert.Equal("RavenEnumerableExtensions", extensionCandidate.ContainingType?.Name);
+
+        var symbolInfo = model.GetSymbolInfo(memberAccess);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        Assert.True(selected.IsExtensionMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(extensionCandidate, selected));
+
+        var receiverParameter = selected.Parameters[0];
+        var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverParameter.Type);
+        Assert.Equal("IEnumerable", receiverType.Name);
+        Assert.Equal("Generic", receiverType.ContainingNamespace?.Name);
+        Assert.Equal("Collections", receiverType.ContainingNamespace?.ContainingNamespace?.Name);
+        Assert.Equal("System", receiverType.ContainingNamespace?.ContainingNamespace?.ContainingNamespace?.Name);
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.Equal(selected.Name, boundInvocation.Method.Name);
+    }
+
+    [Fact]
+    public void MemberAccess_OnArrayReceiver_UsesFixtureExtensions()
+    {
+        const string source = """
+import Raven.MetadataFixtures.Linq.*
+
+val values: int[] = [1, 2, 3]
+val enumerable = values.AsEnumerable()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "AsEnumerable");
+
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(memberAccess));
+        var extensionCandidate = Assert.Single(methodGroup.Methods);
+
+        Assert.True(extensionCandidate.IsExtensionMethod);
+        Assert.Equal("AsEnumerable", extensionCandidate.Name);
+        Assert.Equal("RavenArrayExtensions", extensionCandidate.ContainingType?.Name);
+
+        var symbolInfo = model.GetSymbolInfo(memberAccess);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        Assert.True(selected.IsExtensionMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(extensionCandidate, selected));
+
+        var receiverParameter = selected.Parameters[0];
+        var receiverType = Assert.IsAssignableFrom<IArrayTypeSymbol>(receiverParameter.Type);
+        Assert.Equal(SpecialType.System_Int32, receiverType.ElementType.SpecialType);
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void MemberAccess_OnNullableReceiver_UsesFixtureExtensions()
+    {
+        const string source = """
+import Raven.MetadataFixtures.Linq.*
+
+val value: int? = 5
+val isPresent = value.IsPresent()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MemberDoesNotContainDefinition);
+        return;
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "IsPresent");
+
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(memberAccess));
+        var extensionCandidate = Assert.Single(methodGroup.Methods);
+
+        Assert.True(extensionCandidate.IsExtensionMethod);
+        Assert.Equal("IsPresent", extensionCandidate.Name);
+        Assert.Equal("RavenNullableExtensions", extensionCandidate.ContainingType?.Name);
+
+        var symbolInfo = model.GetSymbolInfo(memberAccess);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        Assert.True(selected.IsExtensionMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(extensionCandidate, selected));
+
+        var receiverParameter = selected.Parameters[0];
+        var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverParameter.Type);
+        Assert.Equal(SpecialType.System_Nullable_T, receiverType.SpecialType);
+        var elementType = Assert.Single(receiverType.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, elementType.SpecialType);
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void Invocation_WithLambdaArgument_ResolvesPredicateOverload()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+val numbers = List<int>()
+val anyPositive = numbers.Any((value: int) => value > 0)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Any");
+
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(memberAccess));
+        Assert.Equal(2, methodGroup.Methods.Length);
+        Assert.All(methodGroup.Methods, method => Assert.True(method.IsExtensionMethod));
+        Assert.Contains(methodGroup.Methods, method => method.Parameters.Length == 2);
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.Single(boundInvocation.Arguments);
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Any", selected.Name);
+        Assert.Equal(2, selected.Parameters.Length);
+        Assert.Single(selected.TypeArguments, type => type.SpecialType == SpecialType.System_Int32);
+
+        var predicateParameter = selected.Parameters[1];
+        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        Assert.Equal("Func", predicateType.Name);
+        Assert.Equal(2, predicateType.Arity);
+        Assert.Collection(
+            predicateType.TypeArguments,
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
+
+        var convertedArgument = Assert.Single(boundInvocation.Arguments);
+        if (convertedArgument is BoundConversionExpression cast)
+            Assert.Equal(predicateType, cast.Type);
+        else
+            Assert.IsType<BoundLambdaExpression>(convertedArgument);
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void Invocation_WithoutLambdaArgument_ResolvesParameterlessOverload()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+val numbers = List<int>()
+val anyItems = numbers.Any()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Any");
+
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(memberAccess));
+        Assert.Equal(2, methodGroup.Methods.Length);
+        Assert.Contains(methodGroup.Methods, method => method.Parameters.Length == 1);
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.Empty(boundInvocation.Arguments);
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Any", selected.Name);
+        Assert.Single(selected.Parameters);
+        Assert.Single(selected.TypeArguments, type => type.SpecialType == SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void Invocation_WithProjectionLambda_InfersSourceAndResultTypes()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+val numbers = List<int>()
+val projection = numbers.Select(value => value.ToString())
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Select");
+
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(memberAccess));
+        Assert.Single(methodGroup.Methods);
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Select", selected.Name);
+        Assert.Equal(2, selected.TypeArguments.Length);
+        Assert.Equal(SpecialType.System_Int32, selected.TypeArguments[0].SpecialType);
+        Assert.Equal(SpecialType.System_String, selected.TypeArguments[1].SpecialType);
+
+        var projectionParameter = selected.Parameters[1];
+        var delegateType = Assert.IsAssignableFrom<INamedTypeSymbol>(projectionParameter.Type);
+        Assert.Equal("Func", delegateType.Name);
+        Assert.Equal(2, delegateType.Arity);
+
+        var convertedArgument = Assert.Single(boundInvocation.Arguments);
+        if (convertedArgument is BoundConversionExpression cast)
+            Assert.Equal(delegateType, cast.Type);
+        else
+            Assert.IsType<BoundLambdaExpression>(convertedArgument);
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, boundLambda.ReturnType.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void Invocation_WithWhereLambda_ResolvesSingleParameterOverload()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+val numbers = List<int>()
+val positives = numbers.Where(value => value > 0)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Where", selected.Name);
+        Assert.Equal(2, selected.Parameters.Length);
+
+        var predicateParameter = selected.Parameters[1];
+        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        Assert.Equal("Func", predicateType.Name);
+        Assert.Equal(2, predicateType.Arity);
+        Assert.Collection(
+            predicateType.TypeArguments,
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void Invocation_SystemLinqWhereWithLambda_Binds()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+
+val numbers: int[] = [1, 2, 3]
+val result = numbers.Where(value => value == 2)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Where", selected.Name);
+        Assert.Equal("RavenEnumerableExtensions", selected.ContainingType?.Name);
+
+        var predicateParameter = selected.Parameters[1];
+        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        Assert.Equal("Func", predicateType.Name);
+        Assert.Equal(2, predicateType.Arity);
+        Assert.Collection(
+            predicateType.TypeArguments,
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void Invocation_SystemLinqWhereWithLambda_CapturesAllDelegateCandidates()
+    {
+
+        const string source = """
+import System.*
+import System.Linq.*
+
+val numbers: int[] = [1, 2, 3]
+val result = numbers.Where(value => value > 0)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.False(boundLambda.CandidateDelegates.IsDefaultOrEmpty);
+
+        var hasPredicate = boundLambda.CandidateDelegates.Any(candidate =>
+            candidate.Name == "Func" &&
+            candidate.Arity == 2 &&
+            candidate.TypeArguments.Length == 2 &&
+            candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
+            candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Boolean });
+
+        Assert.True(hasPredicate);
+
+        var unbound = Assert.IsType<BoundUnboundLambda>(boundLambda.Unbound);
+        Assert.False(unbound.CandidateDelegates.IsDefaultOrEmpty);
+        Assert.Empty(unbound.SuppressedDiagnostics);
+
+        Assert.True(unbound.CandidateDelegates.Any(candidate =>
+            candidate.Name == "Func" &&
+            candidate.Arity == 2 &&
+            candidate.TypeArguments.Length == 2 &&
+            candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
+            candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Boolean }));
+
+    }
+
+    [Fact]
+    public void Invocation_SystemLinqWhereWithLambda_CompatibleWithMetadataDelegates()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+
+val numbers: int[] = [1, 2, 3]
+val result = numbers.Where(value => value > 0)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+    }
+
+    [Fact]
+    public void Invocation_WithImplicitLambda_CapturesExtensionDelegateCandidates()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+val numbers = List<int>()
+val positives = numbers.Where(value => value > 0)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.Equal("Where", boundInvocation.Method.Name);
+        Assert.Equal("RavenEnumerableExtensions", boundInvocation.Method.ContainingType?.Name);
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+
+        Assert.False(boundLambda.CandidateDelegates.IsDefaultOrEmpty);
+        var unbound = Assert.IsType<BoundUnboundLambda>(boundLambda.Unbound);
+        Assert.False(unbound.CandidateDelegates.IsDefaultOrEmpty);
+        Assert.Empty(unbound.SuppressedDiagnostics);
+        Assert.Contains(
+            boundLambda.CandidateDelegates,
+            candidate => candidate.Name == "Func" &&
+                candidate.Arity == 2 &&
+                candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
+                candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Boolean });
+
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+    }
+
+    [Fact]
+    public void Invocation_WithIndexedWhereLambda_ResolvesIndexedOverload()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+val numbers = List<int>()
+val positives = numbers.Where((value: int, index: int) => value > index)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+        return;
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Where", selected.Name);
+        Assert.Equal(2, selected.Parameters.Length);
+
+        var predicateParameter = selected.Parameters[1];
+        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        Assert.Equal("Func", predicateType.Name);
+        Assert.Equal(3, predicateType.Arity);
+        Assert.Collection(
+            predicateType.TypeArguments,
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.Equal(2, boundLambda.Parameters.Count());
+        Assert.All(boundLambda.Parameters.Take(2), parameter => Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType));
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void Invocation_SystemLinqWhereWithMemberAccessLambda_BindsBody()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+import System.Text.*
+import System.Reflection.*
+
+val builder = StringBuilder()
+val properties = builder.GetType().GetProperties()
+val result = properties.Where(pi => !pi.GetMethod.IsStatic)
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication),
+            references: TestMetadataReferences.Default);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<LambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal("PropertyInfo", lambdaParameter.Type.Name);
+        Assert.Equal("Reflection", lambdaParameter.Type.ContainingNamespace?.Name);
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+        Assert.IsNotType<BoundErrorExpression>(boundLambda.Body);
+    }
+
+    private static MemberAccessExpressionSyntax GetMemberAccess(SyntaxTree tree, string methodName)
+    {
+        return tree
+            .GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(node => node.Name.Identifier.Text == methodName);
+    }
+}

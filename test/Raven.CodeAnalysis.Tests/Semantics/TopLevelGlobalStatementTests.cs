@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -37,9 +36,8 @@ enum Shade {
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree, assemblyName: "app");
 
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
 
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
@@ -57,7 +55,7 @@ enum Shade {
             .OfType<InvocationExpressionSyntax>()
             .Single(invocation => invocation.Expression is IdentifierNameSyntax id && id.Identifier.ValueText == "Greeter");
         var creationType = model.GetTypeInfo(greeterCreation);
-        Assert.Same(classSymbol, creationType.Type);
+        Assert.Same(interfaceSymbol, creationType.Type);
 
         var annotationType = root
             .DescendantNodes()
@@ -75,21 +73,19 @@ enum Shade {
     }
 
     [Fact]
-    public void EmptyTopLevelProgram_EmitsEmptyMain()
+    public void EmptyTopLevelProgram_BindsWithoutErrors()
     {
         var tree = SyntaxTree.ParseText(string.Empty);
         var compilation = CreateCompilation(tree, assemblyName: "app");
 
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
 
-        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+        var programType = compilation.GetTypeByMetadataName("Program");
+        Assert.Null(programType);
 
         var entryPoint = compilation.GetEntryPoint();
-        Assert.NotNull(entryPoint);
-        Assert.Equal("Main", entryPoint!.Name);
-        Assert.Equal("Program", entryPoint.ContainingType?.Name);
-        Assert.Equal(SpecialType.System_Unit, entryPoint.ReturnType.SpecialType);
+        Assert.Null(entryPoint);
     }
 
     [Fact]

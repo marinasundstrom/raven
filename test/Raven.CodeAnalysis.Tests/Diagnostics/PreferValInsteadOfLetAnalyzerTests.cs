@@ -17,7 +17,7 @@ public class PreferValInsteadOfLetAnalyzerTests : AnalyzerTestBase
                 new DiagnosticResult(PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId)
                     .WithLocation(1, 1)
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }

@@ -21,7 +21,7 @@ func Test() {
                 new DiagnosticResult(ThrowStatementUseResultAnalyzer.DiagnosticId)
                     .WithSpan(2, 5, 2, 28)
             ],
-            disabledDiagnostics: ["RAV1014", "RAV0103"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id]);
 
         verifier.Verify();
     }
@@ -42,7 +42,7 @@ func Test(name: string?) -> string {
                 new DiagnosticResult(ThrowStatementUseResultAnalyzer.DiagnosticId)
                     .WithSpan(2, 20, 2, 46)
             ],
-            disabledDiagnostics: ["RAV1014", "RAV0103"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id]);
 
         verifier.Verify();
     }
@@ -59,7 +59,7 @@ func Test() -> int {
         var verifier = CreateAnalyzerVerifier<ThrowStatementUseResultAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }

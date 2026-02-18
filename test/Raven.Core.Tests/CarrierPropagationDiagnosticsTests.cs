@@ -26,10 +26,10 @@ func test2() -> Option<int> {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV0023")
+                new DiagnosticResult(CompilerDiagnostics.OperatorCannotBeAppliedToOperandOfType.Id)
                     .WithAnySpan()
                     .WithArguments("?", "Option<int>"),
-                new DiagnosticResult("RAV1503")
+                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
                     .WithAnySpan()
                     .WithArguments("Option<int>", "Result<int, string>")
             ]);
@@ -57,7 +57,7 @@ func test2() -> Result<int, string> {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV1503")
+                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
                     .WithAnySpan()
                     .WithArguments("string", "int")
             ]);
@@ -84,7 +84,7 @@ func map(opt: Option<Box>) -> Result<int, string> {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV1503")
+                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
                     .WithAnySpan()
                     .WithArguments("Option<int>", "Result<int, string>")
             ]);
@@ -153,7 +153,7 @@ func test2() -> Result<int, string> {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV1503")
+                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
                     .WithAnySpan()
                     .WithArguments("string", "int")
             ]);

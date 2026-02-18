@@ -17,7 +17,7 @@ public class PreferNewLineBetweenDeclarationsAnalyzerTests : AnalyzerTestBase
                 new DiagnosticResult(PreferNewLineBetweenDeclarationsAnalyzer.DiagnosticId)
                     .WithLocation(1, 11)
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -30,7 +30,7 @@ public class PreferNewLineBetweenDeclarationsAnalyzerTests : AnalyzerTestBase
         var verifier = CreateAnalyzerVerifier<PreferNewLineBetweenDeclarationsAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }

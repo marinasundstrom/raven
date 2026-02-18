@@ -206,6 +206,6 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         Assert.True(typeSyntax.Identifier.IsMissing);
 
         var diagnostic = Assert.Single(tree.GetDiagnostics());
-        Assert.Equal("RAV1001", diagnostic.Descriptor.Id);
+        Assert.Equal(CompilerDiagnostics.IdentifierExpected.Id, diagnostic.Descriptor.Id);
     }
 }

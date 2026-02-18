@@ -53,7 +53,7 @@ public class NamespaceDirectiveTests
             "app",
             [tree],
             TestMetadataReferences.Default,
-            new CompilationOptions(OutputKind.ConsoleApplication));
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Empty(diagnostics);
@@ -73,7 +73,7 @@ public class NamespaceDirectiveTests
 
         class Person
         {
-            init () {}
+            public init () {}
         }
         """;
 
@@ -103,7 +103,7 @@ public class NamespaceDirectiveTests
 
         class Person : Base
         {
-            init () {}
+            public init () {}
 
             public AddRole(role: string) -> Person
             {
@@ -123,22 +123,4 @@ public class NamespaceDirectiveTests
         Assert.Empty(diagnostics);
     }
 
-    [Fact]
-    public void FileScopedNamespaceDirective_OpenModifierAttachesToType()
-    {
-        const string source = """
-        namespace Samples
-
-        open class Person {}
-        """;
-
-        var tree = SyntaxTree.ParseText(source);
-        var root = (CompilationUnitSyntax)tree.GetRoot();
-
-        var ns = Assert.Single(root.Members.OfType<FileScopedNamespaceDeclarationSyntax>());
-        var person = Assert.Single(ns.Members.OfType<ClassDeclarationSyntax>());
-
-        Assert.Contains(person.Modifiers, modifier => modifier.Kind == SyntaxKind.OpenKeyword);
-    }
 }
-

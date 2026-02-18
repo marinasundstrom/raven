@@ -89,7 +89,7 @@ public class DiagnosticOptionsTests
         workspace.TryApplyChanges(project.Solution);
 
         var diagnostics = workspace.GetDiagnostics(projectId);
-        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV0103");
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id);
         Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == TodoAnalyzer.Descriptor.Id);
     }
 

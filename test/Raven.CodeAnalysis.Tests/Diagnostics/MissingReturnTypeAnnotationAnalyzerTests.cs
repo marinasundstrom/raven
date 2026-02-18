@@ -22,7 +22,7 @@ class C {
                     .WithSpan(2, 5, 2, 9)
                     .WithArguments("Test", "int")
             ],
-            disabledDiagnostics: ["RAV1503", "RAV1014"]);
+            disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -42,7 +42,7 @@ func Test() {
                     .WithSpan(1, 6, 1, 10)
                     .WithArguments("Test", "int")
             ],
-            disabledDiagnostics: ["RAV1503", "RAV1014"]);
+            disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -68,7 +68,7 @@ class C {
                     .WithSpan(2, 5, 2, 9)
                     .WithArguments("Test", "bool | int")
             ],
-            disabledDiagnostics: ["RAV1503", "RAV1014"]);
+            disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -97,7 +97,7 @@ class C {
                     .WithSpan(5, 5, 5, 9)
                     .WithArguments("Test", "long")
             ],
-            disabledDiagnostics: ["RAV1503", "RAV1014"]);
+            disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -123,7 +123,7 @@ class C {
                     .WithSpan(2, 5, 2, 9)
                     .WithArguments("Test", "int | string")
             ],
-            disabledDiagnostics: ["RAV1503", "RAV1014"]);
+            disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -141,7 +141,7 @@ class C {
 
         var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1503", "RAV1014"]);
+            disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -163,7 +163,7 @@ class C {
 
         var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1503", "RAV1014"]);
+            disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }

@@ -83,7 +83,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: byte = 256",
-            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'int'", "'byte'")]);
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'int'", "'byte'")]);
         verifier.Verify();
     }
 
@@ -92,7 +92,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: byte = -1",
-            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'int'", "'byte'")]);
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'int'", "'byte'")]);
         verifier.Verify();
     }
 
@@ -101,7 +101,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: sbyte = 128",
-            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'int'", "'sbyte'")]);
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'int'", "'sbyte'")]);
         verifier.Verify();
     }
 
@@ -110,7 +110,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: sbyte = -129",
-            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'int'", "'sbyte'")]);
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'int'", "'sbyte'")]);
         verifier.Verify();
     }
 
@@ -119,7 +119,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: short = 32768",
-            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'int'", "'short'")]);
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'int'", "'short'")]);
         verifier.Verify();
     }
 
@@ -128,7 +128,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: ushort = -1",
-            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'int'", "'ushort'")]);
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'int'", "'ushort'")]);
         verifier.Verify();
     }
 
@@ -137,7 +137,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: ushort = 65536",
-            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'int'", "'ushort'")]);
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'int'", "'ushort'")]);
         verifier.Verify();
     }
 
@@ -146,7 +146,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: uint = -1",
-            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'int'", "'uint'")]);
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'int'", "'uint'")]);
         verifier.Verify();
     }
 
@@ -155,7 +155,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: ulong = -1",
-            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'int'", "'ulong'")]);
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'int'", "'ulong'")]);
         verifier.Verify();
     }
 }

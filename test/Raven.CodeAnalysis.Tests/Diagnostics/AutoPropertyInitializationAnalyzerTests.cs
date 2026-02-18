@@ -21,7 +21,7 @@ class C {
                     .WithSpan(2, 5, 2, 9)
                     .WithArguments("Name")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -38,7 +38,7 @@ class C {
         var verifier = CreateAnalyzerVerifier<AutoPropertyInitializationAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -59,7 +59,7 @@ class C {
         var verifier = CreateAnalyzerVerifier<AutoPropertyInitializationAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -76,7 +76,7 @@ class C {
         var verifier = CreateAnalyzerVerifier<AutoPropertyInitializationAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }

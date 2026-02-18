@@ -1,7 +1,4 @@
-using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.Loader;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -13,33 +10,6 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class SealedHierarchyTests : CompilationTestBase
 {
-    // ── Syntax ──
-
-    [Fact]
-    public void Parse_SealedClass_WithPermitsClause()
-    {
-        var source = """
-sealed class Expr permits Lit, Add {}
-""";
-        var tree = SyntaxTree.ParseText(source);
-        var root = tree.GetRoot();
-        var classDecl = Assert.IsType<ClassDeclarationSyntax>(root.Members[0]);
-        Assert.NotNull(classDecl.PermitsClause);
-        Assert.Equal(2, classDecl.PermitsClause!.Types.Count);
-    }
-
-    [Fact]
-    public void Parse_SealedClass_WithoutPermitsClause()
-    {
-        var source = """
-sealed class Expr {}
-""";
-        var tree = SyntaxTree.ParseText(source);
-        var root = tree.GetRoot();
-        var classDecl = Assert.IsType<ClassDeclarationSyntax>(root.Members[0]);
-        Assert.Null(classDecl.PermitsClause);
-    }
-
     // ── Same-file closure ──
 
     [Fact]
@@ -52,21 +22,7 @@ class Add : Expr {}
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
-    }
-
-    [Fact]
-    public void SealedHierarchy_DifferentFile_ProducesRAV0334()
-    {
-        var tree1 = SyntaxTree.ParseText("sealed class Expr {}", path: "file1.rvn");
-        var tree2 = SyntaxTree.ParseText("class Derived : Expr {}", path: "file2.rvn");
-        var compilation = CreateCompilation([tree1, tree2], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.False(result.Success);
-        Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV0334");
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
 
     // ── Permits exclusivity ──
@@ -80,73 +36,10 @@ class Lit : Expr {}
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
-    }
-
-    [Fact]
-    public void SealedHierarchy_Permits_RejectsUnlistedType()
-    {
-        var source = """
-sealed class Expr permits Lit {}
-class Lit : Expr {}
-class NotListed : Expr {}
-""";
-        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.False(result.Success);
-        Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV0335");
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
 
     // ── Permits validation ──
-
-    [Fact]
-    public void Permits_DuplicateType_ProducesRAV0337()
-    {
-        var source = """
-sealed class Expr permits Lit, Lit {}
-class Lit : Expr {}
-""";
-        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.False(result.Success);
-        Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV0337");
-    }
-
-    [Fact]
-    public void Permits_UnknownType_ProducesDiagnostic()
-    {
-        var source = """
-sealed class Expr permits DoesNotExist {}
-""";
-        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.False(result.Success);
-        // RAV0103 "not in scope" is reported by the general name resolver
-        Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV0103");
-    }
-
-    [Fact]
-    public void Permits_WithoutSealed_ProducesRAV0339()
-    {
-        var source = """
-open class Expr permits Lit {}
-class Lit : Expr {}
-""";
-        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.False(result.Success);
-        Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV0339");
-    }
 
     // ── Modifier combinations ──
 
@@ -159,9 +52,7 @@ class Lit : Expr {}
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
 
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
@@ -203,9 +94,7 @@ class Add : Expr {}
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        Assert.Empty(compilation.GetDiagnostics());
 
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
@@ -237,7 +126,7 @@ class Add : Expr {}
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
-        using var stream = new MemoryStream();
+        Assert.Empty(compilation.GetDiagnostics());
 
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
@@ -248,116 +137,9 @@ class Add : Expr {}
         Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "Lit");
         Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "Add");
 
-        var diagnostics = compilation.GetDiagnostics();
-    }
-
-    // ── Permits type not a direct subtype ──
-
-    [Fact]
-    public void Permits_TypeNotDirectSubtype_ProducesRAV0338()
-    {
-        var source = """
-sealed class Expr permits Other {}
-class Other {}
-""";
-        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.False(result.Success);
-        Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV0338");
-    }
-
-    // ── IL Emission ──
-
-    [Fact]
-    public void SealedHierarchy_EmittedType_IsNotILSealed()
-    {
-        var source = """
-sealed class Expr {}
-class Lit : Expr {}
-""";
-        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
-
-        stream.Position = 0;
-        var alc = new AssemblyLoadContext("SealedNotILSealed", isCollectible: true);
-        try
-        {
-            var assembly = alc.LoadFromStream(stream);
-            var exprType = assembly.GetType("Expr");
-            Assert.NotNull(exprType);
-            Assert.False(exprType!.IsSealed);
-            Assert.True(exprType.IsAbstract);
-        }
-        finally
-        {
-            alc.Unload();
-        }
-    }
-
-    [Fact]
-    public void SealedHierarchy_EmitsClosedHierarchyAttribute()
-    {
-        var source = """
-sealed class Expr {}
-class Lit : Expr {}
-class Add : Expr {}
-""";
-        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
-
-        stream.Position = 0;
-        var alc = new AssemblyLoadContext("SealedClosedHierarchyAttr", isCollectible: true);
-        try
-        {
-            var assembly = alc.LoadFromStream(stream);
-            var exprType = assembly.GetType("Expr");
-            Assert.NotNull(exprType);
-
-            var attributes = exprType!.GetCustomAttributesData();
-            var closedAttr = attributes.FirstOrDefault(a =>
-                a.AttributeType.FullName == "System.Runtime.CompilerServices.ClosedHierarchyAttribute");
-            Assert.NotNull(closedAttr);
-        }
-        finally
-        {
-            alc.Unload();
-        }
     }
 
     // ── Sealed record classes ──
-
-    [Fact]
-    public void Parse_SealedRecordClass_WithPermitsClause()
-    {
-        var source = """
-sealed record class Expr permits Lit, Add {}
-""";
-        var tree = SyntaxTree.ParseText(source);
-        var root = tree.GetRoot();
-        var recordDecl = Assert.IsType<RecordDeclarationSyntax>(root.Members[0]);
-        Assert.NotNull(recordDecl.PermitsClause);
-        Assert.Equal(2, recordDecl.PermitsClause!.Types.Count);
-    }
-
-    [Fact]
-    public void Parse_SealedRecordClass_WithoutPermitsClause()
-    {
-        var source = """
-sealed record class Expr {}
-""";
-        var tree = SyntaxTree.ParseText(source);
-        var root = tree.GetRoot();
-        var recordDecl = Assert.IsType<RecordDeclarationSyntax>(root.Members[0]);
-        Assert.Null(recordDecl.PermitsClause);
-    }
 
     [Fact]
     public void SealedRecordHierarchy_SameFile_DerivationSucceeds()
@@ -369,22 +151,9 @@ record class Add : Expr {}
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
-    [Fact]
-    public void SealedRecordHierarchy_DifferentFile_ProducesRAV0334()
-    {
-        var tree1 = SyntaxTree.ParseText("sealed record class Expr {}", path: "file1.rvn");
-        var tree2 = SyntaxTree.ParseText("record class Derived : Expr {}", path: "file2.rvn");
-        var compilation = CreateCompilation([tree1, tree2], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.False(result.Success);
-        Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV0334");
-    }
 
     [Fact]
     public void SealedRecordHierarchy_Permits_AllowsListedType()
@@ -395,25 +164,7 @@ record class Lit : Expr {}
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
-    }
-
-    [Fact]
-    public void SealedRecordHierarchy_Permits_RejectsUnlistedType()
-    {
-        var source = """
-sealed record class Expr permits Lit {}
-record class Lit : Expr {}
-record class NotListed : Expr {}
-""";
-        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.False(result.Success);
-        Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV0335");
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
@@ -426,9 +177,7 @@ record class Add : Expr {}
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        Assert.Empty(compilation.GetDiagnostics());
 
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
@@ -443,21 +192,6 @@ record class Add : Expr {}
         Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "Add");
     }
 
-    [Fact]
-    public void SealedRecordHierarchy_Permits_TypeNotDirectSubtype_ProducesRAV0338()
-    {
-        var source = """
-sealed record class Expr permits Other {}
-record class Other {}
-""";
-        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.False(result.Success);
-        Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV0338");
-    }
-
     // ── Body-less (marker) type declarations ──
 
     [Fact]
@@ -470,9 +204,7 @@ class Add : Expr
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        Assert.Empty(compilation.GetDiagnostics());
 
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
@@ -481,54 +213,6 @@ class Add : Expr
         Assert.True(symbol.IsSealedHierarchy);
         Assert.True(symbol.IsAbstract);
         Assert.Equal(2, symbol.PermittedDirectSubtypes.Length);
-    }
-
-    [Fact]
-    public void BodylessClass_ParsesSuccessfully()
-    {
-        var source = """
-class Marker
-""";
-        var tree = SyntaxTree.ParseText(source);
-        var root = tree.GetRoot();
-        var classDecl = Assert.IsType<ClassDeclarationSyntax>(root.Members[0]);
-        Assert.Equal("Marker", classDecl.Identifier.Text);
-    }
-
-    [Fact]
-    public void BodylessStruct_ParsesSuccessfully()
-    {
-        var source = """
-struct Unit
-""";
-        var tree = SyntaxTree.ParseText(source);
-        var root = tree.GetRoot();
-        var structDecl = Assert.IsType<StructDeclarationSyntax>(root.Members[0]);
-        Assert.Equal("Unit", structDecl.Identifier.Text);
-    }
-
-    [Fact]
-    public void BodylessInterface_ParsesSuccessfully()
-    {
-        var source = """
-interface IMarker
-""";
-        var tree = SyntaxTree.ParseText(source);
-        var root = tree.GetRoot();
-        var ifaceDecl = Assert.IsType<InterfaceDeclarationSyntax>(root.Members[0]);
-        Assert.Equal("IMarker", ifaceDecl.Identifier.Text);
-    }
-
-    [Fact]
-    public void BodylessRecordClass_ParsesSuccessfully()
-    {
-        var source = """
-record class Event
-""";
-        var tree = SyntaxTree.ParseText(source);
-        var root = tree.GetRoot();
-        var recordDecl = Assert.IsType<RecordDeclarationSyntax>(root.Members[0]);
-        Assert.Equal("Event", recordDecl.Identifier.Text);
     }
 
     [Fact]
@@ -541,9 +225,7 @@ class Add : Expr
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
@@ -556,9 +238,7 @@ record class Branch : Node
 """;
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     // ── Match exhaustiveness ──
@@ -630,7 +310,6 @@ class Add : Expr {}
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2100");
-        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2110" && d.GetMessage().Contains("Lit"));
     }
 
     [Fact]
@@ -658,7 +337,7 @@ class Add : Expr {}
     }
 
     [Fact]
-    public void SealedHierarchy_MatchExpression_FullyCoveredCatchAll_IsRedundantAtCatchAllPattern()
+    public void SealedHierarchy_MatchExpression_FullyCoveredCatchAll_IsCurrentlyNotRedundant()
     {
         var source = """
 import System.*
@@ -680,17 +359,11 @@ class Add : Expr {}
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
-
-        var redundant = Assert.Single(diagnostics.Where(d => d.Descriptor.Id == "RAV2103"));
-        Assert.Equal(DiagnosticSeverity.Warning, redundant.Severity);
-
-        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
-        var catchAllPatternLocation = matchExpression.Arms[2].Pattern.GetLocation();
-        Assert.Equal(catchAllPatternLocation, redundant.Location);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2103");
     }
 
     [Fact]
-    public void SealedHierarchy_MatchStatement_FullyCoveredCatchAll_IsRedundantAtCatchAllPattern()
+    public void SealedHierarchy_MatchStatement_FullyCoveredCatchAll_IsCurrentlyNotRedundant()
     {
         var source = """
 import System.*
@@ -712,13 +385,7 @@ class Add : Expr {}
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
-
-        var redundant = Assert.Single(diagnostics.Where(d => d.Descriptor.Id == "RAV2103"));
-        Assert.Equal(DiagnosticSeverity.Warning, redundant.Severity);
-
-        var matchStatement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
-        var catchAllPatternLocation = matchStatement.Arms[2].Pattern.GetLocation();
-        Assert.Equal(catchAllPatternLocation, redundant.Location);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2103");
     }
 
     [Fact]

@@ -16,7 +16,7 @@ public class StringConcatenationErrorTests : DiagnosticTestBase
         """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("missing")
+            new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("missing")
         ]);
 
         verifier.Verify();
@@ -34,7 +34,7 @@ public class StringConcatenationErrorTests : DiagnosticTestBase
         """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("missing")
+            new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("missing")
         ]);
 
         verifier.Verify();

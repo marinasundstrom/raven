@@ -16,7 +16,7 @@ public class ErrorTypeSymbolAssignmentTests : DiagnosticTestBase
         """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("y")
+            new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("y")
         ]);
         verifier.Verify();
     }

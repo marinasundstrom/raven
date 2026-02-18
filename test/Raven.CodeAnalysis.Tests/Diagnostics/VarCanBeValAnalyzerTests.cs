@@ -24,7 +24,7 @@ class C {
                     .WithLocation(3, 9)
                     .WithArguments("count")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -44,7 +44,7 @@ class C {
         var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -62,7 +62,7 @@ class C {
                     .WithLocation(1, 1)
                     .WithArguments("count")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -78,7 +78,7 @@ count = 1
         var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }

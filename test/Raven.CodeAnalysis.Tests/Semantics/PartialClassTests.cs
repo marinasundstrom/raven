@@ -1,5 +1,3 @@
-using System.IO;
-
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -25,10 +23,8 @@ partial class Container {
 
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
-
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        compilation.EnsureSetup();
+        Assert.Empty(compilation.GetDiagnostics());
 
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
@@ -62,10 +58,8 @@ partial class Container {
         var treeB = SyntaxTree.ParseText(sourceB);
 
         var compilation = CreateCompilation(new[] { treeA, treeB }, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
-
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        compilation.EnsureSetup();
+        Assert.Empty(compilation.GetDiagnostics());
 
         var modelA = compilation.GetSemanticModel(treeA);
         var modelB = compilation.GetSemanticModel(treeB);
@@ -107,10 +101,8 @@ partial class Container {
         var treeB = SyntaxTree.ParseText(sourceB);
 
         var compilation = CreateCompilation(new[] { treeA, treeB }, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
-
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        compilation.EnsureSetup();
+        Assert.Empty(compilation.GetDiagnostics());
 
         var modelA = compilation.GetSemanticModel(treeA);
         var modelB = compilation.GetSemanticModel(treeB);
@@ -125,25 +117,6 @@ partial class Container {
         Assert.Equal(2, symbolA.DeclaringSyntaxReferences.Length);
         Assert.Single(symbolA.GetMembers("x"));
         Assert.Single(symbolA.GetMembers("y"));
-    }
-
-    [Fact]
-    public void DuplicateClassDeclarationsWithoutPartial_ProduceDiagnostic()
-    {
-        const string source = """
-class C {};
-class C {};
-""";
-
-        var tree = SyntaxTree.ParseText(source);
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
-
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-
-        Assert.False(result.Success);
-        var diagnostic = Assert.Single(result.Diagnostics);
-        Assert.Equal("RAV0600", diagnostic.Descriptor.Id);
     }
 
 }

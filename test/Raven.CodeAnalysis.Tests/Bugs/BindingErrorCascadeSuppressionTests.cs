@@ -12,7 +12,7 @@ public class BindingErrorCascadeSuppressionTests : DiagnosticTestBase
         """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("MissingType"),
+            new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("MissingType"),
         ]);
 
         verifier.Verify();
@@ -26,7 +26,7 @@ public class BindingErrorCascadeSuppressionTests : DiagnosticTestBase
         """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("MissingType"),
+            new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("MissingType"),
         ]);
 
         verifier.Verify();
@@ -44,7 +44,7 @@ public class BindingErrorCascadeSuppressionTests : DiagnosticTestBase
         """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("missing"),
+            new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("missing"),
         ]);
 
         verifier.Verify();
@@ -58,7 +58,7 @@ public class BindingErrorCascadeSuppressionTests : DiagnosticTestBase
         """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("MissingType"),
+            new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("MissingType"),
         ]);
 
         verifier.Verify();

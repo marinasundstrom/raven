@@ -23,7 +23,7 @@ public class CastExpressionTests : DiagnosticTestBase
         """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "string")
+            new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithAnySpan().WithArguments("int", "string")
         ]);
         verifier.Verify();
     }

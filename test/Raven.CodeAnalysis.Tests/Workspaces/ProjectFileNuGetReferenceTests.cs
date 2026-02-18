@@ -215,7 +215,7 @@ public sealed class ProjectFileNuGetReferenceTests
         var diagnostics = workspace.GetDiagnostics(projectId);
 
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV1501");
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV0121");
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == CompilerDiagnostics.CallIsAmbiguous.Id);
     }
 
 }

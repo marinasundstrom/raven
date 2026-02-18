@@ -25,7 +25,7 @@ func Test() {
                     .WithSpan(5, 21, 5, 26)
                     .WithArguments("First", "FirstOrError")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -50,7 +50,7 @@ func Test() {
                     .WithSpan(5, 26, 5, 40)
                     .WithArguments("FirstOrDefault", "FirstOrNone")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -71,7 +71,7 @@ func Test() {
         var verifier = CreateAnalyzerVerifier<PreferDuLinqExtensionsAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014", "RAV0103"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id]);
 
         verifier.Verify();
     }

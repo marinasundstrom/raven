@@ -17,8 +17,8 @@ public class MemberAccessMissingIdentifierTests : DiagnosticTestBase
         """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV1001").WithAnySpan(),
-            new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("")
+            new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id).WithAnySpan(),
+            new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("")
         ]);
         verifier.Verify();
     }

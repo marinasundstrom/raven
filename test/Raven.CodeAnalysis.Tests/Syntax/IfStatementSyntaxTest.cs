@@ -14,7 +14,7 @@ public class IfStatementSyntaxTest : DiagnosticTestBase
             }
             """;
 
-        var verifier = CreateVerifier(testCode, disabledDiagnostics: ["RAV0103"]);
+        var verifier = CreateVerifier(testCode, disabledDiagnostics: [CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id]);
 
         verifier.Verify();
     }
@@ -31,7 +31,7 @@ public class IfStatementSyntaxTest : DiagnosticTestBase
             }
             """;
 
-        var verifier = CreateVerifier(testCode, disabledDiagnostics: ["RAV0103"]);
+        var verifier = CreateVerifier(testCode, disabledDiagnostics: [CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id]);
 
         verifier.Verify();
     }
@@ -48,7 +48,7 @@ public class IfStatementSyntaxTest : DiagnosticTestBase
             }
             """;
 
-        var verifier = CreateVerifier(testCode, disabledDiagnostics: ["RAV0103"]);
+        var verifier = CreateVerifier(testCode, disabledDiagnostics: [CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id]);
 
         verifier.Verify();
     }

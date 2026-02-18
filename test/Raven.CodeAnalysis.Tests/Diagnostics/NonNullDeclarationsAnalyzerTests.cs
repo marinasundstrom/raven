@@ -22,7 +22,7 @@ func Test() {
                     .WithSpan(2, 16, 2, 20)
                     .WithArguments("Option<int>", "int?")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
@@ -44,7 +44,7 @@ func Test() {
                     .WithSpan(2, 16, 2, 26)
                     .WithArguments("Option<int>", "int?")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }

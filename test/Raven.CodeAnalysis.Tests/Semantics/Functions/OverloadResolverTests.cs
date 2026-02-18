@@ -1,0 +1,477 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
+
+using Xunit;
+
+namespace Raven.CodeAnalysis.Semantics.Tests;
+
+public sealed class OverloadResolverTests : CompilationTestBase
+{
+    [Fact]
+    public void ResolveOverload_PrefersIdentityOverNumeric()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var longType = compilation.GetSpecialType(SpecialType.System_Int64);
+
+        var identity = CreateMethod(compilation, "Identity", intType);
+        var numeric = CreateMethod(compilation, "Numeric", longType);
+
+        var arguments = CreateArguments(new TestBoundExpression(intType));
+
+        var result = OverloadResolver.ResolveOverload([identity, numeric], arguments, compilation);
+
+        Assert.True(result.Success);
+        Assert.Same(identity, result.Method);
+    }
+
+    [Fact]
+    public void ResolveOverload_PrefersNumericOverBoxing()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var longType = compilation.GetSpecialType(SpecialType.System_Int64);
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var numeric = CreateMethod(compilation, "Numeric", longType);
+        var boxing = CreateMethod(compilation, "Boxing", objectType);
+
+        var arguments = CreateArguments(new TestBoundExpression(intType));
+
+        var result = OverloadResolver.ResolveOverload([numeric, boxing], arguments, compilation);
+
+        Assert.True(result.Success);
+        Assert.Same(numeric, result.Method);
+    }
+
+    [Fact]
+    public void ResolveOverload_UsesCommonDenominatorForUnionArguments()
+    {
+        var compilation = CreateInitializedCompilation();
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+        var streamType = compilation.GetTypeByMetadataName("System.IO.Stream") ?? throw new InvalidOperationException("Missing System.IO.Stream");
+        var memoryStream = compilation.GetTypeByMetadataName("System.IO.MemoryStream") ?? throw new InvalidOperationException("Missing System.IO.MemoryStream");
+        var fileStream = compilation.GetTypeByMetadataName("System.IO.FileStream") ?? throw new InvalidOperationException("Missing System.IO.FileStream");
+
+        var union = new TypeUnionSymbol(new[] { memoryStream, fileStream }, compilation.Assembly, null, null, Array.Empty<Location>());
+        var stream = CreateMethod(compilation, "Stream", streamType);
+        var obj = CreateMethod(compilation, "Object", objectType);
+
+        var arguments = CreateArguments(new TestBoundExpression(union));
+
+        var result = OverloadResolver.ResolveOverload([stream, obj], arguments, compilation);
+
+        Assert.True(result.Success);
+        Assert.Same(stream, result.Method);
+    }
+
+    [Fact]
+    public void ResolveOverload_LiteralArgumentPrefersUnderlyingPrimitive()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var doubleType = compilation.GetSpecialType(SpecialType.System_Double);
+        var literalType = new LiteralTypeSymbol(intType, 1, compilation);
+
+        var literalArgument = new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 1, literalType);
+        var identity = CreateMethod(compilation, "Identity", intType);
+        var numeric = CreateMethod(compilation, "Numeric", doubleType);
+
+        var arguments = CreateArguments(literalArgument);
+
+        var result = OverloadResolver.ResolveOverload([identity, numeric], arguments, compilation);
+
+        Assert.True(result.Success);
+        Assert.Same(identity, result.Method);
+    }
+
+    [Fact]
+    public void ResolveOverload_NullableArgumentPrefersNullableParameter()
+    {
+        var compilation = CreateInitializedCompilation();
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+
+        var nullableArgumentType = stringType.MakeNullable();
+
+        var nullableParameterType = stringType.MakeNullable();
+
+        var nonNullable = CreateMethod(compilation, "NonNullable", stringType);
+        var nullable = CreateMethod(compilation, "Nullable", nullableParameterType);
+
+        var arguments = CreateArguments(new TestBoundExpression(nullableArgumentType));
+
+        var result = OverloadResolver.ResolveOverload([nonNullable, nullable], arguments, compilation);
+
+        Assert.True(result.Success || result.IsAmbiguous);
+        if (result.Success)
+        {
+            Assert.Contains(result.Method, new[] { nonNullable, nullable });
+        }
+    }
+
+    [Fact]
+    public void ResolveOverload_ReturnsNullWhenAmbiguous()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var longType = compilation.GetSpecialType(SpecialType.System_Int64);
+        var doubleType = compilation.GetSpecialType(SpecialType.System_Double);
+
+        var toLong = CreateMethod(compilation, "ToLong", longType);
+        var toDouble = CreateMethod(compilation, "ToDouble", doubleType);
+
+        var arguments = CreateArguments(new TestBoundExpression(intType));
+
+        var result = OverloadResolver.ResolveOverload([toLong, toDouble], arguments, compilation);
+
+        if (result.Success)
+        {
+            Assert.Contains(result.Method, new[] { toLong, toDouble });
+        }
+        else
+        {
+            Assert.True(result.IsAmbiguous);
+            Assert.Contains(toLong, result.AmbiguousCandidates, SymbolEqualityComparer.Default);
+            Assert.Contains(toDouble, result.AmbiguousCandidates, SymbolEqualityComparer.Default);
+        }
+    }
+
+    [Fact]
+    public void ResolveOverload_PrefersInstanceMethodOverExtensionCandidate()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var receiver = new TestBoundExpression(intType);
+        var argument = new TestBoundExpression(intType);
+
+        var extension = CreateExtensionMethod(compilation, "Format", intType, intType);
+        var instance = CreateMethod(compilation, "Format", intType);
+
+        var result = OverloadResolver.ResolveOverload([extension, instance], CreateArguments(argument), compilation, receiver);
+
+        Assert.True(result.Success);
+        Assert.Same(instance, result.Method);
+    }
+
+    [Fact]
+    public void ResolveOverload_AllowsOmittedOptionalParameters()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var optionalParameter = new FakeParameterSymbol(
+            "value",
+            intType,
+            RefKind.None,
+            isParams: false,
+            hasExplicitDefaultValue: true,
+            explicitDefaultValue: 42);
+
+        var optionalMethod = new FakeMethodSymbol(
+            "Optional",
+            compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray.Create<IParameterSymbol>(optionalParameter));
+
+        var result = OverloadResolver.ResolveOverload([optionalMethod], Array.Empty<BoundArgument>(), compilation);
+
+        Assert.True(result.Success);
+        Assert.Same(optionalMethod, result.Method);
+    }
+
+    [Fact]
+    public void ResolveOverload_SystemInt32TryParse_WithOutArgument_Succeeds()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+
+        var tryParseMethods = intType
+            .GetMembers("TryParse")
+            .OfType<IMethodSymbol>()
+            .ToImmutableArray();
+
+        Assert.NotEmpty(tryParseMethods);
+
+        var stringArgument = new TestBoundExpression(stringType);
+        var outArgument = new BoundAddressOfExpression(
+            new FakeParameterSymbol("value", intType, RefKind.None, isParams: false),
+            intType);
+
+        var result = OverloadResolver.ResolveOverload(
+            tryParseMethods,
+            CreateArguments(stringArgument, outArgument),
+            compilation);
+
+        Assert.True(result.Success);
+        Assert.Equal("TryParse", result.Method!.Name);
+        Assert.Equal(2, result.Method.Parameters.Length);
+    }
+
+    protected override MetadataReference[] GetMetadataReferences()
+    {
+        var runtimeDirectory = RuntimeEnvironment.GetRuntimeDirectory();
+        var references = new List<MetadataReference>();
+
+        var coreLibPath = Path.Combine(runtimeDirectory, "System.Private.CoreLib.dll");
+        if (File.Exists(coreLibPath))
+            references.Add(MetadataReference.CreateFromFile(coreLibPath));
+
+        references.AddRange(Directory
+            .EnumerateFiles(runtimeDirectory, "*.dll")
+            .Where(path => !path.Equals(coreLibPath, StringComparison.OrdinalIgnoreCase))
+            .Select(MetadataReference.CreateFromFile));
+
+        references.AddRange(base.GetMetadataReferences());
+
+        return references
+            .OfType<PortableExecutableReference>()
+            .Where(r => !string.IsNullOrEmpty(r.FilePath))
+            .GroupBy(r => Path.GetFileNameWithoutExtension(r.FilePath), StringComparer.OrdinalIgnoreCase)
+            .Select(group => (MetadataReference)group.First())
+            .ToArray();
+    }
+
+    private Compilation CreateInitializedCompilation()
+    {
+        var compilation = CreateCompilation();
+        compilation.EnsureSetup();
+        return compilation;
+    }
+
+    private static FakeMethodSymbol CreateMethod(Compilation compilation, string name, ITypeSymbol parameterType)
+    {
+        var parameter = new FakeParameterSymbol("arg", parameterType, RefKind.None, isParams: false);
+        var parameters = ImmutableArray.Create<IParameterSymbol>(parameter);
+        return new FakeMethodSymbol(name, compilation.GetSpecialType(SpecialType.System_Unit), parameters);
+    }
+
+    private static FakeMethodSymbol CreateExtensionMethod(
+        Compilation compilation,
+        string name,
+        ITypeSymbol receiverType,
+        ITypeSymbol parameterType)
+    {
+        var receiver = new FakeParameterSymbol("receiver", receiverType, RefKind.None, isParams: false);
+        var argument = new FakeParameterSymbol("arg", parameterType, RefKind.None, isParams: false);
+        var parameters = ImmutableArray.Create<IParameterSymbol>(receiver, argument);
+        return new FakeMethodSymbol(
+            name,
+            compilation.GetSpecialType(SpecialType.System_Unit),
+            parameters,
+            isExtensionMethod: true);
+    }
+
+    private static BoundArgument[] CreateArguments(params BoundExpression[] expressions)
+        => expressions
+            .Select(expr => new BoundArgument(expr, RefKind.None, name: null))
+            .ToArray();
+
+    private sealed class TestBoundExpression : BoundExpression
+    {
+        public TestBoundExpression(ITypeSymbol type)
+            : base(type)
+        {
+        }
+
+        public override void Accept(BoundTreeVisitor visitor)
+            => visitor.DefaultVisit(this);
+
+        public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+            => visitor.DefaultVisit(this);
+    }
+
+    private abstract class FakeSymbol : ISymbol
+    {
+        protected FakeSymbol(SymbolKind kind, string name)
+        {
+            Kind = kind;
+            Name = name;
+            MetadataName = name;
+        }
+
+        public SymbolKind Kind { get; }
+
+        public string Name { get; }
+
+        public string MetadataName { get; }
+
+        public ISymbol? ContainingSymbol { get; private set; }
+
+        public IAssemblySymbol? ContainingAssembly => null;
+
+        public IModuleSymbol? ContainingModule => null;
+
+        public INamedTypeSymbol? ContainingType { get; private set; }
+
+        public INamespaceSymbol? ContainingNamespace { get; private set; }
+
+        public ImmutableArray<Location> Locations { get; } = ImmutableArray<Location>.Empty;
+
+        public Accessibility DeclaredAccessibility => Accessibility.Public;
+
+        public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; } = ImmutableArray<SyntaxReference>.Empty;
+
+        public bool IsImplicitlyDeclared => true;
+
+        public bool IsStatic => false;
+
+        public ISymbol UnderlyingSymbol => this;
+
+        public bool IsAlias => false;
+
+        public ImmutableArray<AttributeData> GetAttributes() => ImmutableArray<AttributeData>.Empty;
+
+        public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
+            => ReferenceEquals(this, other);
+
+        public bool Equals(ISymbol? other)
+            => ReferenceEquals(this, other);
+
+        public override bool Equals(object? obj)
+            => ReferenceEquals(this, obj);
+
+        public override int GetHashCode()
+            => HashCode.Combine(Kind, Name);
+
+        public void Accept(SymbolVisitor visitor)
+            => visitor.DefaultVisit(this);
+
+        public TResult Accept<TResult>(SymbolVisitor<TResult> visitor)
+            => visitor.DefaultVisit(this);
+
+        public void SetContainer(ISymbol? container, INamedTypeSymbol? containingType = null, INamespaceSymbol? containingNamespace = null)
+        {
+            ContainingSymbol = container;
+            ContainingType = containingType;
+            ContainingNamespace = containingNamespace;
+        }
+    }
+
+    private sealed class FakeMethodSymbol : FakeSymbol, IMethodSymbol
+    {
+        private readonly bool _isExtensionMethod;
+
+        public FakeMethodSymbol(
+            string name,
+            ITypeSymbol returnType,
+            ImmutableArray<IParameterSymbol> parameters,
+            bool isExtensionMethod = false)
+            : base(SymbolKind.Method, name)
+        {
+            ReturnType = returnType;
+            Parameters = parameters;
+            _isExtensionMethod = isExtensionMethod;
+
+            foreach (var parameter in parameters)
+            {
+                if (parameter is FakeSymbol fakeParameter)
+                {
+                    fakeParameter.SetContainer(this);
+                }
+            }
+        }
+
+        public MethodKind MethodKind => MethodKind.Ordinary;
+
+        public ITypeSymbol ReturnType { get; }
+
+        public ImmutableArray<AttributeData> GetReturnTypeAttributes() => ImmutableArray<AttributeData>.Empty;
+
+        public ImmutableArray<IParameterSymbol> Parameters { get; }
+
+        public IMethodSymbol? OriginalDefinition => this;
+
+        public bool IsAbstract => false;
+
+        public bool IsAsync => false;
+
+        public bool IsCheckedBuiltin => false;
+
+        public bool IsDefinition => true;
+
+        public bool IsExtensionMethod => _isExtensionMethod;
+
+        public bool IsExtern => false;
+
+        public bool IsGenericMethod => false;
+
+        public bool IsOverride => false;
+
+        public bool IsReadOnly => false;
+
+        public bool IsFinal => false;
+
+        public bool IsVirtual => false;
+
+        public bool IsIterator => false;
+
+        public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
+
+        public ITypeSymbol? IteratorElementType => null;
+
+        public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
+
+        public ImmutableArray<ITypeParameterSymbol> TypeParameters => ImmutableArray<ITypeParameterSymbol>.Empty;
+
+        public ImmutableArray<ITypeSymbol> TypeArguments => ImmutableArray<ITypeSymbol>.Empty;
+
+        public IMethodSymbol? ConstructedFrom => this;
+
+        public bool SetsRequiredMembers => throw new NotImplementedException();
+
+        public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+        {
+            if (typeArguments is null)
+                throw new ArgumentNullException(nameof(typeArguments));
+
+            if (typeArguments.Length != 0)
+                throw new InvalidOperationException("FakeMethodSymbol does not support generic construction.");
+
+            return this;
+        }
+    }
+
+    private sealed class FakeParameterSymbol : FakeSymbol, IParameterSymbol
+    {
+        public FakeParameterSymbol(
+            string name,
+            ITypeSymbol type,
+            RefKind refKind,
+            bool isParams,
+            bool hasExplicitDefaultValue = false,
+            object? explicitDefaultValue = null)
+            : base(SymbolKind.Parameter, name)
+        {
+            Type = type;
+            RefKind = refKind;
+            IsParams = isParams;
+            HasExplicitDefaultValue = hasExplicitDefaultValue;
+            ExplicitDefaultValue = explicitDefaultValue;
+        }
+
+        public ITypeSymbol Type { get; }
+
+        public bool IsParams { get; }
+
+        public RefKind RefKind { get; }
+
+        public bool IsMutable => false;
+
+        public bool HasExplicitDefaultValue { get; }
+
+        public object? ExplicitDefaultValue { get; }
+
+        public void SetContainer(ISymbol? container)
+            => base.SetContainer(container);
+    }
+}
