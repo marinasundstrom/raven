@@ -3376,7 +3376,9 @@ for how `is` and `match` narrow union members. Literal unions stay precise so
 long as every literal appears in a branch, and open-ended unions require a
 catch-all arm or type pattern to remain exhaustive. Guards participate only in
 the arm that defines them and do not relax the exhaustiveness checks on the
-outer pattern.
+outer pattern. When an arm targets a specific subtype/case but constrains only
+part of it (for example via value-constrained deconstruction), Raven reports
+`RAV2110` on that arm pattern unless a catch-all arm is present.
 
 #### Member access on unions (nominal CLR members only)
 

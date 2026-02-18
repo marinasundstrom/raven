@@ -90,6 +90,18 @@ statement position, the selected arm expression value is ignored.
 
 Literal-value types from [literal-type unions](literal-types.md) may be used directly in patterns, enabling exhaustive checks over finite sets of values.
 
+When a subtype/case arm is only partially covered by subpatterns, Raven reports
+`RAV2110` unless a catch-all arm exists:
+
+```raven
+match expr {
+    Lit(val value) => value
+    Add(val left, val right) => left + right
+    Sub(2, val right) => right   // RAV2110 without catch-all
+    _ => 0                       // suppresses RAV2110 and closes exhaustiveness
+}
+```
+
 ### Or-patterns and guards
 
 Combine alternatives for a single arm using `or`, and add an expression guard with `when`:
