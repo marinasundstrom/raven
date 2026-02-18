@@ -26,6 +26,7 @@ var stopwatch = Stopwatch.StartNew();
 // --emit-core-types-only - embed the Raven.Core shims instead of referencing Raven.Core.dll
 // --output-type <console|classlib> - output kind
 // --unsafe           - enable unsafe mode (required for pointer declarations/usages)
+// --no-global-statements - disable top-level/global statements
 // --runtime-async    - enable runtime-async metadata emission
 // --no-runtime-async - disable runtime-async metadata emission
 // -o <path>         - output assembly path
@@ -63,6 +64,7 @@ var ravenCoreExplicitlyProvided = false;
 var embedCoreTypes = false;
 var skipDefaultRavenCoreLookup = false;
 var allowUnsafe = false;
+var allowGlobalStatements = true;
 bool? runtimeAsyncOverride = null;
 
 var printSyntaxTree = false;
@@ -306,6 +308,12 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--unsafe":
             allowUnsafe = true;
+            break;
+        case "--global-statements":
+            allowGlobalStatements = true;
+            break;
+        case "--no-global-statements":
+            allowGlobalStatements = false;
             break;
         case "--runtime-async":
             runtimeAsyncOverride = true;
@@ -634,6 +642,7 @@ var useRuntimeAsync = runtimeAsyncOverride
 var executionOptions = new CompilerExecutionOptions(
     outputKind,
     allowUnsafe,
+    allowGlobalStatements,
     useRuntimeAsync,
     enableAsyncInvestigation,
     asyncInvestigationLabel,
@@ -733,6 +742,7 @@ if (projectFileInput is not null)
             .WithOverloadResolutionLogger(options.OverloadResolutionLogger)
             .WithEmbedCoreTypes(options.EmbedCoreTypes)
             .WithAllowUnsafe(options.AllowUnsafe)
+            .WithAllowGlobalStatements(options.AllowGlobalStatements)
             .WithRuntimeAsync(options.UseRuntimeAsync);
     }
 
@@ -1170,6 +1180,7 @@ static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog
 {
     var options = new CompilationOptions(executionOptions.OutputKind)
         .WithAllowUnsafe(executionOptions.AllowUnsafe)
+        .WithAllowGlobalStatements(executionOptions.AllowGlobalStatements)
         .WithRuntimeAsync(executionOptions.UseRuntimeAsync)
         .WithEmbedCoreTypes(executionOptions.EmbedCoreTypes);
 
@@ -1502,6 +1513,10 @@ static void PrintHelp()
     Console.WriteLine("  --output-type <console|classlib>");
     Console.WriteLine("                     Output kind for the produced assembly.");
     Console.WriteLine("  --unsafe         Enable unsafe mode (required for pointer declarations/usages)");
+    Console.WriteLine("  --global-statements");
+    Console.WriteLine("                     Enable top-level/global statements (default)");
+    Console.WriteLine("  --no-global-statements");
+    Console.WriteLine("                     Disable top-level/global statements");
     Console.WriteLine("  --runtime-async  Enable runtime-async metadata emission");
     Console.WriteLine("  --no-runtime-async");
     Console.WriteLine("                     Disable runtime-async metadata emission (auto-enabled for net11+)");
@@ -2002,6 +2017,7 @@ enum DocumentationTool
 readonly record struct CompilerExecutionOptions(
     OutputKind OutputKind,
     bool AllowUnsafe,
+    bool AllowGlobalStatements,
     bool UseRuntimeAsync,
     bool EnableAsyncInvestigation,
     string AsyncInvestigationLabel,

@@ -25,6 +25,15 @@ public partial class SemanticModel
     private readonly Dictionary<AttributeSyntax, AttributeData?> _attributeCache = new();
     private static readonly object s_boundChildPropertyCacheGate = new();
     private static readonly Dictionary<Type, PropertyInfo[]> s_boundChildPropertyCache = new();
+    private static readonly DiagnosticDescriptor s_globalStatementsDisabled = DiagnosticDescriptor.Create(
+        "RAV7001",
+        "Top-level statements are disabled",
+        "",
+        "",
+        "Top-level statements are disabled by compilation options",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
 
     internal AttributeData? BindAttribute(AttributeSyntax attribute)
     {
@@ -964,6 +973,16 @@ public partial class SemanticModel
 
         var bindableGlobals = Compilation.CollectBindableGlobalStatements(cu);
         var hasNonGlobalMembers = Compilation.HasNonGlobalMembers(cu);
+        var hadDisabledGlobalStatements = false;
+
+        if (!Compilation.Options.AllowGlobalStatements && bindableGlobals.Count > 0)
+        {
+            foreach (var statement in bindableGlobals)
+                parentBinder.Diagnostics.Report(Diagnostic.Create(s_globalStatementsDisabled, statement.GetLocation()));
+
+            bindableGlobals = [];
+            hadDisabledGlobalStatements = true;
+        }
 
         var topLevelMainFunctions = bindableGlobals
             .Where(static g => g.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" })
@@ -984,7 +1003,10 @@ public partial class SemanticModel
         }
 
         var shouldCreateTopLevelProgram = bindableGlobals.Count > 0
-            || (!hasNonGlobalMembers && Compilation.Options.OutputKind == OutputKind.ConsoleApplication);
+            || (bindableGlobals.Count == 0
+                && !hasNonGlobalMembers
+                && !hadDisabledGlobalStatements
+                && ShouldCreateImplicitTopLevelProgramForCompilationUnit(cu));
         var hasExecutableFileScopedCode = bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax);
 
         void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
@@ -1069,6 +1091,21 @@ public partial class SemanticModel
 
         return topLevelBinder;
 
+        bool ShouldCreateImplicitTopLevelProgramForCompilationUnit(CompilationUnitSyntax current)
+        {
+            if (Compilation.SyntaxTreeWithFileScopedCode is { } selected)
+                return selected == current.SyntaxTree;
+
+            var firstEligibleSyntaxTree = Compilation.SyntaxTrees
+                .Select(tree => tree.GetRoot() as CompilationUnitSyntax)
+                .FirstOrDefault(root =>
+                    root is not null
+                    && Compilation.CollectBindableGlobalStatements(root).Count == 0
+                    && !Compilation.HasNonGlobalMembers(root))
+                ?.SyntaxTree;
+
+            return firstEligibleSyntaxTree == current.SyntaxTree;
+        }
     }
 
     private static string MangleUnnamedExtensionName(ExtensionDeclarationSyntax extensionDecl)

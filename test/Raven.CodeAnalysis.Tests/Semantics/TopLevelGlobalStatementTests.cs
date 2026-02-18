@@ -93,6 +93,22 @@ enum Shade {
     }
 
     [Fact]
+    public void GlobalStatements_CanBeDisabledByCompilationOptions()
+    {
+        const string source = """
+val x = 1
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithAllowGlobalStatements(false);
+        var compilation = CreateCompilation([tree], options, assemblyName: "app");
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Id == "RAV7001");
+    }
+
+    [Fact]
     public void TopLevelFunctionMain_IsEntryPoint()
     {
         const string source = """

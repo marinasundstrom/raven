@@ -51,7 +51,7 @@ public sealed class ProjectFileNuGetReferenceTests
             var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
             var projectId = workspace.OpenProject(projectPath);
             var project = workspace.CurrentSolution.GetProject(projectId)!;
-            Assert.Single(project.Documents);
+            Assert.Contains(project.Documents, static d => string.Equals(d.Name, "main.rav", StringComparison.OrdinalIgnoreCase));
 
             Assert.Contains(
                 project.MetadataReferences.OfType<PortableExecutableReference>(),

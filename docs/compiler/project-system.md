@@ -19,6 +19,8 @@ Supported attributes on `<Project>`:
 - `Output`: Assembly name.
 - `OutputKind`: `ConsoleApplication` or `DynamicallyLinkedLibrary`.
 - `AllowUnsafe`: `true`/`false`.
+- `AllowGlobalStatements`: `true`/`false` (`true` by default).
+- `Configuration`: Build configuration name used for generated intermediate files (`Debug` default).
 
 Supported child elements:
 
@@ -60,6 +62,7 @@ dotnet_diagnostic.RAV9014.severity = none
 ## Implicit source inclusion
 
 If no `<Document>` entries are present, Raven implicitly includes all Raven source files under the project directory recursively (`**/*.rav`).
+Files under `bin/` and `obj/` are excluded from implicit inclusion.
 
 This enables minimal project files like:
 
@@ -104,6 +107,27 @@ Dependency copy details:
 
 - Only `.dll` package dependencies are copied.
 - If a compile reference comes from `ref/`, Raven prefers the runtime assembly under `lib/`.
+
+## Generated intermediate sources
+
+For project builds, Raven can generate intermediate Raven source files under:
+
+- `<project-dir>/obj/<Configuration>/raven/generated/`
+
+Current generated source:
+
+- `<ProjectName>.TargetFrameworkAttribute.g.rav` containing:
+
+```rav
+import System.Runtime.Versioning.*
+
+[assembly: TargetFramework(".NETCoreApp,Version=vX.Y")]
+```
+
+Generation rules:
+
+- Emitted when `TargetFramework` is set on `.ravenproj`.
+- Skipped if user source already declares assembly-level `TargetFrameworkAttribute`.
 
 ## CLI usage
 
@@ -180,6 +204,14 @@ Current limitation (temporary bridge):
 - Compile-time typed consumption of Raven-defined types from C# may fail with `CS0012` (`System.Private.CoreLib` reference mismatch).
 - Runtime loading/invocation of the produced Raven assembly works.
 - See `samples/project-files/raven-msbuild-integration/README.md` for the current reflection-based host example.
+
+## Workspace and project-system services
+
+`RavenWorkspace` now consumes project loading/saving through host services rather than hardcoding `.ravenproj` persistence logic in workspace APIs.
+
+- `PersistenceService` delegates project open/save to `IProjectSystemService`.
+- `RavenProjectSystemService` is the default implementation for `.ravenproj`.
+- `RavenWorkspace.Create(..., projectSystemService: ...)` allows injecting an alternative implementation (for example, a future MSBuild-backed service) without changing workspace consumers.
 
 ## Scaffolding with `ravc init`
 

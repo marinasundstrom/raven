@@ -14,8 +14,17 @@ public sealed class RavenWorkspace : Workspace
     private readonly string _defaultTargetFramework;
     private readonly MetadataReference[] _frameworkReferences;
 
-    private RavenWorkspace(string sdkVersion, string defaultTargetFramework, MetadataReference[] frameworkReferences)
-        : base("Raven", new HostServices(new SyntaxTreeProvider(), new PersistenceService()))
+    private RavenWorkspace(
+        string sdkVersion,
+        string defaultTargetFramework,
+        MetadataReference[] frameworkReferences,
+        IProjectSystemService? projectSystemService)
+        : base(
+            "Raven",
+            new HostServices(
+                new SyntaxTreeProvider(),
+                new PersistenceService(),
+                projectSystemService ?? new RavenProjectSystemService()))
     {
         _sdkVersion = sdkVersion;
         _defaultTargetFramework = defaultTargetFramework;
@@ -27,7 +36,10 @@ public sealed class RavenWorkspace : Workspace
     /// specified SDK version and target framework. If either is <c>null</c>, the latest
     /// installed combination is used.
     /// </summary>
-    public static RavenWorkspace Create(string? sdkVersion = null, string? targetFramework = null)
+    public static RavenWorkspace Create(
+        string? sdkVersion = null,
+        string? targetFramework = null,
+        IProjectSystemService? projectSystemService = null)
     {
         var pattern = sdkVersion;
         if (!string.IsNullOrWhiteSpace(pattern) && pattern.IndexOf('*') < 0 && pattern.IndexOf('?') < 0)
@@ -39,7 +51,7 @@ public sealed class RavenWorkspace : Workspace
         MetadataReference[] refs = paths.Length == 0
             ? [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)]
             : paths.Where(File.Exists).Select(MetadataReference.CreateFromFile).ToArray();
-        return new RavenWorkspace(pattern ?? "*", tfm, refs);
+        return new RavenWorkspace(pattern ?? "*", tfm, refs, projectSystemService);
     }
 
     internal string DefaultTargetFramework => _defaultTargetFramework;

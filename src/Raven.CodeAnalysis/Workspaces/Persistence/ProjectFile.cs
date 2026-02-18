@@ -19,7 +19,8 @@ internal static class ProjectFile
         ImmutableArray<string> ProjectReferences,
         ImmutableArray<string> MetadataReferences,
         ImmutableArray<PackageReferenceInfo> PackageReferences,
-        ImmutableArray<FrameworkReferenceInfo> FrameworkReferences);
+        ImmutableArray<FrameworkReferenceInfo> FrameworkReferences,
+        string Configuration);
 
     public static void Save(Project project, string filePath)
     {
@@ -50,6 +51,7 @@ internal static class ProjectFile
         {
             projectElement.Add(new XAttribute("OutputKind", opts.OutputKind));
             projectElement.Add(new XAttribute("AllowUnsafe", opts.AllowUnsafe));
+            projectElement.Add(new XAttribute("AllowGlobalStatements", opts.AllowGlobalStatements));
         }
 
         foreach (var projRef in project.ProjectReferences)
@@ -73,8 +75,11 @@ internal static class ProjectFile
         var name = (string?)root.Attribute("Name") ?? Path.GetFileNameWithoutExtension(filePath);
         var targetFramework = (string?)root.Attribute("TargetFramework");
         var output = (string?)root.Attribute("Output");
+        var configuration = (string?)root.Attribute("Configuration");
+        configuration = RavenProjectConventions.Default.NormalizeConfiguration(configuration);
         var outputKindAttr = (string?)root.Attribute("OutputKind");
         var allowUnsafeAttr = (string?)root.Attribute("AllowUnsafe");
+        var allowGlobalStatementsAttr = (string?)root.Attribute("AllowGlobalStatements");
         CompilationOptions? options = null;
         if (outputKindAttr is string ok && Enum.TryParse<OutputKind>(ok, out var kind))
             options = new CompilationOptions(kind);
@@ -83,6 +88,9 @@ internal static class ProjectFile
 
         if (allowUnsafeAttr is string au && bool.TryParse(au, out var allowUnsafe))
             options = options.WithAllowUnsafe(allowUnsafe);
+
+        if (allowGlobalStatementsAttr is string ags && bool.TryParse(ags, out var allowGlobalStatements))
+            options = options.WithAllowGlobalStatements(allowGlobalStatements);
         var tempSolutionId = SolutionId.CreateNew();
         var projectId = ProjectId.CreateNew(tempSolutionId);
         var projectDir = Path.GetDirectoryName(filePath)!;
@@ -101,8 +109,10 @@ internal static class ProjectFile
         }
         else
         {
+            var conventions = RavenProjectConventions.Default;
             paths = RavenFileExtensions.All.SelectMany(ext =>
                     Directory.EnumerateFiles(projectDir, $"*{ext}", SearchOption.AllDirectories))
+                .Where(p => conventions.IsImplicitSourceFile(projectDir, p))
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
         }
 
@@ -149,6 +159,6 @@ internal static class ProjectFile
 
         var attrInfo = new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create());
         var info = new ProjectInfo(attrInfo, documents, filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: options, assemblyName: output);
-        return new ProjectFileInfo(info, projectRefs, metadataRefs, packageRefs, frameworkRefs);
+        return new ProjectFileInfo(info, projectRefs, metadataRefs, packageRefs, frameworkRefs, configuration);
     }
 }

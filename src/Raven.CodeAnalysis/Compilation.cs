@@ -346,6 +346,8 @@ public partial class Compilation
 
     private void InitializeTopLevelPrograms()
     {
+        var createdForBindableGlobals = false;
+
         foreach (var tree in SyntaxTrees)
         {
             if (tree is null)
@@ -355,12 +357,10 @@ public partial class Compilation
                 continue;
 
             var bindableGlobals = CollectBindableGlobalStatements(compilationUnit);
-            var hasNonGlobalMembers = HasNonGlobalMembers(compilationUnit);
-
-            if (bindableGlobals.Count == 0 && hasNonGlobalMembers)
+            if (bindableGlobals.Count == 0)
                 continue;
 
-            if (bindableGlobals.Count > 0 && SyntaxTreeWithFileScopedCode is null)
+            if (SyntaxTreeWithFileScopedCode is null)
                 SyntaxTreeWithFileScopedCode = tree;
 
             var fileScopedNamespace = compilationUnit.Members
@@ -373,6 +373,27 @@ public partial class Compilation
                     ?? SourceGlobalNamespace;
 
             GetOrCreateTopLevelProgram(compilationUnit, targetNamespace, bindableGlobals);
+            createdForBindableGlobals = true;
+        }
+
+        if (createdForBindableGlobals)
+            return;
+
+        foreach (var tree in SyntaxTrees)
+        {
+            if (tree is null)
+                continue;
+
+            if (tree.GetRoot() is not CompilationUnitSyntax compilationUnit)
+                continue;
+
+            var bindableGlobals = CollectBindableGlobalStatements(compilationUnit);
+            if (bindableGlobals.Count != 0 || HasNonGlobalMembers(compilationUnit))
+                continue;
+
+            SyntaxTreeWithFileScopedCode ??= tree;
+            GetOrCreateTopLevelProgram(compilationUnit, SourceGlobalNamespace, bindableGlobals);
+            break;
         }
     }
 

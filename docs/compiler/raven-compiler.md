@@ -24,6 +24,8 @@ dotnet run --project src/Raven.Compiler -- init [--name <project-name>] [--frame
 - `--run` &ndash; execute after successful compile (console apps only); runs from normal output (`bin` for `.ravenproj`) and stages runtime dependencies there as needed
 - `--runtime-async` &ndash; force .NET 11 runtime-async emission for async methods (`Async` method impl flag + `AsyncHelpers.Await` calls when available)
 - `--no-runtime-async` &ndash; disable runtime-async emission and keep classic awaiter pattern/state-machine lowering
+- `--global-statements` &ndash; enable top-level/global statements (default)
+- `--no-global-statements` &ndash; disable top-level/global statements
 - `-s` &ndash; display the syntax tree (single file only)
 - `-d [plain|pretty[:no-diagnostics]]` &ndash; dump syntax (`plain` writes the source text, `pretty` emits highlighted syntax; append `:no-diagnostics` to skip diagnostic underlines, single file only)
 - `--highlight` &ndash; display diagnostics with highlighted source snippets and severity-coloured underlines (covers
