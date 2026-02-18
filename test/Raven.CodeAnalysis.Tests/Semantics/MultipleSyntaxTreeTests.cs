@@ -15,7 +15,7 @@ public class MultipleSyntaxTreeTests
     {
         var tree1 = SyntaxTree.ParseText("""
 class Helper {
-    init () {}
+    public init () {}
 
     public GetValue() -> int => 42;
 }

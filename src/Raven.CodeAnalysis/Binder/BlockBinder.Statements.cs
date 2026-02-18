@@ -1234,13 +1234,54 @@ partial class BlockBinder
 
         var isBackward = false;
         if (_syntaxByLabel.TryGetValue(label, out var labeledSyntax))
+        {
             isBackward = labeledSyntax.Span.Start < gotoStatement.Span.Start;
+            if (DoesGotoExitUseScope(gotoStatement, labeledSyntax))
+                _diagnostics.ReportGotoCannotExitUseScope(identifier.GetLocation());
+        }
 
         SemanticModel?.RegisterGoto(gotoStatement, label);
 
         var bound = new BoundGotoStatement(label, isBackward);
         CacheBoundNode(gotoStatement, bound);
         return bound;
+    }
+
+    private static bool DoesGotoExitUseScope(GotoStatementSyntax gotoStatement, LabeledStatementSyntax targetLabel)
+    {
+        var targetBlocks = targetLabel.AncestorsAndSelf().OfType<BlockStatementSyntax>().ToHashSet();
+
+        foreach (var sourceBlock in gotoStatement.AncestorsAndSelf().OfType<BlockStatementSyntax>())
+        {
+            if (targetBlocks.Contains(sourceBlock))
+                break;
+
+            if (HasActiveUseDeclarationBeforeJump(sourceBlock, gotoStatement))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasActiveUseDeclarationBeforeJump(BlockStatementSyntax block, GotoStatementSyntax gotoStatement)
+    {
+        var containingStatement = gotoStatement.AncestorsAndSelf()
+            .OfType<StatementSyntax>()
+            .FirstOrDefault(statement => ReferenceEquals(statement.Parent, block));
+
+        if (containingStatement is null)
+            return false;
+
+        foreach (var statement in block.Statements)
+        {
+            if (ReferenceEquals(statement, containingStatement))
+                break;
+
+            if (statement is UseDeclarationStatementSyntax)
+                return true;
+        }
+
+        return false;
     }
 
     private BoundStatement BindBreakStatement(BreakStatementSyntax breakStatement)

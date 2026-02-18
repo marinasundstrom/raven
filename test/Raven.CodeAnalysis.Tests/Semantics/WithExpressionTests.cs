@@ -62,7 +62,7 @@ val updated = bob with {
     {
         const string source = """
 class Person {
-    public Name: string { get set }
+    public Name: string { get; set; }
 }
 
 val person = Person()
@@ -72,6 +72,9 @@ val updated = person with { Name = "Bob" }
         var verifier = CreateVerifier(
             source,
             [
+                new DiagnosticResult("RAV0103")
+                    .WithAnySpan()
+                    .WithArguments("WithName"),
                 new DiagnosticResult(CompilerDiagnostics.TypeDoesNotSupportWithExpression.Id)
                     .WithAnySpan()
                     .WithArguments("Person")

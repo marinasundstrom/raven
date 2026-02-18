@@ -1020,7 +1020,8 @@ internal class StatementSyntaxParser : SyntaxParser
         // Explicit binding keyword
         if (t0.IsKind(SyntaxKind.ValKeyword) ||
             t0.IsKind(SyntaxKind.VarKeyword) ||
-            t0.IsKind(SyntaxKind.LetKeyword))
+            t0.IsKind(SyntaxKind.LetKeyword) ||
+            t0.IsKind(SyntaxKind.ConstKeyword))
         {
             var bindingKeyword = ReadToken();
             return FinishParseVariableDeclarationSyntax(bindingKeyword);

@@ -1,6 +1,8 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -58,7 +60,7 @@ func outer() {
 }
 """;
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AwaitExpressionRequiresAsyncContext));
         Assert.Equal(CompilerDiagnostics.AwaitExpressionRequiresAsyncContext, diagnostic.Descriptor);
     }
 
@@ -71,7 +73,7 @@ async func outer() {
 }
 """;
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.ExpressionIsNotAwaitable));
         Assert.Equal(CompilerDiagnostics.ExpressionIsNotAwaitable, diagnostic.Descriptor);
     }
 
@@ -95,22 +97,24 @@ async func outer() {
     public void AwaitExpression_MissingIsCompleted_ReportsDiagnostic()
     {
         const string source = """
+async func outer() {
+    await new Awaitable();
+}
+
 class Awaitable
 {
-    public MissingIsCompletedAwaiter GetAwaiter() => new MissingIsCompletedAwaiter();
+    public GetAwaiter() -> MissingIsCompletedAwaiter {
+        return MissingIsCompletedAwaiter();
+    }
 }
 
 class MissingIsCompletedAwaiter
 {
-    public void GetResult() {}
-}
-
-async func outer() {
-    await new Awaitable();
+    public GetResult() -> unit {}
 }
 """;
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AwaiterMissingIsCompleted));
         Assert.Equal(CompilerDiagnostics.AwaiterMissingIsCompleted, diagnostic.Descriptor);
     }
 
@@ -118,22 +122,26 @@ async func outer() {
     public void AwaitExpression_MissingGetResult_ReportsDiagnostic()
     {
         const string source = """
+async func outer() {
+    await new Awaitable();
+}
+
 class Awaitable
 {
-    public MissingGetResultAwaiter GetAwaiter() => new MissingGetResultAwaiter();
+    public GetAwaiter() -> MissingGetResultAwaiter {
+        return MissingGetResultAwaiter();
+    }
 }
 
 class MissingGetResultAwaiter
 {
-    public bool IsCompleted => true;
-}
-
-async func outer() {
-    await new Awaitable();
+    public IsCompleted: bool {
+        get => true
+    }
 }
 """;
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AwaiterMissingGetResult));
         Assert.Equal(CompilerDiagnostics.AwaiterMissingGetResult, diagnostic.Descriptor);
     }
 }

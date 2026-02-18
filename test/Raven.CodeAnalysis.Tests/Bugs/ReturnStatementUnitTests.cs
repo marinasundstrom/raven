@@ -55,7 +55,7 @@ class Foo {
             expectedDiagnostics: [
                 new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
                     .WithSpan(3, 16, 3, 18)
-                    .WithArguments("\"\"", "int")
+                    .WithArguments("string", "int")
             ]);
 
         verifier.Verify();

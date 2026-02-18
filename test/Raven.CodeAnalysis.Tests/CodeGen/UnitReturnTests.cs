@@ -11,7 +11,7 @@ public class UnitReturnTests
     {
         var code = """
 class Foo {
-    Test() -> unit {
+    public Test() -> unit {
         return ()
     }
 }
@@ -20,7 +20,7 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 

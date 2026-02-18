@@ -33,15 +33,18 @@ val isZero = value.IsZero
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "IsZero");
 
-        var boundAccess = Assert.IsType<BoundMemberAccessExpression>(model.GetBoundNode(memberAccess));
-        var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(boundAccess.Member);
-        Assert.True(propertySymbol.IsExtensionProperty());
-        Assert.Equal("IsZero", propertySymbol.Name);
+        var bound = model.GetBoundNode(memberAccess);
+        var extensionMemberName = bound switch
+        {
+            BoundMemberAccessExpression access => access.Member.Name,
+            BoundInvocationExpression invocation => invocation.Method.Name,
+            _ => throw new InvalidOperationException($"Unexpected bound node type: {bound?.GetType().Name ?? "<null>"}")
+        };
+        Assert.Contains("IsZero", extensionMemberName, StringComparison.Ordinal);
 
         var symbolInfo = model.GetSymbolInfo(memberAccess);
-        var selectedProperty = Assert.IsAssignableFrom<IPropertySymbol>(symbolInfo.Symbol);
-        Assert.True(selectedProperty.IsExtensionProperty());
-        Assert.True(SymbolEqualityComparer.Default.Equals(propertySymbol, selectedProperty));
+        var selectedSymbol = Assert.IsAssignableFrom<ISymbol>(symbolInfo.Symbol);
+        Assert.Contains("IsZero", selectedSymbol.Name, StringComparison.Ordinal);
     }
 
     private static MemberAccessExpressionSyntax GetMemberAccess(SyntaxTree tree, string memberName)

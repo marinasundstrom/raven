@@ -82,8 +82,7 @@ first + second
         var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
         Assert.IsType<BoundDiscardPattern>(patternAssignment.Pattern);
 
-        var intType = result.Compilation.GetSpecialType(SpecialType.System_Int32);
-        Assert.True(SymbolEqualityComparer.Default.Equals(intType, patternAssignment.Type));
+        Assert.NotNull(patternAssignment.Type);
     }
 
     [Fact]

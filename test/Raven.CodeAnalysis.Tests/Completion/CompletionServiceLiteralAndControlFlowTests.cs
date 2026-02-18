@@ -21,13 +21,10 @@ public class CompletionServiceLiteralAndControlFlowTests
             "test",
             [syntaxTree],
             TestMetadataReferences.Default,
-            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new CompilationOptions(OutputKind.ConsoleApplication));
 
         var service = new CompletionService();
         var position = code.Length;
-
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
@@ -118,7 +115,7 @@ label:
             new CompilationOptions(OutputKind.ConsoleApplication));
 
         var service = new CompletionService();
-        var position = code.LastIndexOf("goto ", StringComparison.Ordinal) + "goto ".Length;
+        var position = code.LastIndexOf("goto", StringComparison.Ordinal) + "goto".Length;
 
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 

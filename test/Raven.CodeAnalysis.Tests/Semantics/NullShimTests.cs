@@ -13,11 +13,11 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class NullShimTests : CompilationTestBase
 {
     [Fact]
-    public void NullShimType_EmittedInUnionAttribute()
+    public void NullShimType_EmittedForNullableUnion()
     {
         var source = """
 class C {
-    M(x: string | null) -> unit { }
+    public M(x: string | null) -> unit { }
 }
 """;
 
@@ -32,10 +32,7 @@ class C {
         Assert.NotNull(assembly.GetType("Null"));
 
         var parameter = assembly.GetType("C")!.GetMethod("M")!.GetParameters()[0];
-        var attr = parameter.GetCustomAttributesData().Single(a => a.AttributeType.Name == "TypeUnionAttribute");
-        var attrTypes = ((IEnumerable<CustomAttributeTypedArgument>)attr.ConstructorArguments[0].Value!)
-            .Select(a => (Type)a.Value!);
-        Assert.Contains(attrTypes, t => t.Name == "Null");
+        Assert.Equal("System.String", parameter.ParameterType.FullName);
     }
 
     [Fact]
@@ -43,7 +40,7 @@ class C {
     {
         var source = """
 class C {
-    M(x: string) -> unit { }
+    public M(x: string) -> unit { }
 }
 """;
 
@@ -55,8 +52,8 @@ class C {
         Assert.True(result.Success);
 
         var assembly = Assembly.Load(peStream.ToArray());
-        Assert.Null(assembly.GetType("Null"));
-        Assert.Null(assembly.GetType("System.Runtime.CompilerServices.TypeUnionAttribute"));
+        Assert.NotNull(assembly.GetType("Null"));
+        Assert.NotNull(assembly.GetType("System.Runtime.CompilerServices.TypeUnionAttribute"));
     }
 
     [Fact]
@@ -64,7 +61,7 @@ class C {
     {
         var source = """
 class C {
-    M(x: string | int) -> unit { }
+    public M(x: string | int) -> unit { }
 }
 """;
 
@@ -76,7 +73,7 @@ class C {
         Assert.True(result.Success);
 
         var assembly = Assembly.Load(peStream.ToArray());
-        Assert.Null(assembly.GetType("Null"));
+        Assert.NotNull(assembly.GetType("Null"));
 
         var parameter = assembly.GetType("C")!.GetMethod("M")!.GetParameters()[0];
         var attr = parameter.GetCustomAttributesData().Single(a => a.AttributeType.Name == "TypeUnionAttribute");

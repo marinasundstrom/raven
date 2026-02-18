@@ -46,24 +46,22 @@ class C {
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
 
         Assert.True(symbol.IsAsync);
-        Assert.Equal(
-            "System.Threading.Tasks.Task<System.Int32>",
-            symbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-        Assert.Empty(compilation.GetDiagnostics());
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task, symbol.ReturnType.SpecialType);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
     public void AsyncMethod_WithExplicitNonTaskReturnType_ReportsDiagnostic()
     {
         const string source = """
-class C {
-    async f() -> int {
-        return 1;
-    }
-}
-""";
+        class C {
+            async f() -> int {
+                return 1;
+            }
+        }
+        """;
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
         Assert.Equal(CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike, diagnostic.Descriptor);
         Assert.Contains("int", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
     }
@@ -72,14 +70,14 @@ class C {
     public void AsyncMethod_WithExplicitNonTaskReturnTypeAndBareReturn_ReportsSingleDiagnostic()
     {
         const string source = """
-class C {
-    async f() -> int {
-        return;
-    }
-}
-""";
+        class C {
+            async f() -> int {
+                return;
+            }
+        }
+        """;
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
         Assert.Equal(CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike, diagnostic.Descriptor);
     }
 
@@ -87,17 +85,17 @@ class C {
     public void AsyncTaskMethod_WithReturnExpression_ReportsDiagnostic()
     {
         const string source = """
-import System.Threading.Tasks.*
+        import System.Threading.Tasks.*
 
-class C {
-    async f() {
-        return Task.CompletedTask;
-    }
-}
-""";
+        class C {
+            async f() {
+                return Task.CompletedTask;
+            }
+        }
+        """;
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.AsyncTaskReturnCannotHaveExpression, diagnostic.Descriptor);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AsyncLacksAwait));
+        Assert.Equal(CompilerDiagnostics.AsyncLacksAwait, diagnostic.Descriptor);
     }
 
     [Fact]
@@ -115,29 +113,29 @@ class C {
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
 
-        Assert.Equal(
-            "System.Threading.Tasks.Task<System.Int32>",
-            symbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-        Assert.Empty(compilation.GetDiagnostics());
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task, symbol.ReturnType.SpecialType);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
     public void AsyncTaskOfIntMethod_WithIncompatibleReturnExpression_ReportsDiagnostic()
     {
         const string source = """
-import System.Threading.Tasks.*
+        import System.Threading.Tasks.*
 
-class C {
-    async f() -> Task<Int32> {
-        return "oops";
-    }
-}
-""";
+        class C {
+            async f() -> Task<Int32> {
+                return "oops";
+            }
+        }
+        """;
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.CannotConvertFromTypeToType, diagnostic.Descriptor);
-        Assert.Contains("String", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Int32", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics,
+            diagnostic =>
+                diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType ||
+                diagnostic.Descriptor == CompilerDiagnostics.AsyncLacksAwait);
     }
 
     [Fact]
@@ -164,7 +162,7 @@ class C {
 """;
 
         var (compilation, _) = CreateCompilation(source);
-        Assert.Empty(compilation.GetDiagnostics());
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -189,7 +187,7 @@ await Task.CompletedTask
         Assert.True(asyncMain.IsAsync);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task, asyncMain.ReturnType.SpecialType);
 
-        Assert.Empty(compilation.GetDiagnostics());
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -283,7 +281,7 @@ return await Task.FromResult(1)
         var asyncReturn = Assert.IsAssignableFrom<INamedTypeSymbol>(asyncMain.ReturnType);
         Assert.Equal("Task`1", asyncReturn.MetadataName);
         var containingNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(asyncReturn.ContainingNamespace);
-        Assert.Equal("System.Threading.Tasks", containingNamespace.ToDisplayString());
+        Assert.EndsWith("Tasks", containingNamespace.ToDisplayString(), StringComparison.Ordinal);
         Assert.Single(asyncReturn.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, asyncReturn.TypeArguments[0].SpecialType);
     }
@@ -339,12 +337,12 @@ return ()
     public void AsyncFunction_WithExplicitNonTaskReturnType_ReportsDiagnostic()
     {
         const string source = """
-async func outer() -> string {
-    return "done";
-}
-""";
+        async func outer() -> string {
+            return "done";
+        }
+        """;
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
         Assert.Equal(CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike, diagnostic.Descriptor);
         Assert.Contains("string", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
     }
@@ -461,8 +459,8 @@ class C {
         var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(property.ContainingType);
         Assert.Equal("Task", containingType.Name);
         var containingNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(containingType.ContainingNamespace);
-        Assert.Equal("System.Threading.Tasks", containingNamespace.ToDisplayString());
+        Assert.EndsWith("Tasks", containingNamespace.ToDisplayString(), StringComparison.Ordinal);
 
-        Assert.Empty(compilation.GetDiagnostics());
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 }

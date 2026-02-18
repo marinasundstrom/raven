@@ -273,6 +273,8 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundUnitExpression unitExpression:
                 EmitUnitExpression(unitExpression);
+                if (!_preserveResult)
+                    info = EmitInfo.None;
                 break;
 
             case BoundLambdaExpression lambdaExpression:

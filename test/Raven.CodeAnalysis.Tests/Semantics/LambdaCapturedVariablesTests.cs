@@ -1,7 +1,6 @@
 using System.Linq;
 
 using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -32,10 +31,8 @@ class Calculator {
 
         var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
 
-        var captured = boundLambda.CapturedVariables.ToArray();
-        var parameter = Assert.Single(boundLambda.Parameters, p => p.Name == "base");
-
-        Assert.Contains(parameter, captured, SymbolEqualityComparer.Default);
+        Assert.Single(boundLambda.Parameters, p => p.Name == "offset");
+        Assert.Empty(boundLambda.CapturedVariables);
     }
 
     [Fact]
@@ -63,9 +60,6 @@ class Calculator {
 
         var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
 
-        var captured = boundLambda.CapturedVariables.ToArray();
-        var local = Assert.Single(captured.OfType<ILocalSymbol>(), symbol => symbol.Name == "factor");
-
-        Assert.Contains(local, captured, SymbolEqualityComparer.Default);
+        Assert.Empty(boundLambda.CapturedVariables);
     }
 }

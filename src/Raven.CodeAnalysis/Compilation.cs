@@ -218,7 +218,8 @@ public partial class Compilation
                 paths.Add(location);
         }
 
-        _metadataLoadContext = CreateMetadataLoadContext(paths);
+        var coreAssemblyName = typeof(object).Assembly.GetName().Name;
+        _metadataLoadContext = CreateMetadataLoadContext(paths, coreAssemblyName);
 
         CoreAssembly = _metadataLoadContext.CoreAssembly!;
         RuntimeCoreAssembly = typeof(object).Assembly;
@@ -247,7 +248,7 @@ public partial class Compilation
             InitializeTopLevelPrograms();
     }
 
-    private static MetadataLoadContext CreateMetadataLoadContext(IEnumerable<string> paths)
+    private static MetadataLoadContext CreateMetadataLoadContext(IEnumerable<string> paths, string? coreAssemblyName)
     {
         var pathByAssemblyIdentity = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -299,7 +300,8 @@ public partial class Compilation
             .ToArray();
 
         var resolver = new PathAssemblyResolver(normalizedPaths);
-        return new MetadataLoadContext(resolver);
+        var resolvedCoreAssemblyName = string.IsNullOrWhiteSpace(coreAssemblyName) ? "System.Private.CoreLib" : coreAssemblyName;
+        return new MetadataLoadContext(resolver, resolvedCoreAssemblyName);
     }
 
     private static bool IsReferenceAssemblyPath(string path)

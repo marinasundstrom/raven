@@ -24,7 +24,8 @@ label:
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV2500").WithSpan(2, 1, 2, 6).WithArguments("label")
+                new DiagnosticResult("RAV2500").WithSpan(2, 1, 2, 6).WithArguments("label"),
+                new DiagnosticResult("RAV0162").WithSpan(4, 1, 6, 1)
             ]);
 
         verifier.Verify();
@@ -77,6 +78,35 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
                 new DiagnosticResult("RAV2502").WithSpan(2, 10, 2, 13).WithArguments("int")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void GotoExitingUseScope_ReportsDiagnostic()
+    {
+        var code = """
+import System.*
+
+func Main() {
+    if true {
+        use resource = Disposable()
+        goto exit
+    }
+exit:
+    return
+}
+
+class Disposable : IDisposable {
+    public init() {}
+    public Dispose() -> unit {}
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics: [
+                new DiagnosticResult("RAV2503").WithSpan(6, 14, 6, 18)
             ]);
 
         verifier.Verify();

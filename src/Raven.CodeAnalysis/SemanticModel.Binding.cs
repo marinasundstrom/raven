@@ -1002,11 +1002,14 @@ public partial class SemanticModel
             }
         }
 
-        var shouldCreateTopLevelProgram = bindableGlobals.Count > 0
+        var supportsTopLevelProgram = Compilation.Options.OutputKind == OutputKind.ConsoleApplication;
+
+        var shouldCreateTopLevelProgram = supportsTopLevelProgram
+            && (bindableGlobals.Count > 0
             || (bindableGlobals.Count == 0
                 && !hasNonGlobalMembers
                 && !hadDisabledGlobalStatements
-                && ShouldCreateImplicitTopLevelProgramForCompilationUnit(cu));
+                && ShouldCreateImplicitTopLevelProgramForCompilationUnit(cu)));
         var hasExecutableFileScopedCode = bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax);
 
         void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)

@@ -159,7 +159,7 @@ val value = 0
 val pointer: *int = &value
 """;
 
-        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication).WithAllowUnsafe(false);
         var (compilation, _) = CreateCompilation(source, options);
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(

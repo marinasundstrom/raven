@@ -701,6 +701,10 @@
     Title="Reserved word cannot be used as a label"
     Message="The identifier '{name}' is a reserved word and cannot be used as a label"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2503" Identifier="GotoCannotExitUseScope"
+    Title="Goto cannot exit use scope"
+    Message="Goto cannot exit a scope that contains active 'use' declarations"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2600" Identifier="BreakStatementNotWithinLoop"
     Title="Break statement not within loop" Message="Break statements are only valid inside loops"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

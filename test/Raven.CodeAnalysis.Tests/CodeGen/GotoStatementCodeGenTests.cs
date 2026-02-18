@@ -68,30 +68,23 @@ end:
     }
 
     [Fact]
-    public void GotoStatement_DisposesLocalsWhenExitingScope()
+    public void GotoStatement_ExitingUseScope_ReportsDiagnostic()
     {
         var code = """
 import System.*
 
 func Main() {
-    use outer = Foo("outer")
-    {
-        use inner = Foo("inner")
+    if true {
+        use resource = Foo("inner")
         goto exit
     }
 exit:
-    Console.WriteLine("done")
+    return
 }
 
 class Foo : IDisposable {
-    var name: string;
-
-    public init(name: string) {
-        self.name = name;
-        Console.WriteLine("init:" + name);
-    }
-
-    public Dispose() -> unit => Console.WriteLine("dispose:" + self.name);
+    public init(name: string) {}
+    public Dispose() -> unit {}
 }
 """;
 
@@ -106,41 +99,7 @@ class Foo : IDisposable {
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
 
-        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
-
-        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
-        var entryPoint = loaded.Assembly.EntryPoint!;
-
-        var originalOut = Console.Out;
-        using var writer = new StringWriter();
-
-        try
-        {
-            Console.SetOut(writer);
-
-            var parameters = entryPoint.GetParameters().Length == 0
-                ? null
-                : new object?[] { Array.Empty<string>() };
-
-            entryPoint.Invoke(null, parameters);
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-        }
-
-        var output = writer.ToString()
-            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-
-        Assert.Equal(
-            new[]
-            {
-                "init:outer",
-                "init:inner",
-                "dispose:inner",
-                "done",
-                "dispose:outer"
-            },
-            output);
+        Assert.False(result.Success);
+        Assert.Contains(result.Diagnostics, d => d.Descriptor.Id == "RAV2503");
     }
 }

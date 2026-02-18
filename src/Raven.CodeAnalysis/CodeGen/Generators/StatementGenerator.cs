@@ -159,6 +159,7 @@ internal class StatementGenerator : Generator
         var returnType = GetEffectiveReturnTypeForEmission();
         var expression = returnStatement.Expression;
         ITypeSymbol? expressionType = expression?.Type;
+        var expressionEmitInfo = EmitInfo.None;
         IILocal? resultTemp = null;
 
         var isVoidLikeReturn = returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
@@ -167,12 +168,12 @@ internal class StatementGenerator : Generator
         if (expression is not null)
         {
             var preserveResult = !isVoidLikeReturn;
-            var info = new ExpressionGenerator(this, expression, preserveResult).Emit2();
+            expressionEmitInfo = new ExpressionGenerator(this, expression, preserveResult).Emit2();
 
             if (preserveResult && localsToDispose.Length > 0 && expressionType is not null)
             {
                 var clrType = ResolveClrType(expressionType);
-                resultTemp = SpillValueToLocalIfNeeded(clrType, info);
+                resultTemp = SpillValueToLocalIfNeeded(clrType, expressionEmitInfo);
             }
         }
 
@@ -209,7 +210,9 @@ internal class StatementGenerator : Generator
         else if (expression is not null && isVoidLikeReturn)
         {
             // Defensive: void-like returns should not carry a value on the stack.
-            ILGenerator.Emit(OpCodes.Pop);
+            // Some expressions emitted with preserveResult=false already leave no value.
+            if (expressionEmitInfo.HasValueOnStack)
+                ILGenerator.Emit(OpCodes.Pop);
             expressionType = null;
         }
 
