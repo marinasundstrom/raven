@@ -61,7 +61,8 @@ internal static class AsyncReturnTypeUtilities
             return compilation.GetSpecialType(SpecialType.System_Unit);
 
         if (asyncReturnType is INamedTypeSymbol named &&
-            named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            (named.OriginalDefinition as INamedTypeSymbol ?? named.ConstructedFrom as INamedTypeSymbol ?? named)
+                .SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
             named.TypeArguments.Length == 1)
         {
             return named.TypeArguments[0];

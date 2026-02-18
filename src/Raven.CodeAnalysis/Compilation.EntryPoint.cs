@@ -39,23 +39,7 @@ public partial class Compilation
     private void EnsureEntryPointComputed()
     {
         EnsureSetup();
-
-        if (!_sourceTypesInitialized && !_isPopulatingSourceTypes)
-        {
-            try
-            {
-                _isPopulatingSourceTypes = true;
-
-                foreach (var syntaxTree in _syntaxTrees)
-                    _ = GetSemanticModel(syntaxTree);
-
-                _sourceTypesInitialized = true;
-            }
-            finally
-            {
-                _isPopulatingSourceTypes = false;
-            }
-        }
+        EnsureSourceDeclarationsComplete();
 
         if (_entryPointComputed)
             return;
@@ -100,12 +84,7 @@ public partial class Compilation
 
             var candidates = uniqueCandidates.Values.ToImmutableArray();
 
-            if (Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
-            {
-                _entryPoint = candidates.Length == 1 ? candidates[0] : null;
-                _entryPointDiagnostics = diagnostics.ToImmutable();
-            }
-            else if (candidates.Length == 1)
+            if (candidates.Length == 1)
             {
                 _entryPoint = TrySynthesizeEntryPointBridge(candidates[0]);
                 _entryPointDiagnostics = diagnostics.ToImmutable();

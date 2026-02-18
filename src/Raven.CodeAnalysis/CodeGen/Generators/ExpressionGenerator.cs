@@ -226,9 +226,8 @@ internal partial class ExpressionGenerator : Generator
             case BoundObjectCreationExpression objectCreationExpression:
                 EmitObjectCreationExpression(objectCreationExpression);
                 break;
-            case BoundMatchExpression matchExpression:
-                EmitMatchExpression(matchExpression, context);
-                break;
+            case BoundMatchExpression:
+                throw new InvalidOperationException("BoundMatchExpression should be lowered before code generation.");
 
             case BoundCollectionExpression collectionExpression:
                 EmitCollectionExpression(collectionExpression);
@@ -341,8 +340,19 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitAwaitExpression(BoundAwaitExpression awaitExpression)
     {
-        if (Compilation.Options.UseRuntimeAsync && TryEmitRuntimeAsyncAwait(awaitExpression))
+        if (Compilation.Options.UseRuntimeAsync && TryEmitRuntimeAsyncAwait(awaitExpression, out var runtimeAsyncProducesValue))
+        {
+            if (_preserveResult &&
+                !runtimeAsyncProducesValue &&
+                (awaitExpression.ResultType.SpecialType == SpecialType.System_Unit ||
+                 awaitExpression.Type.SpecialType == SpecialType.System_Unit ||
+                 awaitExpression.GetResultMethod.ReturnType.SpecialType == SpecialType.System_Unit))
+            {
+                EmitUnitValue();
+            }
+
             return;
+        }
 
         // Runtime-async mode keeps awaits in method bodies instead of rewriting to
         // synthesized state-machine types. Emit the await pattern directly:
@@ -387,8 +397,10 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Callvirt, getResultInfo);
     }
 
-    private bool TryEmitRuntimeAsyncAwait(BoundAwaitExpression awaitExpression)
+    private bool TryEmitRuntimeAsyncAwait(BoundAwaitExpression awaitExpression, out bool producesValue)
     {
+        producesValue = false;
+
         var asyncHelpersType = typeof(AsyncTaskMethodBuilder).Assembly.GetType("System.Runtime.CompilerServices.AsyncHelpers", throwOnError: false)
             ?? Type.GetType("System.Runtime.CompilerServices.AsyncHelpers, System.Private.CoreLib", throwOnError: false);
         if (asyncHelpersType is null)
@@ -401,6 +413,7 @@ internal partial class ExpressionGenerator : Generator
 
         EmitExpression(awaitExpression.Expression);
         ILGenerator.Emit(OpCodes.Call, helper);
+        producesValue = helper.ReturnType != typeof(void);
         return true;
     }
 
@@ -1340,6 +1353,9 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Call, valueProp.GetMethod);
             }
 
+            if (!_preserveResult)
+                ILGenerator.Emit(OpCodes.Pop);
+
             return;
         }
 
@@ -1379,6 +1395,9 @@ internal partial class ExpressionGenerator : Generator
             // Ok path: leave ok value on the stack.
             ILGenerator.MarkLabel(okLabel);
             ILGenerator.Emit(OpCodes.Ldloc, okLocal);
+
+            if (!_preserveResult)
+                ILGenerator.Emit(OpCodes.Pop);
         }
     }
 
@@ -2366,10 +2385,20 @@ internal partial class ExpressionGenerator : Generator
 
         var parameters = constructorSymbol.Parameters.ToArray();
         var arguments = objectCreationExpression.Arguments.ToArray();
+        var omittedImplicitUnitArgument =
+            arguments.Length == 0 &&
+            parameters.Length == 1 &&
+            parameters[0].RefKind == RefKind.None &&
+            parameters[0].Type.SpecialType == SpecialType.System_Unit;
 
         if (objectCreationExpression.Receiver is not null)
         {
             EmitExpression(objectCreationExpression.Receiver);
+        }
+
+        if (omittedImplicitUnitArgument)
+        {
+            EmitUnitValue();
         }
 
         for (int i = 0; i < arguments.Length; i++)
@@ -2450,7 +2479,7 @@ internal partial class ExpressionGenerator : Generator
                     throw new InvalidOperationException($"Missing local builder for '{localAssignmentExpression.Local.Name}'");
 
                 var rightExpression = localAssignmentExpression.Right;
-                EmitExpression(rightExpression);
+                EmitRequiredValue(rightExpression);
 
                 var resultType = assignmentExpression.Type;
                 var needsResult = preserveResult
@@ -2542,7 +2571,7 @@ internal partial class ExpressionGenerator : Generator
 
                     if (cacheRightValue)
                     {
-                        EmitExpression(right);
+                        EmitRequiredValue(right);
 
                         if (fieldNeedsBox)
                             ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
@@ -2599,7 +2628,7 @@ internal partial class ExpressionGenerator : Generator
                     if (!cacheRightValue)
                     {
                         // Emit RHS value
-                        EmitExpression(right);
+                        EmitRequiredValue(right);
 
                         // Box if assigning value type to reference type
                         if (fieldNeedsBox)
@@ -2670,7 +2699,7 @@ internal partial class ExpressionGenerator : Generator
                     }
 
                     // Emit RHS value
-                    EmitExpression(right);
+                    EmitRequiredValue(right);
 
                     // Box if assigning value type to reference type
                     if (right.Type is { IsValueType: true } && !propertySymbol.Type.IsValueType)
@@ -2709,7 +2738,7 @@ internal partial class ExpressionGenerator : Generator
 
                 EmitArrayIndices(array.Left, arrayLocal);
 
-                EmitExpression(array.Right);
+                EmitRequiredValue(array.Right);
 
                 EmitStoreElement(arrayType.ElementType);
                 break;
@@ -2720,7 +2749,7 @@ internal partial class ExpressionGenerator : Generator
                 foreach (var arg in indexer.Left.Arguments)
                     EmitExpression(arg);
 
-                EmitExpression(indexer.Right);
+                EmitRequiredValue(indexer.Right);
 
                 var indexerProperty = (IPropertySymbol)indexer.Left.Symbol!;
                 if (indexerProperty.SetMethod is null)
@@ -2746,7 +2775,7 @@ internal partial class ExpressionGenerator : Generator
     private void EmitParameterAssignmentExpression(BoundParameterAssignmentExpression node, bool preserveResult)
     {
         var rightExpression = node.Right;
-        EmitExpression(rightExpression);
+        EmitRequiredValue(rightExpression);
 
         var resultType = node.Type;
         var needsResult = preserveResult
@@ -2787,7 +2816,7 @@ internal partial class ExpressionGenerator : Generator
             && resultType?.SpecialType == SpecialType.System_Object;
 
         EmitExpression(reference);
-        EmitExpression(rightExpression);
+        EmitRequiredValue(rightExpression);
 
         IILocal? tempLocal = null;
         ITypeSymbol? tempStorageType = null;
@@ -2907,8 +2936,6 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitPatternAssignmentExpression(BoundPatternAssignmentExpression node)
     {
-        EmitExpression(node.Right);
-
         var pattern = node.Pattern;
 
         if (pattern is null || !pattern.GetDesignators().Any())
@@ -2918,12 +2945,20 @@ internal partial class ExpressionGenerator : Generator
             if (discardType is null ||
                 discardType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
             {
+                // Discarding a void/unit expression only needs side effects.
+                // Materializing Unit.Value here leaves an unconsumed stack value.
+                new ExpressionGenerator(this, node.Right, EmitContext.None).Emit2();
                 return;
             }
 
+            // Discarding a non-unit value still needs the produced value so we can pop it.
+            EmitRequiredValue(node.Right);
             ILGenerator.Emit(OpCodes.Pop);
             return;
         }
+
+        // Non-discard pattern assignment must materialize RHS for deconstruction/binding.
+        EmitRequiredValue(node.Right);
 
         var valueType = GetPatternValueType(node.Right.Type) ?? GetPatternValueType(node.Pattern.Type);
 
@@ -3624,6 +3659,9 @@ internal partial class ExpressionGenerator : Generator
                     EmitBoxIfNeeded(propertySymbol.ContainingType!, getter);
 
                 ILGenerator.Emit(propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType ? OpCodes.Call : OpCodes.Callvirt, getter);
+
+                if (!_preserveResult)
+                    ILGenerator.Emit(OpCodes.Pop);
                 break;
 
             case IFieldSymbol fieldSymbol:
@@ -3707,6 +3745,9 @@ internal partial class ExpressionGenerator : Generator
 
                     ILGenerator.Emit(opCode, fieldInfo);
                 }
+
+                if (!_preserveResult)
+                    ILGenerator.Emit(OpCodes.Pop);
                 break;
 
             default:
@@ -3752,6 +3793,36 @@ internal partial class ExpressionGenerator : Generator
 
         var whenNullLabel = ILGenerator.DefineLabel();
         var endLabel = ILGenerator.DefineLabel();
+
+        if (!_preserveResult)
+        {
+            if (isNullableValue)
+            {
+                ILGenerator.Emit(OpCodes.Ldloca, local);
+                var hasValue = GetNullableHasValueGetter(receiverClrType);
+                ILGenerator.Emit(OpCodes.Call, hasValue);
+                ILGenerator.Emit(OpCodes.Brfalse, endLabel);
+
+                ILGenerator.Emit(OpCodes.Ldloca, local);
+                var getValueOrDefault = GetNullableGetValueOrDefault(receiverClrType);
+                ILGenerator.Emit(OpCodes.Call, getValueOrDefault);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, local);
+                ILGenerator.Emit(OpCodes.Brfalse, endLabel);
+                ILGenerator.Emit(OpCodes.Ldloc, local);
+            }
+
+            EmitWhenNotNull(conditional.WhenNotNull);
+
+            if (conditional.WhenNotNull.Type.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit)
+                ILGenerator.Emit(OpCodes.Pop);
+
+            ILGenerator.MarkLabel(endLabel);
+            ILGenerator.Emit(OpCodes.Nop);
+            return;
+        }
 
         if (isNullableValue)
         {
@@ -4122,16 +4193,12 @@ internal partial class ExpressionGenerator : Generator
             var parameters = target.Parameters;
             var args2 = invocationExpression.Arguments.ToArray();
 
-            // args[0] = receiver, parameters[0] = receiver-parameter
-
-            // If the receiver isn't already loaded, emit it from args[0].
             if (!receiverAlreadyLoaded)
             {
                 var receiverArgument = args2.Length > 0
                     ? args2[0]
                     : invocationExpression.ExtensionReceiver ?? invocationExpression.Receiver
                         ?? new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
-
                 EmitArgument(receiverArgument, parameters[0]);
             }
 
@@ -4225,6 +4292,14 @@ internal partial class ExpressionGenerator : Generator
         // Emit arguments (in left-to-right order)
         var paramSymbols = target.Parameters.ToArray();
         var args = invocationExpression.Arguments.ToArray();
+        var omittedImplicitUnitArgument =
+            args.Length == 0 &&
+            paramSymbols.Length == 1 &&
+            paramSymbols[0].RefKind == RefKind.None &&
+            paramSymbols[0].Type.SpecialType == SpecialType.System_Unit;
+
+        if (omittedImplicitUnitArgument)
+            EmitUnitValue();
 
         for (int i = 0; i < args.Length; i++)
         {

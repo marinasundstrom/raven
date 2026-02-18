@@ -16,17 +16,27 @@ COMPILER_EXC="ravc"
 
 usage() {
   cat <<EOF
-Usage: ./build.sh [options]
+Usage: ./build.sh [options] [filter...]
 
 Options:
   -f, --framework <tfm>   Target framework used for compiler/dependencies (default: ${DOTNET_VERSION})
   -c, --configuration <c> Build configuration (default: ${BUILD_CONFIG})
   -h, --help              Show this help
 
+Filters:
+  filter                  Optional path/name/glob filter(s) for sample selection.
+                          Examples:
+                            ./build.sh oop/enums.rav
+                            ./build.sh async/*
+                            ./build.sh -f net11.0 sample100.rav
+                          If omitted, all samples are compiled.
+
 Environment overrides:
   DOTNET_VERSION, BUILD_CONFIG, OUTPUT_DIR, RAVEN_CORE, RAVEN_CODE_ANALYSIS
 EOF
 }
+
+FILTERS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -45,9 +55,8 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Unknown argument: $1"
-      usage
-      exit 2
+      FILTERS+=("$1")
+      shift
       ;;
   esac
 done
@@ -62,7 +71,8 @@ fi
 # Prefer the workspace build output for the selected TFM to avoid stale local copies.
 RAVEN_CODE_ANALYSIS="${RAVEN_CODE_ANALYSIS:-}"
 
-OUTPUT_DIR="${OUTPUT_DIR:-output}"
+# Default output is split by TFM to avoid cross-framework artifact contamination.
+OUTPUT_DIR="${OUTPUT_DIR:-output/$DOTNET_VERSION}"
 if [[ "$OUTPUT_DIR" != /* ]]; then
   OUTPUT_DIR="$SCRIPT_DIR/$OUTPUT_DIR"
 fi
@@ -84,6 +94,23 @@ is_excluded() {
       return 0
     fi
   done
+  return 1
+}
+
+matches_filter() {
+  local path="$1"
+  local filename="$2"
+
+  if (( ${#FILTERS[@]} == 0 )); then
+    return 0
+  fi
+
+  for filter in "${FILTERS[@]}"; do
+    if [[ "$path" == $filter || "$filename" == $filter ]]; then
+      return 0
+    fi
+  done
+
   return 1
 }
 
@@ -146,6 +173,10 @@ for file in "${rav_files[@]}"; do
     continue
   fi
 
+  if ! matches_filter "$file" "$filename"; then
+    continue
+  fi
+
   base="${filename%.rav}"
   output="$OUTPUT_DIR/$base.dll"
 
@@ -199,6 +230,9 @@ else
 fi
 
 echo "===== Compile Summary ====="
+if (( ${#FILTERS[@]} > 0 )); then
+  echo "Filters:   ${FILTERS[*]}"
+fi
 echo "Succeeded: ${#successes[@]}"
 for s in "${successes[@]-}"; do echo "  - $s"; done
 echo "Failed:    ${#failures[@]}"

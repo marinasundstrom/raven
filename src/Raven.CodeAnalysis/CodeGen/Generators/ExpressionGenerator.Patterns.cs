@@ -31,149 +31,7 @@ internal partial class ExpressionGenerator
 
     private void EmitMatchExpression(BoundMatchExpression matchExpression, EmitContext context)
     {
-        // Determine scrutinee type (fall back to object on error)
-        var scrutineeType =
-            matchExpression.Expression.Type
-            ?? Compilation.GetSpecialType(SpecialType.System_Object);
-
-        if (scrutineeType.TypeKind == TypeKind.Error)
-            scrutineeType = Compilation.GetSpecialType(SpecialType.System_Object);
-
-        var scrutineeClrType = ResolveClrType(scrutineeType);
-
-        // Emit scrutinee value
-        var info = EmitExpression(matchExpression.Expression);
-
-        IILocal scrutineeLocal;
-
-        // If the scrutinee came directly from an existing local load, reuse that local
-        // and clear the already-emitted value from the stack to avoid stack imbalance.
-        if (info.Local is not null && !info.WasCaptured && !info.WasSpilledToLocal)
-        {
-            ILGenerator.Emit(OpCodes.Pop);
-            scrutineeLocal = info.Local;
-        }
-        else
-        {
-            // Otherwise, materialize a typed local for scrutinee (even if we later need boxed too).
-            scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClrType);
-            ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
-        }
-
-        // Value-type DU fast path is orthogonal
-        var isValueTypeDU = IsDiscriminatedUnionValueType(scrutineeType);
-
-        // Precompute which arms truly require object semantics.
-        // If the scrutinee is a value-type DU and the pattern is DU-compatible,
-        // we can skip boxing/isinst entirely and go straight to TryGet*.
-        bool ArmNeedsObject(BoundMatchArm a)
-        {
-            if (isValueTypeDU && IsUnboxedDUCompatible(a.Pattern))
-                return false;
-
-            return GetPatternInputRequirement(a.Pattern) == PatternInput.Object;
-        }
-
-        var anyArmNeedsObject = matchExpression.Arms.Any(ArmNeedsObject);
-
-        // Lazy boxed scrutinee cache (only created/filled if needed)
-        IILocal? boxedScrutineeLocal = anyArmNeedsObject ? ILGenerator.DeclareLocal(typeof(object)) : null;
-
-        void LoadScrutineeForArmInput(PatternInput inputRequirement, out ITypeSymbol inputTypeForEmit)
-        {
-            if (inputRequirement == PatternInput.Typed)
-            {
-                ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
-                inputTypeForEmit = scrutineeType;
-                return;
-            }
-
-            // Object required
-            if (boxedScrutineeLocal is null)
-                boxedScrutineeLocal = ILGenerator.DeclareLocal(typeof(object));
-
-            // Initialize boxedScrutineeLocal if it hasn't been initialized yet (null)
-            var boxedReady = ILGenerator.DefineLabel();
-
-            ILGenerator.Emit(OpCodes.Ldloc, boxedScrutineeLocal);
-            ILGenerator.Emit(OpCodes.Brtrue, boxedReady);
-
-            ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
-            if (scrutineeClrType.IsValueType)
-                ILGenerator.Emit(OpCodes.Box, scrutineeClrType);
-
-            ILGenerator.Emit(OpCodes.Stloc, boxedScrutineeLocal);
-
-            ILGenerator.MarkLabel(boxedReady);
-
-            ILGenerator.Emit(OpCodes.Ldloc, boxedScrutineeLocal);
-            inputTypeForEmit = Compilation.GetSpecialType(SpecialType.System_Object);
-        }
-
-        var endLabel = ILGenerator.DefineLabel();
-        var fallthroughLabel = ILGenerator.DefineLabel();
-        var exitLabel = ILGenerator.DefineLabel();
-
-        foreach (var arm in matchExpression.Arms)
-        {
-            var nextArmLabel = ILGenerator.DefineLabel();
-            var scope = new Scope(this);
-
-            // --- Pattern test (branching form: jump to next arm if pattern fails) ---
-            if (isValueTypeDU)
-            {
-                // DU unboxed fast path first (supports not/and/or around case patterns)
-                if (!TryEmitPatternBranchFalse_UnboxedValueTypeDU(arm.Pattern, scope, scrutineeLocal, scrutineeClrType, nextArmLabel))
-                {
-                    // Fall back to regular pipeline (typed/object depending on requirement)
-                    var inputRequirement = ArmNeedsObject(arm) ? PatternInput.Object : PatternInput.Typed;
-                    LoadScrutineeForArmInput(inputRequirement, out var inputTypeForEmit);
-                    EmitPatternBranchFalse(arm.Pattern, inputTypeForEmit, scope, nextArmLabel, scrutineeLocal2: scrutineeLocal);
-                }
-            }
-            else
-            {
-                var inputRequirement = ArmNeedsObject(arm) ? PatternInput.Object : PatternInput.Typed;
-                LoadScrutineeForArmInput(inputRequirement, out var inputTypeForEmit);
-                EmitPatternBranchFalse(arm.Pattern, inputTypeForEmit, scope, nextArmLabel, scrutineeLocal2: scrutineeLocal);
-            }
-
-            // --- Guard ---
-            if (arm.Guard is not null)
-            {
-                new ExpressionGenerator(scope, arm.Guard).Emit();
-                ILGenerator.Emit(OpCodes.Brfalse, nextArmLabel);
-            }
-
-            // --- Arm body ---
-            new ExpressionGenerator(scope, arm.Expression).Emit();
-
-            // If the match expression itself is a union, box arm values when needed
-            var armType = arm.Expression.Type;
-            if ((matchExpression.Type?.IsTypeUnion ?? false) && (armType?.IsValueType ?? false))
-            {
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(armType));
-            }
-
-            ILGenerator.Emit(OpCodes.Br, endLabel);
-            ILGenerator.MarkLabel(nextArmLabel);
-        }
-
-        ILGenerator.Emit(OpCodes.Br, fallthroughLabel);
-
-        ILGenerator.MarkLabel(endLabel);
-        ILGenerator.Emit(OpCodes.Br, exitLabel);
-
-        ILGenerator.MarkLabel(fallthroughLabel);
-
-        var exceptionCtor = typeof(InvalidOperationException)
-            .GetConstructor(new[] { typeof(string) })!;
-
-        ILGenerator.Emit(OpCodes.Ldstr, "Match expression was not exhaustive.");
-        ILGenerator.Emit(OpCodes.Newobj, exceptionCtor);
-        ILGenerator.Emit(OpCodes.Throw);
-
-        ILGenerator.MarkLabel(exitLabel);
+        throw new InvalidOperationException("BoundMatchExpression should be lowered before code generation.");
     }
 
     // ============================================
@@ -342,8 +200,7 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundCasePattern casePattern)
         {
-            var unionClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol.Union));
-            var caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
+            var tryGetMethod = ResolveCasePatternTryGetMethod(casePattern, out var unionClrType, out var caseClrType);
 
             // Fast path: if the scrutinee is already the DU value type, avoid boxing/isinst/unbox.any.
             // This is the common case for matching directly over a DU-typed value.
@@ -373,7 +230,7 @@ internal partial class ExpressionGenerator
 
                     ILGenerator.Emit(OpCodes.Ldloca, unionLocal2);
                     ILGenerator.Emit(OpCodes.Ldloca, caseLocal2);
-                    ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+                    ILGenerator.Emit(OpCodes.Call, tryGetMethod);
                     ILGenerator.Emit(OpCodes.Brfalse, labelFail2);
 
                     var parameterCount2 = Math.Min(
@@ -440,7 +297,7 @@ internal partial class ExpressionGenerator
 
             ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
             ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
-            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+            ILGenerator.Emit(OpCodes.Call, tryGetMethod);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
             var parameterCount = Math.Min(
@@ -1603,7 +1460,7 @@ internal partial class ExpressionGenerator
         Type unionClrType,
         IILocal? local)
     {
-        var caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
+        var tryGetMethod = ResolveCasePatternTryGetMethod(casePattern, out _, out var caseClrType);
         var caseLocal = local ?? ILGenerator.DeclareLocal(caseClrType);
 
         var labelFail = ILGenerator.DefineLabel();
@@ -1614,7 +1471,7 @@ internal partial class ExpressionGenerator
 
         ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
         ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
-        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+        ILGenerator.Emit(OpCodes.Call, tryGetMethod);
         ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
         var parameterCount = Math.Min(
@@ -2008,7 +1865,7 @@ internal partial class ExpressionGenerator
         Type unionClrType,
         ILLabel labelFail)
     {
-        var caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
+        var tryGetMethod = ResolveCasePatternTryGetMethod(casePattern, out _, out var caseClrType);
         var caseLocal = ILGenerator.DeclareLocal(caseClrType);
 
         ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
@@ -2016,7 +1873,7 @@ internal partial class ExpressionGenerator
 
         ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
         ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
-        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+        ILGenerator.Emit(OpCodes.Call, tryGetMethod);
         ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
         var parameterCount = Math.Min(
@@ -2121,8 +1978,7 @@ internal partial class ExpressionGenerator
         // Case patterns: implement branching form for both unboxed DU value-type fast path and boxed pipeline.
         if (pattern is BoundCasePattern casePattern)
         {
-            var unionClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol.Union));
-            var caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
+            var tryGetMethod = ResolveCasePatternTryGetMethod(casePattern, out var unionClrType, out var caseClrType);
 
             // Unboxed DU value-type fast path (scrutinee is already DU value type)
             if (inputType.TypeKind != TypeKind.Error)
@@ -2148,7 +2004,7 @@ internal partial class ExpressionGenerator
 
                     ILGenerator.Emit(OpCodes.Ldloca, unionLocal2);
                     ILGenerator.Emit(OpCodes.Ldloca, caseLocal2);
-                    ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+                    ILGenerator.Emit(OpCodes.Call, tryGetMethod);
                     ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
                     var parameterCount2 = Math.Min(
@@ -2205,7 +2061,7 @@ internal partial class ExpressionGenerator
 
             ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
             ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
-            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+            ILGenerator.Emit(OpCodes.Call, tryGetMethod);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
             var parameterCount = Math.Min(
@@ -2299,5 +2155,25 @@ internal partial class ExpressionGenerator
         // (You can migrate these later for fully structured decompile.)
         EmitPattern(pattern, inputType, scope, scrutineeLocal2);
         ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+    }
+
+    private MethodInfo ResolveCasePatternTryGetMethod(
+        BoundCasePattern casePattern,
+        out Type unionClrType,
+        out Type caseClrType)
+    {
+        unionClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol.Union));
+        caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
+
+        var tryGetMethod = GetMethodInfo(casePattern.TryGetMethod);
+
+        if (tryGetMethod.DeclaringType is not null)
+            unionClrType = tryGetMethod.DeclaringType;
+
+        var outElementType = TryGetOutLocalElementType(tryGetMethod);
+        if (outElementType is not null)
+            caseClrType = CloseNestedCarrierCaseType(outElementType, unionClrType);
+
+        return tryGetMethod;
     }
 }

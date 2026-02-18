@@ -421,6 +421,7 @@ internal static class IteratorLowerer
         private readonly Dictionary<ILocalSymbol, SourceFieldSymbol> _hoistedLocals = new(SymbolEqualityComparer.Default);
         private readonly HashSet<string> _hoistedFieldNames = new(StringComparer.Ordinal);
         private readonly Stack<FinallyFrame> _finallyStack = new();
+        private readonly Stack<(ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _loopLabels = new();
         private readonly Dictionary<int, ImmutableArray<FinallyFrame>> _pendingFinallyStates = new();
         private readonly ITypeSymbol _boolType;
         private readonly ITypeSymbol _unitType;
@@ -699,6 +700,48 @@ internal static class IteratorLowerer
                 assignCompleted,
                 returnFalse,
             });
+        }
+
+        public override BoundNode? VisitWhileStatement(BoundWhileStatement node)
+        {
+            if (node is null)
+                return null;
+
+            var breakLabel = CreateLabel("while_break");
+            var continueLabel = CreateLabel("while_continue");
+
+            var condition = (BoundExpression)(VisitExpression(node.Condition) ?? node.Condition);
+
+            _loopLabels.Push((breakLabel, continueLabel));
+            var body = (BoundStatement)VisitStatement(node.Body)!;
+            _loopLabels.Pop();
+
+            return new BoundBlockStatement([
+                new BoundLabeledStatement(continueLabel, new BoundBlockStatement([
+                    new BoundConditionalGotoStatement(breakLabel, condition, jumpIfTrue: false),
+                ])),
+                body,
+                new BoundGotoStatement(continueLabel, isBackward: true),
+                new BoundLabeledStatement(breakLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())),
+            ]);
+        }
+
+        public override BoundNode? VisitBreakStatement(BoundBreakStatement node)
+        {
+            if (_loopLabels.Count == 0)
+                return base.VisitBreakStatement(node);
+
+            var (breakLabel, _) = _loopLabels.Peek();
+            return new BoundGotoStatement(breakLabel);
+        }
+
+        public override BoundNode? VisitContinueStatement(BoundContinueStatement node)
+        {
+            if (_loopLabels.Count == 0)
+                return base.VisitContinueStatement(node);
+
+            var (_, continueLabel) = _loopLabels.Peek();
+            return new BoundGotoStatement(continueLabel, isBackward: true);
         }
 
         private BoundBlockStatement? BuildDisposeBody()

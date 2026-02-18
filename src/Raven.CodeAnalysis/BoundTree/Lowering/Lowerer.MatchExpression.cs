@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -11,36 +12,20 @@ internal sealed partial class Lowerer
     {
         var compilation = GetCompilation();
         var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
-
+        var rewrittenArms = RewriteMatchArms(node.Arms, compilation);
         var scrutinee = (BoundExpression)VisitExpression(node.Expression)!;
-        var scrutineeType = scrutinee.Type ?? compilation.ErrorTypeSymbol;
-        ILocalSymbol scrutineeLocal;
 
         var statements = new List<BoundStatement>();
-
-        if (scrutinee is BoundLocalAccess localAccess)
-        {
-            scrutineeLocal = localAccess.Local;
-        }
-        else
-        {
-            scrutineeLocal = CreateTempLocal("match_scrutinee", scrutineeType, isMutable: false);
-            statements.Add(new BoundLocalDeclarationStatement([
-                new BoundVariableDeclarator(scrutineeLocal, scrutinee)
-            ]));
-        }
+        var scrutineeLocal = EnsureMatchScrutineeLocal(scrutinee, statements, compilation);
 
         var endLabel = CreateLabel("match_end");
         var needsEndLabel = false;
 
-        for (var armIndex = 0; armIndex < node.Arms.Length; armIndex++)
+        for (var armIndex = 0; armIndex < rewrittenArms.Length; armIndex++)
         {
-            var arm = node.Arms[armIndex];
-            var pattern = RewriteNullDiscardPattern(arm.Pattern, compilation);
-            var guard = (BoundExpression?)VisitExpression(arm.Guard);
-            var expression = (BoundExpression)VisitExpression(arm.Expression)!;
+            var arm = rewrittenArms[armIndex];
 
-            var armStatement = ConvertExpressionToStatement(expression);
+            var armStatement = ConvertExpressionToStatement(arm.Expression);
             BoundStatement armResult = IsTerminatingStatement(armStatement)
                 ? armStatement
                 : new BoundBlockStatement([
@@ -53,19 +38,19 @@ internal sealed partial class Lowerer
 
             // Final catch-all arm without guard can be emitted directly.
             // This avoids generating redundant always-true condition scaffolding.
-            var isFinalArm = armIndex == node.Arms.Length - 1;
-            if (isFinalArm && guard is null && pattern is BoundDiscardPattern)
+            var isFinalArm = armIndex == rewrittenArms.Length - 1;
+            if (isFinalArm && arm.Guard is null && arm.Pattern is BoundDiscardPattern)
             {
                 statements.Add(armResult);
                 break;
             }
 
-            if (guard is not null)
-                armResult = new BoundIfStatement(guard, armResult, null);
+            if (arm.Guard is not null)
+                armResult = new BoundIfStatement(arm.Guard, armResult, null);
 
             var condition = new BoundIsPatternExpression(
                 new BoundLocalAccess(scrutineeLocal),
-                pattern,
+                arm.Pattern,
                 booleanType);
 
             statements.Add(new BoundIfStatement(condition, armResult, null));
@@ -81,25 +66,11 @@ internal sealed partial class Lowerer
         var compilation = GetCompilation();
         var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
-
+        var rewrittenArms = RewriteMatchArms(node.Arms, compilation);
         var scrutinee = (BoundExpression)VisitExpression(node.Expression)!;
-        var scrutineeType = scrutinee.Type ?? compilation.ErrorTypeSymbol;
-        ILocalSymbol scrutineeLocal;
 
         var statements = new List<BoundStatement>();
-
-        if (scrutinee is BoundLocalAccess localAccess)
-        {
-            // Reuse an existing local scrutinee to avoid introducing redundant alias temps.
-            scrutineeLocal = localAccess.Local;
-        }
-        else
-        {
-            scrutineeLocal = CreateTempLocal("match_scrutinee", scrutineeType, isMutable: false);
-            statements.Add(new BoundLocalDeclarationStatement([
-                new BoundVariableDeclarator(scrutineeLocal, scrutinee)
-            ]));
-        }
+        var scrutineeLocal = EnsureMatchScrutineeLocal(scrutinee, statements, compilation);
 
         var resultType = node.Type ?? compilation.ErrorTypeSymbol;
         var resultLocal = CreateTempLocal("match_result", resultType, isMutable: true);
@@ -109,13 +80,9 @@ internal sealed partial class Lowerer
 
         var endLabel = CreateLabel("match_end");
 
-        foreach (var arm in node.Arms)
+        foreach (var arm in rewrittenArms)
         {
-            var pattern = RewriteNullDiscardPattern(arm.Pattern, compilation);
-            var guard = (BoundExpression?)VisitExpression(arm.Guard);
-            var expression = (BoundExpression)VisitExpression(arm.Expression)!;
-
-            expression = ApplyConversionIfNeeded(expression, resultType, compilation);
+            var expression = ApplyConversionIfNeeded(arm.Expression, resultType, compilation);
 
             var resultLocalAccess = new BoundLocalAccess(resultLocal);
 
@@ -124,14 +91,14 @@ internal sealed partial class Lowerer
                 new BoundGotoStatement(endLabel)
             ]);
 
-            if (guard is not null)
+            if (arm.Guard is not null)
             {
-                armResult = new BoundIfStatement(guard, armResult, null);
+                armResult = new BoundIfStatement(arm.Guard, armResult, null);
             }
 
             var condition = new BoundIsPatternExpression(
                 new BoundLocalAccess(scrutineeLocal),
-                pattern,
+                arm.Pattern,
                 booleanType);
 
             statements.Add(new BoundIfStatement(condition, armResult, null));
@@ -141,6 +108,40 @@ internal sealed partial class Lowerer
         statements.Add(new BoundExpressionStatement(new BoundLocalAccess(resultLocal)));
 
         return new BoundBlockExpression(statements, unitType);
+    }
+
+    private ImmutableArray<RewrittenMatchArm> RewriteMatchArms(
+        ImmutableArray<BoundMatchArm> arms,
+        Compilation compilation)
+    {
+        var rewrittenArms = ImmutableArray.CreateBuilder<RewrittenMatchArm>(arms.Length);
+
+        foreach (var arm in arms)
+        {
+            var pattern = RewriteNullDiscardPattern(arm.Pattern, compilation);
+            var guard = arm.Guard is null ? null : (BoundExpression?)VisitExpression(arm.Guard);
+            var expression = (BoundExpression)VisitExpression(arm.Expression)!;
+            rewrittenArms.Add(new RewrittenMatchArm(pattern, guard, expression));
+        }
+
+        return rewrittenArms.MoveToImmutable();
+    }
+
+    private ILocalSymbol EnsureMatchScrutineeLocal(
+        BoundExpression scrutinee,
+        List<BoundStatement> statements,
+        Compilation compilation)
+    {
+        if (scrutinee is BoundLocalAccess localAccess)
+            return localAccess.Local;
+
+        var scrutineeType = scrutinee.Type ?? compilation.ErrorTypeSymbol;
+        var scrutineeLocal = CreateTempLocal("match_scrutinee", scrutineeType, isMutable: false);
+        statements.Add(new BoundLocalDeclarationStatement([
+            new BoundVariableDeclarator(scrutineeLocal, scrutinee)
+        ]));
+
+        return scrutineeLocal;
     }
 
     private static BoundPattern RewriteNullDiscardPattern(BoundPattern pattern, Compilation compilation)
@@ -188,4 +189,9 @@ internal sealed partial class Lowerer
             _ => false,
         };
     }
+
+    private readonly record struct RewrittenMatchArm(
+        BoundPattern Pattern,
+        BoundExpression? Guard,
+        BoundExpression Expression);
 }

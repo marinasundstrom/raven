@@ -38,12 +38,11 @@ internal sealed class BoundMatchArm : BoundNode
 
     public override void Accept(BoundTreeVisitor visitor)
     {
-        throw new NotImplementedException();
+        visitor.VisitMatchArm(this);
     }
 
     public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
     {
-        throw new NotImplementedException();
+        return visitor.VisitMatchArm(this);
     }
 }
-

@@ -305,8 +305,14 @@ public partial class SemanticModel
         if (view is BoundTreeView.Both)
             throw new ArgumentOutOfRangeException(nameof(view));
 
+        if (node is CompilationUnitSyntax compilationUnit)
+            EnsureTopLevelCompilationUnitBound(compilationUnit);
+
         if (view is BoundTreeView.Original)
         {
+            if (TryGetCachedBoundNode(node) is { } cachedNode)
+                return cachedNode;
+
             var binder = GetBinder(node);
             return binder.GetOrBind(node);
         }
@@ -315,8 +321,8 @@ public partial class SemanticModel
             return loweredCached;
 
         var binderForLowering = GetBinder(node);
-        var boundNode = binderForLowering.GetOrBind(node);
-        var loweredNode = LowerBoundNode(binderForLowering, boundNode);
+        var boundNode = TryGetCachedBoundNode(node) ?? binderForLowering.GetOrBind(node);
+        var loweredNode = LowerBoundNode(node, binderForLowering, boundNode);
         CacheLoweredBoundNode(node, loweredNode, binderForLowering);
         return loweredNode;
     }
@@ -332,8 +338,10 @@ public partial class SemanticModel
         return (BoundExpression)GetBoundNode((SyntaxNode)expression);
     }
 
-    private BoundNode LowerBoundNode(Binder binder, BoundNode boundNode)
+    private BoundNode LowerBoundNode(SyntaxNode syntaxNode, Binder binder, BoundNode boundNode)
     {
+        boundNode = RewriteAsyncIfNeeded(syntaxNode, binder, boundNode);
+
         var containingSymbol = binder.ContainingSymbol;
         if (containingSymbol is null)
             return boundNode;
@@ -351,6 +359,110 @@ public partial class SemanticModel
         catch
         {
             return boundNode;
+        }
+    }
+
+    private static BoundNode RewriteAsyncIfNeeded(SyntaxNode syntaxNode, Binder binder, BoundNode boundNode)
+    {
+        if (boundNode is BoundExpression expression &&
+            syntaxNode is ArrowExpressionClauseSyntax &&
+            binder.ContainingSymbol is SourceMethodSymbol expressionBodiedMethod)
+        {
+            var expressionBody = ConvertExpressionBodyToBlock(expressionBodiedMethod, expression);
+            if (AsyncLowerer.ShouldRewrite(expressionBodiedMethod, expressionBody))
+                return AsyncLowerer.Rewrite(expressionBodiedMethod, expressionBody);
+
+            return boundNode;
+        }
+
+        if (boundNode is not BoundBlockStatement block)
+            return boundNode;
+
+        if (binder.ContainingSymbol is SourceMethodSymbol sourceMethod &&
+            AsyncLowerer.ShouldRewrite(sourceMethod, block))
+        {
+            return AsyncLowerer.Rewrite(sourceMethod, block);
+        }
+
+        if (binder.ContainingSymbol is SourceLambdaSymbol sourceLambda &&
+            AsyncLowerer.ShouldRewrite(sourceLambda, block))
+        {
+            return AsyncLowerer.Rewrite(sourceLambda, block).Body;
+        }
+
+        if (syntaxNode is CompilationUnitSyntax && TryGetTopLevelMainMethod(binder) is { } topLevelMain &&
+            AsyncLowerer.ShouldRewrite(topLevelMain, block))
+        {
+            return AsyncLowerer.Rewrite(topLevelMain, block);
+        }
+
+        return boundNode;
+    }
+
+    private static BoundBlockStatement ConvertExpressionBodyToBlock(SourceMethodSymbol method, BoundExpression expression)
+    {
+        if (expression is BoundBlockExpression blockExpression)
+            return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+
+        if (method.ReturnType.SpecialType == SpecialType.System_Unit)
+            return new BoundBlockStatement(new[] { new BoundExpressionStatement(expression) });
+
+        return new BoundBlockStatement(new[] { new BoundReturnStatement(expression) });
+    }
+
+    private static SourceMethodSymbol? TryGetTopLevelMainMethod(Binder binder)
+    {
+        for (var current = binder; current is not null; current = current.ParentBinder)
+        {
+            if (current is TopLevelBinder topLevelBinder && topLevelBinder.MainMethod is SourceMethodSymbol mainMethod)
+                return mainMethod;
+        }
+
+        return null;
+    }
+
+    private void EnsureTopLevelCompilationUnitBound(CompilationUnitSyntax compilationUnit)
+    {
+        if (TryGetCachedBoundNode(compilationUnit) is not null)
+            return;
+
+        static TopLevelBinder? FindTopLevelBinder(Binder? binder)
+        {
+            for (var current = binder; current is not null; current = current.ParentBinder)
+            {
+                if (current is TopLevelBinder topLevel)
+                    return topLevel;
+            }
+
+            return null;
+        }
+
+        var globals = GetTopLevelGlobalStatements(compilationUnit).ToArray();
+        if (globals.Length == 0)
+            return;
+
+        var topLevelBinder = FindTopLevelBinder(GetBinder(compilationUnit))
+            ?? FindTopLevelBinder(GetBinder(globals[0]));
+        if (topLevelBinder is null)
+            return;
+
+        topLevelBinder.BindGlobalStatements(globals);
+    }
+
+    private static IEnumerable<GlobalStatementSyntax> GetTopLevelGlobalStatements(CompilationUnitSyntax compilationUnit)
+    {
+        foreach (var member in compilationUnit.Members)
+        {
+            switch (member)
+            {
+                case GlobalStatementSyntax global:
+                    yield return global;
+                    break;
+                case FileScopedNamespaceDeclarationSyntax fileScoped:
+                    foreach (var nested in fileScoped.Members.OfType<GlobalStatementSyntax>())
+                        yield return nested;
+                    break;
+            }
         }
     }
 

@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <Target Name="CompileRavenCore"
+    Condition="'$(TargetFramework)' != ''"
     BeforeTargets="Build"
     Inputs="@(RavenSource)"
     Outputs="$(RavenCoreOutputDirectory)Raven.Core.dll">

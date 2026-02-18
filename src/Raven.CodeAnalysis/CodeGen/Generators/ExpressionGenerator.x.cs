@@ -74,12 +74,12 @@ internal partial class ExpressionGenerator
         var endLabel = ILGenerator.DefineLabel();
 
         // if (tmp.TryGetOk(out okOutLocal)) goto okLabel;
-        ILGenerator.Emit(OpCodes.Ldloca_S, receiverTmp);
+        EmitCarrierReceiver(receiverTmp, receiverClrType);
         ILGenerator.Emit(OpCodes.Ldloca_S, okOutLocal);
         ILGenerator.Emit(OpCodes.Call, tryGetOkMI);
         ILGenerator.Emit(OpCodes.Brtrue, okLabel);
 
-        EmitResultErrorWrap_Symbols(expr, receiverTmp, resultClrType);
+        EmitResultErrorWrap_Symbols(expr, receiverTmp, receiverClrType, resultClrType);
         ILGenerator.Emit(OpCodes.Br, endLabel);
 
         ILGenerator.MarkLabel(okLabel);
@@ -119,6 +119,7 @@ internal partial class ExpressionGenerator
     private void EmitResultErrorWrap_Symbols(
     BoundCarrierConditionalAccessExpression expr,
     IILocal receiverTmp,
+    Type receiverClrType,
     Type resultClrType)
     {
         // Build Result<U,E>.Error from the receiver's error payload.
@@ -140,7 +141,7 @@ internal partial class ExpressionGenerator
         var gotErrLabel = ILGenerator.DefineLabel();
         var doneLabel = ILGenerator.DefineLabel();
 
-        ILGenerator.Emit(OpCodes.Ldloca_S, receiverTmp);
+        EmitCarrierReceiver(receiverTmp, receiverClrType);
         ILGenerator.Emit(OpCodes.Ldloca_S, errOutLocal);
         ILGenerator.Emit(OpCodes.Call, tryGetErrMI);
         ILGenerator.Emit(OpCodes.Brtrue, gotErrLabel);
@@ -319,8 +320,7 @@ internal partial class ExpressionGenerator
     {
         // Legacy reflection-based implementation (TypeBuilderInstantiation.GetMethods/GetConstructors)
         // is not safe for async state machines. Delegate to the symbol-driven path.
-        _ = receiverClrType; // intentionally unused
-        EmitResultErrorWrap_Symbols(expr, receiverTmp, resultClrType);
+        EmitResultErrorWrap_Symbols(expr, receiverTmp, receiverClrType, resultClrType);
     }
 
     private static MethodInfo? FindSingleOutBoolMethod(Type t, string name)
@@ -442,7 +442,7 @@ internal partial class ExpressionGenerator
         var endLabel = ILGenerator.DefineLabel();
 
         // if (tmp.TryGetSome(out someOutLocal)) goto someLabel;
-        ILGenerator.Emit(OpCodes.Ldloca_S, receiverTmp);
+        EmitCarrierReceiver(receiverTmp, receiverClrType);
         ILGenerator.Emit(OpCodes.Ldloca_S, someOutLocal);
         ILGenerator.Emit(OpCodes.Call, tryGetSome);
         ILGenerator.Emit(OpCodes.Brtrue, someLabel);
@@ -764,5 +764,13 @@ internal partial class ExpressionGenerator
             throw new InvalidOperationException("Missing implicit conversion to carrier type.");
 
         return MapMethod(carrierClrType, def);
+    }
+
+    private void EmitCarrierReceiver(IILocal receiverTmp, Type receiverClrType)
+    {
+        if (receiverClrType.IsValueType)
+            ILGenerator.Emit(OpCodes.Ldloca_S, receiverTmp);
+        else
+            ILGenerator.Emit(OpCodes.Ldloc, receiverTmp);
     }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run all DLLs in ./output except an exclude list.
+# Run all DLLs in ./output/<tfm> except an exclude list.
 # Failing one won't stop the rest.
 
 set -Euo pipefail
@@ -42,7 +42,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-OUTPUT_DIR="${OUTPUT_DIR:-output}"
+# Default output is split by TFM to match build.sh and avoid cross-framework mixing.
+OUTPUT_DIR="${OUTPUT_DIR:-output/$DOTNET_VERSION}"
 if [[ "$OUTPUT_DIR" != /* ]]; then
   OUTPUT_DIR="$SCRIPT_DIR/$OUTPUT_DIR"
 fi

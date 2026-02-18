@@ -5,6 +5,10 @@ namespace Raven.CodeAnalysis.CodeGen;
 internal static class AssemblyReferenceNormalizer
 {
     private static readonly byte[] SystemRuntimePublicKeyToken = [0xb0, 0x3f, 0x5f, 0x7f, 0x11, 0xd5, 0x0a, 0x3a];
+    private static readonly string[] KeepCoreLibNamespacePrefixes =
+    [
+        "System.Collections"
+    ];
 
     internal static void NormalizeCoreLibReference(Stream peInput, Stream peOutput)
     {
@@ -42,7 +46,9 @@ internal static class AssemblyReferenceNormalizer
         {
             runtimeRef ??= CreateSystemRuntimeReference(coreLibRef);
             RewriteReferenceScope(module, coreLibRef, runtimeRef);
-            module.AssemblyReferences.Remove(coreLibRef);
+
+            if (!ModuleStillUsesReference(module, coreLibRef))
+                module.AssemblyReferences.Remove(coreLibRef);
         }
 
         if (!module.AssemblyReferences.Contains(runtimeRef))
@@ -67,14 +73,57 @@ internal static class AssemblyReferenceNormalizer
     {
         foreach (var typeReference in module.GetTypeReferences())
         {
-            if (ReferenceEquals(typeReference.Scope, oldReference))
+            if (ReferenceEquals(typeReference.Scope, oldReference) && ShouldRewriteToSystemRuntime(typeReference))
                 typeReference.Scope = newReference;
         }
 
         foreach (var memberReference in module.GetMemberReferences())
         {
-            if (memberReference.DeclaringType is { Scope: var scope } && ReferenceEquals(scope, oldReference))
+            if (memberReference.DeclaringType is { Scope: var scope } &&
+                ReferenceEquals(scope, oldReference) &&
+                ShouldRewriteToSystemRuntime(memberReference.DeclaringType))
+            {
                 memberReference.DeclaringType.Scope = newReference;
+            }
         }
+    }
+
+    private static bool ShouldRewriteToSystemRuntime(TypeReference typeReference)
+    {
+        var namespaceName = GetInnermostTypeNamespace(typeReference);
+
+        foreach (var prefix in KeepCoreLibNamespacePrefixes)
+        {
+            if (namespaceName.StartsWith(prefix, StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static string GetInnermostTypeNamespace(TypeReference typeReference)
+    {
+        var current = typeReference;
+        while (current is TypeSpecification specification)
+            current = specification.ElementType;
+
+        return current.Namespace ?? string.Empty;
+    }
+
+    private static bool ModuleStillUsesReference(ModuleDefinition module, AssemblyNameReference reference)
+    {
+        foreach (var typeReference in module.GetTypeReferences())
+        {
+            if (ReferenceEquals(typeReference.Scope, reference))
+                return true;
+        }
+
+        foreach (var memberReference in module.GetMemberReferences())
+        {
+            if (memberReference.DeclaringType is { Scope: var scope } && ReferenceEquals(scope, reference))
+                return true;
+        }
+
+        return false;
     }
 }

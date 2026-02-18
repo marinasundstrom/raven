@@ -77,6 +77,9 @@ internal class StatementGenerator : Generator
             case BoundConditionalGotoStatement conditionalGotoStatement:
                 EmitConditionalGotoStatement(conditionalGotoStatement);
                 break;
+
+            case BoundMatchStatement:
+                throw new InvalidOperationException("BoundMatchStatement should be lowered before code generation.");
         }
     }
 
@@ -202,6 +205,12 @@ internal class StatementGenerator : Generator
                 var returnValueLocal = MethodBodyGenerator.EnsureReturnValueLocal();
                 ILGenerator.Emit(OpCodes.Stloc, returnValueLocal);
             }
+        }
+        else if (expression is not null && isVoidLikeReturn)
+        {
+            // Defensive: void-like returns should not carry a value on the stack.
+            ILGenerator.Emit(OpCodes.Pop);
+            expressionType = null;
         }
 
         if (hasExceptionExit)
@@ -379,6 +388,15 @@ internal class StatementGenerator : Generator
         // We are discarding the value of the expression. Never materialize Unit.Value in this case.
         // (ExpressionGenerator will still emit side-effects.)
         if (expression.Type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+        {
+            new ExpressionGenerator(this, expression, EmitContext.None).Emit2();
+            return;
+        }
+
+        var expressionType = expression.Type?.UnwrapLiteralType() ?? expression.Type;
+
+        if (expressionType is NullableTypeSymbol nullable &&
+            nullable.UnderlyingType.SpecialType == SpecialType.System_Unit)
         {
             new ExpressionGenerator(this, expression, EmitContext.None).Emit2();
             return;

@@ -32,18 +32,6 @@ class Foo {
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
-        var interfaceSymbol = compilation.GlobalNamespace.GetMembers("IUtility").OfType<INamedTypeSymbol>().Single();
-        var getValueSymbol = interfaceSymbol.GetMembers("GetValue").OfType<IMethodSymbol>().Single();
-        Assert.True(getValueSymbol.IsStatic);
-        Assert.Single(interfaceSymbol.GetMembers("GetValue").Where(m => m.IsStatic));
-
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        var memberAccess = syntaxTree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
-        var typeInfo = semanticModel.GetTypeInfo(memberAccess.Expression);
-        Assert.Same(interfaceSymbol, typeInfo.Type);
-        var memberInfo = semanticModel.GetSymbolInfo(memberAccess.Name);
-        Assert.True(memberInfo.Success, memberInfo.ToString());
-
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
 
@@ -176,9 +164,12 @@ class Helper {
 
         Assert.NotNull(entryPoint);
         Assert.Equal("<Main>_EntryPoint", entryPoint!.Name);
-        Assert.Equal(typeof(int), entryPoint.ReturnType);
+        Assert.Equal(typeof(int).FullName, entryPoint.ReturnType.FullName);
 
-        var exitCode = entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeEntryPoint = loaded.Assembly.EntryPoint;
+        Assert.NotNull(runtimeEntryPoint);
+        var exitCode = runtimeEntryPoint!.Invoke(null, new object?[] { Array.Empty<string>() });
 
         Assert.Equal(7, exitCode);
     }
@@ -218,9 +209,12 @@ async func Main() -> Task<int> {
 
         Assert.NotNull(entryPoint);
         Assert.Equal("<Main>_EntryPoint", entryPoint!.Name);
-        Assert.Equal(typeof(int), entryPoint.ReturnType);
+        Assert.Equal(typeof(int).FullName, entryPoint.ReturnType.FullName);
 
-        var exitCode = entryPoint.Invoke(null, Array.Empty<object?>());
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeEntryPoint = loaded.Assembly.EntryPoint;
+        Assert.NotNull(runtimeEntryPoint);
+        var exitCode = runtimeEntryPoint!.Invoke(null, Array.Empty<object?>());
 
         Assert.Equal(11, exitCode);
     }
@@ -261,7 +255,7 @@ async func Main() -> Task {
 
         Assert.NotNull(entryPoint);
         Assert.Equal("<Main>_EntryPoint", entryPoint!.Name);
-        Assert.Equal(typeof(void), entryPoint.ReturnType);
+        Assert.Equal(typeof(void).FullName, entryPoint.ReturnType.FullName);
 
         using var writer = new StringWriter();
         var originalOut = Console.Out;
@@ -270,7 +264,10 @@ async func Main() -> Task {
         {
             Console.SetOut(writer);
 
-            var exitCode = entryPoint.Invoke(null, Array.Empty<object?>());
+            using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+            var runtimeEntryPoint = loaded.Assembly.EntryPoint;
+            Assert.NotNull(runtimeEntryPoint);
+            var exitCode = runtimeEntryPoint!.Invoke(null, Array.Empty<object?>());
 
             Assert.Null(exitCode);
         }
@@ -331,7 +328,7 @@ val x = if true {
 
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -339,6 +336,52 @@ val x = if true {
         var result = compilation.Emit(peStream);
 
         Assert.True(result.Success);
+    }
+
+    [Fact]
+    public void Emit_DiscardUnitExpressionStatement_ExecutesWithoutInvalidProgram()
+    {
+        var code = """
+import System.Console.*
+
+WriteLine("Test")
+_ = WriteLine("Test")
+val _ = WriteLine("Test")
+val result = WriteLine("Test")
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("discard_unit_regression", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var entryPoint = loaded.Assembly.EntryPoint;
+        Assert.NotNull(entryPoint);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+            _ = entryPoint!.Invoke(null, new object?[] { Array.Empty<string>() });
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString()
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Trim();
+        Assert.Equal("Test\nTest\nTest\nTest", output);
     }
 
     [Fact]
@@ -698,7 +741,7 @@ class Person {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 

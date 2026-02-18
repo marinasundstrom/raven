@@ -27,7 +27,8 @@ internal static class AsyncLowerer
 
         lambda.SetContainsAwait(containsAwait);
 
-        var requiresStateMachine = containsAwait;
+        var compilation = GetCompilation(lambda);
+        var requiresStateMachine = containsAwait && !compilation.Options.UseRuntimeAsync;
         return new AsyncMethodAnalysis(requiresStateMachine, containsAwait);
     }
 
@@ -45,7 +46,8 @@ internal static class AsyncLowerer
 
         method.SetContainsAwait(containsAwait);
 
-        var requiresStateMachine = containsAwait;
+        var compilation = GetCompilation(method);
+        var requiresStateMachine = containsAwait && !compilation.Options.UseRuntimeAsync;
         return new AsyncMethodAnalysis(requiresStateMachine, containsAwait);
     }
 
@@ -131,7 +133,7 @@ internal static class AsyncLowerer
             body = LowerBeforeAsyncRewrite(lambda, body);
         var compilation = GetCompilation(lambda);
 
-        if (!analysis.ContainsAwait)
+        if (!analysis.ContainsAwait && !compilation.Options.UseRuntimeAsync)
             body = RewriteAwaitlessAsyncBody(compilation, lambda.ReturnType, body);
 
         if (!analysis.RequiresStateMachine)
@@ -194,7 +196,127 @@ internal static class AsyncLowerer
         // rewriting so dispatch guards are computed against final protected regions.
         var compilation = GetCompilation(symbol);
         var lowerer = new AsyncUseDeclarationLowerer(compilation);
-        return lowerer.Rewrite(body);
+        var normalized = lowerer.Rewrite(body);
+
+        // Match constructs must be lowered before async state-machine rewriting so
+        // MoveNext bodies don't carry BoundMatch* nodes into codegen.
+        var matchLowerer = new AsyncMatchLowerer(symbol);
+        return matchLowerer.Rewrite(normalized);
+    }
+
+    private static BoundInvocationExpression NormalizeInvocationForLowering(
+        IMethodSymbol method,
+        BoundExpression[] arguments,
+        BoundExpression? receiver,
+        BoundExpression? extensionReceiver,
+        bool requiresReceiverAddress)
+    {
+        if (!method.IsExtensionMethod)
+        {
+            return new BoundInvocationExpression(
+                method,
+                arguments,
+                receiver,
+                extensionReceiver,
+                requiresReceiverAddress);
+        }
+
+        var normalizedReceiver = extensionReceiver ?? receiver;
+        if (normalizedReceiver is null)
+        {
+            return new BoundInvocationExpression(
+                method,
+                arguments,
+                receiver,
+                extensionReceiver,
+                requiresReceiverAddress);
+        }
+
+        if (arguments.Length > 0 && ReferenceEquals(arguments[0], normalizedReceiver))
+        {
+            return new BoundInvocationExpression(
+                method,
+                arguments,
+                receiver: null,
+                extensionReceiver: null,
+                requiresReceiverAddress: requiresReceiverAddress);
+        }
+
+        var normalizedArguments = new BoundExpression[arguments.Length + 1];
+        normalizedArguments[0] = normalizedReceiver;
+        Array.Copy(arguments, 0, normalizedArguments, 1, arguments.Length);
+
+        return new BoundInvocationExpression(
+            method,
+            normalizedArguments,
+            receiver: null,
+            extensionReceiver: null,
+            requiresReceiverAddress: requiresReceiverAddress);
+    }
+
+    private sealed class AsyncMatchLowerer : BoundTreeRewriter
+    {
+        private readonly ISymbol _containingSymbol;
+        private int _rewriteOrdinal;
+
+        public AsyncMatchLowerer(ISymbol containingSymbol)
+        {
+            _containingSymbol = containingSymbol ?? throw new ArgumentNullException(nameof(containingSymbol));
+        }
+
+        public BoundBlockStatement Rewrite(BoundBlockStatement body)
+        {
+            return (BoundBlockStatement)VisitStatement(body)!;
+        }
+
+        public override BoundNode? VisitMatchStatement(BoundMatchStatement node)
+        {
+            var rewritten = (BoundMatchStatement?)base.VisitMatchStatement(node) ?? node;
+            var lowered = Lowerer.LowerStatement(_containingSymbol, rewritten);
+            return RewriteLoweredLabels(lowered);
+        }
+
+        public override BoundNode? VisitMatchExpression(BoundMatchExpression node)
+        {
+            var rewritten = (BoundMatchExpression?)base.VisitMatchExpression(node) ?? node;
+            var lowered = Lowerer.LowerExpression(_containingSymbol, rewritten);
+            return (BoundExpression)RewriteLoweredLabels(lowered);
+        }
+
+        private BoundNode RewriteLoweredLabels(BoundNode lowered)
+        {
+            var rewriter = new LoweredLabelUniquifier(_rewriteOrdinal++);
+            return rewriter.Visit(lowered)!;
+        }
+
+        private sealed class LoweredLabelUniquifier : BoundTreeRewriter
+        {
+            private readonly int _ordinal;
+            private readonly Dictionary<ILabelSymbol, ILabelSymbol> _labelMap = new(SymbolEqualityComparer.Default);
+
+            public LoweredLabelUniquifier(int ordinal)
+            {
+                _ordinal = ordinal;
+            }
+
+            public override ILabelSymbol VisitLabel(ILabelSymbol label)
+            {
+                if (_labelMap.TryGetValue(label, out var mapped))
+                    return mapped;
+
+                var containingType = label.ContainingType as INamedTypeSymbol;
+                var renamed = new LabelSymbol(
+                    $"{label.Name}__async{_ordinal}",
+                    label.ContainingSymbol,
+                    containingType,
+                    label.ContainingNamespace,
+                    [Location.None],
+                    Array.Empty<SyntaxReference>());
+
+                _labelMap[label] = renamed;
+                return renamed;
+            }
+        }
     }
 
     private sealed class AsyncUseDeclarationLowerer : BoundTreeRewriter
@@ -226,7 +348,7 @@ internal static class AsyncLowerer
                 statements.Add((BoundStatement)VisitStatement(statement)!);
 
             var loweredStatements = statements.ToImmutableArray();
-            var handledUsingLocals = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+            var handledUsingLocals = new HashSet<ILocalSymbol>(ReferenceEqualityComparer.Instance);
             var rewritten = RewriteUseDeclarations(loweredStatements, handledUsingLocals);
 
             if (handledUsingLocals.Count == 0)
@@ -252,7 +374,7 @@ internal static class AsyncLowerer
                 statements.Add((BoundStatement)VisitStatement(statement)!);
 
             var loweredStatements = statements.ToImmutableArray();
-            var handledUsingLocals = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+            var handledUsingLocals = new HashSet<ILocalSymbol>(ReferenceEqualityComparer.Instance);
             var rewritten = RewriteUseDeclarations(loweredStatements, handledUsingLocals);
 
             if (handledUsingLocals.Count == 0)
@@ -381,7 +503,7 @@ internal static class AsyncLowerer
         AsyncMethodAnalysis analysis)
     {
 
-        if (!analysis.ContainsAwait)
+        if (!analysis.ContainsAwait && !compilation.Options.UseRuntimeAsync)
             body = RewriteAwaitlessAsyncBody(compilation, method.ReturnType, body);
 
         if (!analysis.RequiresStateMachine)
@@ -1422,15 +1544,23 @@ internal static class AsyncLowerer
             changed |= !ReferenceEquals(extensionReceiver, node.ExtensionReceiver);
             changed |= !SymbolEqualityComparer.Default.Equals(method, node.Method);
 
-            if (!changed)
-                return node;
-
-            return new BoundInvocationExpression(
+            var normalized = NormalizeInvocationForLowering(
                 method,
                 rewrittenArguments,
                 receiver,
                 extensionReceiver,
                 node.RequiresReceiverAddress);
+
+            if (!changed &&
+                ReferenceEquals(normalized.Arguments, node.Arguments) &&
+                ReferenceEquals(normalized.Receiver, node.Receiver) &&
+                ReferenceEquals(normalized.ExtensionReceiver, node.ExtensionReceiver) &&
+                SymbolEqualityComparer.Default.Equals(normalized.Method, node.Method))
+            {
+                return node;
+            }
+
+            return normalized;
         }
 
         private static INamedTypeSymbol? GetBuilderTypeDefinition(ITypeSymbol builderType)
@@ -1494,8 +1624,9 @@ internal static class AsyncLowerer
         private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
         private readonly SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers _builderMembers;
         private readonly List<StateDispatch> _dispatches = new();
-        private readonly Dictionary<ILocalSymbol, SourceFieldSymbol> _hoistedLocals = new(SymbolEqualityComparer.Default);
-        private ImmutableDictionary<ILocalSymbol, bool> _hoistableLocals = ImmutableDictionary<ILocalSymbol, bool>.Empty;
+        private readonly Dictionary<ILocalSymbol, SourceFieldSymbol> _hoistedLocals = new(ReferenceEqualityComparer.Instance);
+        private ImmutableDictionary<ILocalSymbol, bool> _hoistableLocals =
+            ImmutableDictionary<ILocalSymbol, bool>.Empty.WithComparers(ReferenceEqualityComparer.Instance);
         private int _nextState;
         private int _nextHoistedLocalId;
         private int _nextAwaitResultId;
@@ -2236,17 +2367,24 @@ internal static class AsyncLowerer
 
                         if (changed)
                         {
-                            var rewritten = new BoundInvocationExpression(
+                            var normalized = NormalizeInvocationForLowering(
                                 invocationExpression.Method,
                                 rewrittenArguments,
                                 receiver,
                                 extensionReceiver,
                                 invocationExpression.RequiresReceiverAddress);
 
-                            return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, rewritten);
+                            return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, normalized);
                         }
 
-                        return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, invocationExpression);
+                        var stable = NormalizeInvocationForLowering(
+                            invocationExpression.Method,
+                            originalArguments,
+                            invocationExpression.Receiver,
+                            invocationExpression.ExtensionReceiver,
+                            invocationExpression.RequiresReceiverAddress);
+
+                        return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, stable);
                     }
 
                 case BoundObjectCreationExpression objectCreationExpression:
@@ -3311,7 +3449,7 @@ internal static class AsyncLowerer
     private sealed class AwaitCaptureWalker : BoundTreeWalker
     {
         private readonly Stack<Scope> _scopes = new();
-        private readonly Dictionary<ILocalSymbol, bool> _hoisted = new(SymbolEqualityComparer.Default);
+        private readonly Dictionary<ILocalSymbol, bool> _hoisted = new(ReferenceEqualityComparer.Instance);
 
         private AwaitCaptureWalker()
         {
@@ -3325,7 +3463,7 @@ internal static class AsyncLowerer
             var walker = new AwaitCaptureWalker();
             walker.VisitBlockStatement(body);
 
-            var builder = ImmutableDictionary.CreateBuilder<ILocalSymbol, bool>(SymbolEqualityComparer.Default);
+            var builder = ImmutableDictionary.CreateBuilder<ILocalSymbol, bool>(ReferenceEqualityComparer.Instance);
             foreach (var pair in walker._hoisted)
                 builder.Add(pair.Key, pair.Value);
 
@@ -3452,12 +3590,12 @@ internal static class AsyncLowerer
 
         private sealed class Scope
         {
-            private readonly Dictionary<ILocalSymbol, bool> _locals = new(SymbolEqualityComparer.Default);
+            private readonly Dictionary<ILocalSymbol, bool> _locals = new(ReferenceEqualityComparer.Instance);
             private readonly HashSet<ILocalSymbol> _localsToDispose;
 
             public Scope(IEnumerable<ILocalSymbol> localsToDispose)
             {
-                _localsToDispose = new HashSet<ILocalSymbol>(localsToDispose, SymbolEqualityComparer.Default);
+                _localsToDispose = new HashSet<ILocalSymbol>(localsToDispose, ReferenceEqualityComparer.Instance);
             }
 
             public void Declare(ILocalSymbol local, bool isUsing)

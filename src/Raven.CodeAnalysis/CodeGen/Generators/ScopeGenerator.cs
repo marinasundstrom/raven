@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 class Scope : Generator
 {
-    private readonly IDictionary<ISymbol, IILocal> _localBuilders = new Dictionary<ISymbol, IILocal>(SymbolEqualityComparer.Default);
+    private readonly IDictionary<ILocalSymbol, IILocal> _localBuilders = new Dictionary<ILocalSymbol, IILocal>(ReferenceEqualityComparer.Instance);
     private readonly ImmutableArray<ILocalSymbol> _localsToDispose;
     private bool _hasBreakLabel;
     private ILLabel _breakLabel;

@@ -29,7 +29,7 @@ if [ "${#RAVEN_CORE_SOURCES[@]}" -eq 0 ]; then
   echo "No Raven.Core sources found under src/Raven.Core"
   exit 1
 fi
-dotnet run --project "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" --no-restore -p:UseRavenCoreReference=false \
+dotnet run -f net9.0 --project "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" --no-restore -p:UseRavenCoreReference=false \
   -- --emit-core-types-only --framework net9.0 --output-type classlib \
   -o "$RAVEN_CORE_OUT" "${RAVEN_CORE_SOURCES[@]}"
 
