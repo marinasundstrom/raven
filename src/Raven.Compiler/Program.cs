@@ -355,7 +355,7 @@ if (printParseSequence)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/testo{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/linq-narrowing{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)

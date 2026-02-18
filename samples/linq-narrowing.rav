@@ -10,19 +10,27 @@ val cond = true
 // so they can converge both when assigned to inferred or explicitly typed targets.
 // Perform joining based on the types.
 // And for "arr.FirstOrError(() => DomainError.NotFound)" to alone render "Result<int, NotFound>" is not wrong, but misleading.
-// We need consistency.
+// We need consistency - so perhaps we should treat case types as implicitly their union type when created.
 
-val x: Result<int, DomainError> =
+val x =
     if cond
-        arr.FirstOrError(() => DomainError.NotFound)
+        arr.FirstOrError(() => DomainError.NotFound())
     else
         arr.FirstOrError(() => DomainError.Unexpected(Exception()))
 
 WriteLine(x)
 
-// We should perhaps expose a safe common members even on a type union, since we know the common nominal types.
+/*
+val x2: Result<int, DomainError> =
+    if cond
+        arr.FirstOrError(() => .NotFound)
+    else
+        arr.FirstOrError(() => .Unexpected(Exception()))
 
-WriteLine(x.GetType())
+WriteLine(x2)
+*/
+
+//WriteLine(x.GetType())
 
 union DomainError {
     NotFound
