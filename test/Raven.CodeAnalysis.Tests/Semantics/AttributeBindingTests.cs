@@ -239,4 +239,28 @@ class C { }
         Assert.Equal("Attribute 'ObsoleteAttribute' is not valid on target 'return value'. Valid targets are 'class'", diagnostic.GetMessage());
         Assert.Empty(type.GetAttributes());
     }
+
+    [Fact]
+    public void MissingAttributeImport_ReportsNameDiagnostics_InsteadOfCrashing()
+    {
+        const string source = """
+import System.*
+import System.Text.Json.*
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName: "type")]
+class Expr { }
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        var unresolvedAttributeDiagnostics = diagnostics
+            .Where(static d =>
+                d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext &&
+                d.GetMessage().Contains("Json", System.StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(unresolvedAttributeDiagnostics);
+        Assert.All(unresolvedAttributeDiagnostics, static d => Assert.True(d.Location.IsInSource));
+    }
 }

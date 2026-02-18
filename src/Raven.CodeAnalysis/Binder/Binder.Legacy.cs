@@ -183,7 +183,7 @@ internal abstract partial class Binder
 
             if (symbol is null)
             {
-                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(generic.Identifier.ValueText, generic.GetLocation());
+                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(generic.Identifier.ValueText, generic.GetLocation() ?? Location.None);
                 return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
             }
 
@@ -215,7 +215,7 @@ internal abstract partial class Binder
             _ => typeSyntax.ToString()
         };
 
-        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, typeSyntax.GetLocation());
+        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, typeSyntax.GetLocation() ?? Location.None);
         return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
     }
 

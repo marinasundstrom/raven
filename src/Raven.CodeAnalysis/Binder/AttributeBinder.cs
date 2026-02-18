@@ -143,28 +143,21 @@ internal sealed class AttributeBinder : BlockBinder
 
     private INamedTypeSymbol? BindAttributeType(TypeSyntax attributeName)
     {
-        if (TryBindAttributeTypeCore(attributeName, allowLegacyFallback: false, out var resolved))
+        if (TryBindAttributeTypeCore(attributeName, allowLegacyFallback: false, reportLegacyDiagnostics: false, out var resolved))
             return resolved;
 
         if (!HasAttributeSuffix(attributeName))
         {
             var suffixed = TryAppendAttributeSuffix(attributeName);
-            if (suffixed is not null && TryBindAttributeTypeCore(suffixed, allowLegacyFallback: false, out resolved))
+            if (suffixed is not null && TryBindAttributeTypeCore(suffixed, allowLegacyFallback: false, reportLegacyDiagnostics: false, out resolved))
                 return resolved;
         }
 
         // Compatibility pass during migration:
         // keep legacy ResolveType-style reporting/fallback behavior when the unified
         // BindTypeSyntax flow cannot resolve the attribute type.
-        if (TryBindAttributeTypeCore(attributeName, allowLegacyFallback: true, out resolved))
+        if (TryBindAttributeTypeCore(attributeName, allowLegacyFallback: true, reportLegacyDiagnostics: true, out resolved))
             return resolved;
-
-        if (!HasAttributeSuffix(attributeName))
-        {
-            var suffixed = TryAppendAttributeSuffix(attributeName);
-            if (suffixed is not null && TryBindAttributeTypeCore(suffixed, allowLegacyFallback: true, out resolved))
-                return resolved;
-        }
 
         return TryResolveAttributeTypeFallback(attributeName);
     }
@@ -172,16 +165,32 @@ internal sealed class AttributeBinder : BlockBinder
     private bool TryBindAttributeTypeCore(
         TypeSyntax attributeName,
         bool allowLegacyFallback,
+        bool reportLegacyDiagnostics,
         out INamedTypeSymbol? resolved)
     {
         if (TryBindNamedTypeFromTypeSyntax(attributeName, out resolved, reportDiagnostics: false))
             return true;
 
-        if (allowLegacyFallback && TryResolveNamedTypeFromTypeSyntax(attributeName, out var legacyResolved) &&
-            legacyResolved is not null && legacyResolved.TypeKind != TypeKind.Error)
+        if (allowLegacyFallback)
         {
-            resolved = legacyResolved;
-            return true;
+            bool resolvedViaLegacy;
+            INamedTypeSymbol? legacyResolved;
+
+            if (reportLegacyDiagnostics)
+            {
+                resolvedViaLegacy = TryResolveNamedTypeFromTypeSyntax(attributeName, out legacyResolved);
+            }
+            else
+            {
+                using (_diagnostics.CreateNonReportingScope())
+                    resolvedViaLegacy = TryResolveNamedTypeFromTypeSyntax(attributeName, out legacyResolved);
+            }
+
+            if (resolvedViaLegacy && legacyResolved is not null && legacyResolved.TypeKind != TypeKind.Error)
+            {
+                resolved = legacyResolved;
+                return true;
+            }
         }
 
         resolved = null;
