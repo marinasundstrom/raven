@@ -29,7 +29,8 @@ union Shape {
                     .WithSpan(4, 9, 4, 24)
                     .WithArguments("Shape")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: ["RAV1014"],
+            enableSuggestions: true);
 
         verifier.Verify();
     }
@@ -53,7 +54,8 @@ union Shape {
         var verifier = CreateAnalyzerVerifier<PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: ["RAV1014"],
+            enableSuggestions: true);
 
         verifier.Verify();
     }
@@ -80,7 +82,8 @@ union Shape {
                     .WithSpan(2, 20, 2, 35)
                     .WithArguments("Shape")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: ["RAV1014"],
+            enableSuggestions: true);
 
         verifier.Verify();
     }
@@ -117,7 +120,8 @@ union Shape {
                     .WithSpan(8, 5, 8, 20)
                     .WithArguments("Shape")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: ["RAV1014"],
+            enableSuggestions: true);
 
         verifier.Verify();
     }
@@ -143,7 +147,8 @@ public class Foo(b: int) {
         var verifier = CreateAnalyzerVerifier<PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: ["RAV1014"],
+            enableSuggestions: true);
 
         verifier.Verify();
     }

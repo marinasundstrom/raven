@@ -322,7 +322,7 @@ let value = 1
             "Testing",
             DiagnosticSeverity.Warning);
 
-        var properties = EducationalDiagnosticProperties.CreateRewriteSuggestion(
+        var properties = SuggestionsDiagnosticProperties.CreateRewriteSuggestion(
             originalCode: "let value = 1",
             rewrittenCode: "val value = 1");
         var diagnostic = Diagnostic.Create(descriptor, location, DiagnosticSeverity.Warning, properties);

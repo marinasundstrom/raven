@@ -12,7 +12,8 @@ public abstract class CodeFixTestBase
         IEnumerable<DiagnosticResult>? expectedDiagnostics = null,
         IEnumerable<string>? disabledDiagnostics = null,
         IEnumerable<MetadataReference>? additionalReferences = null,
-        int? expectedAppliedFixCount = 1)
+        int? expectedAppliedFixCount = 1,
+        bool enableSuggestions = false)
         where TAnalyzer : DiagnosticAnalyzer, new()
         where TCodeFixProvider : CodeFixProvider, new()
     {
@@ -34,6 +35,7 @@ public abstract class CodeFixTestBase
                 {
                     ReferenceAssemblies = ReferenceAssemblies.Default,
                     AdditionalReferences = additionalReferences?.ToImmutableArray() ?? [],
+                    EnableSuggestions = enableSuggestions,
                 }
             }
         };

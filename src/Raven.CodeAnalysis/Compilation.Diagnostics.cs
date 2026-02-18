@@ -87,6 +87,13 @@ public partial class Compilation
 
     internal Diagnostic? ApplyCompilationOptions(Diagnostic diagnostic, bool reportSuppressedDiagnostics = false)
     {
+        if (!Options.EnableSuggestions &&
+            diagnostic.Properties.ContainsKey(Diagnostics.SuggestionsDiagnosticProperties.OriginalCodeKey) &&
+            diagnostic.Properties.ContainsKey(Diagnostics.SuggestionsDiagnosticProperties.RewrittenCodeKey))
+        {
+            return null;
+        }
+
         if (TryGetReportDiagnostic(diagnostic.Descriptor.Id, out var report))
         {
             if (report == ReportDiagnostic.Suppress)

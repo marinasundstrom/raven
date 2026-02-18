@@ -1,11 +1,12 @@
+using System;
 using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Diagnostics;
 
-public static class EducationalDiagnosticProperties
+public static class SuggestionsDiagnosticProperties
 {
-    public const string OriginalCodeKey = "raven.education.originalCode";
-    public const string RewrittenCodeKey = "raven.education.rewrittenCode";
+    public const string OriginalCodeKey = "raven.suggestion.originalCode";
+    public const string RewrittenCodeKey = "raven.suggestion.rewrittenCode";
 
     public static ImmutableDictionary<string, string?> CreateRewriteSuggestion(string originalCode, string rewrittenCode)
     {
@@ -28,5 +29,11 @@ public static class EducationalDiagnosticProperties
         originalCode = original;
         rewrittenCode = rewritten;
         return true;
+    }
+
+    public static bool IsSuggestionModeEnabled(Compilation compilation)
+    {
+        ArgumentNullException.ThrowIfNull(compilation);
+        return compilation.Options.EnableSuggestions;
     }
 }

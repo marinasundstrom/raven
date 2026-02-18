@@ -28,6 +28,9 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
 
     private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
+        if (!SuggestionsDiagnosticProperties.IsSuggestionModeEnabled(context.Compilation))
+            return;
+
         if (context.Node is not InvocationExpressionSyntax invocation)
             return;
 
@@ -60,7 +63,7 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
             if (!TryCreateSuggestion(argument.Expression, parameter.Type, context.SemanticModel, out var suggestion))
                 continue;
 
-            var properties = EducationalDiagnosticProperties.CreateRewriteSuggestion(
+            var properties = SuggestionsDiagnosticProperties.CreateRewriteSuggestion(
                 suggestion.OriginalExpressionText,
                 suggestion.RewrittenExpressionText);
 
@@ -113,6 +116,9 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
 
     private static void AnalyzeLocalDeclaration(SyntaxNodeAnalysisContext context)
     {
+        if (!SuggestionsDiagnosticProperties.IsSuggestionModeEnabled(context.Compilation))
+            return;
+
         if (context.Node is not LocalDeclarationStatementSyntax localDeclaration)
             return;
 
@@ -128,7 +134,7 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
             if (!TryCreateSuggestion(declarator.Initializer.Value, targetType, context.SemanticModel, out var suggestion))
                 continue;
 
-            var properties = EducationalDiagnosticProperties.CreateRewriteSuggestion(
+            var properties = SuggestionsDiagnosticProperties.CreateRewriteSuggestion(
                 suggestion.OriginalExpressionText,
                 suggestion.RewrittenExpressionText);
 

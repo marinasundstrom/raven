@@ -21,7 +21,7 @@ public sealed class PreferTargetTypedUnionCaseCodeFixProvider : CodeFixProvider
             return;
 
         string? rewritten = null;
-        if (EducationalDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out _, out var rewrittenFromProperties))
+        if (SuggestionsDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out _, out var rewrittenFromProperties))
             rewritten = rewrittenFromProperties;
 
         if (string.IsNullOrWhiteSpace(rewritten))

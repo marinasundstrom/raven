@@ -705,6 +705,7 @@ var executionOptions = new CompilerExecutionOptions(
     allowUnsafe,
     allowGlobalStatements,
     useRuntimeAsync,
+    showSuggestions,
     enableAsyncInvestigation,
     asyncInvestigationLabel,
     asyncInvestigationScope,
@@ -804,6 +805,7 @@ if (projectFileInput is not null)
             .WithEmbedCoreTypes(options.EmbedCoreTypes)
             .WithAllowUnsafe(options.AllowUnsafe)
             .WithAllowGlobalStatements(options.AllowGlobalStatements)
+            .WithEnableSuggestions(options.EnableSuggestions)
             .WithRuntimeAsync(options.UseRuntimeAsync);
     }
 
@@ -826,7 +828,7 @@ if (!string.IsNullOrWhiteSpace(editorConfigAnchorPath))
 }
 
 project = project.WithCompilationOptions(options);
-project = AddDefaultAnalyzers(project);
+project = AddDefaultAnalyzers(project, options.EnableSuggestions);
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -1219,12 +1221,10 @@ else
 
 overloadResolutionLog?.Dispose();
 
-static Project AddDefaultAnalyzers(Project project)
+static Project AddDefaultAnalyzers(Project project, bool enableSuggestions)
 {
-    return project
+    project = project
         .AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer()))
         .AddAnalyzerReference(new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()))
         .AddAnalyzerReference(new AnalyzerReference(new NonNullDeclarationsAnalyzer()))
         .AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnalyzer()))
@@ -1234,6 +1234,13 @@ static Project AddDefaultAnalyzers(Project project)
         .AddAnalyzerReference(new AnalyzerReference(new PreferNewLineBetweenDeclarationsAnalyzer()))
         .AddAnalyzerReference(new AnalyzerReference(new ThrowStatementUseResultAnalyzer()))
         .AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
+
+    if (!enableSuggestions)
+        return project;
+
+    return project
+        .AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer()));
 }
 
 static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog) CreateCompilationOptions(
@@ -1243,7 +1250,8 @@ static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog
         .WithAllowUnsafe(executionOptions.AllowUnsafe)
         .WithAllowGlobalStatements(executionOptions.AllowGlobalStatements)
         .WithRuntimeAsync(executionOptions.UseRuntimeAsync)
-        .WithEmbedCoreTypes(executionOptions.EmbedCoreTypes);
+        .WithEmbedCoreTypes(executionOptions.EmbedCoreTypes)
+        .WithEnableSuggestions(executionOptions.EnableSuggestions);
 
     if (executionOptions.EnableAsyncInvestigation)
     {
@@ -2080,6 +2088,7 @@ readonly record struct CompilerExecutionOptions(
     bool AllowUnsafe,
     bool AllowGlobalStatements,
     bool UseRuntimeAsync,
+    bool EnableSuggestions,
     bool EnableAsyncInvestigation,
     string AsyncInvestigationLabel,
     AsyncInvestigationPointerLabelScope AsyncInvestigationScope,

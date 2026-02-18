@@ -19,6 +19,9 @@ public class AnalyzerVerifier<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer, n
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
+        if (project.CompilationOptions is { } compilationOptions)
+            project = project.WithCompilationOptions(compilationOptions.WithEnableSuggestions(Test.State.EnableSuggestions));
+
         project = project.AddAnalyzerReference(new AnalyzerReference(new TAnalyzer()));
         foreach (var reference in ReferenceAssemblies.Default)
             project = project.AddMetadataReference(reference);

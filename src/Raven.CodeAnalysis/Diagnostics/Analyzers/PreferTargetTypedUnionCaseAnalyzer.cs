@@ -27,13 +27,16 @@ public sealed class PreferTargetTypedUnionCaseAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeLocalDeclaration(SyntaxNodeAnalysisContext context)
     {
+        if (!SuggestionsDiagnosticProperties.IsSuggestionModeEnabled(context.Compilation))
+            return;
+
         if (context.Node is not LocalDeclarationStatementSyntax localDeclaration)
             return;
 
         if (!TryCreateSuggestion(localDeclaration, context.SemanticModel, out var suggestion))
             return;
 
-        var properties = EducationalDiagnosticProperties.CreateRewriteSuggestion(
+        var properties = SuggestionsDiagnosticProperties.CreateRewriteSuggestion(
             suggestion.OriginalStatementText,
             suggestion.RewrittenStatementText);
 

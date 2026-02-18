@@ -37,7 +37,8 @@ union Shape {
         var verifier = CreateCodeFixVerifier<PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer, PreferTargetTypedUnionCaseInTargetTypedContextCodeFixProvider>(
             code,
             fixedCode,
-            [new DiagnosticResult(PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer.DiagnosticId).WithAnySpan()]);
+            [new DiagnosticResult(PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer.DiagnosticId).WithAnySpan()],
+            enableSuggestions: true);
 
         verifier.Verify();
     }

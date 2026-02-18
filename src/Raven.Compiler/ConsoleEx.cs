@@ -156,7 +156,7 @@ static class ConsoleEx
             AnsiConsole.MarkupLine($"{fileDirectory}[bold]{fileName}[/]{fileLocation}: [bold {color}]{diagnostic.Severity.ToString().ToLower()} {descriptor.Id}[/]: {Markup.Escape(diagnostic.GetMessage())}");
 
             if (includeSuggestions &&
-                EducationalDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out var originalCode, out var rewrittenCode))
+                SuggestionsDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out var originalCode, out var rewrittenCode))
             {
                 Console.WriteLine();
                 AnsiConsole.MarkupLine("  [grey]You wrote:[/]");

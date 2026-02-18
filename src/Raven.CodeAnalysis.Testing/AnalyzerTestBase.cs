@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis.Testing;
 
 public abstract class AnalyzerTestBase
 {
-    protected AnalyzerVerifier<TAnalyzer> CreateAnalyzerVerifier<TAnalyzer>(string testCode, IEnumerable<DiagnosticResult>? expectedDiagnostics = null, IEnumerable<string>? disabledDiagnostics = null)
+    protected AnalyzerVerifier<TAnalyzer> CreateAnalyzerVerifier<TAnalyzer>(string testCode, IEnumerable<DiagnosticResult>? expectedDiagnostics = null, IEnumerable<string>? disabledDiagnostics = null, bool enableSuggestions = false)
         where TAnalyzer : DiagnosticAnalyzer, new()
     {
         return new AnalyzerVerifier<TAnalyzer>
@@ -13,7 +13,11 @@ public abstract class AnalyzerTestBase
             {
                 TestCode = testCode,
                 ExpectedDiagnostics = expectedDiagnostics?.ToList() ?? [],
-                DisabledDiagnostics = disabledDiagnostics?.ToList() ?? []
+                DisabledDiagnostics = disabledDiagnostics?.ToList() ?? [],
+                State = new TestState
+                {
+                    EnableSuggestions = enableSuggestions
+                }
             }
         };
     }

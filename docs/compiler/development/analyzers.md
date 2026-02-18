@@ -24,6 +24,9 @@ Raven currently provides analyzers for two different contexts:
 The `Raven.Compiler` CLI uses `RavenWorkspace` to attach analyzers during compilation. Any
 analyzer diagnostics appear alongside regular compilation errors and warnings.
 
+For suggestion payload conventions (`--suggestions`, rewrite property keys, and option
+gating), see `docs/compiler/development/suggestions.md`.
+
 Analyzer severities can be configured through `.editorconfig` using standard keys such as
 `dotnet_diagnostic.<ID>.severity`, `dotnet_diagnostic.*.severity`, and
 `dotnet_analyzer_diagnostic.severity`.

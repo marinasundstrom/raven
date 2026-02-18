@@ -29,7 +29,8 @@ union Option<T> {
                         "Some",
                         "Option<int>")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: ["RAV1014"],
+            enableSuggestions: true);
 
         verifier.Verify();
     }
@@ -58,7 +59,8 @@ union Shape {
                         "Circle",
                         "Shape")
             ],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: ["RAV1014"],
+            enableSuggestions: true);
 
         verifier.Verify();
     }
@@ -80,7 +82,8 @@ union Shape {
         var verifier = CreateAnalyzerVerifier<PreferTargetTypedUnionCaseAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: ["RAV1014"],
+            enableSuggestions: true);
 
         verifier.Verify();
     }
@@ -102,7 +105,8 @@ union Shape {
         var verifier = CreateAnalyzerVerifier<PreferTargetTypedUnionCaseAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1014"]);
+            disabledDiagnostics: ["RAV1014"],
+            enableSuggestions: true);
 
         verifier.Verify();
     }

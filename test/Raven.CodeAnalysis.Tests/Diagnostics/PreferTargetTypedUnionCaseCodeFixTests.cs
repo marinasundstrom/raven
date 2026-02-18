@@ -33,7 +33,8 @@ union Option<T> {
         var verifier = CreateCodeFixVerifier<PreferTargetTypedUnionCaseAnalyzer, PreferTargetTypedUnionCaseCodeFixProvider>(
             code,
             fixedCode,
-            [new DiagnosticResult(PreferTargetTypedUnionCaseAnalyzer.DiagnosticId).WithAnySpan()]);
+            [new DiagnosticResult(PreferTargetTypedUnionCaseAnalyzer.DiagnosticId).WithAnySpan()],
+            enableSuggestions: true);
 
         verifier.Verify();
     }

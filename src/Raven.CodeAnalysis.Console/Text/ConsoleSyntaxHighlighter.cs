@@ -297,7 +297,7 @@ public static class ConsoleSyntaxHighlighter
             }
 
             if (includeSuggestions &&
-                EducationalDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out var originalCode, out var rewrittenCode))
+                SuggestionsDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out var originalCode, out var rewrittenCode))
             {
                 var highlightedOriginal = WriteTextToTextLight(originalCode);
                 var highlightedSuggestion = WriteTextToTextLight(rewrittenCode);
