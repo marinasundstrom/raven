@@ -1,0 +1,30 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+
+val arr = [1, 2, 3]
+
+val cond = true
+
+// We need to infer the union type from the cases, in a way that is pseudo-class hierarchy, 
+// so they can converge both when assigned to inferred or explicitly typed targets.
+// Perform joining based on the types.
+// And for "arr.FirstOrError(() => DomainError.NotFound)" to alone render "Result<int, NotFound>" is not wrong, but misleading.
+// We need consistency.
+
+val x: Result<int, DomainError> =
+    if cond
+        arr.FirstOrError(() => DomainError.NotFound)
+    else
+        arr.FirstOrError(() => DomainError.Unexpected(Exception()))
+
+WriteLine(x)
+
+// We should perhaps expose a safe common members even on a type union, since we know the common nominal types.
+
+WriteLine(x.GetType())
+
+union DomainError {
+    NotFound
+    Unexpected(exception: Exception)
+}
