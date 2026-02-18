@@ -1,0 +1,30 @@
+import System.*
+import System.Console.*
+import System.Text.Json.*
+import System.Text.Json.Serialization.*
+
+val expr: Expr = Add(Lit(40), Sub(Lit(3), Lit(1)))
+
+WriteLine(JsonSerializer.Serialize(expr, JsonSerializerOptions {
+    WriteIndented = true
+}))
+
+Evaluate(expr) |> WriteLine
+
+func Evaluate(expr: Expr) -> int {
+    match expr {
+        Lit(val value) => value
+        Add(val left, val right) => Evaluate(left) + Evaluate(right)
+        Sub(val left, val right) => Evaluate(left) - Evaluate(right)
+    }
+}
+
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName: "\$type")]
+[JsonDerivedType(typeof(Lit), "Lit")]
+[JsonDerivedType(typeof(Add), "Add")]
+[JsonDerivedType(typeof(Sub), "Sub")]
+sealed record Expr
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr
+record Sub(Left: Expr, Right: Expr) : Expr
