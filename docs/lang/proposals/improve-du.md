@@ -13,7 +13,7 @@ This design mirrors established semantics from Rust and F#:
 * Like **Rust**, pattern matching is centered around a finite set of cases; deconstruction patterns match a case name and bind its payload.
 * Like both, the language avoids implicit inference in ambiguous contexts.
 
-The proposal also aligns structurally with the direction of discriminated unions in **C# and .NET**:
+The proposal also aligns structurally with the direction of discriminated unions in **C# and .NET 11**:
 
 * Union cases are represented as distinct shapes.
 * Pattern matching is driven by a finite, known case set.
@@ -54,6 +54,8 @@ bool HasValue;
 
 Helps debugging, defensive checks, and default initialization scenarios.
 
+Might become required by .NET 11.
+
 ---
 
 ### Case access pattern
@@ -70,7 +72,7 @@ Example:
 bool TryGetOk(out Ok<T> value)
 ```
 
-For future C# alignment, Raven may also support:
+For future C# alignment, Raven may switch to:
 
 ```csharp
 bool TryGetValue(out Ok<T> value);
@@ -79,9 +81,34 @@ bool TryGetValue(out Error<E> value);
 
 Overloads resolve by case type because cases are real standalone types.
 
+Conceptually:
+
+```csharp
+[Union]
+public struct Result<T, E> 
+{
+  // Implementation is omitted
+
+  public bool TryGetValue(out Result.Ok<T> value) {}
+  public bool TryGetValue(out Result.Error<E> value) {}
+
+  public record struct Ok<T>(T value) {}
+  public record struct Error<E>(E value) {}
+
+  public static implicit operator Result<T, E>(Result.Ok<T> case) {}
+  public static implicit operator Result<T, E>(Result.Error<T> case) {}
+}
+```
+
+*We already have similar structure in Raven today so we can adapt*
+
 ---
 
 ### Potential common interface
+
+The proposal for .NET 11 adds additional interfaces that may add union semantics to existing objects, such as results in ASP.NET Core.
+
+Example:
 
 ```csharp
 public interface IUnion
