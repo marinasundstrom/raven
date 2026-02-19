@@ -1,19 +1,22 @@
 # Proposal: Improve Implementation of Discriminated Unions and Align with Sealed Hierarchies
 
+**Thesis**  
+This proposal makes union cases first-class independent types while preserving a single carrier representation, enabling consistent construction, pattern matching, higher-order usage, and cross-language interop without relying on nested CLR case types.
+
 ---
 
-## Motivation: Familiar Semantics (Rust + F#) and .NET Compatibility
+## Motivation
 
-This design intentionally mirrors established semantics from Rust and F#:
+This design mirrors established semantics from Rust and F#:
 
 * Like **F#**, case names can be available unqualified when their containing union type is in scope, but ambiguity requires qualification or aliasing.
-* Like **Rust**, pattern matching is centered around a finite set of cases, and deconstruction patterns match a case name and bind its payload.
+* Like **Rust**, pattern matching is centered around a finite set of cases; deconstruction patterns match a case name and bind its payload.
 * Like both, the language avoids implicit inference in ambiguous contexts.
 
-Additionally, this proposal aligns structurally with the direction of discriminated unions in **C# and .NET**:
+The proposal also aligns structurally with the direction of discriminated unions in **C# and .NET**:
 
 * Union cases are represented as distinct shapes.
-* Pattern matching is driven by a finite known case set.
+* Pattern matching is driven by a finite, known case set.
 * Exhaustiveness analysis is integrated.
 * Wrapping semantics are explicit and predictable.
 
@@ -25,26 +28,158 @@ The goal is practical interop:
 
 ---
 
-## 1. Goals
+## Alignment with C# Union Proposals
+
+Raven aims to remain structurally compatible with the evolving C# discriminated union design while preserving Raven’s independent case type model.
+
+The intent is minimal surface alignment so Raven unions:
+
+* feel natural when consumed from C#,
+* can be recognized by future .NET tooling,
+* keep a conventional runtime representation.
+
+### Attribute naming
+
+* Prefer `[Union]` instead of `[DiscriminatedUnion]`.
+* Place the attribute in `System.Runtime.CompilerServices`.
+* **Question:** Can we drop `[DiscriminatedUnionCase]` attribute?
+
+---
+
+### Presence indicator (optional)
+
+```csharp
+bool HasValue;
+```
+
+Helps debugging, defensive checks, and default initialization scenarios.
+
+---
+
+### Case access pattern
+
+Raven already supports the generic shape:
+
+```csharp
+bool TryGet[CaseType](out CaseType value)
+```
+
+Example:
+
+```csharp
+bool TryGetOk(out Ok<T> value)
+```
+
+For future C# alignment, Raven may also support:
+
+```csharp
+bool TryGetValue(out Ok<T> value);
+bool TryGetValue(out Error<E> value);
+```
+
+Overloads resolve by case type because cases are real standalone types.
+
+---
+
+### Potential common interface
+
+```csharp
+public interface IUnion
+{
+    object? Value { get; }
+}
+```
+
+Optional. Enables reflection, tooling, serialization.
+
+Decision deferred until the C# proposal stabilizes.
+
+---
+
+### Design constraint
+
+Compatibility must not require nested CLR case types.
+
+Raven instead uses:
+
+* discriminator metadata
+* independent case types
+* carrier conversion
+
+This keeps alignment without coupling to a specific C# implementation.
+
+---
+
+## 1. Design Objectives
+
+### 1.1 Impact of the change
+
+Primary impact is **binding + code generation**:
+
+* Case resolution from the union case set
+* Case → union conversion completion
+* Carrier-only propagation (`?`) and conditional access (`?.`)
+
+User-facing impact is minimal:
+
+* Member syntax remains
+* Tests largely unchanged
+* Case types rarely used directly today
+
+---
+
+### Objectives
 
 1. Make union case types independent and importable.
-2. Support partial generic case types (e.g. `Ok<T>`, `Error<E>` for `Result<T,E>`).
-3. Preserve a single efficient union wrapper type.
-4. Remove dependency on nested CLR case types and member-binding semantics.
-5. Align pattern matching behavior between:
+2. Support partial generic case types.
+3. Preserve a single efficient carrier type.
+4. Remove dependency on nested CLR case types.
+5. Align pattern matching with sealed hierarchies.
+6. Keep ergonomic member syntax as sugar.
+7. Align scoping with F# rules.
+8. Preserve propagation semantics.
+9. Maintain .NET compatibility.
 
-   * Discriminated unions
-   * Sealed hierarchies
-6. Keep ergonomic syntax (`Result.Ok`, `.Ok`) as sugar only.
-7. Align scoping with F# rules: unqualified names must be unique; otherwise qualify or alias.
-8. Ensure propagation (`?`) and carrier conditional access (`?.`) remain coherent.
-9. Maintain compatibility with .NET metadata and C# consumption patterns.
+---
+
+### 1.2 Practical Example: Higher-Order APIs
+
+Independent case types enable natural lambda usage:
+
+```raven
+val result: Result<int, DomainError> =
+    if cond
+        arr.FirstOrError(() => Result.NotFound)
+    else
+        arr.FirstOrError(() => Result.Unexpected(Exception()))
+```
+
+And:
+
+```raven
+val result: Result<int, DomainError> =
+    if cond
+        arr.FirstOrError(() => NotFound)
+    else
+        arr.FirstOrError(() => Unexpected(Exception()))
+```
+
+Because:
+
+* Case types are real values
+* Target typing completes generics
+* Conversion remains explicit
+
+This improves:
+
+* collection helpers
+* async pipelines
+* validation DSLs
+* functional composition
 
 ---
 
 ## 2. Current Symbol Contracts
-
-As implemented today:
 
 ```csharp
 public interface IDiscriminatedUnionSymbol : INamedTypeSymbol
@@ -66,236 +201,158 @@ public interface IDiscriminatedUnionCaseSymbol : INamedTypeSymbol
 }
 ```
 
-These contracts remain valid.
+Contracts remain valid.
 
-What changes is primarily:
+What changes:
 
-* how case types are emitted (no longer nested CLR types),
-* how lookup works (case lookup from the union symbol),
-* and how conversions/patterns behave with partial generic case types.
+* emission
+* lookup
+* conversion behavior
 
 ---
 
 ## 3. Revised Symbol Model
 
-### 3.1 `IDiscriminatedUnionSymbol`
+Cases become standalone types linked to a carrier.
 
-Represents the union wrapper type.
+Enables:
 
-Still provides:
-
-* `Cases`
-* `DiscriminatorField`
-* `PayloadField`
-
-No public contract changes are required.
+* imports
+* aliases
+* construction
+* pattern matching
+* higher-order usage
 
 ---
 
-### 3.2 `IDiscriminatedUnionCaseSymbol` (Updated Semantics)
+## 4. Case Types
 
-A case symbol represents a **standalone case type**:
-
-* cases are independent named types (not nested CLR types),
-* cases may have **partial generic parameter lists** relative to the union,
-* cases remain linked to the union via `Union`,
-* constructor shape is exposed via `ConstructorParameters`,
-* `Ordinal` defines the tag order.
-
-This enables:
-
-* importing case types into scope,
-* constructing case values directly,
-* converting them into union values in typed contexts,
-* matching cases consistently in patterns.
-
----
-
-## 4. Case Types (Independent)
-
-Cases are modeled/emitted as independent generic types (not nested CLR types):
+Emitted as independent generic types:
 
 * `Ok<T>`
 * `Error<E>`
 
-They can be imported and used directly as normal types.
+Removes:
 
-This removes:
-
-* outer generic capture,
-* constructed outer type dependency,
-* mobility limitations in symbols and binding.
+* outer generic capture
+* nested coupling
+* mobility limitations
 
 ---
 
 ## 5. Construction and Conversion
 
-### 5.1 Case Construction
+Case construction produces a case value.
 
-```raven
-val x: Ok<int> = Ok(3)
-```
+Conversion to union completes generics using target type.
 
-Produces a value of type `Ok<int>` (no union wrapping).
+Keeps:
 
----
-
-### 5.2 Conversion to Union (Completion)
-
-Wrapping occurs via conversion when a union target type is available:
-
-```raven
-val r: Result<int, CustomError> = Ok(3)
-```
-
-Conceptual rule:
-
-* A case value can be converted to its containing union type when the target union type supplies the full union generic arguments.
-* Any union type arguments not present on the case type are taken from the target union type.
-
-If no union target exists:
-
-```raven
-val r = Ok(3) // error
-```
-
-Diagnostic:
-
-> Cannot determine missing union type arguments. Provide a target union type.
+* explicit semantics
+* ergonomic syntax
+* predictable inference
 
 ---
 
-## 6. Member-Binding Syntax (Sugar Only)
+## 6. Member Syntax (Sugar)
 
-Preserve:
+Member access resolves via case lookup.
 
-```raven
-Result.Ok(3)
-.Ok(3)
-```
+`.Ok` remains shorthand.
 
-Semantics:
-
-* `Result.Ok` resolves by case lookup in `IDiscriminatedUnionSymbol.Cases`.
-* It yields the associated case type symbol (`Ok<T>`), not a nested type.
-* `.Ok` resolves using target-type-driven case lookup.
-
-This keeps ergonomics while decoupling from CLR nesting.
+No runtime nesting required.
 
 ---
 
-## 7. Scoping, Imports, and Aliases (F#-style)
+## 7. Scoping and Injection
 
-### 7.1 Automatic Case Injection
+F#-style case injection.
 
-Case names may be automatically added as eligible unqualified candidates when their containing union type is in scope (F#-like “opened cases”).
+Unqualified when unique.
 
-This also matches expectations from sealed hierarchies where types live next to each other.
-
----
-
-### 7.2 Ambiguity Rule (Hard Requirement)
-
-An unqualified case type name (e.g. `Ok`) is valid only if it resolves to exactly one candidate.
-
-If multiple candidates exist:
-
-* report ambiguity,
-* require qualification or aliasing.
-
-Example:
-
-```raven
-Ok(3) // error if multiple Ok cases are in scope
-```
-
-Fix:
-
-```raven
-Result.Ok(3)
-OtherResult.Ok(3)
-```
+Aliases bind directly to case types.
 
 ---
 
-### 7.3 Aliases bind to type symbols
+## 8. Pattern Matching Alignment
 
-Alias binds to a type symbol, not an expression:
+Already working:
 
-```raven
-alias ResultOk = Result.Ok
-```
+* match expressions
+* match statements
+* member-style case patterns
+* exhaustiveness
 
-* RHS is resolved as a type path.
-* `Result.Ok` uses union case lookup and binds to the case type symbol `Ok<T>`.
+Currently limited:
 
-Alias can be used:
+* type patterns over case types
+* standalone deconstruction patterns
 
-```raven
-val r: Result<int, CustomError> = ResultOk(3)
-val x: ResultOk<int> = ResultOk(3)
-```
+Proposal removes those limitations.
 
----
-
-## 8. Pattern Matching Alignment (Conceptual)
-
-Pattern matching for discriminated unions and sealed hierarchies should follow the same conceptual rules:
-
-* The scrutinee type provides a finite, compiler-known set of cases (union cases, or sealed derived types).
-* A deconstruction pattern head (e.g. `Ok(...)`, `Dog(...)`) resolves against that finite set for the scrutinee type.
-* If the head name matches a known case of the scrutinee type:
-
-  * the pattern tests whether the scrutinee is that case,
-  * and binds the payload to the inner subpatterns.
-* Exhaustiveness analysis is performed over that finite set:
-
-  * missing cases are reported,
-  * redundant wildcard arms can be reported as unreachable.
-
-Raven calls these **deconstruction patterns**:
-
-```raven
-match r {
-  Ok(val x) => ...
-  Error(val e) => ...
-}
-```
-
-Import/type scope does not affect what `Ok(...)` means inside a match on a union/sealed scrutinee; it is resolved using the scrutinee’s known cases.
+Scrutinee-driven resolution remains unchanged.
 
 ---
 
 ## 9. Affected Features
 
-### 9.1 Propagation Pattern (`<expr>?`)
+Propagation and conditional access remain carrier-only.
 
-Applies only to carrier types (e.g. `Result<T,E>` / `IDiscriminatedUnionSymbol`), not case types.
-
-### 9.2 Carrier Conditional Access (`<expr>?.<access>`)
-
-Applies only to carrier types, not case types.
-
-This preserves clarity and avoids semantic ambiguity.
+Avoids ambiguity.
 
 ---
 
-## 10. Implementation Steps
+## 10. Debugging and ToString
 
-1. Refactor DU implementation so `IDiscriminatedUnionCaseSymbol` represents independent case types (not nested CLR types).
-2. Emit case types as independent partial generic types (`Ok<T>`, `Error<E>`).
-3. Implement conversion completion for case → union based on the target union type.
-4. Update member-access binding to use case lookup (`IDiscriminatedUnionSymbol.Cases`) for `Result.Ok` and target-typed `.Ok`.
-5. Implement F#-style scoping:
+Carrier owns formatting.
 
-   * optional automatic case injection,
-   * strict ambiguity diagnostics,
-   * qualification and aliases.
-6. Align pattern binding rules for unions and sealed hierarchies as described (scrutinee-driven case resolution, deconstruction payload binding).
-7. Align exhaustiveness analysis for unions and sealed hierarchies over the finite known set of cases.
-8. Update `?` and `?.` binding rules to require carrier types.
-9. Add comprehensive tests.
-10. Update documentation.
-11. Validate cross-language consumption scenarios with C# unions.
+Uses:
+
+```
+Ordinal → CaseName
+```
+
+Stable with independent case types.
 
 ---
+
+## 11. Implementation Steps
+
+1. Refactor emission
+2. Emit independent case types
+3. Implement conversion completion
+4. Update binding
+5. Implement F# scoping
+6. Verify pattern matching
+7. Verify exhaustiveness
+8. Update propagation rules
+9. Tests
+10. Docs
+11. Cross-language validation
+
+---
+
+## Other Considerations
+
+### Unit payload elision
+
+Becomes payload-shape based, not syntax based.
+
+`Ok` ≡ `Ok(())`
+
+Applies everywhere:
+
+* standalone
+* aliases
+* lambdas
+* patterns
+
+---
+
+### Access to common members
+
+Union carriers remain normal .NET types.
+
+Object members and extension methods must remain accessible.
+
+The proposal must not interfere with standard member resolution.
