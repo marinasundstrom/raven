@@ -217,7 +217,7 @@
     Title="Cannot instantiate abstract type"
     Message="Type '{typeName}' is abstract and cannot be instantiated"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0308" Identifier="VirtualMemberInSealedType"
+  <Descriptor Id="RAV0308" Identifier="VirtualMemberInClosedType"
     Title="Virtual member in closed type"
     Message="Member '{memberName}' cannot be virtual because the containing type '{typeName}' is not open"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

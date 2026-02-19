@@ -528,7 +528,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (isVirtual && !isOverride && _containingType.IsClosed)
         {
-            _diagnostics.ReportVirtualMemberInSealedType(name, _containingType.Name, identifierToken.GetLocation());
+            _diagnostics.ReportVirtualMemberInClosedType(name, _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
         }
 
@@ -1793,7 +1793,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (isVirtual && !isOverride && _containingType.IsClosed)
         {
-            _diagnostics.ReportVirtualMemberInSealedType(eventName, _containingType.Name, identifierToken.GetLocation());
+            _diagnostics.ReportVirtualMemberInClosedType(eventName, _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
         }
 
@@ -2346,7 +2346,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (isVirtual && !isOverride && _containingType.IsClosed)
         {
-            _diagnostics.ReportVirtualMemberInSealedType("Item", _containingType.Name, identifierToken.GetLocation());
+            _diagnostics.ReportVirtualMemberInClosedType("Item", _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
         }
 

@@ -22,7 +22,7 @@ class C {
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
         var diagnostics = compilation.GetDiagnostics();
         var diagnostic = Assert.Single(diagnostics);
-        Assert.Equal(CompilerDiagnostics.VirtualMemberInSealedType.Id, diagnostic.Descriptor.Id);
+        Assert.Equal(CompilerDiagnostics.VirtualMemberInClosedType.Id, diagnostic.Descriptor.Id);
     }
 
     [Fact]

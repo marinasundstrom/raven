@@ -157,7 +157,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (isVirtual && !isOverride && _containingType.IsClosed)
         {
-            _diagnostics.ReportVirtualMemberInSealedType(propertyName, _containingType.Name, identifierToken.GetLocation());
+            _diagnostics.ReportVirtualMemberInClosedType(propertyName, _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
         }
 
