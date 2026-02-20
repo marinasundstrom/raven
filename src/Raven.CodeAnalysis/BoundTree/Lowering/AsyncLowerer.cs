@@ -88,13 +88,18 @@ internal static class AsyncLowerer
         if (body is null)
             throw new ArgumentNullException(nameof(body));
 
+        // This rewrite is only valid for truly awaitless async lambdas.
+        // If await is present, runtime-async expects value returns directly.
+        if (ContainsAwait(body))
+            return body;
+
         var compilation = GetCompilation(lambda);
 
         if (!TryGetAsyncReturnInfo(compilation, lambda.ReturnType, out var returnInfo))
             return body;
 
         var rewriter = new AwaitlessAsyncRewriter(compilation, returnInfo);
-        return rewriter.RewriteExpression(body);
+        return rewriter.RewriteLambdaBody(body);
     }
 
     public static BoundBlockStatement Rewrite(SourceMethodSymbol method, BoundBlockStatement body)
@@ -3830,6 +3835,19 @@ internal static class AsyncLowerer
         public BoundExpression RewriteExpression(BoundExpression body)
         {
             var rewritten = (BoundExpression)VisitExpression(body)!;
+            return RewriteReturnExpression(rewritten);
+        }
+
+        public BoundExpression RewriteLambdaBody(BoundExpression body)
+        {
+            var rewritten = (BoundExpression)VisitExpression(body)!;
+
+            // Block-bodied lambdas already have rewritten return statements.
+            // Re-wrapping the entire block as a return value introduces an
+            // invalid fallback return path for Task<T> lambdas.
+            if (rewritten is BoundBlockExpression)
+                return rewritten;
+
             return RewriteReturnExpression(rewritten);
         }
 

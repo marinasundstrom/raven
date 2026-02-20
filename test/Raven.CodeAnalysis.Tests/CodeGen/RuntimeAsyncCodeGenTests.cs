@@ -209,6 +209,65 @@ class Program {
 
     }
 
+    [Fact]
+    public void RuntimeAsyncEnabled_BlockBodiedAsyncLambda_ReturnsExpectedTaskResult()
+    {
+        const string code = """
+import System.Threading.Tasks.*
+
+class Program {
+    public async Compute() -> Task<string> {
+        val run = async () => {
+            await Task.Delay(1)
+            return "ok"
+        }
+
+        return await run()
+    }
+}
+""";
+
+        using var loaded = EmitAssembly(code, useRuntimeAsync: true);
+
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var methodFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        var computeMethod = programType.GetMethod("Compute", methodFlags)!;
+        var computeCalls = ILReader.GetCalledMembers(computeMethod);
+        Assert.DoesNotContain(
+            computeCalls,
+            static member => member.Contains("System.Threading.Tasks.Task::FromResult", StringComparison.Ordinal));
+
+        var lambdaMethod = Array.Find(
+            programType.GetMethods(methodFlags),
+            static method => method.Name.Contains("<lambda_", StringComparison.Ordinal));
+        Assert.NotNull(lambdaMethod);
+
+        var lambdaCalls = ILReader.GetCalledMembers(lambdaMethod!);
+        var runtimeHasAsyncHelpers = typeof(System.Runtime.CompilerServices.AsyncTaskMethodBuilder)
+            .Assembly
+            .GetType("System.Runtime.CompilerServices.AsyncHelpers", throwOnError: false) is not null;
+
+        if (runtimeHasAsyncHelpers)
+        {
+            Assert.Contains(
+                lambdaCalls,
+                static member => member.Contains("System.Runtime.CompilerServices.AsyncHelpers::Await", StringComparison.Ordinal));
+        }
+        else
+        {
+            Assert.Contains(
+                lambdaCalls,
+                static member => member.EndsWith("::GetAwaiter", StringComparison.Ordinal));
+            Assert.Contains(
+                lambdaCalls,
+                static member => member.EndsWith("::GetResult", StringComparison.Ordinal));
+        }
+
+        Assert.DoesNotContain(
+            lambdaCalls,
+            static member => member.Contains("System.Threading.Tasks.Task::FromResult", StringComparison.Ordinal));
+    }
+
     private static TestAssemblyLoader.LoadedAssembly EmitAssembly(string code, bool useRuntimeAsync)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
