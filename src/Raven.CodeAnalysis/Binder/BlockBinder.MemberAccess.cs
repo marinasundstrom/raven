@@ -727,9 +727,171 @@ partial class BlockBinder
                 AsSymbolCandidates(resolution.AmbiguousCandidates));
         }
 
+        if (TryInferConstructedTypeForConstructor(typeSymbol, boundArguments, out var inferredType) &&
+            !SymbolEqualityComparer.Default.Equals(inferredType, typeSymbol))
+        {
+            return BindConstructorInvocation(inferredType, boundArguments, callSyntax, receiverSyntax, receiver);
+        }
+
         ReportSuppressedLambdaDiagnostics(boundArguments);
         _diagnostics.ReportNoOverloadForMethod("constructor for type", typeSymbol.Name, boundArguments.Length, callSyntax.GetLocation());
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+    }
+
+    private bool TryInferConstructedTypeForConstructor(
+        INamedTypeSymbol typeSymbol,
+        BoundArgument[] boundArguments,
+        out INamedTypeSymbol inferredType)
+    {
+        inferredType = typeSymbol;
+
+        if (!typeSymbol.IsGenericType || typeSymbol.TypeParameters.IsDefaultOrEmpty)
+            return false;
+
+        var originalTypeArguments = typeSymbol.TypeArguments;
+        if (originalTypeArguments.IsDefaultOrEmpty)
+            return false;
+
+        var typeParameters = typeSymbol.TypeParameters;
+        var candidates = typeSymbol.Constructors;
+        if (candidates.IsDefaultOrEmpty)
+            return false;
+
+        foreach (var constructor in candidates)
+        {
+            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            if (!TryInferConstructorTypeArguments(typeParameters, constructor, boundArguments, substitutions))
+                continue;
+
+            if (substitutions.Count == 0)
+                continue;
+
+            var changed = false;
+            var projected = new ITypeSymbol[typeParameters.Length];
+
+            for (var i = 0; i < typeParameters.Length; i++)
+            {
+                var parameter = typeParameters[i];
+                var current = originalTypeArguments[i];
+
+                if (substitutions.TryGetValue(parameter, out var replacement))
+                {
+                    projected[i] = replacement;
+                    if (!SymbolEqualityComparer.Default.Equals(current, replacement))
+                        changed = true;
+                }
+                else
+                {
+                    projected[i] = current;
+                }
+            }
+
+            if (!changed)
+                continue;
+
+            inferredType = (INamedTypeSymbol)typeSymbol.Construct(projected);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryInferConstructorTypeArguments(
+        ImmutableArray<ITypeParameterSymbol> typeParameters,
+        IMethodSymbol constructor,
+        BoundArgument[] boundArguments,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        if (boundArguments.Length == 0)
+            return false;
+
+        var parameters = constructor.Parameters;
+        if (parameters.IsDefaultOrEmpty)
+            return false;
+
+        for (var argumentIndex = 0; argumentIndex < boundArguments.Length; argumentIndex++)
+        {
+            var argument = boundArguments[argumentIndex];
+            var argumentType = argument.Expression.Type?.UnwrapLiteralType() ?? argument.Expression.Type;
+            if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
+                continue;
+
+            IParameterSymbol? parameter = null;
+            if (!string.IsNullOrEmpty(argument.Name))
+                parameter = parameters.FirstOrDefault(p => string.Equals(p.Name, argument.Name, StringComparison.Ordinal));
+            else if (argumentIndex < parameters.Length)
+                parameter = parameters[argumentIndex];
+
+            if (parameter is null)
+                return false;
+
+            if (!TryUnifyConstructorParameterType(typeParameters, parameter.Type, argumentType, substitutions))
+                return false;
+        }
+
+        return substitutions.Count > 0;
+    }
+
+    private bool TryUnifyConstructorParameterType(
+        ImmutableArray<ITypeParameterSymbol> typeParameters,
+        ITypeSymbol parameterType,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        parameterType = parameterType.UnwrapLiteralType() ?? parameterType;
+        argumentType = argumentType.UnwrapLiteralType() ?? argumentType;
+
+        if (parameterType is ITypeParameterSymbol typeParameter &&
+            typeParameters.Any(tp => SymbolEqualityComparer.Default.Equals(tp, typeParameter)))
+        {
+            if (substitutions.TryGetValue(typeParameter, out var existing))
+                return SymbolEqualityComparer.Default.Equals(existing, argumentType);
+
+            substitutions[typeParameter] = argumentType;
+            return true;
+        }
+
+        if (parameterType is NullableTypeSymbol parameterNullable)
+        {
+            if (argumentType is NullableTypeSymbol argumentNullable)
+                return TryUnifyConstructorParameterType(typeParameters, parameterNullable.UnderlyingType, argumentNullable.UnderlyingType, substitutions);
+
+            return TryUnifyConstructorParameterType(typeParameters, parameterNullable.UnderlyingType, argumentType, substitutions);
+        }
+
+        if (parameterType is RefTypeSymbol parameterRef && argumentType is RefTypeSymbol argumentRef)
+            return TryUnifyConstructorParameterType(typeParameters, parameterRef.ElementType, argumentRef.ElementType, substitutions);
+
+        if (parameterType is IAddressTypeSymbol parameterAddress && argumentType is IAddressTypeSymbol argumentAddress)
+            return TryUnifyConstructorParameterType(typeParameters, parameterAddress.ReferencedType, argumentAddress.ReferencedType, substitutions);
+
+        if (parameterType is IArrayTypeSymbol parameterArray && argumentType is IArrayTypeSymbol argumentArray)
+            return TryUnifyConstructorParameterType(typeParameters, parameterArray.ElementType, argumentArray.ElementType, substitutions);
+
+        if (parameterType is INamedTypeSymbol parameterNamed && argumentType is INamedTypeSymbol argumentNamed)
+        {
+            var parameterDefinition = parameterNamed.OriginalDefinition ?? parameterNamed;
+            var argumentDefinition = argumentNamed.OriginalDefinition ?? argumentNamed;
+
+            if (!SymbolEqualityComparer.Default.Equals(parameterDefinition, argumentDefinition))
+                return true;
+
+            var parameterArguments = parameterNamed.TypeArguments;
+            var argumentArguments = argumentNamed.TypeArguments;
+
+            if (parameterArguments.IsDefaultOrEmpty || argumentArguments.IsDefaultOrEmpty || parameterArguments.Length != argumentArguments.Length)
+                return true;
+
+            for (var i = 0; i < parameterArguments.Length; i++)
+            {
+                if (!TryUnifyConstructorParameterType(typeParameters, parameterArguments[i], argumentArguments[i], substitutions))
+                    return false;
+            }
+
+            return true;
+        }
+
+        return true;
     }
 
     private void ValidateRequiredMembers(
@@ -1101,20 +1263,20 @@ partial class BlockBinder
             {
                 // Receiver is Result<T,E>
                 var receiverNamed = (INamedTypeSymbol)carrierReceiver.Type!;
-                resTryOk = FindSingleOutBoolMethod(receiverNamed, "TryGetOk");
-                resTryErr = FindSingleOutBoolMethod(receiverNamed, "TryGetError");
 
                 // Receiver Result<TPayload, E> cases
-                recvOk = FindNestedCase(receiverNamed, "Ok");
-                recvErr = FindNestedCase(receiverNamed, "Error");
+                recvOk = FindUnionCase(receiverNamed, "Ok");
+                recvErr = FindUnionCase(receiverNamed, "Error");
+                resTryOk = FindTryGetValueMethod(receiverNamed, recvOk);
+                resTryErr = FindTryGetValueMethod(receiverNamed, recvErr);
                 recvOkValue = recvOk is not null ? FindPropertyGetter(recvOk, "Value") : null;
                 recvErrData = recvErr is not null
                     ? (FindPropertyGetter(recvErr, "Data") ?? FindPropertyGetter(recvErr, "Value"))
                     : null;
 
                 // Result<U,E> cases (carrier)
-                resOk = FindNestedCase(carrierTypeSymbol, "Ok");
-                resErr = FindNestedCase(carrierTypeSymbol, "Error");
+                resOk = FindUnionCase(carrierTypeSymbol, "Ok");
+                resErr = FindUnionCase(carrierTypeSymbol, "Error");
 
                 if (resOk is not null)
                 {
@@ -1133,12 +1295,9 @@ partial class BlockBinder
             else if (kind == BoundCarrierKind.Option)
             {
                 var receiverNamed = (INamedTypeSymbol)carrierReceiver.Type!;
-                optTrySome = FindSingleOutBoolMethod(receiverNamed, "TryGetSome")
-                    ?? FindSingleOutBoolMethod(receiverNamed, "TryGetValue")
-                    ?? FindSingleOutBoolMethod(receiverNamed, "TryGet");
-
-                optSome = FindNestedCase(carrierTypeSymbol, "Some");
-                optNone = FindNestedCase(carrierTypeSymbol, "None");
+                optSome = FindUnionCase(carrierTypeSymbol, "Some");
+                optNone = FindUnionCase(carrierTypeSymbol, "None");
+                optTrySome = FindTryGetValueMethod(receiverNamed, optSome);
 
                 if (optSome is not null)
                 {
@@ -1171,8 +1330,8 @@ partial class BlockBinder
 
             resultOkCaseType: resOk,
             resultErrorCaseType: resErr,
-            resultTryGetOkMethod: resTryOk,
-            resultTryGetErrorMethod: resTryErr,
+            resultTryGetValueForOkCaseMethod: resTryOk,
+            resultTryGetValueForErrorCaseMethod: resTryErr,
             resultOkValueGetter: resOkValue,
             resultErrorDataGetter: resErrData,
             resultOkCtor: resOkCtor,
@@ -1182,7 +1341,7 @@ partial class BlockBinder
 
             optionSomeCaseType: optSome,
             optionNoneCaseType: optNone,
-            optionTryGetSomeMethod: optTrySome,
+            optionTryGetValueMethod: optTrySome,
             optionSomeValueGetter: optSomeValue,
             optionSomeCtor: optSomeCtor,
             optionNoneCtorOrFactory: optNoneCtor,
@@ -1265,25 +1424,37 @@ partial class BlockBinder
                ReferenceEquals(arrowExpressionClause.Expression, syntax);
     }
 
-    private static INamedTypeSymbol? FindNestedCase(INamedTypeSymbol carrier, string name)
+    private static INamedTypeSymbol? FindUnionCase(INamedTypeSymbol carrier, string name)
     {
-        // Try exact name first, then prefix (e.g. Ok`2)
-        var exact = carrier.GetTypeMembers(name).FirstOrDefault();
-        if (exact is not null)
-            return exact;
+        var union = carrier.TryGetDiscriminatedUnion();
+        if (union is not null)
+        {
+            var caseSymbol = union.Cases.FirstOrDefault(@case => @case.Name == name);
+            if (caseSymbol is INamedTypeSymbol namedCase)
+                return namedCase;
+        }
 
-        return carrier.GetTypeMembers()
+        return carrier.GetTypeMembers(name).FirstOrDefault()
+            ?? carrier.GetTypeMembers()
             .FirstOrDefault(t => t.Name.StartsWith(name, StringComparison.Ordinal));
     }
 
-    private static IMethodSymbol? FindSingleOutBoolMethod(INamedTypeSymbol receiverType, string name)
+    private static IMethodSymbol? FindTryGetValueMethod(INamedTypeSymbol receiverType, INamedTypeSymbol? caseType)
     {
-        return receiverType.GetMembers(name)
+        if (caseType is null)
+            return null;
+
+        var caseTypePlain = caseType.GetPlainType();
+
+        return receiverType.GetMembers("TryGetValue")
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m =>
                 m.Parameters.Length == 1 &&
                 m.ReturnType.SpecialType == SpecialType.System_Boolean &&
-                (m.Parameters[0].RefKind == RefKind.Out || m.Parameters[0].RefKind == RefKind.Ref));
+                (m.Parameters[0].RefKind == RefKind.Out || m.Parameters[0].RefKind == RefKind.Ref) &&
+                SymbolEqualityComparer.Default.Equals(
+                    m.Parameters[0].GetByRefElementType().GetPlainType(),
+                    caseTypePlain));
     }
 
     private static IMethodSymbol? FindPropertyGetter(INamedTypeSymbol type, string propertyName)
@@ -2862,25 +3033,70 @@ partial class BlockBinder
         if (targetType is not INamedTypeSymbol namedType)
             return null;
 
-        if (namedType.TryGetDiscriminatedUnion() is null)
+        var unionSymbol = namedType.TryGetDiscriminatedUnion()
+            ?? namedType.TryGetDiscriminatedUnionCase()?.Union;
+        if (unionSymbol is null)
             return null;
 
-        foreach (var member in namedType.GetMembers(memberName))
+        var caseSymbol = unionSymbol.Cases.FirstOrDefault(@case => @case.Name == memberName);
+        if (caseSymbol is not ITypeSymbol typeMember)
+            return null;
+
+        if (caseSymbol is INamedTypeSymbol caseTypeSymbol &&
+            unionSymbol is INamedTypeSymbol unionTypeSymbol)
         {
-            if (member is not ITypeSymbol typeMember)
-                continue;
-
-            if (typeMember.TryGetDiscriminatedUnionCase() is null)
-                continue;
-
-            var accessibleType = EnsureTypeAccessible(typeMember, location);
-            if (accessibleType.TypeKind == TypeKind.Error)
-                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
-
-            return BindDiscriminatedUnionCaseType(accessibleType);
+            typeMember = ProjectCaseTypeToUnionArguments(caseTypeSymbol, unionTypeSymbol);
         }
 
-        return null;
+        var accessibleType = EnsureTypeAccessible(typeMember, location);
+        if (accessibleType.TypeKind == TypeKind.Error)
+            return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+        return BindDiscriminatedUnionCaseType(accessibleType);
+    }
+
+    private static ITypeSymbol ProjectCaseTypeToUnionArguments(INamedTypeSymbol caseType, INamedTypeSymbol unionType)
+    {
+        if (!caseType.IsGenericType || caseType.TypeParameters.IsDefaultOrEmpty)
+            return caseType;
+
+        var unionDefinition = unionType.TryGetDiscriminatedUnion() ?? unionType;
+        var unionTypeParameters = unionDefinition.TypeParameters;
+        var unionTypeArguments = unionType.TypeArguments;
+
+        if (unionTypeParameters.IsDefaultOrEmpty || unionTypeArguments.IsDefaultOrEmpty)
+            return caseType;
+
+        var projectedArguments = new ITypeSymbol[caseType.TypeParameters.Length];
+        var changed = false;
+        var caseSymbol = caseType.TryGetDiscriminatedUnionCase();
+        if (caseSymbol is null)
+            return caseType;
+
+        for (var i = 0; i < caseType.TypeParameters.Length; i++)
+        {
+            var parameter = caseType.TypeParameters[i];
+            if (DiscriminatedUnionFacts.TryProjectCaseTypeParameterFromUnionArguments(
+                caseSymbol,
+                parameter,
+                unionTypeParameters,
+                unionTypeArguments,
+                out var mapped))
+            {
+                projectedArguments[i] = mapped;
+                if (!SymbolEqualityComparer.Default.Equals(mapped, parameter))
+                    changed = true;
+            }
+            else
+            {
+                projectedArguments[i] = parameter;
+            }
+        }
+
+        if (!changed)
+            return caseType;
+
+        return caseType.Construct(projectedArguments);
     }
 
     private ITypeSymbol UnwrapTaskLikeTargetType(ITypeSymbol type)

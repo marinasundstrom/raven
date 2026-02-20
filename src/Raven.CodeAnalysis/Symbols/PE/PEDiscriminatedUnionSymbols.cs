@@ -78,6 +78,7 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
 {
     private IDiscriminatedUnionSymbol? _union;
     private readonly IDiscriminatedUnionSymbol? _unionFromAttribute;
+    private string? _logicalCaseName;
     private ImmutableArray<IParameterSymbol>? _constructorParameters;
     private int? _ordinal;
 
@@ -94,6 +95,8 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
     {
         _unionFromAttribute = unionFromAttribute;
     }
+
+    public override string Name => _logicalCaseName ??= ComputeLogicalCaseName();
 
     public IDiscriminatedUnionSymbol Union
     {
@@ -146,6 +149,31 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
         }
     }
 
+    private string ComputeLogicalCaseName()
+    {
+        var rawName = base.Name;
+        var union = TryGetKnownUnion();
+        if (union is null)
+            return rawName;
+
+        _ = DiscriminatedUnionFacts.TryGetLogicalCaseNameFromMetadata(union.Name, rawName, out var logicalCaseName);
+        return logicalCaseName;
+    }
+
+    private IDiscriminatedUnionSymbol? TryGetKnownUnion()
+    {
+        if (_union is not null)
+            return _union;
+
+        if (ContainingType is IDiscriminatedUnionSymbol containingUnion)
+            return containingUnion;
+
+        if (_unionFromAttribute is not null)
+            return _unionFromAttribute;
+
+        return ResolveUnionFromAttribute();
+    }
+
     private IDiscriminatedUnionSymbol? ResolveUnionFromAttribute()
     {
         foreach (var attribute in PENamedTypeSymbol.GetCustomAttributesSafe(_typeInfo))
@@ -159,6 +187,25 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
 
             var resolvedUnion = _reflectionTypeLoader.ResolveType(unionType);
             return resolvedUnion as IDiscriminatedUnionSymbol;
+        }
+
+        // Fallback for metadata that omits explicit case->union attributes:
+        // infer the carrier from the scoped case metadata name (e.g. Result_Ok).
+        if (ContainingNamespace is not null)
+        {
+            var rawCaseName = base.Name;
+
+            var inferredUnion = ContainingNamespace
+                .GetAllMembersRecursive()
+                .OfType<IDiscriminatedUnionSymbol>()
+                .FirstOrDefault(unionSymbol =>
+                    DiscriminatedUnionFacts.TryGetLogicalCaseNameFromMetadata(
+                        unionSymbol.Name,
+                        rawCaseName,
+                        out _));
+
+            if (inferredUnion is not null)
+                return inferredUnion;
         }
 
         return null;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -9,9 +10,11 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer : BoundTreeRewriter
 {
+    private static int s_lowererInstanceSeed;
     private readonly ISymbol _containingSymbol;
     private readonly Stack<(ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _loopStack = new();
     private readonly ILoweringTraceSink? _loweringTrace;
+    private readonly int _lowererInstanceId;
     private int _labelCounter;
     private int _tempCounter;
 
@@ -19,6 +22,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
     {
         _containingSymbol = containingSymbol;
         _loweringTrace = loweringTrace;
+        _lowererInstanceId = Interlocked.Increment(ref s_lowererInstanceSeed);
     }
 
     public static BoundBlockStatement LowerBlock(ISymbol containingSymbol, BoundBlockStatement block)
@@ -60,7 +64,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 
     private ILabelSymbol CreateLabel(string prefix)
     {
-        var name = $"{prefix}_{_labelCounter++}";
+        var name = $"{prefix}_{_lowererInstanceId}_{_labelCounter++}";
         var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
         var containingNamespace = _containingSymbol.ContainingNamespace;
         return new LabelSymbol(name, _containingSymbol, containingType, containingNamespace,
@@ -71,7 +75,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
     {
         var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
         var containingNamespace = _containingSymbol.ContainingNamespace;
-        var name = $"<{nameHint}>__{_tempCounter++}";
+        var name = $"<{nameHint}>__{_lowererInstanceId}_{_tempCounter++}";
         return new SourceLocalSymbol(name, type, isMutable, _containingSymbol, containingType, containingNamespace,
             [Location.None], Array.Empty<SyntaxReference>());
     }

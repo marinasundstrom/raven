@@ -24,14 +24,15 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<INamedTypeSymbol>()
+                .OfType<IDiscriminatedUnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
-            var okCase = Assert.Single(resultDefinition.GetMembers("Ok").OfType<INamedTypeSymbol>());
-            var errorCase = Assert.Single(resultDefinition.GetMembers("Error").OfType<INamedTypeSymbol>());
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Cases.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Cases.Single(c => c.Name == "Error"));
 
-            var tryGetOk = Assert.Single(resultDefinition.GetMembers("TryGetOk").OfType<IMethodSymbol>());
-            var tryGetError = Assert.Single(resultDefinition.GetMembers("TryGetError").OfType<IMethodSymbol>());
+            var tryGetMethods = resultDefinition.GetMembers("TryGetValue").OfType<IMethodSymbol>().ToArray();
+            var tryGetOk = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, okCase)));
+            var tryGetError = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, errorCase)));
 
             var okParameter = Assert.Single(tryGetOk.Parameters);
             var errorParameter = Assert.Single(tryGetError.Parameters);
@@ -59,18 +60,19 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<INamedTypeSymbol>()
+                .OfType<IDiscriminatedUnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
             var stringType = compilation.GetSpecialType(SpecialType.System_String);
             var exceptionType = compilation.GetTypeByMetadataName("System.Exception")!;
-            var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Construct(stringType, exceptionType));
+            var constructedResult = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
 
-            var okCase = Assert.Single(constructedResult.GetMembers("Ok").OfType<INamedTypeSymbol>());
-            var errorCase = Assert.Single(constructedResult.GetMembers("Error").OfType<INamedTypeSymbol>());
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Cases.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Cases.Single(c => c.Name == "Error"));
 
-            var tryGetOk = Assert.Single(constructedResult.GetMembers("TryGetOk").OfType<IMethodSymbol>());
-            var tryGetError = Assert.Single(constructedResult.GetMembers("TryGetError").OfType<IMethodSymbol>());
+            var tryGetMethods = constructedResult.GetMembers("TryGetValue").OfType<IMethodSymbol>().ToArray();
+            var tryGetOk = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, okCase)));
+            var tryGetError = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, errorCase)));
 
             var okParameter = Assert.Single(tryGetOk.Parameters);
             var errorParameter = Assert.Single(tryGetError.Parameters);
@@ -98,11 +100,11 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<INamedTypeSymbol>()
+                .OfType<IDiscriminatedUnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
-            var okCase = Assert.Single(resultDefinition.GetMembers("Ok").OfType<INamedTypeSymbol>());
-            var errorCase = Assert.Single(resultDefinition.GetMembers("Error").OfType<INamedTypeSymbol>());
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Cases.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Cases.Single(c => c.Name == "Error"));
 
             var conversions = resultDefinition.GetMembers("op_Implicit").OfType<IMethodSymbol>().ToArray();
             Assert.NotEmpty(conversions);
@@ -130,15 +132,15 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<INamedTypeSymbol>()
+                .OfType<IDiscriminatedUnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
             var stringType = compilation.GetSpecialType(SpecialType.System_String);
             var exceptionType = compilation.GetTypeByMetadataName("System.Exception")!;
-            var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Construct(stringType, exceptionType));
+            var constructedResult = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
 
-            var okCase = Assert.Single(constructedResult.GetMembers("Ok").OfType<INamedTypeSymbol>());
-            var errorCase = Assert.Single(constructedResult.GetMembers("Error").OfType<INamedTypeSymbol>());
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Cases.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Cases.Single(c => c.Name == "Error"));
 
             var conversions = constructedResult.GetMembers("op_Implicit").OfType<IMethodSymbol>().ToArray();
             Assert.NotEmpty(conversions);

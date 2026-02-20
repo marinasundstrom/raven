@@ -116,6 +116,108 @@ internal partial class TypeMemberBinder : Binder
         return ResolveTypeSyntaxForSignature(binder, boundTypeSyntax, RefKind.None, options);
     }
 
+    private ITypeSymbol ResolveExtensionReceiverTypeForMember(
+        Binder binder,
+        ImmutableArray<ITypeParameterSymbol> memberTypeParameters,
+        Binder.TypeResolutionOptions? options = null)
+    {
+        if (_containingType is SourceNamedTypeSymbol { IsExtensionDeclaration: true, ExtensionReceiverType: { } containerReceiver })
+            return ProjectContainerTypeParametersToMember(containerReceiver, memberTypeParameters);
+
+        if (_extensionReceiverTypeSyntax is null)
+            return Compilation.ErrorTypeSymbol;
+
+        return ResolveTypeSyntaxForSignature(binder, _extensionReceiverTypeSyntax, RefKind.None, options);
+    }
+
+    private ITypeSymbol ProjectContainerTypeParametersToMember(
+        ITypeSymbol type,
+        ImmutableArray<ITypeParameterSymbol> memberTypeParameters)
+    {
+        var containerTypeParameters = _containingType.TypeParameters;
+        if (containerTypeParameters.IsDefaultOrEmpty || memberTypeParameters.IsDefaultOrEmpty)
+            return type;
+
+        var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var count = Math.Min(containerTypeParameters.Length, memberTypeParameters.Length);
+        for (int i = 0; i < count; i++)
+            map[containerTypeParameters[i]] = memberTypeParameters[i];
+
+        return SubstituteTypeParameters(type, map);
+    }
+
+    private static ITypeSymbol SubstituteTypeParameters(
+        ITypeSymbol type,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+    {
+        if (map.Count == 0)
+            return type;
+
+        if (type is ITypeParameterSymbol typeParameter && map.TryGetValue(typeParameter, out var replacement))
+            return replacement;
+
+        if (type is NullableTypeSymbol nullableType)
+        {
+            var underlyingType = SubstituteTypeParameters(nullableType.UnderlyingType, map);
+            return SymbolEqualityComparer.Default.Equals(underlyingType, nullableType.UnderlyingType)
+                ? type
+                : underlyingType.MakeNullable();
+        }
+
+        if (type is RefTypeSymbol refType)
+        {
+            var elementType = SubstituteTypeParameters(refType.ElementType, map);
+            return SymbolEqualityComparer.Default.Equals(elementType, refType.ElementType)
+                ? type
+                : new RefTypeSymbol(elementType);
+        }
+
+        if (type is AddressTypeSymbol addressType)
+        {
+            var referencedType = SubstituteTypeParameters(addressType.ReferencedType, map);
+            return SymbolEqualityComparer.Default.Equals(referencedType, addressType.ReferencedType)
+                ? type
+                : new AddressTypeSymbol(referencedType);
+        }
+
+        if (type is IArrayTypeSymbol arrayType)
+        {
+            var elementType = SubstituteTypeParameters(arrayType.ElementType, map);
+            return SymbolEqualityComparer.Default.Equals(elementType, arrayType.ElementType)
+                ? type
+                : new ArrayTypeSymbol(arrayType.BaseType, elementType, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+        }
+
+        if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+        {
+            var typeArguments = namedType.TypeArguments;
+            if (typeArguments.IsDefaultOrEmpty)
+                return type;
+
+            ITypeSymbol[]? substituted = null;
+            for (int i = 0; i < typeArguments.Length; i++)
+            {
+                var original = typeArguments[i];
+                var rewritten = SubstituteTypeParameters(original, map);
+                if (substituted is null && !SymbolEqualityComparer.Default.Equals(rewritten, original))
+                {
+                    substituted = new ITypeSymbol[typeArguments.Length];
+                    for (int j = 0; j < i; j++)
+                        substituted[j] = typeArguments[j];
+                }
+
+                if (substituted is not null)
+                    substituted[i] = rewritten;
+            }
+
+            return substituted is null
+                ? type
+                : namedType.Construct(substituted);
+        }
+
+        return type;
+    }
+
     private INamedTypeSymbol? ResolveNamedTypeSyntax(Binder binder, TypeSyntax typeSyntax)
     {
         var result = binder.BindTypeSyntax(typeSyntax);

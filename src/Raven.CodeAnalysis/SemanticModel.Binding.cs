@@ -831,6 +831,21 @@ public partial class SemanticModel
                     var members = containingType.GetMembers(memberName)
                         .Where(m => m.IsStatic)
                         .ToArray();
+
+                    if (qn.Right is GenericNameSyntax genericRight &&
+                        TryResolveTypeArgumentsSilently(genericRight.TypeArgumentList, out var memberTypeArguments))
+                    {
+                        var closedTypeMembers = members
+                            .OfType<INamedTypeSymbol>()
+                            .Where(t => t.Arity == memberTypeArguments.Length)
+                            .Select(t => t.Construct(memberTypeArguments))
+                            .Cast<ISymbol>()
+                            .ToArray();
+
+                        if (closedTypeMembers.Length > 0)
+                            return closedTypeMembers;
+                    }
+
                     if (members.Length > 0)
                         return members;
                 }
@@ -987,6 +1002,7 @@ public partial class SemanticModel
         var topLevelMainFunctions = bindableGlobals
             .Where(static g => g.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" })
             .ToArray();
+        var hasTopLevelFunctionDeclarations = bindableGlobals.Any(static g => g.Statement is FunctionStatementSyntax);
 
         if (topLevelMainFunctions.Length > 0)
         {
@@ -1002,7 +1018,8 @@ public partial class SemanticModel
             }
         }
 
-        var supportsTopLevelProgram = Compilation.Options.OutputKind == OutputKind.ConsoleApplication;
+        var supportsTopLevelProgram = Compilation.Options.OutputKind == OutputKind.ConsoleApplication
+            || hasTopLevelFunctionDeclarations;
 
         var shouldCreateTopLevelProgram = supportsTopLevelProgram
             && (bindableGlobals.Count > 0
@@ -1795,6 +1812,22 @@ public partial class SemanticModel
 
     private void RegisterUnionCases(UnionDeclarationSyntax unionDecl, UnionDeclarationBinder unionBinder, SourceDiscriminatedUnionSymbol unionSymbol)
     {
+        var allCasesAlreadyRegistered = true;
+        foreach (var caseClause in unionDecl.Cases)
+        {
+            if (!_unionCaseSymbols.ContainsKey(caseClause))
+            {
+                allCasesAlreadyRegistered = false;
+                break;
+            }
+        }
+
+        if (allCasesAlreadyRegistered)
+            return;
+
+        if (!unionSymbol.Cases.IsDefaultOrEmpty && unionSymbol.Cases.Length > 0)
+            return;
+
         var namespaceSymbol = unionBinder.CurrentNamespace?.AsSourceNamespace()
             ?? unionSymbol.ContainingNamespace?.AsSourceNamespace();
         var caseSymbols = new List<IDiscriminatedUnionCaseSymbol>();
@@ -1818,56 +1851,133 @@ public partial class SemanticModel
             RegisterMember((SourceNamedTypeSymbol)member.ContainingType!, member);
         }
 
+        static ITypeSymbol SubstituteTypeParameters(
+            ITypeSymbol type,
+            Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        {
+            if (type is ITypeParameterSymbol parameter &&
+                substitutions.TryGetValue(parameter, out var replacement))
+            {
+                return replacement;
+            }
+
+            if (type is NullableTypeSymbol nullableType)
+            {
+                var substituted = SubstituteTypeParameters(nullableType.UnderlyingType, substitutions);
+                return SymbolEqualityComparer.Default.Equals(substituted, nullableType.UnderlyingType)
+                    ? type
+                    : substituted.MakeNullable();
+            }
+
+            if (type is RefTypeSymbol refType)
+            {
+                var substituted = SubstituteTypeParameters(refType.ElementType, substitutions);
+                return SymbolEqualityComparer.Default.Equals(substituted, refType.ElementType)
+                    ? type
+                    : new RefTypeSymbol(substituted);
+            }
+
+            if (type is IAddressTypeSymbol addressType)
+            {
+                var substituted = SubstituteTypeParameters(addressType.ReferencedType, substitutions);
+                return SymbolEqualityComparer.Default.Equals(substituted, addressType.ReferencedType)
+                    ? type
+                    : new AddressTypeSymbol(substituted);
+            }
+
+            if (type is IArrayTypeSymbol arrayType)
+            {
+                var substituted = SubstituteTypeParameters(arrayType.ElementType, substitutions);
+                return SymbolEqualityComparer.Default.Equals(substituted, arrayType.ElementType)
+                    ? type
+                    : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+            }
+
+            if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+            {
+                var typeArguments = namedType.TypeArguments;
+                var substituted = new ITypeSymbol[typeArguments.Length];
+                var changed = false;
+
+                for (var i = 0; i < typeArguments.Length; i++)
+                {
+                    substituted[i] = SubstituteTypeParameters(typeArguments[i], substitutions);
+                    changed |= !SymbolEqualityComparer.Default.Equals(substituted[i], typeArguments[i]);
+                }
+
+                if (changed)
+                    return namedType.Construct(substituted);
+            }
+
+            return type;
+        }
+
+        static void CollectReferencedTypeParameters(
+            ITypeSymbol type,
+            HashSet<ITypeParameterSymbol> knownUnionTypeParameters,
+            List<ITypeParameterSymbol> usedUnionTypeParameters,
+            HashSet<ITypeParameterSymbol> seen)
+        {
+            if (type is ITypeParameterSymbol parameter)
+            {
+                if (knownUnionTypeParameters.Contains(parameter) && seen.Add(parameter))
+                    usedUnionTypeParameters.Add(parameter);
+                return;
+            }
+
+            if (type is NullableTypeSymbol nullableType)
+            {
+                CollectReferencedTypeParameters(nullableType.UnderlyingType, knownUnionTypeParameters, usedUnionTypeParameters, seen);
+                return;
+            }
+
+            if (type is RefTypeSymbol refType)
+            {
+                CollectReferencedTypeParameters(refType.ElementType, knownUnionTypeParameters, usedUnionTypeParameters, seen);
+                return;
+            }
+
+            if (type is IAddressTypeSymbol addressType)
+            {
+                CollectReferencedTypeParameters(addressType.ReferencedType, knownUnionTypeParameters, usedUnionTypeParameters, seen);
+                return;
+            }
+
+            if (type is IArrayTypeSymbol arrayType)
+            {
+                CollectReferencedTypeParameters(arrayType.ElementType, knownUnionTypeParameters, usedUnionTypeParameters, seen);
+                return;
+            }
+
+            if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+            {
+                foreach (var typeArgument in namedType.TypeArguments)
+                    CollectReferencedTypeParameters(typeArgument, knownUnionTypeParameters, usedUnionTypeParameters, seen);
+            }
+        }
+
         var unionAccessibility = unionSymbol.DeclaredAccessibility;
+        var knownUnionTypeParameters = new HashSet<ITypeParameterSymbol>(unionSymbol.TypeParameters, SymbolEqualityComparer.Default);
 
         foreach (var caseClause in unionDecl.Cases)
         {
             var caseSymbol = new SourceDiscriminatedUnionCaseTypeSymbol(
                 caseClause.Identifier.ValueText,
+                DiscriminatedUnionFacts.GetCaseMetadataBaseName(unionSymbol.Name, caseClause.Identifier.ValueText),
                 ordinal++,
+                unionSymbol,
                 valueType!,
-                unionSymbol,
-                unionSymbol,
+                (ISymbol?)namespaceSymbol ?? unionSymbol,
+                null,
                 namespaceSymbol,
                 [caseClause.GetLocation()],
                 [caseClause.GetReference()],
                 unionAccessibility);
 
+            namespaceSymbol?.AddMember(caseSymbol);
             RegisterMember(unionSymbol, caseSymbol);
 
-            var payloadField = new SourceFieldSymbol(
-                DiscriminatedUnionFieldUtilities.GetPayloadFieldName(caseSymbol.Name),
-                caseSymbol,
-                isStatic: false,
-                isMutable: true,
-                isConst: false,
-                constantValue: null,
-                unionSymbol,
-                unionSymbol,
-                namespaceSymbol,
-                [caseClause.GetLocation()],
-                [caseClause.GetReference()],
-                null,
-                declaredAccessibility: Accessibility.Internal);
-
-            payloadFields.Add(payloadField);
-
-            var constructor = new SourceMethodSymbol(
-                ".ctor",
-                unitType,
-                ImmutableArray<SourceParameterSymbol>.Empty,
-                caseSymbol,
-                caseSymbol,
-                namespaceSymbol,
-                [caseClause.GetLocation()],
-                [caseClause.GetReference()],
-                isStatic: false,
-                methodKind: MethodKind.Constructor,
-                declaredAccessibility: Accessibility.Public);
-
-            RegisterCaseMember(constructor);
-
-            var parameters = new List<SourceParameterSymbol>();
+            var rawParameters = new List<(ParameterSyntax Syntax, ITypeSymbol Type, RefKind RefKind, bool HasExplicitDefaultValue, object? ExplicitDefaultValue, bool IsMutable)>();
             var seenOptionalParameter = false;
 
             if (caseClause.ParameterList is { } parameterList)
@@ -1913,73 +2023,170 @@ public partial class SemanticModel
                         ref seenOptionalParameter);
 
                     var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
-                    var parameterSymbol = new SourceParameterSymbol(
-                        parameterSyntax.Identifier.ValueText,
+                    rawParameters.Add((parameterSyntax, parameterType, refKind, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue, isMutable));
+                }
+            }
+
+            var usedUnionTypeParameters = new List<ITypeParameterSymbol>();
+            var seenUnionTypeParameters = new HashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+            foreach (var rawParameter in rawParameters)
+            {
+                CollectReferencedTypeParameters(
+                    rawParameter.Type,
+                    knownUnionTypeParameters,
+                    usedUnionTypeParameters,
+                    seenUnionTypeParameters);
+            }
+
+            var caseTypeParameterMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            var projectedUnionTypeParameterMappings = new List<(ITypeParameterSymbol CaseTypeParameter, ITypeParameterSymbol UnionTypeParameter)>();
+            if (usedUnionTypeParameters.Count > 0)
+            {
+                var caseTypeParameters = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(usedUnionTypeParameters.Count);
+
+                for (var i = 0; i < usedUnionTypeParameters.Count; i++)
+                {
+                    var unionTypeParameter = usedUnionTypeParameters[i];
+                    var sourceUnionTypeParameter = unionTypeParameter as SourceTypeParameterSymbol;
+
+                    var caseTypeParameter = new SourceTypeParameterSymbol(
+                        unionTypeParameter.Name,
+                        caseSymbol,
+                        caseSymbol,
+                        namespaceSymbol,
+                        sourceUnionTypeParameter?.Locations.ToArray() ?? [caseClause.GetLocation()],
+                        sourceUnionTypeParameter?.DeclaringSyntaxReferences.ToArray() ?? [caseClause.GetReference()],
+                        i,
+                        sourceUnionTypeParameter?.ConstraintKind ?? TypeParameterConstraintKind.None,
+                        sourceUnionTypeParameter?.ConstraintTypeReferences ?? ImmutableArray<SyntaxReference>.Empty,
+                        sourceUnionTypeParameter?.Variance ?? VarianceKind.None);
+
+                    if (sourceUnionTypeParameter is { HasResolvedConstraintTypes: true })
+                        caseTypeParameter.SetConstraintTypes(sourceUnionTypeParameter.ConstraintTypes);
+
+                    caseTypeParameters.Add(caseTypeParameter);
+                    caseTypeParameterMap[unionTypeParameter] = caseTypeParameter;
+                    projectedUnionTypeParameterMappings.Add((caseTypeParameter, unionTypeParameter));
+                }
+
+                caseSymbol.SetTypeParameters(caseTypeParameters.MoveToImmutable());
+                caseSymbol.SetProjectedUnionTypeParameters(projectedUnionTypeParameterMappings);
+            }
+
+            ITypeSymbol caseTypeForUnionMembers = caseSymbol;
+            if (usedUnionTypeParameters.Count > 0)
+            {
+                caseTypeForUnionMembers = caseSymbol.Construct(
+                    usedUnionTypeParameters.Cast<ITypeSymbol>().ToArray());
+            }
+
+            var payloadField = new SourceFieldSymbol(
+                DiscriminatedUnionFieldUtilities.GetPayloadFieldName(caseSymbol.Name),
+                caseTypeForUnionMembers,
+                isStatic: false,
+                isMutable: true,
+                isConst: false,
+                constantValue: null,
+                unionSymbol,
+                unionSymbol,
+                namespaceSymbol,
+                [caseClause.GetLocation()],
+                [caseClause.GetReference()],
+                null,
+                declaredAccessibility: Accessibility.Internal);
+
+            payloadFields.Add(payloadField);
+
+            var constructor = new SourceMethodSymbol(
+                ".ctor",
+                unitType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                caseSymbol,
+                caseSymbol,
+                namespaceSymbol,
+                [caseClause.GetLocation()],
+                [caseClause.GetReference()],
+                isStatic: false,
+                methodKind: MethodKind.Constructor,
+                declaredAccessibility: Accessibility.Public);
+
+            RegisterCaseMember(constructor);
+
+            var parameters = new List<SourceParameterSymbol>();
+            foreach (var rawParameter in rawParameters)
+            {
+                var parameterSyntax = rawParameter.Syntax;
+                var refKind = rawParameter.RefKind;
+                var parameterType = rawParameter.Type;
+                if (caseTypeParameterMap.Count > 0)
+                    parameterType = SubstituteTypeParameters(parameterType, caseTypeParameterMap);
+
+                var parameterSymbol = new SourceParameterSymbol(
+                    parameterSyntax.Identifier.ValueText,
+                    parameterType,
+                    constructor,
+                    caseSymbol,
+                    namespaceSymbol,
+                    [parameterSyntax.GetLocation()],
+                    [parameterSyntax.GetReference()],
+                    refKind,
+                    rawParameter.HasExplicitDefaultValue,
+                    rawParameter.ExplicitDefaultValue,
+                    rawParameter.IsMutable);
+
+                parameters.Add(parameterSymbol);
+
+                if (refKind == RefKind.None)
+                {
+                    var parameterName = parameterSyntax.Identifier.ValueText;
+                    var propertyName = DiscriminatedUnionFacts.GetCasePropertyName(parameterName);
+
+                    var backingField = new SourceFieldSymbol(
+                        $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
                         parameterType,
-                        constructor,
+                        isStatic: false,
+                        isMutable: parameterSymbol.IsMutable,
+                        isConst: false,
+                        constantValue: null,
+                        caseSymbol,
                         caseSymbol,
                         namespaceSymbol,
                         [parameterSyntax.GetLocation()],
                         [parameterSyntax.GetReference()],
-                        refKind,
-                        defaultResult.HasExplicitDefaultValue,
-                        defaultResult.ExplicitDefaultValue,
-                        isMutable);
+                        new BoundParameterAccess(parameterSymbol),
+                        declaredAccessibility: Accessibility.Private);
 
-                    parameters.Add(parameterSymbol);
+                    RegisterCaseMember(backingField);
 
-                    if (refKind == RefKind.None)
-                    {
-                        var parameterName = parameterSyntax.Identifier.ValueText;
-                        var propertyName = GetUnionCasePropertyName(parameterName);
+                    var propertySymbol = new SourcePropertySymbol(
+                        propertyName,
+                        parameterType,
+                        caseSymbol,
+                        caseSymbol,
+                        namespaceSymbol,
+                        [parameterSyntax.GetLocation()],
+                        [parameterSyntax.GetReference()],
+                        declaredAccessibility: Accessibility.Private);
 
-                        var backingField = new SourceFieldSymbol(
-                            $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
-                            parameterType,
-                            isStatic: false,
-                            isMutable: parameterSymbol.IsMutable,
-                            isConst: false,
-                            constantValue: null,
-                            caseSymbol,
-                            caseSymbol,
-                            namespaceSymbol,
-                            [parameterSyntax.GetLocation()],
-                            [parameterSyntax.GetReference()],
-                            new BoundParameterAccess(parameterSymbol),
-                            declaredAccessibility: Accessibility.Private);
+                    RegisterCaseMember(propertySymbol);
 
-                        RegisterCaseMember(backingField);
+                    var getterSymbol = new SourceMethodSymbol(
+                        $"get_{propertyName}",
+                        parameterType,
+                        ImmutableArray<SourceParameterSymbol>.Empty,
+                        propertySymbol,
+                        caseSymbol,
+                        namespaceSymbol,
+                        [parameterSyntax.GetLocation()],
+                        [parameterSyntax.GetReference()],
+                        isStatic: false,
+                        methodKind: MethodKind.PropertyGet,
+                        declaredAccessibility: Accessibility.Public);
 
-                        var propertySymbol = new SourcePropertySymbol(
-                            propertyName,
-                            parameterType,
-                            caseSymbol,
-                            caseSymbol,
-                            namespaceSymbol,
-                            [parameterSyntax.GetLocation()],
-                            [parameterSyntax.GetReference()],
-                            declaredAccessibility: Accessibility.Private);
+                    RegisterCaseMember(getterSymbol);
 
-                        RegisterCaseMember(propertySymbol);
-
-                        var getterSymbol = new SourceMethodSymbol(
-                            $"get_{propertyName}",
-                            parameterType,
-                            ImmutableArray<SourceParameterSymbol>.Empty,
-                            propertySymbol,
-                            caseSymbol,
-                            namespaceSymbol,
-                            [parameterSyntax.GetLocation()],
-                            [parameterSyntax.GetReference()],
-                            isStatic: false,
-                            methodKind: MethodKind.PropertyGet,
-                            declaredAccessibility: Accessibility.Public);
-
-                        RegisterCaseMember(getterSymbol);
-
-                        propertySymbol.SetBackingField(backingField);
-                        propertySymbol.SetAccessors(getterSymbol, null);
-                    }
+                    propertySymbol.SetBackingField(backingField);
+                    propertySymbol.SetAccessors(getterSymbol, null);
                 }
             }
 
@@ -2008,7 +2215,7 @@ public partial class SemanticModel
                     if (parameter.RefKind != RefKind.None)
                         continue;
 
-                    var propertyName = GetUnionCasePropertyName(parameter.Name);
+                    var propertyName = DiscriminatedUnionFacts.GetCasePropertyName(parameter.Name);
                     if (caseSymbol.GetMembers(propertyName).OfType<IPropertySymbol>().FirstOrDefault() is not { } property)
                         continue;
 
@@ -2067,7 +2274,7 @@ public partial class SemanticModel
 
             var conversionParameter = new SourceParameterSymbol(
                 "value",
-                caseSymbol,
+                caseTypeForUnionMembers,
                 conversionMethod,
                 unionSymbol,
                 namespaceSymbol,
@@ -2079,7 +2286,7 @@ public partial class SemanticModel
             RegisterCaseMember(conversionMethod);
 
             var tryGetMethod = new SourceMethodSymbol(
-                $"TryGet{caseClause.Identifier.ValueText}",
+                "TryGetValue",
                 boolType!,
                 ImmutableArray<SourceParameterSymbol>.Empty,
                 unionSymbol,
@@ -2093,7 +2300,7 @@ public partial class SemanticModel
 
             var tryGetParameter = new SourceParameterSymbol(
                 "value",
-                caseSymbol, // Should be nullable?
+                caseTypeForUnionMembers, // Should be nullable?
                 tryGetMethod,
                 unionSymbol,
                 namespaceSymbol,
@@ -2108,20 +2315,6 @@ public partial class SemanticModel
 
         unionSymbol.SetCases(caseSymbols);
         unionSymbol.SetPayloadFields(payloadFields);
-    }
-
-    private static string GetUnionCasePropertyName(string parameterName)
-    {
-        if (string.IsNullOrEmpty(parameterName))
-            return parameterName;
-
-        if (char.IsUpper(parameterName[0]))
-            return parameterName;
-
-        Span<char> buffer = stackalloc char[parameterName.Length];
-        parameterName.AsSpan().CopyTo(buffer);
-        buffer[0] = char.ToUpperInvariant(buffer[0]);
-        return new string(buffer);
     }
 
     private void ReportExternalTypeRedeclaration(

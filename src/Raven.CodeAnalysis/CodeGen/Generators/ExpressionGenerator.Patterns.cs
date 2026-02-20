@@ -31,7 +31,11 @@ internal partial class ExpressionGenerator
 
     private void EmitMatchExpression(BoundMatchExpression matchExpression, EmitContext context)
     {
-        throw new InvalidOperationException("BoundMatchExpression should be lowered before code generation.");
+        var lowered = Lowerer.LowerExpression(MethodSymbol, matchExpression);
+        if (lowered is BoundMatchExpression)
+            throw new InvalidOperationException("BoundMatchExpression should be lowered before code generation.");
+
+        EmitExpression(lowered, context);
     }
 
     // ============================================

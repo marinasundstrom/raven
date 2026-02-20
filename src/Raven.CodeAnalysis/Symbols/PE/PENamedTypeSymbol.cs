@@ -110,7 +110,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (attributeName is null)
                 continue;
 
-            if (attributeName == "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
+            if (attributeName is "System.Runtime.CompilerServices.UnionAttribute" or "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
             {
                 // Do not eagerly load members during construction; keep loading lazy to avoid re-entrancy/duplication.
                 return new PEDiscriminatedUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();

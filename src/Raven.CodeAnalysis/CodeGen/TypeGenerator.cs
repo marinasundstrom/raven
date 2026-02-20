@@ -684,6 +684,8 @@ internal class TypeGenerator
 
                         _methodGenerators[methodSymbol] = methodGenerator;
                         methodGenerator.DefineMethodBuilder();
+                        if (methodGenerator.MethodBase is MethodBuilder methodBuilder)
+                            ApplyExtensionMarkerNameAttribute(methodSymbol, methodBuilder.SetCustomAttribute);
 
                         CodeGen.AddMemberBuilder((SourceSymbol)methodSymbol, methodGenerator.MethodBase);
                         break;
@@ -717,6 +719,8 @@ internal class TypeGenerator
                                 var getGen2 = new MethodGenerator(this, getterSymbol, CodeGen.ILBuilderFactory);
                                 _methodGenerators[getterSymbol] = getGen2;
                                 getGen2.DefineMethodBuilder();
+                                if (getGen2.MethodBase is MethodBuilder getterBuilder)
+                                    ApplyExtensionMarkerNameAttribute(getterSymbol, getterBuilder.SetCustomAttribute);
                                 CodeGen.AddMemberBuilder((SourceSymbol)getterSymbol, getGen2.MethodBase);
                             }
 
@@ -728,6 +732,8 @@ internal class TypeGenerator
                                 var setGen2 = new MethodGenerator(this, setterSymbol, CodeGen.ILBuilderFactory);
                                 _methodGenerators[setterSymbol] = setGen2;
                                 setGen2.DefineMethodBuilder();
+                                if (setGen2.MethodBase is MethodBuilder setterBuilder)
+                                    ApplyExtensionMarkerNameAttribute(setterSymbol, setterBuilder.SetCustomAttribute);
                                 CodeGen.AddMemberBuilder((SourceSymbol)setterSymbol, setGen2.MethodBase);
                             }
 
@@ -943,7 +949,10 @@ internal class TypeGenerator
         if (TypeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsExtensionDeclaration)
             return false;
 
-        return false;
+        if (_extensionMarkerName is null)
+            return false;
+
+        return methodSymbol.MethodKind is not (MethodKind.Constructor or MethodKind.StaticConstructor);
     }
 
     private bool ShouldApplyExtensionMarkerName(IPropertySymbol propertySymbol)
@@ -951,7 +960,7 @@ internal class TypeGenerator
         if (TypeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsExtensionDeclaration)
             return false;
 
-        return false;
+        return _extensionMarkerName is not null;
     }
 
     private void DefineExtensionContainerTypeBuilder(INamedTypeSymbol named)

@@ -380,27 +380,46 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         }
         // <<< END NEW BLOCK
 
+        if (obj is ITypeParameterSymbol typeParameterSymbol)
+        {
+            hash.Add(typeParameterSymbol.Name, StringComparer.Ordinal);
+            hash.Add(typeParameterSymbol.Ordinal);
+            hash.Add((int)typeParameterSymbol.Variance);
+            hash.Add((int)typeParameterSymbol.OwnerKind);
+            return hash.ToHashCode();
+        }
+
         hash.Add(obj.Name, StringComparer.Ordinal);
         hash.Add(obj.MetadataName, StringComparer.Ordinal);
 
         if (!_ignoreContainingNamespaceOrType && obj.ContainingNamespace is { } containingNamespace)
             hash.Add(containingNamespace.Name, StringComparer.Ordinal);
 
+        if (!_ignoreContainingNamespaceOrType && obj.ContainingSymbol is { } containingSymbol)
+            hash.Add(GetHashCodeCore(containingSymbol, visited));
+
         if (obj is IParameterSymbol parameterSymbol)
         {
             hash.Add(parameterSymbol.RefKind);
+            hash.Add(GetHashCodeCore(parameterSymbol.Type, visited));
             return hash.ToHashCode();
         }
 
         if (obj is IMethodSymbol method)
         {
             hash.Add(method.Parameters.Length);
+            hash.Add(GetHashCodeCore(method.ReturnType, visited));
+
+            for (var i = 0; i < method.Parameters.Length; i++)
+                hash.Add(GetHashCodeCore(method.Parameters[i], visited));
 
             var typeArguments = method.TypeArguments;
             if (typeArguments.IsDefault)
                 typeArguments = ImmutableArray<ITypeSymbol>.Empty;
 
             hash.Add(typeArguments.Length);
+            for (var i = 0; i < typeArguments.Length; i++)
+                hash.Add(GetHashCodeCore(typeArguments[i], visited));
         }
 
         if (obj is INamedTypeSymbol namedType)
@@ -409,19 +428,26 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             hash.Add(namedType.Arity);
             hash.Add(typeArguments.Length);
             hash.Add(namedType.TypeKind);
+
+            for (var i = 0; i < typeArguments.Length; i++)
+                hash.Add(GetHashCodeCore(typeArguments[i], visited));
         }
 
         if (obj is IArrayTypeSymbol arrayType)
             hash.Add(arrayType.Rank);
 
         if (obj is IFieldSymbol field)
+        {
             hash.Add(field.IsConst);
+            hash.Add(GetHashCodeCore(field.Type, visited));
+        }
 
         if (obj is IPropertySymbol property)
         {
             hash.Add(property.IsIndexer);
             hash.Add(property.GetMethod is not null);
             hash.Add(property.SetMethod is not null);
+            hash.Add(GetHashCodeCore(property.Type, visited));
         }
 
         return hash.ToHashCode();
@@ -460,11 +486,14 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return constructed.GetExplicitTypeArgumentsForInference();
 
         var typeArguments = symbol.TypeArguments;
-        if (!typeArguments.IsDefault)
+        if (!typeArguments.IsDefault && typeArguments.Length > 0)
             return typeArguments;
 
-        if (!symbol.TypeParameters.IsDefault)
+        if (!symbol.TypeParameters.IsDefault && symbol.TypeParameters.Length > 0)
             return symbol.TypeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+
+        if (!typeArguments.IsDefault)
+            return typeArguments;
 
         return ImmutableArray<ITypeSymbol>.Empty;
     }

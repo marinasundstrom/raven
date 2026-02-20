@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 
@@ -12,7 +14,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     {
         var asm = LoadRavenCoreAssembly();
         var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
-        var someType = GetConstructedNestedType(optionType, "Some");
+        var someType = GetCaseTypeFromTryGetValue(optionType, "Some");
         var some = Activator.CreateInstance(someType, 42)!;
         var option = ConvertCaseToCarrier(optionType, some);
 
@@ -21,7 +23,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
 
         Assert.NotNull(parsed);
 
-        var tryGetSome = optionType.GetMethod("TryGetSome")!;
+        var tryGetSome = GetTryGetValueMethod(optionType, someType);
         var args = new object?[] { null };
         var ok = (bool)(tryGetSome.Invoke(parsed, args) ?? false);
         Assert.True(ok);
@@ -36,7 +38,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     {
         var asm = LoadRavenCoreAssembly();
         var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
-        var noneType = GetConstructedNestedType(optionType, "None");
+        var noneType = GetCaseTypeFromTryGetValue(optionType, "None");
         var none = Activator.CreateInstance(noneType)!;
         var option = ConvertCaseToCarrier(optionType, none);
 
@@ -45,7 +47,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
 
         Assert.NotNull(parsed);
 
-        var tryGetNone = optionType.GetMethod("TryGetNone")!;
+        var tryGetNone = GetTryGetValueMethod(optionType, noneType);
         var args = new object?[] { null };
         var ok = (bool)(tryGetNone.Invoke(parsed, args) ?? false);
         Assert.True(ok);
@@ -102,15 +104,29 @@ val _ = input.Map((v: string) => v)
         return definition.MakeGenericType(typeArgs);
     }
 
-    private static Type GetConstructedNestedType(Type constructedOuter, string nestedName)
+    private static MethodInfo GetTryGetValueMethod(Type optionType, Type caseType)
     {
-        var nested = constructedOuter.GetNestedType(nestedName, BindingFlags.Public | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException($"Missing nested type '{nestedName}' on '{constructedOuter}'.");
+        return optionType.GetMethod(
+            "TryGetValue",
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            types: [caseType.MakeByRefType()],
+            modifiers: null)
+            ?? throw new InvalidOperationException($"Missing TryGetValue(out {caseType}) on '{optionType}'.");
+    }
 
-        if (nested.IsGenericTypeDefinition && constructedOuter.IsGenericType)
-            nested = nested.MakeGenericType(constructedOuter.GetGenericArguments());
+    private static Type GetCaseTypeFromTryGetValue(Type optionType, string caseName)
+    {
+        var caseType = optionType
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(method => method.Name == "TryGetValue" && method.ReturnType == typeof(bool))
+            .SelectMany(method => method.GetParameters())
+            .Where(parameter => parameter.ParameterType.IsByRef)
+            .Select(parameter => parameter.ParameterType.GetElementType())
+            .FirstOrDefault(type => type is not null && type.Name.Contains(caseName, StringComparison.Ordinal));
 
-        return nested;
+        return caseType
+            ?? throw new InvalidOperationException($"Missing TryGetValue overload for case '{caseName}' on '{optionType}'.");
     }
 
     private static object ConvertCaseToCarrier(Type carrierType, object caseValue)

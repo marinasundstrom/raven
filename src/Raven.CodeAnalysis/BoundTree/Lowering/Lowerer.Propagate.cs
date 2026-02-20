@@ -97,6 +97,7 @@ internal sealed partial class Lowerer
         if (tryGetMethod is null)
             return null;
 
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
         var okLocalType = tryGetMethod.Parameters[0].GetByRefElementType();
         var okLocal = CreateTempLocal("propagateOk", okLocalType, isMutable: true);
         var operandLocal = CreateTempLocal("propagateOperand", operandType, isMutable: true);
@@ -105,13 +106,51 @@ internal sealed partial class Lowerer
         {
             new BoundLocalDeclarationStatement(new[]
             {
-                new BoundVariableDeclarator(operandLocal, VisitExpression(propagate.Operand) ?? propagate.Operand)
-            }),
-            new BoundLocalDeclarationStatement(new[]
-            {
-                new BoundVariableDeclarator(okLocal, null)
+                new BoundVariableDeclarator(operandLocal, null)
             })
         };
+
+        var operandInitializer = VisitExpression(propagate.Operand) ?? propagate.Operand;
+        var operandAssignment = new BoundAssignmentStatement(
+            new BoundLocalAssignmentExpression(
+                operandLocal,
+                new BoundLocalAccess(operandLocal),
+                operandInitializer,
+                unitType));
+
+        var caughtExceptionType = propagate.ErrorType;
+        if (caughtExceptionType.TypeKind != TypeKind.Error)
+        {
+            var exceptionLocal = CreateTempLocal("propagateException", caughtExceptionType, isMutable: false);
+            var caughtErrorExpression = CreatePropagateCaughtExceptionExpression(
+                propagate,
+                new BoundLocalAccess(exceptionLocal),
+                compilation);
+            if (caughtErrorExpression is null)
+                return null;
+
+            statements.Add(
+                new BoundTryStatement(
+                    new BoundBlockStatement(new BoundStatement[] { operandAssignment }),
+                    ImmutableArray.Create(
+                        new BoundCatchClause(
+                            caughtExceptionType,
+                            exceptionLocal,
+                            new BoundBlockStatement(new BoundStatement[]
+                            {
+                                new BoundReturnStatement(caughtErrorExpression)
+                            }))),
+                    finallyBlock: null));
+        }
+        else
+        {
+            statements.Add(operandAssignment);
+        }
+
+        statements.Add(new BoundLocalDeclarationStatement(new[]
+        {
+            new BoundVariableDeclarator(okLocal, null)
+        }));
 
         var operandAccess = new BoundLocalAccess(operandLocal);
         var okAccess = new BoundLocalAccess(okLocal);
@@ -144,6 +183,32 @@ internal sealed partial class Lowerer
             return null;
 
         return new PropagateLowering(statements, successExpression);
+    }
+
+    private static BoundExpression? CreatePropagateCaughtExceptionExpression(
+        BoundPropagateExpression propagate,
+        BoundExpression caughtException,
+        Compilation compilation)
+    {
+        var ctor = propagate.EnclosingErrorConstructor;
+        var arguments = new List<BoundExpression>();
+
+        if (ctor.Parameters.Length == 1)
+        {
+            var targetType = ctor.Parameters[0].Type;
+            var payload = ApplyErrorConversion(caughtException, targetType, propagate.ErrorConversion, compilation);
+            arguments.Add(payload);
+        }
+        else if (ctor.Parameters.Length != 0)
+        {
+            return null;
+        }
+
+        BoundExpression errorCaseExpression = ctor.MethodKind == MethodKind.Constructor
+            ? new BoundObjectCreationExpression(ctor, arguments)
+            : new BoundInvocationExpression(ctor, arguments);
+
+        return ApplyConversionIfNeeded(errorCaseExpression, propagate.EnclosingResultType, compilation);
     }
 
     private BoundExpression? CreatePropagateErrorExpression(
@@ -242,8 +307,7 @@ internal sealed partial class Lowerer
 
     private static IMethodSymbol? FindTryGetMethod(INamedTypeSymbol operandType, BoundPropagateExpression propagate)
     {
-        var tryGetName = $"TryGet{propagate.OkCaseName}";
-        var candidates = operandType.GetMembers(tryGetName).OfType<IMethodSymbol>()
+        var candidates = operandType.GetMembers("TryGetValue").OfType<IMethodSymbol>()
             .Where(m => m.Parameters.Length == 1 && m.Parameters[0].RefKind == RefKind.Out)
             .ToArray();
 

@@ -722,8 +722,9 @@ internal abstract partial class Binder
             if (resolved is null)
                 continue;
 
-            if (seen.Add(resolved))
-                candidates.Add(resolved);
+            var normalized = NormalizeDefinition(resolved);
+            if (seen.Add(normalized))
+                candidates.Add(normalized);
         }
 
         if (candidates.Count == 1)
@@ -808,7 +809,7 @@ internal abstract partial class Binder
 
                     if (named.Length == 1)
                     {
-                        current = named[0];
+                        current = NormalizeDefinition(named[0]);
                         continue;
                     }
 
@@ -824,7 +825,7 @@ internal abstract partial class Binder
                         nested = nested.Where(t => t.Arity == arity.Value).ToArray();
                     if (nested.Length == 1)
                     {
-                        current = nested[0];
+                        current = NormalizeDefinition(nested[0]);
                         continue;
                     }
 

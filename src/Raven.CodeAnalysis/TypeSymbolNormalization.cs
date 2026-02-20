@@ -133,11 +133,11 @@ internal static class TypeSymbolNormalization
             if (discriminatedUnion is null)
             {
                 discriminatedUnion = currentUnion;
-                continue;
             }
-
-            if (!SymbolEqualityComparer.Default.Equals(discriminatedUnion, currentUnion))
+            else if (!SymbolEqualityComparer.Default.Equals(discriminatedUnion, currentUnion))
+            {
                 return false;
+            }
         }
 
         result = discriminatedUnion as ITypeSymbol;

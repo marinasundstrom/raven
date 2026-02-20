@@ -79,6 +79,219 @@ union Option {
     }
 
     [Fact]
+    public void MemberBindingInvocation_TargetTypedGenericCase_BindsWithoutErrors()
+    {
+        const string source = """
+func build<T>(payload: T) -> Option<T> {
+    val option: Option<T> = .Some(payload)
+    return option
+}
+
+union Option<T> {
+    None
+    Some(value: T)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberBindingExpressionSyntax);
+
+        Assert.NotNull(invocation);
+    }
+
+    [Fact]
+    public void MemberAccessInvocation_OnUnconstructedCarrier_CaseArgumentsInferFromConstructor()
+    {
+        const string source = """
+func build() {
+    val result: Result<int, string> = Result.Ok(42)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax);
+
+        Assert.NotNull(invocation);
+    }
+
+    [Fact]
+    public void MemberAccessInvocation_OnUnconstructedCarrier_InLambdaReturn_BindsWithoutErrors()
+    {
+        const string source = """
+import System.*
+
+func build() {
+    val factory: Func<int, Result<int, string>> = x => Result.Ok(x)
+    val result: Result<int, string> = factory(42)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member &&
+                            member.Name.Identifier.ValueText == "Ok");
+
+        Assert.NotNull(invocation);
+    }
+
+    [Fact]
+    public void MemberAccessInvocation_OnUnconstructedCarrier_InGenericLambdaReturn_BindsWithoutErrors()
+    {
+        const string source = """
+import System.*
+
+func build<T>(value: T) -> Result<T, string> {
+    val factory: Func<T, Result<T, string>> = x => Result.Ok(x)
+    return factory(value)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member &&
+                            member.Name.Identifier.ValueText == "Ok");
+
+        Assert.NotNull(invocation);
+    }
+
+    [Fact]
+    public void UnionCaseCanonicalForms_BindWithoutErrors()
+    {
+        const string source = """
+func build() {
+    val caseA: Ok<int> = Ok(2)
+    val caseB: Ok<int> = Ok<int>(2)
+    val resultA: Result<int, string> = Result<int, string>.Ok(2)
+    val resultB: Result<int, string> = .Ok(2)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void MemberQualifiedCaseInvocation_WithoutTargetType_BindsWithoutErrors()
+    {
+        const string source = """
+func build() {
+    val caseValue = Result.Ok(2)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void ExhaustiveOptionMatch_DoesNotReportMissingCaseDiagnostic()
+    {
+        const string source = """
+func format(option: Option<int>) -> string {
+    return option match {
+        .Some(val value) => "some ${value}"
+        .None => "none"
+    }
+}
+
+union Option<T> {
+    Some(value: T)
+    None
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV9002");
+        Assert.True(diagnostics.All(d => d.Severity != DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void MemberQualifiedCaseInvocation_WithExplicitCaseTypeArguments_BindsWithoutErrors()
+    {
+        const string source = """
+func build() {
+    val caseValue = Result.Ok<int>(2)
+    val resultValue: Result<int, string> = Result.Ok<int>(2)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void AsyncReturn_TargetTypedCase_BindsUnionCase()
     {
         const string source = """
@@ -97,10 +310,218 @@ union Result<T> {
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.True(
+            diagnostics.All(static d => d.Severity != DiagnosticSeverity.Error),
+            string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         Assert.NotNull(invocation);
+    }
+
+    [Fact]
+    public void UnqualifiedCaseInvocation_BindsWhenUniqueInScope()
+    {
+        const string source = """
+func create() -> Result<int, string> {
+    return Ok(42)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void UnqualifiedCaseInvocation_ReportsAmbiguousWhenMultipleCasesMatch()
+    {
+        const string source = """
+class C {
+    create() {
+        var value = Ok(42)
+    }
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+
+union Option<T> {
+    Ok(value: T)
+    None
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        _ = model.GetBoundNode(invocation);
+
+        var diagnostics = model.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+    }
+
+    [Fact]
+    public void UnqualifiedGenericCaseInvocation_BindsWhenUniqueInScope()
+    {
+        const string source = """
+func create() -> Result<int, string> {
+    return Ok<int>(42)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void UnqualifiedGenericCaseInvocation_ReportsAmbiguousWhenMultipleCasesMatch()
+    {
+        const string source = """
+class C {
+    create() {
+        var value = Ok<int>(42)
+    }
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+
+union Option<T> {
+    Ok(value: T)
+    None
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single(s => s.Expression is GenericNameSyntax);
+        _ = model.GetBoundNode(invocation);
+
+        var diagnostics = model.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+    }
+
+    [Fact]
+    public void UnqualifiedCaseInvocation_ReportsAmbiguousWhenUnionTypesAreTypeImported()
+    {
+        const string source = """
+namespace A {
+    union Result<T, E> {
+        Ok(value: T)
+        Error(message: E)
+    }
+}
+
+namespace B {
+    union Option<T> {
+        Ok(value: T)
+        None
+    }
+}
+
+import A.Result<,>
+import B.Option<>
+
+class C {
+    create() {
+        var value = Ok(42)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        _ = model.GetBoundNode(invocation);
+
+        var diagnostics = model.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+    }
+
+    [Fact]
+    public void AliasToUnionCaseType_BindsAndConvertsToCarrier()
+    {
+        const string source = """
+alias ResultOk = Result.Ok
+
+func create() -> Result<int, string> {
+    return ResultOk(42)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void AliasToUnionCaseType_WithGenericArguments_BindsAndConvertsToCarrier()
+    {
+        const string source = """
+alias ResultOk = Result.Ok
+
+func create() -> Result<int, string> {
+    return ResultOk<int>(42)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void AliasToClosedGenericUnionCaseType_BindsAndConvertsToCarrier()
+    {
+        const string source = """
+alias ResultOk = Result.Ok<int>
+
+func create() -> Result<int, string> {
+    return ResultOk(42)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
     }
 
     [Fact]
@@ -136,6 +557,97 @@ union Option {
             Assert.Equal(unionSymbol, matchingConversion.ReturnType);
             Assert.True(matchingConversion.IsStatic);
         }
+    }
+
+    [Fact]
+    public void GenericUnionCases_UseOnlyReferencedTypeParameters()
+    {
+        const string source = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+    Pending
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Ok"));
+        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Error"));
+        var pendingCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Pending"));
+
+        Assert.Equal(1, okCase.Arity);
+        Assert.Equal(1, errorCase.Arity);
+        Assert.Equal(0, pendingCase.Arity);
+    }
+
+    [Fact]
+    public void ConstructedGenericUnionCases_ProjectConcreteTypeArguments()
+    {
+        const string source = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        var constructedUnion = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(
+            unionSymbol.Construct(
+                compilation.GetSpecialType(SpecialType.System_Int32),
+                compilation.GetSpecialType(SpecialType.System_String)));
+
+        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedUnion.Cases.Single(c => c.Name == "Ok"));
+        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedUnion.Cases.Single(c => c.Name == "Error"));
+
+        Assert.Equal(SpecialType.System_Int32, okCase.TypeArguments.Single().SpecialType);
+        Assert.Equal(SpecialType.System_String, errorCase.TypeArguments.Single().SpecialType);
+    }
+
+    [Fact]
+    public void UnionCase_UsesLogicalNameAndScopedMetadataName()
+    {
+        const string source = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Ok"));
+        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Error"));
+
+        Assert.Equal("Ok", okCase.Name);
+        Assert.Equal("Result_Ok`1", okCase.MetadataName);
+        Assert.Equal("Error", errorCase.Name);
+        Assert.Equal("Result_Error`1", errorCase.MetadataName);
     }
 
     [Fact]
@@ -201,9 +713,11 @@ union Option {
 
         Assert.DoesNotContain(caseSymbol.GetMembers("op_Implicit"), m => SymbolEqualityComparer.Default.Equals(m, conversion));
 
-        var tryGetName = $"TryGet{caseSymbol.Name}";
-        var tryGet = unionSymbol.GetMembers(tryGetName).OfType<IMethodSymbol>().Single();
-        Assert.DoesNotContain(caseSymbol.GetMembers(tryGetName), m => SymbolEqualityComparer.Default.Equals(m, tryGet));
+        var tryGet = unionSymbol
+            .GetMembers("TryGetValue")
+            .OfType<IMethodSymbol>()
+            .Single(m => SymbolEqualityComparer.Default.Equals(m.Parameters.Single().GetByRefElementType(), caseSymbol));
+        Assert.DoesNotContain(caseSymbol.GetMembers("TryGetValue"), m => SymbolEqualityComparer.Default.Equals(m, tryGet));
     }
 
     [Fact]
@@ -306,8 +820,8 @@ union Result<T> {
         const string source = """
 func format(result: Result<int>) -> string {
     return result match {
-        .Ok(payload) => payload.ToString()
-        .Error(message) => message
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
     }
 }
 
@@ -330,8 +844,8 @@ union Result<T> {
         const string source = """
 func describe(result: Result<int>) -> string {
     return result match {
-        .Ok(payload) => payload.ToString()
-        .Error(message) => message
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
     }
 }
 
@@ -349,12 +863,59 @@ union Result<T> {
     }
 
     [Fact]
+    public void CasePattern_UnqualifiedCaseAndDeconstruction_BindWithoutErrors()
+    {
+        const string source = """
+func format(result: Result<int>) -> string {
+    return result match {
+        Ok(val payload) => payload.ToString()
+        Error(val message) => message
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void CasePattern_UnqualifiedSingleArm_ReportsExhaustivenessDiagnostic()
+    {
+        const string source = """
+func format(result: Result<int>) -> string {
+    return result match {
+        Ok(val payload) => payload.ToString()
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+    }
+
+    [Fact]
     public void CasePattern_NonGenericUnion_BindsTryGetMethods()
     {
         const string source = """
 func describe(value: Test) -> string {
     return value match {
-        .Something(text) => text
+        .Something(val text) => text
         .Nothing => "none"
     }
 }
@@ -374,8 +935,7 @@ union Test {
         var model = compilation.GetSemanticModel(tree);
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
         var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
-        Assert.Single(unionSymbol.GetMembers("TryGetSomething").OfType<IMethodSymbol>());
-        Assert.Single(unionSymbol.GetMembers("TryGetNothing").OfType<IMethodSymbol>());
+        Assert.Equal(2, unionSymbol.GetMembers("TryGetValue").OfType<IMethodSymbol>().Count());
     }
 
     [Fact]
@@ -384,7 +944,7 @@ union Test {
         const string source = """
 func describe(result: Result<int>) -> string {
     return result match {
-        .Ok(payload) => payload.ToString()
+        .Ok(val payload) => payload.ToString()
     }
 }
 
@@ -409,8 +969,8 @@ union Result<T> {
         const string source = """
 func format(result: Result<int>) -> string {
     return result match {
-        .Ok(payload) => "ok ${payload}" when payload > 1
-        .Error(message) => "error ${message}"
+        .Ok(val payload) => "ok ${payload}" when payload > 1
+        .Error(val message) => "error ${message}"
     }
 }
 

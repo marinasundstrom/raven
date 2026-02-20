@@ -301,8 +301,7 @@ internal static class PropagateLowerer
 
         private static IMethodSymbol? FindTryGetMethod(INamedTypeSymbol operandType, BoundPropagateExpression propagate)
         {
-            var tryGetName = $"TryGet{propagate.OkCaseName}";
-            var candidates = operandType.GetMembers(tryGetName).OfType<IMethodSymbol>()
+            var candidates = operandType.GetMembers("TryGetValue").OfType<IMethodSymbol>()
                 .Where(m => m.Parameters.Length == 1 && m.Parameters[0].RefKind == RefKind.Out)
                 .ToArray();
 

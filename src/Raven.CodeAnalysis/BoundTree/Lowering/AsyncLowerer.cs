@@ -192,6 +192,8 @@ internal static class AsyncLowerer
         if (body is null)
             throw new ArgumentNullException(nameof(body));
 
+        var hadUsingDeclaration = ContainsUsingDeclaration(body);
+
         // Normalize using declarations into try/finally before await/state-machine
         // rewriting so dispatch guards are computed against final protected regions.
         var compilation = GetCompilation(symbol);
@@ -201,7 +203,47 @@ internal static class AsyncLowerer
         // Match constructs must be lowered before async state-machine rewriting so
         // MoveNext bodies don't carry BoundMatch* nodes into codegen.
         var matchLowerer = new AsyncMatchLowerer(symbol);
-        return matchLowerer.Rewrite(normalized);
+        var withMatchLowered = matchLowerer.Rewrite(normalized);
+
+        // Lower propagate and other general block constructs after the async pre-normalization
+        // steps so introduced locals/flow align with the final pre-state-machine shape.
+        if (hadUsingDeclaration)
+            return withMatchLowered;
+
+        return Lowerer.LowerBlock(symbol, withMatchLowered);
+    }
+
+    private static bool ContainsUsingDeclaration(BoundBlockStatement block)
+    {
+        if (block is null)
+            return false;
+
+        bool Contains(BoundStatement statement)
+        {
+            switch (statement)
+            {
+                case BoundLocalDeclarationStatement localDeclaration when localDeclaration.IsUsing:
+                    return true;
+                case BoundBlockStatement nestedBlock:
+                    return nestedBlock.Statements.Any(Contains);
+                case BoundTryStatement tryStatement:
+                    if (tryStatement.TryBlock.Statements.Any(Contains))
+                        return true;
+                    if (tryStatement.CatchClauses.Any(catchClause => catchClause.Block.Statements.Any(Contains)))
+                        return true;
+                    return tryStatement.FinallyBlock?.Statements.Any(Contains) == true;
+                case BoundIfStatement ifStatement:
+                    if (Contains(ifStatement.ThenNode))
+                        return true;
+                    return ifStatement.ElseNode is not null && Contains(ifStatement.ElseNode);
+                case BoundLabeledStatement labeledStatement:
+                    return Contains(labeledStatement.Statement);
+                default:
+                    return false;
+            }
+        }
+
+        return block.Statements.Any(Contains);
     }
 
     private static BoundInvocationExpression NormalizeInvocationForLowering(
@@ -604,13 +646,14 @@ internal static class AsyncLowerer
         var awaitRewriter = new AwaitLoweringRewriter(stateMachine, context.BuilderMembers);
         var rewrittenBody = awaitRewriter.Rewrite(originalBody);
 
-        if (closureRewriter is not null)
-            rewrittenBody = closureRewriter.Rewrite(rewrittenBody);
         rewrittenBody = StateDispatchInjector.Inject(
             rewrittenBody,
             stateMachine,
             awaitRewriter.Dispatches,
             out var guardEntryLabels);
+
+        if (closureRewriter is not null)
+            rewrittenBody = closureRewriter.Rewrite(rewrittenBody);
 
         var tryStatements = new List<BoundStatement>();
         tryStatements.AddRange(CreateStateDispatchStatements(
@@ -784,9 +827,10 @@ internal static class AsyncLowerer
         {
             foreach (var dispatch in dispatches)
             {
-                var targetLabel = guardEntryLabels.TryGetValue(dispatch.State, out var guarded)
-                    ? guarded
-                    : dispatch.Label;
+                ILabelSymbol targetLabel = dispatch.Label;
+                if (!guardEntryLabels.IsEmpty && guardEntryLabels.TryGetValue(dispatch.State, out var guardEntryLabel))
+                    targetLabel = guardEntryLabel;
+
                 statements.Add(CreateStateDispatchStatement(stateField, equals, dispatch.State, targetLabel));
             }
         }
@@ -1366,8 +1410,8 @@ internal static class AsyncLowerer
             var resultOkCaseType = SubstituteType(node.ResultOkCaseType) ?? node.ResultOkCaseType;
             var resultErrorCaseType = SubstituteType(node.ResultErrorCaseType) ?? node.ResultErrorCaseType;
 
-            var tryGetOk = SubstituteMethod(node.ResultTryGetOkMethod) ?? node.ResultTryGetOkMethod;
-            var tryGetError = SubstituteMethod(node.ResultTryGetErrorMethod) ?? node.ResultTryGetErrorMethod;
+            var tryGetOk = SubstituteMethod(node.ResultTryGetValueForOkCaseMethod) ?? node.ResultTryGetValueForOkCaseMethod;
+            var tryGetError = SubstituteMethod(node.ResultTryGetValueForErrorCaseMethod) ?? node.ResultTryGetValueForErrorCaseMethod;
 
             var okValueGetter = SubstituteMethod(node.ResultOkValueGetter) ?? node.ResultOkValueGetter;
             var errorDataGetter = SubstituteMethod(node.ResultErrorDataGetter) ?? node.ResultErrorDataGetter;
@@ -1385,7 +1429,7 @@ internal static class AsyncLowerer
 
             var optionSomeCaseType = SubstituteType(node.OptionSomeCaseType) ?? node.OptionSomeCaseType;
             var optionNoneCaseType = SubstituteType(node.OptionNoneCaseType) ?? node.OptionNoneCaseType;
-            var optionTryGetSomeMethod = SubstituteMethod(node.OptionTryGetSomeMethod) ?? node.OptionTryGetSomeMethod;
+            var optionTryGetValueMethod = SubstituteMethod(node.OptionTryGetValueMethod) ?? node.OptionTryGetValueMethod;
             var optionSomeValueGetter = SubstituteMethod(node.OptionSomeValueGetter) ?? node.OptionSomeValueGetter;
             var optionSomeCtor = SubstituteMethod(node.OptionSomeCtor) ?? node.OptionSomeCtor;
             var optionNoneCtorOrFactory = SubstituteMethod(node.OptionNoneCtorOrFactory) ?? node.OptionNoneCtorOrFactory;
@@ -1400,8 +1444,8 @@ internal static class AsyncLowerer
                 SymbolEqualityComparer.Default.Equals(carrierType, node.CarrierType) &&
                 SymbolEqualityComparer.Default.Equals(resultOkCaseType, node.ResultOkCaseType) &&
                 SymbolEqualityComparer.Default.Equals(resultErrorCaseType, node.ResultErrorCaseType) &&
-                SymbolEqualityComparer.Default.Equals(tryGetOk, node.ResultTryGetOkMethod) &&
-                SymbolEqualityComparer.Default.Equals(tryGetError, node.ResultTryGetErrorMethod) &&
+                SymbolEqualityComparer.Default.Equals(tryGetOk, node.ResultTryGetValueForOkCaseMethod) &&
+                SymbolEqualityComparer.Default.Equals(tryGetError, node.ResultTryGetValueForErrorCaseMethod) &&
                 SymbolEqualityComparer.Default.Equals(okValueGetter, node.ResultOkValueGetter) &&
                 SymbolEqualityComparer.Default.Equals(errorDataGetter, node.ResultErrorDataGetter) &&
                 SymbolEqualityComparer.Default.Equals(okCtor, node.ResultOkCtor) &&
@@ -1414,7 +1458,7 @@ internal static class AsyncLowerer
                 SymbolEqualityComparer.Default.Equals(receiverResultErrorDataGetter, node.ReceiverResultErrorDataGetter) &&
                 SymbolEqualityComparer.Default.Equals(optionSomeCaseType, node.OptionSomeCaseType) &&
                 SymbolEqualityComparer.Default.Equals(optionNoneCaseType, node.OptionNoneCaseType) &&
-                SymbolEqualityComparer.Default.Equals(optionTryGetSomeMethod, node.OptionTryGetSomeMethod) &&
+                SymbolEqualityComparer.Default.Equals(optionTryGetValueMethod, node.OptionTryGetValueMethod) &&
                 SymbolEqualityComparer.Default.Equals(optionSomeValueGetter, node.OptionSomeValueGetter) &&
                 SymbolEqualityComparer.Default.Equals(optionSomeCtor, node.OptionSomeCtor) &&
                 SymbolEqualityComparer.Default.Equals(optionNoneCtorOrFactory, node.OptionNoneCtorOrFactory) &&
@@ -1439,8 +1483,8 @@ internal static class AsyncLowerer
                 receiverResultErrorDataGetter: receiverResultErrorDataGetter,
                 resultOkCaseType: (INamedTypeSymbol?)resultOkCaseType,
                 resultErrorCaseType: (INamedTypeSymbol?)resultErrorCaseType,
-                resultTryGetOkMethod: tryGetOk,
-                resultTryGetErrorMethod: tryGetError,
+                resultTryGetValueForOkCaseMethod: tryGetOk,
+                resultTryGetValueForErrorCaseMethod: tryGetError,
                 resultOkValueGetter: okValueGetter,
                 resultErrorDataGetter: errorDataGetter,
                 resultOkCtor: okCtor,
@@ -1449,7 +1493,7 @@ internal static class AsyncLowerer
                 resultImplicitFromError: implicitFromError,
                 optionSomeCaseType: (INamedTypeSymbol?)optionSomeCaseType,
                 optionNoneCaseType: (INamedTypeSymbol?)optionNoneCaseType,
-                optionTryGetSomeMethod: optionTryGetSomeMethod,
+                optionTryGetValueMethod: optionTryGetValueMethod,
                 optionSomeValueGetter: optionSomeValueGetter,
                 optionSomeCtor: optionSomeCtor,
                 optionNoneCtorOrFactory: optionNoneCtorOrFactory,
@@ -2078,6 +2122,28 @@ internal static class AsyncLowerer
                 resultExpression = new BoundLocalAccess(resultLocal);
             }
 
+            // Complex return expressions can lower into control-flow-heavy argument emission.
+            // Materialize into a temp local before builder.SetResult to keep IL stack shape stable.
+            if (resultExpression is not null and not BoundLocalAccess)
+            {
+                var resultType = resultExpression.Type ?? _stateMachine.Compilation.ErrorTypeSymbol;
+                var resultLocal = new SourceLocalSymbol(
+                    "$asyncReturnResult",
+                    SubstituteStateMachineTypeParameters(resultType),
+                    isMutable: true,
+                    _stateMachine.MoveNextMethod,
+                    _stateMachine,
+                    _stateMachine.ContainingNamespace,
+                    new[] { Location.None },
+                    Array.Empty<SyntaxReference>());
+
+                statements.Add(new BoundLocalDeclarationStatement(new[]
+                {
+                    new BoundVariableDeclarator(resultLocal, resultExpression)
+                }));
+                resultExpression = new BoundLocalAccess(resultLocal);
+            }
+
             statements.Add(CreateStateAssignment(_stateMachine, -2));
 
             var setResult = CreateBuilderSetResultStatement(_stateMachine, _builderMembers, resultExpression);
@@ -2277,7 +2343,7 @@ internal static class AsyncLowerer
                     new BoundExpressionStatement(new BoundLocalAccess(resultLocal))
                 };
 
-                return new BoundBlockExpression(blockStatements, unitType);
+                return new BoundBlockExpression(blockStatements, resultType);
             }
 
             if (!ReferenceEquals(expression, node.Expression))
@@ -2575,6 +2641,28 @@ internal static class AsyncLowerer
 
             if (_hoistedLocals.TryGetValue(node.Local, out var field))
                 return new BoundFieldAccess(field, node.Reason);
+
+            return node;
+        }
+
+        public override BoundNode? VisitAddressOfExpression(BoundAddressOfExpression node)
+        {
+            if (node is null)
+                return null;
+
+            if (node.Symbol is ILocalSymbol local && _hoistedLocals.TryGetValue(local, out var field))
+            {
+                var stateReceiver = new BoundSelfExpression(_stateMachine);
+                var fieldAccess = new BoundMemberAccessExpression(stateReceiver, field);
+                var fieldType = field.Type ?? node.ValueType;
+                return new BoundAddressOfExpression(field, fieldType, stateReceiver, fieldAccess);
+            }
+
+            var receiver = VisitExpression(node.Receiver) ?? node.Receiver;
+            var storage = VisitExpression(node.Storage) ?? node.Storage;
+
+            if (!ReferenceEquals(receiver, node.Receiver) || !ReferenceEquals(storage, node.Storage))
+                return new BoundAddressOfExpression(node.Symbol, node.ValueType, receiver, storage);
 
             return node;
         }
@@ -3195,18 +3283,6 @@ internal static class AsyncLowerer
             foreach (var guard in guardBlocks)
                 guardEntryByBlock[guard] = CreateLabel(stateMachine, $"guard{guardId++}");
 
-            var entryLabelBuilder = ImmutableDictionary.CreateBuilder<int, ILabelSymbol>();
-
-            foreach (var dispatch in dispatches)
-            {
-                if (!dispatch.HasGuards)
-                    continue;
-
-                var firstGuard = dispatch.GuardPath[0];
-                if (guardEntryByBlock.TryGetValue(firstGuard, out var entryLabel))
-                    entryLabelBuilder[dispatch.State] = entryLabel;
-            }
-
             var result = new Dictionary<BoundNode, BlockDispatchInfo>(blockDispatches.Count, ReferenceEqualityComparer.Instance);
 
             foreach (var pair in blockDispatches)
@@ -3231,6 +3307,20 @@ internal static class AsyncLowerer
                 }
 
                 result[block] = new BlockDispatchInfo(blockDispatchesBuilder.MoveToImmutable(), entryLabel);
+            }
+
+            var entryLabelBuilder = ImmutableDictionary.CreateBuilder<int, ILabelSymbol>();
+            foreach (var dispatch in dispatches)
+            {
+                if (!dispatch.HasGuards)
+                    continue;
+
+                var firstGuard = dispatch.GuardPath[0];
+                if (guardEntryByBlock.TryGetValue(firstGuard, out var entryLabel) &&
+                    result.ContainsKey(firstGuard))
+                {
+                    entryLabelBuilder[dispatch.State] = entryLabel;
+                }
             }
 
             guardEntryLabels = entryLabelBuilder.ToImmutable();

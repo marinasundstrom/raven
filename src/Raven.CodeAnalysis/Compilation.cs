@@ -244,8 +244,7 @@ public partial class Compilation
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
 
-        if (Options.OutputKind == OutputKind.ConsoleApplication)
-            InitializeTopLevelPrograms();
+        InitializeTopLevelPrograms();
     }
 
     private static MetadataLoadContext CreateMetadataLoadContext(IEnumerable<string> paths, string? coreAssemblyName)
@@ -1277,13 +1276,14 @@ public partial class Compilation
         }
 
         Assembly assembly;
-        if (identity is not null)
-        {
-            assembly = _metadataLoadContext.LoadFromAssemblyName(identity);
-        }
-        else
+        try
         {
             assembly = _metadataLoadContext.LoadFromAssemblyPath(fullPath);
+        }
+        catch when (identity is not null)
+        {
+            // Some resolvers work better by identity; keep this as a compatibility fallback.
+            assembly = _metadataLoadContext.LoadFromAssemblyName(identity);
         }
 
         _lazyMetadataAssemblies[fullPath] = assembly;

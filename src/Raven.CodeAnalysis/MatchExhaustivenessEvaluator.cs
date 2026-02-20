@@ -557,7 +557,10 @@ internal sealed class MatchExhaustivenessEvaluator
                 if (AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
                     CasePatternCoversAllArguments(casePattern))
                 {
-                    remaining.Remove(casePattern.CaseSymbol);
+                    var matchedCase = casePattern.CaseSymbol.OriginalDefinition as IDiscriminatedUnionCaseSymbol ?? casePattern.CaseSymbol;
+                    remaining.RemoveWhere(candidate =>
+                        candidate.Ordinal == matchedCase.Ordinal ||
+                        SymbolEqualityComparer.Default.Equals(candidate, matchedCase));
                 }
 
                 break;

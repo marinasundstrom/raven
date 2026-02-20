@@ -182,7 +182,36 @@ class FunctionBinder : Binder
             }
         }
 
+        if (TryResolveTopLevelProgramContainer() is { } topLevelContainer)
+            return topLevelContainer;
+
         return Compilation.SourceGlobalNamespace.LookupType("Program") as INamedTypeSymbol;
+    }
+
+    private INamedTypeSymbol? TryResolveTopLevelProgramContainer()
+    {
+        if (_syntax.SyntaxTree.GetRoot() is not CompilationUnitSyntax compilationUnit)
+            return null;
+
+        var bindableGlobals = Compilation.CollectBindableGlobalStatements(compilationUnit);
+        if (bindableGlobals.Count == 0)
+            return null;
+
+        var fileScopedNamespace = compilationUnit.Members
+            .OfType<FileScopedNamespaceDeclarationSyntax>()
+            .FirstOrDefault();
+
+        var targetNamespace = fileScopedNamespace is null
+            ? Compilation.SourceGlobalNamespace
+            : Compilation.GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToString())?.AsSourceNamespace()
+                ?? Compilation.SourceGlobalNamespace;
+
+        var (programClass, _, _) = Compilation.GetOrCreateTopLevelProgram(
+            compilationUnit,
+            targetNamespace,
+            bindableGlobals);
+
+        return programClass;
     }
 
     public MethodBinder GetMethodBodyBinder()

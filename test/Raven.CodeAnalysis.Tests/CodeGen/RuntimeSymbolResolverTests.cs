@@ -119,7 +119,7 @@ async func Compute() -> ValueTask {
     }
 
     [Fact]
-    public void ResultTryGetOkCall_UsesClosedNestedOutType()
+    public void ResultTryGetValueCall_UsesClosedCaseOutType()
     {
         var (resultReference, path) = CreateRavenCoreResultReference();
         try
@@ -136,7 +136,18 @@ async func Compute() -> ValueTask {
                 compilation.GetTypeByMetadataName("System.Exception"));
             var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
                 resultDefinition.Construct(intType, exceptionType));
-            var tryGetOkSymbol = Assert.Single(constructedResult.GetMembers("TryGetOk").OfType<IMethodSymbol>());
+            var resultUnion = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(constructedResult.TryGetDiscriminatedUnion());
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultUnion.Cases.Single(c => c.Name == "Ok"));
+            var tryGetOkSymbol = Assert.Single(
+                constructedResult
+                    .GetMembers("TryGetValue")
+                    .OfType<IMethodSymbol>()
+                    .Where(method =>
+                        method.Parameters.Length == 1 &&
+                        method.Parameters[0].RefKind == RefKind.Out &&
+                        SymbolEqualityComparer.Default.Equals(
+                            method.Parameters[0].GetByRefElementType().GetPlainType(),
+                            okCase.GetPlainType())));
 
             var codeGenerator = new CodeGenerator(compilation)
             {
@@ -152,7 +163,7 @@ async func Compute() -> ValueTask {
             var outElementType = outParameter.ParameterType.GetElementType();
             Assert.NotNull(outElementType);
             Assert.False(outElementType!.ContainsGenericParameters);
-            Assert.Contains("+Ok", outElementType.FullName ?? outElementType.Name, StringComparison.Ordinal);
+            Assert.Contains("Ok", outElementType.FullName ?? outElementType.Name, StringComparison.Ordinal);
         }
         finally
         {

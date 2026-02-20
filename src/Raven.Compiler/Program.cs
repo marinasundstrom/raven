@@ -437,9 +437,10 @@ var projectFileInput = sourceFiles.Count == 1 &&
 
 var projectTargetFramework = projectFileInput is null ? null : TryReadProjectTargetFramework(projectFileInput);
 var projectConfiguration = projectFileInput is null ? RavenProjectConventions.Default.DefaultConfiguration : TryReadProjectConfiguration(projectFileInput);
+var hostDefaultFramework = TargetFrameworkUtil.Resolve(AppContext.TargetFrameworkName);
 var targetFramework = targetFrameworkTfm
     ?? projectTargetFramework
-    ?? TargetFrameworkUtil.GetLatestFramework();
+    ?? hostDefaultFramework;
 var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 var preferredCoreTfm = version.Moniker.ToTfm();
 

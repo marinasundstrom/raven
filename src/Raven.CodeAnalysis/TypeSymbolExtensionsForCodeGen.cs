@@ -57,12 +57,15 @@ public static class TypeSymbolExtensionsForCodeGen
 
         try
         {
+            var compilation = codeGen.Compilation;
+
+            if (typeSymbol.TypeKind == TypeKind.Error)
+                return GetSpecialClrType(SpecialType.System_Object, compilation);
+
             if (typeSymbol.IsAlias && typeSymbol is IAliasSymbol { UnderlyingSymbol: ITypeSymbol aliasUnderlying })
             {
                 return GetClrTypeInternal(aliasUnderlying, codeGen, treatUnitAsVoid, usage, isTopLevel, visiting);
             }
-
-            var compilation = codeGen.Compilation;
             if (typeSymbol is ConstructedNamedTypeSymbol constructedType)
             {
                 if (constructedType.ConstructedFrom is not INamedTypeSymbol definition)

@@ -1933,6 +1933,11 @@ Exhaustiveness analysis applies in particular to:
   concrete subtypes are treated as the complete set of runtime cases.
 * **Type unions** — all constituent types must be covered.
 
+For discriminated unions, exhaustiveness is computed from the union's declared
+case set (equivalent to sealed-hierarchy reasoning over a closed subtype set).
+Each declared case must be matched by an unguarded arm, or covered by an
+unguarded catch-all arm.
+
 In addition, exhaustiveness may be proven through type analysis even when no
 explicit finite-case construct is involved. For example:
 
@@ -2179,6 +2184,9 @@ Patterns compose from the following primitives.
   * Each positional element is a pattern, so bindings still require `val`/`var`.
   * The number of positional elements must match the record’s primary-constructor
     parameters; mismatches are errors.
+  * When the scrutinee is a discriminated union, `CaseName(...)` in record-pattern
+    syntax is interpreted as a discriminated-union case pattern and binds the case
+    payload positionally.
 
 #### Member patterns
 
@@ -2198,6 +2206,18 @@ Patterns compose from the following primitives.
     * Example: `.Case(val a, b)` binds `a` and matches the second payload against
       the runtime value of in-scope `b`.
   * Use `_` to explicitly discard a payload.
+
+#### Discriminated-union case patterns
+
+Discriminated-union cases may be matched using three equivalent forms:
+
+* `.Case(...)` — target-typed/member form.
+* `Union.Case(...)` — explicitly qualified union-member form.
+* `Case(...)` or `Case` — unqualified form, allowed when the case name is
+  unambiguous for the scrutinee’s union case set.
+
+For a case carrying a single `unit` payload, a bare `Case` pattern is sugar for
+`Case(())`.
 
 #### Pattern combinators
 
@@ -3576,11 +3596,45 @@ val other: Token = .Unknown
 Line-continuation details for leading-dot forms are defined in
 [Control flow: Line continuations](control-flow.md#line-continuations).
 
-Each case becomes a nested struct (`Token.Identifier`, `Token.Number`, …) whose
-constructor parameters mirror the payload declared on the case. Supplying the
-enclosing type name is always allowed; omitting it (for example, `.Unknown`)
-requires the context to already expect the containing union so the compiler can
-resolve which declaration supplies the case.
+Case types are first-class named types linked to their union case symbol. The
+language surface treats them as case members of the union (`Token.Identifier`,
+`Result.Ok`, ...), but metadata layout does not require CLR nesting.
+
+In pattern position, cases may be matched with member-qualified forms
+(`.Ok(...)`, `Result.Ok(...)`) or unqualified forms (`Ok(...)`, `Ok`) when
+unambiguous for the scrutinee's union.
+
+### Canonical case-construction forms
+
+Raven supports the following equivalent case-construction forms:
+
+```raven
+// Case type construction
+Ok(2)
+Ok<int>(2)
+
+// Union-member sugar
+Result<int, MyError>.Ok(2)
+
+// Target-typed member-binding sugar
+val r: Result<int, MyError> = .Ok(2)
+```
+
+Binding model:
+
+* `Case(...)` constructs the case type value directly.
+* `Union.Case(...)` resolves `Case` from the union’s declared case set, then
+  constructs the case value.
+* `.Case(...)` resolves `Case` from the target type’s union case set.
+* If a union value is required, case-to-union conversion applies implicitly.
+
+Type argument behavior:
+
+* Case type arguments may be explicit (`Ok<int>(2)`) or inferred from
+  constructor arguments (`Ok(2)`).
+* Union type arguments are taken from explicit receiver types
+  (`Result<int, MyError>.Ok(2)`) or from target typing
+  (`val r: Result<int, MyError> = .Ok(2)`).
 
 For every case `Case`, the compiler synthesizes an implicit conversion
 `Case -> Token`. Assigning, returning, or passing a case value therefore
@@ -3598,8 +3652,8 @@ members make deconstruction and positional patterns available in Raven and
 improve interoperability with other .NET languages.
 
 Pattern matching exhaustively checks every case; see
-[Pattern matching](#pattern-matching) for examples of the leading-dot syntax
-inside `match` expressions.
+[Pattern matching](#pattern-matching) for case-pattern forms (`.Case`,
+`Union.Case`, and unqualified `Case`) inside `match` expressions.
 
 ## Object-oriented types
 

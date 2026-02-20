@@ -47,10 +47,17 @@ internal sealed partial class Lowerer
             unionType = (INamedTypeSymbol)caseDefinition.Union;
         }
 
-        var discriminatorField = GetRequiredUnionField(unionType, DiscriminatedUnionFieldUtilities.TagFieldName);
-        var payloadField = DiscriminatedUnionFieldUtilities.GetRequiredPayloadField(unionType, caseDefinition);
+        // Reproject the case via the target union to keep synthesized case locals concrete.
+        var projectedCase = unionType is IDiscriminatedUnionSymbol projectedUnion
+            ? projectedUnion.Cases.FirstOrDefault(c => c.Ordinal == caseDefinition.Ordinal) ?? caseDefinition
+            : caseDefinition;
 
-        var caseType = rewrittenExpression.Type ?? compilation.ErrorTypeSymbol;
+        var discriminatorField = GetRequiredUnionField(unionType, DiscriminatedUnionFieldUtilities.TagFieldName);
+        var payloadField = DiscriminatedUnionFieldUtilities.GetRequiredPayloadField(unionType, projectedCase);
+
+        var caseType = rewrittenExpression.Type;
+        if (caseType is null || caseType.TypeKind == TypeKind.Error)
+            caseType = (ITypeSymbol)projectedCase;
         var caseLocal = CreateTempLocal("case", caseType, isMutable: true);
         var unionLocal = CreateTempLocal("union", unionType, isMutable: true);
 
@@ -70,7 +77,7 @@ internal sealed partial class Lowerer
                 discriminatorField,
                 new BoundLiteralExpression(
                     BoundLiteralExpressionKind.NumericLiteral,
-                    caseDefinition.Ordinal,
+                    projectedCase.Ordinal,
                     discriminatorField.Type),
                 unitType,
                 requiresReceiverAddress: true)),

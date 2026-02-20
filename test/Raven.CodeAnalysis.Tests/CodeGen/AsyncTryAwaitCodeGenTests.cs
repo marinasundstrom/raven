@@ -19,21 +19,21 @@ public sealed class AsyncTryAwaitCodeGenTests
 import System.*
 import System.Threading.Tasks.*
 
-async func Fetch() -> Task<System.Result<int, Exception>> {
-    val value = try? await Task.FromResult(42)
-    return .Ok(value)
-}
-
 class Program {
+    static async Fetch() -> Task<Result<int, Exception>> {
+        val value = try? await Task.FromResult(42)
+        return .Ok(value)
+    }
+
     static async Main() -> Task {
-        val result = await Fetch()
+        val result = await Program.Fetch()
         Console.WriteLine(result)
     }
 }
 """;
 
         var output = CompileAndRun(code);
-        Assert.Equal(new[] { "Result<Int32, Exception>.Ok(42)" }, output);
+        Assert.Equal(new[] { "Result.Ok(42)" }, output);
     }
 
     [Fact]
@@ -44,12 +44,17 @@ import System.*
 import System.IO.*
 import System.Threading.Tasks.*
 
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
 class Program {
     static async ThrowingAsync() -> Task<int> {
         throw Exception("boom")
     }
 
-    static async Fetch(shouldThrow: bool) -> Task<System.Result<int, Exception>> {
+    static async Fetch(shouldThrow: bool) -> Task<Result<int, Exception>> {
         use stream = MemoryStream()
 
         if shouldThrow {
@@ -83,6 +88,83 @@ class Program {
 
         var output = CompileAndRun(code);
         Assert.Equal(new[] { "ok:7", "err:boom" }, output);
+    }
+
+    [Fact]
+    public void AsyncUse_WithResultMatchReturn_EmitsValidSetResultCall()
+    {
+        const string code = """
+import System.*
+import System.IO.*
+import System.Threading.Tasks.*
+
+union ApiError {
+    Network(ex: Exception)
+}
+
+class Program {
+    static async DownloadText() -> Task<Result<string, ApiError>> {
+        use stream = MemoryStream()
+
+        return try await Task.FromResult("ok") match {
+            .Ok(val text) => .Ok(text)
+            .Error(Exception ex) => .Error(ApiError.Network(ex))
+        }
+    }
+
+    static async Main() -> Task {
+        val result = await Program.DownloadText()
+        Console.WriteLine(result)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "Result.Ok(\"ok\")" }, output);
+    }
+
+    [Fact]
+    public void Async_ConditionalAccessThenPropagate_UsesSameOutStorage()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+union Err {
+    MissingUser
+    MissingName
+}
+
+class User {
+    public Name: string { get; set; } = ""
+    public Item: Option<Item> { get; set; } = .None
+}
+
+record class Item(Name: string)
+
+class Program {
+    static GetUser() -> Result<User, Err> {
+        return .Ok(User { Name = "Marina", Item = Item("Candy") })
+    }
+
+    static async GetItem() -> Task<Result<string, Err>> {
+        val maybeItem = GetUser()?.Item?
+        await Task.Delay(1)
+
+        return maybeItem match {
+            .Some(val item) => .Ok(item.Name)
+            .None => .Error(Err.MissingName)
+        }
+    }
+
+    static async Main() -> Task {
+        Console.WriteLine(await Program.GetItem())
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "Result.Ok(\"Candy\")" }, output);
     }
 
     private static string[] CompileAndRun(string code)

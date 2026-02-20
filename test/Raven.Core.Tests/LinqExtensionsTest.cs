@@ -102,9 +102,9 @@ val _ = arr.DoesNotExist()
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.MemberDoesNotContainDefinition.Id)
+                new DiagnosticResult("RAV0117")
                     .WithAnySpan()
-                    .WithArguments("DoesNotExist")
+                    .WithArguments("int[]", "DoesNotExist")
             ]);
 
         verifier.Verify();

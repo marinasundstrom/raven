@@ -494,11 +494,16 @@ internal partial class TypeMemberBinder : Binder
                     var accessorBinder = new MethodBinder(methodSymbol, this);
                     accessorBinder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
 
-                    var boundPropType = accessorBinder.BindTypeSyntax(propertyTypeSyntax, options);
-                    propertyTypeForAccessor = boundPropType.ResolvedType;
+                    propertyTypeForAccessor = ResolveTypeSyntaxForSignature(
+                        accessorBinder,
+                        propertyTypeSyntax,
+                        RefKind.None,
+                        options);
 
-                    var boundReceiver = accessorBinder.BindTypeSyntax(_extensionReceiverTypeSyntax, options);
-                    receiverTypeForAccessor = boundReceiver.ResolvedType;
+                    receiverTypeForAccessor = ResolveExtensionReceiverTypeForMember(
+                        accessorBinder,
+                        methodSymbol.TypeParameters,
+                        options);
                 }
 
                 // Now that we have the correct accessor-bound property type, set the accessor return type.
@@ -631,8 +636,15 @@ internal partial class TypeMemberBinder : Binder
                         SubstitutionPrecedence = Binder.SubstitutionPrecedence.OptionsWin
                     };
 
-                propertyTypeForAccessor = binder.BindTypeSyntax(propertyTypeSyntax, options).ResolvedType;
-                receiverTypeForAccessor = binder.BindTypeSyntax(_extensionReceiverTypeSyntax, options).ResolvedType;
+                propertyTypeForAccessor = ResolveTypeSyntaxForSignature(
+                    binder,
+                    propertyTypeSyntax,
+                    RefKind.None,
+                    options);
+                receiverTypeForAccessor = ResolveExtensionReceiverTypeForMember(
+                    binder,
+                    methodSymbol.TypeParameters,
+                    options);
             }
 
             // Use the accessor-bound property type for the getter signature.
@@ -719,8 +731,9 @@ internal partial class TypeMemberBinder : Binder
                 var substitutions = BuildExtensionTypeParameterSubstitutions(accessorForReceiver.TypeParameters);
 
                 var accessorBinder = new MethodBinder(accessorForReceiver, this);
-                var bound = accessorBinder.BindTypeSyntax(
-                    _extensionReceiverTypeSyntax,
+                receiverType = ResolveExtensionReceiverTypeForMember(
+                    accessorBinder,
+                    accessorForReceiver.TypeParameters,
                     substitutions is null
                         ? null
                         : new Binder.TypeResolutionOptions
@@ -728,8 +741,6 @@ internal partial class TypeMemberBinder : Binder
                             TypeParameterSubstitutions = substitutions,
                             SubstitutionPrecedence = Binder.SubstitutionPrecedence.OptionsWin
                         });
-
-                receiverType = bound.ResolvedType;
             }
             else
             {

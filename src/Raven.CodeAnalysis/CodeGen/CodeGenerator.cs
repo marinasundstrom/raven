@@ -518,7 +518,7 @@ internal class CodeGenerator
         var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Attribute"), this);
 
         var attrBuilder = ModuleBuilder.DefineType(
-            "System.Runtime.CompilerServices.DiscriminatedUnionAttribute",
+            "System.Runtime.CompilerServices.UnionAttribute",
             TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
             attributeType);
 
@@ -542,7 +542,7 @@ internal class CodeGenerator
 
         DiscriminatedUnionAttributeType = attrBuilder.CreateType();
         _discriminatedUnionCtor = DiscriminatedUnionAttributeType.GetConstructor(Type.EmptyTypes)
-            ?? throw new InvalidOperationException("Missing DiscriminatedUnionAttribute() constructor.");
+            ?? throw new InvalidOperationException("Missing UnionAttribute() constructor.");
     }
 
     void EnsureDiscriminatedUnionCaseAttributeType()
@@ -977,7 +977,8 @@ internal class CodeGenerator
         if (DiscriminatedUnionAttributeType is null)
         {
             DiscriminatedUnionAttributeType = Compilation.ResolveRuntimeType(
-                "System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
+                "System.Runtime.CompilerServices.UnionAttribute")
+                ?? Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
             _discriminatedUnionCtor = DiscriminatedUnionAttributeType?.GetConstructor(Type.EmptyTypes);
         }
 
@@ -1333,7 +1334,8 @@ internal class CodeGenerator
                     member is GlobalStatementSyntax ||
                     member is FileScopedNamespaceDeclarationSyntax fileScoped && fileScoped.Members.OfType<GlobalStatementSyntax>().Any());
 
-                if (hasTopLevelStatements)
+                if (hasTopLevelStatements &&
+                    Compilation.Options.OutputKind == OutputKind.ConsoleApplication)
                     semanticModel.GetBoundNode(compilationUnit, BoundTreeView.Lowered);
             }
 
@@ -1371,10 +1373,11 @@ internal class CodeGenerator
 
     internal TypeGenerator GetOrCreateTypeGenerator(ITypeSymbol typeSymbol)
     {
-        if (!_typeGenerators.TryGetValue(typeSymbol, out var generator))
+        var definitionTypeSymbol = GetDefinitionTypeSymbol(typeSymbol);
+        if (!_typeGenerators.TryGetValue(definitionTypeSymbol, out var generator))
         {
-            generator = new TypeGenerator(this, typeSymbol);
-            _typeGenerators[typeSymbol] = generator;
+            generator = new TypeGenerator(this, definitionTypeSymbol);
+            _typeGenerators[definitionTypeSymbol] = generator;
         }
 
         return generator;
@@ -1615,7 +1618,31 @@ internal class CodeGenerator
 
     public bool TryGetRuntimeTypeForSymbol(INamedTypeSymbol symbol, out Type type)
     {
-        if (_typeGenerators.TryGetValue(symbol, out var builder))
+        if (symbol is ConstructedNamedTypeSymbol constructed &&
+            constructed.ConstructedFrom is INamedTypeSymbol definition &&
+            !SymbolEqualityComparer.Default.Equals(constructed, definition))
+        {
+            if (TryGetRuntimeTypeForSymbol(definition, out var definitionType))
+            {
+                if (!definitionType.IsGenericTypeDefinition && !definitionType.ContainsGenericParameters)
+                {
+                    type = definitionType;
+                    return true;
+                }
+
+                var typeArguments = constructed.TypeArguments
+                    .Select(arg => TypeSymbolExtensionsForCodeGen.GetClrType(arg, this))
+                    .ToArray();
+
+                type = typeArguments.Length == 0
+                    ? definitionType
+                    : definitionType.MakeGenericType(typeArguments);
+                return true;
+            }
+        }
+
+        var symbolDefinition = (INamedTypeSymbol)GetDefinitionTypeSymbol(symbol);
+        if (_typeGenerators.TryGetValue(symbolDefinition, out var builder))
         {
             if (builder.TypeBuilder is not null)
             {
@@ -1639,7 +1666,8 @@ internal class CodeGenerator
         if (TryGetRuntimeTypeForSymbol(symbol, out type))
             return true;
 
-        if (_typeGenerators.TryGetValue(symbol, out var generator))
+        var symbolDefinition = (INamedTypeSymbol)GetDefinitionTypeSymbol(symbol);
+        if (_typeGenerators.TryGetValue(symbolDefinition, out var generator))
         {
             if (generator.TypeBuilder is null && generator.Type is null)
                 generator.DefineTypeBuilder();

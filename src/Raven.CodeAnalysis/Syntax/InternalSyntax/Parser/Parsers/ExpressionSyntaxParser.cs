@@ -471,6 +471,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             SyntaxKind.AmpersandEqualsToken => SyntaxKind.BitwiseAndAssignmentExpression,
             SyntaxKind.BarEqualsToken => SyntaxKind.BitwiseOrAssignmentExpression,
             SyntaxKind.CaretEqualsToken => SyntaxKind.BitwiseXorAssignmentExpression,
+            SyntaxKind.QuestionQuestionEqualsToken => SyntaxKind.NullCoalesceAssignmentExpression,
             _ => SyntaxKind.SimpleAssignmentExpression,
         };
     }
@@ -496,7 +497,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             or SyntaxKind.SlashEqualsToken
             or SyntaxKind.AmpersandEqualsToken
             or SyntaxKind.BarEqualsToken
-            or SyntaxKind.CaretEqualsToken;
+            or SyntaxKind.CaretEqualsToken
+            or SyntaxKind.QuestionQuestionEqualsToken;
     }
 
     private static bool IsPossibleAssignmentPatternStart(SyntaxToken token)

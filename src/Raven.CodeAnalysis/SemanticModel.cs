@@ -362,7 +362,7 @@ public partial class SemanticModel
         }
     }
 
-    private static BoundNode RewriteAsyncIfNeeded(SyntaxNode syntaxNode, Binder binder, BoundNode boundNode)
+    private BoundNode RewriteAsyncIfNeeded(SyntaxNode syntaxNode, Binder binder, BoundNode boundNode)
     {
         if (boundNode is BoundExpression expression &&
             syntaxNode is ArrowExpressionClauseSyntax &&
@@ -378,7 +378,10 @@ public partial class SemanticModel
         if (boundNode is not BoundBlockStatement block)
             return boundNode;
 
-        if (binder.ContainingSymbol is SourceMethodSymbol sourceMethod &&
+        var sourceMethod = binder.ContainingSymbol as SourceMethodSymbol
+            ?? TryGetEnclosingSourceMethod(syntaxNode);
+
+        if (sourceMethod is not null &&
             AsyncLowerer.ShouldRewrite(sourceMethod, block))
         {
             return AsyncLowerer.Rewrite(sourceMethod, block);
@@ -397,6 +400,22 @@ public partial class SemanticModel
         }
 
         return boundNode;
+    }
+
+    private SourceMethodSymbol? TryGetEnclosingSourceMethod(SyntaxNode syntaxNode)
+    {
+        for (var current = syntaxNode; current is not null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case FunctionStatementSyntax functionStatement:
+                    return GetDeclaredSymbol(functionStatement) as SourceMethodSymbol;
+                case BaseMethodDeclarationSyntax methodDeclaration:
+                    return GetDeclaredSymbol(methodDeclaration) as SourceMethodSymbol;
+            }
+        }
+
+        return null;
     }
 
     private static BoundBlockStatement ConvertExpressionBodyToBlock(SourceMethodSymbol method, BoundExpression expression)

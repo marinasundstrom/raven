@@ -132,6 +132,13 @@ DelegateDeclaration      ::= TypeModifiers? 'delegate' Identifier TypeParameterL
 
 UnionCaseList            ::= UnionCaseClause {UnionCaseClause} ;
 UnionCaseClause          ::= Identifier ParameterList? ;
+(* Case-construction surface forms are semantically equivalent:
+     Ok(2)
+     Ok<int>(2)
+     Result<int, E>.Ok(2)
+     .Ok(2)                    (target-typed member binding)
+   Resolution of `.Ok` / `Result.Ok` is performed by the binder against the
+   union's declared case set. *)
 
 BaseList                 ::= ':' Type {',' Type} ;
 
@@ -357,6 +364,8 @@ ConstantPatternOperand    ::= Identifier ;
    Bindings require an explicit BindingKeyword (let/val/var).
 
    A bare identifier is context-sensitive:
+   - If the scrutinee is a discriminated union and the identifier matches a case name
+     in the union's declared case set, it is treated as a DU case pattern.
    - If it binds to an in-scope value, it is a value/constant pattern (matches by equality).
    - Otherwise it is interpreted as a type name and forms a DeclarationPattern.
    This disambiguation is performed by the binder. *)
@@ -390,6 +399,9 @@ MemberPath               ::= '.' Identifier
 PatternList              ::= Pattern {',' Pattern} ;
 
 RecordPattern            ::= Type '(' PatternList? ')' ;
+(* Binder note: when Type resolves to a discriminated-union case name for the
+   current scrutinee, this form is interpreted as a DU case deconstruction
+   pattern rather than a regular record pattern. *)
 
 PropertyPattern          ::= Type? '{' PropertySubpatternList? '}' PropertyPatternDesignation? ;
 PropertySubpatternList   ::= PropertySubpattern {',' PropertySubpattern} ;
@@ -506,6 +518,8 @@ WithAssignment           ::= Identifier '=' Expression WithAssignmentTerminator?
 
 WithAssignmentTerminator ::= ',' | NewLineToken | ';' ;
 MemberBindingExpression  ::= '.' Identifier ;
+(* Member binding is target-typed; for discriminated unions, `.Case(...)` binds
+   to a case on the expected union type. *)
 
 (* ---------- Primaries ----------
    NOTE: Block and IfExpression can appear as expressions.
@@ -622,6 +636,8 @@ TupleTypeElement         ::= [Identifier ':'] Type ;
 ParenthesizedType        ::= '(' Type ')' ;
 
 QualifiedName            ::= Identifier {'.' Identifier} ;
+(* `Union.Case` is parsed as a QualifiedName/member chain and may be rebound by
+   semantics as a discriminated-union case reference. *)
 
 Identifier               ::= /* ASCII letter, '_' or '$' followed by letters, digits, '_' or '$'.
                                The single '_' token is reserved for discards. */ ;

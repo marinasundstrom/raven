@@ -25,7 +25,7 @@ union Result<T, E> {
 }
 
 class Disposable : IDisposable {
-    public static DisposedCount: int = 0
+    public static var DisposedCount: int = 0
 
     public static Reset() {
         DisposedCount = 0
@@ -81,7 +81,8 @@ class C {
 
         var disposableType = assembly.GetType("Disposable", throwOnError: true)!;
         var reset = disposableType.GetMethod("Reset", BindingFlags.Public | BindingFlags.Static)!;
-        var disposedCount = disposableType.GetProperty("DisposedCount", BindingFlags.Public | BindingFlags.Static)!;
+        var disposedCountProperty = disposableType.GetProperty("DisposedCount", BindingFlags.Public | BindingFlags.Static);
+        var disposedCountField = disposableType.GetField("DisposedCount", BindingFlags.Public | BindingFlags.Static);
 
         var containerType = assembly.GetType("C", throwOnError: true)!;
         var instance = Activator.CreateInstance(containerType)!;
@@ -91,12 +92,12 @@ class C {
         reset.Invoke(null, null);
         var failResult = await InvokeTaskWithResultAsync(runFail, instance);
         Assert.Contains("Error", failResult.ToString(), StringComparison.Ordinal);
-        Assert.Equal(1, (int)disposedCount.GetValue(null)!);
+        Assert.Equal(1, ReadDisposedCount(disposedCountProperty, disposedCountField));
 
         reset.Invoke(null, null);
         var successResult = await InvokeTaskWithResultAsync(runSuccess, instance);
         Assert.Contains("Ok", successResult.ToString(), StringComparison.Ordinal);
-        Assert.Equal(1, (int)disposedCount.GetValue(null)!);
+        Assert.Equal(1, ReadDisposedCount(disposedCountProperty, disposedCountField));
     }
 
     private static async Task<object?> InvokeTaskWithResultAsync(MethodInfo method, object instance)
@@ -104,5 +105,15 @@ class C {
         var task = (Task)method.Invoke(instance, null)!;
         await task.ConfigureAwait(false);
         return task.GetType().GetProperty("Result", BindingFlags.Public | BindingFlags.Instance)!.GetValue(task);
+    }
+
+    private static int ReadDisposedCount(PropertyInfo? property, FieldInfo? field)
+    {
+        if (property is not null)
+            return (int)property.GetValue(null)!;
+        if (field is not null)
+            return (int)field.GetValue(null)!;
+
+        throw new InvalidOperationException("Expected Disposable.DisposedCount to be emitted as a static property or field.");
     }
 }

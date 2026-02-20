@@ -43,8 +43,8 @@ internal partial class ExpressionGenerator
     IILocal receiverTmp)
     {
         // Symbol-driven emission avoids open generic locals (!0/!1) from reflection over TypeBuilderInstantiation.
-        if (expr.ResultTryGetOkMethod is null ||
-            expr.ResultTryGetErrorMethod is null ||
+        if (expr.ResultTryGetValueForOkCaseMethod is null ||
+            expr.ResultTryGetValueForErrorCaseMethod is null ||
             expr.ResultOkCaseType is null ||
             expr.ResultErrorCaseType is null ||
             expr.ResultOkCtor is null ||
@@ -57,13 +57,13 @@ internal partial class ExpressionGenerator
             expr.ReceiverResultErrorDataGetter is null)
         {
             throw new InvalidOperationException(
-                "Missing carrier symbols for Result conditional access (TryGetOk/TryGetError/Ok/Error/ctors/op_Implicit/receiver symbols).");
+                "Missing carrier symbols for Result conditional access (TryGetValue/Ok/Error/ctors/op_Implicit/receiver symbols).");
         }
 
         var resultClrType = Generator.InstantiateType(ResolveClrType(expr.Type));
         var payloadClrType = Generator.InstantiateType(ResolveClrType(expr.PayloadType));
 
-        var tryGetOkMI = GetMethodInfo(expr.ResultTryGetOkMethod!);
+        var tryGetOkMI = GetMethodInfo(expr.ResultTryGetValueForOkCaseMethod!);
         var okCaseClrType = CloseNestedCarrierCaseType(
             TryGetOutLocalElementType(tryGetOkMI)
                 ?? Generator.InstantiateType(ResolveClrType(expr.ReceiverResultOkCaseType!)),
@@ -73,7 +73,7 @@ internal partial class ExpressionGenerator
         var okLabel = ILGenerator.DefineLabel();
         var endLabel = ILGenerator.DefineLabel();
 
-        // if (tmp.TryGetOk(out okOutLocal)) goto okLabel;
+        // if (tmp.TryGetValue(out okOutLocal)) goto okLabel;
         EmitCarrierReceiver(receiverTmp, receiverClrType);
         ILGenerator.Emit(OpCodes.Ldloca_S, okOutLocal);
         ILGenerator.Emit(OpCodes.Call, tryGetOkMI);
@@ -123,7 +123,7 @@ internal partial class ExpressionGenerator
     Type resultClrType)
     {
         // Build Result<U,E>.Error from the receiver's error payload.
-        if (expr.ResultTryGetErrorMethod is null ||
+        if (expr.ResultTryGetValueForErrorCaseMethod is null ||
             expr.ResultErrorCaseType is null ||
             expr.ResultErrorCtor is null ||
             expr.ResultImplicitFromError is null)
@@ -131,7 +131,7 @@ internal partial class ExpressionGenerator
             throw new InvalidOperationException("Missing result error symbols for carrier conditional access.");
         }
 
-        var tryGetErrMI = GetMethodInfo(expr.ResultTryGetErrorMethod);
+        var tryGetErrMI = GetMethodInfo(expr.ResultTryGetValueForErrorCaseMethod);
         var errCaseClrType = CloseNestedCarrierCaseType(
             TryGetOutLocalElementType(tryGetErrMI)
                 ?? Generator.InstantiateType(ResolveClrType(expr.ReceiverResultErrorCaseType)),
@@ -427,9 +427,9 @@ internal partial class ExpressionGenerator
         var payloadClrType = Generator.InstantiateType(ResolveClrType(expr.PayloadType)); // T (payload local type)
 
         // Try to find a "has payload" method. Prefer TryGetSome(out ...), then common alternates.
-        var tryGetSomeSym = expr.OptionTryGetSomeMethod;
+        var tryGetSomeSym = expr.OptionTryGetValueMethod;
         if (tryGetSomeSym is null)
-            throw new InvalidOperationException("Missing Option.TryGetSome/TryGetValue symbol");
+            throw new InvalidOperationException("Missing Option.TryGetValue symbol");
 
         var tryGetSome = GetMethodInfo(tryGetSomeSym);
 

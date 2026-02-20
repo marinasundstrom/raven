@@ -207,8 +207,7 @@ class Formatter {
 
         var calledMethods = GetCalledMethods(formatMethod).ToArray();
 
-        Assert.Contains(calledMethods, method => method.Name == "TryGetOk");
-        Assert.Contains(calledMethods, method => method.Name == "TryGetError");
+        Assert.True(calledMethods.Count(method => method.Name == "TryGetValue") >= 2);
         Assert.Contains(calledMethods, method => method.Name == "get_Value");
         Assert.Contains(calledMethods, method => method.Name == "get_Message");
     }

@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 
@@ -12,7 +14,7 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
     {
         var asm = LoadRavenCoreAssembly();
         var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
-        var okType = GetConstructedNestedType(resultType, "Ok");
+        var okType = GetCaseTypeFromTryGetValue(resultType, "Ok");
         var okCase = Activator.CreateInstance(okType, 123)!;
         var result = ConvertCaseToCarrier(resultType, okCase);
 
@@ -21,7 +23,7 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
 
         Assert.NotNull(parsed);
 
-        var tryGetOk = resultType.GetMethod("TryGetOk")!;
+        var tryGetOk = GetTryGetValueMethod(resultType, okType);
         var args = new object?[] { null };
         var ok = (bool)(tryGetOk.Invoke(parsed, args) ?? false);
         Assert.True(ok);
@@ -36,7 +38,7 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
     {
         var asm = LoadRavenCoreAssembly();
         var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
-        var errorType = GetConstructedNestedType(resultType, "Error");
+        var errorType = GetCaseTypeFromTryGetValue(resultType, "Error");
         var errorCase = Activator.CreateInstance(errorType, "boom")!;
         var result = ConvertCaseToCarrier(resultType, errorCase);
 
@@ -45,7 +47,7 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
 
         Assert.NotNull(parsed);
 
-        var tryGetError = resultType.GetMethod("TryGetError")!;
+        var tryGetError = GetTryGetValueMethod(resultType, errorType);
         var args = new object?[] { null };
         var ok = (bool)(tryGetError.Invoke(parsed, args) ?? false);
         Assert.True(ok);
@@ -124,15 +126,29 @@ extension TestExt<T> for IEnumerable<T> {
         return definition.MakeGenericType(typeArgs);
     }
 
-    private static Type GetConstructedNestedType(Type constructedOuter, string nestedName)
+    private static MethodInfo GetTryGetValueMethod(Type resultType, Type caseType)
     {
-        var nested = constructedOuter.GetNestedType(nestedName, BindingFlags.Public | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException($"Missing nested type '{nestedName}' on '{constructedOuter}'.");
+        return resultType.GetMethod(
+            "TryGetValue",
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            types: [caseType.MakeByRefType()],
+            modifiers: null)
+            ?? throw new InvalidOperationException($"Missing TryGetValue(out {caseType}) on '{resultType}'.");
+    }
 
-        if (nested.IsGenericTypeDefinition && constructedOuter.IsGenericType)
-            nested = nested.MakeGenericType(constructedOuter.GetGenericArguments());
+    private static Type GetCaseTypeFromTryGetValue(Type resultType, string caseName)
+    {
+        var caseType = resultType
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(method => method.Name == "TryGetValue" && method.ReturnType == typeof(bool))
+            .SelectMany(method => method.GetParameters())
+            .Where(parameter => parameter.ParameterType.IsByRef)
+            .Select(parameter => parameter.ParameterType.GetElementType())
+            .FirstOrDefault(type => type is not null && type.Name.Contains(caseName, StringComparison.Ordinal));
 
-        return nested;
+        return caseType
+            ?? throw new InvalidOperationException($"Missing TryGetValue overload for case '{caseName}' on '{resultType}'.");
     }
 
     private static object ConvertCaseToCarrier(Type carrierType, object caseValue)

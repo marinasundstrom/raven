@@ -353,6 +353,60 @@ internal partial class BlockBinder
                 Designation: SingleVariableDesignationSyntax { Identifier: { Kind: SyntaxKind.None } }
             })
         {
+            // Prefer DU-case interpretation for bare identifiers in pattern position.
+            // Example: `match r { Ok => ...; Error(val e) => ... }`
+            var lookupType = inputType;
+            var unionType = lookupType?.TryGetDiscriminatedUnion()
+                ?? lookupType?.TryGetDiscriminatedUnionCase()?.Union;
+
+            if (unionType is not null)
+            {
+                var caseName = identifierType.Identifier.ValueText;
+                var caseSymbol = unionType.Cases.FirstOrDefault(c => c.Name == caseName);
+
+                if (caseSymbol is not null)
+                {
+                    if (caseSymbol is INamedTypeSymbol caseNamed &&
+                        unionType is INamedTypeSymbol unionNamed)
+                    {
+                        caseSymbol = ProjectCaseSymbolToUnionArguments(caseNamed, unionNamed) as IDiscriminatedUnionCaseSymbol
+                            ?? caseSymbol;
+                    }
+
+                    var tryGetMethod = FindTryGetMethod(lookupType!, unionType, caseSymbol);
+                    if (tryGetMethod is not null)
+                    {
+                        var parameters = caseSymbol.ConstructorParameters;
+                        var boundArguments = ImmutableArray.CreateBuilder<BoundPattern>(parameters.Length);
+                        var implicitUnitArgument = parameters.Length == 1;
+
+                        if (implicitUnitArgument && IsUnitType(parameters[0].Type))
+                        {
+                            var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+                            boundArguments.Add(new BoundConstantPattern(new BoundUnitExpression(unitType)));
+                        }
+                        else
+                        {
+                            if (parameters.Length != 0)
+                            {
+                                _diagnostics.ReportCasePatternArgumentCountMismatch(
+                                    caseSymbol.Name,
+                                    parameters.Length,
+                                    0,
+                                    identifierType.GetLocation());
+                            }
+
+                            for (var i = 0; i < parameters.Length; i++)
+                                boundArguments.Add(new BoundDiscardPattern(parameters[i].Type, BoundExpressionReason.TypeMismatch));
+                        }
+
+                        var casePattern = new BoundCasePattern(caseSymbol, tryGetMethod, boundArguments.ToImmutable());
+                        CacheBoundNode(syntax, casePattern);
+                        return casePattern;
+                    }
+                }
+            }
+
             // Try bind as a value expression first.
             var valueExpr = BindExpression(identifierType);
 
@@ -1087,81 +1141,54 @@ internal partial class BlockBinder
             ? null
             : ResolveType(syntax.Path.Qualifier);
 
-        var lookupType = qualifierType ?? inputType;
-
-        if (lookupType is null)
-            return BindCasePatternAsConstant(syntax, qualifierType, inputType);
-
-        var unionType = lookupType.TryGetDiscriminatedUnion()
-            ?? lookupType.TryGetDiscriminatedUnionCase()?.Union;
-
-        if (unionType is null)
-            return BindCasePatternAsConstant(syntax, qualifierType, inputType);
-
-        var caseName = syntax.Path.Identifier.ValueText;
-        var caseSymbol = unionType.Cases.FirstOrDefault(c => c.Name == caseName);
-
-        if (caseSymbol is null)
+        if (TryBindDiscriminatedUnionCasePattern(
+                caseName: syntax.Path.Identifier.ValueText,
+                qualifierType: qualifierType,
+                inputType: inputType,
+                arguments: syntax.ArgumentList is null ? SeparatedSyntaxList<PatternSyntax>.Empty : syntax.ArgumentList.Arguments,
+                caseNameLocation: syntax.Path.Identifier.GetLocation(),
+                argumentListLocation: syntax.ArgumentList?.GetLocation() ?? syntax.Path.GetLocation(),
+                out var pattern))
         {
-            _diagnostics.ReportCasePatternCaseNotFound(
-                caseName,
-                unionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                syntax.Path.Identifier.GetLocation());
-            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+            return pattern;
         }
 
-        var tryGetMethodName = $"TryGet{caseSymbol.Name}";
-        var tryGetMethod = FindTryGetMethod(tryGetMethodName, lookupType, unionType, caseSymbol);
+        return BindCasePatternAsConstant(syntax, qualifierType, inputType);
+    }
 
-        if (tryGetMethod is null)
+    private static INamedTypeSymbol ProjectCaseSymbolToUnionArguments(INamedTypeSymbol caseType, INamedTypeSymbol unionType)
+    {
+        if (!caseType.IsGenericType || caseType.TypeParameters.IsDefaultOrEmpty)
+            return caseType;
+
+        var unionTypeParameters = unionType.TypeParameters;
+        var unionTypeArguments = unionType.TypeArguments;
+        if (unionTypeParameters.IsDefaultOrEmpty || unionTypeArguments.IsDefaultOrEmpty)
+            return caseType;
+
+        var nameToArgument = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+        var count = Math.Min(unionTypeParameters.Length, unionTypeArguments.Length);
+        for (var i = 0; i < count; i++)
+            nameToArgument[unionTypeParameters[i].Name] = unionTypeArguments[i];
+
+        var projectedArguments = new ITypeSymbol[caseType.TypeParameters.Length];
+        var changed = false;
+        for (var i = 0; i < caseType.TypeParameters.Length; i++)
         {
-            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+            var parameter = caseType.TypeParameters[i];
+            if (nameToArgument.TryGetValue(parameter.Name, out var mapped))
+            {
+                projectedArguments[i] = mapped;
+                if (!SymbolEqualityComparer.Default.Equals(mapped, parameter))
+                    changed = true;
+            }
+            else
+            {
+                projectedArguments[i] = parameter;
+            }
         }
 
-        var parameters = caseSymbol.ConstructorParameters;
-        var argumentList = syntax.ArgumentList;
-        var argumentCount = argumentList?.Arguments.Count ?? 0;
-        var implicitUnitArgument = argumentCount == 0 && parameters.Length == 1;
-
-        if (!implicitUnitArgument && argumentCount != parameters.Length)
-        {
-            _diagnostics.ReportCasePatternArgumentCountMismatch(
-                caseSymbol.Name,
-                parameters.Length,
-                argumentCount,
-                syntax.ArgumentList?.GetLocation() ?? syntax.Path.GetLocation());
-        }
-
-        var boundArguments = ImmutableArray.CreateBuilder<BoundPattern>(Math.Max(parameters.Length, argumentCount));
-        var elementCount = Math.Min(parameters.Length, argumentCount);
-        var matchedArguments = elementCount;
-
-        if (implicitUnitArgument)
-        {
-            var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
-            boundArguments.Add(new BoundConstantPattern(new BoundUnitExpression(unitType)));
-            elementCount = 0;
-            matchedArguments = 1;
-        }
-
-        for (var i = 0; i < elementCount; i++)
-        {
-            var argumentSyntax = argumentList!.Arguments[i];
-            var boundArgument = BindCasePatternArgument(argumentSyntax, parameters[i].Type);
-            boundArguments.Add(boundArgument);
-        }
-
-        for (var i = matchedArguments; i < parameters.Length; i++)
-        {
-            boundArguments.Add(new BoundDiscardPattern(parameters[i].Type, BoundExpressionReason.TypeMismatch));
-        }
-
-        for (var i = elementCount; i < argumentCount; i++)
-        {
-            boundArguments.Add(BindPattern(argumentList!.Arguments[i]));
-        }
-
-        return new BoundCasePattern(caseSymbol, tryGetMethod, boundArguments.ToImmutable());
+        return changed ? (INamedTypeSymbol)caseType.Construct(projectedArguments) : caseType;
     }
 
     private BoundPattern BindCasePatternAsConstant(
@@ -1193,6 +1220,9 @@ internal partial class BlockBinder
 
     private BoundPattern BindRecordPattern(RecordPatternSyntax syntax, ITypeSymbol? inputType)
     {
+        if (TryBindRecordPatternAsCasePattern(syntax, inputType, out var casePattern))
+            return casePattern;
+
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
         var boundType = BindTypeSyntaxAsExpression(syntax.Type);
@@ -1269,6 +1299,159 @@ internal partial class BlockBinder
             narrowedType: recordType);
     }
 
+    private bool TryBindRecordPatternAsCasePattern(
+        RecordPatternSyntax syntax,
+        ITypeSymbol? inputType,
+        out BoundPattern? pattern)
+    {
+        pattern = null;
+
+        if (!TryGetCasePatternHead(syntax.Type, out var caseName, out var qualifierType, out var caseNameLocation))
+            return false;
+
+        return TryBindDiscriminatedUnionCasePattern(
+            caseName: caseName!,
+            qualifierType: qualifierType,
+            inputType: inputType,
+            arguments: syntax.ArgumentList.Arguments,
+            caseNameLocation: caseNameLocation,
+            argumentListLocation: syntax.ArgumentList.GetLocation(),
+            out pattern);
+    }
+
+    private bool TryBindDiscriminatedUnionCasePattern(
+        string caseName,
+        ITypeSymbol? qualifierType,
+        ITypeSymbol? inputType,
+        SeparatedSyntaxList<PatternSyntax> arguments,
+        Location caseNameLocation,
+        Location argumentListLocation,
+        out BoundPattern? pattern)
+    {
+        pattern = null;
+
+        var lookupType = qualifierType ?? inputType;
+        if (lookupType is null)
+            return false;
+
+        var unionType = lookupType.TryGetDiscriminatedUnion()
+            ?? lookupType.TryGetDiscriminatedUnionCase()?.Union;
+
+        if (unionType is null)
+            return false;
+
+        var caseSymbol = unionType.Cases.FirstOrDefault(c => c.Name == caseName);
+        if (caseSymbol is null)
+        {
+            _diagnostics.ReportCasePatternCaseNotFound(
+                caseName,
+                unionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                caseNameLocation);
+
+            pattern = new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+            return true;
+        }
+
+        if (caseSymbol is INamedTypeSymbol caseNamed &&
+            unionType is INamedTypeSymbol unionNamed)
+        {
+            caseSymbol = ProjectCaseSymbolToUnionArguments(caseNamed, unionNamed) as IDiscriminatedUnionCaseSymbol
+                ?? caseSymbol;
+        }
+
+        var tryGetMethod = FindTryGetMethod(lookupType, unionType, caseSymbol);
+        if (tryGetMethod is null)
+        {
+            pattern = new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+            return true;
+        }
+
+        var parameters = caseSymbol.ConstructorParameters;
+        var argumentCount = arguments.Count;
+        var implicitUnitArgument = argumentCount == 0 && parameters.Length == 1;
+
+        if (!implicitUnitArgument && argumentCount != parameters.Length)
+        {
+            _diagnostics.ReportCasePatternArgumentCountMismatch(
+                caseSymbol.Name,
+                parameters.Length,
+                argumentCount,
+                argumentListLocation);
+        }
+
+        var boundArguments = ImmutableArray.CreateBuilder<BoundPattern>(Math.Max(parameters.Length, argumentCount));
+        var elementCount = Math.Min(parameters.Length, argumentCount);
+        var matchedArguments = elementCount;
+
+        if (implicitUnitArgument)
+        {
+            var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+            boundArguments.Add(new BoundConstantPattern(new BoundUnitExpression(unitType)));
+            elementCount = 0;
+            matchedArguments = 1;
+        }
+
+        for (var i = 0; i < elementCount; i++)
+        {
+            var boundArgument = BindCasePatternArgument(arguments[i], parameters[i].Type);
+            boundArguments.Add(boundArgument);
+        }
+
+        for (var i = matchedArguments; i < parameters.Length; i++)
+            boundArguments.Add(new BoundDiscardPattern(parameters[i].Type, BoundExpressionReason.TypeMismatch));
+
+        for (var i = elementCount; i < argumentCount; i++)
+            boundArguments.Add(BindPattern(arguments[i]));
+
+        pattern = new BoundCasePattern(caseSymbol, tryGetMethod, boundArguments.ToImmutable());
+        return true;
+    }
+
+    private bool TryGetCasePatternHead(
+        TypeSyntax typeSyntax,
+        out string? caseName,
+        out ITypeSymbol? qualifierType,
+        out Location caseNameLocation)
+    {
+        caseName = null;
+        qualifierType = null;
+        caseNameLocation = typeSyntax.GetLocation();
+
+        switch (typeSyntax)
+        {
+            case IdentifierNameSyntax identifier:
+                caseName = identifier.Identifier.ValueText;
+                caseNameLocation = identifier.Identifier.GetLocation();
+                return !string.IsNullOrEmpty(caseName);
+
+            case GenericNameSyntax generic:
+                caseName = generic.Identifier.ValueText;
+                caseNameLocation = generic.Identifier.GetLocation();
+                return !string.IsNullOrEmpty(caseName);
+
+            case QualifiedNameSyntax qualified:
+                qualifierType = ResolveType(qualified.Left);
+                switch (qualified.Right)
+                {
+                    case IdentifierNameSyntax rightIdentifier:
+                        caseName = rightIdentifier.Identifier.ValueText;
+                        caseNameLocation = rightIdentifier.Identifier.GetLocation();
+                        return !string.IsNullOrEmpty(caseName);
+
+                    case GenericNameSyntax rightGeneric:
+                        caseName = rightGeneric.Identifier.ValueText;
+                        caseNameLocation = rightGeneric.Identifier.GetLocation();
+                        return !string.IsNullOrEmpty(caseName);
+
+                    default:
+                        return false;
+                }
+
+            default:
+                return false;
+        }
+    }
+
     private IMethodSymbol? FindDeconstructMethod(ITypeSymbol inputType, int parameterCount)
     {
         foreach (var method in inputType.GetMembers("Deconstruct").OfType<IMethodSymbol>())
@@ -1328,11 +1511,34 @@ internal partial class BlockBinder
     }
 
     private IMethodSymbol? FindTryGetMethod(
-        string methodName,
         ITypeSymbol? lookupType,
         IDiscriminatedUnionSymbol unionType,
         IDiscriminatedUnionCaseSymbol caseSymbol)
     {
+        var targetCaseType = ((ITypeSymbol)caseSymbol).GetPlainType();
+        var targetUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)unionType);
+
+        bool MatchesTargetCase(IMethodSymbol method)
+        {
+            if (method.IsStatic || method.Parameters.Length != 1)
+                return false;
+
+            var parameter = method.Parameters[0];
+            if (parameter.RefKind is not (RefKind.Out or RefKind.Ref))
+                return false;
+
+            var parameterType = parameter.GetByRefElementType().GetPlainType();
+            var parameterCase = parameterType.TryGetDiscriminatedUnionCase();
+            if (parameterCase is not null)
+            {
+                var parameterUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)parameterCase.Union);
+                return parameterCase.Ordinal == caseSymbol.Ordinal
+                    && AreSameUnionPatternTarget(parameterUnion, targetUnion);
+            }
+
+            return SymbolEqualityComparer.Default.Equals(parameterType, targetCaseType);
+        }
+
         var candidateTypes = new List<INamedTypeSymbol>();
 
         void AddCandidate(INamedTypeSymbol? candidate)
@@ -1363,9 +1569,9 @@ internal partial class BlockBinder
         foreach (var candidate in candidateTypes)
         {
             var method = candidate
-                .GetMembers(methodName)
+                .GetMembers("TryGetValue")
                 .OfType<IMethodSymbol>()
-                .FirstOrDefault(m => !m.IsStatic);
+                .FirstOrDefault(MatchesTargetCase);
 
             if (method is not null)
                 return method;

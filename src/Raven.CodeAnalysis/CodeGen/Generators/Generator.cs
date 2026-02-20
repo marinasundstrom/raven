@@ -253,8 +253,32 @@ internal abstract class Generator
             return;
         }
 
+        if (from.SpecialType == SpecialType.System_Object &&
+            to is INamedTypeSymbol destinationCarrierFromObject &&
+            destinationCarrierFromObject.TryGetDiscriminatedUnion() is IDiscriminatedUnionSymbol destinationDiscriminatedUnion &&
+            (conversion.IsUnboxing || conversion.IsReference) &&
+            EmitObjectToDiscriminatedUnionConversion(destinationCarrierFromObject, destinationDiscriminatedUnion))
+        {
+            return;
+        }
+
+        if (from is ITypeUnionSymbol sourceTypeUnionForCarrier &&
+            to is INamedTypeSymbol destinationCarrier &&
+            destinationCarrier.TryGetDiscriminatedUnion() is not null &&
+            EmitDiscriminatedUnionTypeUnionConversion(sourceTypeUnionForCarrier, destinationCarrier))
+        {
+            return;
+        }
+
         if (conversion.IsDiscriminatedUnion)
         {
+            if (from is ITypeUnionSymbol sourceTypeUnion &&
+                to is INamedTypeSymbol destinationNamedUnion &&
+                EmitDiscriminatedUnionTypeUnionConversion(sourceTypeUnion, destinationNamedUnion))
+            {
+                return;
+            }
+
             if (conversion.MethodSymbol is IMethodSymbol methodSymbol)
             {
                 ILGenerator.Emit(OpCodes.Call, GetMethodInfo(methodSymbol));
@@ -411,6 +435,188 @@ internal abstract class Generator
 
         if (from.IsValueType && !targetClrType.IsValueType)
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(from));
+    }
+
+    private bool EmitDiscriminatedUnionTypeUnionConversion(ITypeUnionSymbol sourceTypeUnion, INamedTypeSymbol destinationNamedUnion)
+    {
+        var sourceCases = new List<ITypeSymbol>();
+        foreach (var member in sourceTypeUnion.Types.SelectMany(FlattenUnionMembers))
+        {
+            if (sourceCases.Any(existing => SymbolEqualityComparer.Default.Equals(existing, member)))
+                continue;
+
+            sourceCases.Add(member);
+        }
+
+        if (sourceCases.Count == 0)
+            return false;
+
+        var caseConversions = new List<(ITypeSymbol CaseType, Conversion Conversion)>(sourceCases.Count);
+        foreach (var sourceCase in sourceCases)
+        {
+            var conversion = Compilation.ClassifyConversion(sourceCase, destinationNamedUnion);
+            if (!conversion.Exists || !conversion.IsImplicit)
+                return false;
+
+            caseConversions.Add((sourceCase, conversion));
+        }
+
+        var sourceClrType = ResolveClrType(sourceTypeUnion);
+        var destinationClrType = ResolveClrType(destinationNamedUnion);
+        var boxedSourceLocal = ILGenerator.DeclareLocal(typeof(object));
+        var endLabel = ILGenerator.DefineLabel();
+        var failedLabel = ILGenerator.DefineLabel();
+        if (sourceClrType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, sourceClrType);
+
+        ILGenerator.Emit(OpCodes.Stloc, boxedSourceLocal);
+
+        var objectGetType = typeof(object).GetMethod(nameof(object.GetType), Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing System.Object.GetType method.");
+        var typeFromHandle = typeof(Type).GetMethod(nameof(Type.GetTypeFromHandle), BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(RuntimeTypeHandle)], modifiers: null)
+            ?? throw new InvalidOperationException("Missing System.Type.GetTypeFromHandle method.");
+        var typeEquality = typeof(Type).GetMethod("op_Equality", BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(Type), typeof(Type)], modifiers: null)
+            ?? throw new InvalidOperationException("Missing System.Type.op_Equality method.");
+
+        var afterDestinationLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, afterDestinationLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
+        ILGenerator.Emit(OpCodes.Ldtoken, destinationClrType);
+        ILGenerator.Emit(OpCodes.Call, typeFromHandle);
+        ILGenerator.Emit(OpCodes.Call, typeEquality);
+        ILGenerator.Emit(OpCodes.Brfalse, afterDestinationLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+        ILGenerator.Emit(destinationClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, destinationClrType);
+        ILGenerator.Emit(OpCodes.Br, endLabel);
+        ILGenerator.MarkLabel(afterDestinationLabel);
+
+        for (var i = 0; i < caseConversions.Count; i++)
+        {
+            var (caseType, conversion) = caseConversions[i];
+            var caseClrType = ResolveClrType(caseType);
+            var nextCaseLabel = ILGenerator.DefineLabel();
+
+            ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+            ILGenerator.Emit(OpCodes.Brfalse, nextCaseLabel);
+            ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
+            ILGenerator.Emit(OpCodes.Ldtoken, caseClrType);
+            ILGenerator.Emit(OpCodes.Call, typeFromHandle);
+            ILGenerator.Emit(OpCodes.Call, typeEquality);
+            ILGenerator.Emit(OpCodes.Brfalse, nextCaseLabel);
+
+            ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+            ILGenerator.Emit(caseClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, caseClrType);
+
+            EmitConversion(caseType, destinationNamedUnion, conversion);
+            ILGenerator.Emit(OpCodes.Br, endLabel);
+            ILGenerator.MarkLabel(nextCaseLabel);
+        }
+
+        ILGenerator.Emit(OpCodes.Br, failedLabel);
+        ILGenerator.MarkLabel(failedLabel);
+
+        var invalidCastCtor = typeof(InvalidCastException).GetConstructor(Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing InvalidCastException default constructor.");
+        ILGenerator.Emit(OpCodes.Newobj, invalidCastCtor);
+        ILGenerator.Emit(OpCodes.Throw);
+
+        ILGenerator.MarkLabel(endLabel);
+        return true;
+
+        static IEnumerable<ITypeSymbol> FlattenUnionMembers(ITypeSymbol type)
+        {
+            if (type is ITypeUnionSymbol nested)
+            {
+                foreach (var nestedMember in nested.Types)
+                {
+                    foreach (var flattened in FlattenUnionMembers(nestedMember))
+                        yield return flattened;
+                }
+
+                yield break;
+            }
+
+            yield return type;
+        }
+    }
+
+    private bool EmitObjectToDiscriminatedUnionConversion(INamedTypeSymbol destinationNamedUnion, IDiscriminatedUnionSymbol destinationUnion)
+    {
+        var caseConversions = new List<(ITypeSymbol CaseType, Conversion Conversion)>(destinationUnion.Cases.Length);
+        foreach (var caseSymbol in destinationUnion.Cases)
+        {
+            var caseType = (ITypeSymbol)caseSymbol;
+            var conversion = Compilation.ClassifyConversion(caseType, destinationNamedUnion);
+            if (!conversion.Exists || !conversion.IsImplicit)
+                continue;
+
+            caseConversions.Add((caseType, conversion));
+        }
+
+        if (caseConversions.Count == 0)
+            return false;
+
+        var destinationClrType = ResolveClrType(destinationNamedUnion);
+        var boxedSourceLocal = ILGenerator.DeclareLocal(typeof(object));
+        var endLabel = ILGenerator.DefineLabel();
+        var failedLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Stloc, boxedSourceLocal);
+
+        var objectGetType = typeof(object).GetMethod(nameof(object.GetType), Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing System.Object.GetType method.");
+        var typeFromHandle = typeof(Type).GetMethod(nameof(Type.GetTypeFromHandle), BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(RuntimeTypeHandle)], modifiers: null)
+            ?? throw new InvalidOperationException("Missing System.Type.GetTypeFromHandle method.");
+        var typeEquality = typeof(Type).GetMethod("op_Equality", BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(Type), typeof(Type)], modifiers: null)
+            ?? throw new InvalidOperationException("Missing System.Type.op_Equality method.");
+
+        var afterDestinationLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, afterDestinationLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
+        ILGenerator.Emit(OpCodes.Ldtoken, destinationClrType);
+        ILGenerator.Emit(OpCodes.Call, typeFromHandle);
+        ILGenerator.Emit(OpCodes.Call, typeEquality);
+        ILGenerator.Emit(OpCodes.Brfalse, afterDestinationLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+        ILGenerator.Emit(destinationClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, destinationClrType);
+        ILGenerator.Emit(OpCodes.Br, endLabel);
+        ILGenerator.MarkLabel(afterDestinationLabel);
+
+        foreach (var (caseType, conversion) in caseConversions)
+        {
+            var caseClrType = ResolveClrType(caseType);
+            var nextCaseLabel = ILGenerator.DefineLabel();
+
+            ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+            ILGenerator.Emit(OpCodes.Brfalse, nextCaseLabel);
+            ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
+            ILGenerator.Emit(OpCodes.Ldtoken, caseClrType);
+            ILGenerator.Emit(OpCodes.Call, typeFromHandle);
+            ILGenerator.Emit(OpCodes.Call, typeEquality);
+            ILGenerator.Emit(OpCodes.Brfalse, nextCaseLabel);
+
+            ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
+            ILGenerator.Emit(caseClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, caseClrType);
+            EmitConversion(caseType, destinationNamedUnion, conversion);
+            ILGenerator.Emit(OpCodes.Br, endLabel);
+            ILGenerator.MarkLabel(nextCaseLabel);
+        }
+
+        ILGenerator.Emit(OpCodes.Br, failedLabel);
+        ILGenerator.MarkLabel(failedLabel);
+
+        var invalidCastCtor = typeof(InvalidCastException).GetConstructor(Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing InvalidCastException default constructor.");
+        ILGenerator.Emit(OpCodes.Newobj, invalidCastCtor);
+        ILGenerator.Emit(OpCodes.Throw);
+
+        ILGenerator.MarkLabel(endLabel);
+        return true;
     }
 
     private void EmitNullableUnionConversion(

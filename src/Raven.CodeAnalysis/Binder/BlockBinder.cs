@@ -391,7 +391,7 @@ partial class BlockBinder : Binder
             builder.Add(bt.Type);
         }
 
-        return builder.MoveToImmutable();
+        return builder.ToImmutable();
     }
 
     private ImmutableArray<IMethodSymbol> InstantiateMethodCandidates(
@@ -2182,6 +2182,20 @@ partial class BlockBinder : Binder
         var expression = BindExpression(tryExpression.Expression);
         var exceptionType = Compilation.GetTypeByMetadataName("System.Exception") ?? Compilation.ErrorTypeSymbol;
         var expressionType = expression.Type ?? Compilation.ErrorTypeSymbol;
+
+        if (tryExpression.QuestionToken.Kind != SyntaxKind.None &&
+            expressionType is INamedTypeSymbol directOperandNamed &&
+            TryGetPropagationInfo(directOperandNamed, out var directOperandInfo) &&
+            TryGetEnclosingCarrierReturnType(out var directEnclosingReturnType) &&
+            directEnclosingReturnType is not null &&
+            TryGetPropagationInfo(directEnclosingReturnType, out var directEnclosingInfo) &&
+            directOperandInfo.Kind == directEnclosingInfo.Kind)
+        {
+            var directPropagation = BindPropagateExpressionCore(expression, tryExpression.QuestionToken, tryExpression);
+            if (directPropagation is not BoundErrorExpression)
+                return directPropagation;
+        }
+
         var resultDefinition = Compilation.GetTypeByMetadataName("System.Result`2") as INamedTypeSymbol;
         if (resultDefinition is null)
             return ErrorExpression();
@@ -2367,39 +2381,24 @@ partial class BlockBinder : Binder
             }
         }
 
-        // Best-effort lookup for `UnwrapError()`; this can be an extension method.
-        // We only record it if it resolves unambiguously; lowering can still fall back to other mechanisms.
         IMethodSymbol? unwrapErrorMethod = null;
-
-        if (operandInfo.ErrorPayloadType is not null && operand.Type is { } operandType2 && operandType2.TypeKind != TypeKind.Error)
+        if (operandInfo.Kind == PropagationKind.Result && operandInfo.ErrorCaseHasPayload)
         {
-            // We bind "operand.UnwrapError" as if it was a normal member access.
-            // This will include extension methods because operand is a valid extension receiver.
-            var receiverForLookup = operand;
+            unwrapErrorMethod = operandInfo.UnionType
+                .GetMembers("UnwrapError")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(method =>
+                    !method.IsStatic &&
+                    method.Parameters.Length == 0);
 
-            var member = BindMemberAccessOnReceiver(
-                receiverForLookup,
-                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier("UnwrapError")),
-                preferMethods: true,
-                allowEventAccess: false,
-                suppressNullWarning: true,
-                receiverTypeForLookup: operandType,
-                forceExtensionReceiver: true);
-
-            if (member is BoundMethodGroupExpression mg)
-            {
-                // Resolve overload for UnwrapError() (no args)
-                var resolution = OverloadResolver.ResolveOverload(
-                    mg.Methods,
-                    [],
-                    Compilation,
-                    receiver: receiverForLookup,
-                    canBindLambda: EnsureLambdaCompatible,
-                    callSyntax: callSyntax);
-
-                if (resolution.Success)
-                    unwrapErrorMethod = resolution.Method;
-            }
+            unwrapErrorMethod ??= LookupExtensionMethods("UnwrapError", operandInfo.UnionType)
+                .FirstOrDefault(method =>
+                    method.IsExtensionMethod &&
+                    method.Parameters.Length == 1 &&
+                    (operandInfo.ErrorPayloadType is null ||
+                     SymbolEqualityComparer.Default.Equals(
+                         method.ReturnType.GetPlainType(),
+                         operandInfo.ErrorPayloadType.GetPlainType())));
         }
 
         // Lowering/codegen will branch, extract the error payload when available, convert if needed, and early-return.
@@ -3568,7 +3567,8 @@ partial class BlockBinder : Binder
                 if (AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
                     CasePatternCoversAllArguments(casePattern))
                 {
-                    remaining.Remove(casePattern.CaseSymbol);
+                    remaining.RemoveWhere(candidate =>
+                        SymbolEqualityComparer.Default.Equals(candidate, casePattern.CaseSymbol));
                 }
                 break;
             case BoundOrPattern orPattern:
@@ -5092,7 +5092,48 @@ partial class BlockBinder : Binder
         {
             var type = LookupType(name);
             if (type is not null)
+            {
+                var contextualTargetType = GetTargetType(syntax);
+                if (contextualTargetType is not null)
+                {
+                    var unwrappedTargetType = UnwrapTaskLikeTargetType(contextualTargetType);
+                    if (TryBindDiscriminatedUnionCase(unwrappedTargetType, name, syntax.Identifier.GetLocation()) is BoundExpression contextualUnionCase)
+                        return contextualUnionCase;
+                }
+
+                if (BindDiscriminatedUnionCaseType(type) is { } unionCaseFromLookup)
+                {
+                    var isInvocationCallee =
+                        syntax.Parent is InvocationExpressionSyntax invocation &&
+                        ReferenceEquals(invocation.Expression, syntax);
+
+                    if (!isInvocationCallee &&
+                        unionCaseFromLookup is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
+                        caseType.TryGetDiscriminatedUnionCase() is not null)
+                    {
+                        var unitArgCtor = caseType.Constructors.FirstOrDefault(ctor =>
+                            ctor.Parameters.Length == 1 &&
+                            IsUnitType(ctor.Parameters[0].Type));
+
+                        if (unitArgCtor is not null)
+                        {
+                            if (!EnsureMemberAccessible(unitArgCtor, syntax.Identifier.GetLocation(), "constructor"))
+                                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+                            ReportObsoleteIfNeeded(unitArgCtor, syntax.Identifier.GetLocation());
+
+                            var unitType = unitArgCtor.Parameters[0].Type;
+                            var unitValue = new BoundUnitExpression(unitType);
+                            return new BoundObjectCreationExpression(
+                                unitArgCtor,
+                                ImmutableArray.Create<BoundExpression>(unitValue));
+                        }
+                    }
+
+                    return unionCaseFromLookup;
+                }
+
                 return new BoundTypeExpression(type);
+            }
 
             var ns = LookupNamespace(name);
             if (ns is not null)
@@ -5127,7 +5168,48 @@ partial class BlockBinder : Binder
             case INamespaceSymbol ns:
                 return new BoundNamespaceExpression(ns);
             case ITypeSymbol type:
-                return new BoundTypeExpression(type);
+                {
+                    var contextualTargetType = GetTargetType(syntax);
+                    if (contextualTargetType is not null)
+                    {
+                        var unwrappedTargetType = UnwrapTaskLikeTargetType(contextualTargetType);
+                        if (TryBindDiscriminatedUnionCase(unwrappedTargetType, name, syntax.Identifier.GetLocation()) is BoundExpression contextualUnionCase)
+                            return contextualUnionCase;
+                    }
+
+                    if (BindDiscriminatedUnionCaseType(type) is { } unionCase)
+                    {
+                        var isInvocationCallee =
+                            syntax.Parent is InvocationExpressionSyntax invocation &&
+                            ReferenceEquals(invocation.Expression, syntax);
+
+                        if (!isInvocationCallee &&
+                            unionCase is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
+                            caseType.TryGetDiscriminatedUnionCase() is not null)
+                        {
+                            var unitArgCtor = caseType.Constructors.FirstOrDefault(ctor =>
+                                ctor.Parameters.Length == 1 &&
+                                IsUnitType(ctor.Parameters[0].Type));
+
+                            if (unitArgCtor is not null)
+                            {
+                                if (!EnsureMemberAccessible(unitArgCtor, syntax.Identifier.GetLocation(), "constructor"))
+                                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+                                ReportObsoleteIfNeeded(unitArgCtor, syntax.Identifier.GetLocation());
+
+                                var unitType = unitArgCtor.Parameters[0].Type;
+                                var unitValue = new BoundUnitExpression(unitType);
+                                return new BoundObjectCreationExpression(
+                                    unitArgCtor,
+                                    ImmutableArray.Create<BoundExpression>(unitValue));
+                            }
+                        }
+
+                        return unionCase;
+                    }
+
+                    return new BoundTypeExpression(type);
+                }
             case IEventSymbol @event:
                 if (!EnsureMemberAccessible(@event, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(@event)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
@@ -6253,6 +6335,14 @@ partial class BlockBinder : Binder
         }
         else if (syntax.Expression is IdentifierNameSyntax id)
         {
+            var symbol = LookupSymbol(id.Identifier.ValueText);
+            if (symbol is null)
+            {
+                receiver = null;
+                methodName = id.Identifier.ValueText;
+                return BindInvocationExpressionCore(receiver, methodName, syntax.ArgumentList, syntax.Expression, syntax);
+            }
+
             var boundIdentifier = BindIdentifierName(id, allowEventAccess: true);
             if (IsErrorExpression(boundIdentifier))
                 return boundIdentifier is BoundErrorExpression boundError
@@ -6288,6 +6378,15 @@ partial class BlockBinder : Binder
             var boundTypeArguments = TryBindTypeArguments(generic);
             if (boundTypeArguments is null)
                 return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+            var unionCaseCandidates = LookupUnionCaseTypeCandidates(generic.Identifier.ValueText, boundTypeArguments.Value.Length);
+            if (unionCaseCandidates.Length > 1)
+            {
+                var first = unionCaseCandidates[0].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+                var second = unionCaseCandidates[1].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+                _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+            }
 
             var symbolCandidates = LookupSymbols(generic.Identifier.ValueText)
                 .OfType<IMethodSymbol>()
@@ -6601,6 +6700,15 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
+        var unionCaseCandidates = LookupUnionCaseTypeCandidates(methodName);
+        if (unionCaseCandidates.Length > 1)
+        {
+            var first = unionCaseCandidates[0].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+            var second = unionCaseCandidates[1].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+            _diagnostics.ReportCallIsAmbiguous(first, second, callSyntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+        }
+
         if (LookupType(methodName) is INamedTypeSymbol { TypeKind: not TypeKind.Error } typeSymbol)
         {
             if (callSyntax is InvocationExpressionSyntax inv)
@@ -6614,6 +6722,95 @@ partial class BlockBinder : Binder
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, receiverSyntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private ImmutableArray<INamedTypeSymbol> LookupUnionCaseTypeCandidates(string name, int? typeArgumentCount = null)
+    {
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+        void AddCaseIfMatch(INamedTypeSymbol caseType)
+        {
+            if (caseType.TryGetDiscriminatedUnionCase() is null)
+                return;
+
+            if (!string.Equals(caseType.Name, name, StringComparison.Ordinal))
+                return;
+
+            if (typeArgumentCount is int expectedArity && caseType.Arity != expectedArity)
+                return;
+
+            if (seen.Add(caseType))
+                builder.Add(caseType);
+        }
+
+        void AddCasesFromUnionCarrier(INamedTypeSymbol carrier)
+        {
+            var union = carrier.TryGetDiscriminatedUnion();
+            if (union is null)
+                return;
+
+            foreach (var caseType in union.Cases)
+            {
+                if (!string.Equals(caseType.Name, name, StringComparison.Ordinal))
+                    continue;
+
+                if (typeArgumentCount is int expectedArity && caseType.Arity != expectedArity)
+                    continue;
+
+                if (seen.Add(caseType))
+                    builder.Add(caseType);
+            }
+        }
+
+        foreach (var symbol in LookupSymbols(name))
+        {
+            if (symbol is IAliasSymbol { UnderlyingSymbol: INamedTypeSymbol aliasNamedType })
+                AddCaseIfMatch(aliasNamedType);
+
+            if (symbol is INamedTypeSymbol namedType)
+                AddCaseIfMatch(namedType);
+        }
+
+        // Case types are not always imported/injected as standalone symbols yet.
+        // Also scan visible union carriers and collect matching cases by logical case name.
+        foreach (var symbol in LookupAvailableSymbols())
+        {
+            if (symbol is not INamedTypeSymbol namedType)
+                continue;
+
+            AddCasesFromUnionCarrier(namedType);
+        }
+
+        // Imported types and aliases can introduce union carriers/cases that are not surfaced
+        // by LookupAvailableSymbols (e.g., explicit type imports). Scan import binders directly.
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            if (current is not ImportBinder importBinder)
+                continue;
+
+            foreach (var importedType in importBinder.GetImportedTypes().OfType<INamedTypeSymbol>())
+            {
+                AddCaseIfMatch(importedType);
+                AddCasesFromUnionCarrier(importedType);
+            }
+
+            foreach (var aliasList in importBinder.GetAliases().Values)
+            {
+                foreach (var aliasSymbol in aliasList)
+                {
+                    if (aliasSymbol.UnderlyingSymbol is not INamedTypeSymbol aliasNamedType)
+                        continue;
+
+                    if (string.Equals(aliasSymbol.Name, name, StringComparison.Ordinal))
+                        AddCaseIfMatch(aliasNamedType);
+
+                    AddCasesFromUnionCarrier(aliasNamedType);
+                }
+            }
+        }
+
+        return builder.ToImmutable();
     }
 
     private static bool TryGetInvokedMemberName(SyntaxNode receiverSyntax, out string memberName)

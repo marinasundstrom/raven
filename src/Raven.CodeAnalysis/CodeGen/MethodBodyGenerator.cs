@@ -22,8 +22,8 @@ internal class MethodBodyGenerator
     private Compilation _compilation;
     private IMethodSymbol _methodSymbol;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
-    private readonly Dictionary<ILabelSymbol, ILLabel> _labels = new(SymbolEqualityComparer.Default);
-    private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<ILabelSymbol, ILLabel> _labels = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(ReferenceEqualityComparer.Instance);
     private ILLabel? _returnLabel;
     private IILocal? _returnValueLocal;
     private readonly Dictionary<SyntaxTree, ISymbolDocumentWriter> _symbolDocuments = new();
@@ -700,8 +700,12 @@ internal class MethodBodyGenerator
         resultLocal.SetLocalSymInfo("entryResult");
         ILGenerator.Emit(OpCodes.Stloc, resultLocal);
 
-        var okMethod = FindSingleOutBoolMethod(resultType, "TryGetOk");
-        var errorMethod = FindSingleOutBoolMethod(resultType, "TryGetError");
+        var resultUnion = resultType.TryGetDiscriminatedUnion();
+        var okCase = resultUnion?.Cases.FirstOrDefault(c => c.Name == "Ok") as INamedTypeSymbol;
+        var errorCase = resultUnion?.Cases.FirstOrDefault(c => c.Name == "Error") as INamedTypeSymbol;
+
+        var okMethod = FindTryGetValueMethod(resultType, okCase);
+        var errorMethod = FindTryGetValueMethod(resultType, errorCase);
 
         var doneLabel = ILGenerator.DefineLabel();
         var isIntBridge = bridgeMethod.ReturnType.SpecialType == SpecialType.System_Int32;
@@ -953,14 +957,22 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Callvirt, TextWriterWriteLineObject);
     }
 
-    private static IMethodSymbol? FindSingleOutBoolMethod(INamedTypeSymbol type, string methodName)
+    private static IMethodSymbol? FindTryGetValueMethod(INamedTypeSymbol type, INamedTypeSymbol? caseType)
     {
-        return type.GetMembers(methodName)
+        if (caseType is null)
+            return null;
+
+        var caseTypePlain = caseType.GetPlainType();
+
+        return type.GetMembers("TryGetValue")
             .OfType<IMethodSymbol>()
             .FirstOrDefault(method =>
                 method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind == RefKind.Out &&
-                method.ReturnType.SpecialType == SpecialType.System_Boolean);
+                method.ReturnType.SpecialType == SpecialType.System_Boolean &&
+                SymbolEqualityComparer.Default.Equals(
+                    method.Parameters[0].GetByRefElementType().GetPlainType(),
+                    caseTypePlain));
     }
 
 
@@ -2021,35 +2033,13 @@ internal class MethodBodyGenerator
         var appendString = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(string) })!;
         var appendChar = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(char) })!;
         var builderToString = builderType.GetMethod(nameof(StringBuilder.ToString), Type.EmptyTypes)!;
-        var stringIndexOf = typeof(string).GetMethod(nameof(string.IndexOf), new[] { typeof(char) })!;
-        var stringSubstring = typeof(string).GetMethod(nameof(string.Substring), new[] { typeof(int), typeof(int) })!;
         var stringReplace = typeof(string).GetMethod(nameof(string.Replace), new[] { typeof(string), typeof(string) })!;
         var objectToString = typeof(object).GetMethod(nameof(ToString), Type.EmptyTypes)!;
-        var typeType = typeof(Type);
-        var typeFromHandle = typeType.GetMethod(nameof(Type.GetTypeFromHandle), new[] { typeof(RuntimeTypeHandle) })!;
-        var typeNameGetter = typeType.GetProperty(nameof(Type.Name))!.GetMethod!;
-        var typeGenericArgumentsGetter = typeType.GetProperty(nameof(Type.GenericTypeArguments))!.GetMethod!;
 
         var parameterInfos = CollectUnionCaseParameters(caseSymbol);
 
         var builderLocal = ILGenerator.DeclareLocal(builderType);
         builderLocal.SetLocalSymInfo("builder");
-        var unionTypeLocal = ILGenerator.DeclareLocal(typeType);
-        unionTypeLocal.SetLocalSymInfo("unionType");
-        var nameLocal = ILGenerator.DeclareLocal(typeof(string));
-        nameLocal.SetLocalSymInfo("name");
-        var tickIndexLocal = ILGenerator.DeclareLocal(typeof(int));
-        tickIndexLocal.SetLocalSymInfo("tickIndex");
-        var argsLocal = ILGenerator.DeclareLocal(typeof(Type[]));
-        argsLocal.SetLocalSymInfo("typeArgs");
-        var argsLengthLocal = ILGenerator.DeclareLocal(typeof(int));
-        argsLengthLocal.SetLocalSymInfo("typeArgLength");
-        var argIndexLocal = ILGenerator.DeclareLocal(typeof(int));
-        argIndexLocal.SetLocalSymInfo("typeArgIndex");
-        var argTypeLocal = ILGenerator.DeclareLocal(typeType);
-        argTypeLocal.SetLocalSymInfo("typeArg");
-        var argNameLocal = ILGenerator.DeclareLocal(typeof(string));
-        argNameLocal.SetLocalSymInfo("typeArgName");
         var includeParameterNames = parameterInfos.Count > 1;
         IILocal? firstParameterLocal = null;
 
@@ -2061,27 +2051,10 @@ internal class MethodBodyGenerator
 
         ILGenerator.Emit(OpCodes.Newobj, builderCtor);
         ILGenerator.Emit(OpCodes.Stloc, builderLocal);
-
-        var unionClrType = Generator.InstantiateType(ResolveClrType(caseSymbol.Union));
-
-        EmitUnionFriendlyName(
-            unionClrType,
-            builderLocal,
-            unionTypeLocal,
-            nameLocal,
-            tickIndexLocal,
-            argsLocal,
-            argsLengthLocal,
-            argIndexLocal,
-            argTypeLocal,
-            argNameLocal,
-            appendString,
-            appendChar,
-            typeFromHandle,
-            typeNameGetter,
-            typeGenericArgumentsGetter,
-            stringIndexOf,
-            stringSubstring);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldstr, caseSymbol.Union.Name);
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
 
         ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
         ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'.');
@@ -2983,6 +2956,25 @@ internal class MethodBodyGenerator
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
+        if (typeSymbol is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter &&
+            MethodSymbol.ContainingType is INamedTypeSymbol containingType &&
+            (containingType is SynthesizedAsyncStateMachineTypeSymbol
+             || containingType is SynthesizedIteratorTypeSymbol
+             || (containingType is ConstructedNamedTypeSymbol constructedContaining &&
+                 (constructedContaining.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol
+                  || constructedContaining.ConstructedFrom is SynthesizedIteratorTypeSymbol))))
+        {
+            if (containingType is ConstructedNamedTypeSymbol constructed &&
+                (uint)methodTypeParameter.Ordinal < (uint)constructed.TypeArguments.Length)
+            {
+                typeSymbol = constructed.TypeArguments[methodTypeParameter.Ordinal];
+            }
+            else if ((uint)methodTypeParameter.Ordinal < (uint)containingType.TypeParameters.Length)
+            {
+                typeSymbol = containingType.TypeParameters[methodTypeParameter.Ordinal];
+            }
+        }
+
         return TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, MethodGenerator.TypeGenerator.CodeGen);
     }
 
@@ -3016,16 +3008,6 @@ internal class MethodBodyGenerator
 
     private Type ResolveUnionCaseClrType(ITypeSymbol caseTypeSymbol)
     {
-        if (caseTypeSymbol is INamedTypeSymbol namedCase)
-        {
-            var caseGenerator = MethodGenerator.TypeGenerator.CodeGen.GetOrCreateTypeGenerator(namedCase);
-            if (caseGenerator.TypeBuilder is null)
-                caseGenerator.DefineTypeBuilder();
-
-            if (caseGenerator.TypeBuilder is not null)
-                return Generator.InstantiateType(caseGenerator.TypeBuilder);
-        }
-
         return Generator.InstantiateType(ResolveClrType(caseTypeSymbol));
     }
 

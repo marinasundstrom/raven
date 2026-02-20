@@ -103,7 +103,7 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
 
     /// <summary>
     /// The concrete Ok case type (e.g. Result&lt;T,E&gt;.Ok) if known.
-    /// Useful for lowering via `TryGetOk(out OkCase)`.
+    /// Useful for lowering via `TryGetValue(out OkCase)`.
     /// </summary>
     public ITypeSymbol? OkCaseType { get; }
 

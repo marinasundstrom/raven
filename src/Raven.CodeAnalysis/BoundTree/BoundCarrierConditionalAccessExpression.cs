@@ -33,8 +33,8 @@ internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
     // Result<T,E>
     public INamedTypeSymbol? ResultOkCaseType { get; }
     public INamedTypeSymbol? ResultErrorCaseType { get; }
-    public IMethodSymbol? ResultTryGetOkMethod { get; }
-    public IMethodSymbol? ResultTryGetErrorMethod { get; }
+    public IMethodSymbol? ResultTryGetValueForOkCaseMethod { get; }
+    public IMethodSymbol? ResultTryGetValueForErrorCaseMethod { get; }
     public IMethodSymbol? ResultOkValueGetter { get; }
     public IMethodSymbol? ResultErrorDataGetter { get; }
     public IMethodSymbol? ResultOkCtor { get; }
@@ -51,7 +51,7 @@ internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
     // Option<T>
     public INamedTypeSymbol? OptionSomeCaseType { get; }
     public INamedTypeSymbol? OptionNoneCaseType { get; }
-    public IMethodSymbol? OptionTryGetSomeMethod { get; }
+    public IMethodSymbol? OptionTryGetValueMethod { get; }
     public IMethodSymbol? OptionSomeValueGetter { get; }
     public IMethodSymbol? OptionSomeCtor { get; }
     public IMethodSymbol? OptionNoneCtorOrFactory { get; }
@@ -77,8 +77,8 @@ internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
 
         INamedTypeSymbol? resultOkCaseType = null,
         INamedTypeSymbol? resultErrorCaseType = null,
-        IMethodSymbol? resultTryGetOkMethod = null,
-        IMethodSymbol? resultTryGetErrorMethod = null,
+        IMethodSymbol? resultTryGetValueForOkCaseMethod = null,
+        IMethodSymbol? resultTryGetValueForErrorCaseMethod = null,
         IMethodSymbol? resultOkValueGetter = null,
         IMethodSymbol? resultErrorDataGetter = null,
         IMethodSymbol? resultOkCtor = null,
@@ -88,7 +88,7 @@ internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
 
         INamedTypeSymbol? optionSomeCaseType = null,
         INamedTypeSymbol? optionNoneCaseType = null,
-        IMethodSymbol? optionTryGetSomeMethod = null,
+        IMethodSymbol? optionTryGetValueMethod = null,
         IMethodSymbol? optionSomeValueGetter = null,
         IMethodSymbol? optionSomeCtor = null,
         IMethodSymbol? optionNoneCtorOrFactory = null,
@@ -111,8 +111,8 @@ internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
 
         ResultOkCaseType = resultOkCaseType;
         ResultErrorCaseType = resultErrorCaseType;
-        ResultTryGetOkMethod = resultTryGetOkMethod;
-        ResultTryGetErrorMethod = resultTryGetErrorMethod;
+        ResultTryGetValueForOkCaseMethod = resultTryGetValueForOkCaseMethod;
+        ResultTryGetValueForErrorCaseMethod = resultTryGetValueForErrorCaseMethod;
         ResultOkValueGetter = resultOkValueGetter;
         ResultErrorDataGetter = resultErrorDataGetter;
         ResultOkCtor = resultOkCtor;
@@ -122,7 +122,7 @@ internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
 
         OptionSomeCaseType = optionSomeCaseType;
         OptionNoneCaseType = optionNoneCaseType;
-        OptionTryGetSomeMethod = optionTryGetSomeMethod;
+        OptionTryGetValueMethod = optionTryGetValueMethod;
         OptionSomeValueGetter = optionSomeValueGetter;
         OptionSomeCtor = optionSomeCtor;
         OptionNoneCtorOrFactory = optionNoneCtorOrFactory;

@@ -53,8 +53,7 @@ class Container {
         var caseValue = createMethod.Invoke(instance, Array.Empty<object?>());
         Assert.NotNull(caseValue);
 
-        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
-        var caseType = unionType.GetNestedType("Some", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var caseType = runtimeAssembly.GetType("Option_Some", throwOnError: true)!;
         Assert.Equal(caseType, caseValue!.GetType());
 
         var valueField = caseType.GetField("<value>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!;
@@ -98,16 +97,13 @@ public union Result<T> {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
         var assembly = loaded.Assembly;
 
-        var unionDefinition = assembly.GetType("Result`1", throwOnError: true)!;
-        var closedUnion = unionDefinition.MakeGenericType(typeof(int));
-
-        var okCase = closedUnion.GetNestedType("Ok", BindingFlags.Public | BindingFlags.NonPublic)!;
-        Assert.True(okCase.IsNestedPublic);
+        var okCase = assembly.GetType("Result_Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
+        Assert.True(okCase.IsPublic);
         var okCtor = okCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(int) }, modifiers: null);
         Assert.NotNull(okCtor);
 
-        var errorCase = closedUnion.GetNestedType("Error", BindingFlags.Public | BindingFlags.NonPublic)!;
-        Assert.True(errorCase.IsNestedPublic);
+        var errorCase = assembly.GetType("Result_Error", throwOnError: true)!;
+        Assert.True(errorCase.IsPublic);
         var errorCtor = errorCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(string) }, modifiers: null);
         Assert.NotNull(errorCtor);
     }
@@ -135,16 +131,10 @@ union Hidden<T> {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
         var assembly = loaded.Assembly;
 
-        var unionDefinition = assembly.GetType("Hidden`1", throwOnError: true)!;
-        Assert.False(unionDefinition.IsPublic);
-
-        var closedUnion = unionDefinition.MakeGenericType(typeof(int));
-        var caseType = closedUnion.GetNestedType("Case", BindingFlags.Public | BindingFlags.NonPublic)!;
-
-        Assert.True(caseType.IsNestedAssembly);
-        var ctor = caseType.GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, binder: null, new[] { typeof(int) }, modifiers: null);
+        var caseType = assembly.GetType("Hidden_Case`1", throwOnError: true)!.MakeGenericType(typeof(int));
+        Assert.True(caseType.IsNotPublic);
+        var ctor = caseType.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, binder: null, new[] { typeof(int) }, modifiers: null);
         Assert.NotNull(ctor);
-        Assert.True(ctor!.IsAssembly);
     }
 
     [Fact]
@@ -178,7 +168,7 @@ union Option {
 
         Assert.Contains(
             unionType.GetCustomAttributesData(),
-            a => a.AttributeType.FullName == "System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
+            a => a.AttributeType.FullName == "System.Runtime.CompilerServices.UnionAttribute");
     }
 
     [Fact]
@@ -210,8 +200,9 @@ union Option {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
-
-        var caseTypes = unionType.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic);
+        var caseTypes = runtimeAssembly.GetTypes()
+            .Where(type => type.GetCustomAttributesData().Any(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute"))
+            .ToArray();
         Assert.NotEmpty(caseTypes);
 
         foreach (var caseType in caseTypes)
@@ -275,11 +266,52 @@ class Container {
         var payload = payloadField.GetValue(unionValue);
         Assert.NotNull(payload);
 
-        var caseType = unionType.GetNestedType("Some", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var caseType = runtimeAssembly.GetType("Option_Some", throwOnError: true)!;
         Assert.Equal(caseType, payload!.GetType());
 
         var valueProperty = caseType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
         Assert.Equal(42, (int)valueProperty.GetValue(payload)!);
+    }
+
+    [Fact]
+    public void UnitPayloadCaseShorthand_ConstructsCaseBeforeImplicitUnionConversion()
+    {
+        const string code = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+class Container {
+    public Make() -> Result<(), string> {
+        .Ok
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "unit-case-shorthand",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var containerType = assembly.GetType("Container", throwOnError: true)!;
+        var makeMethod = containerType.GetMethod("Make", BindingFlags.Public | BindingFlags.Instance)!;
+        var instance = Activator.CreateInstance(containerType)!;
+
+        var unionValue = makeMethod.Invoke(instance, Array.Empty<object?>());
+        Assert.NotNull(unionValue);
+
+        var unionType = unionValue!.GetType();
+        Assert.Equal("Result`2", unionType.Name);
+        Assert.Equal("Unit", unionType.GetGenericArguments()[0].Name);
     }
 
     [Fact]
@@ -311,7 +343,7 @@ union Option {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
-        var caseType = unionType.GetNestedType("Some", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var caseType = runtimeAssembly.GetType("Option_Some", throwOnError: true)!;
 
         var conversionMethod = unionType.GetMethod(
             "op_Implicit",
@@ -368,11 +400,7 @@ union Result {
 
         var layout = unionType.StructLayoutAttribute;
         Assert.NotNull(layout);
-        Assert.Equal(LayoutKind.Explicit, layout!.Value);
-
-        Assert.Equal(0, Marshal.OffsetOf(unionType, "<Tag>").ToInt32());
-        Assert.Equal(8, Marshal.OffsetOf(unionType, "<OkPayload>").ToInt32());
-        Assert.Equal(8, Marshal.OffsetOf(unionType, "<ErrorPayload>").ToInt32());
+        Assert.Equal(LayoutKind.Sequential, layout!.Value);
     }
 
     [Fact]
@@ -440,7 +468,7 @@ union Option {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
-        var caseType = unionType.GetNestedType("Some", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var caseType = runtimeAssembly.GetType("Option_Some", throwOnError: true)!;
         var conversionMethod = unionType.GetMethod(
             "op_Implicit",
             BindingFlags.Public | BindingFlags.Static,
@@ -537,20 +565,22 @@ class Container {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Result", throwOnError: true)!;
-        var okCaseType = unionType.GetNestedType("Ok", BindingFlags.Public | BindingFlags.NonPublic)!;
-        var errorCaseType = unionType.GetNestedType("Error", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var okCaseType = runtimeAssembly.GetType("Result_Ok", throwOnError: true)!;
+        var errorCaseType = runtimeAssembly.GetType("Result_Error", throwOnError: true)!;
         var okTryGetMethod = unionType.GetMethod(
-            "TryGetOk",
+            "TryGetValue",
             BindingFlags.Public | BindingFlags.Instance,
             binder: null,
             types: new[] { okCaseType.MakeByRefType() },
             modifiers: null)!;
         var errorTryGetMethod = unionType.GetMethod(
-            "TryGetError",
+            "TryGetValue",
             BindingFlags.Public | BindingFlags.Instance,
             binder: null,
             types: new[] { errorCaseType.MakeByRefType() },
             modifiers: null)!;
+        Assert.Null(unionType.GetMethod("TryGetOk", BindingFlags.Public | BindingFlags.Instance));
+        Assert.Null(unionType.GetMethod("TryGetError", BindingFlags.Public | BindingFlags.Instance));
 
         var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
         var container = Activator.CreateInstance(containerType)!;
@@ -580,13 +610,13 @@ class Container {
     public void GenericUnionCaseConstruction_PreservesOuterTypeArguments()
     {
         var code = """
-union Result<T> {
+union Result<T, E> {
     Ok(value: T)
-    Error(message: string)
+    Error(message: E)
 }
 
 class Container {
-    public Create() -> Result<int, string>.Error {
+    public Create() -> Error<string> {
         return Result<int, string>.Error(message: "boom")
     }
 }
@@ -617,14 +647,49 @@ class Container {
         var caseValue = createMethod.Invoke(instance, Array.Empty<object?>());
         Assert.NotNull(caseValue);
 
-        var unionTypeDefinition = runtimeAssembly.GetType("Result`1", throwOnError: true)!;
-        var errorTypeDefinition = unionTypeDefinition.GetNestedType("Error", BindingFlags.Public | BindingFlags.NonPublic)!;
-        var closedCaseType = errorTypeDefinition.MakeGenericType(typeof(int));
+        var closedCaseType = runtimeAssembly.GetType("Result_Error`1", throwOnError: true)!.MakeGenericType(typeof(string));
 
         Assert.Equal(closedCaseType, caseValue!.GetType());
         Assert.Collection(
             caseValue.GetType().GetGenericArguments(),
-            arg => Assert.Equal(typeof(int), arg));
+            arg => Assert.Equal(typeof(string), arg));
+    }
+
+    [Fact]
+    public void GenericUnionCases_OnlyCaptureUsedTypeParameters()
+    {
+        var code = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+    Pair(left: T, right: E)
+    None
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+
+        Assert.Single(runtimeAssembly.GetType("Result_Ok`1", throwOnError: true)!.GetGenericArguments());
+        Assert.Single(runtimeAssembly.GetType("Result_Error`1", throwOnError: true)!.GetGenericArguments());
+        Assert.Equal(2, runtimeAssembly.GetType("Result_Pair`2", throwOnError: true)!.GetGenericArguments().Length);
+        Assert.Empty(runtimeAssembly.GetType("Result_None", throwOnError: true)!.GetGenericArguments());
     }
 
     [Fact]
@@ -668,7 +733,7 @@ class Container {
         Assert.NotNull(unionValue);
 
         var unionTypeDefinition = runtimeAssembly.GetType("Result`1", throwOnError: true)!;
-        var caseTypeDefinition = unionTypeDefinition.GetNestedType("Ok", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var caseTypeDefinition = runtimeAssembly.GetType("Result_Ok`1", throwOnError: true)!;
         var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
         var closedCaseType = caseTypeDefinition.MakeGenericType(typeof(int));
 
@@ -716,15 +781,14 @@ union Shape {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var unionType = runtimeAssembly.GetType("Shape", throwOnError: true)!;
-        var caseType = unionType.GetNestedType("Rectangle", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var caseType = runtimeAssembly.GetType("Shape_Rectangle", throwOnError: true)!;
 
         var ctor = caseType.GetConstructor(new[] { typeof(int), typeof(int) })!;
         var caseInstance = ctor.Invoke(new object?[] { 3, 6 });
         var toString = caseType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
 
         var text = (string)toString.Invoke(caseInstance, Array.Empty<object?>())!;
-        Assert.Equal("Shape.Rectangle(width=3, height=6)", text);
+        Assert.Equal("Shape.Rectangle(Width=3, Height=6)", text);
     }
 
     [Fact]
@@ -737,7 +801,7 @@ union Result<T> {
 }
 
 class Container {
-    public static Create() -> Result<int, string> {
+    public static Create() -> Result<int> {
         return .Ok(5)
     }
 }
@@ -774,7 +838,117 @@ class Container {
         var toString = closedUnionType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
         var text = (string)toString.Invoke(unionValue, Array.Empty<object?>())!;
 
-        Assert.Equal("Result<int, string>.Ok(ue=5)", text);
+        Assert.Equal("Result.Ok(5)", text);
+    }
+
+    [Fact]
+    public void UnionMemberCaseInvocation_InLambda_ReturnsExpectedResult()
+    {
+        var code = """
+import System.*
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+class Container {
+    public static Build() -> Result<int, string> {
+        val factory: Func<int, Result<int, string>> = x => Result.Ok(x)
+        return factory(42)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var buildMethod = containerType.GetMethod("Build", BindingFlags.Public | BindingFlags.Static)!;
+
+        var unionValue = buildMethod.Invoke(null, Array.Empty<object?>());
+        Assert.NotNull(unionValue);
+        Assert.Equal("Result.Ok(42)", unionValue!.ToString());
+    }
+
+    [Fact]
+    public void UnionCaseCanonicalForms_EmitEquivalentRuntimeValues()
+    {
+        var code = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+class Container {
+    public static CaseValue() -> Ok<int> {
+        return Ok(2)
+    }
+
+    public static CaseValueExplicit() -> Ok<int> {
+        return Ok<int>(2)
+    }
+
+    public static CarrierQualified() -> Result<int, string> {
+        return Result<int, string>.Ok(2)
+    }
+
+    public static CarrierTargetTyped() -> Result<int, string> {
+        val value: Result<int, string> = .Ok(2)
+        return value
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+
+        var caseValue = containerType.GetMethod("CaseValue", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>());
+        var caseValueExplicit = containerType.GetMethod("CaseValueExplicit", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>());
+        var carrierQualified = containerType.GetMethod("CarrierQualified", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>());
+        var carrierTargetTyped = containerType.GetMethod("CarrierTargetTyped", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>());
+
+        Assert.NotNull(caseValue);
+        Assert.NotNull(caseValueExplicit);
+        Assert.NotNull(carrierQualified);
+        Assert.NotNull(carrierTargetTyped);
+
+        Assert.Equal("Result.Ok(2)", caseValue!.ToString());
+        Assert.Equal("Result.Ok(2)", caseValueExplicit!.ToString());
+        Assert.Equal("Result.Ok(2)", carrierQualified!.ToString());
+        Assert.Equal("Result.Ok(2)", carrierTargetTyped!.ToString());
     }
 
     [Fact]
@@ -806,16 +980,14 @@ union Result<T> {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
 
-        var unionTypeDefinition = runtimeAssembly.GetType("Result`1", throwOnError: true)!;
-        var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
-        var caseType = closedUnionType.GetNestedType("Ok", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var caseType = runtimeAssembly.GetType("Result_Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
 
         var ctor = caseType.GetConstructor(new[] { typeof(int) })!;
         var caseInstance = ctor.Invoke(new object?[] { 99 });
         var toString = caseType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
 
         var text = (string)toString.Invoke(caseInstance, Array.Empty<object?>())!;
-        Assert.Equal("Result<int, string>.Ok(ue=99)", text);
+        Assert.Equal("Result.Ok(99)", text);
     }
 
     [Fact]
@@ -852,13 +1024,13 @@ class Container {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Shape", throwOnError: true)!;
-        var caseType = unionType.GetNestedType("Label", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var caseType = runtimeAssembly.GetType("Shape_Label", throwOnError: true)!;
 
         var ctor = caseType.GetConstructor(new[] { typeof(string) })!;
         var caseInstance = ctor.Invoke(new object?[] { "a\"b" });
         var caseToString = caseType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
         var caseText = (string)caseToString.Invoke(caseInstance, Array.Empty<object?>())!;
-        Assert.Equal("Shape.Label(text=\"a\\\"b\")", caseText);
+        Assert.Equal("Shape.Label(\"a\\\"b\")", caseText);
 
         var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
         var createMethod = containerType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static)!;
@@ -867,7 +1039,7 @@ class Container {
 
         var unionToString = unionType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
         var unionText = (string)unionToString.Invoke(unionValue, Array.Empty<object?>())!;
-        Assert.Equal("Shape.Label(text=\"a\\\"b\")", unionText);
+        Assert.Equal("Shape.Label(\"a\\\"b\")", unionText);
     }
 
     [Fact]
@@ -946,7 +1118,7 @@ union Test {
             .Where(m => m.Name == nameof(object.ToString));
         Assert.Single(unionToStrings);
 
-        foreach (var caseType in unionType.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        foreach (var caseType in runtimeAssembly.GetTypes().Where(t => t.Name is "Something" or "Nothing"))
         {
             var caseToStrings = caseType
                 .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
@@ -962,15 +1134,15 @@ union Test {
         var code = """
 import System.*
 
-union Result<T> {
+union Result<T, E> {
     Ok(value: T)
-    Error(message: string)
+    Error(message: E)
 }
 
-extension ResultExtensions<T> for Result<T> {
+extension ResultExtensions<T, E> for Result<T, E> {
     public IsError: bool {
         get {
-            if self is .Error(message) {
+            if self is .Error(_) {
                 return true
             }
             return false
@@ -985,7 +1157,7 @@ class Container {
 
     public Check() -> bool {
         var value = CreateError()
-        return value.HasError
+        return value.IsError
     }
 }
 """;
@@ -1008,7 +1180,8 @@ class Container {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var extensionContainer = runtimeAssembly.GetType("ResultExtensions`1");
+        var extensionContainer = runtimeAssembly.GetType("ResultExtensions`2")
+            ?? runtimeAssembly.GetType("ResultExtensions");
         Assert.NotNull(extensionContainer);
         var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
         var check = containerType.GetMethod("Check", BindingFlags.Public | BindingFlags.Instance)!;
@@ -1060,7 +1233,7 @@ class Container {
         var empty = Array.Empty<int>();
         var value = create.Invoke(null, [empty])!;
 
-        Assert.Equal("Result<Int32, String>.Error(\"oops\")", value.ToString());
+        Assert.Equal("Result.Error(\"oops\")", value.ToString());
     }
 
     [Fact]
@@ -1113,20 +1286,16 @@ internal extension StringExtensions for string {
     {
         const string code = """
 class Widget {
-    public Name: string { get; }
-
-    public Widget(name: string) {
-        Name = name
-    }
+    public val Id: int
 }
 
 extension WidgetExtensions for Widget {
-    public static Build(name: string) -> Widget {
-        return Widget(name)
+    public static Build() -> Widget {
+        return Widget()
     }
 
-    public Describe() -> string {
-        return self.Name
+    public Describe() -> int {
+        return self.Id
     }
 }
 """;
@@ -1147,7 +1316,11 @@ extension WidgetExtensions for Widget {
 
         var extensionMarkerAttribute = assembly.GetType("System.Runtime.CompilerServices.ExtensionMarkerNameAttribute", throwOnError: true)!;
         var extensionContainer = assembly.GetType("WidgetExtensions", throwOnError: true)!;
-        var markerType = extensionContainer.GetNestedType("<>__RavenExtensionMarker", BindingFlags.Public | BindingFlags.NonPublic);
+        var markerType = assembly
+            .GetTypes()
+            .Where(static t => t.Name.StartsWith("<>__RavenExtensionGrouping_For_", StringComparison.Ordinal))
+            .SelectMany(t => t.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+            .FirstOrDefault(static t => t.Name.StartsWith("<>__RavenExtensionMarker_", StringComparison.Ordinal));
         Assert.NotNull(markerType);
 
         var markerMethod = markerType!.GetMethod("<Extension>$", BindingFlags.Public | BindingFlags.Static);
@@ -1156,15 +1329,19 @@ extension WidgetExtensions for Widget {
 
         var buildMethod = extensionContainer.GetMethod("Build", BindingFlags.Public | BindingFlags.Static);
         Assert.NotNull(buildMethod);
-        var buildAttr = buildMethod!.GetCustomAttributes(extensionMarkerAttribute, inherit: false).Single();
-        var buildMarkerName = (string)extensionMarkerAttribute.GetProperty("Name")!.GetValue(buildAttr)!;
-        Assert.Equal(markerType.Name, buildMarkerName);
+        var buildMarkerNames = buildMethod!
+            .GetCustomAttributes(extensionMarkerAttribute, inherit: false)
+            .Select(attr => (string)extensionMarkerAttribute.GetProperty("Name")!.GetValue(attr)!)
+            .ToArray();
+        Assert.Contains(markerType.Name, buildMarkerNames);
 
         var describeMethod = extensionContainer.GetMethod("Describe", BindingFlags.Public | BindingFlags.Static);
         Assert.NotNull(describeMethod);
-        var describeAttr = describeMethod!.GetCustomAttributes(extensionMarkerAttribute, inherit: false).Single();
-        var describeMarkerName = (string)extensionMarkerAttribute.GetProperty("Name")!.GetValue(describeAttr)!;
-        Assert.Equal(markerType.Name, describeMarkerName);
+        var describeMarkerNames = describeMethod!
+            .GetCustomAttributes(extensionMarkerAttribute, inherit: false)
+            .Select(attr => (string)extensionMarkerAttribute.GetProperty("Name")!.GetValue(attr)!)
+            .ToArray();
+        Assert.Contains(markerType.Name, describeMarkerNames);
     }
 
     [Fact]
@@ -1173,20 +1350,20 @@ extension WidgetExtensions for Widget {
         var code = """
 import System.*
 
-union Result<T> {
-    Ok(value: T)
-    Error(message: string)
-}
-
 union Result<T, E> {
     Ok(value: T)
-    Error(data: E)
+    Error(message: E)
 }
 
-extension ResultExtensions<T> for Result<T> {
+union Outcome<T, E> {
+    Success(value: T)
+    Failure(data: E)
+}
+
+extension ResultExtensions<T, E> for Result<T, E> {
     public IsError: bool {
         get {
-            if self is .Error(message) {
+            if self is .Error(_) {
                 return true
             }
             return false
@@ -1196,14 +1373,14 @@ extension ResultExtensions<T> for Result<T> {
 
 class Container {
     private Parse(text: string) -> Result<int, string> {
-        return try int.Parse(text) match {
-            int value => .Ok(value)
-            Exception exc => .Error(exc.Message)
+        if text == "42" {
+            return Result<int, string>.Ok(42)
         }
+        return Result<int, string>.Error("bad")
     }
 
     public Check(text: string) -> bool {
-        return Parse(text).HasError
+        return Parse(text).IsError
     }
 }
 """;
@@ -1229,7 +1406,6 @@ class Container {
         var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
         var check = containerType.GetMethod("Check", BindingFlags.Public | BindingFlags.Instance)!;
         var instance = Activator.CreateInstance(containerType)!;
-
         var isError = (bool)check.Invoke(instance, new object?[] { "foo" })!;
         var isOk = (bool)check.Invoke(instance, new object?[] { "42" })!;
 

@@ -265,6 +265,21 @@ class BinderFactory
                     var members = containingType.GetMembers(memberName)
                         .Where(m => m.IsStatic)
                         .ToArray();
+
+                    if (qn.Right is GenericNameSyntax genericRight &&
+                        TryResolveTypeArgumentsSilently(genericRight.TypeArgumentList, out var memberTypeArguments))
+                    {
+                        var closedTypeMembers = members
+                            .OfType<INamedTypeSymbol>()
+                            .Where(t => t.Arity == memberTypeArguments.Length)
+                            .Select(t => t.Construct(memberTypeArguments))
+                            .Cast<ISymbol>()
+                            .ToArray();
+
+                        if (closedTypeMembers.Length > 0)
+                            return closedTypeMembers;
+                    }
+
                     if (members.Length > 0)
                         return members;
                 }

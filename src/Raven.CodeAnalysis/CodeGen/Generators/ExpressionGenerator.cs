@@ -226,8 +226,9 @@ internal partial class ExpressionGenerator : Generator
             case BoundObjectCreationExpression objectCreationExpression:
                 EmitObjectCreationExpression(objectCreationExpression);
                 break;
-            case BoundMatchExpression:
-                throw new InvalidOperationException("BoundMatchExpression should be lowered before code generation.");
+            case BoundMatchExpression matchExpression:
+                EmitMatchExpression(matchExpression, context);
+                break;
 
             case BoundCollectionExpression collectionExpression:
                 EmitCollectionExpression(collectionExpression);
@@ -641,10 +642,24 @@ internal partial class ExpressionGenerator : Generator
         }
 
         var parameterlessCtor = namedType.Constructors.FirstOrDefault(static ctor => ctor.Parameters.Length == 0);
-        if (parameterlessCtor is null)
+        if (parameterlessCtor is not null)
+        {
+            EmitObjectCreationExpression(new BoundObjectCreationExpression(parameterlessCtor, ImmutableArray<BoundExpression>.Empty));
+            return true;
+        }
+
+        // Support unit-payload elision: `.Ok` should construct `Ok(())`.
+        var unitPayloadCtor = namedType.Constructors.FirstOrDefault(ctor =>
+            ctor.Parameters.Length == 1 &&
+            ctor.Parameters[0].Type.SpecialType == SpecialType.System_Unit);
+        if (unitPayloadCtor is null)
             return false;
 
-        EmitObjectCreationExpression(new BoundObjectCreationExpression(parameterlessCtor, ImmutableArray<BoundExpression>.Empty));
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        EmitObjectCreationExpression(
+            new BoundObjectCreationExpression(
+                unitPayloadCtor,
+                ImmutableArray.Create<BoundExpression>(new BoundUnitExpression(unitType))));
         return true;
     }
 
@@ -1273,10 +1288,9 @@ internal partial class ExpressionGenerator : Generator
         var operandInfo = EmitExpression(expr.Operand);
         var tmp = SpillValueToLocalIfNeeded(operandClrType, operandInfo, keepValueOnStack: false);
 
-        // Prefer lowering via `TryGetOk(out Result<T,E>.Ok okCase)` so we can later read `okCase.Value`.
-        // Fall back to `TryGet{Case}(out T value)` if we don't have OkCaseType.
+        // Prefer lowering via `TryGetValue(out Result<T,E>.Ok okCase)` so we can later read `okCase.Value`.
+        // Fall back to `TryGetValue(out T value)` if we don't have OkCaseType.
         var okLabel = ILGenerator.DefineLabel();
-        var tryGetOkName = $"TryGet{expr.OkCaseName}";
 
         static bool TypesMatch(ITypeSymbol? left, ITypeSymbol? right)
         {
@@ -1286,6 +1300,29 @@ internal partial class ExpressionGenerator : Generator
             if (SymbolEqualityComparer.Default.Equals(left, right))
                 return true;
 
+            var leftPlain = left.GetPlainType();
+            var rightPlain = right.GetPlainType();
+            if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
+                return true;
+
+            var leftCase = leftPlain.TryGetDiscriminatedUnionCase();
+            var rightCase = rightPlain.TryGetDiscriminatedUnionCase();
+            if (leftCase is not null && rightCase is not null)
+            {
+                if (leftCase.Ordinal == rightCase.Ordinal)
+                {
+                    var leftUnion = leftCase.Union.GetPlainType();
+                    var rightUnion = rightCase.Union.GetPlainType();
+                    if (SymbolEqualityComparer.Default.Equals(leftUnion, rightUnion))
+                        return true;
+
+                    var leftUnionDefinition = leftUnion.OriginalDefinition ?? leftUnion;
+                    var rightUnionDefinition = rightUnion.OriginalDefinition ?? rightUnion;
+                    if (SymbolEqualityComparer.Default.Equals(leftUnionDefinition, rightUnionDefinition))
+                        return true;
+                }
+            }
+
             var leftDefinition = left.OriginalDefinition ?? left;
             var rightDefinition = right.OriginalDefinition ?? right;
             return SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition);
@@ -1293,23 +1330,41 @@ internal partial class ExpressionGenerator : Generator
 
         if (expr.OkCaseType is not null)
         {
-            // --- Begin semantic-symbol-based method lookup for TryGetOk(out OkCaseType) ---
+            // --- Begin semantic-symbol-based method lookup for TryGetValue(out OkCaseType) ---
             if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
                 throw new InvalidOperationException("Propagate operand must be a named type.");
-            var tryGetOkSymbol = operandTypeSymbol
-                .GetMembers(tryGetOkName)
+            var tryGetCandidates = operandTypeSymbol
+                .GetMembers("TryGetValue")
                 .OfType<IMethodSymbol>()
-                .FirstOrDefault(m =>
+                .Where(m =>
                     !m.IsStatic &&
                     m.Parameters.Length == 1 &&
-                    m.Parameters[0].RefKind == RefKind.Out &&
-                    expr.OkCaseType is not null &&
-                    TypesMatch(m.Parameters[0].GetByRefElementType(), expr.OkCaseType));
+                    m.Parameters[0].RefKind == RefKind.Out)
+                .ToArray();
+
+            var tryGetOkSymbol = tryGetCandidates.FirstOrDefault(m =>
+                expr.OkCaseType is not null &&
+                TypesMatch(m.Parameters[0].GetByRefElementType(), expr.OkCaseType));
 
             if (tryGetOkSymbol is null)
-                throw new InvalidOperationException($"Missing {tryGetOkName}(out {expr.OkCaseType}) on '{expr.Operand.Type}'.");
+            {
+                tryGetOkSymbol = tryGetCandidates.FirstOrDefault(m =>
+                    string.Equals(
+                        m.Parameters[0].GetByRefElementType().TryGetDiscriminatedUnionCase()?.Name,
+                        expr.OkCaseName,
+                        StringComparison.Ordinal));
+            }
 
-            var tryGetOkOkCase = GetMethodInfo(tryGetOkSymbol);
+            if (tryGetOkSymbol is null)
+            {
+                tryGetOkSymbol = tryGetCandidates.FirstOrDefault(m =>
+                    TypesMatch(m.Parameters[0].GetByRefElementType(), expr.OkType));
+            }
+
+            if (tryGetOkSymbol is null)
+                throw new InvalidOperationException($"Missing compatible TryGetValue(out ...) on '{expr.Operand.Type}' for Ok case '{expr.OkCaseName}'.");
+
+            var tryGetOkOkCase = CloseMethodOnRuntimeCarrier(operandClrType, GetMethodInfo(tryGetOkSymbol));
             // --- End semantic-symbol-based method lookup ---
 
             var okCaseClrType = tryGetOkOkCase.GetParameters() is [{ ParameterType: var okOutType }] &&
@@ -1320,12 +1375,13 @@ internal partial class ExpressionGenerator : Generator
             okCaseClrType = CloseNestedCarrierCaseType(okCaseClrType, tryGetOkOkCase.DeclaringType ?? operandClrType);
             var okCaseLocal = ILGenerator.DeclareLocal(okCaseClrType);
 
-            // if (tmp.TryGetOk(out okCaseLocal)) goto okLabel;
-            // Call value-type instance method on the managed address to avoid copies
-            // and to keep decompilers from producing unsafe pointer casts.
-            ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+            // if (tmp.TryGetValue(out okCaseLocal)) goto okLabel;
+            if (operandClrType.IsValueType)
+                ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+            else
+                ILGenerator.Emit(OpCodes.Ldloc, tmp);
             ILGenerator.Emit(OpCodes.Ldloca_S, okCaseLocal);
-            ILGenerator.Emit(OpCodes.Call, tryGetOkOkCase);
+            ILGenerator.Emit(operandClrType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, tryGetOkOkCase);
             ILGenerator.Emit(OpCodes.Brtrue, okLabel);
 
             // Error path: extract error payload and early-return.
@@ -1334,7 +1390,13 @@ internal partial class ExpressionGenerator : Generator
             // Ok path: load okCaseLocal.Value (or best-effort payload) onto the stack.
             ILGenerator.MarkLabel(okLabel);
 
-            if (expr.OkValueProperty?.GetMethod is not null)
+            var selectedOutType = tryGetOkSymbol.Parameters[0].GetByRefElementType();
+            var outCarriesPayloadDirectly = TypesMatch(selectedOutType, expr.OkType);
+            if (outCarriesPayloadDirectly)
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, okCaseLocal);
+            }
+            else if (expr.OkValueProperty?.GetMethod is not null)
             {
                 var valueGetter = GetMethodInfo(expr.OkValueProperty.GetMethod);
                 // Ok-case is a value type; call the getter on the managed address to avoid copies
@@ -1361,16 +1423,16 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        // Fallback: `TryGetOk(out T)`
+        // Fallback: `TryGetValue(out T)`
         {
             var okClrType = ResolveClrType(expr.OkType);
             var okLocal = ILGenerator.DeclareLocal(okClrType);
 
-            // --- Begin semantic-symbol-based method lookup for TryGetOk(out OkType) ---
+            // --- Begin semantic-symbol-based method lookup for TryGetValue(out OkType) ---
             if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
                 throw new InvalidOperationException("Propagate operand must be a named type.");
             var tryGetOkSymbol = operandTypeSymbol
-                .GetMembers(tryGetOkName)
+                .GetMembers("TryGetValue")
                 .OfType<IMethodSymbol>()
                 .FirstOrDefault(m =>
                 !m.IsStatic &&
@@ -1379,16 +1441,17 @@ internal partial class ExpressionGenerator : Generator
                 TypesMatch(m.Parameters[0].GetByRefElementType(), expr.OkType));
 
             if (tryGetOkSymbol is null)
-                throw new InvalidOperationException($"Missing {tryGetOkName}(out {expr.OkType}) on '{expr.Operand.Type}'.");
+                throw new InvalidOperationException($"Missing TryGetValue(out {expr.OkType}) on '{expr.Operand.Type}'.");
 
-            var tryGetOk = GetMethodInfo(tryGetOkSymbol);
+            var tryGetOk = CloseMethodOnRuntimeCarrier(operandClrType, GetMethodInfo(tryGetOkSymbol));
             // --- End semantic-symbol-based method lookup ---
 
-            // Call value-type instance method on the managed address to avoid copies
-            // and to keep decompilers from producing unsafe pointer casts.
-            ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+            if (operandClrType.IsValueType)
+                ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+            else
+                ILGenerator.Emit(OpCodes.Ldloc, tmp);
             ILGenerator.Emit(OpCodes.Ldloca_S, okLocal);
-            ILGenerator.Emit(OpCodes.Call, tryGetOk);
+            ILGenerator.Emit(operandClrType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, tryGetOk);
             ILGenerator.Emit(OpCodes.Brtrue, okLabel);
 
             // Error path
@@ -1435,6 +1498,31 @@ internal partial class ExpressionGenerator : Generator
         return tmp;
     }
 
+    private static MethodInfo CloseMethodOnRuntimeCarrier(Type carrierType, MethodInfo method)
+    {
+        if (method.DeclaringType is null)
+            return method;
+
+        if (ReferenceEquals(method.DeclaringType, carrierType))
+            return method;
+
+        if (!carrierType.IsGenericType)
+            return method;
+
+        try
+        {
+            return TypeBuilder.GetMethod(carrierType, method);
+        }
+        catch (ArgumentException)
+        {
+            return method;
+        }
+        catch (NotSupportedException)
+        {
+            return method;
+        }
+    }
+
     private void EmitPropagateErrorReturn(BoundPropagateExpression expr, Type operandClrType, IILocal tmp)
     {
         var enclosingResultClrType = ResolveClrType(expr.EnclosingResultType);
@@ -1451,6 +1539,12 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
+        if (enclosingErrorCtor.Parameters.Length != 1)
+            throw new InvalidOperationException("Expected enclosing Error constructor to have exactly one parameter.");
+
+        var targetErrorType = enclosingErrorCtor.Parameters[0].Type;
+        var sourceErrorType = expr.ErrorType ?? Compilation.ErrorTypeSymbol;
+
         // Obtain error payload.
         if (expr.UnwrapErrorMethod is not null)
         {
@@ -1465,22 +1559,94 @@ internal partial class ExpressionGenerator : Generator
             }
             else
             {
-                ILGenerator.Emit(OpCodes.Ldloc, tmp);
-                ILGenerator.Emit(OpCodes.Callvirt, mi);
+                if (operandClrType.IsValueType)
+                {
+                    ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+                    ILGenerator.Emit(OpCodes.Call, mi);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Ldloc, tmp);
+                    ILGenerator.Emit(OpCodes.Callvirt, mi);
+                }
             }
         }
         else
         {
-            throw new InvalidOperationException($"Missing bound error unwrap method for '{expr.Operand.Type}'.");
+            // Fallback: extract the error case via TryGetValue(out ErrorCase) and read its payload.
+            if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
+                throw new InvalidOperationException($"Propagate operand must be a named type: '{expr.Operand.Type}'.");
+
+            var tryGetErrorSymbol = operandTypeSymbol
+                .GetMembers("TryGetValue")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(m =>
+                    !m.IsStatic &&
+                    m.Parameters.Length == 1 &&
+                    m.Parameters[0].RefKind == RefKind.Out &&
+                    string.Equals(
+                        m.Parameters[0].GetByRefElementType().TryGetDiscriminatedUnionCase()?.Name,
+                        expr.ErrorCaseName,
+                        StringComparison.Ordinal));
+
+            if (tryGetErrorSymbol is null)
+                throw new InvalidOperationException($"Missing TryGetValue(out {expr.ErrorCaseName}...) on '{expr.Operand.Type}'.");
+
+            var errorOutSymbolType = tryGetErrorSymbol.Parameters[0].GetByRefElementType();
+            var errorOutType = ResolveClrType(errorOutSymbolType);
+            var tryGetError = CloseMethodOnRuntimeCarrier(operandClrType, GetMethodInfo(tryGetErrorSymbol));
+
+            var errorCaseLocal = ILGenerator.DeclareLocal(errorOutType);
+            if (operandClrType.IsValueType)
+                ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+            else
+                ILGenerator.Emit(OpCodes.Ldloc, tmp);
+
+            ILGenerator.Emit(OpCodes.Ldloca_S, errorCaseLocal);
+            ILGenerator.Emit(operandClrType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, tryGetError);
+
+            var haveErrorCase = ILGenerator.DefineLabel();
+            var invalidOpCtor = typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })
+                ?? throw new InvalidOperationException("Missing InvalidOperationException(string) constructor.");
+
+            ILGenerator.Emit(OpCodes.Brtrue_S, haveErrorCase);
+            ILGenerator.Emit(OpCodes.Ldstr, $"Failed to extract '{expr.ErrorCaseName}' case from '{expr.Operand.Type}'.");
+            ILGenerator.Emit(OpCodes.Newobj, invalidOpCtor);
+            ILGenerator.Emit(OpCodes.Throw);
+            ILGenerator.MarkLabel(haveErrorCase);
+
+            if (SymbolEqualityComparer.Default.Equals(errorOutSymbolType, targetErrorType))
+            {
+                // Payload is directly the out value type.
+                ILGenerator.Emit(OpCodes.Ldloc, errorCaseLocal);
+            }
+            else
+            {
+                var payloadGetter = (errorOutSymbolType as INamedTypeSymbol)?
+                    .GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod
+                    ?? (errorOutSymbolType as INamedTypeSymbol)?
+                        .GetMembers("Error").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod
+                    ?? (errorOutSymbolType as INamedTypeSymbol)?
+                        .GetMembers("Data").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod;
+
+                if (payloadGetter is null)
+                    throw new InvalidOperationException($"Missing error payload getter on '{errorOutSymbolType}'.");
+
+                var payloadGetterInfo = GetMethodInfo(payloadGetter);
+                if (errorOutSymbolType.IsValueType)
+                {
+                    ILGenerator.Emit(OpCodes.Ldloca_S, errorCaseLocal);
+                    ILGenerator.Emit(OpCodes.Call, payloadGetterInfo);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Ldloc, errorCaseLocal);
+                    ILGenerator.Emit(OpCodes.Callvirt, payloadGetterInfo);
+                }
+            }
         }
 
         // Convert payload to the parameter type of the enclosing Error constructor if needed.
-        if (enclosingErrorCtor.Parameters.Length != 1)
-            throw new InvalidOperationException("Expected enclosing Error constructor to have exactly one parameter.");
-
-        var targetErrorType = enclosingErrorCtor.Parameters[0].Type;
-        var sourceErrorType = expr.ErrorType ?? Compilation.ErrorTypeSymbol;
-
         var conversion = expr.ErrorConversion.Exists
             ? expr.ErrorConversion
             : Compilation.ClassifyConversion(sourceErrorType, targetErrorType);
@@ -1677,6 +1843,24 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitConversionExpression(BoundConversionExpression conversionExpression)
     {
+        if (conversionExpression.Expression is BoundTypeExpression typeExpression)
+        {
+            ITypeSymbol caseTypeToConstruct = typeExpression.Type;
+
+            if (conversionExpression.Conversion.IsUserDefined &&
+                conversionExpression.Conversion.MethodSymbol is IMethodSymbol conversionMethod &&
+                conversionMethod.Parameters.Length == 1)
+            {
+                caseTypeToConstruct = conversionMethod.Parameters[0].Type;
+            }
+
+            if (TryEmitDiscriminatedUnionCaseCreation(caseTypeToConstruct))
+            {
+                EmitConversion(caseTypeToConstruct, conversionExpression.Type, conversionExpression.Conversion);
+                return;
+            }
+        }
+
         new ExpressionGenerator(this, conversionExpression.Expression).Emit();
         EmitConversion(conversionExpression.Expression.Type!, conversionExpression.Type, conversionExpression.Conversion);
     }
@@ -1811,7 +1995,17 @@ internal partial class ExpressionGenerator : Generator
         switch (addressOf.Symbol)
         {
             case ILocalSymbol local:
-                ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
+                var localBuilder = GetLocal(local);
+                if (localBuilder is null)
+                {
+                    var localClrType = ResolveClrType(local.Type);
+                    localBuilder = ILGenerator.DeclareLocal(localClrType);
+                    localBuilder.SetLocalSymInfo(local.Name);
+                    AddLocal(local, localBuilder);
+                }
+
+                ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
+
                 break;
 
             case IParameterSymbol param:
@@ -5297,9 +5491,25 @@ internal partial class ExpressionGenerator : Generator
         var resultClrType = ResolveClrType(resultType);
         var resultLocal = ILGenerator.DeclareLocal(resultClrType);
 
-        var exceptionType = tryExpression.ExceptionType;
-        if (exceptionType.TypeKind == TypeKind.Error)
-            exceptionType = Compilation.GetSpecialType(SpecialType.System_Object);
+        var requestedCatchType = tryExpression.ExceptionType;
+        var exceptionBaseType = Compilation.GetSpecialType(SpecialType.System_Exception);
+        if (requestedCatchType.TypeKind == TypeKind.Error)
+            requestedCatchType = exceptionBaseType;
+
+        bool IsExceptionLike(ITypeSymbol type)
+        {
+            for (var current = type; current is not null; current = current.BaseType)
+            {
+                if (SymbolEqualityComparer.Default.Equals(current, exceptionBaseType))
+                    return true;
+            }
+
+            return false;
+        }
+
+        var catchType = IsExceptionLike(requestedCatchType)
+            ? requestedCatchType
+            : exceptionBaseType;
 
         var expressionType = tryExpression.Expression.Type ?? Compilation.ErrorTypeSymbol;
         var okConstructor = tryExpression.OkConstructor;
@@ -5349,16 +5559,39 @@ internal partial class ExpressionGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Stloc, resultLocal);
 
-        ILGenerator.BeginCatchBlock(ResolveClrType(exceptionType));
+        ILGenerator.BeginCatchBlock(ResolveClrType(catchType));
+
+        var canConstructErrorInCatch = true;
+        Conversion toErrorParameterConversion = default;
+        if (errorConstructor.Parameters.Length > 0)
+        {
+            var errorParameterType = errorConstructor.Parameters[0].Type;
+            if (!SymbolEqualityComparer.Default.Equals(catchType, errorParameterType))
+            {
+                toErrorParameterConversion = Compilation.ClassifyConversion(catchType, errorParameterType);
+                canConstructErrorInCatch = toErrorParameterConversion.Exists;
+            }
+        }
+
+        if (!canConstructErrorInCatch)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Rethrow);
+            ILGenerator.EndExceptionBlock();
+            ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+            return;
+        }
 
         if (errorConstructor.Parameters.Length > 0)
         {
             var errorParameterType = errorConstructor.Parameters[0].Type;
-            if (!SymbolEqualityComparer.Default.Equals(exceptionType, errorParameterType))
+            if (!SymbolEqualityComparer.Default.Equals(catchType, errorParameterType))
             {
-                var errorParameterConversion = Compilation.ClassifyConversion(exceptionType, errorParameterType);
+                var errorParameterConversion = toErrorParameterConversion.Exists
+                    ? toErrorParameterConversion
+                    : Compilation.ClassifyConversion(catchType, errorParameterType);
                 if (errorParameterConversion.Exists && !errorParameterConversion.IsIdentity)
-                    EmitConversion(exceptionType, errorParameterType, errorParameterConversion);
+                    EmitConversion(catchType, errorParameterType, errorParameterConversion);
             }
         }
         else

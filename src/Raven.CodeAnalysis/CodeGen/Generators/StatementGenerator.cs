@@ -659,6 +659,18 @@ internal class StatementGenerator : Generator
         ILGenerator.BeginExceptionBlock();
 
         var exitLabel = MethodBodyGenerator.GetOrCreateReturnLabel();
+        var exceptionBaseType = Compilation.GetSpecialType(SpecialType.System_Exception);
+
+        static bool IsExceptionLike(ITypeSymbol type, ITypeSymbol exceptionBaseType)
+        {
+            for (var current = type; current is not null; current = current.BaseType)
+            {
+                if (SymbolEqualityComparer.Default.Equals(current, exceptionBaseType))
+                    return true;
+            }
+
+            return false;
+        }
 
         var tryScope = new Scope(this);
         tryScope.SetExceptionExitLabel(exitLabel);
@@ -666,20 +678,45 @@ internal class StatementGenerator : Generator
 
         foreach (var catchClause in tryStatement.CatchClauses)
         {
-            var catchType = catchClause.ExceptionType;
-            if (catchType.TypeKind == TypeKind.Error)
-                catchType = Compilation.GetSpecialType(SpecialType.System_Object);
+            var requestedCatchType = catchClause.ExceptionType;
+            if (requestedCatchType.TypeKind == TypeKind.Error)
+                requestedCatchType = exceptionBaseType;
 
-            ILGenerator.BeginCatchBlock(ResolveClrType(catchType));
+            var emittedCatchType = IsExceptionLike(requestedCatchType, exceptionBaseType)
+                ? requestedCatchType
+                : exceptionBaseType;
+
+            ILGenerator.BeginCatchBlock(ResolveClrType(emittedCatchType));
 
             var catchScope = new Scope(this);
             catchScope.SetExceptionExitLabel(exitLabel);
+
+            if (!IsExceptionLike(requestedCatchType, exceptionBaseType))
+            {
+                ILGenerator.Emit(OpCodes.Pop);
+                ILGenerator.Emit(OpCodes.Rethrow);
+                continue;
+            }
 
             if (catchClause.Local is { } localSymbol)
             {
                 var localType = localSymbol.Type;
                 if (localType.TypeKind == TypeKind.Error)
-                    localType = Compilation.GetSpecialType(SpecialType.System_Object);
+                    localType = exceptionBaseType;
+
+                if (!SymbolEqualityComparer.Default.Equals(localType, emittedCatchType))
+                {
+                    var conversion = Compilation.ClassifyConversion(emittedCatchType, localType);
+                    if (!conversion.Exists)
+                    {
+                        ILGenerator.Emit(OpCodes.Pop);
+                        ILGenerator.Emit(OpCodes.Rethrow);
+                        continue;
+                    }
+
+                    if (!conversion.IsIdentity)
+                        EmitConversion(emittedCatchType, localType, conversion);
+                }
 
                 var localBuilder = ILGenerator.DeclareLocal(ResolveClrType(localType));
                 catchScope.AddLocal(localSymbol, localBuilder);

@@ -1,6 +1,6 @@
 # Proposal: Improve Implementation of Discriminated Unions and Align with Sealed Hierarchies
 
-**Thesis**  
+**Thesis**
 This proposal makes union cases first-class independent types while preserving a single carrier representation, enabling consistent construction, pattern matching, higher-order usage, and cross-language interop without relying on nested CLR case types.
 
 ---
@@ -13,7 +13,7 @@ This design mirrors established semantics from Rust and F#:
 * Like **Rust**, pattern matching is centered around a finite set of cases; deconstruction patterns match a case name and bind its payload.
 * Like both, the language avoids implicit inference in ambiguous contexts.
 
-The proposal also aligns structurally with the direction of discriminated unions in **C# and .NET 11**:
+The proposal also aligns structurally with the direction of discriminated unions in **C# and .NET**:
 
 * Union cases are represented as distinct shapes.
 * Pattern matching is driven by a finite, known case set.
@@ -22,27 +22,41 @@ The proposal also aligns structurally with the direction of discriminated unions
 
 The goal is practical interop:
 
-* Raven can consume union-like types from C#.
+* Raven can consume union-like types from C# (as they emerge).
 * C# can consume Raven unions via normal metadata.
 * Runtime representation remains conventional .NET.
+
+The C# union proposal can be read here: [https://github.com/dotnet/csharplang/blob/main/proposals/unions.md](https://github.com/dotnet/csharplang/blob/main/proposals/unions.md)
 
 ---
 
 ## Alignment with C# Union Proposals
 
-Raven aims to remain structurally compatible with the evolving C# discriminated union design while preserving Raven’s independent case type model.
+Raven aims to remain structurally compatible with the evolving C# union design while preserving Raven’s independent case type model.
 
 The intent is minimal surface alignment so Raven unions:
 
 * feel natural when consumed from C#,
-* can be recognized by future .NET tooling,
+* can be recognized by future tooling,
 * keep a conventional runtime representation.
 
 ### Attribute naming
 
 * Prefer `[Union]` instead of `[DiscriminatedUnion]`.
 * Place the attribute in `System.Runtime.CompilerServices`.
-* **Question:** Can we drop `[DiscriminatedUnionCase]` attribute?
+* Question: can we drop our non-standard `[DiscriminatedUnionCase]` attribute?
+
+```csharp
+namespace System.Runtime.CompilerServices
+{
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false)]
+    public sealed class UnionAttribute : Attribute { }
+}
+```
+
+Notes:
+
+* If Raven continues to emit additional metadata attributes for its own compiler, they should be optional and not required for basic union consumption from other languages.
 
 ---
 
@@ -52,74 +66,75 @@ The intent is minimal surface alignment so Raven unions:
 bool HasValue;
 ```
 
-Helps debugging, defensive checks, and default initialization scenarios.
+Useful for debugging, defensive checks, and default initialization scenarios.
 
-Might become required by .NET 11.
+Whether this is expected by future C# tooling is TBD; Raven can expose it without committing to a specific external contract.
 
 ---
 
 ### Case access pattern
 
-Raven already supports the generic shape:
+Raven already supports a non-boxing access pattern:
 
 ```csharp
-bool TryGet[CaseType](out CaseType value)
+bool TryGet[CaseName](out CaseType value)
 ```
 
 Example:
 
 ```csharp
 bool TryGetOk(out Ok<T> value)
+bool TryGetError(out Error<E> value);
 ```
 
-For future C# alignment, Raven may switch to:
+For alignment with potential future C# patterns, Raven should rename them to the form:
 
 ```csharp
 bool TryGetValue(out Ok<T> value);
 bool TryGetValue(out Error<E> value);
 ```
 
-Overloads resolve by case type because cases are real standalone types.
+Overloads resolve by case type because cases are standalone types.
 
 Conceptually:
 
 ```csharp
 [Union]
-public struct Result<T, E> 
+public readonly record Result<T, E>
 {
-  // Implementation is omitted
+    // storage omitted
 
-  public bool TryGetValue(out Result.Ok<T> value) {}
-  public bool TryGetValue(out Result.Error<E> value) {}
+    public bool HasValue { get; }
 
-  public record struct Ok<T>(T value) {}
-  public record struct Error<E>(E value) {}
+    public bool TryGetValue(out Ok<T> value) => /* ... */;
+    public bool TryGetValue(out Error<E> value) => /* ... */;
 
-  public static implicit operator Result<T, E>(Result.Ok<T> case) {}
-  public static implicit operator Result<T, E>(Result.Error<T> case) {}
+    public static implicit operator Result<T, E>(Ok<T> @case) => /* ... */;
+    public static implicit operator Result<T, E>(Error<E> @case) => /* ... */;
 }
+
+// Case types no longer nested
+public readonly record struct Ok<T>(T Value);
+public readonly record struct Error<E>(E Value);
 ```
 
-*We already have similar structure in Raven today so we can adapt*
+Notes:
+
+* The example uses nested types only as a sketch. The design constraint below forbids relying on nested CLR case types for compatibility.
+* Raven’s actual emission will use independent case types.
+* .NET might use the name `Failure` instead of `Error`. But we will wait for their implementation, and use our for the time being.
 
 ---
 
-### Potential common interface
+### Optional common surface (deferred)
 
-The proposal for .NET 11 adds additional interfaces that may add union semantics to existing objects, such as results in ASP.NET Core.
-
-Example:
+The C# proposal discusses a `Value` surface for applying patterns to “union contents”:
 
 ```csharp
-public interface IUnion
-{
-    object? Value { get; }
-}
+object? Value { get; }
 ```
 
-Optional. Enables reflection, tooling, serialization.
-
-Decision deferred until the C# proposal stabilizes.
+Raven can expose a similar surface for interop, reflection, tooling, and serialization, but the exact shape should be decided only when the external proposal stabilizes.
 
 ---
 
@@ -129,11 +144,11 @@ Compatibility must not require nested CLR case types.
 
 Raven instead uses:
 
-* discriminator metadata
+* discriminator + payload storage on a carrier
 * independent case types
 * carrier conversion
 
-This keeps alignment without coupling to a specific C# implementation.
+This keeps alignment without coupling Raven to a specific C# implementation strategy.
 
 ---
 
@@ -146,12 +161,13 @@ Primary impact is **binding + code generation**:
 * Case resolution from the union case set
 * Case → union conversion completion
 * Carrier-only propagation (`?`) and conditional access (`?.`)
+* Simpler member binding: `Result.Ok` becomes a case lookup, not nested-type resolution
 
 User-facing impact is minimal:
 
 * Member syntax remains
-* Tests largely unchanged
-* Case types rarely used directly today
+* Most tests remain unchanged
+* Direct usage of case types becomes more useful but remains optional
 
 ---
 
@@ -171,7 +187,7 @@ User-facing impact is minimal:
 
 ### 1.2 Practical Example: Higher-Order APIs
 
-Independent case types enable natural lambda usage:
+Independent case types enable natural higher-order usage:
 
 ```raven
 val result: Result<int, DomainError> =
@@ -181,7 +197,7 @@ val result: Result<int, DomainError> =
         arr.FirstOrError(() => Result.Unexpected(Exception()))
 ```
 
-And:
+And with F#-style case injection:
 
 ```raven
 val result: Result<int, DomainError> =
@@ -193,9 +209,9 @@ val result: Result<int, DomainError> =
 
 Because:
 
-* Case types are real values
-* Target typing completes generics
-* Conversion remains explicit
+* Cases are real values
+* Target typing completes the carrier type arguments
+* Conversion remains explicit and predictable
 
 This improves:
 
@@ -271,7 +287,7 @@ Removes:
 
 Case construction produces a case value.
 
-Conversion to union completes generics using target type.
+Conversion to carrier completes generics using target type.
 
 Keeps:
 
@@ -283,11 +299,11 @@ Keeps:
 
 ## 6. Member Syntax (Sugar)
 
-Member access resolves via case lookup.
+Member access resolves via case lookup on the carrier’s declared case set.
 
-`.Ok` remains shorthand.
+`.Ok` remains shorthand in target-typed contexts.
 
-No runtime nesting required.
+This simplifies member binding because it no longer depends on nested CLR case types or constructed outer generic types.
 
 ---
 
@@ -295,15 +311,19 @@ No runtime nesting required.
 
 F#-style case injection.
 
-Unqualified when unique.
+Unqualified usage is allowed when unique.
 
-Aliases bind directly to case types.
+Aliases bind directly to case *types*:
+
+```raven
+alias ResultOk = Result.Ok
+```
 
 ---
 
 ## 8. Pattern Matching Alignment
 
-Already working:
+Already supported:
 
 * match expressions
 * match statements
@@ -315,17 +335,18 @@ Currently limited:
 * type patterns over case types
 * standalone deconstruction patterns
 
-Proposal removes those limitations.
-
-Scrutinee-driven resolution remains unchanged.
+This proposal removes those limitations while preserving scrutinee-driven case resolution (case names are resolved against the scrutinee’s known cases).
 
 ---
 
 ## 9. Affected Features
 
-Propagation and conditional access remain carrier-only.
+Propagation and conditional access remain carrier-only:
 
-Avoids ambiguity.
+* `<expr>?`
+* `<expr>?.<access>`
+
+This avoids ambiguity and prevents “case values” from behaving like carriers.
 
 ---
 
@@ -348,8 +369,8 @@ Stable with independent case types.
 1. Refactor emission
 2. Emit independent case types
 3. Implement conversion completion
-4. Update binding
-5. Implement F# scoping
+4. Update binding (including simplified member binding)
+5. Implement F# scoping + ambiguity rules
 6. Verify pattern matching
 7. Verify exhaustiveness
 8. Update propagation rules
@@ -367,6 +388,16 @@ Becomes payload-shape based, not syntax based.
 
 `Ok` ≡ `Ok(())`
 
+Simplifies:
+
+```raven
+func test() -> Result<(), MyError> {
+  return Ok // Ok(())
+}
+```
+
+*Raven supports invocations without parameter list*
+
 Applies everywhere:
 
 * standalone
@@ -383,3 +414,13 @@ Union carriers remain normal .NET types.
 Object members and extension methods must remain accessible.
 
 The proposal must not interfere with standard member resolution.
+
+---
+
+### Tighten member-binding invocations
+
+Ensure member-binding remains correct in:
+
+* invoking methods
+* initializing nested classes and other members adjacent to cases
+* contexts where target typing can infer the carrier

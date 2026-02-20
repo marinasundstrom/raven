@@ -414,11 +414,16 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
             for (INamedTypeSymbol? current = named; current is not null; current = current.ContainingType)
             {
-                var segment = current.Name;
+                var segment = current.MetadataName ?? current.Name ?? string.Empty;
 
-                // Only types that *declare* type parameters get the `N suffix
-                if (current.Arity > 0)
-                    segment = $"{segment}`{current.Arity}";
+                // Keep only the local metadata segment when symbols expose fully-qualified metadata names.
+                var plusIndex = segment.LastIndexOf('+');
+                if (plusIndex >= 0 && plusIndex + 1 < segment.Length)
+                    segment = segment.Substring(plusIndex + 1);
+
+                var dotIndex = segment.LastIndexOf('.');
+                if (dotIndex >= 0 && dotIndex + 1 < segment.Length)
+                    segment = segment.Substring(dotIndex + 1);
 
                 segments.Push(segment);
             }
@@ -466,8 +471,9 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
                 return true;
 
             return GetAttributes().Any(static attribute =>
-                attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ==
-                "System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
+                attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) is
+                    "System.Runtime.CompilerServices.UnionAttribute" or
+                    "System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
         }
     }
 

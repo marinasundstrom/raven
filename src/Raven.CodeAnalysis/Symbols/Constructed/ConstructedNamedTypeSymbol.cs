@@ -729,6 +729,20 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
                 : namedType;
         }
 
+        // Compatibility bridge: until all construction/binding paths are fully case-generic-first,
+        // allow legacy projection of case parameters from substituted union arguments, but only when
+        // the case's generic parameter names are coupled to the union's generic parameter names.
+        ImmutableArray<ITypeParameterSymbol> unionTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+        ImmutableArray<ITypeSymbol> unionTypeArguments = ImmutableArray<ITypeSymbol>.Empty;
+        IDiscriminatedUnionCaseSymbol? unionCaseSymbol = null;
+        if (namedType is IDiscriminatedUnionCaseSymbol caseSymbol)
+        {
+            unionCaseSymbol = caseSymbol;
+            var substitutedUnion = SubstituteNamedType((INamedTypeSymbol)caseSymbol.Union);
+            unionTypeParameters = caseSymbol.Union.TypeParameters;
+            unionTypeArguments = substitutedUnion.TypeArguments;
+        }
+
         var typeArguments = new ITypeSymbol[typeParameters.Length];
         var changed = false;
 
@@ -739,6 +753,18 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             {
                 typeArguments[i] = replacement;
                 if (!IsEquivalentForSubstitution(replacement, parameter))
+                    changed = true;
+            }
+            else if (unionCaseSymbol is not null &&
+                DiscriminatedUnionFacts.TryProjectCaseTypeParameterFromUnionArguments(
+                    unionCaseSymbol,
+                    parameter,
+                    unionTypeParameters,
+                    unionTypeArguments,
+                    out var projectedType))
+            {
+                typeArguments[i] = projectedType;
+                if (!IsEquivalentForSubstitution(projectedType, parameter))
                     changed = true;
             }
             else

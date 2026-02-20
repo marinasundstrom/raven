@@ -56,8 +56,8 @@ union Result<T, E> {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
         var typeNames = loaded.Assembly.GetTypes().Select(type => type.FullName ?? type.Name).ToArray();
 
-        Assert.Contains(typeNames, name => name.Contains("Result`2+Ok", StringComparison.Ordinal));
-        Assert.Contains(typeNames, name => name.Contains("Result`2+Error", StringComparison.Ordinal));
+        Assert.Contains(typeNames, name => name.Contains("Result_Ok", StringComparison.Ordinal));
+        Assert.Contains(typeNames, name => name.Contains("Result_Error", StringComparison.Ordinal));
     }
 
     [Fact]
