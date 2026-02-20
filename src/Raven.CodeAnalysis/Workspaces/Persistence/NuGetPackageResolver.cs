@@ -242,43 +242,77 @@ internal static class NuGetPackageResolver
             return ImmutableArray<string>.Empty;
 
         var frameworkNode = frameworksElement.GetProperty(frameworkKey);
-        if (!frameworkNode.TryGetProperty("downloadDependencies", out var downloadDependencies) ||
-            downloadDependencies.ValueKind != JsonValueKind.Array)
-            return ImmutableArray<string>.Empty;
-
+        var requestedPackIds = new List<(string PackId, string SharedFrameworkName, string? Version)>();
         var resolved = ImmutableArray.CreateBuilder<string>();
-        foreach (var dep in downloadDependencies.EnumerateArray())
+
+        if (frameworkNode.TryGetProperty("downloadDependencies", out var downloadDependencies) &&
+            downloadDependencies.ValueKind == JsonValueKind.Array)
         {
-            var name = dep.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null;
-            var versionRange = dep.TryGetProperty("version", out var versionElement) ? versionElement.GetString() : null;
-            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(versionRange))
-                continue;
-            if (!name.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase))
-                continue;
+            foreach (var dep in downloadDependencies.EnumerateArray())
+            {
+                var name = dep.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null;
+                var versionRange = dep.TryGetProperty("version", out var versionElement) ? versionElement.GetString() : null;
+                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(versionRange))
+                    continue;
+                if (!name.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase))
+                    continue;
 
-            var version = NormalizeNuGetVersionRange(versionRange);
-            if (string.IsNullOrWhiteSpace(version))
-                continue;
-            var sharedFrameworkName = name.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase)
-                ? name[..^4]
-                : name;
-            if (string.Equals(sharedFrameworkName, "Microsoft.NETCore.App", StringComparison.OrdinalIgnoreCase))
-                continue;
+                var version = NormalizeNuGetVersionRange(versionRange);
+                if (string.IsNullOrWhiteSpace(version))
+                    continue;
+                var sharedFrameworkName = name.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase)
+                    ? name[..^4]
+                    : name;
+                if (string.Equals(sharedFrameworkName, "Microsoft.NETCore.App", StringComparison.OrdinalIgnoreCase))
+                    continue;
 
+                requestedPackIds.Add((name, sharedFrameworkName, version));
+            }
+        }
+
+        // Newer SDKs may omit downloadDependencies for framework references.
+        // Fall back to explicit frameworkReferences in the assets file.
+        if (frameworkNode.TryGetProperty("frameworkReferences", out var frameworkReferences) &&
+            frameworkReferences.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var frameworkRef in frameworkReferences.EnumerateObject())
+            {
+                var sharedFrameworkName = frameworkRef.Name;
+                if (string.Equals(sharedFrameworkName, "Microsoft.NETCore.App", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var packId = $"{sharedFrameworkName}.Ref";
+                if (requestedPackIds.Any(x => string.Equals(x.PackId, packId, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                requestedPackIds.Add((packId, sharedFrameworkName, version: null));
+            }
+        }
+
+        var requestedFrameworkVersion = TargetFrameworkMoniker.TryParse(targetFramework, out var tfmMoniker) && tfmMoniker is not null
+            ? $"{tfmMoniker.Version.Major}.{tfmMoniker.Version.Minor}.0"
+            : string.Empty;
+
+        foreach (var (packId, sharedFrameworkName, version) in requestedPackIds)
+        {
+            var versionToUse = string.IsNullOrWhiteSpace(version) ? requestedFrameworkVersion : version;
             foreach (var dotnetRoot in GetDotNetRoots())
             {
-                var runtimeRefs = ResolveSharedFrameworkRuntimeAssemblies(dotnetRoot, sharedFrameworkName, version);
-                if (!runtimeRefs.IsDefaultOrEmpty)
+                if (!string.IsNullOrWhiteSpace(versionToUse))
                 {
-                    resolved.AddRange(runtimeRefs);
-                    break;
+                    var runtimeRefs = ResolveSharedFrameworkRuntimeAssemblies(dotnetRoot, sharedFrameworkName, versionToUse);
+                    if (!runtimeRefs.IsDefaultOrEmpty)
+                    {
+                        resolved.AddRange(runtimeRefs);
+                        break;
+                    }
                 }
 
-                var packRoot = Path.Combine(dotnetRoot, "packs", name);
+                var packRoot = Path.Combine(dotnetRoot, "packs", packId);
                 if (!Directory.Exists(packRoot))
                     continue;
 
-                var selectedVersion = SelectInstalledPackVersion(packRoot, version);
+                var selectedVersion = SelectInstalledPackVersion(packRoot, versionToUse);
                 if (string.IsNullOrWhiteSpace(selectedVersion))
                     continue;
 
