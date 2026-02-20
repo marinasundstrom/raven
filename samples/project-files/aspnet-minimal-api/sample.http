@@ -1,0 +1,70 @@
+@base = http://localhost:5000
+
+### Root
+GET {{base}}/
+
+###
+
+### /del
+GET {{base}}/del
+
+###
+
+### /ping via delegate (string result)
+GET {{base}}/ping?name=Marina
+
+###
+
+### /ping0 (typed record result)
+GET {{base}}/ping0?name=Marina
+
+###
+
+### /ping1 OK case
+GET {{base}}/ping1?name=Bob
+
+###
+
+### /ping1 error case
+GET {{base}}/ping1?name=Alice
+
+###
+
+### /ping2 default parameter
+GET {{base}}/ping2
+
+###
+
+### /ping2 explicit parameter
+GET {{base}}/ping2?no=5
+
+###
+
+### async endpoint
+GET {{base}}/async
+
+###
+
+### submit plain string
+POST {{base}}/submit
+Content-Type: text/plain
+
+hello raven
+
+###
+
+### submit2 record body
+POST {{base}}/submit2
+Content-Type: application/json
+
+{
+  "value": "abc"
+}
+
+###
+
+### submit async
+POST {{base}}/submit-async
+Content-Type: text/plain
+
+async payload
