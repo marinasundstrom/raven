@@ -1,6 +1,9 @@
 import System.*
+import System.IO.*
+import System.Text.*
 import Microsoft.AspNetCore.Builder.*
 import Microsoft.AspNetCore.Http.*
+import Microsoft.AspNetCore.Mvc.*
 import System.Threading.Tasks.*
 
 val builder = WebApplication.CreateBuilder(args)
@@ -35,7 +38,11 @@ app.MapGet("/async", async () => {
     return "Hello from async MapGet"
 })
 
-app.MapPost("/submit", (content: string) => "submitted: $content")
+app.MapPost("/submit", async (context: HttpContext) => {
+    use reader = StreamReader(context.Request.Body, Encoding.UTF8, true, 1024, false)
+    val content = await reader.ReadToEndAsync()
+    return "submitted: $content"
+})
 
 app.MapPost("/submit2", (data: Data) => "submitted: ${data.Value}")
 
