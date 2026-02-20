@@ -817,6 +817,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()
     {
+        var statementStart = Position;
         var token = PeekToken();
 
         switch (token.Kind)
@@ -841,6 +842,22 @@ internal class StatementSyntaxParser : SyntaxParser
 
         if (expression.IsMissing)
         {
+            if (Position == statementStart && !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+            {
+                var unexpected = PeekToken();
+                var tokenText = string.IsNullOrEmpty(unexpected.Text)
+                    ? unexpected.Kind.ToString()
+                    : unexpected.Text;
+
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText));
+
+                ReadToken();
+            }
+
             var terminatorToken2 = ConsumeTerminator();
 
             return EmptyStatement(terminatorToken2);

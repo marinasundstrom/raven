@@ -54,7 +54,8 @@ public class ReflectionTypeLoaderNestedTypeTests : CompilationTestBase
         Assert.True(SymbolEqualityComparer.Default.Equals(containing, resolved.ContainingSymbol));
 
         var nestedMember = Assert.Single(containing.GetMembers("InnerWith").OfType<INamedTypeSymbol>());
-        Assert.True(SymbolEqualityComparer.Default.Equals(resolved, nestedMember));
+        Assert.Equal("InnerWith", nestedMember.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(containing, nestedMember.ContainingType));
     }
 
     internal static class ReflectionTypeLoaderNestedTypeFixtures

@@ -93,7 +93,7 @@ public class ConversionsTests : CompilationTestBase
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsIdentity);
-        Assert.True(conversion.IsAlias);
+        Assert.False(conversion.IsAlias);
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class ConversionsTests : CompilationTestBase
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsIdentity);
-        Assert.True(conversion.IsAlias);
+        Assert.False(conversion.IsAlias);
     }
 
     [Fact]

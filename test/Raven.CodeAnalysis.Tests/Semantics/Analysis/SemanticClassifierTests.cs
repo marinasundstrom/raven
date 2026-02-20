@@ -53,8 +53,8 @@ class C {
         var text = tokens.Single(t => t.Text == "Text");
         var sb = tokens.Single(t => t.Text == "StringBuilder");
 
-        result.Tokens[system].ShouldBe(SemanticClassification.Namespace);
-        result.Tokens[text].ShouldBe(SemanticClassification.Namespace);
+        result.Tokens[system].ShouldBe(SemanticClassification.Type);
+        result.Tokens[text].ShouldBe(SemanticClassification.Type);
         result.Tokens[sb].ShouldBe(SemanticClassification.Type);
     }
 
@@ -85,15 +85,16 @@ label:
     public void MatchCasePattern_ClassifiesCaseIdentifierAsType()
     {
         var source = """
-union Result =
-    | Case(value: int)
+	union Result {
+	    Case(value: int)
+	}
 
-func Render(result: Result) -> int {
-    return match result {
-        .Case(value) => value
-    }
-}
-""";
+	func Render(result: Result) -> int {
+	    return result match {
+	        .Case(val value) => value
+	    }
+	}
+	""";
 
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);

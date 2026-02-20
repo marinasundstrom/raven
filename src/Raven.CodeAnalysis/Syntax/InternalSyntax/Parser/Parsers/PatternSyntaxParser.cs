@@ -440,7 +440,13 @@ internal class PatternSyntaxParser : SyntaxParser
                 bindingKeyword = ReadToken();
 
             SyntaxToken identifier;
-            if (CanTokenBeIdentifier(PeekToken()))
+            if (PeekToken().Kind == SyntaxKind.UnderscoreToken)
+            {
+                var underscore = ReadToken();
+                identifier = ToIdentifierToken(underscore);
+                UpdateLastToken(identifier);
+            }
+            else if (CanTokenBeIdentifier(PeekToken()))
             {
                 identifier = ReadIdentifierToken();
             }

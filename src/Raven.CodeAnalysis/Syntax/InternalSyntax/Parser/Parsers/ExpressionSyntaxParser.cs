@@ -291,7 +291,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         PatternSyntax? assignmentPattern = null;
         ExpressionSyntax? expr = null;
 
-        if (precedence == 0 && PeekToken(1).Kind == SyntaxKind.EqualsToken && TryParseAssignmentPattern(out var pattern))
+        if (precedence == 0 &&
+            IsPossibleAssignmentPatternStart(PeekToken()) &&
+            TryParseAssignmentPattern(out var pattern))
         {
             assignmentPattern = pattern;
         }

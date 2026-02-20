@@ -64,7 +64,7 @@ partial class BlockBinder : Binder
             } => null,
             VariableDeclaratorSyntax v => BindLocalDeclaration(v).Symbol,
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
-            SingleVariableDesignationSyntax singleVariableDesignation => BindSingleVariableDesignation(singleVariableDesignation).Local,
+            SingleVariableDesignationSyntax singleVariableDesignation => BindSingleVariableDesignation(singleVariableDesignation)?.Local,
             FunctionStatementSyntax functionStatement => BindFunction(functionStatement).Method,
             LabeledStatementSyntax labeledStatement => DeclareLabelSymbol(labeledStatement),
             _ => base.BindDeclaredSymbol(node)

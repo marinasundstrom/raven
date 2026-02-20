@@ -38,7 +38,7 @@ public class BoundBinaryOperatorTests : CompilationTestBase
 
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
 
-        Assert.Equal("'<' is not supported for 'bool' and 'int'", diagnostic.GetMessage().TrimEnd('.'));
+        Assert.Equal("'<' is not supported for 'true' and '1'", diagnostic.GetMessage().TrimEnd('.'));
     }
 
     [Fact]

@@ -12,7 +12,7 @@ public class ObjectCreationTests : DiagnosticTestBase
             val foo = Foo();
 
             class Foo {
-                init () {}
+                public init () {}
             }
             """;
 
@@ -52,9 +52,9 @@ public class ObjectCreationTests : DiagnosticTestBase
             func Foo() -> unit {}
 
             class Foo {
-                init () {}
+                public init () {}
 
-                init (x: int) {} 
+                public init (x: int) {} 
             }
             """;
 
@@ -180,4 +180,3 @@ public class ObjectCreationTests : DiagnosticTestBase
         verifier.Verify();
     }
 }
-

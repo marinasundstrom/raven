@@ -253,6 +253,22 @@ public class ParserRecoveryTests
     }
 
     [Fact]
+    public void PositionalValAssignment_ParsesWithoutSyntaxDiagnostics()
+    {
+        var source = """
+            val (first, second, _) = (1, 2, 3)
+            first + second
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var diagnostics = tree.GetDiagnostics().ToArray();
+
+        Assert.NotEmpty(root.Members);
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void TypeDeclarations_OnNextLine_AreAcceptedWithoutMissingTerminatorDiagnostic()
     {
         var source = """

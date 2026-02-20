@@ -26,7 +26,7 @@ class C {
 
         var display = field.ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat);
 
-        Assert.Equal("public const MaxValue: char", display);
+        Assert.Equal("public const MaxValue: char = 'z'", display);
         Assert.True(field.IsStatic);
         Assert.True(field.IsConst);
     }

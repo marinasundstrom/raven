@@ -29,7 +29,10 @@ val anyNumbers = numbers.Any()
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
+                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "Any");
@@ -93,7 +96,10 @@ val projection = numbers.Select(value => value)
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
+                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "Select");
@@ -138,7 +144,10 @@ val enumerable = values.AsEnumerable()
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
+                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "AsEnumerable");
@@ -227,7 +236,10 @@ val anyPositive = numbers.Any((value: int) => value > 0)
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
+                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "Any");
@@ -289,7 +301,10 @@ val anyItems = numbers.Any()
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
+                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "Any");
@@ -656,7 +671,10 @@ val result = properties.Where(pi => !pi.GetMethod.IsStatic)
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
+                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()

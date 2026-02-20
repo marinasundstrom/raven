@@ -48,7 +48,7 @@ class Widget {}
         var typeArgument = data.ConstructorArguments[1];
         Assert.Equal(TypedConstantKind.Type, typeArgument.Kind);
         var typeSymbol = Assert.IsAssignableFrom<ITypeSymbol>(typeArgument.Value);
-        Assert.Equal("System.Int32", typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        Assert.Equal(SpecialType.System_Int32, typeSymbol.SpecialType);
     }
 
     [Fact]

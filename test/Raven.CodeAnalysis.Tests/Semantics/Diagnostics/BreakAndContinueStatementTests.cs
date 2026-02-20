@@ -20,7 +20,7 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV2600").WithSpan(2, 5, 2, 10)
+                new DiagnosticResult(CompilerDiagnostics.BreakStatementNotWithinLoop.Id).WithSpan(2, 5, 2, 10)
             ]);
 
         verifier.Verify();
@@ -41,8 +41,8 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV1902").WithSpan(3, 9, 3, 14),
-                new DiagnosticResult("RAV0162").WithSpan(4, 9, 4, 11)
+                new DiagnosticResult(CompilerDiagnostics.BreakStatementNotWithinLoop.Id).WithSpan(3, 9, 3, 14),
+                new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(4, 9, 4, 11)
             ]);
 
         verifier.Verify();
@@ -63,7 +63,7 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV2601").WithSpan(2, 5, 2, 13)
+                new DiagnosticResult(CompilerDiagnostics.ContinueStatementNotWithinLoop.Id).WithSpan(2, 5, 2, 13)
             ]);
 
         verifier.Verify();
@@ -84,8 +84,8 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV1903").WithSpan(3, 9, 3, 17),
-                new DiagnosticResult("RAV0162").WithSpan(4, 9, 4, 11)
+                new DiagnosticResult(CompilerDiagnostics.ContinueStatementNotWithinLoop.Id).WithSpan(3, 9, 3, 17),
+                new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(4, 9, 4, 11)
             ]);
 
         verifier.Verify();

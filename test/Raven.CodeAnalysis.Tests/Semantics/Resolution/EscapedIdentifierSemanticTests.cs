@@ -82,7 +82,7 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
     public void ToDisplayString_WithEscapeKeywordOption_EscapesContainingNames()
     {
         var source = """
-            namespace @ match {
+            namespace @match {
                 class @class
                 {
                     class @int {}

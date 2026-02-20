@@ -129,7 +129,11 @@ for i in 1.. {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        diagnostics.Select(d => d.Id).ShouldBe(new[] { "RAV2602" });
+        diagnostics.Select(d => d.Descriptor).ShouldBe(new[]
+        {
+            CompilerDiagnostics.CannotConvertFromTypeToType,
+            CompilerDiagnostics.CannotConvertFromTypeToType,
+        });
     }
 
     [Fact]
