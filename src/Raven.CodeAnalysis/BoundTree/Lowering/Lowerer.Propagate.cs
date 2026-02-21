@@ -140,7 +140,8 @@ internal sealed partial class Lowerer
                             {
                                 new BoundReturnStatement(caughtErrorExpression)
                             }))),
-                    finallyBlock: null));
+                    finallyBlock: null,
+                    BoundTryStatementKind.PropagateRewrite));
         }
         else
         {

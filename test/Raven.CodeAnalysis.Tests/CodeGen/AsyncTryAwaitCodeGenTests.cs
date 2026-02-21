@@ -167,6 +167,54 @@ class Program {
         Assert.Equal(new[] { "Result.Ok(\"Candy\")" }, output);
     }
 
+    [Fact]
+    public void AsyncUse_DoesNotDisposeResourceBeforeAwaitResumes()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Probe : IDisposable {
+    public var IsDisposed: bool = false
+
+    public async ReadAsync() -> Task<int> {
+        await Task.Delay(10)
+
+        if self.IsDisposed {
+            throw Exception("disposed-too-early")
+        }
+
+        return 42
+    }
+
+    public Dispose() -> () {
+        self.IsDisposed = true
+    }
+}
+
+class Program {
+    static async Run() -> Task<Result<int, string>> {
+        use probe = Probe()
+
+        try {
+            val value = await probe.ReadAsync()
+            return .Ok(value)
+        } catch (Exception e) {
+            return .Error(e.Message)
+        }
+    }
+
+    static async Main() -> Task {
+        val result = await Program.Run()
+        Console.WriteLine(result)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "Result.Ok(42)" }, output);
+    }
+
     private static string[] CompileAndRun(string code)
     {
         var syntaxTree = SyntaxTree.ParseText(code);

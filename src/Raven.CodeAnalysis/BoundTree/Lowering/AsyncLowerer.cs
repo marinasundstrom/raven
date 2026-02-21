@@ -197,11 +197,21 @@ internal static class AsyncLowerer
         if (body is null)
             throw new ArgumentNullException(nameof(body));
 
+        var compilation = GetCompilation(symbol);
+        if (!compilation.Options.UseRuntimeAsync)
+        {
+            // For state-machine async, keep `use` declarations as locals that are hoisted and
+            // disposed by the async rewriter. Rewriting `use` into try/finally here causes
+            // suspension returns to run finally blocks early and dispose resources too soon.
+            var preStateMachineMatchLowerer = new AsyncMatchLowerer(symbol);
+            var preStateMachineMatchLowered = preStateMachineMatchLowerer.Rewrite(body);
+            return preStateMachineMatchLowered;
+        }
+
         var hadUsingDeclaration = ContainsUsingDeclaration(body);
 
         // Normalize using declarations into try/finally before await/state-machine
         // rewriting so dispatch guards are computed against final protected regions.
-        var compilation = GetCompilation(symbol);
         var lowerer = new AsyncUseDeclarationLowerer(compilation);
         var normalized = lowerer.Rewrite(body);
 
@@ -463,7 +473,11 @@ internal static class AsyncLowerer
 
                     var finallyStatements = CreateDisposeStatements(declarators);
                     var finallyBlock = new BoundBlockStatement(finallyStatements, ImmutableArray<ILocalSymbol>.Empty);
-                    var tryStatement = new BoundTryStatement(tryBlock, ImmutableArray<BoundCatchClause>.Empty, finallyBlock);
+                    var tryStatement = new BoundTryStatement(
+                        tryBlock,
+                        ImmutableArray<BoundCatchClause>.Empty,
+                        finallyBlock,
+                        BoundTryStatementKind.UsingLifetime);
 
                     builder.Add(loweredUsing);
                     builder.Add(tryStatement);
@@ -691,7 +705,11 @@ internal static class AsyncLowerer
         if (catchClause is not null)
             catchClauses = ImmutableArray.Create(catchClause);
 
-        var tryStatement = new BoundTryStatement(tryBlock, catchClauses, finallyBlock: null);
+        var tryStatement = new BoundTryStatement(
+            tryBlock,
+            catchClauses,
+            finallyBlock: null,
+            BoundTryStatementKind.AsyncDispatchGuard);
         return new BoundBlockStatement(new BoundStatement[] { tryStatement });
     }
 
@@ -2056,7 +2074,7 @@ internal static class AsyncLowerer
             }
 
             if (changed)
-                return new BoundTryStatement(tryBlock, rewrittenCatchClauses, finallyBlock);
+                return new BoundTryStatement(tryBlock, rewrittenCatchClauses, finallyBlock, node.Kind);
 
             return node;
         }
@@ -2339,7 +2357,11 @@ internal static class AsyncLowerer
                 });
 
                 var catchClause = new BoundCatchClause(node.ExceptionType, exceptionLocal, catchBlock);
-                var tryStatement = new BoundTryStatement(tryBlock, ImmutableArray.Create(catchClause), finallyBlock: null);
+                var tryStatement = new BoundTryStatement(
+                    tryBlock,
+                    ImmutableArray.Create(catchClause),
+                    finallyBlock: null,
+                    BoundTryStatementKind.ExceptionProjection);
 
                 var blockStatements = new BoundStatement[]
                 {
@@ -2679,6 +2701,19 @@ internal static class AsyncLowerer
 
             if (TryGetParameterField(node.Parameter, out var field))
                 return new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), field, node.Reason);
+
+            return node;
+        }
+
+        public override BoundExpression? VisitSelfExpression(BoundSelfExpression node)
+        {
+            if (node is null)
+                return null;
+
+            // Async instance methods execute inside MoveNext on the synthesized state-machine struct.
+            // Rebind original method `self`/`this` references through the hoisted `_this` field.
+            if (_stateMachine.ThisField is IFieldSymbol thisField)
+                return new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), thisField);
 
             return node;
         }
