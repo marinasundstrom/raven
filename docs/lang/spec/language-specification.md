@@ -3572,6 +3572,10 @@ of **cases**. Union values are stored inline (as value types) and do not allocat
 on the managed heap. Each case acts like an inline constructor with an optional
 payload described by a parameter list. Unions use the `union` keyword:
 
+> ℹ️ **Interop direction:** Raven plans to align its union metadata and
+> interop surface with the upcoming C#/.NET **Unions** concept (targeted around
+> the .NET 11 wave), while preserving Raven's own language semantics.
+
 > ❗ **Important:** Declared `union` types are nominal **tagged unions** (also
 > called **discriminated unions**). They are separate from inferred/annotated
 > type unions written with `|`.
@@ -3654,6 +3658,38 @@ improve interoperability with other .NET languages.
 Pattern matching exhaustively checks every case; see
 [Pattern matching](#pattern-matching) for case-pattern forms (`.Case`,
 `Union.Case`, and unqualified `Case`) inside `match` expressions.
+
+### Closed-shape types
+
+Raven has two primary ways to model a finite, closed set of alternatives:
+
+1. **Discriminated unions** (`union`)
+2. **Sealed hierarchies** (`sealed class` / `sealed record class`)
+
+Both participate in exhaustiveness analysis for `match`, and both represent a
+known closed shape at compile time. The key difference is modeling style:
+
+| Use this | When you need |
+| --- | --- |
+| `union` | Algebraic data modeling with explicit case payloads, lightweight case construction (`Ok(...)`, `.Ok(...)`), and value-oriented closed alternatives. |
+| `sealed` hierarchy | Object-oriented subtype modeling with shared base behavior, virtual/interface-style design, and class hierarchy semantics. |
+
+#### Choosing between them
+
+Choose **discriminated unions** when:
+
+* the alternatives are primarily data cases,
+* payloads are part of the case definition,
+* construction/pattern matching is the dominant interaction.
+
+Choose **sealed hierarchies** when:
+
+* you are modeling a class family,
+* variants share behavior through a base type,
+* subtype polymorphism is part of the design.
+
+Both are "closed-shape" constructs; prefer the one that matches your domain
+modeling style rather than forcing a single pattern for all cases.
 
 ## Object-oriented types
 

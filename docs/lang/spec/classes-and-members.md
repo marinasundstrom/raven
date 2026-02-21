@@ -427,6 +427,9 @@ subclassing by the permitted types. A `[ClosedHierarchy]` attribute is emitted o
 > modifier instead designates a hierarchy whose direct subclasses are known at compile time, and the type is implicitly
 > abstract.
 
+For guidance on choosing sealed hierarchies versus discriminated unions, see
+[Closed-shape types](language-specification.md#closed-shape-types).
+
 ### Partial classes
 
 Applying the `partial` modifier to a class declaration allows the type to be defined across multiple declarations in the same
