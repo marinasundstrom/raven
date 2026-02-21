@@ -137,6 +137,8 @@ UnionCaseClause          ::= Identifier ParameterList? ;
      Ok<int>(2)
      Result<int, E>.Ok(2)
      .Ok(2)                    (target-typed member binding)
+   Unqualified `Ok` forms are valid only when case resolution is unambiguous;
+   otherwise qualification (or an alias) is required.
    Resolution of `.Ok` / `Result.Ok` is performed by the binder against the
    union's declared case set. *)
 

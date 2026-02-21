@@ -15,14 +15,17 @@ public partial class SemanticModel
 {
     private static readonly CompletionService s_completionService = new();
     private readonly Dictionary<SyntaxNode, Binder> _binderCache = new();
+    private readonly Dictionary<SyntaxNodeMapKey, Binder> _binderCacheByKey = new();
     private readonly Dictionary<SyntaxNode, SymbolInfo> _symbolMappings = new();
     private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
     private readonly Dictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 = new Dictionary<SyntaxNode, (Binder, BoundNode)>();
     private readonly Dictionary<SyntaxNode, BoundNode> _loweredBoundNodeCache = new();
     private readonly Dictionary<SyntaxNode, (Binder, BoundNode)> _loweredBoundNodeCache2 = new Dictionary<SyntaxNode, (Binder, BoundNode)>();
+    private readonly HashSet<SyntaxNodeMapKey> _asyncLoweringInProgress = new();
 
     private readonly Dictionary<BoundNode, SyntaxNode> _syntaxCache = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<BoundNode, SyntaxNode> _loweredSyntaxCache = new(ReferenceEqualityComparer.Instance);
+    private readonly DeclaredSymbolLookup _declaredSymbolLookup;
     private IImmutableList<Diagnostic>? _diagnostics;
     private readonly DiagnosticBag _declarationDiagnostics = new();
     private bool _declarationsComplete;
@@ -34,6 +37,7 @@ public partial class SemanticModel
     {
         Compilation = compilation;
         SyntaxTree = syntaxTree;
+        _declaredSymbolLookup = new DeclaredSymbolLookup(this);
     }
 
     public Compilation Compilation { get; }
@@ -174,22 +178,7 @@ public partial class SemanticModel
     /// <param name="node"></param>
     /// <returns></returns>
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
-    {
-        var binder = GetBinder(node);
-
-        if (node is UnionCaseClauseSyntax caseClause && _unionCaseSymbols.TryGetValue(caseClause, out var caseSymbol))
-            return caseSymbol;
-
-        if (Compilation.DeclarationTable.TryGetDeclKey(node, out var key))
-        {
-            return Compilation.SymbolFactory.GetOrCreate(key, () =>
-            {
-                return (Symbol)binder.BindDeclaredSymbol(node)!;
-            });
-        }
-
-        return binder.BindDeclaredSymbol(node);
-    }
+        => _declaredSymbolLookup.Lookup(node);
 
     /// <summary>
     /// Gets type information about an expression.
@@ -305,6 +294,16 @@ public partial class SemanticModel
         if (view is BoundTreeView.Both)
             throw new ArgumentOutOfRangeException(nameof(view));
 
+        EnsureDeclarations();
+        EnsureRootBinderCreated();
+
+        if (view is BoundTreeView.Lowered &&
+            TryResolveLoweringNode(node) is { } loweringNode &&
+            !ReferenceEquals(loweringNode, node))
+        {
+            return GetBoundNode(loweringNode, view);
+        }
+
         if (node is CompilationUnitSyntax compilationUnit)
             EnsureTopLevelCompilationUnitBound(compilationUnit);
 
@@ -313,15 +312,58 @@ public partial class SemanticModel
             if (TryGetCachedBoundNode(node) is { } cachedNode)
                 return cachedNode;
 
+            if (node is CompilationUnitSyntax compilationUnitNode)
+            {
+                EnsureTopLevelCompilationUnitBound(compilationUnitNode);
+                if (TryGetCachedBoundNode(compilationUnitNode) is { } cachedCompilationUnit)
+                    return cachedCompilationUnit;
+
+                return CreateSyntheticTopLevelBlock(compilationUnitNode);
+            }
+
             var binder = GetBinder(node);
-            return binder.GetOrBind(node);
+            var bound = binder.GetOrBind(node);
+
+            if (node is BlockStatementSyntax blockSyntax &&
+                bound is BoundBlockStatement boundBlock &&
+                !boundBlock.Statements.Any() &&
+                blockSyntax.Statements.Count > 0 &&
+                node.Parent is MethodDeclarationSyntax methodDeclaration &&
+                binder is not MethodBodyBinder &&
+                TryResolveMethodSymbolForDeclaration(methodDeclaration, out var methodSymbol))
+            {
+                var fallbackParentBinder = binder.ParentBinder ?? GetBinder(methodDeclaration);
+                var methodBodyBinder = new MethodBodyBinder(methodSymbol, fallbackParentBinder);
+                CacheBinder(node, methodBodyBinder);
+                bound = methodBodyBinder.GetOrBind(node);
+            }
+
+            return bound;
         }
 
         if (TryGetCachedLoweredBoundNode(node) is { } loweredCached)
             return loweredCached;
 
+        if (node is CompilationUnitSyntax &&
+            TryGetCachedBoundNode(node) is not { } &&
+            TryGetCachedBoundNode(TryResolveLoweringNode(node) ?? node) is { } loweredTarget)
+        {
+            CacheLoweredBoundNode(node, loweredTarget, GetBinder(node));
+            return loweredTarget;
+        }
+
         var binderForLowering = GetBinder(node);
-        var boundNode = TryGetCachedBoundNode(node) ?? binderForLowering.GetOrBind(node);
+        var boundNode = TryGetCachedBoundNode(node);
+
+        if (boundNode is null && node is CompilationUnitSyntax loweredCompilationUnit)
+        {
+            EnsureTopLevelCompilationUnitBound(loweredCompilationUnit);
+            boundNode = TryGetCachedBoundNode(loweredCompilationUnit);
+
+            boundNode ??= CreateSyntheticTopLevelBlock(loweredCompilationUnit);
+        }
+
+        boundNode ??= binderForLowering.GetOrBind(node);
         var loweredNode = LowerBoundNode(node, binderForLowering, boundNode);
         CacheLoweredBoundNode(node, loweredNode, binderForLowering);
         return loweredNode;
@@ -378,8 +420,9 @@ public partial class SemanticModel
         if (boundNode is not BoundBlockStatement block)
             return boundNode;
 
-        var sourceMethod = binder.ContainingSymbol as SourceMethodSymbol
-            ?? TryGetEnclosingSourceMethod(syntaxNode);
+        var sourceMethod = ResolveCanonicalSourceMethodForSyntax(
+            syntaxNode,
+            binder.ContainingSymbol as SourceMethodSymbol ?? TryGetEnclosingSourceMethod(syntaxNode));
 
         if (sourceMethod is not null &&
             AsyncLowerer.ShouldRewrite(sourceMethod, block))
@@ -411,11 +454,81 @@ public partial class SemanticModel
                 case FunctionStatementSyntax functionStatement:
                     return GetDeclaredSymbol(functionStatement) as SourceMethodSymbol;
                 case BaseMethodDeclarationSyntax methodDeclaration:
-                    return GetDeclaredSymbol(methodDeclaration) as SourceMethodSymbol;
+                    return ResolveCanonicalSourceMethod(methodDeclaration);
             }
         }
 
         return null;
+    }
+
+    private SourceMethodSymbol? ResolveCanonicalSourceMethod(BaseMethodDeclarationSyntax methodDeclaration)
+    {
+        var declared = GetDeclaredSymbol(methodDeclaration) as SourceMethodSymbol;
+
+        if (declared is null)
+            return null;
+
+        if (declared.IsAsync || methodDeclaration is not MethodDeclarationSyntax methodSyntax)
+            return declared;
+
+        if (!methodSyntax.Modifiers.Any(modifier => modifier.Kind == SyntaxKind.AsyncKeyword))
+            return declared;
+
+        if (declared.ContainingType is not INamedTypeSymbol containingType)
+            return FindCompilationWideAsyncMethodBySyntax(methodSyntax) ?? declared;
+
+        var parameterCount = methodSyntax.ParameterList?.Parameters.Count ?? 0;
+        var arity = methodSyntax.TypeParameterList?.Parameters.Count ?? 0;
+
+        var candidate = containingType
+            .GetMembers(declared.Name)
+            .OfType<SourceMethodSymbol>()
+            .FirstOrDefault(candidate =>
+                candidate.IsAsync &&
+                candidate.Parameters.Length == parameterCount &&
+                candidate.TypeParameters.Length == arity &&
+                candidate.DeclaringSyntaxReferences.Any(reference =>
+                    reference.SyntaxTree == methodSyntax.SyntaxTree &&
+                    reference.Span == methodSyntax.Span))
+            ?? FindCompilationWideAsyncMethodBySyntax(methodSyntax);
+
+        return candidate ?? declared;
+    }
+
+    private SourceMethodSymbol? FindCompilationWideAsyncMethodBySyntax(MethodDeclarationSyntax methodSyntax)
+    {
+        var targetTree = methodSyntax.SyntaxTree;
+        var targetSpan = methodSyntax.Span;
+
+        return Compilation.Module.GlobalNamespace
+            .GetAllMembersRecursive()
+            .OfType<INamedTypeSymbol>()
+            .SelectMany(type => type.GetMembers(methodSyntax.Identifier.ValueText).OfType<SourceMethodSymbol>())
+            .FirstOrDefault(method =>
+                method.IsAsync &&
+                method.DeclaringSyntaxReferences.Any(reference =>
+                    reference.SyntaxTree == targetTree &&
+                    reference.Span == targetSpan));
+    }
+
+    private SourceMethodSymbol? ResolveCanonicalSourceMethodForSyntax(SyntaxNode syntaxNode, SourceMethodSymbol? fallback)
+    {
+        for (var current = syntaxNode; current is not null; current = current.Parent)
+        {
+            if (current is BaseMethodDeclarationSyntax methodDeclaration)
+                return ResolveCanonicalSourceMethod(methodDeclaration);
+        }
+
+        return fallback;
+    }
+
+    private SyntaxNode? TryResolveLoweringNode(SyntaxNode syntaxNode)
+    {
+        return syntaxNode switch
+        {
+            ArrowExpressionClauseSyntax arrow => arrow.Expression,
+            _ => null
+        };
     }
 
     private static BoundBlockStatement ConvertExpressionBodyToBlock(SourceMethodSymbol method, BoundExpression expression)
@@ -485,6 +598,29 @@ public partial class SemanticModel
         }
     }
 
+    private BoundBlockStatement CreateSyntheticTopLevelBlock(CompilationUnitSyntax compilationUnit)
+    {
+        var statements = new List<BoundStatement>();
+        var localsToDispose = ImmutableArray.CreateBuilder<ILocalSymbol>();
+
+        foreach (var global in GetTopLevelGlobalStatements(compilationUnit))
+        {
+            if (GetBoundNode(global.Statement, BoundTreeView.Original) is BoundStatement boundStatement)
+                statements.Add(boundStatement);
+
+            if (global.Statement is UseDeclarationStatementSyntax useDeclaration)
+            {
+                foreach (var declarator in useDeclaration.Declaration.Declarators)
+                {
+                    if (GetDeclaredSymbol(declarator) is ILocalSymbol localSymbol)
+                        localsToDispose.Add(localSymbol);
+                }
+            }
+        }
+
+        return new BoundBlockStatement(statements, localsToDispose.ToImmutable());
+    }
+
     /// <summary>
     /// Resolves the binder for a specific syntax node.
     /// </summary>
@@ -496,7 +632,10 @@ public partial class SemanticModel
     {
         Compilation.EnsureSourceDeclarationsComplete();
 
-        if (_binderCache.TryGetValue(node, out var existingBinder))
+        var nodeKey = GetSyntaxNodeMapKey(node);
+        var useStructuralCache = CanUseStructuralBinderCache(node);
+        if (_binderCache.TryGetValue(node, out var existingBinder) ||
+            (useStructuralCache && _binderCacheByKey.TryGetValue(nodeKey, out existingBinder)))
         {
             if (parentBinder is not null &&
                 !ReferenceEquals(existingBinder.ParentBinder, parentBinder) &&
@@ -514,7 +653,7 @@ public partial class SemanticModel
         if (node is CompilationUnitSyntax cu)
         {
             var binder = BindCompilationUnit(cu, parentBinder ?? Compilation.GlobalBinder);
-            _binderCache[cu] = binder;
+            CacheBinder(cu, binder);
             return binder;
         }
 
@@ -523,17 +662,92 @@ public partial class SemanticModel
 
         if (actualParentBinder == null)
         {
-            if (!_binderCache.TryGetValue(node.Parent, out actualParentBinder))
+            if (!_binderCache.TryGetValue(node.Parent, out actualParentBinder) &&
+                !(CanUseStructuralBinderCache(node.Parent) &&
+                  _binderCacheByKey.TryGetValue(GetSyntaxNodeMapKey(node.Parent), out actualParentBinder)))
             {
                 // Recursively create and cache the parent binder first
                 actualParentBinder = GetBinder(node.Parent);
             }
         }
 
-        var newBinder = Compilation.BinderFactory.GetBinder(node, actualParentBinder);
+        Binder? newBinder;
 
-        _binderCache[node] = newBinder;
+        if ((node is BlockStatementSyntax or ArrowExpressionClauseSyntax) &&
+            node.Parent is MethodDeclarationSyntax parentMethodDeclaration &&
+            actualParentBinder is not MethodBinder &&
+            TryResolveMethodSymbolForDeclaration(parentMethodDeclaration, out var recoveredMethodSymbol))
+        {
+            newBinder = new MethodBodyBinder(recoveredMethodSymbol, actualParentBinder);
+        }
+        else
+        {
+            newBinder = Compilation.BinderFactory.GetBinder(node, actualParentBinder);
+        }
+
+        CacheBinder(node, newBinder);
         return newBinder;
+    }
+
+    private void CacheBinder(SyntaxNode node, Binder binder)
+    {
+        _binderCache[node] = binder;
+        if (CanUseStructuralBinderCache(node))
+            _binderCacheByKey[GetSyntaxNodeMapKey(node)] = binder;
+    }
+
+    private static bool CanUseStructuralBinderCache(SyntaxNode node)
+    {
+        return node is
+            CompilationUnitSyntax or
+            BaseNamespaceDeclarationSyntax or
+            TypeDeclarationSyntax or
+            UnionDeclarationSyntax or
+            MethodDeclarationSyntax or
+            ConstructorDeclarationSyntax or
+            NamedConstructorDeclarationSyntax or
+            OperatorDeclarationSyntax or
+            ConversionOperatorDeclarationSyntax or
+            FunctionStatementSyntax or
+            AccessorDeclarationSyntax or
+            PropertyDeclarationSyntax or
+            EventDeclarationSyntax or
+            IndexerDeclarationSyntax or
+            ExtensionDeclarationSyntax;
+    }
+
+    private bool TryResolveMethodSymbolForDeclaration(MethodDeclarationSyntax methodDeclaration, out IMethodSymbol methodSymbol)
+    {
+        if (TryGetMethodSymbol(methodDeclaration, out methodSymbol))
+            return true;
+
+        if (methodDeclaration.Parent is TypeDeclarationSyntax containingTypeSyntax &&
+            TryGetClassSymbol(containingTypeSyntax, out var containingType))
+        {
+            var targetTree = methodDeclaration.SyntaxTree;
+            var targetSpan = methodDeclaration.Span;
+            var parameterCount = methodDeclaration.ParameterList?.Parameters.Count ?? 0;
+            var arity = methodDeclaration.TypeParameterList?.Parameters.Count ?? 0;
+
+            var exact = containingType
+                .GetMembers(methodDeclaration.Identifier.ValueText)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(method =>
+                    method.Parameters.Length == parameterCount &&
+                    method.Arity == arity &&
+                    method.DeclaringSyntaxReferences.Any(reference =>
+                        reference.SyntaxTree == targetTree &&
+                        reference.Span == targetSpan));
+
+            if (exact is not null)
+            {
+                methodSymbol = exact;
+                return true;
+            }
+        }
+
+        methodSymbol = null!;
+        return false;
     }
 
     internal void EnsureRootBinderCreated()

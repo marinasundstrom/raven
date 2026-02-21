@@ -3588,9 +3588,10 @@ union Token {
 }
 ```
 
-Unions may declare type parameters (`union Result<T> { ... }`). Each case shares
-the union's type parameters, and can be referenced either via the type name or
-with the leading-dot shorthand:
+Unions may declare type parameters (`union Result<T, E> { ... }`). Cases are
+first-class types with their own type-parameter shape (derived from the case
+payload), and can be referenced either via the union-member surface or with the
+leading-dot shorthand:
 
 ```raven
 val token = Token.Identifier("foo")
@@ -3603,6 +3604,10 @@ Line-continuation details for leading-dot forms are defined in
 Case types are first-class named types linked to their union case symbol. The
 language surface treats them as case members of the union (`Token.Identifier`,
 `Result.Ok`, ...), but metadata layout does not require CLR nesting.
+
+The union carrier exposes case inspection through overloaded `TryGetValue(out
+CaseType)` methods (one overload per case type). Raven does not depend on
+`TryGetCaseName` forms.
 
 In pattern position, cases may be matched with member-qualified forms
 (`.Ok(...)`, `Result.Ok(...)`) or unqualified forms (`Ok(...)`, `Ok`) when
@@ -3630,6 +3635,8 @@ Binding model:
 * `Union.Case(...)` resolves `Case` from the union’s declared case set, then
   constructs the case value.
 * `.Case(...)` resolves `Case` from the target type’s union case set.
+* Unqualified `Case(...)` is allowed when case resolution is unambiguous in
+  scope; otherwise a qualified form (`Union.Case(...)`) or alias is required.
 * If a union value is required, case-to-union conversion applies implicitly.
 
 Type argument behavior:

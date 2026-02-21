@@ -1336,27 +1336,39 @@ internal class CodeGenerator
                     member is GlobalStatementSyntax ||
                     member is FileScopedNamespaceDeclarationSyntax fileScoped && fileScoped.Members.OfType<GlobalStatementSyntax>().Any());
 
-                if (hasTopLevelStatements &&
-                    Compilation.Options.OutputKind == OutputKind.ConsoleApplication)
+                if (hasTopLevelStatements)
+                {
                     semanticModel.GetBoundNode(compilationUnit, BoundTreeView.Lowered);
+                    EnsureTopLevelAsyncLowered(compilationUnit, semanticModel);
+                }
             }
 
             foreach (var methodDeclaration in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
             {
+                _ = semanticModel.GetDeclaredSymbol(methodDeclaration);
+
                 if (methodDeclaration.Body is not null)
+                {
+                    semanticModel.GetBoundNode(methodDeclaration.Body, BoundTreeView.Original);
                     semanticModel.GetBoundNode(methodDeclaration.Body, BoundTreeView.Lowered);
+                }
 
                 if (methodDeclaration.ExpressionBody is not null)
-                    semanticModel.GetBoundNode(methodDeclaration.ExpressionBody, BoundTreeView.Lowered);
+                    semanticModel.GetBoundNode(methodDeclaration.ExpressionBody.Expression, BoundTreeView.Lowered);
             }
 
             foreach (var functionStatement in root.DescendantNodes().OfType<FunctionStatementSyntax>())
             {
+                _ = semanticModel.GetDeclaredSymbol(functionStatement);
+
                 if (functionStatement.Body is not null)
+                {
+                    semanticModel.GetBoundNode(functionStatement.Body, BoundTreeView.Original);
                     semanticModel.GetBoundNode(functionStatement.Body, BoundTreeView.Lowered);
+                }
 
                 if (functionStatement.ExpressionBody is not null)
-                    semanticModel.GetBoundNode(functionStatement.ExpressionBody, BoundTreeView.Lowered);
+                    semanticModel.GetBoundNode(functionStatement.ExpressionBody.Expression, BoundTreeView.Lowered);
             }
 
             foreach (var accessor in root.DescendantNodes().OfType<AccessorDeclarationSyntax>())
@@ -1365,12 +1377,30 @@ internal class CodeGenerator
                     semanticModel.GetBoundNode(accessor.Body, BoundTreeView.Lowered);
 
                 if (accessor.ExpressionBody is not null)
-                    semanticModel.GetBoundNode(accessor.ExpressionBody, BoundTreeView.Lowered);
+                    semanticModel.GetBoundNode(accessor.ExpressionBody.Expression, BoundTreeView.Lowered);
             }
 
             foreach (var lambda in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
                 semanticModel.GetBoundNode(lambda, BoundTreeView.Lowered);
         }
+    }
+
+    private void EnsureTopLevelAsyncLowered(CompilationUnitSyntax compilationUnit, SemanticModel semanticModel)
+    {
+        var bindableGlobals = Compilation.CollectBindableGlobalStatements(compilationUnit);
+        var (_, _, asyncMain) = Compilation.GetOrCreateTopLevelProgram(
+            compilationUnit,
+            Compilation.SourceGlobalNamespace,
+            bindableGlobals);
+
+        if (asyncMain is null)
+            return;
+
+        if (semanticModel.GetBoundNode(compilationUnit, BoundTreeView.Original) is not BoundBlockStatement originalTopLevelBody)
+            return;
+
+        if (AsyncLowerer.ShouldRewrite(asyncMain, originalTopLevelBody))
+            _ = AsyncLowerer.Rewrite(asyncMain, originalTopLevelBody);
     }
 
     internal TypeGenerator GetOrCreateTypeGenerator(ITypeSymbol typeSymbol)
@@ -1655,6 +1685,28 @@ internal class CodeGenerator
             if (builder.Type is not null)
             {
                 type = builder.Type;
+                return true;
+            }
+        }
+
+        // Async/state-machine and other synthesized symbols can be re-instantiated
+        // across phases while preserving metadata identity. Fall back to metadata-name
+        // matching when symbol identity lookup misses.
+        var requestedMetadataName = symbolDefinition.ToFullyQualifiedMetadataName();
+        foreach (var (candidateSymbol, candidateGenerator) in _typeGenerators)
+        {
+            if (!string.Equals(candidateSymbol.ToFullyQualifiedMetadataName(), requestedMetadataName, StringComparison.Ordinal))
+                continue;
+
+            if (candidateGenerator.TypeBuilder is not null)
+            {
+                type = candidateGenerator.TypeBuilder;
+                return true;
+            }
+
+            if (candidateGenerator.Type is not null)
+            {
+                type = candidateGenerator.Type;
                 return true;
             }
         }

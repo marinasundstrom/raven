@@ -79,7 +79,11 @@ class IndexHarness {
         var code = """
 import System.*
 
-class Buffer {
+class Buffer() {
+    public GetSeed() -> int {
+        0
+    }
+
     public self[i: Index]: int {
         get => 1;
     }

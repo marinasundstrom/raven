@@ -255,6 +255,16 @@ public static class TypeSymbolExtensionsForCodeGen
                     return builtType;
 
                 var metadataName = namedType.ToFullyQualifiedMetadataName();
+
+                foreach (var synthesized in compilation.GetSynthesizedAsyncStateMachineTypes())
+                {
+                    if (!string.Equals(synthesized.ToFullyQualifiedMetadataName(), metadataName, StringComparison.Ordinal))
+                        continue;
+
+                    if (codeGen.TryEnsureRuntimeTypeForSymbol(synthesized, out var synthesizedType))
+                        return synthesizedType;
+                }
+
                 var runtimeType = compilation.ResolveRuntimeType(metadataName);
                 if (runtimeType is not null)
                     return runtimeType;

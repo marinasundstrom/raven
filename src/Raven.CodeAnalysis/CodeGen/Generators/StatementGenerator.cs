@@ -906,7 +906,16 @@ internal class StatementGenerator : Generator
             }
 
             ILGenerator.Emit(OpCodes.Stloc, localBuilder);
+            return;
         }
+
+        if (localBuilder is null || localSymbol.Type is null || !localSymbol.Type.IsValueType)
+            return;
+
+        // Value-type locals that are later addressed (ldloca) must be explicitly initialized
+        // to satisfy IL verification in all control-flow shapes.
+        ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
+        ILGenerator.Emit(OpCodes.Initobj, ResolveClrType(localSymbol.Type));
     }
 
 }

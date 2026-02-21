@@ -42,13 +42,45 @@ internal static class AsyncLowerer
         if (!method.IsAsync)
             return new AsyncMethodAnalysis(requiresStateMachine: false, containsAwait: false);
 
-        var containsAwait = ContainsAwait(body);
+        var containsAwait = method.ContainsAwait || ContainsAwait(body) || HasAwaitInDeclaringSyntax(method);
 
         method.SetContainsAwait(containsAwait);
 
         var compilation = GetCompilation(method);
         var requiresStateMachine = containsAwait && !compilation.Options.UseRuntimeAsync;
         return new AsyncMethodAnalysis(requiresStateMachine, containsAwait);
+    }
+
+    private static bool HasAwaitInDeclaringSyntax(SourceMethodSymbol method)
+    {
+        foreach (var reference in method.DeclaringSyntaxReferences)
+        {
+            var syntax = reference.GetSyntax();
+            if (syntax is null)
+                continue;
+
+            switch (syntax)
+            {
+                case MethodDeclarationSyntax { Body: not null } methodDeclaration:
+                    if (Compilation.ContainsAwaitExpressionOutsideNestedFunctions(methodDeclaration.Body))
+                        return true;
+                    break;
+                case MethodDeclarationSyntax { ExpressionBody: not null } methodDeclaration:
+                    if (Compilation.ContainsAwaitExpressionOutsideNestedFunctions(methodDeclaration.ExpressionBody.Expression))
+                        return true;
+                    break;
+                case FunctionStatementSyntax { Body: not null } functionStatement:
+                    if (Compilation.ContainsAwaitExpressionOutsideNestedFunctions(functionStatement.Body))
+                        return true;
+                    break;
+                case FunctionStatementSyntax { ExpressionBody: not null } functionStatement:
+                    if (Compilation.ContainsAwaitExpressionOutsideNestedFunctions(functionStatement.ExpressionBody.Expression))
+                        return true;
+                    break;
+            }
+        }
+
+        return false;
     }
 
     public static bool ContainsAwait(BoundNode node)

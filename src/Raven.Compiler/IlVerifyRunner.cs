@@ -307,18 +307,42 @@ public static class IlVerifyRunner
     private static IEnumerable<string> GetReferencePaths(Compilation compilation)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location);
 
         foreach (var reference in compilation.References.OfType<PortableExecutableReference>())
         {
             if (string.IsNullOrEmpty(reference.FilePath))
                 continue;
 
-            if (seen.Add(reference.FilePath))
-                yield return reference.FilePath;
+            var resolvedPath = reference.FilePath;
+
+            if (!string.IsNullOrEmpty(runtimeDirectory))
+            {
+                var candidateRuntimePath = Path.Combine(runtimeDirectory, Path.GetFileName(reference.FilePath));
+                if (File.Exists(candidateRuntimePath))
+                    resolvedPath = candidateRuntimePath;
+            }
+
+            if (!File.Exists(resolvedPath))
+                continue;
+
+            if (seen.Add(resolvedPath))
+                yield return resolvedPath;
         }
 
         var runtimeAssembly = typeof(object).Assembly.Location;
         if (!string.IsNullOrEmpty(runtimeAssembly) && seen.Add(runtimeAssembly))
             yield return runtimeAssembly;
+
+        var ravenCoreAssembly = AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(assembly => string.Equals(assembly.GetName().Name, "Raven.Core", StringComparison.OrdinalIgnoreCase))
+            ?.Location;
+
+        if (!string.IsNullOrEmpty(ravenCoreAssembly) &&
+            File.Exists(ravenCoreAssembly) &&
+            seen.Add(ravenCoreAssembly))
+        {
+            yield return ravenCoreAssembly;
+        }
     }
 }

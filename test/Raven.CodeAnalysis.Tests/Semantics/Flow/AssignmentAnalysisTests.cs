@@ -51,8 +51,16 @@ first + second
             .OfType<AssignmentStatementSyntax>()
             .Single();
 
-        var boundStatement = model.GetBoundNode(assignment).ShouldBeOfType<BoundExpressionStatement>();
-        (boundStatement.Expression is BoundPatternAssignmentExpression or BoundErrorExpression).ShouldBeTrue();
+        var boundNode = model.GetBoundNode(assignment);
+        var patternAssignment = boundNode switch
+        {
+            BoundAssignmentStatement assignmentStatement => assignmentStatement.Expression,
+            BoundExpressionStatement expressionStatement => expressionStatement.Expression,
+            _ => null,
+        };
+
+        patternAssignment.ShouldNotBeNull();
+        (patternAssignment is BoundPatternAssignmentExpression or BoundErrorExpression).ShouldBeTrue();
 
         var analysis = model.AnalyzeDataFlow(assignment);
 

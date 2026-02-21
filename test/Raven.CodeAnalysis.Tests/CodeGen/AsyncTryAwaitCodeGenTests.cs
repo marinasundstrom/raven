@@ -91,6 +91,43 @@ class Program {
     }
 
     [Fact]
+    public void TryAwaitExpression_WithTaskOfResultOperand_ProjectsThrownExceptionToError()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Program {
+    static async Action(throwExc: bool) -> Task<Result<int, Exception>> {
+        await Task.Delay(1)
+        if throwExc {
+            throw Exception("Boom!")
+        }
+
+        return .Ok(40)
+    }
+
+    static async Test(throwExc: bool) -> Task<Result<int, Exception>> {
+        val x = try? await Program.Action(throwExc)
+        return .Ok(x + 2)
+    }
+
+    static async Main() -> Task {
+        Console.WriteLine(await Program.Test(false))
+        Console.WriteLine(await Program.Test(true))
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.NotEmpty(output);
+        Assert.Equal("Result.Ok(42)", output[0]);
+        Assert.True(
+            output.Skip(1).Any(line => line.StartsWith("Result.Error(System.Exception: Boom!", StringComparison.Ordinal)),
+            "Expected thrown exception to be projected as Result.Error.");
+    }
+
+    [Fact]
     public void AsyncUse_WithResultMatchReturn_EmitsValidSetResultCall()
     {
         const string code = """

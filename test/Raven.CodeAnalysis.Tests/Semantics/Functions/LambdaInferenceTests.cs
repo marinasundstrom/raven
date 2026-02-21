@@ -504,7 +504,11 @@ class Container {
             .Single();
 
         var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
-        var ifExpression = Assert.IsType<BoundIfExpression>(boundLambda.Body);
+        var lambdaBody = boundLambda.Body;
+        if (lambdaBody is BoundConversionExpression lambdaConversion)
+            lambdaBody = lambdaConversion.Expression;
+
+        var ifExpression = Assert.IsType<BoundIfExpression>(lambdaBody);
         var elseBranch = ifExpression.ElseBranch;
         if (elseBranch is BoundConversionExpression conversion)
             elseBranch = conversion.Expression;
@@ -517,9 +521,23 @@ class Container {
 
         var expectedReturn = boundLambda.ReturnType;
         Assert.NotNull(expectedReturn);
-        Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, ifExpression.Type));
-        Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, ifExpression.ThenBranch.Type));
-        Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, ifExpression.ElseBranch?.Type));
+        var ifType = ifExpression.Type;
+        Assert.NotNull(ifType);
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(expectedReturn, ifType) ||
+            compilation.ClassifyConversion(ifType!, expectedReturn!).Exists);
+
+        var thenType = ifExpression.ThenBranch.Type;
+        Assert.NotNull(thenType);
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(expectedReturn, thenType) ||
+            compilation.ClassifyConversion(thenType!, expectedReturn!).Exists);
+
+        var elseType = ifExpression.ElseBranch?.Type;
+        Assert.NotNull(elseType);
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(expectedReturn, elseType) ||
+            compilation.ClassifyConversion(elseType!, expectedReturn!).Exists);
 
         Assert.False(elseExpression is BoundErrorExpression, elseExpression.ToString());
     }

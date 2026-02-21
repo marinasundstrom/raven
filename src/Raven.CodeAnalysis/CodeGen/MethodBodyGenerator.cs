@@ -413,6 +413,51 @@ internal class MethodBodyGenerator
                     break;
                 }
 
+                if (MethodSymbol is SourceMethodSymbol sourceTopLevelMethod &&
+                    sourceTopLevelMethod.IsAsync &&
+                    semanticModel.GetBoundNode(compilationUnit, BoundTreeView.Original) is BoundBlockStatement originalTopLevelBody)
+                {
+                    var loweredTopLevelBody = AsyncLowerer.ShouldRewrite(sourceTopLevelMethod, originalTopLevelBody)
+                        ? AsyncLowerer.Rewrite(sourceTopLevelMethod, originalTopLevelBody)
+                        : originalTopLevelBody;
+
+                    DeclareLocals(loweredTopLevelBody);
+                    EmitMethodBlock(loweredTopLevelBody);
+                    break;
+                }
+
+                if (MethodSymbol is SourceMethodSymbol asyncTopLevelMethod &&
+                    asyncTopLevelMethod.IsAsync)
+                {
+                    var topLevelStatements = GetTopLevelStatements(compilationUnit).ToArray();
+                    var boundStatements = new List<BoundStatement>(topLevelStatements.Length);
+                    var localsToDispose = ImmutableArray.CreateBuilder<ILocalSymbol>();
+
+                    foreach (var statementSyntax in topLevelStatements)
+                    {
+                        if (semanticModel.GetBoundNode(statementSyntax, BoundTreeView.Original) is BoundStatement boundStatement)
+                            boundStatements.Add(boundStatement);
+
+                        if (statementSyntax is UseDeclarationStatementSyntax useDeclarationStatement)
+                        {
+                            foreach (var declarator in useDeclarationStatement.Declaration.Declarators)
+                            {
+                                if (GetDeclaredSymbol<ILocalSymbol>(declarator) is { } localSymbol)
+                                    localsToDispose.Add(localSymbol);
+                            }
+                        }
+                    }
+
+                    var synthesizedBlock = new BoundBlockStatement(boundStatements, localsToDispose.ToImmutable());
+                    var loweredTopLevelBody = AsyncLowerer.ShouldRewrite(asyncTopLevelMethod, synthesizedBlock)
+                        ? AsyncLowerer.Rewrite(asyncTopLevelMethod, synthesizedBlock)
+                        : synthesizedBlock;
+
+                    DeclareLocals(loweredTopLevelBody);
+                    EmitMethodBlock(loweredTopLevelBody);
+                    break;
+                }
+
                 foreach (var localDeclStmt in syntax.DescendantNodes()
                     .OfType<LocalDeclarationStatementSyntax>())
                 {
@@ -1016,6 +1061,9 @@ internal class MethodBodyGenerator
 
         if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.Constructor))
         {
+            var asyncStateMachineClrType = ResolveClrType(asyncStateMachine);
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Initobj, asyncStateMachineClrType);
             ILGenerator.Emit(OpCodes.Ret);
             _lambdaClosure = previousClosure;
             return;

@@ -11,7 +11,7 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 internal sealed class DeclarationTable
 {
-    private readonly ConcurrentDictionary<SyntaxNode, DeclKey> _map = new();
+    private readonly ConcurrentDictionary<SyntaxNodeMapKey, DeclKey> _map = new();
 
     public DeclarationTable(IEnumerable<SyntaxTree> syntaxTrees)
     {
@@ -22,14 +22,14 @@ internal sealed class DeclarationTable
     private void Build(SyntaxNode node)
     {
         if (TryCreateDeclKey(node, out var key))
-            _map[node] = key;
+            _map[GetKey(node)] = key;
 
         foreach (var child in node.ChildNodes())
             Build(child);
     }
 
     public bool TryGetDeclKey(SyntaxNode node, out DeclKey key)
-        => _map.TryGetValue(node, out key);
+        => _map.TryGetValue(GetKey(node), out key);
 
     private bool TryCreateDeclKey(SyntaxNode node, out DeclKey key)
     {
@@ -79,15 +79,20 @@ internal sealed class DeclarationTable
     {
         while (node is not null)
         {
-            if (_map.TryGetValue(node, out var key))
+            if (_map.TryGetValue(GetKey(node), out var key))
                 return key;
             if (TryCreateDeclKey(node, out var created))
             {
-                _map[node] = created;
+                _map[GetKey(node)] = created;
                 return created;
             }
             node = node.Parent;
         }
         return null;
     }
+
+    private static SyntaxNodeMapKey GetKey(SyntaxNode node)
+        => new(node.SyntaxTree, node.Span, node.Kind);
+
+    private readonly record struct SyntaxNodeMapKey(SyntaxTree SyntaxTree, TextSpan Span, SyntaxKind Kind);
 }

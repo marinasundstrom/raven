@@ -755,9 +755,9 @@ public partial class SemanticModel
         foreach (var diagnostic in importBinder.Diagnostics.AsEnumerable())
             topLevelBinder.Diagnostics.Report(diagnostic);
 
-        _binderCache[cu] = topLevelBinder;
+        CacheBinder(cu, topLevelBinder);
         if (fileScopedNamespace != null)
-            _binderCache[fileScopedNamespace] = importBinder;
+            CacheBinder(fileScopedNamespace, importBinder);
 
         return topLevelBinder;
 
@@ -1102,10 +1102,10 @@ public partial class SemanticModel
         // bug report). By caching eagerly we guarantee re-entrant lookups
         // retrieve the partially constructed top-level binder instead of
         // rebuilding it.
-        _binderCache[cu] = topLevelBinder;
+        CacheBinder(cu, topLevelBinder);
 
         foreach (var stmt in bindableGlobals)
-            _binderCache[stmt] = topLevelBinder;
+            CacheBinder(stmt, topLevelBinder);
 
         topLevelBinder.BindGlobalStatements(bindableGlobals);
 
@@ -1201,7 +1201,7 @@ public partial class SemanticModel
                         var nsSymbol = Compilation.GetOrCreateNamespaceSymbol(namespaceName);
 
                         var nsBinder = Compilation.BinderFactory.GetBinder(nsDecl, parentBinder)!;
-                        _binderCache[nsDecl] = nsBinder;
+                        CacheBinder(nsDecl, nsBinder);
 
                         BindNamespaceMembers(nsDecl, nsBinder, nsSymbol);
                         break;
@@ -1253,7 +1253,7 @@ public partial class SemanticModel
 
                         var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
                         interfaceBinder.EnsureTypeParameterConstraintTypesResolved(interfaceSymbol.TypeParameters);
-                        _binderCache[interfaceDecl] = interfaceBinder;
+                        CacheBinder(interfaceDecl, interfaceBinder);
                         interfaceBinders.Add((interfaceDecl, interfaceBinder));
                         break;
                     }
@@ -1263,7 +1263,7 @@ public partial class SemanticModel
                         var extensionSymbol = GetDeclaredTypeSymbol(extensionDecl);
                         var extensionBinder = new ExtensionDeclarationBinder(parentBinder, extensionSymbol, extensionDecl);
                         extensionBinder.EnsureTypeParameterConstraintTypesResolved(extensionSymbol.TypeParameters);
-                        _binderCache[extensionDecl] = extensionBinder;
+                        CacheBinder(extensionDecl, extensionBinder);
 
                         extensionBinders.Add((extensionDecl, extensionBinder));
                         break;
@@ -1276,7 +1276,7 @@ public partial class SemanticModel
                         // Binder for attributes/type parameter constraints
                         var delegateBinder = new DelegateDeclarationBinder(parentBinder, delegateSymbol, delegateDecl);
                         delegateBinder.EnsureTypeParameterConstraintTypesResolved(delegateSymbol.TypeParameters);
-                        _binderCache[delegateDecl] = delegateBinder;
+                        CacheBinder(delegateDecl, delegateBinder);
 
                         EnsureDelegateMembers(delegateSymbol, delegateDecl, delegateBinder);
 
@@ -1287,7 +1287,7 @@ public partial class SemanticModel
                     {
                         var enumSymbol = GetDeclaredTypeSymbol(enumDecl);
                         var enumBinder = new EnumDeclarationBinder(parentBinder, enumSymbol, enumDecl);
-                        _binderCache[enumDecl] = enumBinder;
+                        CacheBinder(enumDecl, enumBinder);
 
                         var enumUnderlyingType = ResolveEnumUnderlyingType(enumDecl, parentBinder);
                         enumSymbol.SetEnumUnderlyingType(enumUnderlyingType);
@@ -1355,7 +1355,7 @@ public partial class SemanticModel
         if (!interfaceList.IsDefaultOrEmpty)
             typeSymbol.SetInterfaces(MergeInterfaceSets(typeSymbol.Interfaces, interfaceList));
 
-        _binderCache[declaration] = declarationBinder;
+        CacheBinder(declaration, declarationBinder);
         RegisterClassSymbol(declaration, typeSymbol);
 
         if (typeSymbol.IsSealedHierarchy)
@@ -1815,7 +1815,7 @@ public partial class SemanticModel
         var allCasesAlreadyRegistered = true;
         foreach (var caseClause in unionDecl.Cases)
         {
-            if (!_unionCaseSymbols.ContainsKey(caseClause))
+            if (!TryGetUnionCaseSymbol(caseClause, out _))
             {
                 allCasesAlreadyRegistered = false;
                 break;
@@ -2372,7 +2372,7 @@ public partial class SemanticModel
 
         var unionBinder = new UnionDeclarationBinder(parentBinder, unionSymbol, unionDecl);
         unionBinder.EnsureTypeParameterConstraintTypesResolved(unionSymbol.TypeParameters);
-        _binderCache[unionDecl] = unionBinder;
+        CacheBinder(unionDecl, unionBinder);
 
         namespaceSymbol ??= unionSymbol.ContainingNamespace?.AsSourceNamespace();
 
@@ -2444,69 +2444,71 @@ public partial class SemanticModel
                 case FieldDeclarationSyntax fieldDecl:
                     var fieldBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     fieldBinder.BindFieldDeclaration(fieldDecl);
-                    _binderCache[fieldDecl] = fieldBinder;
+                    CacheBinder(fieldDecl, fieldBinder);
                     foreach (var decl in fieldDecl.Declaration.Declarators)
-                        _binderCache[decl] = fieldBinder;
+                        CacheBinder(decl, fieldBinder);
                     break;
 
                 case MethodDeclarationSyntax methodDecl:
                     var memberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
-                    _binderCache[methodDecl] = methodBinder;
+                    CacheBinder(methodDecl, methodBinder);
+                    if (methodBinder.ContainingSymbol is IMethodSymbol methodSymbol)
+                        RegisterMethodSymbol(methodDecl, methodSymbol);
                     break;
 
                 case OperatorDeclarationSyntax operatorDecl:
                     var operatorBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var boundOperatorBinder = operatorBinder.BindOperatorDeclaration(operatorDecl);
-                    _binderCache[operatorDecl] = boundOperatorBinder;
+                    CacheBinder(operatorDecl, boundOperatorBinder);
                     break;
 
                 case ConversionOperatorDeclarationSyntax conversionDecl:
                     var conversionBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var boundConversionBinder = conversionBinder.BindConversionOperatorDeclaration(conversionDecl);
-                    _binderCache[conversionDecl] = boundConversionBinder;
+                    CacheBinder(conversionDecl, boundConversionBinder);
                     break;
 
                 case PropertyDeclarationSyntax propDecl:
                     var propMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var accessorBinders = propMemberBinder.BindPropertyDeclaration(propDecl);
-                    _binderCache[propDecl] = propMemberBinder;
+                    CacheBinder(propDecl, propMemberBinder);
                     foreach (var kv in accessorBinders)
-                        _binderCache[kv.Key] = kv.Value;
+                        CacheBinder(kv.Key, kv.Value);
                     break;
 
                 case EventDeclarationSyntax eventDecl:
                     var eventMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var eventAccessors = eventMemberBinder.BindEventDeclaration(eventDecl);
-                    _binderCache[eventDecl] = eventMemberBinder;
+                    CacheBinder(eventDecl, eventMemberBinder);
                     foreach (var kv in eventAccessors)
-                        _binderCache[kv.Key] = kv.Value;
+                        CacheBinder(kv.Key, kv.Value);
                     break;
 
                 case IndexerDeclarationSyntax indexerDecl:
                     var indexerMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var indexerAccessorBinders = indexerMemberBinder.BindIndexerDeclaration(indexerDecl);
-                    _binderCache[indexerDecl] = indexerMemberBinder;
+                    CacheBinder(indexerDecl, indexerMemberBinder);
                     foreach (var kv in indexerAccessorBinders)
-                        _binderCache[kv.Key] = kv.Value;
+                        CacheBinder(kv.Key, kv.Value);
                     break;
 
                 case ConstructorDeclarationSyntax ctorDecl:
                     var ctorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var ctorBinder = ctorMemberBinder.BindConstructorDeclaration(ctorDecl);
-                    _binderCache[ctorDecl] = ctorBinder;
+                    CacheBinder(ctorDecl, ctorBinder);
                     break;
 
                 case NamedConstructorDeclarationSyntax ctorDecl:
                     var namedCtorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var namedCtorBinder = namedCtorMemberBinder.BindNamedConstructorDeclaration(ctorDecl);
-                    _binderCache[ctorDecl] = namedCtorBinder;
+                    CacheBinder(ctorDecl, namedCtorBinder);
                     break;
 
                 case DelegateDeclarationSyntax del:
                     var delMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var delBinder = delMemberBinder.BindDelegateDeclaration(del);
-                    _binderCache[del] = delBinder;
+                    CacheBinder(del, delBinder);
                     break;
 
                 case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
@@ -2528,7 +2530,7 @@ public partial class SemanticModel
 
                     if (!nestedInterfaces.IsDefaultOrEmpty)
                         nestedSymbol.SetInterfaces(MergeInterfaceSets(nestedSymbol.Interfaces, nestedInterfaces));
-                    _binderCache[nestedClass] = nestedBinder;
+                    CacheBinder(nestedClass, nestedBinder);
                     RegisterClassSymbol(nestedClass, nestedSymbol);
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
@@ -2572,7 +2574,7 @@ public partial class SemanticModel
                     var nestedInterfaceSymbol = GetDeclaredTypeSymbol(nestedInterface);
                     var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
                     nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
-                    _binderCache[nestedInterface] = nestedInterfaceBinder;
+                    CacheBinder(nestedInterface, nestedInterfaceBinder);
                     RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
                     break;
 
@@ -2581,7 +2583,7 @@ public partial class SemanticModel
                         var enumSymbol = GetDeclaredTypeSymbol(enumDecl);
 
                         var enumBinder = new EnumDeclarationBinder(classBinder, enumSymbol, enumDecl);
-                        _binderCache[enumDecl] = enumBinder;
+                        CacheBinder(enumDecl, enumBinder);
 
                         var enumUnderlyingType = ResolveEnumUnderlyingType(enumDecl, classBinder);
                         enumSymbol.SetEnumUnderlyingType(enumUnderlyingType);
@@ -2887,48 +2889,48 @@ public partial class SemanticModel
                     {
                         var memberBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
-                        _binderCache[methodDecl] = methodBinder;
+                        CacheBinder(methodDecl, methodBinder);
                         break;
                     }
                 case OperatorDeclarationSyntax operatorDecl:
                     {
                         var memberBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var operatorBinder = memberBinder.BindOperatorDeclaration(operatorDecl);
-                        _binderCache[operatorDecl] = operatorBinder;
+                        CacheBinder(operatorDecl, operatorBinder);
                         break;
                     }
                 case ConversionOperatorDeclarationSyntax conversionDecl:
                     {
                         var memberBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var conversionBinder = memberBinder.BindConversionOperatorDeclaration(conversionDecl);
-                        _binderCache[conversionDecl] = conversionBinder;
+                        CacheBinder(conversionDecl, conversionBinder);
                         break;
                     }
                 case PropertyDeclarationSyntax propertyDecl:
                     {
                         var propertyBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var accessorBinders = propertyBinder.BindPropertyDeclaration(propertyDecl);
-                        _binderCache[propertyDecl] = propertyBinder;
+                        CacheBinder(propertyDecl, propertyBinder);
                         foreach (var kv in accessorBinders)
-                            _binderCache[kv.Key] = kv.Value;
+                            CacheBinder(kv.Key, kv.Value);
                         break;
                     }
                 case EventDeclarationSyntax eventDecl:
                     {
                         var eventBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var accessorBinders = eventBinder.BindEventDeclaration(eventDecl);
-                        _binderCache[eventDecl] = eventBinder;
+                        CacheBinder(eventDecl, eventBinder);
                         foreach (var kv in accessorBinders)
-                            _binderCache[kv.Key] = kv.Value;
+                            CacheBinder(kv.Key, kv.Value);
                         break;
                     }
                 case IndexerDeclarationSyntax indexerDecl:
                     {
                         var indexerBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var accessorBinders = indexerBinder.BindIndexerDeclaration(indexerDecl);
-                        _binderCache[indexerDecl] = indexerBinder;
+                        CacheBinder(indexerDecl, indexerBinder);
                         foreach (var kv in accessorBinders)
-                            _binderCache[kv.Key] = kv.Value;
+                            CacheBinder(kv.Key, kv.Value);
                         break;
                     }
                 case InterfaceDeclarationSyntax nestedInterface:
@@ -2970,7 +2972,7 @@ public partial class SemanticModel
 
                         var nestedInterfaceBinder = new InterfaceDeclarationBinder(interfaceBinder, nestedInterfaceSymbol, nestedInterface);
                         nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
-                        _binderCache[nestedInterface] = nestedInterfaceBinder;
+                        CacheBinder(nestedInterface, nestedInterfaceBinder);
                         RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
                         break;
                     }
@@ -2994,7 +2996,7 @@ public partial class SemanticModel
                     {
                         var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
-                        _binderCache[methodDecl] = methodBinder;
+                        CacheBinder(methodDecl, methodBinder);
                         break;
                     }
 
@@ -3002,14 +3004,14 @@ public partial class SemanticModel
                     {
                         var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var operatorBinder = memberBinder.BindOperatorDeclaration(operatorDecl);
-                        _binderCache[operatorDecl] = operatorBinder;
+                        CacheBinder(operatorDecl, operatorBinder);
                         break;
                     }
                 case ConversionOperatorDeclarationSyntax conversionDecl:
                     {
                         var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var conversionBinder = memberBinder.BindConversionOperatorDeclaration(conversionDecl);
-                        _binderCache[conversionDecl] = conversionBinder;
+                        CacheBinder(conversionDecl, conversionBinder);
                         break;
                     }
 
@@ -3017,18 +3019,18 @@ public partial class SemanticModel
                     {
                         var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var accessorBinders = memberBinder.BindPropertyDeclaration(propertyDecl);
-                        _binderCache[propertyDecl] = memberBinder;
+                        CacheBinder(propertyDecl, memberBinder);
                         foreach (var kv in accessorBinders)
-                            _binderCache[kv.Key] = kv.Value;
+                            CacheBinder(kv.Key, kv.Value);
                         break;
                     }
                 case EventDeclarationSyntax eventDecl:
                     {
                         var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var accessorBinders = memberBinder.BindEventDeclaration(eventDecl);
-                        _binderCache[eventDecl] = memberBinder;
+                        CacheBinder(eventDecl, memberBinder);
                         foreach (var kv in accessorBinders)
-                            _binderCache[kv.Key] = kv.Value;
+                            CacheBinder(kv.Key, kv.Value);
                         break;
                     }
             }
@@ -3940,11 +3942,11 @@ public partial class SemanticModel
                 ? loweredSyntax
                 : null;
 
-    private readonly Dictionary<SyntaxNode, SourceNamedTypeSymbol> _declaredTypeSymbols = new();
+    private readonly Dictionary<SyntaxNodeMapKey, SourceNamedTypeSymbol> _declaredTypeSymbols = new();
 
     private void RegisterDeclaredTypeSymbol(SyntaxNode node, SourceNamedTypeSymbol symbol)
     {
-        _declaredTypeSymbols[node] = symbol;
+        _declaredTypeSymbols[GetSyntaxNodeMapKey(node)] = symbol;
 
         if (node is TypeDeclarationSyntax typeDecl)
             RegisterClassSymbol(typeDecl, symbol);
@@ -3954,7 +3956,13 @@ public partial class SemanticModel
 
     private SourceNamedTypeSymbol GetDeclaredTypeSymbol(SyntaxNode node)
     {
-        if (_declaredTypeSymbols.TryGetValue(node, out var symbol))
+        if (_declaredTypeSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out var symbol))
+            return symbol;
+
+        // Defensive recovery: in some re-entrant binder flows, declarations may not
+        // have been materialized for this semantic model yet.
+        EnsureDeclarations();
+        if (_declaredTypeSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol))
             return symbol;
 
         throw new InvalidOperationException($"Type symbol not declared for syntax node '{node}'.");
@@ -3963,26 +3971,48 @@ public partial class SemanticModel
     internal SourceNamedTypeSymbol GetDeclaredTypeSymbolForDeclaration(SyntaxNode node)
         => GetDeclaredTypeSymbol(node);
 
-    private readonly Dictionary<TypeDeclarationSyntax, SourceNamedTypeSymbol> _classSymbols = new();
+    private readonly Dictionary<SyntaxNodeMapKey, SourceNamedTypeSymbol> _classSymbols = new();
 
     internal void RegisterClassSymbol(TypeDeclarationSyntax node, SourceNamedTypeSymbol symbol)
-        => _classSymbols[node] = symbol;
+        => _classSymbols[GetSyntaxNodeMapKey(node)] = symbol;
 
     internal SourceNamedTypeSymbol GetClassSymbol(TypeDeclarationSyntax node)
-        => _classSymbols[node];
+        => _classSymbols[GetSyntaxNodeMapKey(node)];
 
-    private readonly Dictionary<UnionDeclarationSyntax, SourceDiscriminatedUnionSymbol> _unionSymbols = new();
-    private readonly Dictionary<UnionCaseClauseSyntax, SourceDiscriminatedUnionCaseTypeSymbol> _unionCaseSymbols = new();
+    internal bool TryGetClassSymbol(TypeDeclarationSyntax node, out SourceNamedTypeSymbol symbol)
+        => _classSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
+
+    private readonly Dictionary<SyntaxNodeMapKey, SourceDiscriminatedUnionSymbol> _unionSymbols = new();
+    private readonly Dictionary<SyntaxNodeMapKey, SourceDiscriminatedUnionCaseTypeSymbol> _unionCaseSymbols = new();
 
     internal void RegisterUnionSymbol(UnionDeclarationSyntax node, SourceDiscriminatedUnionSymbol symbol)
-        => _unionSymbols[node] = symbol;
+        => _unionSymbols[GetSyntaxNodeMapKey(node)] = symbol;
 
     internal SourceDiscriminatedUnionSymbol GetUnionSymbol(UnionDeclarationSyntax node)
-        => _unionSymbols[node];
+        => _unionSymbols[GetSyntaxNodeMapKey(node)];
+
+    internal bool TryGetUnionSymbol(UnionDeclarationSyntax node, out SourceDiscriminatedUnionSymbol symbol)
+        => _unionSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
 
     internal void RegisterUnionCaseSymbol(UnionCaseClauseSyntax node, SourceDiscriminatedUnionCaseTypeSymbol symbol)
-        => _unionCaseSymbols[node] = symbol;
+        => _unionCaseSymbols[GetSyntaxNodeMapKey(node)] = symbol;
 
     internal SourceDiscriminatedUnionCaseTypeSymbol GetUnionCaseSymbol(UnionCaseClauseSyntax node)
-        => _unionCaseSymbols[node];
+        => _unionCaseSymbols[GetSyntaxNodeMapKey(node)];
+
+    internal bool TryGetUnionCaseSymbol(UnionCaseClauseSyntax node, out SourceDiscriminatedUnionCaseTypeSymbol symbol)
+        => _unionCaseSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
+
+    private readonly Dictionary<SyntaxNodeMapKey, IMethodSymbol> _methodSymbols = new();
+
+    internal void RegisterMethodSymbol(MethodDeclarationSyntax node, IMethodSymbol symbol)
+        => _methodSymbols[GetSyntaxNodeMapKey(node)] = symbol;
+
+    internal bool TryGetMethodSymbol(MethodDeclarationSyntax node, out IMethodSymbol symbol)
+        => _methodSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
+
+    private static SyntaxNodeMapKey GetSyntaxNodeMapKey(SyntaxNode node)
+        => new(node.SyntaxTree, node.Span, node.Kind);
+
+    private readonly record struct SyntaxNodeMapKey(SyntaxTree SyntaxTree, TextSpan Span, SyntaxKind Kind);
 }

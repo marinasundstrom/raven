@@ -14,7 +14,7 @@ public class IncrementDecrementTests
     {
         var code = """
 class Foo {
-    Run() -> int {
+    public Run() -> int {
         var x: int = 1
         var y: int = ++x
         return x * 10 + y
@@ -25,7 +25,7 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -48,7 +48,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    Run() -> int {
+    public Run() -> int {
         var x: int = 3
         var y: int = x--
         return x * 10 + y
@@ -59,7 +59,7 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -82,9 +82,9 @@ class Foo {
     {
         var code = """
 class Counter {
-    public Value: int { get; set; }
+    public var Value: int = 0
 
-    Run() -> int {
+    public Run() -> int {
         Value = 10
         var original = Value++
         return Value * 10 + original
@@ -95,7 +95,7 @@ class Counter {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 

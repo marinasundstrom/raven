@@ -2183,19 +2183,6 @@ partial class BlockBinder : Binder
         var exceptionType = Compilation.GetTypeByMetadataName("System.Exception") ?? Compilation.ErrorTypeSymbol;
         var expressionType = expression.Type ?? Compilation.ErrorTypeSymbol;
 
-        if (tryExpression.QuestionToken.Kind != SyntaxKind.None &&
-            expressionType is INamedTypeSymbol directOperandNamed &&
-            TryGetPropagationInfo(directOperandNamed, out var directOperandInfo) &&
-            TryGetEnclosingCarrierReturnType(out var directEnclosingReturnType) &&
-            directEnclosingReturnType is not null &&
-            TryGetPropagationInfo(directEnclosingReturnType, out var directEnclosingInfo) &&
-            directOperandInfo.Kind == directEnclosingInfo.Kind)
-        {
-            var directPropagation = BindPropagateExpressionCore(expression, tryExpression.QuestionToken, tryExpression);
-            if (directPropagation is not BoundErrorExpression)
-                return directPropagation;
-        }
-
         var resultDefinition = Compilation.GetTypeByMetadataName("System.Result`2") as INamedTypeSymbol;
         if (resultDefinition is null)
             return ErrorExpression();
