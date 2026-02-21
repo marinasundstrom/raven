@@ -690,6 +690,29 @@ val result = state match {
     }
 
     [Fact]
+    public void MatchExpression_WithDiscriminatedUnionScrutinee_MissingArmOmitsCaseGenericTypeArgumentsInDiagnostic()
+    {
+        const string code = """
+val value: Result<int, string> = Ok(1)
+
+val result = value match {
+    Ok(val payload) => payload
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Error")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithUnionScrutinee_MissingArmReportsDiagnosticAtMatchKeyword()
     {
         const string code = """

@@ -3270,7 +3270,7 @@ partial class BlockBinder : Binder
         {
             ReportMatchNotExhaustive(
                 matchSyntax,
-                missingCase.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat));
+                MatchCaseDisplay.ForDiscriminatedUnionCase(missingCase));
         }
     }
 

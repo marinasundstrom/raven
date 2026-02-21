@@ -58,4 +58,32 @@ enum State {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void MatchExpression_DuCaseSuggestion_OmitsGenericTypeArguments()
+    {
+        const string code = """
+val result: Result<int, string> = Ok(42)
+
+val text = result match {
+    Ok(val value) => value.ToString()
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MatchExhaustivenessAnalyzer>(
+            code,
+            [
+                new DiagnosticResult(MatchExhaustivenessAnalyzer.MissingCaseDiagnosticId)
+                    .WithLocation(3, 19)
+                    .WithArguments("Error")
+            ],
+            [CompilerDiagnostics.MatchExpressionNotExhaustive.Id]);
+
+        verifier.Verify();
+    }
 }

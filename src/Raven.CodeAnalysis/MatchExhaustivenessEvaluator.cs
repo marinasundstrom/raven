@@ -180,7 +180,7 @@ internal sealed class MatchExhaustivenessEvaluator
         }
 
         return remaining
-            .Select(caseSymbol => caseSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .Select(MatchCaseDisplay.ForDiscriminatedUnionCase)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToImmutableArray();
     }
