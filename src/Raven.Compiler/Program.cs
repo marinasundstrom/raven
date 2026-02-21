@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Text;
 using System.Xml.Linq;
@@ -392,6 +393,42 @@ static bool IsValidAssemblyReference(string path)
     }
 }
 
+static bool IsAssemblyCompatibleWithTargetFramework(string path, TargetFrameworkMoniker targetFramework)
+{
+    try
+    {
+        using var stream = File.OpenRead(path);
+        using var peReader = new PEReader(stream);
+        if (!peReader.HasMetadata)
+            return false;
+
+        var metadataReader = peReader.GetMetadataReader();
+        var targetVersion = targetFramework.Version;
+
+        foreach (var assemblyRefHandle in metadataReader.AssemblyReferences)
+        {
+            var assemblyRef = metadataReader.GetAssemblyReference(assemblyRefHandle);
+            var assemblyName = metadataReader.GetString(assemblyRef.Name);
+            if (!string.Equals(assemblyName, "System.Runtime", StringComparison.Ordinal) &&
+                !string.Equals(assemblyName, "System.Private.CoreLib", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var referencedVersion = assemblyRef.Version;
+            // Framework reference versions must match target major/minor.
+            return referencedVersion.Major == targetVersion.Major &&
+                   referencedVersion.Minor == targetVersion.Minor;
+        }
+
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
 static string? TryReadProjectTargetFramework(string projectFilePath)
 {
     try
@@ -443,10 +480,22 @@ var targetFramework = targetFrameworkTfm
     ?? hostDefaultFramework;
 var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 var preferredCoreTfm = version.Moniker.ToTfm();
+if (runtimeAsyncOverride is true &&
+    version.Moniker.Framework == FrameworkId.NetCoreApp &&
+    version.Moniker.Version.Major < 11)
+{
+    AnsiConsole.MarkupLine(
+        $"[red]--runtime-async is only supported for net11.0+ (current target: {Markup.Escape(version.Moniker.ToTfm())}).[/]");
+    Environment.ExitCode = 1;
+    return;
+}
+var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
+var fallbackLocalTfms = new[] { "net11.0", "net9.0" }
+    .Where(tfm => !string.Equals(tfm, preferredCoreTfm, StringComparison.OrdinalIgnoreCase))
+    .ToArray();
 
 if (!ravenCoreExplicitlyProvided && !skipDefaultRavenCoreLookup)
 {
-    var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
     var specificCoreCandidates = new[]
     {
         Path.Combine(repositoryRoot, "src", "Raven.Core", "bin", "Debug", preferredCoreTfm, "Raven.Core.dll"),
@@ -623,7 +672,7 @@ if ((publish || run) && !string.IsNullOrEmpty(ravenCorePath))
     }
 }
 
-string? ResolveAndCopyLocalDependency(string fileName, params string[] candidates)
+string? ResolveAndCopyLocalDependency(string fileName, Func<string, bool>? candidateFilter, params string[] candidates)
 {
     foreach (var candidate in candidates)
     {
@@ -632,6 +681,8 @@ string? ResolveAndCopyLocalDependency(string fileName, params string[] candidate
 
         var full = Path.GetFullPath(candidate);
         if (!File.Exists(full) || !IsValidAssemblyReference(full))
+            continue;
+        if (candidateFilter is not null && !candidateFilter(full))
             continue;
 
         if (!(publish || run))
@@ -681,22 +732,40 @@ string? ResolveAndCopyLocalDependency(string fileName, params string[] candidate
     return null;
 }
 
-var testDepPath = ResolveAndCopyLocalDependency(
-    "TestDep.dll",
+var testDepCandidates = new List<string>
+{
+    Path.Combine(repositoryRoot, "src", "TestDep", "bin", "Debug", preferredCoreTfm, "TestDep.dll"),
+    Path.Combine(repositoryRoot, "src", "TestDep", "bin", "Debug", preferredCoreTfm, preferredCoreTfm, "TestDep.dll"),
     Path.Combine(AppContext.BaseDirectory, "TestDep.dll"),
     Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "TestDep.dll"),
-    Path.GetFullPath("../../../../../src/TestDep/bin/Debug/net11.0/TestDep.dll"),
-    Path.GetFullPath("../../../../../src/TestDep/bin/Debug/net11.0/net11.0/TestDep.dll"),
-    Path.GetFullPath("../../../../../src/TestDep/bin/Debug/net9.0/TestDep.dll"),
-    Path.GetFullPath("../../../../../src/TestDep/bin/Debug/net9.0/net9.0/TestDep.dll"));
+};
+foreach (var tfm in fallbackLocalTfms)
+{
+    testDepCandidates.Add(Path.Combine(repositoryRoot, "src", "TestDep", "bin", "Debug", tfm, "TestDep.dll"));
+    testDepCandidates.Add(Path.Combine(repositoryRoot, "src", "TestDep", "bin", "Debug", tfm, tfm, "TestDep.dll"));
+}
+
+var testDepPath = ResolveAndCopyLocalDependency(
+    "TestDep.dll",
+    path => IsAssemblyCompatibleWithTargetFramework(path, version.Moniker),
+    testDepCandidates.ToArray());
+
+var ravenCodeAnalysisCandidates = new List<string>
+{
+    Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", preferredCoreTfm, "Raven.CodeAnalysis.dll"),
+    Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", preferredCoreTfm, preferredCoreTfm, "Raven.CodeAnalysis.dll"),
+    Path.Combine(AppContext.BaseDirectory, "Raven.CodeAnalysis.dll"),
+};
+foreach (var tfm in fallbackLocalTfms)
+{
+    ravenCodeAnalysisCandidates.Add(Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", tfm, "Raven.CodeAnalysis.dll"));
+    ravenCodeAnalysisCandidates.Add(Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", tfm, tfm, "Raven.CodeAnalysis.dll"));
+}
 
 var ravenCodeAnalysisPath = ResolveAndCopyLocalDependency(
     "Raven.CodeAnalysis.dll",
-    Path.Combine(AppContext.BaseDirectory, "Raven.CodeAnalysis.dll"),
-    Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net11.0/Raven.CodeAnalysis.dll"),
-    Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net11.0/net11.0/Raven.CodeAnalysis.dll"),
-    Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net9.0/Raven.CodeAnalysis.dll"),
-    Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net9.0/net9.0/Raven.CodeAnalysis.dll"));
+    path => IsAssemblyCompatibleWithTargetFramework(path, version.Moniker),
+    ravenCodeAnalysisCandidates.ToArray());
 
 var useRuntimeAsync = runtimeAsyncOverride
     ?? (version.Moniker.Framework == FrameworkId.NetCoreApp && version.Moniker.Version.Major >= 11);

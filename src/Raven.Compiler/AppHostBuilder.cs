@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -50,12 +51,10 @@ static class AppHostBuilder
         if (dotnetRoot is null)
             throw new InvalidOperationException("Unable to locate DOTNET_ROOT (and no standard install path was found).");
 
-        // 3) Resolve runtime (host pack) version (product version, 3 segments)
-        var coreAsmVer = compilation.CoreAssembly.GetName().Version ?? new Version(0, 0, 0, 0);
-        var desiredMajorMinor = new Version(coreAsmVer.Major, coreAsmVer.Minor);
-
-        // Try exact "x.y.z" from core assembly (drop 4th segment)
-        var desiredVersion3 = new Version(coreAsmVer.Major, coreAsmVer.Minor, coreAsmVer.Build >= 0 ? coreAsmVer.Build : 0);
+        // 3) Resolve runtime/pack band from target TFM (not from the host compiler runtime).
+        var tfm = TargetFrameworkMoniker.Parse(targetFramework);
+        var desiredMajorMinor = new Version(tfm.Version.Major, tfm.Version.Minor);
+        var desiredVersion3 = new Version(tfm.Version.Major, tfm.Version.Minor, tfm.Version.Build >= 0 ? tfm.Version.Build : 0);
         var desiredVersionStr = desiredVersion3.ToString(3);
 
         // 4) Build path to apphost template in the host pack (with probing)
@@ -118,9 +117,40 @@ static class AppHostBuilder
         TryRemoveQuarantine(appHostDestination);    // remove com.apple.quarantine if present (macOS only)
         TryAdHocSign(appHostDestination);           // codesign -s - (macOS only)
 
-        // 8) Emit runtimeconfig.json using the picked host-pack product version.
-        var productVersion = Path.GetFileName(pickVersionDir); // e.g. "10.0.0" or "10.0.1"
-        WriteRuntimeConfig(outputPath, targetFramework, productVersion);
+        // 8) Emit runtimeconfig.json using an installed shared runtime version for this TFM band.
+        var frameworkVersion = ResolveInstalledSharedFrameworkVersion(dotnetRoot, tfm);
+        WriteRuntimeConfig(outputPath, targetFramework, frameworkVersion);
+    }
+
+    private static string? ResolveInstalledSharedFrameworkVersion(string dotnetRoot, TargetFrameworkMoniker tfm)
+    {
+        var sharedRoot = Path.Combine(dotnetRoot, "shared", "Microsoft.NETCore.App");
+        if (!Directory.Exists(sharedRoot))
+            return null;
+
+        var exact = tfm.Version.Build >= 0
+            ? $"{tfm.Version.Major}.{tfm.Version.Minor}.{tfm.Version.Build}"
+            : $"{tfm.Version.Major}.{tfm.Version.Minor}.0";
+        var exactPath = Path.Combine(sharedRoot, exact);
+        if (Directory.Exists(exactPath))
+            return exact;
+
+        var candidates = Directory.EnumerateDirectories(sharedRoot)
+            .Select(Path.GetFileName)
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => new
+            {
+                Name = name!,
+                BaseVersion = Version.TryParse(name!.Split('-')[0], out var v) ? v : null
+            })
+            .Where(x => x.BaseVersion is not null &&
+                        x.BaseVersion.Major == tfm.Version.Major &&
+                        x.BaseVersion.Minor == tfm.Version.Minor)
+            .OrderByDescending(x => x.BaseVersion)
+            .ThenByDescending(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return candidates.FirstOrDefault()?.Name;
     }
 
     private static string ResolveAppHostDestination(string directory, string baseName)
