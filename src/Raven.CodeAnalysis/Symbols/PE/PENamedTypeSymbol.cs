@@ -116,7 +116,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 return new PEDiscriminatedUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
             }
 
-            if (attributeName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
+            if (attributeName is
+                "System.Runtime.CompilerServices.UnionCaseAttribute" or
+                "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
             {
                 IDiscriminatedUnionSymbol? unionSymbol = null;
 

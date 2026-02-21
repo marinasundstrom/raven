@@ -259,7 +259,7 @@ internal class TypeGenerator
         else if (TypeSymbol is SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
         {
             var unionType = TypeSymbolExtensionsForCodeGen.GetClrType(caseSymbol.Union, CodeGen);
-            var discriminatedUnionCaseAttribute = CodeGen.CreateDiscriminatedUnionCaseAttribute(unionType);
+            var discriminatedUnionCaseAttribute = CodeGen.CreateUnionCaseAttribute(unionType);
             TypeBuilder!.SetCustomAttribute(discriminatedUnionCaseAttribute);
         }
 

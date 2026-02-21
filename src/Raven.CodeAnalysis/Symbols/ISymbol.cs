@@ -485,8 +485,9 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
                 return true;
 
             return GetAttributes().Any(static attribute =>
-                attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ==
-                "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute");
+                attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) is
+                    "System.Runtime.CompilerServices.UnionCaseAttribute" or
+                    "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute");
         }
     }
 
@@ -502,8 +503,9 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
             foreach (var attribute in GetAttributes())
             {
-                if (attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ==
-                    "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute" &&
+                if (attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) is
+                        "System.Runtime.CompilerServices.UnionCaseAttribute" or
+                        "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute" &&
                     attribute.ConstructorArguments.Length == 1)
                 {
                     var argument = attribute.ConstructorArguments[0];

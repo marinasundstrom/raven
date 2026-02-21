@@ -113,8 +113,8 @@ When the compiler builds Raven.Core (and when it embeds core shims for
 standalone compilations) it also synthesizes a few supporting types that aren't
 hand-written in `src/Raven.Core`:
 
-- `System.Runtime.CompilerServices.DiscriminatedUnionAttribute` and
-  `DiscriminatedUnionCaseAttribute` annotate union types and their cases so the
+- `System.Runtime.CompilerServices.UnionAttribute` and
+  `UnionCaseAttribute` annotate union types and their cases so the
   emitted IL retains union metadata.
 - `System.Runtime.CompilerServices.TypeUnionAttribute` marks union-typed fields and parameters. The compiler emits this namespaced attribute in generated metadata but will also honor user-defined `TypeUnionAttribute` types with the same constructor signature, regardless of their namespace.
 - `Null` provides a concrete type for the language's `null` literal when

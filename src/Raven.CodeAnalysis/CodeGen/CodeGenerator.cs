@@ -235,7 +235,7 @@ internal class CodeGenerator
     public Type? NullableAttributeType { get; private set; }
     public Type? TupleElementNamesAttributeType { get; private set; }
     public Type? DiscriminatedUnionAttributeType { get; private set; }
-    public Type? DiscriminatedUnionCaseAttributeType { get; private set; }
+    public Type? UnionCaseAttributeType { get; private set; }
     public Type? ExtensionAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
     public Type? ClosedHierarchyAttributeType { get; private set; }
@@ -441,12 +441,12 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_discriminatedUnionCtor!, Array.Empty<object?>());
     }
 
-    internal CustomAttributeBuilder CreateDiscriminatedUnionCaseAttribute(Type unionType)
+    internal CustomAttributeBuilder CreateUnionCaseAttribute(Type unionType)
     {
         if (unionType is null)
             throw new ArgumentNullException(nameof(unionType));
 
-        EnsureDiscriminatedUnionCaseAttributeType();
+        EnsureUnionCaseAttributeType();
         return new CustomAttributeBuilder(_discriminatedUnionCaseCtor!, new object?[] { unionType });
     }
 
@@ -545,15 +545,15 @@ internal class CodeGenerator
             ?? throw new InvalidOperationException("Missing UnionAttribute() constructor.");
     }
 
-    void EnsureDiscriminatedUnionCaseAttributeType()
+    void EnsureUnionCaseAttributeType()
     {
-        if (DiscriminatedUnionCaseAttributeType is not null)
+        if (UnionCaseAttributeType is not null)
             return;
 
         if (!_compilation.Options.EmbedCoreTypes)
         {
             TryBindRuntimeCoreTypes();
-            if (DiscriminatedUnionCaseAttributeType is not null)
+            if (UnionCaseAttributeType is not null)
                 return;
         }
 
@@ -561,7 +561,7 @@ internal class CodeGenerator
         var typeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Type), this);
 
         var attrBuilder = ModuleBuilder.DefineType(
-            "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute",
+            "System.Runtime.CompilerServices.UnionCaseAttribute",
             TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
             attributeType);
 
@@ -610,9 +610,9 @@ internal class CodeGenerator
         il.Emit(OpCodes.Stfld, unionTypeField);
         il.Emit(OpCodes.Ret);
 
-        DiscriminatedUnionCaseAttributeType = attrBuilder.CreateType();
-        _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType.GetConstructor(new[] { typeType })
-            ?? throw new InvalidOperationException("Missing DiscriminatedUnionCaseAttribute(Type) constructor.");
+        UnionCaseAttributeType = attrBuilder.CreateType();
+        _discriminatedUnionCaseCtor = UnionCaseAttributeType.GetConstructor(new[] { typeType })
+            ?? throw new InvalidOperationException("Missing UnionCaseAttribute(Type) constructor.");
     }
 
     void EnsureClosedHierarchyAttributeType()
@@ -982,14 +982,16 @@ internal class CodeGenerator
             _discriminatedUnionCtor = DiscriminatedUnionAttributeType?.GetConstructor(Type.EmptyTypes);
         }
 
-        if (DiscriminatedUnionCaseAttributeType is null)
+        if (UnionCaseAttributeType is null)
         {
-            DiscriminatedUnionCaseAttributeType = Compilation.ResolveRuntimeType(
-                "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute");
+            UnionCaseAttributeType = Compilation.ResolveRuntimeType(
+                "System.Runtime.CompilerServices.UnionCaseAttribute")
+                ?? Compilation.ResolveRuntimeType(
+                    "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute");
 
             var typeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Type), this);
 
-            _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType?.GetConstructor(new[] { typeType });
+            _discriminatedUnionCaseCtor = UnionCaseAttributeType?.GetConstructor(new[] { typeType });
         }
     }
 

@@ -201,7 +201,7 @@ union Option {
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
         var caseTypes = runtimeAssembly.GetTypes()
-            .Where(type => type.GetCustomAttributesData().Any(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute"))
+            .Where(type => type.GetCustomAttributesData().Any(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.UnionCaseAttribute"))
             .ToArray();
         Assert.NotEmpty(caseTypes);
 
@@ -209,7 +209,7 @@ union Option {
         {
             var attribute = Assert.Single(caseType
                 .GetCustomAttributesData()
-                .Where(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute"));
+                .Where(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.UnionCaseAttribute"));
 
             Assert.Single(attribute.ConstructorArguments);
             Assert.Equal(unionType, attribute.ConstructorArguments[0].Value);

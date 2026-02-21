@@ -179,7 +179,9 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
         foreach (var attribute in PENamedTypeSymbol.GetCustomAttributesSafe(_typeInfo))
         {
             var attributeName = GetAttributeTypeName(attribute);
-            if (attributeName != "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
+            if (attributeName is not
+                ("System.Runtime.CompilerServices.UnionCaseAttribute" or
+                 "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute"))
                 continue;
 
             if (!TryGetAttributeConstructorTypeArgument(attribute, out var unionType))
