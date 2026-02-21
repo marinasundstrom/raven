@@ -1,7 +1,7 @@
 import System.*
 import System.Console.*
 
-val result: Result<(), string> = Ok(())
+val result: Result<(), string> = Ok
 
 WriteLine(result)
 
