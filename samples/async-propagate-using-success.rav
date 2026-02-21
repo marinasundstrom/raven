@@ -6,8 +6,8 @@ import System.Threading.Tasks.*
 val res = await fetch("http://www.contoso.com/")
 
 val str = res match {
-    .Ok(val str) => "Response is: $str"
-    .Error(val message) => "Error is: $message"
+    Ok(val str) => "Response is: $str"
+    Error(val message) => "Error is: $message"
 }
 
 WriteLine(str)
@@ -16,5 +16,5 @@ async func fetch(url: string) -> Task<Result<string, Exception>> {
     use client = HttpClient()
     val response = try? await client.GetAsync(url)
     val responseBody = await response.Content.ReadAsStringAsync()
-    return .Ok(responseBody)
+    return Ok(responseBody)
 }

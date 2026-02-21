@@ -7,8 +7,8 @@ async func Foo() -> Task<int> {
 }
 
 val result = try await Foo() match {
-    .Ok(int value) => value.ToString()
-    .Error(Exception ex) => ex.Message
+    Ok(int value) => value.ToString()
+    Error(Exception ex) => ex.Message
 }
 
 Console.WriteLine(result)

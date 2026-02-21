@@ -10,7 +10,7 @@ func test() -> Result<int, CustomError> {
 }
 
 func test2() -> Option<int> {
-    return .Some(2)
+    return Some(2)
 }
 
 record class CustomError(message: string);

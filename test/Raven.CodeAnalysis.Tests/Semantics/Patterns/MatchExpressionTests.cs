@@ -210,18 +210,20 @@ val result = value match {
     }
 
     [Fact]
-    public void MatchExpression_WithEnumArms_MissingCaseReportsDiagnosticAtMatchKeyword()
+    public void MatchExpression_WithEnumArms_MissingCase_ReportsDiagnostic()
     {
         const string code = """
+class Program {
+    eval(color: Color) -> int {
+        return color match {
+            .Red => 1
+        }
+    }
+}
+
 enum Color {
     Red
     Blue
-}
-
-func eval(color: Color) -> int {
-    return color match {
-        .Red => 1
-    }
 }
 """;
 
@@ -233,7 +235,7 @@ func eval(color: Color) -> int {
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         compilation.EnsureSetup();
-        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Descriptor.Id == "RAV2100");
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor.Id == "RAV2100");
     }
 
     [Fact]

@@ -24,9 +24,9 @@ func openDialog(window: Window) -> Result<string, Exception> {
     if result is .Cancel {
         // Bang
         WriteLine("Bang")
-        return .Error(InvalidOperationException("BANG!"))
+        return Error(InvalidOperationException("BANG!"))
     }
-    return .Ok(result.ToString())
+    return Ok(result.ToString())
 }
 
 val result = openDialog(window)
@@ -67,7 +67,7 @@ class Window {
     }
 
     public ShowDialog() -> Result<DialogResult, Exception> {
-        return .Ok(DialogResult.Cancel)
+        return Ok(DialogResult.Cancel)
     }
 }
 

@@ -3,7 +3,7 @@ import System.Console.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
-val opt: Option<int> = .Some(42)
+val opt: Option<int> = Some(42)
 
 val settings = JsonSerializerOptions {
     WriteIndented = true
@@ -27,22 +27,22 @@ public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
         val @case = root.GetProperty("case").GetString()
 
         return @case match {
-            "Some" => .Some(
+            "Some" => Some(
                 root.GetProperty("value").Deserialize<T>(options)
             )
-            "None" => .None
-            _ => .None
+            "None" => None
+            _ => None
         }
     }
 
     public override Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
         writer.WriteStartObject()
 
-        if value is .Some(val someValue) {
+        if value is Some(val someValue) {
             writer.WriteString("case", "Some")
             writer.WritePropertyName("value")
             JsonSerializer.Serialize(writer, someValue, options)
-        } else if value is .None {
+        } else if value is None {
             writer.WriteString("case", "None")
         }
 

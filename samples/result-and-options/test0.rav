@@ -4,13 +4,13 @@ Console.WriteLine(f())
 
 func GetUser() -> Result<User, Err> {
     // sample implementation
-    //return .Error(.MissingUser)
-    return .Ok(User { Name = "Marina" })
+    //return Error(.MissingUser)
+    return Ok(User { Name = "Marina" })
 }
 
 func f() -> Result<int, Err> {
     val str = GetUser()?.Name? // Result<string, Err> unwrapped
-    return .Ok(str.Length + 1)
+    return Ok(str.Length + 1)
 }
 
 union Err {

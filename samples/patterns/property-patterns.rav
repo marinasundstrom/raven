@@ -5,9 +5,9 @@ func Main() {
     val fooTrue  = new Foo(true,  (10, 20))
     val fooFalse = new Foo(false, (1, 2))
 
-    // If your union case creation is `.Ok(…)` / `.Error(…)`:
-    val ok : Result<int, string>  = .Ok(42)
-    val err : Result<int, string> = .Error("boom")
+    // If your union case creation is `Ok(…)` / `Error(…)`:
+    val ok : Result<int, string>  = Ok(42)
+    val err : Result<int, string> = Error("boom")
 
     test(fooTrue, ok)
     test(fooFalse, ok)
@@ -41,9 +41,9 @@ func test(x: object?, r: Result<int, string>) {
 
     val message =
         r match {
-            .Ok(0)                => "Zero"
-            .Ok(val n) when n > 0 => "Positive: $n"
-            .Error(val msg)       => "Error: $msg"
+            Ok(0)                => "Zero"
+            Ok(val n) when n > 0 => "Positive: $n"
+            Error(val msg)       => "Error: $msg"
             _ => "No"
         }
 

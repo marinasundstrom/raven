@@ -5,8 +5,8 @@ Console.WriteLine(await GetItem())
 
 func GetUser() -> Result<User, Err> {
     // sample implementation
-    //return .Error(Err.MissingUser)
-    return .Ok(User { Name = "Marina", Item = Item("Candy") })
+    //return Error(Err.MissingUser)
+    return Ok(User { Name = "Marina", Item = Item("Candy") })
 }
 
 async func GetItem() -> Task<Result<string, Err>> {
@@ -15,8 +15,8 @@ async func GetItem() -> Task<Result<string, Err>> {
     await Task.Delay(200);
 
     return maybeItem match {
-        .Some(val item) => .Ok(item.Name)
-        .None  => .Error(Err.MissingName)
+        Some(val item) => Ok(item.Name)
+        None  => Error(Err.MissingName)
     }
 }
 

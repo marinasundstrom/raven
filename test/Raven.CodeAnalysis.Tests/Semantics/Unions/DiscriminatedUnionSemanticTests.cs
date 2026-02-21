@@ -339,6 +339,41 @@ union Result<T, E> {
     }
 
     [Fact]
+    public void UnqualifiedCaseInvocation_InAsyncTaskResultReturn_BindsWithoutErrors()
+    {
+        const string source = """
+import System.*
+import System.Net.Http.*
+import System.Threading.Tasks.*
+
+async func fetch(url: string) -> Task<Result<string, string>> {
+    use client = HttpClient()
+
+    try {
+        use response = await client.GetAsync(url)
+        response.EnsureSuccessStatusCode()
+        val responseBody = await response.Content.ReadAsStringAsync()
+        return Ok(responseBody)
+    } catch (HttpRequestException e) {
+        return Error(e.Message)
+    } catch (TaskCanceledException) {
+        return Error("Request timed out or was canceled.")
+    }
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void UnqualifiedCaseInvocation_ReportsAmbiguousWhenMultipleCasesMatch()
     {
         const string source = """

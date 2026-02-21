@@ -4,13 +4,13 @@
 
 import System.*
 
-val test: Result<int, string> = .Ok(42)
+val test: Result<int, string> = Ok(42)
 
 Console.WriteLine(test)
 
 val x = test match {
-    .Ok(val v) => v.ToString()
-    .Error(val msg) => msg 
+    Ok(val v) => v.ToString()
+    Error(val msg) => msg 
 }
 
 Console.WriteLine(x.GetType())

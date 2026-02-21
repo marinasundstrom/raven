@@ -18,8 +18,8 @@ async func Do(foo: Foo?) -> Task {
         Console.WriteLine("Result: $result")
 
         val v = result match {
-            .Some(val value) => "Value: $value"
-            .None => "None"
+            Some(val value) => "Value: $value"
+            None => "None"
         }
 
         Console.WriteLine(v)
@@ -35,9 +35,9 @@ class Foo(value: int) {
         await Task.Delay(delay)
 
         if flag {
-            return .Some(value)
+            return Some(value)
         }
-        return .None
+        return None
     }
 
     public Value: int => value

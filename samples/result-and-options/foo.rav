@@ -2,14 +2,14 @@ import System.*
 import System.Console.*
 import System.Linq.*
 
-val f: Option<int> = .Some(2)
+val f: Option<int> = Some(2)
 val isOk = f.IsOkOr(CustomError("Bang!"))
 
 WriteLine("Has Some: ${f.HasSome}")
 WriteLine("Has None: ${f.HasNone}")
 WriteLine("Is Ok: ${isOk}")
 
-val f2: Result<int, CustomError> = .Ok(2)
+val f2: Result<int, CustomError> = Ok(2)
 val isOk2 = f2.IsOk
 
 WriteLine("Has Ok: ${f2.HasOk}")

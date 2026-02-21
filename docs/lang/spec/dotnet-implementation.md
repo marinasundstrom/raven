@@ -118,8 +118,8 @@ Discriminated unions compile into a nested-struct hierarchy that C# can consume
 directly. Each case becomes a public nested `struct` with a constructor that
 accepts the payload values, a set of get-only properties for those payloads,
 and a `Deconstruct(out ...)` method that mirrors the payload order. The outer
-union struct declares an implicit conversion from each case and a `TryGet{Case}`
-helper to safely extract a case instance.
+union struct declares an implicit conversion from each case and overloaded
+`TryGetValue(out CaseType value)` helpers to safely extract a case instance.
 
 Producing a union from C# is typically done by constructing the case and letting
 the implicit conversion take over:
@@ -128,15 +128,16 @@ the implicit conversion take over:
 // Raven
 // union Token { Identifier(text: string) Number(value: int) }
 
-Token token = new Token.Identifier("hello"); // implicit case -> union conversion
-Token other = new Token.Number(42);
+var identifier = new TokenIdentifier("hello");
+Token token = identifier; // implicit case -> union conversion
+Token other = new TokenNumber(42);
 ```
 
-Consuming a union from C# involves calling the `TryGet{Case}` helper and then
-using the case properties or deconstruction to extract payload values:
+Consuming a union from C# involves calling an overloaded `TryGetValue` helper
+and then using the case properties or deconstruction to extract payload values:
 
 ```csharp
-if (token.TryGetIdentifier(out var identifier))
+if (token.TryGetValue(out TokenIdentifier identifier))
 {
     var (text) = identifier; // Deconstruct(out string text)
     Console.WriteLine(text);

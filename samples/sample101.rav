@@ -68,27 +68,27 @@ WriteLine(res5_2)
 
 async func test(throwExc: bool) -> Task<Result<string, Exception>> {
     val x = try? await action(throwExc)
-    return .Ok("test = OK")
+    return Ok("test = OK")
 }
 
 async func test2(throwExc: bool) -> Task<Result<string, Exception>> {
     _ = try? await action(throwExc)
-    return .Ok("test2 = OK")
+    return Ok("test2 = OK")
 }
 
 async func test3(throwExc: bool) -> Task<Result<string, Exception>> {
     try? await action(throwExc)
-    return .Ok("test3 = OK")
+    return Ok("test3 = OK")
 }
 
 async func test4(throwExc: bool) -> Task<Result<string, Exception>> {
     val x = try? await action2(throwExc)
-    return .Ok(x)
+    return Ok(x)
 }
 
 async func test5(throwExc: bool) -> Task<Result<string, Exception>> {
     try? await action2(throwExc)
-    return .Ok("test5 = OK")
+    return Ok("test5 = OK")
 }
 
 async func action(throwExc: bool) -> Task {
@@ -103,5 +103,5 @@ async func action2(throwExc: bool) -> Task<Result<string, Exception>> {
     if throwExc {
         throw new Exception("Boom!")
     }
-    return .Ok("Foo")
+    return Ok("Foo")
 }

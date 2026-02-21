@@ -29,7 +29,7 @@ for no in result2 {
 
 func Compute(n: int) -> Option<int> {
     if n < 0 {
-        return .None
+        return None
     }
-    return .Some(n * 2)
+    return Some(n * 2)
 }

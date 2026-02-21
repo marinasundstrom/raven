@@ -13,9 +13,9 @@ import System.Text.Json.Serialization.*
 /// ```raven
 /// func Test(v: int) -> Option<int> {
 ///     if v > 3 {
-///         return .Some(42)
+///         return Some(42)
 ///     }
-///     .None
+///     None
 /// }
 /// ```
 /// 
@@ -25,17 +25,17 @@ import System.Text.Json.Serialization.*
 /// val result = Test(2)
 /// 
 /// val r = result match {
-///     .Some(val value) => "Some: $value"
-///     .None => "None"
+///     Some(val value) => "Some: $value"
+///     None => "None"
 /// }
 /// ```
 ///
 /// Simple pattern:
 ///
 /// ```raven
-/// if result is .Some(val value) {
+/// if result is Some(val value) {
 ///     // Omitted
-/// } else if result is .None {
+/// } else if result is None {
 ///     // Omitted
 /// }
 /// ```
@@ -59,15 +59,15 @@ public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
         return @case match {
             "Some" => {
                 val payload = JsonSerializer.Deserialize<T>(root.GetProperty("value"), options)
-                val option: Option<T> = .Some(payload)
+                val option: Option<T> = Some(payload)
                 option
             }
             "None" => {
-                val option: Option<T> = .None
+                val option: Option<T> = None
                 option
             }
             _ => {
-                val fallback: Option<T> = .None
+                val fallback: Option<T> = None
                 fallback
             }
         }
@@ -76,11 +76,11 @@ public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
     public override Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
         writer.WriteStartObject()
 
-        if value is .Some(val someValue) {
+        if value is Some(val someValue) {
             writer.WriteString("case", "Some")
             writer.WritePropertyName("value")
             JsonSerializer.Serialize(writer, someValue, options)
-        } else if value is .None {
+        } else if value is None {
             writer.WriteString("case", "None")
         }
 
@@ -106,32 +106,32 @@ public class OptionJsonConverterFactory : JsonConverterFactory {
 public extension OptionExtensions<T> for Option<T> {
 
     /// Gets a value indicating whether the Option has Some
-    public HasSome: bool => self is .Some(val v)
+    public HasSome: bool => self is Some(val v)
 
     /// Gets a value indicating whether the Option has None
-    public HasNone: bool => self is .None
+    public HasNone: bool => self is None
 
-    /// Projects the value inside `.Some` using `mapper`. `.None` stays `.None`.
+    /// Projects the value inside `Some` using `mapper`. `None` stays `None`.
     public Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
         self match {
-            .Some(val value) => .Some(mapper(value))
-            .None => .None
+            Some(val value) => Some(mapper(value))
+            None => None
         }
     }
 
     /// Monadic bind / flatMap: chains an `Option`-producing function.
     public Then<TResult>(binder: T -> Option<TResult>) -> Option<TResult> {
         self match {
-            .Some(val value) => binder(value)
-            .None => .None
+            Some(val value) => binder(value)
+            None => None
         }
     }
 
     /// Keeps the value only if `predicate` returns true.
     public Where(predicate: T -> bool) -> Option<T> {
         self match {
-            .Some(val value) => if predicate(value) { .Some(value) } else { .None }
-            .None => .None
+            Some(val value) => if predicate(value) { Some(value) } else { None }
+            None => None
         }
     }
 
@@ -140,50 +140,50 @@ public extension OptionExtensions<T> for Option<T> {
         self.Where(predicate)
     }
 
-    /// Returns this option if it is `.Some`, otherwise returns `alternative()`.
+    /// Returns this option if it is `Some`, otherwise returns `alternative()`.
     public OrElse(alternative: () -> Option<T>) -> Option<T> {
         self match {
-            .Some(_) => self
-            .None => alternative()
+            Some(_) => self
+            None => alternative()
         }
     }
 
     /// Returns the contained value or evaluates `factory()`.
     public UnwrapOrElse(factory: () -> T) -> T {
         self match {
-            .Some(val value) => value
-            .None => factory()
+            Some(val value) => value
+            None => factory()
         }
     }
 
     /// Matches the option and produces a value.
     public Match<TResult>(some: T -> TResult, none: () -> TResult) -> TResult {
         self match {
-            .Some(val value) => some(value)
-            .None => none()
+            Some(val value) => some(value)
+            None => none()
         }
     }
 
-    /// Runs `action` if this is `.Some`, returning the original option.
+    /// Runs `action` if this is `Some`, returning the original option.
     public Tap(action: T -> ()) -> Option<T> {
-        if self is .Some(val value) {
+        if self is Some(val value) {
             action(value)
         }
         self
     }
 
-    /// Runs `action` if this is `.None`, returning the original option.
+    /// Runs `action` if this is `None`, returning the original option.
     public TapNone(action: () -> ()) -> Option<T> {
-        if self is .None {
+        if self is None {
             action()
         }
         self
     }
 
-    /// Converts `.Some(x)` to a single-item sequence and `.None` to an empty sequence.
+    /// Converts `Some(x)` to a single-item sequence and `None` to an empty sequence.
     public ToEnumerable() -> IEnumerable<T> {
         val list = List<T>()
-        if self is .Some(val value) {
+        if self is Some(val value) {
             list.Add(value)
         }
         list
@@ -194,41 +194,41 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Bridges `Option` into a `Result`-producing pipeline.
-    /// If this is `.None`, returns `.Error(noneError())`.
+    /// If this is `None`, returns `Error(noneError())`.
     public ThenResult<TResult, E>(binder: T -> Result<TResult, E>, noneError: () -> E) -> Result<TResult, E> {
         self match {
-            .Some(val value) => binder(value)
-            .None => .Error(noneError())
+            Some(val value) => binder(value)
+            None => Error(noneError())
         }
     }
 
-    /// Maps the contained value into a `Result`. If this is `.None`, returns `.Error(noneError())`.
+    /// Maps the contained value into a `Result`. If this is `None`, returns `Error(noneError())`.
     public MapResult<TResult, E>(mapper: T -> TResult, noneError: () -> E) -> Result<TResult, E> {
         self match {
-            .Some(val value) => .Ok(mapper(value))
-            .None => .Error(noneError())
+            Some(val value) => Ok(mapper(value))
+            None => Error(noneError())
         }
     }
 
     // Converts Option into a Result
     public IsOkOr<E>(error: E) -> Result<T, E> {
-        if self is .Some(val value) {
-            return .Ok(value)
+        if self is Some(val value) {
+            return Ok(value)
         }
-        .Error(error)    
+        Error(error)    
     }
 
     // Converts Option into a Result
     public IsOkOr<E>(errorFactory: () -> E) -> Result<T, E> {
-        if self is .Some(val value) {
-            return .Ok(value)
+        if self is Some(val value) {
+            return Ok(value)
         }
-        .Error(errorFactory())    
+        Error(errorFactory())    
     }
 
     /// Unwrap the value if Some, otherwise return the default value
     public UnwrapOrDefault() -> T {
-        if self is .Some(val value) {
+        if self is Some(val value) {
             return value
         }
         return default(T)
@@ -236,7 +236,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Unwrap the value if Some, otherwise throw an exception
     public UnwrapOrThrow() -> T {
-        if self is .Some(val value) {
+        if self is Some(val value) {
             return value
         }
         throw new InvalidOperationException("Option is None")
@@ -244,7 +244,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Unwrap the value if Some, otherwise return the specified value
     public UnwrapOr(defaultValue: T) -> T {
-        if self is .Some(val value) {
+        if self is Some(val value) {
             return value
         }
         defaultValue
@@ -256,8 +256,8 @@ public extension OptionExtensionsNested<T> for Option<Option<T>> {
     /// Flattens `Option<Option<T>>` into `Option<T>`.
     public Flatten() -> Option<T> {
         self match {
-            .Some(val inner) => inner
-            .None => .None
+            Some(val inner) => inner
+            None => None
         }
     }
 }
@@ -265,7 +265,7 @@ public extension OptionExtensionsNested<T> for Option<Option<T>> {
 public extension OptionExtensions1<T : class> for Option<T> {
 
     public static implicit operator(opt: Option<T>) -> T? {
-        if opt is .Some(val value) {
+        if opt is Some(val value) {
             return value
         }
         null
@@ -273,16 +273,16 @@ public extension OptionExtensions1<T : class> for Option<T> {
 
     public static implicit operator(value: T?) -> Option<T> {
         if value is not null {
-            return .Some(value)
+            return Some(value)
         }
-        .None
+        None
     }
 }
 
 public extension OptionExtensions2<T : struct> for Option<T> {
 
     public static implicit operator(opt: Option<T>) -> T? {
-        if opt is .Some(val value) {
+        if opt is Some(val value) {
             return value
         }
         null
@@ -291,8 +291,8 @@ public extension OptionExtensions2<T : struct> for Option<T> {
     public static implicit operator(value: T?) -> Option<T> {
         // TODO: Handle so that value type in "value" gets unwrapped
         if value is not null {
-            return .Some(value)
+            return Some(value)
         }
-        .None
+        None
     }
 }

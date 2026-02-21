@@ -13,8 +13,8 @@ async func DownloadText(url: string) -> Task<Result<string, ApiError>> {
 
     // Interop with .NET exception model, but return as data in Raven.
     return try await http.GetStringAsync(url) match {
-        .Ok(val text) => .Ok(text)
-        .Error(Exception ex) => .Error(ApiError.Network(ex))
+        Ok(val text) => Ok(text)
+        Error(Exception ex) => Error(ApiError.Network(ex))
     }
 }
 

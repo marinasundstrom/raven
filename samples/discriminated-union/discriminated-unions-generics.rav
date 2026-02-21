@@ -13,11 +13,11 @@ Console.WriteLine(err)
 Console.WriteLine(format(ok))
 Console.WriteLine(format((Result<int, string>)err))
 
-Console.WriteLine(format(.Ok(42)))
+Console.WriteLine(format(Ok(42)))
 
 func format(result: Result<int, string>) -> string {
     return result match {
-        .Ok(val value) => "ok $value"
-        .Error(val message) => "error '$message'"
+        Ok(val value) => "ok $value"
+        Error(val message) => "error '$message'"
     }
 }

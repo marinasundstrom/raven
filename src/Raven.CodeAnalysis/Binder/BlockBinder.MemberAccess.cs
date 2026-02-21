@@ -3030,22 +3030,36 @@ partial class BlockBinder
     private BoundExpression? TryBindDiscriminatedUnionCase(ITypeSymbol? receiverType, string memberName, Location location)
     {
         var targetType = receiverType?.UnwrapLiteralType() ?? receiverType;
+        targetType = UnwrapAlias(targetType);
+        if (targetType is not null)
+            targetType = UnwrapTaskLikeTargetType(targetType);
+
         if (targetType is not INamedTypeSymbol namedType)
             return null;
 
+        // Keep two views:
+        // 1) union definition for case-name lookup
+        // 2) carrier type (possibly constructed) for projecting case type arguments
         var unionSymbol = namedType.TryGetDiscriminatedUnion()
             ?? namedType.TryGetDiscriminatedUnionCase()?.Union;
-        if (unionSymbol is null)
+
+        var unionCarrier = unionSymbol is not null
+            ? namedType
+            : namedType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+
+        if (unionCarrier is null && unionSymbol is not null && namedType.TryGetDiscriminatedUnion() is not null)
+            unionCarrier = namedType;
+
+        if (unionSymbol is null || unionCarrier is null)
             return null;
 
         var caseSymbol = unionSymbol.Cases.FirstOrDefault(@case => @case.Name == memberName);
         if (caseSymbol is not ITypeSymbol typeMember)
             return null;
 
-        if (caseSymbol is INamedTypeSymbol caseTypeSymbol &&
-            unionSymbol is INamedTypeSymbol unionTypeSymbol)
+        if (caseSymbol is INamedTypeSymbol caseTypeSymbol)
         {
-            typeMember = ProjectCaseTypeToUnionArguments(caseTypeSymbol, unionTypeSymbol);
+            typeMember = ProjectCaseTypeToUnionArguments(caseTypeSymbol, unionCarrier);
         }
 
         var accessibleType = EnsureTypeAccessible(typeMember, location);

@@ -21,8 +21,8 @@ class Program {
         WriteLine(v.UnwrapOrThrow())
 
         val r = v match {
-            .Ok(val x) => "Value is: $x"
-            .Error(val msg) => "Error: $msg"
+            Ok(val x) => "Value is: $x"
+            Error(val msg) => "Error: $msg"
         }
 
         WriteLine(r)
@@ -38,6 +38,6 @@ public class Foo(var value: int = 0) {
 
     public async Test(value: int) -> Task<Result<int, string>> {
         await Delay(5000)
-        return .Ok(value * 2)
+        return Ok(value * 2)
     }
 }

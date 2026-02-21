@@ -4,7 +4,7 @@ Console.WriteLine(f())
 
 func GetUser() -> Result<User, Err> {
     // sample implementation
-    return .Ok(User { Name = "Marina" })
+    return Ok(User { Name = "Marina" })
 }
 
 func f() -> Result<int, Err> {
@@ -12,7 +12,7 @@ func f() -> Result<int, Err> {
 
     val str = wrapped.UnwrapOrDefault()
 
-    return .Ok(str.Length + 1)
+    return Ok(str.Length + 1)
 }
 
 union Err {

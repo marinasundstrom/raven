@@ -11,8 +11,8 @@ func Main() -> () {
 
 func parseInt(text: string) -> Result<int, string> {
     return try int.Parse(text) match {
-        Ok(val value) => .Ok(value)
-        Error(_) => .Error("\"$text\" is not a number")
+        Ok(val value) => Ok(value)
+        Error(_) => Error("\"$text\" is not a number")
     }
 }
 

@@ -1,12 +1,12 @@
 import System.*
 import System.Console.*
 
-WriteLine(tapIfPositive(.Some(42)))
-WriteLine(tapIfPositive(.None))
+WriteLine(tapIfPositive(Some(42)))
+WriteLine(tapIfPositive(None))
 WriteLine(classify(3))
 
 func tapIfPositive(opt: Option<int>) -> Option<int> {
-    if opt is .Some(val value) {
+    if opt is Some(val value) {
         if value > 0 {
             WriteLine(value)
         }

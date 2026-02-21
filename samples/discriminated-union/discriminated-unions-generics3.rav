@@ -12,7 +12,7 @@ Console.WriteLine(format((Result<int, string>)err))
 
 func format<T>(result: Result<T, string>) -> Option<string> {
     return result match {
-        .Ok(val value) => .Some(value.ToString())
-        .Error(val message) => .None
+        Ok(val value) => Some(value.ToString())
+        Error(val message) => None
     }
 }

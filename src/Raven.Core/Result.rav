@@ -13,9 +13,9 @@ import System.Text.Json.Serialization.*
 /// ```raven
 /// func Test(v: int) -> Result<int, string> {
 ///     if v > 3 {
-///         return .Ok(42)
+///         return Ok(42)
 ///     }
-///     .Error("Wrong number")
+///     Error("Wrong number")
 /// }
 /// ```
 /// 
@@ -25,17 +25,17 @@ import System.Text.Json.Serialization.*
 /// val result = Test(2)
 /// 
 /// val r = result match {
-///     .Ok(val value) => "Ok: $value"
-///     .Error(val message) => "Error: '$message'"
+///     Ok(val value) => "Ok: $value"
+///     Error(val message) => "Error: '$message'"
 /// }
 /// ```
 ///
 /// Simple pattern:
 ///
 /// ```raven
-/// if result is .Ok(val value) {
+/// if result is Ok(val value) {
 ///     // Omitted
-/// } else if result is .Error(val error) {
+/// } else if result is Error(val error) {
 ///     // Omitted
 /// }
 /// ```
@@ -59,16 +59,16 @@ public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
         return @case match {
             "Ok" => {
                 val payload = JsonSerializer.Deserialize<T>(root.GetProperty("value"), options)
-                val result: Result<T, E> = .Ok(payload)
+                val result: Result<T, E> = Ok(payload)
                 result
             }
             "Error" => {
                 val payload = JsonSerializer.Deserialize<E>(root.GetProperty("data"), options)
-                val result: Result<T, E> = .Error(payload)
+                val result: Result<T, E> = Error(payload)
                 result
             }
             _ => {
-                val fallback: Result<T, E> = .Error(default(E))
+                val fallback: Result<T, E> = Error(default(E))
                 fallback
             }
         }
@@ -77,11 +77,11 @@ public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
     public override Write(writer: Utf8JsonWriter, value: Result<T, E>, options: JsonSerializerOptions) -> () {
         writer.WriteStartObject()
 
-        if value is .Ok(val okValue) {
+        if value is Ok(val okValue) {
             writer.WriteString("case", "Ok")
             writer.WritePropertyName("value")
             JsonSerializer.Serialize(writer, okValue, options)
-        } else if value is .Error(val errorData) {
+        } else if value is Error(val errorData) {
             writer.WriteString("case", "Error")
             writer.WritePropertyName("data")
             JsonSerializer.Serialize(writer, errorData, options)
@@ -109,74 +109,74 @@ public class ResultJsonConverterFactory : JsonConverterFactory {
 public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Gets a value indicating whether the Result was Ok
-    public HasOk: bool => self is .Ok(val message)
+    public HasOk: bool => self is Ok(val message)
 
     /// Gets a value indicating whether the Result was Error
-    public HasError: bool => self is .Error(val message)
+    public HasError: bool => self is Error(val message)
 
     /// Converts the Result to an Option
     public IsOk: Option<T> {
         get {
-            if self is .Ok(val value) {
-                return .Some(value)
+            if self is Ok(val value) {
+                return Some(value)
             }
-            .None
+            None
         }
     }
 
     /// Converts the Result error channel to an Option
     public IsError: Option<E> {
         get {
-            if self is .Error(val e) {
-                return .Some(e)
+            if self is Error(val e) {
+                return Some(e)
             }
-            .None
+            None
         }
     }
 
-    /// Projects the value inside `.Ok` using `mapper`. `.Error` stays `.Error`.
+    /// Projects the value inside `Ok` using `mapper`. `Error` stays `Error`.
     public Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
         self match {
-            .Ok(val value) => .Ok(mapper(value))
-            .Error(val error) => .Error(error)
+            Ok(val value) => Ok(mapper(value))
+            Error(val error) => Error(error)
         }
     }
 
     /// Monadic bind / flatMap: chains a `Result`-producing function.
     public Then<TResult>(binder: T -> Result<TResult, E>) -> Result<TResult, E> {
         self match {
-            .Ok(val value) => binder(value)
-            .Error(val error) => .Error(error)
+            Ok(val value) => binder(value)
+            Error(val error) => Error(error)
         }
     }
 
     /// Maps the error channel.
     public MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
-            .Ok(val value) => .Ok(value)
-            .Error(val error) => .Error(mapper(error))
+            Ok(val value) => Result<T, E2>.Ok(value)
+            Error(val error) => Error(mapper(error))
         }
     }
 
     /// Matches the result and produces a value.
     public Match<TResult>(ok: T -> TResult, error: E -> TResult) -> TResult {
         self match {
-            .Ok(val value) => ok(value)
-            .Error(val e) => error(e)
+            Ok(val value) => ok(value)
+            Error(val e) => error(e)
         }
     }
 
-    /// Runs `action` if this is `.Ok`, returning the original result.
+    /// Runs `action` if this is `Ok`, returning the original result.
     public Tap(action: T -> ()) -> Result<T, E> {
-        if self is .Ok(val value) {
+        if self is Ok(val value) {
             action(value)
         }
         self
     }
 
-    /// Runs `action` if this is `.Error`, returning the original result.
+    /// Runs `action` if this is `Error`, returning the original result.
     public TapError(action: E -> ()) -> Result<T, E> {
-        if self is .Error(val e) {
+        if self is Error(val e) {
             action(e)
         }
         self
@@ -185,23 +185,23 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     /// Recovers from an error by mapping it to a new result.
     public OrElse(recover: E -> Result<T, E>) -> Result<T, E> {
         self match {
-            .Ok(val value) => .Ok(value)
-            .Error(val e) => recover(e)
+            Ok(val value) => Ok(value)
+            Error(val e) => recover(e)
         }
     }
 
     /// Unwrap the value if Ok, otherwise return the value from `factory()`.
     public UnwrapOrElse(factory: () -> T) -> T {
         self match {
-            .Ok(val value) => value
-            .Error(_) => factory()
+            Ok(val value) => value
+            Error(_) => factory()
         }
     }
 
-    /// Converts `.Ok(x)` to a single-item sequence and `.Error` to an empty sequence.
+    /// Converts `Ok(x)` to a single-item sequence and `Error` to an empty sequence.
     public ToEnumerable() -> IEnumerable<T> {
         val list = List<T>()
-        if self is .Ok(val value) {
+        if self is Ok(val value) {
             list.Add(value)
         }
         list
@@ -213,7 +213,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     
     /// Unwrap the value if Ok, otherwise return the default value
     public UnwrapOrDefault() -> T {
-        if self is .Ok(val value) {
+        if self is Ok(val value) {
             return value
         }
         default
@@ -222,9 +222,9 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     /// Unwrap the value if Ok, otherwise throw an exception
     public UnwrapOrThrow() -> T {
         var error: E = default
-        if self is .Ok(val value) {
+        if self is Ok(val value) {
             return value
-        } else if self is .Error(val error2) {
+        } else if self is Error(val error2) {
             error = error2
         }
         throw new InvalidOperationException(error.ToString())
@@ -232,7 +232,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Unwrap the value if Ok, otherwise return the specified value
     public UnwrapOr(defaultValue: T) -> T {
-        if self is .Ok(val value) {
+        if self is Ok(val value) {
             return value
         }
         defaultValue
@@ -240,7 +240,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Unwrap the Error, or throw an exception
     public UnwrapError() -> E {
-        if self is .Error(val message) {
+        if self is Error(val message) {
             return message
         }
         throw new InvalidOperationException("Result is not Error")

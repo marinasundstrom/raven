@@ -4,7 +4,7 @@ import System.Threading.Tasks.*
 
 async func Main(args: string[]) -> Task<Result<(), CustomError>> {
     if args.Length == 0 {
-        return .Error(CustomError(
+        return Error(CustomError(
             message: "Missing required argument: <name>",
             code: .MissingArgument
         ))
@@ -17,7 +17,7 @@ async func Main(args: string[]) -> Task<Result<(), CustomError>> {
 
     Console.WriteLine(greeting?)
 
-    .Ok
+    Ok
 }
 
 async func BuildGreeting(name: string) -> Task<Result<string, CustomError>> {
@@ -26,20 +26,20 @@ async func BuildGreeting(name: string) -> Task<Result<string, CustomError>> {
     await Task.Delay(delay)
 
     if name.Length < 2 {
-        return .Error(CustomError(
+        return Error(CustomError(
             message: "Name must be at least 2 characters",
             code: .InvalidName
         ))
     }
 
     if name == "doom" {
-        return .Error(CustomError(
+        return Error(CustomError(
             message: "That name is cursed and may not be spoken",
             code: .ForbiddenName
         ))
     }
 
-    .Ok("Hello, " + name + "!")
+    Ok("Hello, " + name + "!")
 }
 
 record class CustomError(

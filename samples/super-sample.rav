@@ -7,19 +7,19 @@ import System.Threading.Tasks.*
 func ParseId(text: string) -> Result<int, string> {
     // `try` converts thrown exceptions into Result<T, Exception>.
     return try int.Parse(text) match {
-        .Ok(val value) => .Ok(value)
-        .Error(FormatException text) => .Error("Not a valid integer: '$text'")
-        .Error(Exception ex) => .Error("Parse failed: ${ex.Message}")
+        Ok(val value) => Ok(value)
+        Error(FormatException text) => Error("Not a valid integer: '$text'")
+        Error(Exception ex) => Error("Parse failed: ${ex.Message}")
     }
 }
 
 func FindUserName(users: User[], id: int) -> Option<string> {
     for u in users {
         if u.Id == id {
-            return .Some(u.Name)
+            return Some(u.Name)
         }
     }
-    return .None
+    return None
 }
 
 /// Async/await + .NET interop.
@@ -28,8 +28,8 @@ async func DownloadText(url: string) -> Task<Result<string, ApiError>> {
 
     // Interop with .NET exception model, but return as data in Raven.
     return try await http.GetStringAsync(url) match {
-        .Ok(val text) => .Ok(text)
-        .Error(Exception ex) => .Error(ApiError.Network(ex))
+        Ok(val text) => Ok(text)
+        Error(Exception ex) => Error(ApiError.Network(ex))
     }
 }
 
@@ -61,7 +61,7 @@ async func Main() -> Task {
 
     // Nullability + interop example:
     // Prefer Option in Raven code, but sometimes you need `T?` for .NET APIs.
-    val maybeName: Option<string> = .Some("Raven")
+    val maybeName: Option<string> = Some("Raven")
     val nameForDotNet: string? = maybeName // implicit Option<T> -> T?
 
     // A small local function (hoisted), and local funcs aren’t closures.
@@ -72,16 +72,16 @@ async func Main() -> Task {
     // Result/Option + pattern matching.
     val input = "2"
     val id = ParseId(input) match {
-        .Ok(val value) => value
-        .Error(val err) => {
+        Ok(val value) => value
+        Error(val err) => {
             logger.Log("Bad input: $err")
             -1
         }
     }
 
     val label = FindUserName(users, id) match {
-        .Some(val n) => "Found user name: $n"
-        .None => "No user with id $id"
+        Some(val n) => "Found user name: $n"
+        None => "No user with id $id"
     }
     logger.Log(label)
 
@@ -90,11 +90,11 @@ async func Main() -> Task {
     val downloaded = await DownloadText(url)
 
     val summary = downloaded match {
-        .Ok(val text) => "Downloaded ${text.Length} chars from $url"
-        .Error(.NotFound(val missingId)) => "Not found: $missingId"
-        .Error(.Invalid(val message)) => "Invalid: $message"
-        .Error(.Network(Exception ex)) => "Network error: ${ex.Message}"
-        .Error(_) => "None"
+        Ok(val text) => "Downloaded ${text.Length} chars from $url"
+        Error(.NotFound(val missingId)) => "Not found: $missingId"
+        Error(.Invalid(val message)) => "Invalid: $message"
+        Error(.Network(Exception ex)) => "Network error: ${ex.Message}"
+        Error(_) => "None"
     }
 
     logger.Log(summary)

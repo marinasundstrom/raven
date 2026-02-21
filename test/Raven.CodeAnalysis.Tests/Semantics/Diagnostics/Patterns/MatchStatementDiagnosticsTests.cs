@@ -49,18 +49,20 @@ match 1 {
     }
 
     [Fact]
-    public void MatchStatement_WithEnumScrutinee_MissingCoverage_IsCurrentlyNotReported()
+    public void MatchStatement_WithEnumScrutinee_MissingCoverage_IsReported()
     {
         const string code = """
+class Program {
+    eval(color: Color) -> int {
+        match color {
+            .Red => 1
+        }
+    }
+}
+
 enum Color {
     Red
     Blue
-}
-
-func eval(color: Color) -> int {
-    match color {
-        .Red => 1
-    }
 }
 """;
 
@@ -72,7 +74,7 @@ func eval(color: Color) -> int {
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         compilation.EnsureSetup();
-        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Descriptor.Id == "RAV2100");
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor.Id == "RAV2100");
     }
 
     [Fact]

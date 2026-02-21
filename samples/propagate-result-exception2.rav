@@ -7,7 +7,7 @@ Console.WriteLine(a)
 func handle(text: string) -> Result<(), Exception> {
     val x = try? throwing()
     WriteLine(x)
-    return .Ok(x)
+    return Ok(x)
 }
 
 func throwing() {

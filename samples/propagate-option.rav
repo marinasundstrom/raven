@@ -2,8 +2,8 @@ import System.*
 import System.Console.*
 
 val x = test() match {
-    .Some(val y) => "Foo: $y"
-    .None => "None"
+    Some(val y) => "Foo: $y"
+    None => "None"
 }
 
 WriteLine(x)
@@ -11,12 +11,12 @@ WriteLine(x)
 func test() -> Option<int> {
     val r = test2(4)?
     WriteLine(r)
-    return .Some(r + 1)
+    return Some(r + 1)
 }
 
 func test2(i: int) -> Option<int> {
     if i != 3 {
-        return .None
+        return None
     }
-    return .Some(42)
+    return Some(42)
 }

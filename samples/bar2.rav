@@ -5,12 +5,12 @@ WriteLine(Test(1))
 
 func Test(y: int) -> Result<int, Err> {
     val r = y match {
-        0 => return .Error(Err())  // abrupt
+        0 => return Error(Err())  // abrupt
         1 => 42                    // value
         _ => throw Exception("x")  // abrupt
     }
     
-    return .Ok(r)
+    return Ok(r)
 }
 
 record Err()

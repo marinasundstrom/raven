@@ -5,25 +5,25 @@ func Main() -> Result<(), CustomError> {
     val res = Test(null)
 
     match res {
-        .Ok(val v) => WriteLine(v)
-        .Error(val err) => return .Error(err)
+        Ok(val v) => WriteLine(v)
+        Error(val err) => return Error(err)
     }
 
     WriteLine("Done")
 
-    return .Ok
+    return Ok
 }
 
 func Test(name: string?) -> Result<string, CustomError> {
     val str = name ?? {
         // Either act or return value
         
-        return .Error(CustomError("Argument '${nameof(name)}' is null"))
+        return Error(CustomError("Argument '${nameof(name)}' is null"))
     }
 
     WriteLine(str)
     
-    .Ok(str)
+    Ok(str)
 }
 
 record class CustomError(Message: string)

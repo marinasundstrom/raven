@@ -13,8 +13,8 @@ WriteLine(f.Result)
 val v = await f.Test(21);
 
 val r = v match {
-    .Ok(val x) => "Value is: $x"
-    .Error(val msg) => "Error: $msg"
+    Ok(val x) => "Value is: $x"
+    Error(val msg) => "Error: $msg"
 }
 
 WriteLine(r)
@@ -29,8 +29,8 @@ public class Foo(var value: int = 0) {
     public async Test(value: int) -> Task<Result<int, string>> {
         await Delay(5000)
         if value == 3 {
-            return .Ok(value * 2)
+            return Ok(value * 2)
         }
-        return .Error("Wrong number")
+        return Error("Wrong number")
     }
 }

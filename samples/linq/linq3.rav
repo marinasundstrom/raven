@@ -9,8 +9,8 @@ val firstOrNone = arr.FirstOrNone(x => x > 2)
 Console.WriteLine(firstOrNone)
 
 val result = firstOrNone match {
-    .Some(val v) => "Value is: $v"
-    .None => "No value"
+    Some(val v) => "Value is: $v"
+    None => "No value"
 }
 
 Console.WriteLine(result)
@@ -21,7 +21,7 @@ func test(items: IEnumerable<int>) -> Result<int, DomainError>
     val first = items.FirstOrError(() => DomainError("Wow"))?
     // Computation
     val result = first * 2
-    return .Ok(result)
+    return Ok(result)
 }
 
 record class DomainError(Message: string)

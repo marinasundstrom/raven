@@ -18,7 +18,7 @@ func Main(args: string[]) -> () {
 
     val result = members.FirstOrNone()
 
-    if(result is .Some(val member)) {
+    if(result is Some(val member)) {
         WriteLine("First: $member")
     }
 }

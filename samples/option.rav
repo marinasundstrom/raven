@@ -8,7 +8,7 @@ val unwrapped = returnsNone(42).UnwrapOr(10)
 WriteLine(unwrapped)
 
 func returnsNone(value: int) -> Option<int> {
-    return .None
+    return None
 }
 
 union Option<T> {
@@ -18,21 +18,21 @@ union Option<T> {
 
 extension OptionExtensions<T> for Option<T> {
     UnwrapOrDefault() -> T {
-        if self is .Some(val value) {
+        if self is Some(val value) {
             return value
         }
         return default(T)
     }
 
     UnwrapOrThrow() -> T {
-        if self is .Some(val value) {
+        if self is Some(val value) {
             return value
         }
         throw new System.InvalidOperationException("Option is None")
     }
 
     UnwrapOr(defaultValue: T) -> T {
-        if self is .Some(val value) {
+        if self is Some(val value) {
             return value
         }
         return defaultValue

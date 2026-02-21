@@ -19,7 +19,7 @@ val result = root.DescendantNodes()
     .OfType<VariableDeclaratorSyntax>()
     .FirstOrNone()
 
-if result is .Some(val variableDeclarator) {
+if result is Some(val variableDeclarator) {
     val newIdentifier = Identifier("foo") with {
         LeadingTrivia = variableDeclarator.Identifier.LeadingTrivia
         TrailingTrivia = variableDeclarator.Identifier.TrailingTrivia

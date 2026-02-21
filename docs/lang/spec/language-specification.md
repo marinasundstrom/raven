@@ -3637,7 +3637,7 @@ Type argument behavior:
   (`val r: Result<int, MyError> = .Ok(2)`).
 
 For every case `Case`, the compiler synthesizes an implicit conversion
-`Case -> Token`. Assigning, returning, or passing a case value therefore
+`Case -> Union`. Assigning, returning, or passing a case value therefore
 automatically produces the union instance:
 
 ```raven

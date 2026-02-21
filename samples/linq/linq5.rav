@@ -9,24 +9,24 @@ val ratePlans = List<RatePlan> {
 }
 
 val requests = List<ShipmentRequest> {
-    ShipmentRequest("REQ-1001", "NorthStar", 10, true, ["fragile"], .Some("SAVE5")),
-    ShipmentRequest("REQ-1002", "Oceanic", 3, false, ["priority"], .None),
-    ShipmentRequest("REQ-1003", "Unknown", 5, true, [], .Some("UNKNOWN"))
+    ShipmentRequest("REQ-1001", "NorthStar", 10, true, ["fragile"], Some("SAVE5")),
+    ShipmentRequest("REQ-1002", "Oceanic", 3, false, ["priority"], None),
+    ShipmentRequest("REQ-1003", "Unknown", 5, true, [], Some("UNKNOWN"))
 }
 
 val summaryResult = BuildQuoteSummary(requests, ratePlans)
 
 val message = summaryResult match {
-    .Ok(val summary) => FormatSummary(summary)
-    .Error(val error) => "Quote failed: ${error.Message}"
+    Ok(val summary) => FormatSummary(summary)
+    Error(val error) => "Quote failed: ${error.Message}"
 }
 
 WriteLine(message)
 
 val latePickup = requests.Where(r => !r.OnTime).FirstOrNone()
 val lateMessage = latePickup match {
-    .Some(val req) => "Late pickup: ${req.Id}"
-    .None => "No late pickups today"
+    Some(val req) => "Late pickup: ${req.Id}"
+    None => "No late pickups today"
 }
 
 WriteLine(lateMessage)
@@ -35,7 +35,7 @@ func BuildQuoteSummary(requests: IEnumerable<ShipmentRequest>, plans: IEnumerabl
     val request = requests.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found: REQ-1002"))?
     val quote = QuoteShipment(request, plans)?
     val decision = DecideQuote(quote, request)
-    return .Ok(QuoteSummary(quote, decision))
+    return Ok(QuoteSummary(quote, decision))
 }
 
 func QuoteShipment(request: ShipmentRequest, plans: IEnumerable<RatePlan>) -> Result<Quote, QuoteError> {
@@ -45,11 +45,11 @@ func QuoteShipment(request: ShipmentRequest, plans: IEnumerable<RatePlan>) -> Re
     val total = plan.BaseCents + (request.WeightKg * plan.PerKgCents) + surcharge.UnwrapOr(0) - promoCents
 
     val note = surcharge match {
-        .Some(_) => "Includes fragile handling"
-        .None => "Standard handling"
+        Some(_) => "Includes fragile handling"
+        None => "Standard handling"
     }
 
-    return .Ok(Quote(request.Id, request.Carrier, total, note))
+    return Ok(Quote(request.Id, request.Carrier, total, note))
 }
 
 func FindRatePlan(plans: IEnumerable<RatePlan>, carrier: string) -> Result<RatePlan, QuoteError> {
@@ -58,8 +58,8 @@ func FindRatePlan(plans: IEnumerable<RatePlan>, carrier: string) -> Result<RateP
 
 func ResolveSurcharge(tags: string[]) -> Option<int> {
     return tags.FirstOrNone(t => t == "fragile") match {
-        .Some(_) => .Some(250)
-        .None => .None
+        Some(_) => Some(250)
+        None => None
     }
 }
 
@@ -68,9 +68,9 @@ func PromoCents(code: Option<string>) -> Option<int> {
     val normalized = raw.Trim().ToUpperInvariant()
 
     return normalized match {
-        "SAVE5" => .Some(500)
-        "FREESHIP" => .Some(200)
-        _ => .None
+        "SAVE5" => Some(500)
+        "FREESHIP" => Some(200)
+        _ => None
     }
 }
 
@@ -92,8 +92,8 @@ func DecideQuote(quote: Quote, request: ShipmentRequest) -> Decision {
 
 func HasTag(tags: string[], tag: string) -> bool {
     return tags.FirstOrNone(t => t == tag) match {
-        .Some(_) => true
-        .None => false
+        Some(_) => true
+        None => false
     }
 }
 

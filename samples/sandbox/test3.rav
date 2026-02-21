@@ -3,8 +3,11 @@ import System.Console.*
 import System.Collections.Generic.*
 import System.Linq.*
 
-val r: Option<int> = .Some(42)
-val w = r.Map(x => x * 2) 
+val r: Option<int> = Some(42)
+val w = r match {
+    Some(val x) => Option<int>.Some(x * 2)
+    None => None
+}
 
 WriteLine(w)
 WriteLine(tap(r))
@@ -19,7 +22,7 @@ for x in r {
 }
 
 func tap(value: Option<int>) -> Option<int> {
-    if value is .Some(val x) {
+    if value is Some(val x) {
         WriteLine(x)
     }
     return value

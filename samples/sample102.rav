@@ -9,7 +9,7 @@ WriteLine(res4_2)
 async func test4(throwExc: bool) -> Task<Result<int, Exception>> {
     val x = try? await action2(throwExc)
     WriteLine(x)
-    return .Ok(x + 2)
+    return Ok(x + 2)
 }
 
 async func action2(throwExc: bool) -> Task<Result<int, Exception>> {
@@ -17,5 +17,5 @@ async func action2(throwExc: bool) -> Task<Result<int, Exception>> {
     if throwExc {
         throw new Exception("Boom!")
     }
-    return .Ok(40)
+    return Ok(40)
 }

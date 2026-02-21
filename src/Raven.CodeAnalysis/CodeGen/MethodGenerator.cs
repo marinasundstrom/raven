@@ -128,6 +128,7 @@ internal class MethodGenerator
             var hasPInvokeSignature = MethodSymbol.IsExtern
                 && !MethodSymbol.IsGenericMethod
                 && TryGetDllImportData(methodAttributes, out dllImportData);
+            var emittedMethodName = GetEmittedMethodName(MethodSymbol);
 
             MethodBuilder methodBuilder;
             if (hasPInvokeSignature)
@@ -139,7 +140,7 @@ internal class MethodGenerator
                 parameterTypes = BuildParameterTypes();
 
                 methodBuilder = targetTypeBuilder.DefinePInvokeMethod(
-                    MethodSymbol.Name,
+                    emittedMethodName,
                     dllImportData.LibraryName,
                     dllImportData.EntryPoint,
                     attributes,
@@ -154,7 +155,7 @@ internal class MethodGenerator
             else
             {
                 methodBuilder = targetTypeBuilder
-                    .DefineMethod(MethodSymbol.Name,
+                    .DefineMethod(emittedMethodName,
                         attributes, CallingConventions.Standard);
 
                 MethodBase = methodBuilder;
@@ -347,6 +348,35 @@ internal class MethodGenerator
 
             return builder.ToArray();
         }
+    }
+
+    private static string GetEmittedMethodName(IMethodSymbol methodSymbol)
+    {
+        if (!string.IsNullOrWhiteSpace(methodSymbol.Name))
+            return methodSymbol.Name;
+
+        var declaration = methodSymbol.DeclaringSyntaxReferences
+            .Select(r => r.GetSyntax())
+            .FirstOrDefault();
+
+        if (methodSymbol.MethodKind == MethodKind.Conversion &&
+            declaration is ConversionOperatorDeclarationSyntax conversionDecl &&
+            OperatorFacts.TryGetConversionOperatorMetadataName(conversionDecl.ConversionKindKeyword.Kind, out var conversionMetadataName))
+        {
+            return conversionMetadataName;
+        }
+
+        if (methodSymbol.MethodKind == MethodKind.UserDefinedOperator &&
+            declaration is OperatorDeclarationSyntax operatorDecl &&
+            OperatorFacts.TryGetUserDefinedOperatorInfo(
+                operatorDecl.OperatorToken.Kind,
+                operatorDecl.ParameterList.Parameters.Count,
+                out var operatorInfo))
+        {
+            return operatorInfo.MetadataName;
+        }
+
+        return methodSymbol.MetadataName;
     }
 
     private void ApplyAsyncStateMachineMetadata(Action<CustomAttributeBuilder> applyMethodAttribute)

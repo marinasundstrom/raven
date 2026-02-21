@@ -6367,6 +6367,27 @@ partial class BlockBinder : Binder
                 receiver = boundIdentifier;
                 methodName = "Invoke";
             }
+            else if (boundIdentifier is BoundTypeExpression { Type: INamedTypeSymbol namedType })
+            {
+                if (namedType.TryGetDiscriminatedUnionCase() is not null)
+                {
+                    var contextualTargetType = GetTargetType(syntax);
+                    if (contextualTargetType is null || contextualTargetType.TypeKind == TypeKind.Error)
+                    {
+                        var caseCandidates = LookupUnionCaseTypeCandidates(id.Identifier.ValueText);
+                        if (caseCandidates.Length > 1)
+                        {
+                            var first = caseCandidates[0].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+                            var second = caseCandidates[1].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+                            _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
+                            return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+                        }
+                    }
+                }
+
+                // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
+                return BindConstructorInvocation(namedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
+            }
             else
             {
                 receiver = null;

@@ -2,9 +2,9 @@ import System.*
 
 val first : Result<int, string> = .Success(1)
 val second : Result<int, string> = .Success(42)
-val third : Result<int, string> = .Error(2, "Bang!")
-val fourth : Result<int, string> = .Error(5, "Boom!")
-val fifth : Result<int, string> = .Error(6, "Zoom!")
+val third : Result<int, string> = Error(2, "Bang!")
+val fourth : Result<int, string> = Error(5, "Boom!")
+val fifth : Result<int, string> = Error(6, "Zoom!")
 
 Console.WriteLine(describe(first))
 Console.WriteLine(describe(second))
@@ -18,9 +18,9 @@ func describe(result: Result<int, string>) -> string {
     return result match {
         .Success(42) => "Yay!"
         .Success(val value) => "Result: '$value'"
-        .Error(2, val error) => "$error (!!!)"
-        .Error(errorCode, val error) => "$error (???)"
-        .Error(val code, val error) => "Error $code: $error"
+        Error(2, val error) => "$error (!!!)"
+        Error(errorCode, val error) => "$error (???)"
+        Error(val code, val error) => "Error $code: $error"
     }
 }
 

@@ -13,8 +13,8 @@ async func Main() -> Task {
     // Map result to value or null
     // Yes, we can still use null
     val person: Person? = result match {
-        .Ok(val p) => p
-        .Error(_) => null
+        Ok(val p) => p
+        Error(_) => null
     }
 
     Console.WriteLine("Person is: ${person?.Name}")
@@ -26,8 +26,8 @@ async func Main() -> Task {
         val displayFunction = (product: Product) => Console.WriteLine("* ${product.Name}")
 
         val e = DisplayProducts(person, displayFunction) match {
-            .Ok => ()
-            .Error(CustomError error) => Console.WriteLine(error.Message)
+            Ok => ()
+            Error(CustomError error) => Console.WriteLine(error.Message)
         }
     }
 }
@@ -43,21 +43,21 @@ func ProcessResult(result: Result<Person, CustomError>) -> Result<(), CustomErro
     WriteLine(result?.Name?)
     WriteLine(resultName?)
 
-    return .Ok
+    return Ok
 }
 
 func DisplayProducts(person: Person, action: Product -> ()) -> Result<(), CustomError> {
     val products = person.Products
 
     if products.Count == 0 {
-        return .Error(CustomError("No products"))
+        return Error(CustomError("No products"))
     }
 
     for product in products {
         action(product)
     }   
 
-    return .Ok
+    return Ok
 }
 
 async func GetPerson(name: string) -> Task<Result<Person, CustomError>> {
@@ -65,17 +65,17 @@ async func GetPerson(name: string) -> Task<Result<Person, CustomError>> {
     val persons = results?
     for person in persons {
         if person is { Name: name } {
-            return .Ok(person)
+            return Ok(person)
         }
     }
-    return .Error(CustomError("Not found"))
+    return Error(CustomError("Not found"))
 }
 
 async func GetPersons() -> Task<Result<Person[], CustomError>> {
     val personResult = await GetPersonsCore()
     return personResult match {
-        .Ok(val persons) => .Ok(persons)
-        .Error(val exception) => .Error(CustomError(exception.Message))
+        Ok(val persons) => Ok(persons)
+        Error(val exception) => Error(CustomError(exception.Message))
     }
 }
 
@@ -83,7 +83,7 @@ async func GetPersons() -> Task<Result<Person[], CustomError>> {
 async func GetPersonsCore() -> Task<Result<Person[], Exception>> {
     val textResult = try await File.ReadAllTextAsync("sandbox/sample.json")
     val results = try JsonSerializer.Deserialize<Person[]>(textResult?)
-    return .Ok(results?)
+    return Ok(results?)
 }
 
 class Person {

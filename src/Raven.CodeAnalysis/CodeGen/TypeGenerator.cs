@@ -1233,6 +1233,9 @@ internal class TypeGenerator
 
         if (methodSymbol.MethodKind is MethodKind.Constructor or MethodKind.NamedConstructor or MethodKind.LambdaMethod)
             return;
+        var emittedMethodName = GetEmittedMethodName(methodSymbol);
+        if (string.IsNullOrWhiteSpace(emittedMethodName))
+            return;
 
         var isExtensionInstance = methodSymbol.IsExtensionMethod;
         var isStatic = methodSymbol.IsStatic && !isExtensionInstance;
@@ -1260,7 +1263,7 @@ internal class TypeGenerator
             attributes |= MethodAttributes.SpecialName;
 
         var methodBuilder = _extensionGroupingTypeBuilder.DefineMethod(
-            methodSymbol.Name,
+            emittedMethodName,
             attributes,
             CallingConventions.Standard);
 
@@ -1320,6 +1323,35 @@ internal class TypeGenerator
             if (registeredExtensionParameters)
                 CodeGen.UnregisterGenericParameters(extensionMethodTypeParameters);
         }
+    }
+
+    private static string GetEmittedMethodName(IMethodSymbol methodSymbol)
+    {
+        if (!string.IsNullOrWhiteSpace(methodSymbol.Name))
+            return methodSymbol.Name;
+
+        var declaration = methodSymbol.DeclaringSyntaxReferences
+            .Select(r => r.GetSyntax())
+            .FirstOrDefault();
+
+        if (methodSymbol.MethodKind == MethodKind.Conversion &&
+            declaration is ConversionOperatorDeclarationSyntax conversionDecl &&
+            OperatorFacts.TryGetConversionOperatorMetadataName(conversionDecl.ConversionKindKeyword.Kind, out var conversionMetadataName))
+        {
+            return conversionMetadataName;
+        }
+
+        if (methodSymbol.MethodKind == MethodKind.UserDefinedOperator &&
+            declaration is OperatorDeclarationSyntax operatorDecl &&
+            OperatorFacts.TryGetUserDefinedOperatorInfo(
+                operatorDecl.OperatorToken.Kind,
+                operatorDecl.ParameterList.Parameters.Count,
+                out var operatorInfo))
+        {
+            return operatorInfo.MetadataName;
+        }
+
+        return methodSymbol.MetadataName;
     }
 
     private MethodBuilder DefineExtensionSkeletonAccessor(

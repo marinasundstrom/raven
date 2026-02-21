@@ -1,7 +1,7 @@
 import System.*
 
 func test<T>(value: T) -> Result<T, CustomError>  {
-    return .Ok(value)
+    return Ok(value)
 }
 
 test<int>(42)

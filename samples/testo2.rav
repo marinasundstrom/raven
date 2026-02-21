@@ -5,8 +5,8 @@ ping("bob")
 
 func ping(name: string) -> Result<PingResult, CustomError> {
     match name {
-        "Bob" | "bob" => return .Ok(PingResult("pong ${name}"))
-        _ => return .Error(CustomError("Invalid name"))
+        "Bob" | "bob" => return Ok(PingResult("pong ${name}"))
+        _ => return Error(CustomError("Invalid name"))
     }
 }
 

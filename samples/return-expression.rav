@@ -6,10 +6,10 @@ val res = Test(null)
 WriteLine(res)
 
 func Test(name: string?) -> Result<string, CustomError> {
-    val str = name ?? return .Error(CustomError("Argument '${nameof(name)}' is null"))
+    val str = name ?? return Error(CustomError("Argument '${nameof(name)}' is null"))
     WriteLine(str)
     
-    .Ok(str)
+    Ok(str)
 }
 
 record class CustomError(Message: string)

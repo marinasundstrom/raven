@@ -3,7 +3,7 @@ import System.Console.*
 
 func Main(args: string[]) -> Result<(), CustomError> {
     if args.Length == 0 {
-        return .Error(CustomError(
+        return Error(CustomError(
             message: "Missing required argument: <name>",
             code: .MissingArgument
         ))
@@ -16,25 +16,25 @@ func Main(args: string[]) -> Result<(), CustomError> {
 
     Console.WriteLine(greeting)
 
-    .Ok
+    Ok
 }
 
 func BuildGreeting(name: string) -> Result<string, CustomError> {
     if name.Length < 2 {
-        return .Error(CustomError(
+        return Error(CustomError(
             message: "Name must be at least 2 characters",
             code: .InvalidName
         ))
     }
 
     if name == "doom" {
-        return .Error(CustomError(
+        return Error(CustomError(
             message: "That name is cursed and may not be spoken",
             code: .ForbiddenName
         ))
     }
 
-    .Ok("Hello, " + name + "!")
+    Ok("Hello, " + name + "!")
 }
 
 record class CustomError(

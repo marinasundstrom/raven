@@ -18,9 +18,9 @@ extension OptionExtensions3<T> for T
 
     public static implicit operator(value: T?) -> Option<T> {
         if value is not null {
-            return .Some(value)
+            return Some(value)
         }
-        return .None
+        return None
     }
 
 }

@@ -7,8 +7,8 @@ use client = HttpClient()
 val res = await client.FetchAsync("http://www.contoso.com/")
 
 val str = res match {
-    .Ok(val str) => "Response is: $str"
-    .Error(val message) => "Error is: $message"
+    Ok(val str) => "Response is: $str"
+    Error(val message) => "Error is: $message"
 }
 
 WriteLine(str)
@@ -19,11 +19,11 @@ extension HttpClientExtensions for HttpClient {
             use response = await self.GetAsync(url)
             response.EnsureSuccessStatusCode()
             val responseBody = await response.Content.ReadAsStringAsync()
-            return .Ok(responseBody)
+            return Ok(responseBody)
         } catch (HttpRequestException e) {
-            return .Error(e.Message)
+            return Error(e.Message)
         } catch (TaskCanceledException) {
-            return .Error("Request timed out or was canceled.")
+            return Error("Request timed out or was canceled.")
         }
     }
 }
