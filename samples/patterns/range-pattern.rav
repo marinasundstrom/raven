@@ -1,0 +1,21 @@
+import System.Console.*
+
+val value = 4
+
+val result = value match {
+    ..4 => "No"
+    40 .. 43 => "Yes"
+    _ => "What?"
+}
+
+WriteLine(result)
+
+val value2 = 'B'
+
+val result2 = value2 match {
+    'a' .. 'b' => "lowercase"
+    'A' .. 'B' => "uppercase"
+    _ => "Not in range"
+}
+
+WriteLine(result2)

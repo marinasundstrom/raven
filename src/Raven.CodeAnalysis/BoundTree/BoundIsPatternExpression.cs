@@ -447,6 +447,7 @@ internal partial class BlockBinder
             RecordPatternSyntax r => BindRecordPattern(r, inputType),
             PropertyPatternSyntax p => BindPropertyPattern(p, inputType),
             RelationalPatternSyntax r => BindRelationalPattern(r, inputType),
+            RangePatternSyntax rp => BindRangePattern(rp, inputType?.GetPlainType()),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
         };
 
@@ -457,6 +458,7 @@ internal partial class BlockBinder
     private BoundPattern BindRelationalPattern(RelationalPatternSyntax syntax, ITypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+        inputType = inputType.GetPlainType();
 
         var @operator = syntax.Kind switch
         {
@@ -517,6 +519,63 @@ internal partial class BlockBinder
         }
 
         return new BoundRelationalPattern(inputType, @operator, value);
+    }
+
+    private BoundPattern BindRangePattern(RangePatternSyntax syntax, ITypeSymbol? inputType)
+    {
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+        inputType = inputType.GetPlainType();
+
+        if (!IsOrderableType(inputType))
+        {
+            // Relational-pattern diagnostic reused for range patterns.
+            var dotDotToken = syntax.DotDotToken;
+            _diagnostics.ReportRelationalPatternNotSupported(
+                dotDotToken,
+                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.GetLocation());
+
+            return new BoundRangePattern(inputType, null, null, BoundExpressionReason.TypeMismatch);
+        }
+
+        BoundExpression? lowerBound = null;
+        BoundExpression? upperBound = null;
+
+        if (syntax.LowerBound is not null)
+        {
+            lowerBound = BindExpression(syntax.LowerBound);
+            if (lowerBound.Type is not null && lowerBound.Type.TypeKind != TypeKind.Error)
+            {
+                var conversion = Compilation.ClassifyConversion(lowerBound.Type, inputType);
+                if (!conversion.Exists)
+                {
+                    _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                        lowerBound.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.LowerBound.GetLocation());
+                    return new BoundRangePattern(inputType, lowerBound, null, BoundExpressionReason.TypeMismatch);
+                }
+            }
+        }
+
+        if (syntax.UpperBound is not null)
+        {
+            upperBound = BindExpression(syntax.UpperBound);
+            if (upperBound.Type is not null && upperBound.Type.TypeKind != TypeKind.Error)
+            {
+                var conversion = Compilation.ClassifyConversion(upperBound.Type, inputType);
+                if (!conversion.Exists)
+                {
+                    _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                        upperBound.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.UpperBound.GetLocation());
+                    return new BoundRangePattern(inputType, lowerBound, upperBound, BoundExpressionReason.TypeMismatch);
+                }
+            }
+        }
+
+        return new BoundRangePattern(inputType, lowerBound, upperBound);
     }
 
     private static bool IsOrderableType(ITypeSymbol type)
@@ -2062,6 +2121,31 @@ internal sealed class BoundRelationalPattern : BoundPattern
     public ITypeSymbol InputType { get; }
     public BoundRelationalPatternOperator Operator { get; }
     public BoundExpression Value { get; }
+
+    public override void Accept(BoundTreeVisitor visitor) => visitor.DefaultVisit(this);
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+}
+
+internal sealed class BoundRangePattern : BoundPattern
+{
+    public BoundRangePattern(
+        ITypeSymbol inputType,
+        BoundExpression? lowerBound,
+        BoundExpression? upperBound,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(inputType, reason)
+    {
+        LowerBound = lowerBound;
+        UpperBound = upperBound;
+    }
+
+    /// <summary>Lower inclusive bound expression, or null for open-ended lower bound.</summary>
+    public BoundExpression? LowerBound { get; }
+
+    /// <summary>Upper inclusive bound expression, or null for open-ended upper bound.</summary>
+    public BoundExpression? UpperBound { get; }
+
+    public override IEnumerable<BoundDesignator> GetDesignators() => [];
 
     public override void Accept(BoundTreeVisitor visitor) => visitor.DefaultVisit(this);
     public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor) => visitor.DefaultVisit(this);

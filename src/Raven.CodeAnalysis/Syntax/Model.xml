@@ -734,6 +734,11 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <Node Name="RangePattern" Inherits="Pattern">
+    <Slot Name="LowerBound" Type="Expression" IsNullable="true" IsOptional="true" />
+    <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotToken" />
+    <Slot Name="UpperBound" Type="Expression" IsNullable="true" IsOptional="true" />
+  </Node>
   <Node Name="MemberPattern" Inherits="Pattern">
     <Slot Name="Path" Type="MemberPatternPath" />
     <Slot Name="ArgumentList" Type="MemberPatternArgumentList" IsNullable="true" />

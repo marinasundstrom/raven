@@ -356,7 +356,7 @@ if (printParseSequence)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/json2{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/patterns/range-pattern{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)

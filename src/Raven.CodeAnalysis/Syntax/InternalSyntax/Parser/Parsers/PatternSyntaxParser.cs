@@ -117,6 +117,20 @@ internal class PatternSyntaxParser : SyntaxParser
             return DiscardPattern(underscoreToken);
         }
 
+        // Lower (or lower+upper) range pattern: `lo..hi` / `lo..` (e.g. `2..3`, `2..`, `x..y`)
+        // We only take this fast-path when we can see the `..` token immediately after the lower bound.
+        if (CanStartRangeBoundExpression(PeekToken()) && PeekToken(1).IsKind(SyntaxKind.DotDotToken))
+        {
+            var lowerBound = new ExpressionSyntaxParser(this, stopAtDotDotToken: true).ParseExpression();
+            return ParseRangePattern(lowerBound);
+        }
+
+        // Upper-only range pattern: `..hi` (e.g. `..9`, `..100`)
+        if (PeekToken().IsKind(SyntaxKind.DotDotToken))
+        {
+            return ParseRangePattern(lowerBound: null);
+        }
+
         // Constant pattern (expression pattern): allow matching against an in-scope value
         // e.g. `{ Product: discountedProduct, Quantity: > 10 }`
         // We parse it as an expression pattern here and let binding decide if it is a type-name or a value.
@@ -545,6 +559,36 @@ internal class PatternSyntaxParser : SyntaxParser
         };
     }
 
+    // Range pattern: `lo..hi`, `lo..`, `..hi`
+    // Called either with a pre-parsed lower bound (from TryParseConstantPattern) or null (for `..hi`).
+    private PatternSyntax ParseRangePattern(ExpressionSyntax? lowerBound)
+    {
+        var dotDotToken = ReadToken(); // consume `..`
+
+        // Parse upper bound if present (any primary expression that isn't another pattern start)
+        ExpressionSyntax? upperBound = null;
+        if (CanStartRangeBoundExpression(PeekToken()))
+        {
+            upperBound = new ExpressionSyntaxParser(this).ParseExpression();
+        }
+
+        return RangePattern(lowerBound, dotDotToken, upperBound);
+    }
+
+    private static bool CanStartRangeBoundExpression(SyntaxToken token)
+    {
+        // A range bound is a simple expression that can appear around `..` in a range pattern.
+        // Keep this conservative: literals and identifiers (constants/values), plus unary `-` for negative literals.
+        return token.Kind switch
+        {
+            SyntaxKind.NumericLiteralToken => true,
+            SyntaxKind.CharacterLiteralToken => true,
+            SyntaxKind.MinusToken => true, // negative literals like `..-1`
+            SyntaxKind.IdentifierToken => true,
+            _ => false
+        };
+    }
+
     // Helper for constant pattern expressions (identifiers, member access, etc.)
     private bool CanStartConstantPatternExpression(SyntaxToken token)
     {
@@ -564,7 +608,21 @@ internal class PatternSyntaxParser : SyntaxParser
         var checkpoint = CreateCheckpoint("constant-pattern");
 
         // Parse as expression (NOT a pattern). This enables: `x`, `x.y`, `SomeType.StaticField`, etc.
+        // NOTE: The expression parser will also consume `lo..hi` as a RangeExpression.
         var expr = new ExpressionSyntaxParser(this).ParseExpression();
+
+        // If the expression is a range expression, convert it to a RangePatternSyntax.
+        if (expr is RangeExpressionSyntax rangeExpr)
+        {
+            if (!IsPatternTerminator(PeekToken()))
+            {
+                checkpoint.Rewind();
+                return false;
+            }
+
+            constantPattern = RangePattern(rangeExpr.LeftExpression, rangeExpr.DotDotToken, rangeExpr.RightExpression);
+            return true;
+        }
 
         if (!IsValidConstantPatternExpression(expr))
         {

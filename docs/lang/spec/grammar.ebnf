@@ -347,6 +347,7 @@ AndPattern               ::= UnaryPattern {'and' UnaryPattern} ;
 UnaryPattern             ::= 'not' UnaryPattern | PrimaryPattern ;
 
 PrimaryPattern           ::= ParenthesizedPattern
+                           | RangePattern
                            | RelationalPattern
                            | ConstantPattern
                            | VariablePattern
@@ -418,6 +419,11 @@ ParenthesizedPattern     ::= '(' Pattern ')' ;
 RelationalPattern        ::= RelationalOperator RelationalPatternOperand ;
 RelationalOperator       ::= '<' | '<=' | '>' | '>=' | '==' | '!=' ;
 RelationalPatternOperand ::= Expression ; (* binder should enforce “constant-ish” rules *)
+
+RangePattern             ::= RangeLower '..' RangeUpper ;
+RangeLower               ::= RangePatternOperand? ;
+RangeUpper               ::= RangePatternOperand? ;
+RangePatternOperand      ::= Expression ; (* binder should enforce “constant-ish” rules; parser stops at `..` when parsing the lower bound *)
 
 VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* In patterns, a single-variable designation always requires an explicit BindingKeyword (let/val/var), including when a type annotation is present. *)
 VariableDesignationCore  ::= SingleVariableDesignation | ParenthesizedVariableDesignation ;

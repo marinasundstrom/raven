@@ -17,6 +17,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private readonly bool _stopOnOpenBrace;
     private readonly bool _allowLambdaExpressions;
     private readonly bool _stopOnLeadingNewlineBinaryOperator;
+    private readonly bool _stopAtDotDotToken;
     private const int RangeOperatorPrecedence = 4;
 
     public ExpressionSyntaxParser(
@@ -24,13 +25,15 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         bool allowMatchExpressionSuffixes = true,
         bool stopOnOpenBrace = false,
         bool allowLambdaExpressions = true,
-        bool stopOnLeadingNewlineBinaryOperator = false)
+        bool stopOnLeadingNewlineBinaryOperator = false,
+        bool stopAtDotDotToken = false)
         : base(parent)
     {
         _allowMatchExpressionSuffixes = allowMatchExpressionSuffixes;
         _stopOnOpenBrace = stopOnOpenBrace;
         _allowLambdaExpressions = allowLambdaExpressions;
         _stopOnLeadingNewlineBinaryOperator = stopOnLeadingNewlineBinaryOperator;
+        _stopAtDotDotToken = stopAtDotDotToken;
     }
 
     public ExpressionSyntaxParser ParentExpression => (ExpressionSyntaxParser)Parent!;
@@ -349,6 +352,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             if (operatorCandidate.IsKind(SyntaxKind.DotDotToken))
             {
+                // In some contexts (e.g. pattern parsing), the caller wants `..` to terminate
+                // the expression instead of producing a RangeExpression.
+                if (_stopAtDotDotToken)
+                    return expr ?? new ExpressionSyntax.Missing();
+
                 if (RangeOperatorPrecedence < precedence)
                     return expr ?? new ExpressionSyntax.Missing();
 

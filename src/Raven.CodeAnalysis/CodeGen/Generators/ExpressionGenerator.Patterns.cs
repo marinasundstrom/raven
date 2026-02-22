@@ -57,6 +57,7 @@ internal partial class ExpressionGenerator
                 return PatternInput.Typed;
 
             case BoundRelationalPattern:
+            case BoundRangePattern:
                 return PatternInput.Typed;
 
             // combinations inherit the "worst" requirement
@@ -108,6 +109,12 @@ internal partial class ExpressionGenerator
         if (pattern is BoundRelationalPattern relational)
         {
             EmitRelationalPattern(relational, inputType, scope, scrutineeLocal2);
+            return;
+        }
+
+        if (pattern is BoundRangePattern rangePattern)
+        {
+            EmitRangePattern(rangePattern, inputType, scope, scrutineeLocal2);
             return;
         }
 
@@ -620,6 +627,71 @@ internal partial class ExpressionGenerator
         EmitRelationalRhs(pattern.Value, inputType, scope);
         EmitCompare(inputType);
         EmitRelationalOperator(pattern.Operator);
+    }
+
+    private void EmitRangePattern(BoundRangePattern pattern, ITypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
+    {
+        // Desugar `lo..hi` → `(scrutinee >= lo) && (scrutinee <= hi)`
+        // Desugar `lo..`   → `scrutinee >= lo`
+        // Desugar `..hi`   → `scrutinee <= hi`
+
+        if (inputType.TypeKind == TypeKind.Error)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            return;
+        }
+
+        // Spill the scrutinee so we can use it for both bound comparisons.
+        var scrutineeClr = ResolveClrType(inputType);
+        var scrutineeLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(scrutineeClr);
+        ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
+
+        bool hasBoth = pattern.LowerBound is not null && pattern.UpperBound is not null;
+
+        if (hasBoth)
+        {
+            var labelFail = ILGenerator.DefineLabel();
+            var labelDone = ILGenerator.DefineLabel();
+
+            // lower bound: scrutinee >= lo
+            ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+            EmitRelationalRhs(pattern.LowerBound!, inputType, scope);
+            EmitCompare(inputType);
+            EmitRelationalOperator(BoundRelationalPatternOperator.GreaterThanOrEqual);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+            // upper bound: scrutinee <= hi
+            ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+            EmitRelationalRhs(pattern.UpperBound!, inputType, scope);
+            EmitCompare(inputType);
+            EmitRelationalOperator(BoundRelationalPatternOperator.LessThanOrEqual);
+            ILGenerator.Emit(OpCodes.Br, labelDone);
+
+            ILGenerator.MarkLabel(labelFail);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+            ILGenerator.MarkLabel(labelDone);
+        }
+        else if (pattern.LowerBound is not null)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+            EmitRelationalRhs(pattern.LowerBound, inputType, scope);
+            EmitCompare(inputType);
+            EmitRelationalOperator(BoundRelationalPatternOperator.GreaterThanOrEqual);
+        }
+        else if (pattern.UpperBound is not null)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+            EmitRelationalRhs(pattern.UpperBound, inputType, scope);
+            EmitCompare(inputType);
+            EmitRelationalOperator(BoundRelationalPatternOperator.LessThanOrEqual);
+        }
+        else
+        {
+            // Degenerate `..` with no bounds — always true.
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        }
     }
 
     private void EmitRelationalRhs(BoundExpression rhs, ITypeSymbol targetType, Generator scope)
@@ -1946,6 +2018,13 @@ internal partial class ExpressionGenerator
         if (pattern is BoundRelationalPattern rp)
         {
             EmitRelationalPattern(rp, inputType, scope, scrutineeLocal2);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+            return;
+        }
+
+        if (pattern is BoundRangePattern rpRange)
+        {
+            EmitRangePattern(rpRange, inputType, scope, scrutineeLocal2);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
             return;
         }

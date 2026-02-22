@@ -92,5 +92,6 @@
   <NodeKind Name="GreaterThanOrEqualPattern" Type="RelationalPattern" />
   <NodeKind Name="LessThanPattern" Type="RelationalPattern" />
   <NodeKind Name="LessThanOrEqualPattern" Type="RelationalPattern" />
+  <NodeKind Name="RangePattern" Type="RangePattern" />
   <NodeKind Name="SkippedTokensTrivia" Type="StructuredTrivia" />
 </NodeKinds>

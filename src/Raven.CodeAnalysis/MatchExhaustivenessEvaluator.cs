@@ -61,6 +61,10 @@ internal sealed class MatchExhaustivenessEvaluator
             {
                 missingCases = GetMissingSealedHierarchyCases(scrutineeType, arms, sealedRoot, options);
             }
+            else if (TryGetNumericTypeDomain(scrutineeType, out var domain))
+            {
+                missingCases = GetMissingNumericRangeCases(scrutineeType, arms, domain, options);
+            }
             else
             {
                 var hasCatchAllIgnoringOption = hasCatchAll && !options.IgnoreCatchAllPatterns;
@@ -79,7 +83,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
     internal static bool IsCatchAllPattern(ITypeSymbol scrutineeType, BoundPattern pattern)
     {
-        if (pattern is BoundConstantPattern || pattern is BoundRelationalPattern)
+        if (pattern is BoundConstantPattern || pattern is BoundRelationalPattern || pattern is BoundRangePattern)
             return false;
 
         switch (pattern)
@@ -882,6 +886,272 @@ internal sealed class MatchExhaustivenessEvaluator
         return type;
     }
 
+    // =========================================================
+    // Numeric interval coverage (for range/relational patterns)
+    // =========================================================
+
+    private static bool TryGetNumericTypeDomain(ITypeSymbol type, out NumericInterval domain)
+    {
+        domain = default;
+
+        var specialType = type.SpecialType;
+
+        switch (specialType)
+        {
+            case SpecialType.System_SByte:
+                domain = new NumericInterval(sbyte.MinValue, sbyte.MaxValue);
+                return true;
+            case SpecialType.System_Byte:
+                domain = new NumericInterval(byte.MinValue, byte.MaxValue);
+                return true;
+            case SpecialType.System_Int16:
+                domain = new NumericInterval(short.MinValue, short.MaxValue);
+                return true;
+            case SpecialType.System_UInt16:
+                domain = new NumericInterval(ushort.MinValue, ushort.MaxValue);
+                return true;
+            case SpecialType.System_Int32:
+                domain = new NumericInterval(int.MinValue, int.MaxValue);
+                return true;
+            case SpecialType.System_UInt32:
+                domain = new NumericInterval(0, uint.MaxValue);
+                return true;
+            case SpecialType.System_Int64:
+                domain = new NumericInterval(long.MinValue, long.MaxValue);
+                return true;
+            case SpecialType.System_UInt64:
+                // Clamp to long.MaxValue since we use long arithmetic internally.
+                domain = new NumericInterval(0, long.MaxValue);
+                return true;
+            case SpecialType.System_Char:
+                domain = new NumericInterval(char.MinValue, char.MaxValue);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private ImmutableArray<string> GetMissingNumericRangeCases(
+        ITypeSymbol scrutineeType,
+        ImmutableArray<BoundMatchArm> arms,
+        NumericInterval domain,
+        MatchExhaustivenessOptions options)
+    {
+        // Start with the full domain as the uncovered region.
+        var remaining = new List<NumericInterval> { domain };
+
+        foreach (var arm in arms)
+        {
+            if (remaining.Count == 0)
+                break;
+
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                continue;
+
+            if (options.IgnoreCatchAllPatterns && IsCatchAllPattern(scrutineeType, arm.Pattern))
+                continue;
+
+            // If any arm's pattern cannot be expressed as intervals, fall back to
+            // catch-all check (existing behavior).
+            if (!TryGetPatternIntervals(arm.Pattern, domain, out var covered))
+            {
+                // If catch-all, return empty (exhaustive)
+                if (IsCatchAllPattern(scrutineeType, arm.Pattern))
+                    return ImmutableArray<string>.Empty;
+
+                // Otherwise, we can't reason — fall back to requiring a catch-all.
+                var hasCatchAll = arms.Any(a => a.Guard is null && IsCatchAllPattern(scrutineeType, a.Pattern));
+                var hasCatchAllIgnoringOption = hasCatchAll && !options.IgnoreCatchAllPatterns;
+                return hasCatchAllIgnoringOption ? ImmutableArray<string>.Empty : ImmutableArray.Create("_");
+            }
+
+            foreach (var interval in covered)
+            {
+                var newRemaining = new List<NumericInterval>();
+                foreach (var r in remaining)
+                    newRemaining.AddRange(r.Subtract(interval));
+                remaining = newRemaining;
+            }
+        }
+
+        if (remaining.Count == 0)
+            return ImmutableArray<string>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<string>();
+        var isChar = scrutineeType.SpecialType == SpecialType.System_Char;
+
+        foreach (var r in remaining)
+        {
+            if (r.Low == r.High)
+                builder.Add(isChar ? $"'{(char)r.Low}'" : r.Low.ToString());
+            else if (r.Low == domain.Low)
+                builder.Add(isChar ? $"..'{(char)r.High}'" : $"..{r.High}");
+            else if (r.High == domain.High)
+                builder.Add(isChar ? $"'{(char)r.Low}'.." : $"{r.Low}..");
+            else
+                builder.Add(isChar ? $"'{(char)r.Low}'..'{(char)r.High}'" : $"{r.Low}..{r.High}");
+        }
+
+        return builder.ToImmutable();
+    }
+
+    /// <summary>
+    /// Tries to extract a list of numeric intervals that a pattern covers, given a domain.
+    /// Returns false if the pattern cannot be expressed as intervals (e.g., it's a type pattern).
+    /// </summary>
+    private static bool TryGetPatternIntervals(
+        BoundPattern pattern,
+        NumericInterval domain,
+        out IReadOnlyList<NumericInterval> intervals)
+    {
+        intervals = Array.Empty<NumericInterval>();
+
+        switch (pattern)
+        {
+            case BoundDiscardPattern:
+            case BoundDeclarationPattern { Designator: BoundDiscardDesignator }:
+                intervals = new[] { domain };
+                return true;
+
+            case BoundRangePattern range:
+            {
+                var low = range.LowerBound is not null
+                    ? TryExtractNumericValue(range.LowerBound, out var lo) ? lo : domain.Low
+                    : domain.Low;
+                var high = range.UpperBound is not null
+                    ? TryExtractNumericValue(range.UpperBound, out var hi) ? hi : domain.High
+                    : domain.High;
+                intervals = new[] { new NumericInterval(Math.Max(low, domain.Low), Math.Min(high, domain.High)) };
+                return true;
+            }
+
+            case BoundRelationalPattern relational:
+            {
+                if (!TryExtractNumericValue(relational.Value, out var v))
+                    return false;
+
+                var interval = relational.Operator switch
+                {
+                    BoundRelationalPatternOperator.GreaterThan => new NumericInterval(v + 1, domain.High),
+                    BoundRelationalPatternOperator.GreaterThanOrEqual => new NumericInterval(v, domain.High),
+                    BoundRelationalPatternOperator.LessThan => new NumericInterval(domain.Low, v - 1),
+                    BoundRelationalPatternOperator.LessThanOrEqual => new NumericInterval(domain.Low, v),
+                    _ => default
+                };
+                // Clamp to domain
+                if (interval.Low > interval.High || interval.Low > domain.High || interval.High < domain.Low)
+                    return true; // empty interval (valid but covers nothing)
+                intervals = new[] { new NumericInterval(Math.Max(interval.Low, domain.Low), Math.Min(interval.High, domain.High)) };
+                return true;
+            }
+
+            case BoundConstantPattern constant:
+            {
+                if (!TryExtractNumericValueFromConstantPattern(constant, out var v))
+                    return false;
+                if (v < domain.Low || v > domain.High)
+                    return true; // out of domain, covers nothing
+                intervals = new[] { new NumericInterval(v, v) };
+                return true;
+            }
+
+            case BoundOrPattern or:
+            {
+                if (!TryGetPatternIntervals(or.Left, domain, out var leftIntervals))
+                    return false;
+                if (!TryGetPatternIntervals(or.Right, domain, out var rightIntervals))
+                    return false;
+                var combined = new List<NumericInterval>(leftIntervals);
+                combined.AddRange(rightIntervals);
+                intervals = combined;
+                return true;
+            }
+
+            case BoundAndPattern and:
+            {
+                if (!TryGetPatternIntervals(and.Left, domain, out var leftIntervals))
+                    return false;
+                if (!TryGetPatternIntervals(and.Right, domain, out var rightIntervals))
+                    return false;
+                // Intersection of left and right interval sets
+                var intersection = new List<NumericInterval>();
+                foreach (var l in leftIntervals)
+                    foreach (var r in rightIntervals)
+                    {
+                        var lo = Math.Max(l.Low, r.Low);
+                        var hi = Math.Min(l.High, r.High);
+                        if (lo <= hi)
+                            intersection.Add(new NumericInterval(lo, hi));
+                    }
+                intervals = intersection;
+                return true;
+            }
+
+            case BoundNotPattern not:
+            {
+                if (!TryGetPatternIntervals(not.Pattern, domain, out var inner))
+                    return false;
+                // Complement: start from domain and subtract each inner interval
+                var complement = new List<NumericInterval> { domain };
+                foreach (var i in inner)
+                {
+                    var next = new List<NumericInterval>();
+                    foreach (var c in complement)
+                        next.AddRange(c.Subtract(i));
+                    complement = next;
+                }
+                intervals = complement;
+                return true;
+            }
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool TryExtractNumericValue(BoundExpression expr, out long value)
+    {
+        value = 0;
+
+        if (expr is BoundLiteralExpression lit)
+        {
+            try
+            {
+                value = Convert.ToInt64(lit.Value, System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        if (expr is BoundConstantPattern cp)
+            return TryExtractNumericValueFromConstantPattern(cp, out value);
+
+        return false;
+    }
+
+    private static bool TryExtractNumericValueFromConstantPattern(BoundConstantPattern constant, out long value)
+    {
+        value = 0;
+
+        if (constant.LiteralType?.ConstantValue is { } cv)
+        {
+            try
+            {
+                value = Convert.ToInt64(cv, System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     [Flags]
     private enum BooleanCoverage : byte
     {
@@ -890,4 +1160,45 @@ internal sealed class MatchExhaustivenessEvaluator
         True = 2,
         All = False | True,
     }
+}
+
+/// <summary>Represents an inclusive numeric interval [Low, High] for exhaustiveness coverage analysis.</summary>
+internal readonly struct NumericInterval
+{
+    public NumericInterval(long low, long high)
+    {
+        Low = low;
+        High = high;
+    }
+
+    public long Low { get; }
+    public long High { get; }
+
+    public bool IsEmpty => Low > High;
+
+    /// <summary>Subtracts <paramref name="other"/> from this interval, yielding 0, 1, or 2 remaining intervals.</summary>
+    public IReadOnlyList<NumericInterval> Subtract(NumericInterval other)
+    {
+        // No overlap → nothing removed
+        if (other.High < Low || other.Low > High)
+            return new[] { this };
+
+        // Other fully covers this → nothing remains
+        if (other.Low <= Low && other.High >= High)
+            return Array.Empty<NumericInterval>();
+
+        var result = new List<NumericInterval>(2);
+
+        // Left remainder
+        if (other.Low > Low)
+            result.Add(new NumericInterval(Low, other.Low - 1));
+
+        // Right remainder
+        if (other.High < High)
+            result.Add(new NumericInterval(other.High + 1, High));
+
+        return result;
+    }
+
+    public override string ToString() => Low == High ? $"{Low}" : $"{Low}..{High}";
 }

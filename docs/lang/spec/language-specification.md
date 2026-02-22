@@ -2099,6 +2099,32 @@ Patterns compose from the following primitives.
   Relational patterns are commonly used under `not`, `and`, and property patterns,
   e.g. `{ Age: not > 30 }`.
 
+### Range patterns
+
+A **range pattern** matches values that fall within a lower and/or upper bound using the `..` operator. Range patterns are valid when the scrutinee type is **orderable** (for example numeric types, `char`, or other types that support relational comparison).
+
+Both bounds are optional:
+
+* `lo..hi` — matches values greater than or equal to `lo` and less than or equal to `hi`.
+* `..hi` — matches values less than or equal to `hi`.
+* `lo..` — matches values greater than or equal to `lo`.
+
+Bounds are written as expressions, but the binder may restrict them to constant‑like values depending on context.
+
+```raven
+val value = 42
+
+val result = value match {
+    ..4 => "No"
+    40..43 => "Yes"
+    _ => "Other"
+}
+```
+
+Range patterns participate in exhaustiveness and subsumption analysis alongside relational patterns. They are treated as syntactic sugar for a conjunction of relational comparisons (for example `40..43` behaves like `>= 40 and <= 43`).
+
+> 🧭 **Disambiguation:** In pattern position, `..` introduces a range pattern rather than a range expression. The expression parser stops at `..` so the bounds are parsed independently.
+
 #### Positional patterns
 
 * `(element1, element2, …)` — **positional pattern**. Matches when the scrutinee
