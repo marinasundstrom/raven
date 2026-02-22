@@ -1,8 +1,0 @@
-import System.Console.*
-
-val flag = false
-
-flag match {
-    true => ()
-    false => WriteLine("Not a number")
-}

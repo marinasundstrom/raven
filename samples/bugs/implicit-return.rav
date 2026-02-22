@@ -1,0 +1,24 @@
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+WriteLine("Test")
+
+func A() -> Result<int, CustomError> {
+    if true {
+        Ok(123) 
+    } else {
+        Error(CustomError)
+    }
+}
+
+async func B() -> Task<Result<int, CustomError>> {
+    await Task.Delay(1)
+    if true {
+        Ok(123) 
+    } else {
+        Error(CustomError)
+    }
+}
+
+record CustomError()
