@@ -526,6 +526,9 @@ internal partial class BlockBinder
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
         inputType = inputType.GetPlainType();
 
+        if (inputType.TypeKind == TypeKind.Error)
+            return new BoundRangePattern(inputType, null, null, BoundExpressionReason.TypeMismatch);
+
         if (!IsOrderableType(inputType))
         {
             // Relational-pattern diagnostic reused for range patterns.

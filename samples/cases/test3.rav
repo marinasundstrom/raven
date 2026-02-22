@@ -1,0 +1,36 @@
+import System.*
+import System.Console.*
+import System.Linq.*
+
+func Main() -> Result<(), AppError> {
+    val persons = [
+        Person("Jane", "Doe", 1978)
+        Person("Alice", string.Empty, 1986)
+        Person("Bob", "Smith", 1968)
+        Person("Marina", "S", 1990)
+    ]
+
+    val current = persons.FirstOrError(
+        p => p.YearOfBirth is 1950..1960,
+        () => DomainError("No match"))?
+
+    WriteLine(current)
+
+    Ok
+}
+
+record Person(FirstName: string, LastName: string, YearOfBirth: int)
+
+record DomainError(Message: string) {
+    public override ToString() -> string => Message
+}
+
+record AppError(Message: string) {
+    public override ToString() -> string => "App error: ${Message}"
+}
+
+extension ErrorConverters for AppError {
+    public static implicit operator(value: DomainError) -> AppError {
+        return AppError(value.Message)
+    }
+}
