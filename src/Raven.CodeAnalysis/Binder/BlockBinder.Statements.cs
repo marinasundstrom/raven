@@ -118,10 +118,41 @@ partial class BlockBinder
             thenExpression.Type is { SpecialType: not SpecialType.System_Void and not SpecialType.System_Unit } &&
             elseExpression.Type is { SpecialType: not SpecialType.System_Void and not SpecialType.System_Unit })
         {
-            _diagnostics.ReportIfStatementValueIgnored(ifStmt.IfKeyword.GetLocation());
+            // If the if/else is the last statement in a value-returning function body, the
+            // implicit-return machinery (ImplicitReturnRewriter / codegen) will insert returns
+            // into each branch — no warning needed in that position.
+            if (!IsIfStatementImplicitReturn(ifStmt))
+            {
+                _diagnostics.ReportIfStatementValueIgnored(ifStmt.IfKeyword.GetLocation());
+            }
         }
 
         return new BoundIfStatement(condition, thenBound, elseBound);
+    }
+
+    private bool IsIfStatementImplicitReturn(IfStatementSyntax ifStmt)
+    {
+        if (_containingSymbol is not IMethodSymbol method)
+            return false;
+
+        var returnType = GetReturnTargetType(method);
+        if (returnType is null ||
+            returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+            return false;
+
+        if (ifStmt.Parent is not BlockStatementSyntax block)
+            return false;
+
+        if (block.Statements.Count == 0 || block.Statements.LastOrDefault() != ifStmt)
+            return false;
+
+        return block.Parent switch
+        {
+            BaseMethodDeclarationSyntax => true,
+            FunctionStatementSyntax => true,
+            AccessorDeclarationSyntax => true,
+            _ => false,
+        };
     }
 
     private static bool IsEarlyExitStatement(StatementSyntax statement)

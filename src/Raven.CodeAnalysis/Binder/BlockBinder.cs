@@ -6403,23 +6403,21 @@ partial class BlockBinder : Binder
             }
             else if (boundIdentifier is BoundTypeExpression { Type: INamedTypeSymbol namedType })
             {
+                // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
+                // Union case types are treated as plain type instantiations (not target-typed).
+                // But if the same case name exists in multiple unions in scope, report ambiguity.
                 if (namedType.TryGetDiscriminatedUnionCase() is not null)
                 {
-                    var contextualTargetType = GetTargetType(syntax);
-                    if (contextualTargetType is null || contextualTargetType.TypeKind == TypeKind.Error)
+                    var caseCandidates = LookupUnionCaseTypeCandidates(id.Identifier.ValueText);
+                    if (caseCandidates.Length > 1)
                     {
-                        var caseCandidates = LookupUnionCaseTypeCandidates(id.Identifier.ValueText);
-                        if (caseCandidates.Length > 1)
-                        {
-                            var first = caseCandidates[0].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-                            var second = caseCandidates[1].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-                            _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
-                            return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
-                        }
+                        var first = caseCandidates[0].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+                        var second = caseCandidates[1].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+                        _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
+                        return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
                     }
                 }
 
-                // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
                 return BindConstructorInvocation(namedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
             }
             else
@@ -6782,7 +6780,10 @@ partial class BlockBinder : Binder
     private ImmutableArray<INamedTypeSymbol> LookupUnionCaseTypeCandidates(string name, int? typeArgumentCount = null)
     {
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        // Track seen types by OriginalDefinition reference: the same case type can be found via
+        // multiple lookup paths (direct LookupSymbols + AddCasesFromUnionCarrier), and for source
+        // types the two paths may return different symbol instances for the same logical type.
+        var seenOriginalDefs = new HashSet<object>(ReferenceEqualityComparer.Instance);
 
         void AddCaseIfMatch(INamedTypeSymbol caseType)
         {
@@ -6795,7 +6796,9 @@ partial class BlockBinder : Binder
             if (typeArgumentCount is int expectedArity && caseType.Arity != expectedArity)
                 return;
 
-            if (seen.Add(caseType))
+            // Deduplicate by OriginalDefinition reference so that the same case type found
+            // via both LookupSymbols and AddCasesFromUnionCarrier is counted only once.
+            if (seenOriginalDefs.Add(caseType.OriginalDefinition))
                 builder.Add(caseType);
         }
 
@@ -6813,7 +6816,7 @@ partial class BlockBinder : Binder
                 if (typeArgumentCount is int expectedArity && caseType.Arity != expectedArity)
                     continue;
 
-                if (seen.Add(caseType))
+                if (seenOriginalDefs.Add(caseType.OriginalDefinition))
                     builder.Add(caseType);
             }
         }

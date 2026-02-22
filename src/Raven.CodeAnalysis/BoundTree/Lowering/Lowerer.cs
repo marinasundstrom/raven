@@ -29,8 +29,32 @@ internal sealed partial class Lowerer : BoundTreeRewriter
     {
         block = RewriteIteratorsIfNeeded(containingSymbol, block);
 
+        // Promote implicit returns (last expression or if/else in a value-returning method)
+        // before structural lowering so the lowered IL sees explicit BoundReturnStatements.
+        block = RewriteImplicitReturnIfNeeded(containingSymbol, block);
+
         var lowerer = CreateLowerer(containingSymbol);
         return (BoundBlockStatement)lowerer.VisitStatement(block);
+    }
+
+    private static BoundBlockStatement RewriteImplicitReturnIfNeeded(ISymbol symbol, BoundBlockStatement body)
+    {
+        ITypeSymbol? returnType = symbol switch
+        {
+            IMethodSymbol m => m.ReturnType,
+            _ => null
+        };
+
+        if (returnType is null)
+            return body;
+
+        if (symbol.ContainingAssembly is not SourceAssemblySymbol sourceAssembly)
+            return body;
+
+        var compilation = sourceAssembly.Compilation;
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+
+        return ImplicitReturnRewriter.RewriteIfNeeded(returnType, unitType, body);
     }
 
     public static BoundStatement LowerStatement(ISymbol containingSymbol, BoundStatement statement)

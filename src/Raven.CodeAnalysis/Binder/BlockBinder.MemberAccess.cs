@@ -748,11 +748,14 @@ partial class BlockBinder
         if (!typeSymbol.IsGenericType || typeSymbol.TypeParameters.IsDefaultOrEmpty)
             return false;
 
+        var typeParameters = typeSymbol.TypeParameters;
+
+        // PE generic type definitions have TypeArguments == [] (the open form uses TypeParameters
+        // as placeholders). Fall back to treating each type parameter as its own current argument
+        // so inference can still infer concrete types from constructor arguments.
         var originalTypeArguments = typeSymbol.TypeArguments;
         if (originalTypeArguments.IsDefaultOrEmpty)
-            return false;
-
-        var typeParameters = typeSymbol.TypeParameters;
+            originalTypeArguments = typeParameters.Cast<ITypeSymbol>().ToImmutableArray();
         var candidates = typeSymbol.Constructors;
         if (candidates.IsDefaultOrEmpty)
             return false;
