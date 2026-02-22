@@ -6411,8 +6411,7 @@ partial class BlockBinder : Binder
                     var caseCandidates = LookupUnionCaseTypeCandidates(id.Identifier.ValueText);
                     if (caseCandidates.Length > 1)
                     {
-                        var first = caseCandidates[0].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-                        var second = caseCandidates[1].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+                        var (first, second) = GetAmbiguousCaseDisplayNames(caseCandidates[0], caseCandidates[1]);
                         _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
                         return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
                     }
@@ -6435,8 +6434,7 @@ partial class BlockBinder : Binder
             var unionCaseCandidates = LookupUnionCaseTypeCandidates(generic.Identifier.ValueText, boundTypeArguments.Value.Length);
             if (unionCaseCandidates.Length > 1)
             {
-                var first = unionCaseCandidates[0].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-                var second = unionCaseCandidates[1].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+                var (first, second) = GetAmbiguousCaseDisplayNames(unionCaseCandidates[0], unionCaseCandidates[1]);
                 _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
                 return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
             }
@@ -6756,8 +6754,7 @@ partial class BlockBinder : Binder
         var unionCaseCandidates = LookupUnionCaseTypeCandidates(methodName);
         if (unionCaseCandidates.Length > 1)
         {
-            var first = unionCaseCandidates[0].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-            var second = unionCaseCandidates[1].ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
+            var (first, second) = GetAmbiguousCaseDisplayNames(unionCaseCandidates[0], unionCaseCandidates[1]);
             _diagnostics.ReportCallIsAmbiguous(first, second, callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
         }
@@ -10373,5 +10370,81 @@ partial class BlockBinder : Binder
                 results.Add(subtype);
             }
         }
+    }
+
+    private static (string First, string Second) GetAmbiguousCaseDisplayNames(
+        INamedTypeSymbol first, INamedTypeSymbol second)
+        => DiscriminatedUnionSymbolExtensions.FormatAmbiguousCasePair(first, second);
+
+    private INamedTypeSymbol? TryGetUnionCarrierForCase(INamedTypeSymbol caseType)
+    {
+        // Fast path: IDiscriminatedUnionCaseSymbol already holds a direct reference to its union.
+        if (caseType.TryGetDiscriminatedUnionCase() is { Union: INamedTypeSymbol directUnion })
+            return directUnion;
+
+        // Fallback: for nested cases, ContainingType is the union.
+        if (caseType.ContainingType is INamedTypeSymbol containingType)
+            return containingType;
+
+        // Non-nested cases: find the union carrier that declares this case.
+        var key = caseType.OriginalDefinition;
+
+        // Scan visible symbols first.
+        foreach (var symbol in LookupAvailableSymbols())
+        {
+            if (symbol is not INamedTypeSymbol namedType)
+                continue;
+
+            var union = namedType.TryGetDiscriminatedUnion();
+            if (union is null)
+                continue;
+
+            foreach (var c in union.Cases)
+            {
+                if (ReferenceEquals(c.OriginalDefinition, key))
+                    return namedType;
+            }
+        }
+
+        // Also scan import binders directly (explicit type imports / aliases may not surface via LookupAvailableSymbols).
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            if (current is not ImportBinder importBinder)
+                continue;
+
+            foreach (var importedType in importBinder.GetImportedTypes().OfType<INamedTypeSymbol>())
+            {
+                var union = importedType.TryGetDiscriminatedUnion();
+                if (union is not null)
+                {
+                    foreach (var c in union.Cases)
+                    {
+                        if (ReferenceEquals(c.OriginalDefinition, key))
+                            return importedType;
+                    }
+                }
+            }
+
+            foreach (var aliasList in importBinder.GetAliases().Values)
+            {
+                foreach (var aliasSymbol in aliasList)
+                {
+                    if (aliasSymbol.UnderlyingSymbol is not INamedTypeSymbol aliasNamedType)
+                        continue;
+
+                    var union = aliasNamedType.TryGetDiscriminatedUnion();
+                    if (union is null)
+                        continue;
+
+                    foreach (var c in union.Cases)
+                    {
+                        if (ReferenceEquals(c.OriginalDefinition, key))
+                            return aliasNamedType;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }

@@ -494,6 +494,89 @@ class C {
     }
 
     [Fact]
+    public void UnqualifiedCaseInvocation_AmbiguousDiagnosticMessage_IncludesUnionCarrierName()
+    {
+        // Verify that the ambiguity diagnostic message uses the carrier union name in the format
+        // "UnionName<TypeParams>.CaseName" rather than just "CaseName<TypeParams>".
+        const string source = """
+class C {
+    create() {
+        var value = Ok(42)
+    }
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+
+union Option<T> {
+    Ok(value: T)
+    None
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        _ = model.GetBoundNode(invocation);
+
+        var diagnostics = model.GetDiagnostics();
+        var ambiguousDiag = diagnostics.Single(d => d.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+        var message = ambiguousDiag.GetMessage();
+
+        // Both candidates should be displayed as "UnionName<TypeParams>.CaseName"
+        Assert.Contains("Result<T, E>.Ok", message, StringComparison.Ordinal);
+        Assert.Contains("Option<T>.Ok", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnqualifiedCaseInvocation_AmbiguousDiagnosticMessage_IncludesNamespaceWhenUnionNamesCollide()
+    {
+        // When two union carriers share the same short name but live in different namespaces,
+        // the diagnostic message should include the namespace to disambiguate.
+        const string source = """
+namespace A {
+    union Result<T, E> {
+        Ok(value: T)
+        Error(message: E)
+    }
+}
+
+namespace B {
+    union Result<T> {
+        Ok(value: T)
+        None
+    }
+}
+
+import A.Result<,>
+import B.Result<>
+
+class C {
+    create() {
+        var value = Ok(42)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        _ = model.GetBoundNode(invocation);
+
+        var diagnostics = model.GetDiagnostics();
+        var ambiguousDiag = diagnostics.Single(d => d.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+        var message = ambiguousDiag.GetMessage();
+
+        // Since both carriers are named 'Result', namespace must be included for disambiguation.
+        Assert.Contains("A.Result<T, E>.Ok", message, StringComparison.Ordinal);
+        Assert.Contains("B.Result<T>.Ok", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AliasToUnionCaseType_BindsAndConvertsToCarrier()
     {
         const string source = """

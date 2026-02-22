@@ -25,8 +25,3 @@ func classify(value: int) -> string {
         "zero"
     }
 }
-
-union Option<T> {
-    Some(value: T)
-    None
-}
