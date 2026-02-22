@@ -3936,6 +3936,11 @@ partial class BlockBinder : Binder
         var elseType = elseExpr.Type ?? Compilation.ErrorTypeSymbol;
 
         var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { thenType, elseType });
+        if (resultType is ITypeUnionSymbol &&
+            TryInferBestCommonType(thenType, elseType, out var bestCommonType))
+        {
+            resultType = bestCommonType;
+        }
 
         var targetType = GetTargetType(ifExpression);
         if (targetType is NullableTypeSymbol nullableTargetType)
@@ -3946,7 +3951,8 @@ partial class BlockBinder : Binder
             IsAssignable(targetType, thenType, out _) &&
             IsAssignable(targetType, elseType, out _))
         {
-            resultType = targetType;
+            if (!ShouldPreferInferredResultType(resultType, targetType))
+                resultType = targetType;
         }
 
         thenExpr = ConvertIfNeeded(resultType, thenExpr, ifExpression.Expression);
@@ -3973,6 +3979,47 @@ partial class BlockBinder : Binder
             }
 
             return ApplyConversion(expression, target, conversion, syntax);
+        }
+
+        static bool ShouldPreferInferredResultType(ITypeSymbol inferredType, ITypeSymbol targetType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(inferredType, targetType))
+                return false;
+
+            if (targetType is ITypeParameterSymbol && inferredType is not ITypeParameterSymbol)
+                return true;
+
+            if (targetType is not INamedTypeSymbol targetNamed ||
+                inferredType is not INamedTypeSymbol inferredNamed ||
+                targetNamed.TypeArguments.IsDefaultOrEmpty ||
+                inferredNamed.TypeArguments.IsDefaultOrEmpty ||
+                targetNamed.TypeArguments.Length != inferredNamed.TypeArguments.Length)
+            {
+                return false;
+            }
+
+            var targetDefinition = targetNamed.OriginalDefinition as INamedTypeSymbol ?? targetNamed;
+            var inferredDefinition = inferredNamed.OriginalDefinition as INamedTypeSymbol ?? inferredNamed;
+            if (!SymbolEqualityComparer.Default.Equals(targetDefinition, inferredDefinition))
+                return false;
+
+            var targetHasPlaceholder = false;
+            var inferredIsMoreConcrete = false;
+
+            for (var i = 0; i < targetNamed.TypeArguments.Length; i++)
+            {
+                var targetArgument = targetNamed.TypeArguments[i];
+                var inferredArgument = inferredNamed.TypeArguments[i];
+
+                if (targetArgument is ITypeParameterSymbol)
+                {
+                    targetHasPlaceholder = true;
+                    if (inferredArgument is not ITypeParameterSymbol)
+                        inferredIsMoreConcrete = true;
+                }
+            }
+
+            return targetHasPlaceholder && inferredIsMoreConcrete;
         }
     }
 
@@ -8535,13 +8582,326 @@ partial class BlockBinder : Binder
         if (SymbolEqualityComparer.Default.Equals(current, candidate))
             return current;
 
-        if (IsAssignable(current, candidate, out _))
-            return current;
-
-        if (IsAssignable(candidate, current, out _))
-            return candidate;
+        if (TryInferBestCommonType(current, candidate, out var bestCommonType))
+            return bestCommonType;
 
         return Compilation.GetSpecialType(SpecialType.System_Object);
+    }
+
+    private bool TryInferBestCommonType(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol bestCommonType)
+    {
+        bestCommonType = Compilation.ErrorTypeSymbol;
+
+        if (left.TypeKind == TypeKind.Error || right.TypeKind == TypeKind.Error)
+            return false;
+
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+        {
+            bestCommonType = left;
+            return true;
+        }
+
+        if (IsAssignable(left, right, out _))
+        {
+            bestCommonType = left;
+            return true;
+        }
+
+        if (IsAssignable(right, left, out _))
+        {
+            bestCommonType = right;
+            return true;
+        }
+
+        if (TryFindCompatibleDiscriminatedUnionCarrier(left, right, out var discriminatedUnionCarrier))
+        {
+            bestCommonType = discriminatedUnionCarrier;
+            return true;
+        }
+
+        if (TryFindCommonImplicitConversionTarget(left, right, out var conversionTarget))
+        {
+            bestCommonType = conversionTarget;
+            return true;
+        }
+
+        if (TryFindCommonBaseType(left, right, out var commonBase))
+        {
+            bestCommonType = commonBase;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryFindCompatibleDiscriminatedUnionCarrier(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol carrierType)
+    {
+        carrierType = null!;
+
+        if (!TryGetDiscriminatedUnionCarrier(left, out var leftCarrier) ||
+            !TryGetDiscriminatedUnionCarrier(right, out var rightCarrier))
+        {
+            return false;
+        }
+
+        if (!TryMergeCompatibleNamedTypes(leftCarrier, rightCarrier, out var mergedCarrier))
+            return false;
+
+        carrierType = mergedCarrier;
+        return true;
+    }
+
+    private static bool TryGetDiscriminatedUnionCarrier(ITypeSymbol sourceType, out INamedTypeSymbol carrierType)
+    {
+        carrierType = null!;
+
+        if (sourceType.TryGetDiscriminatedUnion() is INamedTypeSymbol unionType)
+        {
+            carrierType = unionType;
+            return true;
+        }
+
+        var caseSymbol = sourceType.TryGetDiscriminatedUnionCase();
+        if (caseSymbol is null)
+            return false;
+
+        var caseType = sourceType as INamedTypeSymbol;
+        if (caseType is not null &&
+            TryProjectDiscriminatedUnionFromCaseArguments(caseType, caseSymbol, out var projectedCarrier))
+        {
+            carrierType = projectedCarrier;
+            return true;
+        }
+
+        if (caseSymbol.Union is INamedTypeSymbol caseUnion)
+        {
+            carrierType = caseUnion;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryProjectDiscriminatedUnionFromCaseArguments(
+        INamedTypeSymbol caseType,
+        IDiscriminatedUnionCaseSymbol caseSymbol,
+        out INamedTypeSymbol projectedCarrier)
+    {
+        projectedCarrier = null!;
+
+        if (caseType.TypeArguments.IsDefaultOrEmpty)
+            return false;
+
+        var caseDefinition = caseSymbol.OriginalDefinition as IDiscriminatedUnionCaseSymbol ?? caseSymbol;
+        if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
+            caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
+            caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length)
+        {
+            return false;
+        }
+
+        var unionDefinition = caseDefinition.Union.OriginalDefinition as INamedTypeSymbol ?? caseDefinition.Union as INamedTypeSymbol;
+        if (unionDefinition is null || unionDefinition.TypeParameters.IsDefaultOrEmpty)
+            return false;
+
+        var unionArguments = unionDefinition.TypeParameters
+            .Select(typeParameter => (ITypeSymbol)typeParameter)
+            .ToArray();
+
+        var changed = false;
+
+        for (var i = 0; i < caseDefinitionNamed.TypeParameters.Length; i++)
+        {
+            var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
+            ITypeParameterSymbol? mappedUnionTypeParameter = null;
+
+            if (caseDefinition is SourceDiscriminatedUnionCaseTypeSymbol sourceCaseDefinition &&
+                sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
+            {
+                mappedUnionTypeParameter = mapped;
+            }
+            else
+            {
+                mappedUnionTypeParameter = unionDefinition.TypeParameters
+                    .FirstOrDefault(tp => string.Equals(tp.Name, caseTypeParameter.Name, StringComparison.Ordinal));
+            }
+
+            if (mappedUnionTypeParameter is null)
+                continue;
+
+            var unionIndex = -1;
+            for (var unionParameterIndex = 0; unionParameterIndex < unionDefinition.TypeParameters.Length; unionParameterIndex++)
+            {
+                if (SymbolEqualityComparer.Default.Equals(unionDefinition.TypeParameters[unionParameterIndex], mappedUnionTypeParameter))
+                {
+                    unionIndex = unionParameterIndex;
+                    break;
+                }
+            }
+
+            if (unionIndex < 0 || unionIndex >= unionArguments.Length)
+                continue;
+
+            unionArguments[unionIndex] = caseType.TypeArguments[i];
+            changed = true;
+        }
+
+        if (!changed)
+            return false;
+
+        projectedCarrier = (INamedTypeSymbol)unionDefinition.Construct(unionArguments);
+        return true;
+    }
+
+    private static bool TryMergeCompatibleNamedTypes(INamedTypeSymbol left, INamedTypeSymbol right, out INamedTypeSymbol merged)
+    {
+        merged = left;
+
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        var leftDefinition = left.OriginalDefinition as INamedTypeSymbol ?? left;
+        var rightDefinition = right.OriginalDefinition as INamedTypeSymbol ?? right;
+        if (!SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition))
+            return false;
+
+        if (left.TypeArguments.IsDefaultOrEmpty && right.TypeArguments.IsDefaultOrEmpty)
+        {
+            merged = left;
+            return true;
+        }
+
+        if (left.TypeArguments.Length != right.TypeArguments.Length)
+            return false;
+
+        var mergedArguments = new ITypeSymbol[left.TypeArguments.Length];
+        var changed = false;
+
+        for (var i = 0; i < mergedArguments.Length; i++)
+        {
+            var leftArgument = left.TypeArguments[i];
+            var rightArgument = right.TypeArguments[i];
+
+            if (SymbolEqualityComparer.Default.Equals(leftArgument, rightArgument))
+            {
+                mergedArguments[i] = leftArgument;
+                continue;
+            }
+
+            if (leftArgument is ITypeParameterSymbol && rightArgument is not ITypeParameterSymbol)
+            {
+                mergedArguments[i] = rightArgument;
+                changed = true;
+                continue;
+            }
+
+            if (rightArgument is ITypeParameterSymbol && leftArgument is not ITypeParameterSymbol)
+            {
+                mergedArguments[i] = leftArgument;
+                continue;
+            }
+
+            return false;
+        }
+
+        if (!changed)
+        {
+            merged = left;
+            return true;
+        }
+
+        merged = (INamedTypeSymbol)leftDefinition.Construct(mergedArguments);
+        return true;
+    }
+
+    private bool TryFindCommonBaseType(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol commonBase)
+    {
+        commonBase = Compilation.ErrorTypeSymbol;
+
+        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed)
+            return false;
+
+        var rightBases = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        for (var current = rightNamed; current is not null; current = current.BaseType)
+            rightBases.Add(current);
+
+        for (var current = leftNamed; current is not null; current = current.BaseType)
+        {
+            if (!rightBases.Contains(current))
+                continue;
+
+            if (IsAssignable(current, left, out _) && IsAssignable(current, right, out _))
+            {
+                commonBase = current;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryFindCommonImplicitConversionTarget(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol targetType)
+    {
+        targetType = Compilation.ErrorTypeSymbol;
+
+        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed)
+            return false;
+
+        var leftTargets = GetImplicitConversionTargets(leftNamed);
+        var rightTargets = GetImplicitConversionTargets(rightNamed);
+        if (leftTargets.Count == 0 || rightTargets.Count == 0)
+            return false;
+
+        var sharedTargets = leftTargets
+            .Where(candidate => rightTargets.Any(other => SymbolEqualityComparer.Default.Equals(candidate, other)))
+            .ToList();
+
+        if (sharedTargets.Count == 0)
+            return false;
+
+        // Prefer the most specific shared target by discarding candidates that implicitly convert to another.
+        ITypeSymbol? best = null;
+        foreach (var candidate in sharedTargets)
+        {
+            if (!IsAssignable(candidate, left, out _) || !IsAssignable(candidate, right, out _))
+                continue;
+
+            if (best is null)
+            {
+                best = candidate;
+                continue;
+            }
+
+            if (IsAssignable(best, candidate, out _) && !IsAssignable(candidate, best, out _))
+                best = candidate;
+        }
+
+        if (best is null)
+            return false;
+
+        targetType = best;
+        return true;
+    }
+
+    private static List<ITypeSymbol> GetImplicitConversionTargets(INamedTypeSymbol sourceType)
+    {
+        var targets = new List<ITypeSymbol>();
+
+        foreach (var method in sourceType.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (!method.IsStatic ||
+                method.MethodKind is not MethodKind.Conversion ||
+                !string.Equals(method.Name, "op_Implicit", StringComparison.Ordinal) ||
+                method.Parameters.Length != 1)
+            {
+                continue;
+            }
+
+            if (!targets.Any(existing => SymbolEqualityComparer.Default.Equals(existing, method.ReturnType)))
+                targets.Add(method.ReturnType);
+        }
+
+        return targets;
     }
 
     private bool TryGetIEnumerableElementType(INamedTypeSymbol targetType, out ITypeSymbol elementType)

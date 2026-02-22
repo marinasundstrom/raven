@@ -250,6 +250,240 @@ class Container {
     }
 
     [Fact]
+    public void Lambda_InGenericLinqSelect_QualifiedUnionCases_InfersUnionType()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+
+public union Option<T> {
+    Some(value: T)
+    None
+}
+
+class Container {
+    Run() -> unit {
+        val arr = [1, -1, 3]
+        val result = arr.Select(n => if n < 0 {
+            Option<int>.None
+        } else {
+            Option<int>.Some(n * 2)
+        })
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var resultDeclarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(d => d.Identifier.Text == "result");
+
+        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var elementType = Assert.Single(resultType.TypeArguments);
+
+        Assert.IsNotType<ITypeUnionSymbol>(elementType);
+
+        var expectedOption = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Option`1"))
+            .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(expectedOption, elementType),
+            $"Expected: {expectedOption.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}, Actual: {elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+    }
+
+    [Fact]
+    public void Lambda_InGenericLinqSelect_QualifiedResultCases_InfersResultType()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+
+public union Result<T, E> {
+    Ok(value: T)
+    Error(data: E)
+}
+
+class Container {
+    Run() -> unit {
+        val arr = [1, -1, 3]
+        val result = arr.Select(n => if n < 0 {
+            Result<int, string>.Error("neg")
+        } else {
+            Result<int, string>.Ok(n * 2)
+        })
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var resultDeclarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(d => d.Identifier.Text == "result");
+
+        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var elementType = Assert.Single(resultType.TypeArguments);
+
+        Assert.IsNotType<ITypeUnionSymbol>(elementType);
+
+        var expectedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Result`2"))
+            .Construct(
+                compilation.GetSpecialType(SpecialType.System_Int32),
+                compilation.GetSpecialType(SpecialType.System_String));
+
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(expectedResult, elementType),
+            $"Expected: {expectedResult.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}, Actual: {elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+    }
+
+    [Fact]
+    public void Lambda_InGenericLinqSelect_QualifiedCustomUnionCases_InfersCarrierType()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+
+public union Response<T, E> {
+    Success(value: T)
+    Failure(error: E)
+}
+
+class Container {
+    Run() -> unit {
+        val arr = [1, -1, 3]
+        val result = arr.Select(n => if n < 0 {
+            Response<int, string>.Failure("neg")
+        } else {
+            Response<int, string>.Success(n * 2)
+        })
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var resultDeclarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(d => d.Identifier.Text == "result");
+
+        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var elementType = Assert.Single(resultType.TypeArguments);
+
+        Assert.IsNotType<ITypeUnionSymbol>(elementType);
+
+        var expectedResponse = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Response`2"))
+            .Construct(
+                compilation.GetSpecialType(SpecialType.System_Int32),
+                compilation.GetSpecialType(SpecialType.System_String));
+
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(expectedResponse, elementType),
+            $"Expected: {expectedResponse.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}, Actual: {elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+    }
+
+    [Fact]
+    public void Lambda_InGenericLinqSelect_SiblingClasses_InfersCommonBaseType()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+
+class Container {
+    Run() -> unit {
+        val arr = [1, -1, 3]
+        val result = arr.Select(n => if n < 0 {
+            InvalidOperationException()
+        } else {
+            ApplicationException()
+        })
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var resultDeclarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(d => d.Identifier.Text == "result");
+
+        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var elementType = Assert.Single(resultType.TypeArguments);
+
+        var expectedException = compilation.GetTypeByMetadataName("System.Exception");
+        Assert.NotNull(expectedException);
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(expectedException, elementType),
+            $"Expected: {expectedException!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}, Actual: {elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+    }
+
+    [Fact]
+    public void Lambda_InGenericLinqSelect_ImplicitOperatorTargets_InfersBestCommonType()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+
+class A {
+    public static implicit operator(value: A) -> string { return "a" }
+}
+
+class B {
+    public static implicit operator(value: B) -> string { return "b" }
+}
+
+class Container {
+    Run() -> unit {
+        val arr = [1, -1, 3]
+        val result = arr.Select(n => if n < 0 { A() } else { B() })
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var resultDeclarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(d => d.Identifier.Text == "result");
+
+        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var elementType = Assert.Single(resultType.TypeArguments);
+        var expectedString = compilation.GetSpecialType(SpecialType.System_String);
+
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(expectedString, elementType),
+            $"Expected: {expectedString.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}, Actual: {elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+    }
+
+    [Fact]
     public void Lambda_InGenericLinqWhere_AllowsMemberAccessOnConcreteRecordType()
     {
         const string code = """

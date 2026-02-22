@@ -2783,6 +2783,9 @@ internal class MethodBodyGenerator
         // downstream emitters can load and store them.
         DeclareLocals(blockScope, block);
 
+        var effectiveReturnType = GetEffectiveReturnTypeForEmission();
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
         for (var i = 0; i < statements.Count; i++)
         {
             var statement = statements[i];
@@ -2793,10 +2796,9 @@ internal class MethodBodyGenerator
             // expression, while still emitting any required boxing.
             if (treatAsMethodBody && includeImplicitReturn &&
                 i == statements.Count - 1 &&
-                GetEffectiveReturnTypeForEmission().SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
-                statement is BoundExpressionStatement exprStmt)
+                ImplicitReturnRewriter.IsImplicitReturnCandidate(effectiveReturnType, unitType, block, out var implicitReturnStmt))
             {
-                var returnStatement = new BoundReturnStatement(exprStmt.Expression);
+                var returnStatement = new BoundReturnStatement(implicitReturnStmt.Expression);
                 new StatementGenerator(blockScope, returnStatement).Emit();
                 return;
             }

@@ -118,16 +118,11 @@ internal static class TypeSymbolNormalization
         if (members.IsDefaultOrEmpty)
             return false;
 
-        IDiscriminatedUnionSymbol? discriminatedUnion = null;
+        INamedTypeSymbol? discriminatedUnion = null;
 
         foreach (var member in members)
         {
-            var caseSymbol = member.TryGetDiscriminatedUnionCase();
-            if (caseSymbol is null)
-                return false;
-
-            var currentUnion = UnwrapAlias(caseSymbol.Union) as IDiscriminatedUnionSymbol;
-            if (currentUnion is null)
+            if (!TryGetContainingDiscriminatedUnion(member, out var currentUnion))
                 return false;
 
             if (discriminatedUnion is null)
@@ -136,12 +131,191 @@ internal static class TypeSymbolNormalization
             }
             else if (!SymbolEqualityComparer.Default.Equals(discriminatedUnion, currentUnion))
             {
-                return false;
+                var leftDefinition = discriminatedUnion.OriginalDefinition as INamedTypeSymbol ?? discriminatedUnion;
+                var rightDefinition = currentUnion.OriginalDefinition as INamedTypeSymbol ?? currentUnion;
+                if (!SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition))
+                    return false;
+
+                if (!TryMergeConstructedUnion(discriminatedUnion, currentUnion, out var mergedUnion))
+                    return false;
+
+                discriminatedUnion = mergedUnion;
             }
         }
 
         result = discriminatedUnion as ITypeSymbol;
         return result is not null;
+    }
+
+    private static bool TryMergeConstructedUnion(INamedTypeSymbol left, INamedTypeSymbol right, out INamedTypeSymbol merged)
+    {
+        merged = left;
+
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        var leftDefinition = left.OriginalDefinition as INamedTypeSymbol ?? left;
+        var rightDefinition = right.OriginalDefinition as INamedTypeSymbol ?? right;
+        if (!SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition))
+            return false;
+
+        if (left.TypeArguments.IsDefaultOrEmpty && right.TypeArguments.IsDefaultOrEmpty)
+        {
+            merged = left;
+            return true;
+        }
+
+        if (left.TypeArguments.Length != right.TypeArguments.Length)
+            return false;
+
+        var mergedArguments = new ITypeSymbol[left.TypeArguments.Length];
+        var changed = false;
+
+        for (var i = 0; i < mergedArguments.Length; i++)
+        {
+            var leftArgument = left.TypeArguments[i];
+            var rightArgument = right.TypeArguments[i];
+
+            if (SymbolEqualityComparer.Default.Equals(leftArgument, rightArgument))
+            {
+                mergedArguments[i] = leftArgument;
+                continue;
+            }
+
+            if (leftArgument is ITypeParameterSymbol && rightArgument is not ITypeParameterSymbol)
+            {
+                mergedArguments[i] = rightArgument;
+                changed = true;
+                continue;
+            }
+
+            if (rightArgument is ITypeParameterSymbol && leftArgument is not ITypeParameterSymbol)
+            {
+                mergedArguments[i] = leftArgument;
+                continue;
+            }
+
+            return false;
+        }
+
+        if (!changed)
+        {
+            merged = left;
+            return true;
+        }
+
+        merged = (INamedTypeSymbol)leftDefinition.Construct(mergedArguments);
+        return true;
+    }
+
+    private static bool TryGetContainingDiscriminatedUnion(ITypeSymbol member, out INamedTypeSymbol? union)
+    {
+        union = null;
+
+        var caseSymbol = member.TryGetDiscriminatedUnionCase();
+        if (caseSymbol is not null)
+        {
+            if (member is INamedTypeSymbol caseNamed &&
+                TryProjectUnionFromCaseArguments(caseNamed, caseSymbol, out var projectedUnion))
+            {
+                union = projectedUnion;
+                return true;
+            }
+
+            union = UnwrapAlias(caseSymbol.Union) as INamedTypeSymbol;
+            if (union is not null)
+                return true;
+        }
+
+        if (member is not INamedTypeSymbol namedMember)
+            return false;
+
+        if (namedMember.ContainingType is not INamedTypeSymbol containingType)
+            return false;
+
+        var containingUnion = UnwrapAlias(containingType).TryGetDiscriminatedUnion() as INamedTypeSymbol;
+        if (containingUnion is null)
+            return false;
+
+        if (containingUnion is not IDiscriminatedUnionSymbol discriminatedUnionSymbol)
+            return false;
+
+        if (!discriminatedUnionSymbol.Cases.Any(@case => string.Equals(@case.Name, namedMember.Name, System.StringComparison.Ordinal)))
+            return false;
+
+        union = containingType;
+        return true;
+    }
+
+    private static bool TryProjectUnionFromCaseArguments(
+        INamedTypeSymbol caseType,
+        IDiscriminatedUnionCaseSymbol caseSymbol,
+        out INamedTypeSymbol? projectedUnion)
+    {
+        projectedUnion = null;
+
+        if (caseType.TypeArguments.IsDefaultOrEmpty)
+            return false;
+
+        var caseDefinition = caseSymbol.OriginalDefinition as IDiscriminatedUnionCaseSymbol ?? caseSymbol;
+        if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
+            caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
+            caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length)
+        {
+            return false;
+        }
+
+        var unionDefinition = caseDefinition.Union.OriginalDefinition as INamedTypeSymbol ?? caseDefinition.Union as INamedTypeSymbol;
+        if (unionDefinition is null || unionDefinition.TypeParameters.IsDefaultOrEmpty)
+            return false;
+
+        var unionTypeArguments = unionDefinition.TypeParameters
+            .Select(typeParameter => (ITypeSymbol)typeParameter)
+            .ToArray();
+
+        var changed = false;
+
+        for (var i = 0; i < caseDefinitionNamed.TypeParameters.Length; i++)
+        {
+            var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
+            var unionTypeParameter = default(ITypeParameterSymbol);
+
+            if (caseDefinition is SourceDiscriminatedUnionCaseTypeSymbol sourceCaseDefinition &&
+                sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
+            {
+                unionTypeParameter = mapped;
+            }
+            else
+            {
+                unionTypeParameter = unionDefinition.TypeParameters
+                    .FirstOrDefault(tp => string.Equals(tp.Name, caseTypeParameter.Name, System.StringComparison.Ordinal));
+            }
+
+            if (unionTypeParameter is null)
+                continue;
+
+            var unionIndex = -1;
+            for (var unionParameterIndex = 0; unionParameterIndex < unionDefinition.TypeParameters.Length; unionParameterIndex++)
+            {
+                if (SymbolEqualityComparer.Default.Equals(unionDefinition.TypeParameters[unionParameterIndex], unionTypeParameter))
+                {
+                    unionIndex = unionParameterIndex;
+                    break;
+                }
+            }
+
+            if (unionIndex < 0 || unionIndex >= unionTypeArguments.Length)
+                continue;
+
+            unionTypeArguments[unionIndex] = caseType.TypeArguments[i];
+            changed = true;
+        }
+
+        if (!changed)
+            return false;
+
+        projectedUnion = (INamedTypeSymbol)unionDefinition.Construct(unionTypeArguments);
+        return true;
     }
 
     private static bool TryCollapseToNullable(
