@@ -16,11 +16,11 @@ func describe(result: Result<int, string>) -> string {
     val errorCode = 5
 
     return result match {
-        .Success(42) => "Yay!"
-        .Success(val value) => "Result: '$value'"
-        .Error(2, val error) => "$error (!!!)"
-        .Error(errorCode, val error) => "$error (???)"
-        .Error(val code, val error) => "Error $code: $error"
+        Success(42) => "Yay!"
+        Success(val value) => "Result: '$value'"
+        Error(2, val error) => "$error (!!!)"
+        Error(errorCode, val error) => "$error (???)"
+        Error(val code, val error) => "Error $code: $error"
     }
 }
 
