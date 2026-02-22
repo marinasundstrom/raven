@@ -569,7 +569,7 @@ internal class PatternSyntaxParser : SyntaxParser
         ExpressionSyntax? upperBound = null;
         if (CanStartRangeBoundExpression(PeekToken()))
         {
-            upperBound = new ExpressionSyntaxParser(this).ParseExpression();
+            upperBound = new ExpressionSyntaxParser(this, allowLambdaExpressions: false).ParseExpression();
         }
 
         return RangePattern(lowerBound, dotDotToken, upperBound);

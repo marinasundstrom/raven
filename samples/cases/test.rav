@@ -1,0 +1,26 @@
+import System.Console.*
+import System.Linq.*
+
+val persons = [
+    Person("Jane", "Doe", 1978)
+    Person("Alice", string.Empty, 1986)
+    Person("Bob", "Smith", 1968)
+    Person("Marina", "S", 1990)
+]
+
+val selectGroup = persons.Where(p => p.YearOfBirth is 1980..1990)
+
+for p in selectGroup {
+    WriteLine(p)
+}
+
+func IsEligible(person: Person, lower: int, upper: int) -> bool
+    match person.YearOfBirth {
+        lower..upper => true
+        _ => false
+    }
+}
+
+WriteLine("Is eligible: ${IsEligible(persons[0], 1980, 1990)}")
+
+record Person(FirstName: string, LastName: string, YearOfBirth: int)
