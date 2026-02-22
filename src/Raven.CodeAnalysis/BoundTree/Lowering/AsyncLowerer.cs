@@ -232,12 +232,13 @@ internal static class AsyncLowerer
         var compilation = GetCompilation(symbol);
         if (!compilation.Options.UseRuntimeAsync)
         {
-            // For state-machine async, keep `use` declarations as locals that are hoisted and
-            // disposed by the async rewriter. Rewriting `use` into try/finally here causes
-            // suspension returns to run finally blocks early and dispose resources too soon.
             var preStateMachineMatchLowerer = new AsyncMatchLowerer(symbol);
             var preStateMachineMatchLowered = preStateMachineMatchLowerer.Rewrite(body);
-            return preStateMachineMatchLowered;
+
+            // For state-machine async we must still preserve implicit returns (last expression in a block)
+            // without lowering `use` declarations into try/finally (which would dispose too early on suspension).
+            var withImplicitReturn = RewriteImplicitReturnIfNeeded(symbol, preStateMachineMatchLowered);
+            return withImplicitReturn;
         }
 
         var hadUsingDeclaration = ContainsUsingDeclaration(body);
@@ -258,6 +259,48 @@ internal static class AsyncLowerer
             return withMatchLowered;
 
         return Lowerer.LowerBlock(symbol, withMatchLowered);
+    }
+
+    private static BoundBlockStatement RewriteImplicitReturnIfNeeded(ISymbol symbol, BoundBlockStatement body)
+    {
+        ITypeSymbol? returnType = symbol switch
+        {
+            IMethodSymbol m => m.ReturnType,
+            _ => null
+        };
+
+        if (returnType is null)
+            return body;
+
+        if (returnType.SpecialType == SpecialType.System_Void)
+            return body;
+
+        var compilation = GetCompilation(symbol);
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+        if (SymbolEqualityComparer.Default.Equals(returnType, unitType))
+            return body;
+
+        if (!body.Statements.Any())
+            return body;
+
+        var lastIndex = body.Statements.Count() - 1;
+        var last = body.Statements.ElementAt(lastIndex);
+
+        if (last is BoundExpressionStatement exprStmt)
+        {
+            var expr = exprStmt.Expression;
+            if (expr?.Type is { } exprType &&
+                exprType.TypeKind != TypeKind.Error &&
+                !SymbolEqualityComparer.Default.Equals(exprType, unitType))
+            {
+                var statements = body.Statements.ToList();
+                statements[lastIndex] = new BoundReturnStatement(expr);
+
+                return new BoundBlockStatement(statements, body.LocalsToDispose);
+            }
+        }
+
+        return body;
     }
 
     private static bool ContainsUsingDeclaration(BoundBlockStatement block)
