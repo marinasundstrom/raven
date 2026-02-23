@@ -19,7 +19,9 @@ internal sealed record ForIterationInfo(
     IMethodSymbol? GetEnumeratorMethod = null,
     IMethodSymbol? MoveNextMethod = null,
     IMethodSymbol? CurrentGetter = null,
-    BoundRangeExpression? Range = null)
+    BoundRangeExpression? Range = null,
+    BoundExpression? RangeStart = null,
+    BoundExpression? RangeEnd = null)
 {
     public static ForIterationInfo ForArray(IArrayTypeSymbol arrayType) =>
         new(ForIterationKind.Array, arrayType.ElementType, arrayType);
@@ -46,6 +48,10 @@ internal sealed record ForIterationInfo(
         IMethodSymbol? currentGetter = null) =>
         new(ForIterationKind.NonGeneric, elementType, null, null, null, getEnumeratorMethod, moveNextMethod, currentGetter);
 
-    public static ForIterationInfo ForRange(Compilation compilation, BoundRangeExpression range) =>
-        new(ForIterationKind.Range, compilation.GetSpecialType(SpecialType.System_Int32), Range: range);
+    public static ForIterationInfo ForRange(
+        ITypeSymbol elementType,
+        BoundExpression start,
+        BoundExpression end,
+        BoundRangeExpression? range = null) =>
+        new(ForIterationKind.Range, elementType, Range: range, RangeStart: start, RangeEnd: end);
 }

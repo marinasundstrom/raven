@@ -1762,9 +1762,10 @@ Both forms still enumerate the collection but do not introduce a new binding.
 Like other looping constructs, a `for` expression evaluates to `()`.
 
 When the collection is a range with explicit, from-start bounds, the loop
-iterates over `int` values beginning at the range's lower bound and stopping
-before the upper bound. Omitting the start defaults it to `0`, while omitting
-the end or using from-end bounds in a `for` expression reports a diagnostic.
+iterates over integral, `char`, or `decimal` values beginning at the range's
+lower bound and continuing through the upper bound (inclusive). Omitting the
+start defaults it to `0`, while omitting the end or using from-end bounds in a
+`for` expression reports a diagnostic.
 
 ### `break` and `continue`
 

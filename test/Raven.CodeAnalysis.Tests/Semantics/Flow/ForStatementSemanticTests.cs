@@ -2,8 +2,8 @@ using System;
 using System.Linq;
 
 using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
 using Shouldly;
@@ -129,11 +129,69 @@ for i in 1.. {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        diagnostics.Select(d => d.Descriptor).ShouldBe(new[]
-        {
-            CompilerDiagnostics.CannotConvertFromTypeToType,
-            CompilerDiagnostics.CannotConvertFromTypeToType,
-        });
+        diagnostics.Select(d => d.Id).ShouldContain("RAV1503");
+    }
+
+    [Fact]
+    public void ForRange_WithCharBounds_UsesCharIterationType()
+    {
+        const string source = """
+for c in 'a'..'z' {
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+
+        boundFor.Iteration.Kind.ShouldBe(ForIterationKind.Range);
+        boundFor.Iteration.ElementType.SpecialType.ShouldBe(SpecialType.System_Char);
+    }
+
+    [Fact]
+    public void ForRange_WithDecimalBounds_UsesDecimalIterationType()
+    {
+        const string source = """
+val start: decimal = 1
+val end: decimal = 3
+
+for value in start..end {
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+
+        boundFor.Iteration.Kind.ShouldBe(ForIterationKind.Range);
+        boundFor.Iteration.ElementType.SpecialType.ShouldBe(SpecialType.System_Decimal);
+    }
+
+    [Fact]
+    public void ForRange_WithUnsupportedBoundaryType_ReportsDiagnostic()
+    {
+        const string source = """
+for value in true..false {
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.Select(d => d.Id).ShouldContain("RAV1503");
     }
 
     [Fact]

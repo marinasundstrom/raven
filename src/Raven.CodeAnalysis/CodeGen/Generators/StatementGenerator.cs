@@ -429,10 +429,14 @@ internal class StatementGenerator : Generator
 
         if (iteration.Kind == ForIterationKind.Range)
         {
-            var range = iteration.Range ?? forStatement.Collection as BoundRangeExpression
-                ?? throw new InvalidOperationException("Range iteration requires a range expression.");
+            var start = iteration.RangeStart
+                ?? iteration.Range?.Left?.Value
+                ?? throw new InvalidOperationException("Range iteration requires a start value.");
+            var end = iteration.RangeEnd
+                ?? iteration.Range?.Right?.Value
+                ?? throw new InvalidOperationException("Range iteration requires an end value.");
 
-            EmitRangeForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, range);
+            EmitRangeForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, start, end);
             return;
         }
 
@@ -468,34 +472,31 @@ internal class StatementGenerator : Generator
         ILLabel beginLabel,
         ILLabel continueLabel,
         ILLabel endLabel,
-        BoundRangeExpression range)
+        BoundExpression rangeStart,
+        BoundExpression rangeEnd)
     {
-        Debug.Assert(range.Left is not null && range.Right is not null, "Range iteration requires explicit bounds.");
+        var elementType = forStatement.Iteration.ElementType.UnwrapLiteralType() ?? forStatement.Iteration.ElementType;
+        var elementClrType = ResolveClrType(elementType);
 
-        var intClrType = ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Int32));
-
-        var startLocal = ILGenerator.DeclareLocal(intClrType);
-        new ExpressionGenerator(scope, range.Left!.Value).Emit();
+        var startLocal = ILGenerator.DeclareLocal(elementClrType);
+        new ExpressionGenerator(scope, rangeStart).Emit();
         ILGenerator.Emit(OpCodes.Stloc, startLocal);
 
-        var endLocal = ILGenerator.DeclareLocal(intClrType);
-        new ExpressionGenerator(scope, range.Right!.Value).Emit();
+        var endLocal = ILGenerator.DeclareLocal(elementClrType);
+        new ExpressionGenerator(scope, rangeEnd).Emit();
         ILGenerator.Emit(OpCodes.Stloc, endLocal);
 
         var loopLocal = forStatement.Local;
-        var elementType = loopLocal?.Type ?? forStatement.Iteration.ElementType;
         IILocal? elementLocal = null;
         if (loopLocal is not null)
         {
-            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementType));
+            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(loopLocal.Type));
             scope.AddLocal(loopLocal, elementLocal);
         }
 
         ILGenerator.MarkLabel(beginLabel);
 
-        ILGenerator.Emit(OpCodes.Ldloc, startLocal);
-        ILGenerator.Emit(OpCodes.Ldloc, endLocal);
-        ILGenerator.Emit(OpCodes.Bge, endLabel);
+        EmitRangeLoopBreakIfGreater(elementType, startLocal, endLocal, endLabel);
 
         ILGenerator.Emit(OpCodes.Ldloc, startLocal);
         if (elementLocal is not null)
@@ -506,12 +507,105 @@ internal class StatementGenerator : Generator
         new StatementGenerator(scope, forStatement.Body).Emit();
 
         ILGenerator.MarkLabel(continueLabel);
-        ILGenerator.Emit(OpCodes.Ldloc, startLocal);
-        ILGenerator.Emit(OpCodes.Ldc_I4_1);
-        ILGenerator.Emit(OpCodes.Add);
-        ILGenerator.Emit(OpCodes.Stloc, startLocal);
+        EmitRangeLoopIncrement(elementType, startLocal);
         ILGenerator.Emit(OpCodes.Br, beginLabel);
         ILGenerator.MarkLabel(endLabel);
+    }
+
+    private void EmitRangeLoopBreakIfGreater(ITypeSymbol elementType, IILocal currentLocal, IILocal endLocal, ILLabel endLabel)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+
+        if (specialType == SpecialType.System_Decimal)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, endLocal);
+
+            var compareMethod = typeof(decimal).GetMethod(
+                nameof(decimal.Compare),
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                [typeof(decimal), typeof(decimal)],
+                modifiers: null)
+                ?? throw new InvalidOperationException("Failed to resolve decimal.Compare(decimal, decimal).");
+
+            ILGenerator.Emit(OpCodes.Call, compareMethod);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Bgt, endLabel);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, endLocal);
+        ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Bgt_Un : OpCodes.Bgt, endLabel);
+    }
+
+    private void EmitRangeLoopIncrement(ITypeSymbol elementType, IILocal currentLocal)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+
+        if (specialType == SpecialType.System_Decimal)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+
+            var oneField = typeof(decimal).GetField(nameof(decimal.One), BindingFlags.Public | BindingFlags.Static)
+                ?? throw new InvalidOperationException("Failed to resolve decimal.One.");
+            ILGenerator.Emit(OpCodes.Ldsfld, oneField);
+
+            var addMethod = typeof(decimal).GetMethod(
+                nameof(decimal.Add),
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                [typeof(decimal), typeof(decimal)],
+                modifiers: null)
+                ?? throw new InvalidOperationException("Failed to resolve decimal.Add(decimal, decimal).");
+
+            ILGenerator.Emit(OpCodes.Call, addMethod);
+            ILGenerator.Emit(OpCodes.Stloc, currentLocal);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Add);
+
+        switch (specialType)
+        {
+            case SpecialType.System_Byte:
+                ILGenerator.Emit(OpCodes.Conv_U1);
+                break;
+            case SpecialType.System_SByte:
+                ILGenerator.Emit(OpCodes.Conv_I1);
+                break;
+            case SpecialType.System_Int16:
+                ILGenerator.Emit(OpCodes.Conv_I2);
+                break;
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Conv_U2);
+                break;
+            case SpecialType.System_UInt32:
+                ILGenerator.Emit(OpCodes.Conv_U4);
+                break;
+            case SpecialType.System_Int64:
+                ILGenerator.Emit(OpCodes.Conv_I8);
+                break;
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Conv_U8);
+                break;
+        }
+
+        ILGenerator.Emit(OpCodes.Stloc, currentLocal);
+    }
+
+    private static bool IsUnsignedIntegralType(SpecialType specialType)
+    {
+        return specialType is
+            SpecialType.System_Byte or
+            SpecialType.System_UInt16 or
+            SpecialType.System_Char or
+            SpecialType.System_UInt32 or
+            SpecialType.System_UInt64;
     }
 
     private void EmitArrayForLoop(

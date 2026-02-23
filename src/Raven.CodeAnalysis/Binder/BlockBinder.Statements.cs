@@ -467,10 +467,19 @@ partial class BlockBinder
     private BoundStatement BindForStatement(ForStatementSyntax forStmt)
     {
         var loopBinder = (BlockBinder)SemanticModel.GetBinder(forStmt, this)!;
+        BoundExpression collection;
+        ForIterationInfo iteration;
 
-        var collection = BindExpression(forStmt.Expression);
-
-        var iteration = ClassifyForIteration(collection, forStmt.Expression);
+        if (forStmt.Expression is RangeExpressionSyntax rangeSyntax)
+        {
+            (collection, iteration) = loopBinder.BindForRangeIteration(rangeSyntax);
+            CacheBoundNode(forStmt.Expression, collection);
+        }
+        else
+        {
+            collection = BindExpression(forStmt.Expression);
+            iteration = ClassifyForIteration(collection, forStmt.Expression);
+        }
 
         ILocalSymbol? local = null;
         if (forStmt.Identifier.Kind is not SyntaxKind.None and not SyntaxKind.UnderscoreToken)
@@ -481,6 +490,74 @@ partial class BlockBinder
         var body = loopBinder.BindStatementInLoop(forStmt.Body);
 
         return new BoundForStatement(local, iteration, collection, body);
+    }
+
+    private (BoundExpression Collection, ForIterationInfo Iteration) BindForRangeIteration(RangeExpressionSyntax rangeSyntax)
+    {
+        var start = BindForRangeBoundary(rangeSyntax.LeftExpression);
+        if (start is BoundErrorExpression)
+        {
+            var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+        }
+
+        var end = BindForRangeBoundary(rangeSyntax.RightExpression);
+        if (end is BoundErrorExpression)
+        {
+            var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+        }
+
+        if (end is null)
+        {
+            _diagnostics.ReportRangeForLoopRequiresEnd(rangeSyntax.GetLocation());
+            var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+        }
+
+        var endType = TypeSymbolNormalization.NormalizeForInference(end.Type ?? Compilation.ErrorTypeSymbol);
+        var startType = TypeSymbolNormalization.NormalizeForInference(start?.Type ?? endType);
+
+        if (!TryInferBestCommonType(startType, endType, out var elementType))
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                startType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                endType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                rangeSyntax.GetLocation());
+            var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+        }
+
+        elementType = elementType.UnwrapLiteralType() ?? elementType;
+        if (!IsSupportedForRangeLoopType(elementType))
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                elementType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                Compilation.GetSpecialType(SpecialType.System_Int32).ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                rangeSyntax.GetLocation());
+            var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+        }
+
+        var startValue = start ?? CreateZeroForRangeLoop(elementType);
+        if (!TryConvertForRangeBoundary(startValue, elementType, rangeSyntax.LeftExpression ?? rangeSyntax, out var convertedStart))
+        {
+            var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+        }
+
+        if (!TryConvertForRangeBoundary(end, elementType, rangeSyntax.RightExpression!, out var convertedEnd))
+        {
+            var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+        }
+
+        var range = new BoundRangeExpression(
+            new BoundIndexExpression(convertedStart, isFromEnd: false, GetIndexType()),
+            new BoundIndexExpression(convertedEnd, isFromEnd: false, GetIndexType()),
+            GetRangeType());
+
+        return (range, ForIterationInfo.ForRange(elementType, convertedStart, convertedEnd, range));
     }
 
     private ForIterationInfo ClassifyForIteration(BoundExpression collection, ExpressionSyntax iterationSyntax)
@@ -536,7 +613,105 @@ partial class BlockBinder
             ? new BoundRangeExpression(start, end, range.Type)
             : range;
 
-        return ForIterationInfo.ForRange(Compilation, normalizedRange);
+        return ForIterationInfo.ForRange(
+            Compilation.GetSpecialType(SpecialType.System_Int32),
+            normalizedRange.Left!.Value,
+            normalizedRange.Right!.Value,
+            normalizedRange);
+    }
+
+    private BoundExpression? BindForRangeBoundary(ExpressionSyntax? endpointSyntax)
+    {
+        if (endpointSyntax is null || endpointSyntax.IsMissing)
+            return null;
+
+        var bound = BindExpression(endpointSyntax);
+        if (IsErrorExpression(bound))
+            return bound;
+
+        if (bound is BoundIndexExpression index)
+        {
+            if (index.IsFromEnd)
+            {
+                _diagnostics.ReportRangeForLoopFromEndNotSupported(endpointSyntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            }
+
+            return index.Value;
+        }
+
+        return bound;
+    }
+
+    private bool TryConvertForRangeBoundary(
+        BoundExpression boundary,
+        ITypeSymbol targetType,
+        SyntaxNode diagnosticNode,
+        out BoundExpression convertedBoundary)
+    {
+        convertedBoundary = boundary;
+
+        if (!ShouldAttemptConversion(boundary))
+            return true;
+
+        if (!IsAssignable(targetType, boundary, out var conversion))
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                (boundary.Type ?? Compilation.ErrorTypeSymbol).ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                targetType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                diagnosticNode.GetLocation());
+            convertedBoundary = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            return false;
+        }
+
+        convertedBoundary = ApplyConversion(boundary, targetType, conversion, diagnosticNode);
+        return !IsErrorExpression(convertedBoundary);
+    }
+
+    private BoundExpression CreateZeroForRangeLoop(ITypeSymbol targetType)
+    {
+        targetType = targetType.UnwrapLiteralType() ?? targetType;
+
+        object value = targetType.SpecialType switch
+        {
+            SpecialType.System_Byte => (byte)0,
+            SpecialType.System_SByte => (sbyte)0,
+            SpecialType.System_Int16 => (short)0,
+            SpecialType.System_UInt16 => (ushort)0,
+            SpecialType.System_Int32 => 0,
+            SpecialType.System_UInt32 => 0u,
+            SpecialType.System_Int64 => 0L,
+            SpecialType.System_UInt64 => 0UL,
+            SpecialType.System_Char => '\0',
+            SpecialType.System_Decimal => 0m,
+            _ => 0
+        };
+
+        var kind = targetType.SpecialType == SpecialType.System_Char
+            ? BoundLiteralExpressionKind.CharLiteral
+            : BoundLiteralExpressionKind.NumericLiteral;
+
+        return new BoundLiteralExpression(kind, value, targetType);
+    }
+
+    private static bool IsSupportedForRangeLoopType(ITypeSymbol type)
+    {
+        type = type.UnwrapLiteralType() ?? type;
+
+        return type.SpecialType switch
+        {
+            SpecialType.System_Byte => true,
+            SpecialType.System_SByte => true,
+            SpecialType.System_Int16 => true,
+            SpecialType.System_UInt16 => true,
+            SpecialType.System_Int32 => true,
+            SpecialType.System_UInt32 => true,
+            SpecialType.System_Int64 => true,
+            SpecialType.System_UInt64 => true,
+            SpecialType.System_Char => true,
+            SpecialType.System_Decimal => true,
+            _ => false
+        };
     }
 
     private BoundIndexExpression CreateZeroIndex()
@@ -1032,7 +1207,7 @@ partial class BlockBinder
                 }
                 else if (method.IsAsync &&
                     AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, methodReturnType) is
-                        { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
+                    { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
                 {
                     var methodDisplay = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
                     _diagnostics.ReportAsyncTaskReturnCannotHaveExpression(
