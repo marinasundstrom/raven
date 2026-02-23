@@ -75,7 +75,10 @@ Supported literal types are:
 | `"hi"`                | `string`        | sequence of characters    |
 | `1`                    | `int`           | 32-bit signed integer     |
 | `0b1010`               | `int`           | binary integer literal    |
+| `0xFF`                 | `int`           | hexadecimal integer literal |
+| `255b`                 | `byte`          | `b`/`B` suffix selects `byte` |
 | `4_000_000_000`        | `long`          | promoted when `int` overflows |
+| `42L`                  | `long`          | `l`/`L` suffix selects `long` |
 | `3.14`                 | `double`        | default floating literal  |
 | `3.14f`                | `float`         | `f` or `F` suffix selects `float` |
 

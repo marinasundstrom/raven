@@ -124,6 +124,37 @@ public class LexerTests
     }
 
     [Theory]
+    [InlineData("0b1010_0101", typeof(int), 165)]
+    [InlineData("0b1111_1111b", typeof(byte), (byte)255)]
+    [InlineData("0b1_0000_0000L", typeof(long), 256L)]
+    public void BinaryIntegerLiteral_IsParsedWithExpectedValue(string text, Type expectedType, object expectedValue)
+    {
+        var lexer = new Lexer(new StringReader(text));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.NumericLiteralToken, token.Kind);
+        Assert.Equal(text, token.Text);
+        Assert.Equal(expectedType, token.Value?.GetType());
+        Assert.Equal(expectedValue, token.Value);
+    }
+
+    [Theory]
+    [InlineData("0xFF", typeof(int), 255)]
+    [InlineData("0X7FFF_FFFF", typeof(int), int.MaxValue)]
+    [InlineData("0x8000_0000", typeof(long), 2147483648L)]
+    [InlineData("0x1_0000_0000L", typeof(long), 4294967296L)]
+    public void HexIntegerLiteral_IsParsedWithExpectedValue(string text, Type expectedType, object expectedValue)
+    {
+        var lexer = new Lexer(new StringReader(text));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.NumericLiteralToken, token.Kind);
+        Assert.Equal(text, token.Text);
+        Assert.Equal(expectedType, token.Value?.GetType());
+        Assert.Equal(expectedValue, token.Value);
+    }
+
+    [Theory]
     [InlineData("\"\\u0041\"", "A")]
     [InlineData("\"\\u{1F600}\"", "\U0001F600")]
     [InlineData("\"\\U0001F642\"", "\U0001F642")]

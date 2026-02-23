@@ -1258,46 +1258,61 @@ internal class Lexer : ILexer
             }
         }
 
-        // Binary integer literal: 0b1010_0101 (optionally with integral suffix like L/l or B/b for byte)
-        // NOTE: This must run BEFORE suffix parsing; otherwise the 'b' in 0b would be mistaken for the byte suffix.
+        // Base-prefixed integer literals:
+        // - binary: 0b1010_0101 (optionally with integral suffix L/l or B/b for byte)
+        // - hex:    0xFF_A0     (optionally with integral suffix L/l)
+        // NOTE: This must run BEFORE general suffix parsing.
         if (!hasDecimal)
         {
             // At this point _stringBuilder contains the first digit already (or "-" + first digit).
-            // We only recognize the binary prefix when the last appended digit is '0' and the next char is 'b'/'B'.
-            if (_stringBuilder.Length > 0 && _stringBuilder[_stringBuilder.Length - 1] == '0' && PeekChar(out var binPrefix) && (binPrefix == 'b' || binPrefix == 'B'))
+            if (_stringBuilder.Length > 0
+                && _stringBuilder[_stringBuilder.Length - 1] == '0'
+                && PeekChar(out var basePrefix)
+                && (basePrefix == 'b' || basePrefix == 'B' || basePrefix == 'x' || basePrefix == 'X'))
             {
                 ReadChar();
-                _stringBuilder.Append(binPrefix); // append 'b'/'B'
+                _stringBuilder.Append(basePrefix);
 
-                bool sawBit = false;
+                var isBinaryPrefix = basePrefix == 'b' || basePrefix == 'B';
+
+                bool sawDigit = false;
                 ulong value = 0;
 
-                // Read 0/1/_ digits
-                while (PeekChar(out var bitCh))
+                // Read base digits and separators.
+                while (PeekChar(out var digitCh))
                 {
-                    if (bitCh == '_')
+                    if (digitCh == '_')
                     {
                         ReadChar();
-                        _stringBuilder.Append(bitCh);
+                        _stringBuilder.Append(digitCh);
                         continue;
                     }
 
-                    if (bitCh == '0' || bitCh == '1')
+                    if (isBinaryPrefix && (digitCh == '0' || digitCh == '1'))
                     {
                         ReadChar();
-                        _stringBuilder.Append(bitCh);
-                        sawBit = true;
+                        _stringBuilder.Append(digitCh);
+                        sawDigit = true;
 
-                        // value = value * 2 + bit
-                        value = (value << 1) | (ulong)(bitCh - '0');
+                        value = (value << 1) | (ulong)(digitCh - '0');
+                        continue;
+                    }
+
+                    if (!isBinaryPrefix && IsHexDigitForNumericLiteral(digitCh))
+                    {
+                        ReadChar();
+                        _stringBuilder.Append(digitCh);
+                        sawDigit = true;
+
+                        value = (value << 4) | (ulong)GetHexDigitValueForNumericLiteral(digitCh);
                         continue;
                     }
 
                     break;
                 }
 
-                // Require at least one binary digit after the prefix.
-                if (!sawBit)
+                // Require at least one digit after the prefix.
+                if (!sawDigit)
                 {
                     var text0 = GetStringBuilderValue();
                     ReportDiagnostic(DiagnosticInfo.Create(
@@ -1307,22 +1322,23 @@ internal class Lexer : ILexer
                     return new Token(SyntaxKind.NumericLiteralToken, text0, 0, text0.Length);
                 }
 
-                // Optional integral suffix for binary literals.
-                bool binIsLong = false;
-                bool binIsByte = false;
-                if (PeekChar(out var suffix) && (suffix == 'l' || suffix == 'L' || suffix == 'b' || suffix == 'B'))
+                // Optional integral suffix.
+                // Byte suffix is only supported on decimal/binary literals because 'b' is also a valid hex digit.
+                bool prefixIsLong = false;
+                bool prefixIsByte = false;
+                if (PeekChar(out var suffix) && (suffix == 'l' || suffix == 'L' || (isBinaryPrefix && (suffix == 'b' || suffix == 'B'))))
                 {
                     ReadChar();
                     _stringBuilder.Append(suffix);
                     if (suffix == 'l' || suffix == 'L')
-                        binIsLong = true;
+                        prefixIsLong = true;
                     else
-                        binIsByte = true;
+                        prefixIsByte = true;
                 }
 
                 var text2 = GetStringBuilderValue();
 
-                if (binIsByte)
+                if (prefixIsByte)
                 {
                     if (value <= byte.MaxValue)
                         return new Token(SyntaxKind.NumericLiteralToken, text2, (byte)value, text2.Length);
@@ -1334,7 +1350,7 @@ internal class Lexer : ILexer
                     return new Token(SyntaxKind.NumericLiteralToken, text2, (byte)0, text2.Length);
                 }
 
-                if (binIsLong)
+                if (prefixIsLong)
                 {
                     if (value <= (ulong)long.MaxValue)
                         return new Token(SyntaxKind.NumericLiteralToken, text2, (long)value, text2.Length);
@@ -1597,6 +1613,24 @@ internal class Lexer : ILexer
     }
 
     // NOTE: Comment lexing uses IsEndOfLine to ensure single-line comments never consume newline tokens.
+    private static bool IsHexDigitForNumericLiteral(char ch)
+    {
+        return (ch >= '0' && ch <= '9')
+            || (ch >= 'a' && ch <= 'f')
+            || (ch >= 'A' && ch <= 'F');
+    }
+
+    private static int GetHexDigitValueForNumericLiteral(char ch)
+    {
+        if (ch >= '0' && ch <= '9')
+            return ch - '0';
+
+        if (ch >= 'a' && ch <= 'f')
+            return (ch - 'a') + 10;
+
+        return (ch - 'A') + 10;
+    }
+
     private bool IsEndOfLine(char ch)
     {
         return ch == '\n'
