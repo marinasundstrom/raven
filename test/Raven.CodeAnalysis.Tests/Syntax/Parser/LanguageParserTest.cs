@@ -1,7 +1,9 @@
 using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
+
 using Shouldly;
+
 using Xunit;
 using Xunit.Abstractions;
 
@@ -147,5 +149,23 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
         forStmt.ShouldNotBeNull();
         forStmt!.Identifier.Kind.ShouldBe(SyntaxKind.None);
+    }
+
+    [Fact]
+    public void ParseForRangeWithByClause()
+    {
+        var code = """
+                   for x in 0..10 by 2 {
+                       x
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.ByKeyword.Kind.ShouldBe(SyntaxKind.ByKeyword);
+        forStmt.StepExpression.ShouldNotBeNull();
     }
 }

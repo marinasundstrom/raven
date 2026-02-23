@@ -297,8 +297,9 @@ IfStatement              ::= 'if' Expression Statement ['else' Statement] ;
 (* NOTE: In statement headers, the following '{' begins the statement body and is not parsed as an ObjectInitializer trailer.
    This disambiguation is performed by the parser (context-sensitive), not by this EBNF. *)
 WhileStatement           ::= 'while' Expression Statement ;
-ForStatement             ::= 'for' 'each'? ForIterationVariable? 'in' Expression Statement ;
+ForStatement             ::= 'for' 'each'? ForIterationVariable? 'in' Expression ForStepClause? Statement ;
 ForIterationVariable     ::= Identifier | '_' ;
+ForStepClause            ::= 'by' Expression ;
 
 TryStatement             ::= 'try' Block (CatchClauseList [FinallyClause] | FinallyClause) ;
 CatchClauseList          ::= CatchClause {CatchClause} ;

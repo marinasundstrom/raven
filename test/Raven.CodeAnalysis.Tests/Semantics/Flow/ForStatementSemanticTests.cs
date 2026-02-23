@@ -195,6 +195,61 @@ for value in true..false {
     }
 
     [Fact]
+    public void ForRange_WithByClause_BindsStepExpression()
+    {
+        const string source = """
+for x in 0..10 by 2 {
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+
+        boundFor.Iteration.RangeStep.ShouldNotBeNull();
+        boundFor.Iteration.RangeStep.ShouldBeOfType<BoundLiteralExpression>().Value.ShouldBe(2);
+    }
+
+    [Fact]
+    public void ForRange_ByClauseZeroStep_ReportsDiagnostic()
+    {
+        const string source = """
+for x in 0..10 by 0 {
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.Select(d => d.Id).ShouldContain("RAV2604");
+    }
+
+    [Fact]
+    public void ForEach_WithByClause_ReportsDiagnostic()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val items = List<int>()
+for each x in items by 2 {
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.Select(d => d.Id).ShouldContain("RAV2605");
+    }
+
+    [Fact]
     public void ForEach_PrefersInstanceGetEnumeratorPattern()
     {
         const string source = """

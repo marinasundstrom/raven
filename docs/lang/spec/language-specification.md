@@ -1762,10 +1762,23 @@ Both forms still enumerate the collection but do not introduce a new binding.
 Like other looping constructs, a `for` expression evaluates to `()`.
 
 When the collection is a range with explicit, from-start bounds, the loop
-iterates over integral, `char`, or `decimal` values beginning at the range's
-lower bound and continuing through the upper bound (inclusive). Omitting the
-start defaults it to `0`, while omitting the end or using from-end bounds in a
-`for` expression reports a diagnostic.
+iterates over integral, floating-point, `char`, or `decimal` values beginning
+at the range's lower bound and continuing through the upper bound (inclusive).
+Omitting the start defaults it to `0`, while omitting the end or using
+from-end bounds in a `for` expression reports a diagnostic.
+
+Range-based `for` statements may include an optional `by` clause:
+
+```raven
+for x in 0..10 by 2 { }
+for x in 10..0 by -3 { }
+for x in 0..10.0 by 0.1 { }
+```
+
+The step must be non-zero. If the step is positive, iteration continues while
+the current value is less than or equal to the end bound; if the step is
+negative, iteration continues while the current value is greater than or equal
+to the end bound. The `by` clause is only valid for range-based `for` loops.
 
 ### `break` and `continue`
 

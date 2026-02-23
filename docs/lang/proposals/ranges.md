@@ -39,7 +39,8 @@ let set2 =  [^2..^0]
 
 Ranges can be used in `for` expressions when both bounds count from the start.
 The start value defaults to `0` when omitted, and the upper bound is inclusive.
-`for`-range iteration supports integral, `char`, and `decimal` boundaries.
+`for`-range iteration supports integral, floating-point, `char`, and `decimal`
+boundaries.
 
 ```raven
 import System.Console.*
@@ -52,6 +53,25 @@ for item in 2..5 {
 The range expression is translated into inclusive iteration that visits `2`,
 `3`, `4`, and `5`. From-end bounds are rejected in `for` loops because the loop
 has no length context.
+
+`for` ranges also support an optional `by` clause:
+
+```raven
+for x in 0..10 by 2 {
+    WriteLine(x)
+}
+
+for x in 10..0 by -3 {
+    WriteLine(x)
+}
+
+for x in 0..10.0 by 0.1 {
+    WriteLine(x)
+}
+```
+
+The step must be non-zero. Positive steps iterate upward (`<= end`) and
+negative steps iterate downward (`>= end`).
 
 ## Notes
 

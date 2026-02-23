@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
@@ -89,6 +90,41 @@ for n in start..end {
 
         var output = CompileAndRun(code);
         Assert.Equal(["a", "b", "c", "1", "2", "3"], output);
+    }
+
+    [Fact]
+    public void ForRange_ByClause_SupportsPositiveAndNegativeIntegerSteps()
+    {
+        var code = """
+import System.Console.*
+
+for x in 0..10 by 2 {
+    WriteLine(x)
+}
+
+for x in 10..0 by -3 {
+    WriteLine(x)
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["0", "2", "4", "6", "8", "10", "10", "7", "4", "1"], output);
+    }
+
+    [Fact]
+    public void ForRange_ByClause_SupportsFractionalStep()
+    {
+        var code = """
+import System.Console.*
+
+for x in 0..1.0 by 0.5 {
+    WriteLine(x)
+}
+""";
+
+        var output = CompileAndRun(code);
+        var normalized = output.Select(static value => value.Replace(',', '.')).ToArray();
+        Assert.Equal(["0", "0.5", "1"], normalized);
     }
 
     private static string[] CompileAndRun(string code)

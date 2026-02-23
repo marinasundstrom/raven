@@ -435,8 +435,10 @@ internal class StatementGenerator : Generator
             var end = iteration.RangeEnd
                 ?? iteration.Range?.Right?.Value
                 ?? throw new InvalidOperationException("Range iteration requires an end value.");
+            var step = iteration.RangeStep
+                ?? throw new InvalidOperationException("Range iteration requires a step value.");
 
-            EmitRangeForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, start, end);
+            EmitRangeForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, start, end, step);
             return;
         }
 
@@ -473,7 +475,8 @@ internal class StatementGenerator : Generator
         ILLabel continueLabel,
         ILLabel endLabel,
         BoundExpression rangeStart,
-        BoundExpression rangeEnd)
+        BoundExpression rangeEnd,
+        BoundExpression rangeStep)
     {
         var elementType = forStatement.Iteration.ElementType.UnwrapLiteralType() ?? forStatement.Iteration.ElementType;
         var elementClrType = ResolveClrType(elementType);
@@ -486,6 +489,10 @@ internal class StatementGenerator : Generator
         new ExpressionGenerator(scope, rangeEnd).Emit();
         ILGenerator.Emit(OpCodes.Stloc, endLocal);
 
+        var stepLocal = ILGenerator.DeclareLocal(elementClrType);
+        new ExpressionGenerator(scope, rangeStep).Emit();
+        ILGenerator.Emit(OpCodes.Stloc, stepLocal);
+
         var loopLocal = forStatement.Local;
         IILocal? elementLocal = null;
         if (loopLocal is not null)
@@ -494,10 +501,30 @@ internal class StatementGenerator : Generator
             scope.AddLocal(loopLocal, elementLocal);
         }
 
+        // Runtime guard for dynamic steps.
+        ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
+        EmitNumericZero(elementType);
+        ILGenerator.Emit(OpCodes.Ceq);
+        ILGenerator.Emit(OpCodes.Brtrue, endLabel);
+
+        var positiveStepLabel = ILGenerator.DefineLabel();
+        var negativeStepLabel = ILGenerator.DefineLabel();
+        var bodyLabel = ILGenerator.DefineLabel();
+
         ILGenerator.MarkLabel(beginLabel);
 
-        EmitRangeLoopBreakIfGreater(elementType, startLocal, endLocal, endLabel);
+        EmitBranchIfGreaterThanZero(elementType, stepLocal, positiveStepLabel);
+        EmitBranchIfLessThanZero(elementType, stepLocal, negativeStepLabel);
+        ILGenerator.Emit(OpCodes.Br, endLabel);
 
+        ILGenerator.MarkLabel(positiveStepLabel);
+        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, endLabel, positiveStep: true);
+        ILGenerator.Emit(OpCodes.Br, bodyLabel);
+
+        ILGenerator.MarkLabel(negativeStepLabel);
+        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, endLabel, positiveStep: false);
+
+        ILGenerator.MarkLabel(bodyLabel);
         ILGenerator.Emit(OpCodes.Ldloc, startLocal);
         if (elementLocal is not null)
             ILGenerator.Emit(OpCodes.Stloc, elementLocal);
@@ -507,12 +534,12 @@ internal class StatementGenerator : Generator
         new StatementGenerator(scope, forStatement.Body).Emit();
 
         ILGenerator.MarkLabel(continueLabel);
-        EmitRangeLoopIncrement(elementType, startLocal);
+        EmitRangeLoopIncrement(elementType, startLocal, stepLocal);
         ILGenerator.Emit(OpCodes.Br, beginLabel);
         ILGenerator.MarkLabel(endLabel);
     }
 
-    private void EmitRangeLoopBreakIfGreater(ITypeSymbol elementType, IILocal currentLocal, IILocal endLocal, ILLabel endLabel)
+    private void EmitRangeLoopBreakCondition(ITypeSymbol elementType, IILocal currentLocal, IILocal endLocal, ILLabel endLabel, bool positiveStep)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
 
@@ -531,26 +558,83 @@ internal class StatementGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Call, compareMethod);
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
-            ILGenerator.Emit(OpCodes.Bgt, endLabel);
+            ILGenerator.Emit(positiveStep ? OpCodes.Bgt : OpCodes.Blt, endLabel);
             return;
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
         ILGenerator.Emit(OpCodes.Ldloc, endLocal);
-        ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Bgt_Un : OpCodes.Bgt, endLabel);
+        if (positiveStep)
+        {
+            ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Bgt_Un : OpCodes.Bgt, endLabel);
+        }
+        else
+        {
+            ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Blt_Un : OpCodes.Blt, endLabel);
+        }
     }
 
-    private void EmitRangeLoopIncrement(ITypeSymbol elementType, IILocal currentLocal)
+    private void EmitBranchIfGreaterThanZero(ITypeSymbol elementType, IILocal valueLocal, ILLabel target)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+
+        if (specialType == SpecialType.System_Decimal)
+        {
+            EmitDecimalCompareWithZero(valueLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Bgt, target);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+        EmitNumericZero(elementType);
+        ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Bgt_Un : OpCodes.Bgt, target);
+    }
+
+    private void EmitBranchIfLessThanZero(ITypeSymbol elementType, IILocal valueLocal, ILLabel target)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+
+        if (specialType == SpecialType.System_Decimal)
+        {
+            EmitDecimalCompareWithZero(valueLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Blt, target);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+        EmitNumericZero(elementType);
+        ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Blt_Un : OpCodes.Blt, target);
+    }
+
+    private void EmitDecimalCompareWithZero(IILocal valueLocal)
+    {
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+
+        var zeroField = typeof(decimal).GetField(nameof(decimal.Zero), BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Failed to resolve decimal.Zero.");
+        ILGenerator.Emit(OpCodes.Ldsfld, zeroField);
+
+        var compareMethod = typeof(decimal).GetMethod(
+            nameof(decimal.Compare),
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            [typeof(decimal), typeof(decimal)],
+            modifiers: null)
+            ?? throw new InvalidOperationException("Failed to resolve decimal.Compare(decimal, decimal).");
+
+        ILGenerator.Emit(OpCodes.Call, compareMethod);
+    }
+
+    private void EmitRangeLoopIncrement(ITypeSymbol elementType, IILocal currentLocal, IILocal stepLocal)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
 
         if (specialType == SpecialType.System_Decimal)
         {
             ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
-
-            var oneField = typeof(decimal).GetField(nameof(decimal.One), BindingFlags.Public | BindingFlags.Static)
-                ?? throw new InvalidOperationException("Failed to resolve decimal.One.");
-            ILGenerator.Emit(OpCodes.Ldsfld, oneField);
+            ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
 
             var addMethod = typeof(decimal).GetMethod(
                 nameof(decimal.Add),
@@ -566,7 +650,7 @@ internal class StatementGenerator : Generator
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
-        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
         ILGenerator.Emit(OpCodes.Add);
 
         switch (specialType)
@@ -596,6 +680,27 @@ internal class StatementGenerator : Generator
         }
 
         ILGenerator.Emit(OpCodes.Stloc, currentLocal);
+    }
+
+    private void EmitNumericZero(ITypeSymbol elementType)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+        switch (specialType)
+        {
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Ldc_I8, 0L);
+                break;
+            case SpecialType.System_Single:
+                ILGenerator.Emit(OpCodes.Ldc_R4, 0f);
+                break;
+            case SpecialType.System_Double:
+                ILGenerator.Emit(OpCodes.Ldc_R8, 0d);
+                break;
+            default:
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                break;
+        }
     }
 
     private static bool IsUnsignedIntegralType(SpecialType specialType)

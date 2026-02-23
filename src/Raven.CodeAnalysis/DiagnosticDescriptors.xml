@@ -720,6 +720,14 @@
     Title="Range for-loop does not support from-end indices"
     Message="Range boundaries in for loops must count from the start" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2604" Identifier="RangeForLoopStepCannotBeZero"
+    Title="Range for-loop step cannot be zero"
+    Message="Range for-loop step cannot be zero" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2605" Identifier="RangeForLoopByClauseRequiresRange"
+    Title="Range for-loop by-clause requires a range"
+    Message="The 'by' clause is only supported for range-based for loops" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV3600" Identifier="UnexpectedTokenInIncompleteSyntax" Title="Unexpected token"
     Message="Unexpected token '{token}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />

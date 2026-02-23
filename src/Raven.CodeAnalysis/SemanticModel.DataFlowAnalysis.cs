@@ -371,6 +371,9 @@ internal sealed class DataFlowWalker : SyntaxWalker
     public override void VisitForStatement(ForStatementSyntax node)
     {
         Visit(node.Expression);
+        if (node.StepExpression is not null)
+            Visit(node.StepExpression);
+
         var assignedBefore = _writtenInside.Union(_assignedOnEntry).ToHashSet();
 
         _assignedOnEntry = assignedBefore;

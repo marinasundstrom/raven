@@ -207,6 +207,8 @@ Return/throw context note:
 | `RAV2601` | Error | Continue statement not within loop | Continue statements are only valid inside loops | — |
 | `RAV2602` | Error | Range for-loop requires an end value | Ranges in for loops must specify an end value | — |
 | `RAV2603` | Error | Range for-loop does not support from-end indices | Range boundaries in for loops must count from the start | — |
+| `RAV2604` | Error | Range for-loop step cannot be zero | Range for-loop step cannot be zero | — |
+| `RAV2605` | Error | Range for-loop by-clause requires a range | The 'by' clause is only supported for range-based for loops | — |
 | `RAV2700` | Error | await needs async | The 'await' operator can only be used within an async method or function | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
 | `RAV2701` | Error | Not awaitable | The type '{typeName}' is not awaitable | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
 | `RAV2702` | Error | Awaiter is missing IsCompleted | The awaiter type '{awaiterType}' must have an accessible instance property 'IsCompleted' returning 'bool' | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |

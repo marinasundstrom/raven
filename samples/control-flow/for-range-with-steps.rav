@@ -1,0 +1,8 @@
+import System.Console.*
+
+// Feature: `for` loop with a range expression with step.
+val region = "NorthHub"
+
+for batchId in 0..10 by 2 {
+    WriteLine("[${region}] Create shipment batch ${batchId}")
+}

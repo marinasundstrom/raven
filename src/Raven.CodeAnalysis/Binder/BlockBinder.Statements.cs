@@ -472,13 +472,16 @@ partial class BlockBinder
 
         if (forStmt.Expression is RangeExpressionSyntax rangeSyntax)
         {
-            (collection, iteration) = loopBinder.BindForRangeIteration(rangeSyntax);
+            (collection, iteration) = loopBinder.BindForRangeIteration(forStmt, rangeSyntax);
             CacheBoundNode(forStmt.Expression, collection);
         }
         else
         {
             collection = BindExpression(forStmt.Expression);
             iteration = ClassifyForIteration(collection, forStmt.Expression);
+
+            if (forStmt.ByKeyword.Kind == SyntaxKind.ByKeyword)
+                _diagnostics.ReportRangeForLoopByClauseRequiresRange(forStmt.ByKeyword.GetLocation());
         }
 
         ILocalSymbol? local = null;
@@ -492,7 +495,7 @@ partial class BlockBinder
         return new BoundForStatement(local, iteration, collection, body);
     }
 
-    private (BoundExpression Collection, ForIterationInfo Iteration) BindForRangeIteration(RangeExpressionSyntax rangeSyntax)
+    private (BoundExpression Collection, ForIterationInfo Iteration) BindForRangeIteration(ForStatementSyntax forStatement, RangeExpressionSyntax rangeSyntax)
     {
         var start = BindForRangeBoundary(rangeSyntax.LeftExpression);
         if (start is BoundErrorExpression)
@@ -552,12 +555,49 @@ partial class BlockBinder
             return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
         }
 
+        BoundExpression convertedStep;
+        if (forStatement.ByKeyword.Kind == SyntaxKind.ByKeyword)
+        {
+            var stepSyntax = forStatement.StepExpression;
+            if (stepSyntax is null)
+            {
+                _diagnostics.ReportRangeForLoopStepCannotBeZero(forStatement.ByKeyword.GetLocation());
+                var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+                return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+            }
+
+            var step = BindExpression(stepSyntax);
+            if (step is BoundErrorExpression)
+            {
+                var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+                return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+            }
+
+            if (!TryConvertForRangeBoundary(step, elementType, stepSyntax, out convertedStep))
+            {
+                var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+                return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+            }
+        }
+        else
+        {
+            convertedStep = CreateOneForRangeLoop(elementType);
+        }
+
+        if (IsRangeStepConstantZero(convertedStep))
+        {
+            _diagnostics.ReportRangeForLoopStepCannotBeZero(
+                (forStatement.StepExpression ?? forStatement.ByKeyword.Parent ?? forStatement).GetLocation());
+            var error = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            return (error, ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol));
+        }
+
         var range = new BoundRangeExpression(
             new BoundIndexExpression(convertedStart, isFromEnd: false, GetIndexType()),
             new BoundIndexExpression(convertedEnd, isFromEnd: false, GetIndexType()),
             GetRangeType());
 
-        return (range, ForIterationInfo.ForRange(elementType, convertedStart, convertedEnd, range));
+        return (range, ForIterationInfo.ForRange(elementType, convertedStart, convertedEnd, convertedStep, range));
     }
 
     private ForIterationInfo ClassifyForIteration(BoundExpression collection, ExpressionSyntax iterationSyntax)
@@ -617,6 +657,7 @@ partial class BlockBinder
             Compilation.GetSpecialType(SpecialType.System_Int32),
             normalizedRange.Left!.Value,
             normalizedRange.Right!.Value,
+            CreateOneForRangeLoop(Compilation.GetSpecialType(SpecialType.System_Int32)),
             normalizedRange);
     }
 
@@ -683,6 +724,8 @@ partial class BlockBinder
             SpecialType.System_Int64 => 0L,
             SpecialType.System_UInt64 => 0UL,
             SpecialType.System_Char => '\0',
+            SpecialType.System_Single => 0f,
+            SpecialType.System_Double => 0d,
             SpecialType.System_Decimal => 0m,
             _ => 0
         };
@@ -692,6 +735,57 @@ partial class BlockBinder
             : BoundLiteralExpressionKind.NumericLiteral;
 
         return new BoundLiteralExpression(kind, value, targetType);
+    }
+
+    private BoundExpression CreateOneForRangeLoop(ITypeSymbol targetType)
+    {
+        targetType = targetType.UnwrapLiteralType() ?? targetType;
+
+        object value = targetType.SpecialType switch
+        {
+            SpecialType.System_Byte => (byte)1,
+            SpecialType.System_SByte => (sbyte)1,
+            SpecialType.System_Int16 => (short)1,
+            SpecialType.System_UInt16 => (ushort)1,
+            SpecialType.System_Int32 => 1,
+            SpecialType.System_UInt32 => 1u,
+            SpecialType.System_Int64 => 1L,
+            SpecialType.System_UInt64 => 1UL,
+            SpecialType.System_Char => (char)1,
+            SpecialType.System_Single => 1f,
+            SpecialType.System_Double => 1d,
+            SpecialType.System_Decimal => 1m,
+            _ => 1
+        };
+
+        var kind = targetType.SpecialType == SpecialType.System_Char
+            ? BoundLiteralExpressionKind.CharLiteral
+            : BoundLiteralExpressionKind.NumericLiteral;
+
+        return new BoundLiteralExpression(kind, value, targetType);
+    }
+
+    private static bool IsRangeStepConstantZero(BoundExpression step)
+    {
+        if (step is not BoundLiteralExpression literal)
+            return false;
+
+        return literal.Value switch
+        {
+            byte v => v == 0,
+            sbyte v => v == 0,
+            short v => v == 0,
+            ushort v => v == 0,
+            int v => v == 0,
+            uint v => v == 0,
+            long v => v == 0,
+            ulong v => v == 0,
+            float v => v == 0f,
+            double v => v == 0d,
+            decimal v => v == 0m,
+            char v => v == '\0',
+            _ => false
+        };
     }
 
     private static bool IsSupportedForRangeLoopType(ITypeSymbol type)
@@ -709,6 +803,8 @@ partial class BlockBinder
             SpecialType.System_Int64 => true,
             SpecialType.System_UInt64 => true,
             SpecialType.System_Char => true,
+            SpecialType.System_Single => true,
+            SpecialType.System_Double => true,
             SpecialType.System_Decimal => true,
             _ => false
         };

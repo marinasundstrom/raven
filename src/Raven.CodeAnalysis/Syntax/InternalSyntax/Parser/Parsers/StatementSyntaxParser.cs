@@ -487,12 +487,25 @@ internal class StatementSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.InKeyword, out var inKeyword);
 
         var expression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
+        SyntaxToken byKeyword;
+        ExpressionSyntax? stepExpression;
+        if (IsNextToken(SyntaxKind.ByKeyword, out _))
+        {
+            byKeyword = ReadToken();
+            stepExpression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
+        }
+        else
+        {
+            byKeyword = Token(SyntaxKind.None);
+            stepExpression = null;
+        }
+
         var body = ParseStatement();
 
         SetTreatNewlinesAsTokens(true);
         TryConsumeTerminator(out var terminatorToken);
 
-        return ForStatement(forKeyword, eachKeyword, identifier, inKeyword, expression!, body!, terminatorToken);
+        return ForStatement(forKeyword, eachKeyword, identifier, inKeyword, expression!, byKeyword, stepExpression, body!, terminatorToken);
     }
 
     private StatementSyntax? ParseFunctionSyntax(SyntaxList attributeLists, SyntaxList modifiers)
