@@ -1,0 +1,12 @@
+import System.Console.*
+
+for x in 2..6 {
+    WriteLine(x)
+}
+
+val bottom = -3
+val top = 7
+
+for x in bottom..top {
+    WriteLine(x)
+}
