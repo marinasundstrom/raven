@@ -1,5 +1,6 @@
 import System.*
 
+// Feature: basic try/catch statement.
 try {
     val i = int.Parse("ff")
 } catch (FormatException exc) {

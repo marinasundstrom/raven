@@ -1,7 +1,8 @@
 import System.*
 import System.Console.*
 
-Console.WriteLine("Test");
+// Feature: attributes applied on type declarations.
+Console.WriteLine("Test")
 
 [ObsoleteAttribute("Hello")]
 class Foo {

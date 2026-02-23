@@ -3,6 +3,7 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
+// Feature: async Result propagation with a successful `use` resource flow.
 val res = await fetch("http://www.contoso.com/")
 
 val str = res match {

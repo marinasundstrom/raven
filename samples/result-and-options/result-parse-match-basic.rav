@@ -1,9 +1,6 @@
-/*
- * Demonstrates discriminated unions in Raven.
- */
-
 import System.*
 
+// Feature: parse to Result and handle with match.
 val res = parseNumber("foo")
 
 Console.WriteLine("Is error: ${res.HasError}")

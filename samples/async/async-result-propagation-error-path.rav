@@ -2,6 +2,7 @@ import System.*
 import System.Console.*
 import System.Threading.Tasks.*
 
+// Feature: async Result propagation on the error path.
 val res = await test()
 
 val str = res match {
@@ -17,7 +18,7 @@ async func test() -> Task<Result<string, Exception>> {
 }
 
 async func failingTask2() -> Task<Result<string, Exception>> {
-    await Task.Delay(200)
+    await Task.Delay(20)
     throw new Exception("Boom!")
     return Ok("test")
 }

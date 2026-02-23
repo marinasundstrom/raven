@@ -21,13 +21,13 @@ Pattern note:
 - `samples/entrypoints/main-static-method-async-task-basic.rav`
 - `samples/cases/ledger-shaping-linq-summary.rav`
 - `samples/cases/status-ledger-enum-summary.rav`
-- `samples/general.rav`
+- `samples/control-flow/while-loop-list-processing-basic.rav`
 
 ## 2) Control Flow Statements (`docs/lang/spec/control-flow.md`)
 - `samples/control-flow/match-statement.rav`
 - `samples/control-flow/if-expression-in-function.rav`
 - `samples/control-flow/if-statement-implicit-return.rav`
-- `samples/guarded-assignment.rav`
+- `samples/result-and-options/null-coalescing-guard-result-basic.rav`
 - `samples/control-flow/for-loop.rav` (canonical collection-based `for` loop)
 - `samples/control-flow/for-range.rav` (`for` loop with range expression)
 
@@ -51,23 +51,23 @@ Pattern note:
 - `samples/discriminated-union/union-generic-result-basic.rav`
 - `samples/discriminated-union/union-generic-result-option-mapping.rav`
 - `samples/patterns/record-pattern-basic.rav`
-- `samples/union-cases-generic-basic.rav`
+- `samples/discriminated-union/union-cases-generic-basic.rav`
 
 ## 5) Error Handling and Propagation (`docs/lang/spec/error-handling.md`)
-- `samples/result-basic.rav`
-- `samples/result-unit-basic.rav`
-- `samples/option-basic.rav`
-- `samples/either-basic.rav`
-- `samples/option-propagation-basic.rav`
-- `samples/result-propagation-basic.rav`
-- `samples/result-propagation-try-expression.rav`
-- `samples/result-propagation-throwing-call.rav`
-- `samples/result-extensions-linq-style.rav`
-- `samples/async-propagate-error-path.rav`
-- `samples/async-propagate-using-success.rav`
-- `samples/result-parse-match.rav`
-- `samples/result-parse-static-helper.rav`
-- `samples/result-error-state-basic.rav`
+- `samples/result-and-options/result-basic.rav`
+- `samples/result-and-options/result-unit-basic.rav`
+- `samples/result-and-options/option-basic.rav`
+- `samples/result-and-options/either-basic.rav`
+- `samples/result-and-options/option-propagation-basic.rav`
+- `samples/result-and-options/result-propagation-basic.rav`
+- `samples/result-and-options/result-propagation-try-expression-basic.rav`
+- `samples/result-and-options/result-propagation-throwing-call-basic.rav`
+- `samples/result-and-options/result-extensions-linq-style.rav`
+- `samples/async/async-result-propagation-error-path.rav`
+- `samples/async/async-result-propagation-using-success.rav`
+- `samples/result-and-options/result-parse-match-basic.rav`
+- `samples/result-and-options/result-parse-static-helper-basic.rav`
+- `samples/result-and-options/result-error-state-basic.rav`
 - `samples/result-and-options/result-propagation-double-optional.rav`
 - `samples/result-and-options/result-propagation-member-access-default.rav`
 - `samples/result-and-options/nullable-to-result-match.rav`
@@ -110,15 +110,15 @@ Pattern note:
 - `samples/oop/sealed-record-hierarchy-json-basic.rav`
 - `samples/nullability/nullable-reference-option-conversion-basic.rav`
 - `samples/nullability/nullable-value-option-conversion-basic.rav`
-- `samples/required.rav`
+- `samples/oop/required-members-basic.rav`
 - `samples/oop/with-expression-record-basic.rav`
 - `samples/oop/with-expression-record-advanced.rav`
-- `samples/init.rav`
+- `samples/oop/init-only-property-basic.rav`
 - `samples/tuples/tuples-basic.rav`
 - `samples/tuples/tuples-pattern-match.rav`
 - `samples/tuples/tuples-nullable-match.rav`
 - `samples/tuples/tuples-return-from-function.rav`
-- `samples/unit.rav`
+- `samples/types/unit-type-basic.rav`
 
 ## 8) Functions, Generics, Extensions, and LINQ (`docs/lang/spec/type-system.md`)
 - `samples/functions/lambda-basic.rav`
@@ -134,9 +134,9 @@ Pattern note:
 - `samples/extensions/extension-method-overload-resolution.rav`
 - `samples/extensions/static-extensions.rav`
 - `samples/extensions/trait-invocation-null-conditional.rav`
-- `samples/result-linq-first-or-error-basic.rav`
-- `samples/result-linq-first-or-error-union-branching.rav`
-- `samples/result-linq-first-or-error-try-expression.rav`
+- `samples/linq/linq-result-first-or-error-basic.rav`
+- `samples/linq/linq-result-first-or-error-union-branching.rav`
+- `samples/linq/linq-result-first-or-error-try-expression.rav`
 - `samples/linq/linq-where-basic.rav`
 - `samples/linq/linq-count-predicate.rav`
 - `samples/linq/linq-option-result-bridging.rav`
@@ -212,7 +212,7 @@ These should not be promoted as feature cases until renamed and scoped:
 - `samples/legacy/testo2.rav`
 - `samples/legacy/editor-test.rav`
 - `samples/legacy/constr.rav`
-- `samples/tfm-test.rav`
+- `samples/projects/target-framework-attribute-basic.rav`
 
 ## Promotion Rule
 Promote to proper cases only when all are true:

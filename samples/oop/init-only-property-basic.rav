@@ -1,6 +1,7 @@
 
 import System.Console.*
 
+// Feature: init-only property assignment via object initializer.
 val foo = Foo {
     A = 42
 }

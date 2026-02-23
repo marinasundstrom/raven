@@ -43,10 +43,10 @@ Core purpose of samples (all three at once):
 - Try expression + pattern matching: `samples/patterns/try-expression-match.rav`
 - Discriminated union basics: `samples/discriminated-union/union-basic.rav`
 - Generic discriminated unions: `samples/discriminated-union/union-generic-result-basic.rav`
-- Result basics: `samples/result-basic.rav`
-- Option basics: `samples/option-basic.rav`
-- Propagation (`?`): `samples/result-propagation-basic.rav`
-- Async propagation: `samples/async-propagate-using-success.rav`
+- Result basics: `samples/result-and-options/result-basic.rav`
+- Option basics: `samples/result-and-options/option-basic.rav`
+- Propagation (`?`): `samples/result-and-options/result-propagation-basic.rav`
+- Async propagation: `samples/async/async-result-propagation-using-success.rav`
 - Async/await: `samples/async/async-await.rav`
 - ValueTask: `samples/async/async-valuetask.rav`
 - Classes: `samples/oop/class-basic.rav`

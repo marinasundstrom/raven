@@ -100,8 +100,8 @@ Validation performed:
   - `dotnet build src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj --property WarningLevel=0`
   - `dotnet build src/Raven.Compiler/Raven.Compiler.csproj --property WarningLevel=0`
 - Exercised the repro samples through `ravc`:
-  - `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- samples/async-propagate-error-path.rav`
-  - `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- samples/async-propagate-using-success.rav`
+  - `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- samples/async/async-result-propagation-error-path.rav`
+  - `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- samples/async/async-result-propagation-using-success.rav`
 
 Important follow-up fix discovered during validation:
 
@@ -120,5 +120,5 @@ Additional validation findings (sample100):
   - unwrap byref `out` parameter types to their element type when creating propagate temps
   - add async-state-machine-aware return emission in `StatementGenerator` so propagate early-returns in `MoveNext` always set `_state = -2` and call the builder’s `SetResult`
 - Current status:
-  - async propagate without `use` (`samples/async-propagate-error-path.rav`) runs successfully
+  - async propagate without `use` (`samples/async/async-result-propagation-error-path.rav`) runs successfully
   - `samples/legacy/sample100.rav` still throws `InvalidProgramException`, indicating remaining IL structure issues around `use` + propagate that need further investigation

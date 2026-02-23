@@ -1,9 +1,6 @@
-/*
- * Demonstrates discriminated unions in Raven.
- */
-
 import System.*
 
+// Feature: static helper returning Result from parse.
 val unwrapped3 = IntHelpers.ParseNumber("23").UnwrapOrThrow()
 Console.WriteLine(unwrapped3)
 

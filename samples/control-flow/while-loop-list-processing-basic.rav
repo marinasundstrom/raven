@@ -1,12 +1,9 @@
-/*
- * Declarations, control flow, and usage of framework types
- * * * */
-
 import System.*
 import System.Console.*
 import System.Collections.Generic.List<>
 alias SB = System.Text.StringBuilder
 
+// Feature: while loop with real list-processing flow.
 val list = List<int>()
 list.Add(1)
 list.Add(42)

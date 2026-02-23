@@ -12,7 +12,7 @@ dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <sample.
 ```
 
 Useful sample entry points:
-- `samples/exceptions.rav` for `try`/`catch`/`throw` diagnostics.
+- `samples/control-flow/throw-expression-basic.rav` for `try`/`catch`/`throw` diagnostics.
 - `samples/functions/return-expression-basic.rav` for expression-context control-flow diagnostics.
 - `samples/unmanaged/pointers.rav` for unsafe/pointer diagnostics.
 - `samples/async/async-await.rav` and `samples/async/async-task-return.rav` for async/await diagnostics.
@@ -113,8 +113,8 @@ Return/throw context note:
 | `RAV0610` | Error | Abstract member declared in non-abstract type | '{memberName}' is abstract but is contained in non-abstract type '{typeName}' | — |
 | `RAV0611` | Error | Cannot instantiate abstract type | Type '{typeName}' is abstract and cannot be instantiated | — |
 | `RAV0815` | Error | Cannot assign void to an implicitly-typed variable | Cannot assign void to an implicitly-typed variable | — |
-| `RAV0905` | Error | Required member must be set | Required member '{memberName}' must be set | `samples/required.rav` |
-| `RAV0906` | Error | Required field must be mutable | Required field '{fieldName}' must be mutable | `samples/required.rav` |
+| `RAV0905` | Error | Required member must be set | Required member '{memberName}' must be set | `samples/oop/required-members-basic.rav` |
+| `RAV0906` | Error | Required field must be mutable | Required field '{fieldName}' must be mutable | `samples/oop/required-members-basic.rav` |
 | `RAV1000` | Error | Expression expected | Expression expected | — |
 | `RAV1001` | Error | Identifier expected | Identifier expected | — |
 | `RAV1002` | Error | Semicolon expected | ';' expected | — |
@@ -130,12 +130,12 @@ Return/throw context note:
 | `RAV1012` | Error | File-scope code requires console application | Only console applications may contain file-scope code | — |
 | `RAV1013` | Error | File-scope code may only appear in one file | File-scope code may only appear in one file | — |
 | `RAV1014` | Error | Console application requires entry point | Entry point 'Main' not found | — |
-| `RAV1015` | Error | try statement requires catch or finally | A try statement must include at least one catch clause or a finally clause | `samples/exceptions.rav`, `samples/catch.rav` |
-| `RAV1016` | Error | Catch type must derive from System.Exception | Type '{typeName}' is not derived from System.Exception | `samples/exceptions.rav`, `samples/catch.rav` |
+| `RAV1015` | Error | try statement requires catch or finally | A try statement must include at least one catch clause or a finally clause | `samples/control-flow/throw-expression-basic.rav`, `samples/control-flow/try-catch-basic.rav` |
+| `RAV1016` | Error | Catch type must derive from System.Exception | Type '{typeName}' is not derived from System.Exception | `samples/control-flow/throw-expression-basic.rav`, `samples/control-flow/try-catch-basic.rav` |
 | `RAV1017` | Error | Program has more than one entry point defined | Program has more than one entry point defined | — |
 | `RAV1018` | Error | File-scoped namespace out of order | File-scoped namespace declarations must appear before any other members | — |
 | `RAV1019` | Error | End the statement with a newline or ';'. | End the statement with a newline or ';'. | — |
-| `RAV1020` | Error | Thrown expression must be an exception type | Expression of type '{typeName}' cannot be thrown because it does not derive from System.Exception | `samples/exceptions.rav`, `samples/catch.rav` |
+| `RAV1020` | Error | Thrown expression must be an exception type | Expression of type '{typeName}' cannot be thrown because it does not derive from System.Exception | `samples/control-flow/throw-expression-basic.rav`, `samples/control-flow/try-catch-basic.rav` |
 | `RAV1021` | Error | Top-level statements not allowed with top-level Main | Top-level statements are not allowed when 'Main' is declared as a top-level function | — |
 | `RAV1022` | Error | Invalid entry point signature | Entry point 'Main' must be static and return 'void', 'int', 'Unit', 'Task', 'Task<int>', 'Result<int, E>', 'Result<(), E>', 'Task<Result<int, E>>', or 'Task<Result<(), E>>' with zero parameters or a single 'string[]' parameter | — |
 | `RAV1023` | Error | Expected newline between declarations | Expected newline between declarations. | — |
@@ -164,7 +164,7 @@ Return/throw context note:
 | `RAV1904` | Error | Goto statement not allowed here | Goto statements are not valid in expressions; use a statement block instead | — |
 | `RAV1905` | Error | Label not allowed here | Labels are not valid in expressions; use a statement block instead | — |
 | `RAV1906` | Error | Nested try expression | Nested try expressions are not allowed | — |
-| `RAV1907` | Error | Throw statement not allowed here | Throw statements are not valid in expressions; use a statement block instead | `samples/exceptions.rav`, `samples/catch.rav` |
+| `RAV1907` | Error | Throw statement not allowed here | Throw statements are not valid in expressions; use a statement block instead | `samples/control-flow/throw-expression-basic.rav`, `samples/control-flow/try-catch-basic.rav` |
 | `RAV1908` | Error | Match expression not allowed | Match expressions are not allowed after a try? expression | — |
 | `RAV1909` | Error | By-reference return cannot reference local storage | Cannot return a by-reference value that points to local '{localName}' | — |
 | `RAV1910` | Error | By-reference return cannot reference value parameter storage | Cannot return a by-reference value that points to value parameter '{parameterName}' | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |

@@ -1,3 +1,6 @@
+import System.Console.*
+
+// Feature: discard assignment forms.
 System.Console.WriteLine("Test")
 _ = System.Console.WriteLine("Test")
 val _ = System.Console.WriteLine("Test")

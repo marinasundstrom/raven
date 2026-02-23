@@ -1,6 +1,7 @@
 import System.Console.*
 import System.Runtime.Versioning.*
 
+// Feature: assembly target framework attribute.
 [assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
 
 WriteLine(Greeter.Message())

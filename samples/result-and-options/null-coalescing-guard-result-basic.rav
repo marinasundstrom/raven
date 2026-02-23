@@ -1,6 +1,7 @@
 import System.*
 import System.Console.*
 
+// Feature: null-coalescing guard that returns a Result error.
 val res = Test(null)
 WriteLine(res)
 

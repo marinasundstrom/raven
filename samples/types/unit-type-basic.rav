@@ -1,5 +1,6 @@
 import System.*
 
+// Feature: unit value `()`.
 var test = Console.WriteLine("Hello"); Console.WriteLine(test)
 
 val x = ()
