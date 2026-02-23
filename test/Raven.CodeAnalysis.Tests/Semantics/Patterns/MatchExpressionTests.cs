@@ -107,6 +107,23 @@ val result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithBarSeparatedConstantPatterns_BindsAsAlternative()
+    {
+        const string code = """
+func ping(name: string) -> string {
+    return name match {
+        "Bob" | "bob" => "pong"
+        _ => "invalid"
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithNegativeNumericPattern_AllowsConstantArm()
     {
         const string code = """

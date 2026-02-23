@@ -1,4 +1,4 @@
-val x : bool | (a: bool, b: string) | null = (false, "foo")
+val x : (a: bool, b: string)? = (false, "foo")
 
 val r = x match {
     (val a: bool, _) => "tuple $a"

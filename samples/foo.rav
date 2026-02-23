@@ -1,6 +1,0 @@
-import System.Console.*
-
-val x : 'a' | 1 = 1
-//val x : 'a' | 1 = 'b'
-
-WriteLine(x)

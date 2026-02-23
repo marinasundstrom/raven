@@ -202,6 +202,22 @@ public class PatternSyntaxParserTests
         AssertNoErrors(tree);
     }
 
+    [Fact]
+    public void BinaryPattern_WithBarToken_ParsesAsOrPattern()
+    {
+        var (pattern, tree) = ParsePattern("\"Bob\" | \"bob\"");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var orPattern = Assert.IsType<BinaryPatternSyntax>(pattern);
+        Assert.Equal("\"Bob\" | \"bob\"", sourceText.ToString(orPattern.Span));
+        Assert.Equal(SyntaxKind.OrPattern, orPattern.Kind);
+        Assert.Equal("|", orPattern.OperatorToken.Text);
+        Assert.IsType<ConstantPatternSyntax>(orPattern.Left);
+        Assert.IsType<ConstantPatternSyntax>(orPattern.Right);
+
+        AssertNoErrors(tree);
+    }
+
     private static (PatternSyntax Pattern, SyntaxTree Tree) ParsePattern(string patternText)
     {
         var code = $$"""

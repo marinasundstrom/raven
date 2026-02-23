@@ -23,7 +23,8 @@ internal class PatternSyntaxParser : SyntaxParser
     {
         var left = ParseAndPattern();
 
-        while (ConsumeToken(SyntaxKind.OrToken, out var orKeyword))
+        while (ConsumeToken(SyntaxKind.OrToken, out var orKeyword) ||
+               ConsumeToken(SyntaxKind.BarToken, out orKeyword))
         {
             var right = ParseAndPattern();
             left = BinaryPattern(SyntaxKind.OrPattern, left, orKeyword, right);
@@ -669,6 +670,7 @@ internal class PatternSyntaxParser : SyntaxParser
             SyntaxKind.CloseParenToken or
             SyntaxKind.CloseBraceToken or
             SyntaxKind.AndToken or
-            SyntaxKind.OrToken;
+            SyntaxKind.OrToken or
+            SyntaxKind.BarToken;
     }
 }

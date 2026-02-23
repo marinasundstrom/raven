@@ -14,14 +14,10 @@ val tuple2 : (id: int, name: string) = (42, "Bar")
 
 val name = tuple2.name
 
-val x : bool | (a: bool, b: string) = false
-
-val r = x match {
-    false => "false"
-    true => "true"
-    //bool => "bool"
-    (val a: bool, val b: string) => "tuple"
-    _ => "none"
+val r = tuple2 match {
+    (42, val b: string) => "tuple 42 $b"
+    (val a: int, val b: string) => "tuple $b"
+    //_ => "none"
 }
 
 System.Console.WriteLine(r)
