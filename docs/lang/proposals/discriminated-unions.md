@@ -33,6 +33,13 @@ let id2 : Token = .Identifier("test")
 
 Each case struct exposes the payload values via immutable fields or properties and defines an implicit conversion operator to the union. Assigning a case to the union converts implicitly; member-qualified case construction (`Union.Case(...)`) lowers through `Union.Create(new Union_Case(...))` so the union-wrapping signature is explicit in generated code.
 
+Invariant:
+
+* Case constructors stay independent case-type constructors.
+* Union wrapping is explicit via `Union.Create(...)`.
+* Case compatibility with unions is handled by conversion rules, not by
+  rebinding constructors to target union types.
+
 ### Generics
 
 Unions support type parameters declared on the `union`:

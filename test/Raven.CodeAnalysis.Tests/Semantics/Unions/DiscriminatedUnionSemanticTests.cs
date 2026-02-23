@@ -345,6 +345,145 @@ union Result<T, E> {
     }
 
     [Fact]
+    public void MatchExpression_WithUserDefinedUnionCases_PrefersTargetUnionType()
+    {
+        const string source = """
+func build(flag: bool) -> Response<int, string> {
+    return flag match {
+        true => Ok(42)
+        false => Error("boom")
+    }
+}
+
+union Response<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchExpression));
+        var matchType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundMatch.Type);
+        Assert.Equal("Response", matchType.Name);
+    }
+
+    [Fact]
+    public void MatchStatement_ImplicitReturn_WithUserDefinedUnionCases_BindsWithoutErrors()
+    {
+        const string source = """
+func build(flag: bool) -> Response<int, string> {
+    flag match {
+        true => Ok(42)
+        false => Error("boom")
+    }
+}
+
+union Response<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchExpression));
+        var matchType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundMatch.Type);
+        Assert.Equal("Response", matchType.Name);
+    }
+
+    [Fact]
+    public void IfExpression_WithUserDefinedUnionCases_PrefersTargetUnionType()
+    {
+        const string source = """
+func build(flag: bool) -> Response<int, string> {
+    return if flag Ok(42) else Error("boom")
+}
+
+union Response<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var ifExpression = tree.GetRoot().DescendantNodes().OfType<IfExpressionSyntax>().Single();
+        var boundIf = Assert.IsType<BoundIfExpression>(model.GetBoundNode(ifExpression));
+        var ifType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundIf.Type);
+        Assert.Equal("Response", ifType.Name);
+    }
+
+    [Fact]
+    public void IfStatement_ImplicitReturn_WithUserDefinedUnionCases_BindsWithoutErrors()
+    {
+        const string source = """
+func build(flag: bool) -> Response<int, string> {
+    if flag {
+        Ok(42)
+    } else {
+        Error("boom")
+    }
+}
+
+union Response<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var ifStatement = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().Single();
+        var boundIf = Assert.IsType<BoundIfStatement>(model.GetBoundNode(ifStatement));
+        Assert.NotNull(boundIf);
+    }
+
+    [Fact]
+    public void UnionCaseCanonicalForms_PayloadAndParameterless_BindWithoutErrors()
+    {
+        const string source = """
+func build() {
+    val s1: Option<int> = Some(1)
+    val s2: Option<int> = .Some(2)
+    val s3: Option<int> = Option.Some(3)
+    val s4: Option<int> = Option<int>.Some(4)
+
+    val n1: Option<int> = None
+    val n2: Option<int> = .None
+}
+
+union Option<T> {
+    Some(value: T)
+    None
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void AsyncReturn_TargetTypedCase_BindsUnionCase()
     {
         const string source = """

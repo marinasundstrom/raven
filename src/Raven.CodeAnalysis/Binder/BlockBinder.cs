@@ -2135,10 +2135,48 @@ partial class BlockBinder : Binder
             if (arm.WhenClause is { } whenClause)
                 guard = BindExpression(whenClause.Condition);
 
+            var expressionTargetType = armTargetType;
+            if (expressionTargetType is null &&
+                pattern is BoundCasePattern &&
+                scrutinee.Type is INamedTypeSymbol scrutineeUnion &&
+                pattern.Type.TryGetDiscriminatedUnionCase()?.Union is INamedTypeSymbol caseUnion &&
+                SymbolEqualityComparer.Default.Equals(
+                    (scrutineeUnion.OriginalDefinition as INamedTypeSymbol) ?? scrutineeUnion,
+                    (caseUnion.OriginalDefinition as INamedTypeSymbol) ?? caseUnion))
+            {
+                expressionTargetType = scrutineeUnion;
+            }
+
             var expression = BindExpressionWithTargetType(
                 arm.Expression,
-                armTargetType,
+                expressionTargetType,
                 allowReturn: allowReturnInArmExpressions);
+
+            if (expressionTargetType is not null &&
+                expressionTargetType.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(expression))
+            {
+                expression = BindLambdaToDelegateIfNeeded(expression, expressionTargetType);
+
+                var sourceType = expression.Type;
+                if (sourceType is not null &&
+                    !SymbolEqualityComparer.Default.Equals(sourceType, expressionTargetType))
+                {
+                    if (!IsAssignable(expressionTargetType, sourceType, out var conversion))
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            expressionTargetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            arm.Expression.GetLocation());
+                        expression = new BoundErrorExpression(expressionTargetType, null, BoundExpressionReason.TypeMismatch);
+                    }
+                    else
+                    {
+                        expression = ApplyConversion(expression, expressionTargetType, conversion, arm.Expression);
+                    }
+                }
+            }
+
             if (requireArmValue)
                 expression = expression.RequireValue();
 

@@ -4723,6 +4723,9 @@ internal partial class ExpressionGenerator : Generator
         if (TryGetSpecializedAsyncBuilderMethod(invocationExpression, out var specialized))
             return specialized;
 
+        if (TryGetSpecializedStaticContainingTypeMethod(invocationExpression, out specialized))
+            return specialized;
+
         return invocationExpression.Method;
     }
 
@@ -4779,6 +4782,40 @@ internal partial class ExpressionGenerator : Generator
         }
 
         return null;
+    }
+
+    private bool TryGetSpecializedStaticContainingTypeMethod(BoundInvocationExpression invocationExpression, out IMethodSymbol specialized)
+    {
+        var original = invocationExpression.Method;
+        specialized = original;
+
+        if (!original.IsStatic ||
+            invocationExpression.Receiver is not BoundTypeExpression { Type: INamedTypeSymbol receiverType } ||
+            original.ContainingType is not INamedTypeSymbol containingType)
+        {
+            return false;
+        }
+
+        var receiverDefinition = receiverType.OriginalDefinition as INamedTypeSymbol ?? receiverType;
+        var containingDefinition = containingType.OriginalDefinition as INamedTypeSymbol ?? containingType;
+        if (!SymbolEqualityComparer.Default.Equals(receiverDefinition, containingDefinition))
+            return false;
+
+        if (SymbolEqualityComparer.Default.Equals(receiverType, containingType))
+            return false;
+
+        var originalDefinition = original.OriginalDefinition ?? original;
+        foreach (var candidate in receiverType.GetMembers(original.Name).OfType<IMethodSymbol>())
+        {
+            if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition ?? candidate, originalDefinition))
+                continue;
+
+            var aligned = AlignMethodTypeArguments(candidate, original);
+            specialized = aligned;
+            return !SymbolEqualityComparer.Default.Equals(aligned, original);
+        }
+
+        return false;
     }
 
     private static IMethodSymbol AlignMethodTypeArguments(IMethodSymbol candidate, IMethodSymbol original)

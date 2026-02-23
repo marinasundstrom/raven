@@ -246,6 +246,13 @@ internal static class TypeSymbolNormalization
     {
         union = null;
 
+        var unwrapped = UnwrapAlias(member);
+        if (unwrapped.TryGetDiscriminatedUnion() is INamedTypeSymbol unionType)
+        {
+            union = unionType;
+            return true;
+        }
+
         var caseSymbol = member.TryGetDiscriminatedUnionCase();
         if (caseSymbol is not null)
         {

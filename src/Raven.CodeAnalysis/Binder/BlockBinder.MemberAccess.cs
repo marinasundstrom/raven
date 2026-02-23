@@ -2558,7 +2558,7 @@ partial class BlockBinder
                         // whose Type is the union root (Err) so that generic type inference infers
                         // the union root rather than the individual case type.
                         if (BindDiscriminatedUnionCaseType(typeMember, typeExpr.Type as INamedTypeSymbol) is { } unionCaseExpr)
-                            return unionCaseExpr;
+                            return ApplyTargetTypedUnionCarrier(unionCaseExpr, simpleName);
 
                         return new BoundTypeExpression(typeMember);
                     }
@@ -2656,7 +2656,7 @@ partial class BlockBinder
             if (member is ITypeSymbol typeMemberSymbol)
             {
                 if (BindDiscriminatedUnionCaseType(typeMemberSymbol) is { } unionCase)
-                    return unionCase;
+                    return ApplyTargetTypedUnionCarrier(unionCase, simpleName);
 
                 return new BoundTypeExpression(typeMemberSymbol);
             }
@@ -2851,6 +2851,47 @@ partial class BlockBinder
             _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, nameLocation ?? simpleName.GetLocation() ?? Location.None);
         }
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression ApplyTargetTypedUnionCarrier(BoundExpression expression, SyntaxNode syntax)
+    {
+        if (expression is not BoundUnionCaseExpression unionCase)
+            return expression;
+
+        var targetType = GetTargetType(syntax);
+        if (targetType is null)
+            return expression;
+
+        targetType = UnwrapAlias(targetType);
+        targetType = UnwrapTaskLikeTargetType(targetType);
+
+        var targetUnion =
+            targetType.TryGetDiscriminatedUnion() as INamedTypeSymbol
+            ?? targetType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+
+        if (targetUnion is null)
+            return expression;
+
+        if (!SymbolEqualityComparer.Default.Equals(
+                (unionCase.UnionType.OriginalDefinition as INamedTypeSymbol) ?? unionCase.UnionType,
+                (targetUnion.OriginalDefinition as INamedTypeSymbol) ?? targetUnion))
+        {
+            return expression;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(unionCase.UnionType, targetUnion))
+            return expression;
+
+        if (IsUninstantiatedGenericType(unionCase.UnionType) || !IsUninstantiatedGenericType(targetUnion))
+        {
+            return new BoundUnionCaseExpression(
+                targetUnion,
+                unionCase.CaseType,
+                unionCase.CaseConstructor,
+                unionCase.Arguments);
+        }
+
+        return expression;
     }
 
     private BoundExpression BindExtensionPropertyGetInvocation(

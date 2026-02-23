@@ -3669,6 +3669,14 @@ Binding model:
   emits an explicit factory call:
   `Union.Create(new Union_Case(...))`.
 
+DU invariant:
+
+* Case constructors are independent case-type constructors; they are not
+  rebound as union constructors.
+* Union wrapping is represented by `Create(...)`.
+* Compatibility is decided by case-to-union conversion rules (including
+  payload subtype-to-supertype widening where valid).
+
 Type argument behavior:
 
 * Case type arguments may be explicit (`Ok<int>(2)`) or inferred from

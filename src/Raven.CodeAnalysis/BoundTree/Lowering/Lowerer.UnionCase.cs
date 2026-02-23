@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
@@ -62,8 +64,18 @@ internal sealed partial class Lowerer
 
         if (createMethod is not null)
         {
+            if (node.UnionType is ConstructedNamedTypeSymbol constructedUnion &&
+                createMethod is not SubstitutedMethodSymbol &&
+                createMethod is not ConstructedMethodSymbol)
+            {
+                createMethod = new SubstitutedMethodSymbol(createMethod, constructedUnion);
+            }
+
             // Emit: UnionType.Create(new CaseType(args...))
-            return new BoundInvocationExpression(createMethod, new[] { caseCreation });
+            return new BoundInvocationExpression(
+                createMethod,
+                new[] { caseCreation },
+                receiver: new BoundTypeExpression(node.UnionType));
         }
 
         // Fallback: raw tag+payload assignment (should not be reached for well-formed DUs).

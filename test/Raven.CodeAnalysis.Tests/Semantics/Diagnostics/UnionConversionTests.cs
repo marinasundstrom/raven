@@ -275,6 +275,24 @@ func build() -> Result<string, Exception> {
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(diagnostics.IsEmpty, string.Join(System.Environment.NewLine, diagnostics.Select(d => d.ToString())));
     }
+
+    [Fact]
+    public void CaseToUnion_GenericPayloadSupertypeToSubtype_IsNotImplicitlyConvertible()
+    {
+        var source = """
+import System.*
+
+func build() -> Result<string, InvalidOperationException> {
+    return Error(Exception("x"))
+}
+""" + ResultUnionDecl;
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+    }
 }
 
 public class UnionConversionClassificationTests : CompilationTestBase

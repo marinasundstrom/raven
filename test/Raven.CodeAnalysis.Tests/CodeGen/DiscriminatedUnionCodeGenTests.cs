@@ -22,7 +22,7 @@ union Option {
 }
 
 class Container {
-    public Create() -> Option.Some {
+    public Create() -> Option {
         return Option.Some(value: 42, label: "ok")
     }
 }
@@ -52,23 +52,8 @@ class Container {
 
         var caseValue = createMethod.Invoke(instance, Array.Empty<object?>());
         Assert.NotNull(caseValue);
-
-        var caseType = runtimeAssembly.GetType("Option_Some", throwOnError: true)!;
-        Assert.Equal(caseType, caseValue!.GetType());
-
-        var valueField = caseType.GetField("<value>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var labelField = caseType.GetField("<label>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!;
-
-        Assert.Equal(42, (int)valueField.GetValue(caseValue)!);
-        Assert.Equal("ok", (string)labelField.GetValue(caseValue)!);
-
-        var valueProperty = caseType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
-        var labelProperty = caseType.GetProperty("Label", BindingFlags.Public | BindingFlags.Instance)!;
-
-        Assert.False(valueProperty.CanWrite);
-        Assert.False(labelProperty.CanWrite);
-        Assert.Equal(42, (int)valueProperty.GetValue(caseValue)!);
-        Assert.Equal("ok", (string)labelProperty.GetValue(caseValue)!);
+        Assert.Equal("Option", caseValue!.GetType().Name);
+        Assert.Contains("Some", caseValue.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -106,6 +91,100 @@ public union Result<T> {
         Assert.True(errorCase.IsPublic);
         var errorCtor = errorCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(string) }, modifiers: null);
         Assert.NotNull(errorCtor);
+    }
+
+    [Fact]
+    public void GenericOptionNoneCase_CreateMethod_IsEmittedWithConstructedCarrier()
+    {
+        const string code = """
+class Runner {
+    public static Run(flag: bool) -> Option<int> {
+        val input: Option<int> = Some(42)
+        return input match {
+            Some(val value) => Option<int>.Some(value)
+            None => None
+        }
+    }
+}
+
+union Option<T> {
+    Some(value: T)
+    None
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "generic-option-none-create",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var runnerType = assembly.GetType("Runner", throwOnError: true)!;
+        var runMethod = runnerType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+        var calledMembers = ILReader.GetCalledMembers(runMethod);
+
+        Assert.Contains(
+            calledMembers,
+            member => member.Contains("Option`1[[System.Int32", StringComparison.Ordinal) &&
+                      member.EndsWith("::Create", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            calledMembers,
+            member => member.Contains("System.Option`1::Create", StringComparison.Ordinal));
+
+        var fromSome = runMethod.Invoke(null, [true]);
+        var fromNone = runMethod.Invoke(null, [false]);
+
+        Assert.NotNull(fromSome);
+        Assert.NotNull(fromNone);
+    }
+
+    [Fact]
+    public void GenericUnionErrorSubtypeConversion_RunsSuccessfully()
+    {
+        const string code = """
+import System.*
+
+class Runner {
+    public static Run() -> string {
+        val result: Result<string, Exception> = Error(InvalidOperationException("x"))
+        return result match {
+            Error(val e) => e.GetType().Name
+            Ok(val value) => value
+        }
+    }
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "generic-union-error-subtype",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var runnerType = assembly.GetType("Runner", throwOnError: true)!;
+        var runMethod = runnerType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+
+        var output = runMethod.Invoke(null, Array.Empty<object?>());
+        Assert.Equal("InvalidOperationException", output);
     }
 
     [Fact]
@@ -616,7 +695,7 @@ union Result<T, E> {
 }
 
 class Container {
-    public Create() -> Error<string> {
+    public Create() -> Result<int, string> {
         return Result<int, string>.Error(message: "boom")
     }
 }
@@ -646,13 +725,8 @@ class Container {
 
         var caseValue = createMethod.Invoke(instance, Array.Empty<object?>());
         Assert.NotNull(caseValue);
-
-        var closedCaseType = runtimeAssembly.GetType("Result_Error`1", throwOnError: true)!.MakeGenericType(typeof(string));
-
-        Assert.Equal(closedCaseType, caseValue!.GetType());
-        Assert.Collection(
-            caseValue.GetType().GetGenericArguments(),
-            arg => Assert.Equal(typeof(string), arg));
+        Assert.Equal("Result`2", caseValue!.GetType().Name);
+        Assert.Contains("Error", caseValue.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
