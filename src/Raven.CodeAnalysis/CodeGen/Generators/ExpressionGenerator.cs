@@ -272,6 +272,11 @@ internal partial class ExpressionGenerator : Generator
 
                 break;
 
+            case BoundUnionCaseExpression unionCaseExpression:
+                // Should be lowered before reaching codegen, but guard for robustness.
+                EmitUnionCaseExpression(unionCaseExpression);
+                break;
+
             case BoundUnitExpression unitExpression:
                 EmitUnitExpression(unitExpression);
                 if (!_preserveResult)
@@ -661,6 +666,36 @@ internal partial class ExpressionGenerator : Generator
                 unitPayloadCtor,
                 ImmutableArray.Create<BoundExpression>(new BoundUnitExpression(unitType))));
         return true;
+    }
+
+    /// <summary>
+    /// Fallback emitter for <see cref="BoundUnionCaseExpression"/> nodes that were not lowered.
+    /// Constructs the case instance and then emits the DU tag+payload assignment inline.
+    /// </summary>
+    private void EmitUnionCaseExpression(BoundUnionCaseExpression node)
+    {
+        // Resolve the constructor.
+        var ctor = node.CaseConstructor
+            ?? node.CaseType.Constructors.FirstOrDefault(static c => c.Parameters.Length == 0)
+            ?? node.CaseType.Constructors.FirstOrDefault(static c =>
+                c.Parameters.Length == 1 &&
+                c.Parameters[0].Type.SpecialType == SpecialType.System_Unit);
+
+        if (ctor is null)
+            throw new InvalidOperationException(
+                $"EmitUnionCaseExpression: no constructor found on '{node.CaseType.Name}'.");
+
+        var args = node.Arguments;
+        if (ctor.Parameters.Length == 1 && args.IsDefaultOrEmpty)
+        {
+            var unitType = ctor.Parameters[0].Type;
+            args = ImmutableArray.Create<BoundExpression>(new BoundUnitExpression(unitType));
+        }
+
+        var caseCreation = new BoundObjectCreationExpression(ctor, args);
+        var conversion = new Conversion(isImplicit: true, isDiscriminatedUnion: true);
+        var conversionExpr = new BoundConversionExpression(caseCreation, node.UnionType, conversion);
+        EmitConversionExpression(conversionExpr);
     }
 
     private void EmitSelfExpression(BoundSelfExpression selfExpression, EmitContext context)

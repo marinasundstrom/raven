@@ -873,7 +873,7 @@ class Container {
     }
 
     [Fact]
-    public void Lowerer_PreservesDiscriminatedUnionConversion()
+    public void Lowerer_LowersUnionCaseToCreateFactoryInvocation()
     {
         const string source = """
 union Option {
@@ -898,14 +898,16 @@ class Container {
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
         var boundBody = (BoundBlockStatement)model.GetBoundNode(methodSyntax.Body!)!;
         var returnStatement = boundBody.Statements.OfType<BoundReturnStatement>().Single();
-        var castExpression = Assert.IsType<BoundConversionExpression>(returnStatement.Expression);
-        Assert.True(castExpression.Conversion.IsDiscriminatedUnion);
-        Assert.True(castExpression.Conversion.IsUserDefined);
-        Assert.NotNull(castExpression.Conversion.MethodSymbol);
+        var unionCaseExpression = Assert.IsType<BoundUnionCaseExpression>(returnStatement.Expression);
+        Assert.Equal("Option", unionCaseExpression.UnionType.Name);
+        Assert.Equal("Some", unionCaseExpression.CaseType.Name);
 
         var loweredBody = Lowerer.LowerBlock(methodSymbol, boundBody);
         var loweredReturn = loweredBody.Statements.OfType<BoundReturnStatement>().Single();
-        Assert.IsType<BoundConversionExpression>(loweredReturn.Expression);
+        var createCall = Assert.IsType<BoundInvocationExpression>(loweredReturn.Expression);
+        Assert.Equal("Create", createCall.Method.Name);
+        Assert.Single(createCall.Arguments);
+        Assert.IsType<BoundObjectCreationExpression>(createCall.Arguments.Single());
     }
 
     [Fact]
@@ -1156,5 +1158,74 @@ union Result<T> {
         Assert.True(
             diagnostics.IsEmpty || diagnostics.Any(d => d.Descriptor == CompilerDiagnostics.CasePatternArgumentCountMismatch),
             string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void UnqualifiedCaseConstructor_ExplicitReturn_MatchingTypeArgs_NoErrors()
+    {
+        // Ok(42) used as a plain constructor call; type is inferred from arguments, not the return type.
+        const string source = """
+func build() -> Result<int, string> {
+    return Ok(42)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void UnqualifiedCaseConstructor_ImplicitReturn_MatchingTypeArgs_NoErrors()
+    {
+        // Ok(42) as the trailing implicit-return expression; type is inferred from arguments.
+        const string source = """
+func build() -> Result<int, string> {
+    Ok(42)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void UnqualifiedCaseConstructor_TargetTypeDoesNotOverrideArgumentInference()
+    {
+        // Even though the return type is Result<(), string>, Ok(42) should be inferred as
+        // Ok<int> from its argument — not Ok<Unit> from the target type — so a RAV1503 is
+        // expected rather than a "no overload" error.
+        const string source = """
+func build() -> Result<(), string> {
+    return Ok(42)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
     }
 }

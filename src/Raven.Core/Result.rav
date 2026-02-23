@@ -153,7 +153,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     /// Maps the error channel.
     public MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
-            Ok(val value) => Result<T, E2>.Ok(value)
+            Ok(val value) => Ok(value)
             Error(val error) => Error(mapper(error))
         }
     }

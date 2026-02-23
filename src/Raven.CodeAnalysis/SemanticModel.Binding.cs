@@ -2285,6 +2285,34 @@ public partial class SemanticModel
 
             RegisterCaseMember(conversionMethod);
 
+            // Static factory method: UnionType.Create(CaseType value) -> UnionType
+            // Distinct from op_Implicit — conversion is separate from creation.
+            var createMethod = new SourceMethodSymbol(
+                "Create",
+                unionSymbol,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                unionSymbol,
+                unionSymbol,
+                namespaceSymbol,
+                new[] { caseClause.GetLocation() },
+                Array.Empty<SyntaxReference>(),
+                isStatic: true,
+                methodKind: MethodKind.Ordinary,
+                declaredAccessibility: Accessibility.Public);
+
+            var createParameter = new SourceParameterSymbol(
+                "value",
+                caseTypeForUnionMembers,
+                createMethod,
+                unionSymbol,
+                namespaceSymbol,
+                new[] { caseClause.GetLocation() },
+                Array.Empty<SyntaxReference>());
+
+            createMethod.SetParameters(new[] { createParameter });
+
+            RegisterCaseMember(createMethod);
+
             var tryGetMethod = new SourceMethodSymbol(
                 "TryGetValue",
                 boolType!,

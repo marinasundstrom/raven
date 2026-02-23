@@ -105,10 +105,17 @@ class MethodBodyBinder : BlockBinder
                 !t.ContainsErrorType() &&
                 !IsAssignable(GetTrailingExpressionTargetType(_methodSymbol), t, out _))
             {
+                var exprLocation = bodySyntax switch
+                {
+                    BlockStatementSyntax block when block.Statements.LastOrDefault() is ExpressionStatementSyntax lastExpr
+                        => lastExpr.Expression.GetLocation(),
+                    ArrowExpressionClauseSyntax arrow => arrow.Expression.GetLocation(),
+                    _ => bodySyntax.GetLocation()
+                };
                 _diagnostics.ReportCannotConvertFromTypeToType(
                     t.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     GetTrailingExpressionTargetType(_methodSymbol).ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    bodySyntax.GetLocation());
+                    exprLocation);
             }
         }
 

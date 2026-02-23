@@ -234,7 +234,20 @@ partial class BlockBinder
         foreach (var param in parameterSymbols)
             lambdaBinder.DeclareParameter(param);
 
-        var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+        ITypeSymbol? lambdaBodyTargetType = targetSignature?.ReturnType;
+        if (isAsyncLambda && lambdaBodyTargetType is not null)
+            lambdaBodyTargetType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, lambdaBodyTargetType) ?? lambdaBodyTargetType;
+
+        BoundExpression bodyExpr;
+        if (lambdaBodyTargetType is not null)
+        {
+            using var _ = lambdaBinder.PushTargetType(lambdaBodyTargetType);
+            bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+        }
+        else
+        {
+            bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+        }
         ReportLambdaBodyDiagnostics(lambdaBinder);
 
         var inferred = bodyExpr.Type;

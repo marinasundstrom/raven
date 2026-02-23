@@ -2,7 +2,8 @@
 
 > ✅ The syntax described here is implemented in the parser and semantic model
 > (including member pattern binding and exhaustiveness). Code generation lowers
-> to implicit conversions and `TryGet*` helpers for the union cases.
+> case construction to union factory calls (`Union.Create(new Union_Case(...))`)
+> and emits `TryGet*` helpers for the union cases.
 
 Discriminated unions are value types that represent a fixed set of alternative shapes. Each alternative is modeled as a distinct nested struct type whose constructor is declared inline with the union definition. The compiler emits `TryGet*` helpers for each case and pattern matching is expressed in terms of these helpers, ensuring exhaustiveness.
 
@@ -30,7 +31,7 @@ let id1 = Token.Identifier("foo")
 let id2 : Token = .Identifier("test")
 ```
 
-Each case struct exposes the payload values via immutable fields or properties and defines an implicit conversion operator to the union. Assigning a case to the union converts implicitly and simulates a class-like closed hierarchy.
+Each case struct exposes the payload values via immutable fields or properties and defines an implicit conversion operator to the union. Assigning a case to the union converts implicitly; member-qualified case construction (`Union.Case(...)`) lowers through `Union.Create(new Union_Case(...))` so the union-wrapping signature is explicit in generated code.
 
 ### Generics
 

@@ -206,10 +206,17 @@ public partial class Compilation
 
         var sourceUnionCase = source.TryGetDiscriminatedUnionCase();
         var destinationUnion = destination.TryGetDiscriminatedUnion();
+        var sourceUnionForCase = ResolveSourceUnionForCase(source, sourceUnionCase);
         if (sourceUnionCase is not null &&
+            sourceUnionForCase is not null &&
             destinationUnion is not null &&
-            (SymbolEqualityComparer.Default.Equals(sourceUnionCase.Union, destinationUnion) ||
-             SymbolEqualityComparer.Default.Equals(sourceUnionCase.Union.OriginalDefinition, destinationUnion.OriginalDefinition)))
+            (SymbolEqualityComparer.Default.Equals(sourceUnionForCase, destinationUnion) ||
+             (SymbolEqualityComparer.Default.Equals(sourceUnionForCase.OriginalDefinition, destinationUnion.OriginalDefinition) &&
+              // For same-family unions, only allow when concrete type args at each position are
+              // compatible. A type parameter at either position is freely compatible; two concrete
+              // args must be equal. This prevents Ok<int> → Result<(), E> while still allowing
+              // Error<E> → Result<T[], E> (type params) and Ok<int> → Result<int, string> (E open).
+              ConcreteTypeArgumentsAreCompatible(sourceUnionForCase, (ITypeSymbol)destinationUnion))))
         {
             var conversionMethod = FindDiscriminatedUnionConversionMethod(source, destination);
             return Finalize(new Conversion(
@@ -596,16 +603,140 @@ public partial class Compilation
             };
         }
 
-        static bool SourceMatchesDiscriminatedUnionCase(ITypeSymbol sourceType, ITypeSymbol parameterType)
+        bool SourceMatchesDiscriminatedUnionCase(ITypeSymbol sourceType, ITypeSymbol parameterType)
         {
             var sourceCase = sourceType.TryGetDiscriminatedUnionCase();
             var parameterUnion = parameterType.TryGetDiscriminatedUnion();
+            var sourceUnion = ResolveSourceUnionForCase(sourceType, sourceCase);
 
-            if (sourceCase is null || parameterUnion is null)
+            if (sourceCase is null || sourceUnion is null || parameterUnion is null)
                 return false;
 
-            return SymbolEqualityComparer.Default.Equals(sourceCase.Union, parameterUnion) ||
-                SymbolEqualityComparer.Default.Equals(sourceCase.Union.OriginalDefinition, parameterUnion.OriginalDefinition);
+            if (SymbolEqualityComparer.Default.Equals(sourceUnion, parameterUnion))
+                return true;
+
+            if (!SymbolEqualityComparer.Default.Equals(sourceUnion.OriginalDefinition, parameterUnion.OriginalDefinition))
+                return false;
+
+            return ConcreteTypeArgumentsAreCompatible(sourceUnion, (ITypeSymbol)parameterUnion);
+        }
+
+        // Returns true when, for each type argument position, at least one side is a type parameter
+        // (freely compatible) or both concrete args are equal. This allows Error<E> → Result<T,E>
+        // (type params) and Ok<int> → Result<int,string> (E open on source side) while blocking
+        // Ok<int> → Result<(),string> (int ≠ () in the same position).
+        bool ConcreteTypeArgumentsAreCompatible(ITypeSymbol sourceUnion, ITypeSymbol destUnion)
+        {
+            if (sourceUnion is not INamedTypeSymbol sn || destUnion is not INamedTypeSymbol dn)
+                return true;
+
+            var sa = sn.TypeArguments;
+            var da = dn.TypeArguments;
+
+            if (sa.Length != da.Length)
+                return false;
+
+            for (var i = 0; i < sa.Length; i++)
+            {
+                if (sa[i] is ITypeParameterSymbol || da[i] is ITypeParameterSymbol)
+                    continue;
+
+                if (SymbolEqualityComparer.Default.Equals(sa[i], da[i]))
+                    continue;
+
+                // Allow implicit widening across concrete case payloads (e.g.
+                // InvalidOperationException -> Exception) while still rejecting
+                // incompatible shapes like int -> unit.
+                var argConversion = ClassifyConversion(sa[i], da[i], includeUserDefined: false);
+                if (!(argConversion.Exists && argConversion.IsImplicit))
+                    return false;
+            }
+            return true;
+        }
+
+        static ITypeSymbol? ResolveSourceUnionForCase(ITypeSymbol sourceType, IDiscriminatedUnionCaseSymbol? sourceCase)
+        {
+            if (sourceCase is null || sourceCase.Union is not INamedTypeSymbol sourceUnion)
+                return null;
+
+            if (sourceType is INamedTypeSymbol sourceNamed &&
+                TryProjectUnionFromCaseArguments(sourceNamed, sourceCase, out var projectedUnion))
+            {
+                return projectedUnion;
+            }
+
+            return sourceUnion;
+        }
+
+        static bool TryProjectUnionFromCaseArguments(
+            INamedTypeSymbol caseType,
+            IDiscriminatedUnionCaseSymbol caseSymbol,
+            out INamedTypeSymbol? projectedUnion)
+        {
+            projectedUnion = null;
+
+            if (caseType.TypeArguments.IsDefaultOrEmpty)
+                return false;
+
+            var caseDefinition = caseSymbol.OriginalDefinition as IDiscriminatedUnionCaseSymbol ?? caseSymbol;
+            if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
+                caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
+                caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length)
+            {
+                return false;
+            }
+
+            var unionDefinition = caseDefinition.Union.OriginalDefinition as INamedTypeSymbol ?? caseDefinition.Union as INamedTypeSymbol;
+            if (unionDefinition is null || unionDefinition.TypeParameters.IsDefaultOrEmpty)
+                return false;
+
+            var unionTypeArguments = unionDefinition.TypeParameters
+                .Select(typeParameter => (ITypeSymbol)typeParameter)
+                .ToArray();
+
+            var changed = false;
+
+            for (var i = 0; i < caseDefinitionNamed.TypeParameters.Length; i++)
+            {
+                var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
+                ITypeParameterSymbol? unionTypeParameter = null;
+
+                if (caseDefinition is SourceDiscriminatedUnionCaseTypeSymbol sourceCaseDefinition &&
+                    sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
+                {
+                    unionTypeParameter = mapped;
+                }
+                else
+                {
+                    unionTypeParameter = unionDefinition.TypeParameters
+                        .FirstOrDefault(tp => string.Equals(tp.Name, caseTypeParameter.Name, StringComparison.Ordinal));
+                }
+
+                if (unionTypeParameter is null)
+                    continue;
+
+                var unionIndex = -1;
+                for (var unionParameterIndex = 0; unionParameterIndex < unionDefinition.TypeParameters.Length; unionParameterIndex++)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(unionDefinition.TypeParameters[unionParameterIndex], unionTypeParameter))
+                    {
+                        unionIndex = unionParameterIndex;
+                        break;
+                    }
+                }
+
+                if (unionIndex < 0 || unionIndex >= unionTypeArguments.Length)
+                    continue;
+
+                unionTypeArguments[unionIndex] = caseType.TypeArguments[i];
+                changed = true;
+            }
+
+            if (!changed)
+                return false;
+
+            projectedUnion = (INamedTypeSymbol)unionDefinition.Construct(unionTypeArguments);
+            return true;
         }
 
         static bool ContainsUnboundTypeParameter(ITypeSymbol type)

@@ -313,6 +313,20 @@ internal class MethodBodyGenerator
             return;
         }
 
+        // Static factory method Create(CaseType) -> UnionType — same body as op_Implicit.
+        if (MethodSymbol.MethodKind == MethodKind.Ordinary &&
+            MethodSymbol.IsStatic &&
+            MethodSymbol.Name == "Create" &&
+            MethodSymbol.ReturnType.TryGetDiscriminatedUnion() is not null &&
+            MethodSymbol.Parameters.Length == 1 &&
+            MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is not null &&
+            MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            TryGetSourceDiscriminatedUnionDefinition(MethodSymbol.ContainingType) is { } createUnion)
+        {
+            EmitDiscriminatedUnionConversion(createUnion);
+            return;
+        }
+
         if (MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol tryGetUnion &&
             MethodSymbol.ReturnType.SpecialType == SpecialType.System_Boolean &&
             MethodSymbol.Parameters.Length == 1 &&

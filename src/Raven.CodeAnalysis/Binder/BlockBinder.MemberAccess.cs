@@ -687,6 +687,29 @@ partial class BlockBinder
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
         }
 
+        // For uninstantiated generic types (TypeArguments empty), infer type arguments from the
+        // constructor arguments BEFORE attempting overload resolution on the open type.
+        // Without this, overload resolution can succeed with an unsubstituted constructor
+        // (e.g. Error<E_case>.init(data: E_case) matched against an argument of type E_method),
+        // because two unrelated type parameters are treated as freely compatible.  That produces a
+        // SourceMethodSymbol on the open generic, which codegen emits as `newobj Type`1::.ctor(!0)`
+        // (a type generic parameter) instead of the correct `newobj Type`1<!!E>::.ctor(!!E)`
+        // (a method generic parameter).
+        // For generic types whose type arguments are still open (either empty or all are the type's
+        // own type-level parameters), infer concrete type arguments from the constructor arguments
+        // BEFORE attempting overload resolution.  Without this, overload resolution can succeed with
+        // an unsubstituted constructor (e.g. Error<E_case>.init(data: E_case) matched against an
+        // argument of type E_method) because two unrelated type parameters are treated as freely
+        // compatible.  That produces a SourceMethodSymbol on the open/self-constructed generic, which
+        // codegen emits as `newobj Type`1::.ctor(!0)` instead of the correct
+        // `newobj Type`1<!!E>::.ctor(!!E)`.
+        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol)
+            && TryInferConstructedTypeForConstructor(typeSymbol, boundArguments, out var earlyInferred)
+            && !SymbolEqualityComparer.Default.Equals(earlyInferred, typeSymbol))
+        {
+            return BindConstructorInvocation(earlyInferred, boundArguments, callSyntax, receiverSyntax, receiver);
+        }
+
         var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
         if (resolution.Success)
         {
@@ -738,6 +761,39 @@ partial class BlockBinder
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 
+    /// <summary>
+    /// Returns true when <paramref name="typeSymbol"/> is a generic type whose type arguments are
+    /// not yet concretely instantiated — either because the TypeArguments list is empty/default (the
+    /// open generic form used by source and PE original-definition symbols), or because every type
+    /// argument is still one of the type's OWN type-level type parameters (i.e. the type was
+    /// constructed with its own parameters as placeholders, which also represents an unresolved
+    /// open form).
+    /// </summary>
+    private static bool IsUninstantiatedGenericType(INamedTypeSymbol typeSymbol)
+    {
+        if (!typeSymbol.IsGenericType)
+            return false;
+
+        var typeArguments = typeSymbol.TypeArguments;
+        if (typeArguments.IsDefaultOrEmpty)
+            return true;
+
+        // If all type arguments are the type's own type-level parameters then the type is
+        // effectively uninstantiated (constructed with itself).
+        var typeParameters = typeSymbol.TypeParameters;
+        if (!typeParameters.IsDefaultOrEmpty && typeArguments.Length == typeParameters.Length)
+        {
+            for (int i = 0; i < typeArguments.Length; i++)
+            {
+                if (typeArguments[i] is not ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Type })
+                    return false;
+            }
+            return true;
+        }
+
+        return false;
+    }
+
     private bool TryInferConstructedTypeForConstructor(
         INamedTypeSymbol typeSymbol,
         BoundArgument[] boundArguments,
@@ -756,7 +812,14 @@ partial class BlockBinder
         var originalTypeArguments = typeSymbol.TypeArguments;
         if (originalTypeArguments.IsDefaultOrEmpty)
             originalTypeArguments = typeParameters.Cast<ITypeSymbol>().ToImmutableArray();
-        var candidates = typeSymbol.Constructors;
+
+        // When typeSymbol is already constructed (e.g. Ok<Unit> from target-typed resolution),
+        // its constructors have substituted parameter types (Unit instead of T), which prevents
+        // inference. Use the original definition's unsubstituted constructors instead.
+        var definitionForInference = (typeSymbol.OriginalDefinition is INamedTypeSymbol origDef &&
+                                      !SymbolEqualityComparer.Default.Equals(origDef, typeSymbol))
+            ? origDef : typeSymbol;
+        var candidates = definitionForInference.Constructors;
         if (candidates.IsDefaultOrEmpty)
             return false;
 
@@ -792,7 +855,7 @@ partial class BlockBinder
             if (!changed)
                 continue;
 
-            inferredType = (INamedTypeSymbol)typeSymbol.Construct(projected);
+            inferredType = (INamedTypeSymbol)definitionForInference.Construct(projected);
             return true;
         }
 
@@ -2216,6 +2279,12 @@ partial class BlockBinder
         if (TryBindMemberAccessExpressionAsType(memberAccess, out var resolvedType) &&
             resolvedType.TypeKind != TypeKind.Error)
         {
+            // If the resolved type is a DU case type (e.g. Err.MissingName), promote it to a
+            // BoundUnionCaseExpression whose Type is the union root so that generic type
+            // inference infers Err rather than the individual case type MissingName.
+            if (BindDiscriminatedUnionCaseType(resolvedType) is { } unionCaseExpr)
+                return unionCaseExpr;
+
             return new BoundTypeExpression(resolvedType);
         }
 
@@ -2484,6 +2553,12 @@ partial class BlockBinder
                             if (TryConstructGeneric(namedMember, typeArgs, namedMember.Arity) is INamedTypeSymbol constructedType)
                                 typeMember = constructedType;
                         }
+
+                        // For DU case types (e.g. Err.MissingName), return a BoundUnionCaseExpression
+                        // whose Type is the union root (Err) so that generic type inference infers
+                        // the union root rather than the individual case type.
+                        if (BindDiscriminatedUnionCaseType(typeMember, typeExpr.Type as INamedTypeSymbol) is { } unionCaseExpr)
+                            return unionCaseExpr;
 
                         return new BoundTypeExpression(typeMember);
                     }
@@ -2983,7 +3058,15 @@ partial class BlockBinder
 
         if (member is ITypeSymbol typeMember)
         {
-            if (BindDiscriminatedUnionCaseType(typeMember) is { } unionCase)
+            // Prefer contextual DU-case binding so case type arguments are projected from the
+            // expected union carrier (e.g. `.Created` in `HttpResult<()>` should not stay
+            // `HttpResult<T>`).
+            if (TryBindDiscriminatedUnionCase(expectedType, memberName, nameLocation) is { } contextualUnionCase)
+            {
+                return contextualUnionCase;
+            }
+
+            if (BindDiscriminatedUnionCaseType(typeMember, expectedType as INamedTypeSymbol) is { } unionCase)
             {
                 // Unit-case sugar: `.Case` => `.Case(())` for single-Unit payload cases,
                 // but ONLY when `.Case` is used as a standalone expression.
@@ -2992,25 +3075,48 @@ partial class BlockBinder
                     mb.Parent is InvocationExpressionSyntax inv &&
                     ReferenceEquals(inv.Expression, mb);
 
-                if (!isInvocationCallee &&
-                    unionCase is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
-                    caseType.TryGetDiscriminatedUnionCase() is not null)
+                // Unit-payload sugar: when the case has no resolved constructor yet (null
+                // CaseConstructor on BoundUnionCaseExpression) it may have a unit-arg ctor.
+                // Also handle the legacy BoundTypeExpression path.
+                if (!isInvocationCallee)
                 {
-                    var unitArgCtor = caseType.Constructors.FirstOrDefault(ctor =>
-                        ctor.Parameters.Length == 1 &&
-                        IsUnitType(ctor.Parameters[0].Type));
+                    INamedTypeSymbol? caseTypeForUnit = null;
+                    INamedTypeSymbol? unionTypeForUnit = null;
 
-                    if (unitArgCtor is not null)
+                    if (unionCase is BoundUnionCaseExpression { CaseConstructor: null } rawUnionCase)
                     {
-                        if (!EnsureMemberAccessible(unitArgCtor, nameLocation, "constructor"))
-                            return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
-                        ReportObsoleteIfNeeded(unitArgCtor, nameLocation);
+                        caseTypeForUnit = rawUnionCase.CaseType;
+                        unionTypeForUnit = rawUnionCase.UnionType;
+                    }
+                    else if (unionCase is BoundTypeExpression { Type: INamedTypeSymbol legacyCaseType } &&
+                             legacyCaseType.TryGetDiscriminatedUnionCase() is not null)
+                    {
+                        caseTypeForUnit = legacyCaseType;
+                    }
 
-                        var unitType = unitArgCtor.Parameters[0].Type;
-                        var unitValue = new BoundUnitExpression(unitType);
-                        return new BoundObjectCreationExpression(
-                            unitArgCtor,
-                            ImmutableArray.Create<BoundExpression>(unitValue));
+                    if (caseTypeForUnit is not null)
+                    {
+                        var unitArgCtor = caseTypeForUnit.Constructors.FirstOrDefault(ctor =>
+                            ctor.Parameters.Length == 1 &&
+                            IsUnitType(ctor.Parameters[0].Type));
+
+                        if (unitArgCtor is not null)
+                        {
+                            if (!EnsureMemberAccessible(unitArgCtor, nameLocation, "constructor"))
+                                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+                            ReportObsoleteIfNeeded(unitArgCtor, nameLocation);
+
+                            var unitType = unitArgCtor.Parameters[0].Type;
+                            var unitValue = new BoundUnitExpression(unitType);
+
+                            // Return a BoundUnionCaseExpression so the type is the union root.
+                            if (unionTypeForUnit is not null)
+                                return new BoundUnionCaseExpression(unionTypeForUnit, caseTypeForUnit, unitArgCtor, ImmutableArray.Create<BoundExpression>(unitValue));
+
+                            return new BoundObjectCreationExpression(
+                                unitArgCtor,
+                                ImmutableArray.Create<BoundExpression>(unitValue));
+                        }
                     }
                 }
 
@@ -3069,7 +3175,9 @@ partial class BlockBinder
         if (accessibleType.TypeKind == TypeKind.Error)
             return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-        return BindDiscriminatedUnionCaseType(accessibleType);
+        // Pass the union carrier so the returned expression's Type is the union root, enabling
+        // correct generic type inference when the case value is used as a generic argument.
+        return BindDiscriminatedUnionCaseType(accessibleType, unionCarrier);
     }
 
     private static ITypeSymbol ProjectCaseTypeToUnionArguments(INamedTypeSymbol caseType, INamedTypeSymbol unionType)
@@ -3137,7 +3245,16 @@ partial class BlockBinder
         return type;
     }
 
-    private BoundExpression? BindDiscriminatedUnionCaseType(ITypeSymbol typeMember)
+    /// <summary>
+    /// Binds a discriminated union case type symbol as a value expression.
+    /// When <paramref name="unionCarrier"/> is supplied the returned expression is a
+    /// <see cref="BoundUnionCaseExpression"/> whose <c>Type</c> is the union root, so that
+    /// generic type inference sees the union root rather than the individual case type.
+    /// When <paramref name="unionCarrier"/> is not supplied (legacy call sites that have no
+    /// explicit carrier context) the method falls back to the old behaviour and returns a
+    /// <see cref="BoundObjectCreationExpression"/> or <see cref="BoundTypeExpression"/>.
+    /// </summary>
+    private BoundExpression? BindDiscriminatedUnionCaseType(ITypeSymbol typeMember, INamedTypeSymbol? unionCarrier = null)
     {
         var isUnionCase = typeMember.TryGetDiscriminatedUnionCase() is not null;
 
@@ -3158,10 +3275,30 @@ partial class BlockBinder
 
         if (typeMember is INamedTypeSymbol caseType)
         {
+            // Resolve the union carrier: prefer the explicitly supplied one, then fall back to
+            // what the case type itself reports.
+            var resolvedUnion = unionCarrier
+                ?? caseType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol
+                ?? caseType.ContainingType?.TryGetDiscriminatedUnion() as INamedTypeSymbol;
+
             var parameterlessCtor = caseType.Constructors.FirstOrDefault(static ctor => ctor.Parameters.Length == 0);
 
             if (parameterlessCtor is not null)
+            {
+                // Return a BoundUnionCaseExpression whose Type is the union root so that generic
+                // type inference infers the union root (e.g. Err) and not the case type
+                // (e.g. Err_MissingName).
+                if (resolvedUnion is not null)
+                    return new BoundUnionCaseExpression(resolvedUnion, caseType, parameterlessCtor, ImmutableArray<BoundExpression>.Empty);
+
+                // Fallback (no union info available): legacy behaviour.
                 return new BoundObjectCreationExpression(parameterlessCtor, ImmutableArray<BoundExpression>.Empty);
+            }
+
+            // No parameterless ctor: fall back to a BoundTypeExpression so the caller can
+            // perform unit-payload sugar or invocation binding.
+            if (resolvedUnion is not null)
+                return new BoundUnionCaseExpression(resolvedUnion, caseType, null, ImmutableArray<BoundExpression>.Empty);
         }
 
         return new BoundTypeExpression(typeMember);

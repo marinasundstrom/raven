@@ -3664,6 +3664,9 @@ Binding model:
 * Unqualified `Case(...)` is allowed when case resolution is unambiguous in
   scope; otherwise a qualified form (`Union.Case(...)`) or alias is required.
 * If a union value is required, case-to-union conversion applies implicitly.
+* For member-qualified construction (`Union.Case(...)` / `.Case(...)`), lowering
+  emits an explicit factory call:
+  `Union.Create(new Union_Case(...))`.
 
 Type argument behavior:
 
@@ -3675,12 +3678,19 @@ Type argument behavior:
 
 For every case `Case`, the compiler synthesizes an implicit conversion
 `Case -> Union`. Assigning, returning, or passing a case value therefore
-automatically produces the union instance:
+automatically produces the union instance. In lowered form, member-qualified
+case construction wraps via `Create`:
 
 ```raven
 val ok: Result<int, string> = .Ok(99)          // implicit Case -> Result<int, string> conversion
 val err = Result<int, string>.Error("boom")
 Console.WriteLine(ok)
+```
+
+Lowering shape:
+
+```text
+Result<int, string>.Create(new Result_Ok<int>(99))
 ```
 
 Each case struct also exposes its payload via `get`-only properties and a

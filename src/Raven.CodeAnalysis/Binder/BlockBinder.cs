@@ -5127,8 +5127,12 @@ partial class BlockBinder : Binder
             var type = LookupType(name);
             if (type is not null)
             {
+                var isInvocationCallee =
+                    syntax.Parent is InvocationExpressionSyntax inv &&
+                    ReferenceEquals(inv.Expression, syntax);
+
                 var contextualTargetType = GetTargetType(syntax);
-                if (contextualTargetType is not null)
+                if (contextualTargetType is not null && !isInvocationCallee)
                 {
                     var unwrappedTargetType = UnwrapTaskLikeTargetType(contextualTargetType);
                     if (TryBindDiscriminatedUnionCase(unwrappedTargetType, name, syntax.Identifier.GetLocation()) is BoundExpression contextualUnionCase)
@@ -5137,10 +5141,6 @@ partial class BlockBinder : Binder
 
                 if (BindDiscriminatedUnionCaseType(type) is { } unionCaseFromLookup)
                 {
-                    var isInvocationCallee =
-                        syntax.Parent is InvocationExpressionSyntax invocation &&
-                        ReferenceEquals(invocation.Expression, syntax);
-
                     if (!isInvocationCallee &&
                         unionCaseFromLookup is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
                         caseType.TryGetDiscriminatedUnionCase() is not null)
@@ -5203,8 +5203,12 @@ partial class BlockBinder : Binder
                 return new BoundNamespaceExpression(ns);
             case ITypeSymbol type:
                 {
+                    var isInvocationCallee =
+                        syntax.Parent is InvocationExpressionSyntax inv &&
+                        ReferenceEquals(inv.Expression, syntax);
+
                     var contextualTargetType = GetTargetType(syntax);
-                    if (contextualTargetType is not null)
+                    if (contextualTargetType is not null && !isInvocationCallee)
                     {
                         var unwrappedTargetType = UnwrapTaskLikeTargetType(contextualTargetType);
                         if (TryBindDiscriminatedUnionCase(unwrappedTargetType, name, syntax.Identifier.GetLocation()) is BoundExpression contextualUnionCase)
@@ -5213,10 +5217,6 @@ partial class BlockBinder : Binder
 
                     if (BindDiscriminatedUnionCaseType(type) is { } unionCase)
                     {
-                        var isInvocationCallee =
-                            syntax.Parent is InvocationExpressionSyntax invocation &&
-                            ReferenceEquals(invocation.Expression, syntax);
-
                         if (!isInvocationCallee &&
                             unionCase is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
                             caseType.TryGetDiscriminatedUnionCase() is not null)
@@ -6294,6 +6294,10 @@ partial class BlockBinder : Binder
                 receiver = memberExpr.Receiver;
                 methodName = method.Name;
             }
+            else if (boundMember is BoundUnionCaseExpression unionCaseCallee)
+            {
+                return BindInvokedUnionCaseExpression(unionCaseCallee, syntax);
+            }
             else if (boundMember is BoundTypeExpression { Type: INamedTypeSymbol namedType })
             {
                 // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
@@ -6354,6 +6358,11 @@ partial class BlockBinder : Binder
 
                 receiver = memberExpr.Receiver;
                 methodName = method.Name;
+            }
+            else if (boundMember is BoundUnionCaseExpression unionCaseCallee2)
+            {
+                // The callee resolved to a union case expression (e.g. .SomeCase from a member binding).
+                return BindInvokedUnionCaseExpression(unionCaseCallee2, syntax);
             }
             else if (boundMember is BoundTypeExpression { Type: INamedTypeSymbol namedType })
             {
@@ -6491,6 +6500,80 @@ partial class BlockBinder : Binder
         }
 
         return BindInvocationExpressionCore(receiver, methodName, syntax.ArgumentList, syntax.Expression, syntax);
+    }
+
+    private BoundExpression BindInvokedUnionCaseExpression(BoundUnionCaseExpression unionCaseCallee, InvocationExpressionSyntax syntax)
+    {
+        var caseTypeForBinding = ResolveCaseTypeFromUnionCreateSignature(unionCaseCallee.UnionType, unionCaseCallee.CaseType);
+        var caseCreation = BindConstructorInvocation(caseTypeForBinding, syntax, receiverSyntax: syntax.Expression, receiver: null);
+        if (caseCreation is not BoundObjectCreationExpression creationExpr)
+            return caseCreation;
+
+        var caseType = creationExpr.Constructor.ContainingType as INamedTypeSymbol ?? unionCaseCallee.CaseType;
+        var unionType = ResolveInvokedUnionCaseUnionType(unionCaseCallee, caseType, syntax);
+
+        return new BoundUnionCaseExpression(
+            unionType,
+            caseType,
+            creationExpr.Constructor,
+            ImmutableArray.CreateRange(creationExpr.Arguments));
+    }
+
+    private static INamedTypeSymbol ResolveCaseTypeFromUnionCreateSignature(INamedTypeSymbol unionType, INamedTypeSymbol fallbackCaseType)
+    {
+        var fallbackCase = fallbackCaseType.TryGetDiscriminatedUnionCase();
+        if (fallbackCase is null)
+            return fallbackCaseType;
+
+        foreach (var create in unionType.GetMembers("Create").OfType<IMethodSymbol>())
+        {
+            if (!create.IsStatic || create.Parameters.Length != 1)
+                continue;
+
+            if (create.Parameters[0].Type is not INamedTypeSymbol createCaseType)
+                continue;
+
+            var createCase = createCaseType.TryGetDiscriminatedUnionCase();
+            if (createCase is null)
+                continue;
+
+            if (string.Equals(createCase.Name, fallbackCase.Name, StringComparison.Ordinal))
+                return createCaseType;
+        }
+
+        return fallbackCaseType;
+    }
+
+    private INamedTypeSymbol ResolveInvokedUnionCaseUnionType(
+        BoundUnionCaseExpression unionCaseCallee,
+        INamedTypeSymbol caseType,
+        InvocationExpressionSyntax invocation)
+    {
+        // Prefer the union carried by the concrete constructed case type if available.
+        var resolvedUnion =
+            caseType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol
+            ?? unionCaseCallee.UnionType;
+
+        // If the invocation is target-typed (assignment, return, lambda return), prefer that
+        // concrete union construction when it belongs to the same union family.
+        var targetType = GetTargetType(invocation);
+        if (targetType is null)
+            return resolvedUnion;
+
+        targetType = UnwrapAlias(targetType);
+        targetType = UnwrapTaskLikeTargetType(targetType);
+
+        var targetUnion =
+            targetType.TryGetDiscriminatedUnion() as INamedTypeSymbol
+            ?? targetType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+
+        if (targetUnion is null)
+            return resolvedUnion;
+
+        if (!SymbolEqualityComparer.Default.Equals(resolvedUnion.OriginalDefinition, targetUnion.OriginalDefinition))
+            return resolvedUnion;
+
+        return targetUnion;
     }
 
     private BoundExpression BindInvocationExpressionCore(
