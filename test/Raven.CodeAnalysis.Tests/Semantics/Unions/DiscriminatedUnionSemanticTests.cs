@@ -292,6 +292,59 @@ union Result<T, E> {
     }
 
     [Fact]
+    public void MemberQualifiedCaseInvocation_OnConstructedCarrier_PreservesConstructedTypeArguments()
+    {
+        const string source = """
+func build() {
+    val err = Result<int, string>.Error("boom")
+    val result: Result<int, string> = err
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void MatchWithCaseConstructors_ConvertsToDeclaredGenericUnionReturnType()
+    {
+        const string source = """
+func build() -> Result<int, Err> {
+    val value: int? = null
+
+    return value match {
+        null => Error(MissingName)
+        val v => Ok(v ?? 0)
+    }
+}
+
+union Err {
+    MissingUser
+    MissingName
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void AsyncReturn_TargetTypedCase_BindsUnionCase()
     {
         const string source = """

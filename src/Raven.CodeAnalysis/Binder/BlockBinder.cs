@@ -6549,10 +6549,40 @@ partial class BlockBinder : Binder
         INamedTypeSymbol caseType,
         InvocationExpressionSyntax invocation)
     {
-        // Prefer the union carried by the concrete constructed case type if available.
-        var resolvedUnion =
-            caseType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol
-            ?? unionCaseCallee.UnionType;
+        // Start with the callee-carried union (e.g. Result<int,string> from Result<int,string>.Error),
+        // then only fall back to the case-reported union when needed.
+        var resolvedUnion = unionCaseCallee.UnionType;
+        var caseUnion = caseType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+
+        if (caseUnion is not null)
+        {
+            if (resolvedUnion is null ||
+                (IsUninstantiatedGenericType(resolvedUnion) && !IsUninstantiatedGenericType(caseUnion)))
+            {
+                resolvedUnion = caseUnion;
+            }
+        }
+
+        // For qualified calls (e.g. Result<int,string>.Error("boom")), recover the concrete
+        // carrier from the left side to avoid collapsing back to an open Result<T,E>.
+        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            var boundReceiver = BindExpression(memberAccess.Expression);
+            if (boundReceiver is BoundTypeExpression { Type: INamedTypeSymbol receiverType })
+            {
+                var receiverUnion =
+                    receiverType.TryGetDiscriminatedUnion() as INamedTypeSymbol
+                    ?? receiverType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+
+                if (receiverUnion is not null &&
+                    (resolvedUnion is null ||
+                     IsUninstantiatedGenericType(resolvedUnion) ||
+                     !IsUninstantiatedGenericType(receiverUnion)))
+                {
+                    resolvedUnion = receiverUnion;
+                }
+            }
+        }
 
         // If the invocation is target-typed (assignment, return, lambda return), prefer that
         // concrete union construction when it belongs to the same union family.
