@@ -609,6 +609,14 @@
     Title="Empty collection literal requires a target type"
     Message="An empty collection literal '[]' can only be used when a target type is known"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2025" Identifier="EncodedStringLiteralInterpolationNotSupported"
+    Title="Interpolation is not allowed in encoded string literals"
+    Message="Encoded string literals do not support interpolation"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2026" Identifier="EncodedStringLiteralAsciiOutOfRange"
+    Title="Character is not representable in ASCII"
+    Message="Character '{character}' cannot be represented by ASCII encoding"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2100" Identifier="MatchExpressionNotExhaustive"
     Title="Match must cover all cases" Message="Missing match case: '{missingType}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

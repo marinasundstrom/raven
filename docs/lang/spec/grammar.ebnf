@@ -585,6 +585,7 @@ ParenthesizedExpression  ::= '(' Expression ')' ;
 
 Literal                  ::= NumericLiteral
                            | StringLiteral
+                           | EncodedStringLiteral
                            | MultilineStringLiteral
                            | 'true' | 'false' | 'null' ;
 
@@ -653,6 +654,8 @@ Identifier               ::= /* ASCII letter, '_' or '$' followed by letters, di
 
 
 StringLiteral            ::= '"' {InterpolatedStringText | Interpolation} '"' ;
+EncodedStringLiteral     ::= (StringLiteral | MultilineStringLiteral) EncodingSuffix ;
+EncodingSuffix           ::= 'u8' | 'ascii' ; (* suffix must be adjacent to the closing delimiter; interpolation is not permitted in encoded literals *)
 InterpolatedStringText   ::= /* content with escapes */ ;
 Interpolation            ::= '$' Identifier | '$' '{' Expression '}' ;
 

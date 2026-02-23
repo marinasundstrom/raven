@@ -1029,6 +1029,78 @@ val welcome = "\u200Fمرحبا ${name}! أهلا بك في ${city}"
 The `\u200F` right-to-left mark keeps the greeting flowing correctly even when
 mixing scripts in the same interpolated string.
 
+### Encoded string literals
+
+An encoded string literal applies an encoding suffix directly to a string or
+multiline string literal and produces bytes instead of a `string`.
+
+```raven
+val utf8 = "Hello"u8
+val ascii = "Hello"ascii
+```
+
+The suffix must appear immediately after the closing delimiter with no
+intervening whitespace.
+
+Syntax:
+
+```
+encoded_string_literal
+    : string_literal encoding_suffix
+    ;
+
+encoding_suffix
+    : u8
+    | ascii
+    ;
+```
+
+Semantics:
+
+1. Parse the literal normally, including escape decoding.
+2. Produce the resulting sequence of Unicode scalar values.
+3. Encode that sequence with the specified encoding.
+4. Return the encoded bytes as `byte[]`.
+
+Encoded string literals are constant expressions when the underlying string
+literal is constant.
+
+Supported encodings:
+
+* `u8` — UTF-8 encoding, emitted without BOM.
+* `ascii` — ASCII encoding. If any character is outside the ASCII range
+  (`> 0x7F`), the compiler reports an error.
+
+```raven
+val data = "Pågen"u8
+val ok = "Hello"ascii
+val error = "Pågen"ascii // compile-time error
+```
+
+Raw/multiline non-interpolated string forms can also be encoded. Interpolated
+string literals are not valid with encoding suffixes.
+
+```raven
+val ok = """
+Hello
+World
+"""u8
+
+val name = "World"
+val error = "Hello ${name}"u8 // compile-time error
+```
+
+The resulting `byte[]` contains exactly the encoded bytes of the literal text.
+The compiler does not add a BOM or null terminator.
+
+Interpolation is intentionally excluded from encoded literals to keep their
+behavior deterministic and compile-time-friendly. When text must be computed at
+runtime, construct the string first and encode it explicitly through runtime
+APIs such as `System.Text.Encoding.UTF8.GetBytes(...)` or
+`System.Text.Encoding.ASCII.GetBytes(...)`.
+
+Additional encodings may be introduced by adding new suffixes.
+
 ### Collection expressions
 
 Collection expressions use bracket syntax `[element0, element1, ...]` (with an optional

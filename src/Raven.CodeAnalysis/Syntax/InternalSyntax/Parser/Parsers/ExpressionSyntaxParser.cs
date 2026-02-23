@@ -1689,7 +1689,15 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 ReadToken();
                 var tokenText = token.Text;
                 var inner = tokenText.Length >= 2 ? tokenText.Substring(1, tokenText.Length - 2) : string.Empty;
-                expr = ContainsInterpolation(inner)
+                var hasInterpolation = ContainsInterpolation(inner);
+                if (TryReadEncodedStringSuffix(token, out var suffixToken, out var encoding))
+                {
+                    var encodedToken = CreateEncodedStringLiteralToken(token, suffixToken, encoding, hasInterpolation);
+                    expr = LiteralExpression(SyntaxKind.StringLiteralExpression, encodedToken);
+                    break;
+                }
+
+                expr = hasInterpolation
                     ? ParseInterpolatedStringExpression(token)
                     : LiteralExpression(SyntaxKind.StringLiteralExpression, token);
                 break;
@@ -1700,8 +1708,15 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 var multiInner = token.Text.Length >= 6
                     ? token.Text.Substring(3, token.Text.Length - 6)
                     : string.Empty;
+                var hasMultiInterpolation = ContainsInterpolation(multiInner);
+                if (TryReadEncodedStringSuffix(token, out var multiSuffixToken, out var multiEncoding))
+                {
+                    var encodedToken = CreateEncodedStringLiteralToken(token, multiSuffixToken, multiEncoding, hasMultiInterpolation);
+                    expr = LiteralExpression(SyntaxKind.StringLiteralExpression, encodedToken);
+                    break;
+                }
 
-                expr = ContainsInterpolation(multiInner)
+                expr = hasMultiInterpolation
                     ? ParseInterpolatedMultiLineStringExpression(token, multiInner)
                     : LiteralExpression(SyntaxKind.StringLiteralExpression, token);
                 break;
@@ -2020,6 +2035,61 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return expr;
+    }
+
+    private bool TryReadEncodedStringSuffix(
+        SyntaxToken stringLiteralToken,
+        out SyntaxToken suffixToken,
+        out EncodedStringLiteralEncoding encoding)
+    {
+        suffixToken = null!;
+        encoding = default;
+
+        if (stringLiteralToken.TrailingTrivia.Width != 0)
+            return false;
+
+        suffixToken = PeekToken();
+        if (!suffixToken.IsKind(SyntaxKind.IdentifierToken) || suffixToken.LeadingTrivia.Width != 0)
+            return false;
+
+        var suffixText = suffixToken.GetValueText();
+        var recognized = suffixText switch
+        {
+            "u8" => true,
+            "ascii" => true,
+            _ => false
+        };
+
+        if (!recognized)
+            return false;
+
+        encoding = suffixText == "u8"
+            ? EncodedStringLiteralEncoding.Utf8
+            : EncodedStringLiteralEncoding.Ascii;
+
+        ReadToken();
+        return true;
+    }
+
+    private static SyntaxToken CreateEncodedStringLiteralToken(
+        SyntaxToken literalToken,
+        SyntaxToken suffixToken,
+        EncodedStringLiteralEncoding encoding,
+        bool containsInterpolation)
+    {
+        var decodedText = literalToken.GetValue() as string ?? string.Empty;
+        var combinedText = string.Concat(literalToken.Text, suffixToken.Text);
+        var value = new EncodedStringLiteralValue(decodedText, encoding, containsInterpolation);
+
+        return new SyntaxToken(
+            SyntaxKind.StringLiteralToken,
+            combinedText,
+            value,
+            combinedText.Length,
+            literalToken.LeadingTrivia,
+            suffixToken.TrailingTrivia,
+            diagnostics: null,
+            annotations: null);
     }
 
     private ExpressionSyntax ParsePredefinedTypeSyntax()

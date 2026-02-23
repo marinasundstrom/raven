@@ -1,0 +1,14 @@
+import System.Console.*
+import System.Text.*
+
+// Feature: encoded string literals produce byte[] and can be concatenated.
+val combined = "Hello"ascii + " World"ascii
+
+WriteLine(combined.Length)
+WriteLine(Encoding.ASCII.GetString(combined))
+
+WriteLine(("På"u8 + "gen"u8).Length)
+
+val utf8 = "Pågen"u8
+WriteLine(utf8.Length)
+WriteLine(Encoding.UTF8.GetString(utf8))

@@ -4885,6 +4885,9 @@ partial class BlockBinder : Binder
         }
 
         var value = syntax.Token.Value ?? syntax.Token.Text!;
+        if (value is EncodedStringLiteralValue encodedStringLiteral)
+            return BindEncodedStringLiteral(syntax, encodedStringLiteral);
+
         var contextualTargetType = GetTargetType(syntax);
         var underlying = value switch
         {
@@ -4918,6 +4921,55 @@ partial class BlockBinder : Binder
         };
 
         return new BoundLiteralExpression(kind, value, type);
+    }
+
+    private BoundExpression BindEncodedStringLiteral(
+        LiteralExpressionSyntax syntax,
+        EncodedStringLiteralValue encodedStringLiteral)
+    {
+        var byteType = Compilation.GetSpecialType(SpecialType.System_Byte);
+        var byteArrayType = Compilation.CreateArrayTypeSymbol(byteType);
+
+        if (encodedStringLiteral.ContainsInterpolation)
+        {
+            _diagnostics.Report(Diagnostic.Create(
+                CompilerDiagnostics.EncodedStringLiteralInterpolationNotSupported,
+                syntax.GetLocation()));
+            return ErrorExpression(byteArrayType, reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        byte[] bytes;
+        if (encodedStringLiteral.Encoding == EncodedStringLiteralEncoding.Utf8)
+        {
+            bytes = Encoding.UTF8.GetBytes(encodedStringLiteral.Text);
+        }
+        else
+        {
+            foreach (var rune in encodedStringLiteral.Text.EnumerateRunes())
+            {
+                if (rune.Value <= 0x7F)
+                    continue;
+
+                _diagnostics.Report(Diagnostic.Create(
+                    CompilerDiagnostics.EncodedStringLiteralAsciiOutOfRange,
+                    syntax.GetLocation(),
+                    rune.ToString()));
+                return ErrorExpression(byteArrayType, reason: BoundExpressionReason.TypeMismatch);
+            }
+
+            bytes = Encoding.ASCII.GetBytes(encodedStringLiteral.Text);
+        }
+
+        var elements = new BoundExpression[bytes.Length];
+        for (var i = 0; i < bytes.Length; i++)
+        {
+            elements[i] = new BoundLiteralExpression(
+                BoundLiteralExpressionKind.NumericLiteral,
+                bytes[i],
+                byteType);
+        }
+
+        return new BoundCollectionExpression(byteArrayType, elements);
     }
 
     private static bool ShouldPreserveLiteralPrecision(ITypeSymbol? targetType)
@@ -5429,6 +5481,9 @@ partial class BlockBinder : Binder
         // 1. Specialfall: string + any → string-konkatenering
         if (opKind == SyntaxKind.PlusToken)
         {
+            if (TryFoldEncodedByteArrayConcatenation(left, right, out var concatenatedByteArray))
+                return concatenatedByteArray;
+
             var leftIsString = left.Type.UnwrapLiteralType().SpecialType == SpecialType.System_String;
             var rightIsString = right.Type.UnwrapLiteralType().SpecialType == SpecialType.System_String;
 
@@ -5478,6 +5533,36 @@ partial class BlockBinder : Binder
             diagnosticLocation ?? Location.None);
 
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private static bool TryFoldEncodedByteArrayConcatenation(
+        BoundExpression left,
+        BoundExpression right,
+        out BoundExpression result)
+    {
+        result = null!;
+
+        if (left is not BoundCollectionExpression leftCollection ||
+            right is not BoundCollectionExpression rightCollection)
+            return false;
+
+        if (!IsByteArrayType(leftCollection.Type) ||
+            !IsByteArrayType(rightCollection.Type))
+            return false;
+
+        if (leftCollection.Elements.Any(static e => e is BoundSpreadElement) ||
+            rightCollection.Elements.Any(static e => e is BoundSpreadElement))
+            return false;
+
+        var concatenated = leftCollection.Elements.Concat(rightCollection.Elements).ToImmutableArray();
+        result = new BoundCollectionExpression(leftCollection.Type, concatenated);
+        return true;
+    }
+
+    private static bool IsByteArrayType(ITypeSymbol? type)
+    {
+        return type is IArrayTypeSymbol { Rank: 1 } arrayType &&
+               arrayType.ElementType.UnwrapLiteralType().SpecialType == SpecialType.System_Byte;
     }
 
     private static bool RequiresUnsafePointerArithmetic(SyntaxKind opKind, ITypeSymbol? leftType, ITypeSymbol? rightType)
