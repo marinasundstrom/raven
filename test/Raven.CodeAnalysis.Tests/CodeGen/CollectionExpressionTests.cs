@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
@@ -29,13 +30,13 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
-        Assert.True(result.Success);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var assembly = loaded.Assembly;
@@ -65,13 +66,13 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
-        Assert.True(result.Success);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var assembly = loaded.Assembly;
@@ -83,18 +84,16 @@ class Foo {
     }
 
     [Fact]
-    public void ListCollectionExpressions_SpreadsUserDefinedItems()
+    public void ArrayCollectionExpressions_SpreadsUserDefinedItems()
     {
         var code = """
-import System.Collections.Generic.*
-
 class Item() { }
 
 class Foo {
     public static GetCount() -> int {
-        val items: List<Item> = [Item()]
-        val more: List<Item> = [..items]
-        return more.Count
+        val items: Item[] = [Item()]
+        val more: Item[] = [..items]
+        return more.Length
     }
 }
 """;
@@ -102,13 +101,13 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
-        Assert.True(result.Success);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var assembly = loaded.Assembly;
@@ -117,6 +116,122 @@ class Foo {
         var instance = Activator.CreateInstance(type!);
 
         Assert.Equal(1, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void ArrayCollectionExpressions_ArraySpread_UsesArrayCopyFastPath()
+    {
+        var code = """
+class Foo {
+    public static GetCount() -> int {
+        val left: int[] = [1, 2]
+        val right: int[] = [3, 4]
+        val values: int[] = [..left, 9, ..right]
+        return values.Length
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(2, calledMembers.Count(static member => member == "System.Array::Copy"));
+        Assert.DoesNotContain(
+            calledMembers,
+            static member => member.Contains("System.Collections.Generic.List`1::Add", StringComparison.Ordinal));
+        Assert.Equal(5, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void EnumerableCollectionExpressions_ArraySpread_UsesArrayCopyFastPath()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+class Foo {
+    public static GetCount() -> int {
+        val left: int[] = [1, 2]
+        val right: int[] = [3]
+        val values: IEnumerable<int> = [..left, 9, ..right]
+        return values.Count()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(2, calledMembers.Count(static member => member == "System.Array::Copy"));
+        Assert.DoesNotContain(
+            calledMembers,
+            static member => member.Contains("System.Collections.Generic.List`1::Add", StringComparison.Ordinal));
+        Assert.Equal(4, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void ArrayCollectionExpressions_NonArraySpread_UsesListFallback()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+class Foo {
+    public static GetCount() -> int {
+        val merged: char[] = ['x', .."ab", 'y']
+        return merged.Length
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.DoesNotContain(calledMembers, static member => member == "System.Array::Copy");
+        Assert.Contains(
+            calledMembers,
+            static member => member.Contains("System.Collections.IEnumerable::GetEnumerator", StringComparison.Ordinal));
+        Assert.Equal(4, (int)method!.Invoke(instance, null)!);
     }
 }
 
@@ -146,5 +261,20 @@ public class CollectionExpressionDiagnosticTests : DiagnosticTestBase
         var verifier = CreateVerifier(code);
 
         verifier.Verify();
+    }
+}
+
+file static class CollectionExpressionTestHelpers
+{
+    public static void AssertSuccess(EmitResult result)
+    {
+        if (result.Success)
+            return;
+
+        var diagnostics = string.Join(
+            Environment.NewLine,
+            result.Diagnostics.Select(static d => d.ToString()));
+
+        Assert.True(result.Success, diagnostics);
     }
 }

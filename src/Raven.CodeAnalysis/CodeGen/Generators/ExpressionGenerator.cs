@@ -50,6 +50,10 @@ internal partial class ExpressionGenerator : Generator
         .GetMethod(nameof(Array.Empty), BindingFlags.Public | BindingFlags.Static, binder: null, Type.EmptyTypes, modifiers: null)
         ?? throw new InvalidOperationException("Failed to resolve Array.Empty<T>().");
 
+    private static readonly MethodInfo ArrayCopyMethod = typeof(Array)
+        .GetMethod(nameof(Array.Copy), BindingFlags.Public | BindingFlags.Static, binder: null, [typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int)], modifiers: null)
+        ?? throw new InvalidOperationException("Failed to resolve Array.Copy(Array, int, Array, int, int).");
+
     public ExpressionGenerator(Generator parent, BoundExpression expression, bool preserveResult = true)
         : this(parent, expression, preserveResult ? EmitContext.Value : EmitContext.None)
     {
@@ -2132,6 +2136,9 @@ internal partial class ExpressionGenerator : Generator
             }
             else
             {
+                if (TryEmitArrayWithArraySpreadFastPath(arrayTypeSymbol, collectionExpression))
+                    return;
+
                 EmitArrayWithSpreads(arrayTypeSymbol, collectionExpression);
             }
         }
@@ -2168,12 +2175,20 @@ internal partial class ExpressionGenerator : Generator
                     return;
                 }
 
-                // With spreads: reuse the existing List<T> + ToArray lowering and return the array as IEnumerable<T>.
+                if (TryEmitArrayWithArraySpreadFastPath(elementType, collectionExpression))
+                    return;
+
+                // With spreads: reuse List<T> + ToArray lowering and return the array as IEnumerable<T>.
                 var listTypeDef = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
                 var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
 
-                var ctor2 = listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
+                var minimumCapacity = collectionExpression.Elements.Count(static element => element is not BoundSpreadElement);
+                var ctor2 = listType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 1 && c.Parameters[0].Type.SpecialType == SpecialType.System_Int32)
+                    ?? listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
                 var ctorInfo2 = GetConstructorInfo(ctor2);
+
+                if (ctor2.Parameters.Length == 1)
+                    ILGenerator.Emit(OpCodes.Ldc_I4, minimumCapacity);
 
                 ILGenerator.Emit(OpCodes.Newobj, ctorInfo2);
                 var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
@@ -2261,8 +2276,13 @@ internal partial class ExpressionGenerator : Generator
         var listTypeDef = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
         var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
 
-        var ctor = listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
+        var minimumCapacity = collectionExpression.Elements.Count(static element => element is not BoundSpreadElement);
+        var ctor = listType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 1 && c.Parameters[0].Type.SpecialType == SpecialType.System_Int32)
+            ?? listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
         var ctorInfo = GetConstructorInfo(ctor);
+
+        if (ctor.Parameters.Length == 1)
+            ILGenerator.Emit(OpCodes.Ldc_I4, minimumCapacity);
 
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
@@ -2295,6 +2315,115 @@ internal partial class ExpressionGenerator : Generator
         var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
         var toArrayInfo = GetMethodInfo(toArrayMethod);
         ILGenerator.Emit(OpCodes.Callvirt, toArrayInfo);
+    }
+
+    private bool TryEmitArrayWithArraySpreadFastPath(
+        IArrayTypeSymbol targetArrayType,
+        BoundCollectionExpression collectionExpression)
+        => TryEmitArrayWithArraySpreadFastPath(targetArrayType.ElementType, collectionExpression);
+
+    private bool TryEmitArrayWithArraySpreadFastPath(
+        ITypeSymbol targetElementType,
+        BoundCollectionExpression collectionExpression)
+    {
+        var spreads = new List<(BoundSpreadElement Spread, IArrayTypeSymbol SourceType)>();
+        foreach (var element in collectionExpression.Elements)
+        {
+            if (element is not BoundSpreadElement spread)
+                continue;
+
+            if (spread.Expression.Type is not IArrayTypeSymbol { Rank: 1 } sourceArrayType)
+                return false;
+
+            if (!SymbolEqualityComparer.Default.Equals(sourceArrayType.ElementType, targetElementType))
+                return false;
+
+            spreads.Add((spread, sourceArrayType));
+        }
+
+        if (spreads.Count == 0)
+            return false;
+
+        var sourceLocals = new List<IILocal>(spreads.Count);
+        var totalLengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Stloc, totalLengthLocal);
+
+        var spreadIndex = 0;
+        foreach (var element in collectionExpression.Elements)
+        {
+            if (element is BoundSpreadElement spread)
+            {
+                var sourceArrayType = spreads[spreadIndex].SourceType;
+                var sourceLocal = ILGenerator.DeclareLocal(ResolveClrType(sourceArrayType));
+                EmitExpression(spread.Expression);
+                ILGenerator.Emit(OpCodes.Stloc, sourceLocal);
+                sourceLocals.Add(sourceLocal);
+
+                ILGenerator.Emit(OpCodes.Ldloc, totalLengthLocal);
+                ILGenerator.Emit(OpCodes.Ldloc, sourceLocal);
+                ILGenerator.Emit(OpCodes.Ldlen);
+                ILGenerator.Emit(OpCodes.Conv_I4);
+                ILGenerator.Emit(OpCodes.Add);
+                ILGenerator.Emit(OpCodes.Stloc, totalLengthLocal);
+                spreadIndex++;
+                continue;
+            }
+
+            ILGenerator.Emit(OpCodes.Ldloc, totalLengthLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Add);
+            ILGenerator.Emit(OpCodes.Stloc, totalLengthLocal);
+        }
+
+        var resultLocal = ILGenerator.DeclareLocal(ResolveClrType(Compilation.CreateArrayTypeSymbol(targetElementType)));
+        ILGenerator.Emit(OpCodes.Ldloc, totalLengthLocal);
+        ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(targetElementType));
+        ILGenerator.Emit(OpCodes.Stloc, resultLocal);
+
+        var offsetLocal = ILGenerator.DeclareLocal(typeof(int));
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Stloc, offsetLocal);
+
+        spreadIndex = 0;
+        foreach (var element in collectionExpression.Elements)
+        {
+            if (element is BoundSpreadElement)
+            {
+                var sourceLocal = sourceLocals[spreadIndex];
+
+                ILGenerator.Emit(OpCodes.Ldloc, sourceLocal);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+                ILGenerator.Emit(OpCodes.Ldloc, offsetLocal);
+                ILGenerator.Emit(OpCodes.Ldloc, sourceLocal);
+                ILGenerator.Emit(OpCodes.Ldlen);
+                ILGenerator.Emit(OpCodes.Conv_I4);
+                ILGenerator.Emit(OpCodes.Call, ArrayCopyMethod);
+
+                ILGenerator.Emit(OpCodes.Ldloc, offsetLocal);
+                ILGenerator.Emit(OpCodes.Ldloc, sourceLocal);
+                ILGenerator.Emit(OpCodes.Ldlen);
+                ILGenerator.Emit(OpCodes.Conv_I4);
+                ILGenerator.Emit(OpCodes.Add);
+                ILGenerator.Emit(OpCodes.Stloc, offsetLocal);
+                spreadIndex++;
+                continue;
+            }
+
+            ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, offsetLocal);
+            EmitExpression(element);
+            EmitStoreElement(targetElementType);
+
+            ILGenerator.Emit(OpCodes.Ldloc, offsetLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Add);
+            ILGenerator.Emit(OpCodes.Stloc, offsetLocal);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+        return true;
     }
 
     private void EmitSpreadElement(IILocal collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, IMethodSymbol addMethod)

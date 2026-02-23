@@ -679,7 +679,12 @@ partial class BlockBinder : Binder
 
     public override BoundExpression BindExpression(ExpressionSyntax syntax)
     {
-        if (TryGetCachedBoundNode(syntax) is BoundExpression cached)
+        // Collection literals are target-type-sensitive. Reusing a cached node can
+        // apply a previous context (for example, inferred array) in a later binding
+        // that has an explicit target type.
+        var skipCache = syntax is CollectionExpressionSyntax;
+
+        if (!skipCache && TryGetCachedBoundNode(syntax) is BoundExpression cached)
             return cached;
 
         var boundNode = syntax switch
@@ -727,8 +732,8 @@ partial class BlockBinder : Binder
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
         };
 
-        // NOTE: Might want to revert
-        CacheBoundNode(syntax, boundNode);
+        if (!skipCache)
+            CacheBoundNode(syntax, boundNode);
 
         return boundNode;
     }
@@ -8627,7 +8632,7 @@ partial class BlockBinder : Binder
 
         // Bind to IEnumerable<T> targets by producing a T[] and relying on the implicit conversion
         // from array to IEnumerable<T> (and other compatible interfaces).
-        if (targetType is INamedTypeSymbol enumerableTarget &&
+        if (targetType is INamedTypeSymbol { TypeKind: TypeKind.Interface } enumerableTarget &&
             TryGetIEnumerableElementType(enumerableTarget, out var enumerableElementType))
         {
             var arrayElementType = enumerableElementType;

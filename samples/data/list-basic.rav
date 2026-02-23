@@ -1,0 +1,20 @@
+/*
+ * List type declaration
+ * * * */
+
+import System.*
+import System.Text.*
+import System.Collections.Generic.*
+
+val origList: List<int> = [1, 42, 3]
+val list: List<int> = [2, .. origList, 5]
+
+Console.WriteLine(list.Count)
+
+var i = 0
+
+while i < list.Count {
+    val item = list[i]
+    Console.WriteLine(item)
+    i = i + 1
+}
