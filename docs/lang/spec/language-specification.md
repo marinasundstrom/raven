@@ -12,6 +12,7 @@ An overview of available types, literal semantics, and conversions can be found 
 * Notes and tips highlight rationale, examples, or implementation remarks. They are informative rather than normative.
 * Code snippets use the `.rav` file extension and omit surrounding boilerplate unless it is essential to the rule being described.
 * When behaviour is intentionally unspecified or still under design, this specification calls it out explicitly and, where possible, links to suggested follow-up work.
+* ⚠️ **Open Question:** type unions written with `|` and literal types are currently under active design review and may be removed in a future language revision to align Raven more closely with a C#-style type system.
 * Callout boxes use a small, consistent emoji set:
   * `ℹ️` **Info** for factual clarification and context.
   * `⚠️` **Warning** for pitfalls or behavior likely to surprise.

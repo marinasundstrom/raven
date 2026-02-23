@@ -47,7 +47,25 @@ internal static class TypeSymbolNormalization
         if (filtered.Length == 1)
             return NormalizeForInference(filtered[0]);
 
-        return new TypeUnionSymbol(filtered, null, null, null, []);
+        // Type unions are being phased out. When multiple branches remain, pick the
+        // closest common nominal type (or object fallback) instead of materializing
+        // a TypeUnionSymbol.
+        var nonNullMembers = filtered
+            .Where(static member => member.TypeKind != TypeKind.Null)
+            .ToImmutableArray();
+
+        if (!nonNullMembers.IsDefaultOrEmpty)
+        {
+            var common = TypeSymbolExtensionsForCodeGen.FindCommonDenominator(nonNullMembers);
+            if (common is not null)
+                return NormalizeForInference(common);
+        }
+
+        var objectType = TryGetObjectType(filtered);
+        if (objectType is not null)
+            return objectType;
+
+        return errorTypeSymbol ?? NormalizeForInference(filtered[0]);
     }
 
     private static void AddNormalizedUnionMember(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol member)
@@ -206,6 +224,22 @@ internal static class TypeSymbolNormalization
 
         merged = (INamedTypeSymbol)leftDefinition.Construct(mergedArguments);
         return true;
+    }
+
+    private static INamedTypeSymbol? TryGetObjectType(ImmutableArray<ITypeSymbol> members)
+    {
+        foreach (var member in members)
+        {
+            var assembly = member.ContainingAssembly;
+            if (assembly is null)
+                continue;
+
+            var objectType = assembly.GetTypeByMetadataName("System.Object");
+            if (objectType is not null)
+                return objectType;
+        }
+
+        return null;
     }
 
     private static bool TryGetContainingDiscriminatedUnion(ITypeSymbol member, out INamedTypeSymbol? union)
