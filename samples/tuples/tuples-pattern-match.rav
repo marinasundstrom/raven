@@ -1,0 +1,11 @@
+import System.Console.*
+
+// Feature: tuple pattern matching (advanced form).
+val customerTuple: (id: int, tier: string) = (42, "Gold")
+
+val result = customerTuple match {
+    (42, val tier) => "Priority customer: ${tier}"
+    (val id, val tier) => "Customer ${id}: ${tier}"
+}
+
+WriteLine(result)

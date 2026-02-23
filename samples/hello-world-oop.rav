@@ -1,7 +1,0 @@
-import System.Console.*
-
-class Program {
-    static Main() -> () {
-        WriteLine("Hello, World!")
-    }
-}

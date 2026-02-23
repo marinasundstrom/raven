@@ -81,7 +81,7 @@ dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- 
 
 Sample project:
 
-- `samples/project-files/runtime-async-net11/README.md`
+- `samples/projects/runtime-async-net11/README.md`
 
 ### Classic lowering vs runtime-async
 

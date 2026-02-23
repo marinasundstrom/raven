@@ -3,10 +3,11 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
+// Feature: async HTTP call mapped to `Result` via `try/catch`.
 val res = await fetch("http://www.contoso.com/")
 
 val str = res match {
-    Ok(val str) => "Response is: $str"
+    Ok(val str) => "Response length: ${str.Length}"
     Error(val message) => "Error is: $message"
 }
 

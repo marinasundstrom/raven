@@ -1,0 +1,19 @@
+import System.*
+
+// Feature: inferred and explicit generic method type arguments.
+LogValue("test")
+LogValue(42)
+LogValue(true)
+LogValue<string?>("fallback")
+
+LogNotNull("required")
+LogNotNull(10)
+
+func LogValue<T>(value: T) -> () {
+    Console.WriteLine(value)
+}
+
+func LogNotNull<T>(value: T) -> ()
+    where T: notnull {
+    Console.WriteLine(value)
+}

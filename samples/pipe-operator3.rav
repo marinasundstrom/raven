@@ -1,3 +1,0 @@
-import System.Console.*
-
-42 |> WriteLine

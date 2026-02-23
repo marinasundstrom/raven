@@ -1,0 +1,12 @@
+import System.Console.*
+import System.*
+
+// Feature: tuple pattern matching with optional tuple value.
+val status: Option<(isPriority: bool, carrier: string)> = Some((false, "BlueShip"))
+
+val result = status match {
+    Some((val isPriority, val carrier)) => "Priority=${isPriority}, Carrier=${carrier}"
+    None => "No shipping status"
+}
+
+WriteLine(result)

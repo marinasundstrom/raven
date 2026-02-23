@@ -33,7 +33,7 @@ Analyzer severities can be configured through `.editorconfig` using standard key
 
 For a concrete project sample that disables `RAV9012` (not-use-null), `RAV9013` (don't use
 throw), and `RAV9014` (prefer Result/Option-based extensions), see
-`samples/project-files/analyzer-editorconfig/README.md`.
+`samples/projects/analyzer-editorconfig/README.md`.
 
 In the future, analyzers may offer code fixes such as suggesting a common base class or type
 union when no annotation was added.

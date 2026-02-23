@@ -1,0 +1,11 @@
+import System.Console.*
+
+// Feature: nullable pattern matching.
+val priorityOverride: int? = null
+
+val result = priorityOverride match {
+    null => "Use default priority"
+    int value => "Override priority: ${value}"
+}
+
+WriteLine(result)

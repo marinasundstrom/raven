@@ -1,0 +1,22 @@
+// Nested types that inherit parameters from enclosing type when instantiated.
+import System.Console.*
+
+val a = Foo<int>.Bar()
+val b = Outer<int>.Inner<string>()
+
+// Feature: nested generic types with inherited and explicit type arguments.
+WriteLine(a.GetType().Name)
+WriteLine(b.GetType().Name)
+
+class Foo<T> {
+    public class Bar {
+        val value: T
+    }
+}
+
+class Outer<A> {
+    public class Inner<B> {
+        val value: A
+        val b: B
+    }
+}

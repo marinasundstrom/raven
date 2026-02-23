@@ -1,0 +1,18 @@
+import System.Console.*
+
+// Feature: basic class with constructor, method, and property.
+val customer = Customer("Acme")
+customer.AddOrder(2)
+
+WriteLine("${customer.Name} orders: ${customer.OrderCount}")
+
+class Customer(name: string) {
+    public Name: string => name
+    var orderCount: int = 0
+
+    public AddOrder(count: int) -> () {
+        orderCount += count
+    }
+
+    public OrderCount: int => orderCount
+}

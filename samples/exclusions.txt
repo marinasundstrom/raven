@@ -1,0 +1,29 @@
+# Shared sample exclusions used by build.sh and run.sh.
+# Format: <mode> <glob-pattern>
+# Modes: all, build, run
+
+# Infrastructure binaries copied next to sample outputs.
+run **/TestDep.dll
+run **/Raven.Core.dll
+run **/Raven.CodeAnalysis.dll
+
+# Intentional breakage / archived samples.
+build bugs/**
+build legacy/**
+
+# Special utility samples not part of the main feature run.
+build args-to-generic-methods.rav
+build test.rav
+build projects/aspnet-minimal-api/src/main.rav
+build projects/efcore-expression-trees/src/main.rav
+build projects/nuget-demo/src/main.rav
+build projects/raven-msbuild-integration/src/raven/main.rav
+build projects/runtime-async-net11/src/main.rav
+
+# Interactive/non-terminating runtime sample.
+run **/parse-number-loop-basic.dll
+run projects/aspnet-minimal-api/src/main.dll
+run projects/efcore-expression-trees/src/main.dll
+run projects/nuget-demo/src/main.dll
+run projects/raven-msbuild-integration/src/raven/main.dll
+run projects/runtime-async-net11/src/main.dll

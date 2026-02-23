@@ -1,0 +1,14 @@
+import System.*
+import System.Console.*
+
+// Feature: type-pattern matching over a sealed class hierarchy.
+val pet: Pet = Cat()
+
+match pet {
+    Dog dog => WriteLine(dog)
+    Cat cat => WriteLine(cat)
+}
+
+sealed class Pet
+class Dog : Pet
+class Cat : Pet

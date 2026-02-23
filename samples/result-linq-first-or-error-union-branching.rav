@@ -1,0 +1,21 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+
+// Feature: branch-unified error union with LINQ `FirstOrError`.
+val pendingShipments = [101, 202, 303]
+
+val useStandardFallback = true
+
+val selected =
+    if useStandardFallback
+        pendingShipments.FirstOrError(() => DomainError.NotFound())
+    else
+        pendingShipments.FirstOrError(() => DomainError.Unexpected(Exception()))
+
+WriteLine(selected)
+
+union DomainError {
+    NotFound
+    Unexpected(exception: Exception)
+}

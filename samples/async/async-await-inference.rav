@@ -1,0 +1,16 @@
+import System.Console.*
+import System.Threading.Tasks.*
+
+// Feature: type inference across `await` and async lambda return.
+val value = 42;
+
+WriteLine("Value: $value")
+
+val result = await Task.Run(async () => { 
+    WriteLine("Entered")
+    await Task.Delay(200)
+    WriteLine("Waited")
+    return value
+})
+
+WriteLine("Result: $result")

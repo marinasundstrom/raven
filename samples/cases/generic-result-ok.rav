@@ -1,0 +1,10 @@
+import System.*
+import System.Console.*
+import System.Linq.*
+
+// Feature: generic `Result<T, E>` construction.
+WriteLine(WrapSuccess(42))
+
+func WrapSuccess<T>(value: T) -> Result<T, string> {
+    Ok(value)
+}

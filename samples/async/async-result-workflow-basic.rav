@@ -1,0 +1,36 @@
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+import System.Threading.Tasks.Task.*
+
+// Feature: basic async workflow returning `Task<Result<T,E>>`.
+val orderService = ShipmentOrderService()
+WriteLine(orderService.PendingCount)
+
+orderService.RecordPending(2)
+WriteLine(orderService.PendingCount)
+
+val quoteResult = await orderService.BuildQuote(21)
+
+val message = quoteResult match {
+    Ok(val x) => "Value is: $x"
+    Error(val msg) => "Error: $msg"
+}
+
+WriteLine(message)
+
+public class ShipmentOrderService(var pendingCount: int = 0) {
+    public PendingCount: int => pendingCount
+
+    public RecordPending(count: int) -> () {
+        pendingCount += count
+    }
+
+    public async BuildQuote(weightKg: int) -> Task<Result<int, string>> {
+        await Delay(20)
+        if weightKg > 0 {
+            return Ok(weightKg * 2)
+        }
+        return Error("Weight must be positive")
+    }
+}

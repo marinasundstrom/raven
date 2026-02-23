@@ -1,0 +1,18 @@
+import System.*
+import System.Console.*
+
+// Feature: sealed record hierarchy evaluated via `match`.
+val expr: Expr = Add(Lit(40), Lit(2))
+
+Evaluate(expr) |> WriteLine
+
+func Evaluate(expr: Expr) -> int {
+    match expr {
+        Lit(val value) => value
+        Add(val left, val right) => Evaluate(left) + Evaluate(right)
+    }
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr

@@ -1,0 +1,14 @@
+import System.Console.*
+
+// Feature: goto statement with labels.
+var retries = 0
+
+retry:
+    WriteLine("Processing invoice (attempt ${retries + 1})")
+    retries += 1
+
+    if retries < 3 {
+        goto retry
+    }
+
+WriteLine("Invoice queued")

@@ -1,0 +1,20 @@
+import System.*
+
+// Feature: case construction forms (qualified and shorthand).
+val a = Shape.Circle(2)
+val b: Shape = Shape.Circle(2)
+val c: Shape = .Circle(2)
+
+UseShape(.Circle(2))
+UseShape(Shape.Circle(2))
+
+Console.WriteLine(a)
+Console.WriteLine(b)
+Console.WriteLine(c)
+
+func UseShape(shape: Shape) {}
+
+union Shape {
+    Circle(radius: int)
+    Rectangle(width: int, height: int)
+}

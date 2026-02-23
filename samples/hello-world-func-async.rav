@@ -1,7 +1,0 @@
-import System.Console.*
-import System.Threading.Tasks.*
-
-async func Main() -> Task {
-    await Task.Delay(1);
-    WriteLine("Async hello");
-}

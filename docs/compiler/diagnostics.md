@@ -13,10 +13,10 @@ dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <sample.
 
 Useful sample entry points:
 - `samples/exceptions.rav` for `try`/`catch`/`throw` diagnostics.
-- `samples/return-expression.rav` for expression-context control-flow diagnostics.
+- `samples/functions/return-expression-basic.rav` for expression-context control-flow diagnostics.
 - `samples/unmanaged/pointers.rav` for unsafe/pointer diagnostics.
 - `samples/async/async-await.rav` and `samples/async/async-task-return.rav` for async/await diagnostics.
-- `samples/match.rav` and `samples/patterns/*` for match/pattern diagnostics.
+- `samples/patterns/match-expression.rav` and `samples/patterns/*` for match/pattern diagnostics.
 
 Return/throw context note:
 - `RAV1900` and `RAV1907` apply to inline expression contexts.
@@ -56,12 +56,12 @@ Return/throw context note:
 | `RAV0173` | Error | Const field requires an initializer | '{name}' must have an initializer. | — |
 | `RAV0191` | Error | A readonly field cannot be assigned to (except in a constructor or a variable initializer) | A readonly field cannot be assigned to (except in a constructor or a variable initializer) | — |
 | `RAV0200` | Error | '{name}' is read-only and cannot be assigned to. | '{name}' is read-only and cannot be assigned to. | — |
-| `RAV0201` | Error | Event can only be used with '+=' or '-=' | The event '{name}' can only appear on the left hand side of '+=' or '-=' | `samples/oop/events.rav` |
-| `RAV0202` | Error | Event cannot be invoked | The event '{name}' cannot be invoked because it does not declare a backing field | `samples/oop/events.rav` |
+| `RAV0201` | Error | Event can only be used with '+=' or '-=' | The event '{name}' can only appear on the left hand side of '+=' or '-=' | `samples/oop/event-basic.rav` |
+| `RAV0202` | Error | Event cannot be invoked | The event '{name}' cannot be invoked because it does not declare a backing field | `samples/oop/event-basic.rav` |
 | `RAV0234` | Error | Type or namespace does not exist in namespace | '{typeOrNs}' was not found in '{container}'. | — |
 | `RAV0235` | Error | Type expected without wildcard | Expected a type name (wildcards are not allowed here). | — |
-| `RAV0240` | Error | Type does not support with-expressions | The type '{typeName}' does not support 'with' expressions | `samples/with.rav`, `samples/with2.rav` |
-| `RAV0241` | Error | With-expression assigns a member multiple times | The member '{memberName}' is assigned more than once in the with-expression | `samples/with.rav`, `samples/with2.rav` |
+| `RAV0240` | Error | Type does not support with-expressions | The type '{typeName}' does not support 'with' expressions | `samples/oop/with-expression-record-basic.rav`, `samples/oop/with-expression-record-advanced.rav` |
+| `RAV0241` | Error | With-expression assigns a member multiple times | The member '{memberName}' is assigned more than once in the with-expression | `samples/oop/with-expression-record-basic.rav`, `samples/oop/with-expression-record-advanced.rav` |
 | `RAV0269` | Error | Unassigned out parameter | Use of unassigned out parameter '{parameterName}' | — |
 | `RAV0305` | Error | Type requires type arguments | The type '{name}' requires {arity} type argument(s) | — |
 | `RAV0306` | Error | Cannot inherit from sealed type | Type '{typeName}' is sealed and cannot be inherited | — |
@@ -93,13 +93,13 @@ Return/throw context note:
 | `RAV0332` | Error | Modifier not valid on member | Modifier '{modifier}' is not valid on {memberKind} '{memberName}' | — |
 | `RAV0333` | Warning | Redundant open modifier on abstract class | Modifier 'open' is redundant on abstract class '{typeName}' | — |
 | `RAV0340` | Warning | Redundant abstract modifier on sealed class | Modifier 'abstract' is redundant on sealed class '{typeName}' | — |
-| `RAV0400` | Error | Nullable type not allowed in union | Nullable types are not allowed in union types | `samples/nullable-reference.rav`, `samples/nullable-value.rav` |
-| `RAV0401` | Error | Type parameter cannot be nullable | Type parameter '{typeParameter}' has a 'notnull' constraint and cannot be made nullable | `samples/nullable-reference.rav`, `samples/nullable-value.rav` |
-| `RAV0402` | Error | Possible null reference access | Possible null reference access | `samples/nullable-reference.rav`, `samples/nullable-value.rav` |
-| `RAV0410` | Error | Enum underlying type list must be a single type | Enum declarations may specify only one underlying type | `samples/oop/enums.rav`, `samples/oop/enums2.rav` |
-| `RAV0411` | Error | Enum underlying type must be integral | Enum underlying type must be a non-nullable integral type; '{typeName}' is not valid | `samples/oop/enums.rav`, `samples/oop/enums2.rav` |
-| `RAV0412` | Error | Enum member value must be constant | Enum member '{name}' must be initialized with a constant expression | `samples/oop/enums.rav`, `samples/oop/enums2.rav` |
-| `RAV0413` | Error | Enum member value cannot be converted | Enum member '{name}' value cannot be converted to '{typeName}' | `samples/oop/enums.rav`, `samples/oop/enums2.rav` |
+| `RAV0400` | Error | Nullable type not allowed in union | Nullable types are not allowed in union types | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |
+| `RAV0401` | Error | Type parameter cannot be nullable | Type parameter '{typeParameter}' has a 'notnull' constraint and cannot be made nullable | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |
+| `RAV0402` | Error | Possible null reference access | Possible null reference access | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |
+| `RAV0410` | Error | Enum underlying type list must be a single type | Enum declarations may specify only one underlying type | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
+| `RAV0411` | Error | Enum underlying type must be integral | Enum underlying type must be a non-nullable integral type; '{typeName}' is not valid | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
+| `RAV0412` | Error | Enum member value must be constant | Enum member '{name}' must be initialized with a constant expression | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
+| `RAV0413` | Error | Enum member value cannot be converted | Enum member '{name}' value cannot be converted to '{typeName}' | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
 | `RAV0426` | Error | Type name does not exist in type | The type name '{name}' does not exist in the type '{container}' | — |
 | `RAV0500` | Error | Symbol is inaccessible | The {symbolKind} '{name}' is inaccessible due to its visibility | — |
 | `RAV0501` | Error | Type is less accessible than member | The {typeRole} type '{typeName}' is less accessible than {memberKind} '{memberName}' | — |
@@ -139,7 +139,7 @@ Return/throw context note:
 | `RAV1021` | Error | Top-level statements not allowed with top-level Main | Top-level statements are not allowed when 'Main' is declared as a top-level function | — |
 | `RAV1022` | Error | Invalid entry point signature | Entry point 'Main' must be static and return 'void', 'int', 'Unit', 'Task', 'Task<int>', 'Result<int, E>', 'Result<(), E>', 'Task<Result<int, E>>', or 'Task<Result<(), E>>' with zero parameters or a single 'string[]' parameter | — |
 | `RAV1023` | Error | Expected newline between declarations | Expected newline between declarations. | — |
-| `RAV1050` | Error | Public extension requires an identifier | Public extension declarations must have an explicit identifier | `samples/extensions/extensions.rav`, `samples/extensions/static-extensions.rav` |
+| `RAV1050` | Error | Public extension requires an identifier | Public extension declarations must have an explicit identifier | `samples/extensions/extension-methods-basic.rav`, `samples/extensions/static-extensions.rav` |
 | `RAV1051` | Warning | Prefer newline between declarations | Prefer newline between declarations. | — |
 | `RAV1501` | Error | No overload for method taking argument | No overload for {type} '{name}' takes {count} arguments | — |
 | `RAV1503` | Error | Cannot convert from type to type | Cannot convert from '{fromType}' to '{toType}' | — |
@@ -147,18 +147,18 @@ Return/throw context note:
 | `RAV1505` | Error | Multiple content entries not allowed | Type '{typeName}' has a settable 'Content' property; only one content entry is allowed in an initializer | — |
 | `RAV1506` | Info | Result propagation applies implicit error conversion | Result propagation converts errors from '{fromType}' to '{toType}' via implicit conversion '{conversion}'. | — |
 | `RAV1525` | Error | Invalid expression term | Invalid expression term '{tokenText}' | — |
-| `RAV1602` | Error | Property not found in property pattern | Property '{name}' does not exist on type '{type}' | `samples/patterns/property-patterns.rav`, `samples/patterns/records.rav`, `samples/patterns/pattern-matching.rav` |
-| `RAV1603` | Error | Property pattern type mismatch | Type '{inputType}' cannot be matched against property pattern type '{patternType}' | `samples/patterns/property-patterns.rav`, `samples/patterns/records.rav`, `samples/patterns/pattern-matching.rav` |
-| `RAV1604` | Error | Property pattern requires a type | Property pattern requires an explicit type here because it cannot be inferred from the input | `samples/patterns/property-patterns.rav`, `samples/patterns/records.rav`, `samples/patterns/pattern-matching.rav` |
-| `RAV1605` | Error | Relational pattern not supported for type | Relational pattern operator '{operatorToken}' is not supported for type '{typeName}' | `samples/patterns/property-patterns.rav`, `samples/patterns/records.rav`, `samples/patterns/pattern-matching.rav` |
-| `RAV1606` | Error | Relational pattern value cannot be converted | Relational pattern value of type '{valueType}' cannot be converted to '{inputType}' | `samples/patterns/property-patterns.rav`, `samples/patterns/records.rav`, `samples/patterns/pattern-matching.rav` |
-| `RAV1607` | Error | Pattern binding requires a binding keyword | Pattern binding '{name}: {typeName}' requires an explicit binding keyword ('val', 'var', or 'let'). | `samples/patterns/property-patterns.rav`, `samples/patterns/records.rav`, `samples/patterns/pattern-matching.rav` |
-| `RAV1608` | Info | Bind a new value using 'val' or 'var' | If you meant to bind a new value in this pattern, use 'val {name}' (or 'var {name}'). | `samples/patterns/property-patterns.rav`, `samples/patterns/records.rav`, `samples/patterns/pattern-matching.rav` |
-| `RAV1610` | Error | Record pattern requires a record type | Record pattern requires a record type; '{type}' is not a record | `samples/patterns/property-patterns.rav`, `samples/patterns/records.rav`, `samples/patterns/pattern-matching.rav` |
-| `RAV1611` | Error | Record pattern type mismatch | Type '{inputType}' cannot be matched against record pattern type '{patternType}' | `samples/patterns/property-patterns.rav`, `samples/patterns/records.rav`, `samples/patterns/pattern-matching.rav` |
-| `RAV1612` | Error | Record pattern argument count mismatch | Record '{recordType}' expects {expected} argument(s) but received {actual} | `samples/patterns/property-patterns.rav`, `samples/patterns/records.rav`, `samples/patterns/pattern-matching.rav` |
-| `RAV1900` | Error | Return statement not allowed here | Return statements are not valid in expressions; use an implicit return instead | `samples/return-expression.rav` |
-| `RAV1901` | Error | If expression requires an else clause | If expressions used as values must include an else clause | `samples/return-expression.rav` |
+| `RAV1602` | Error | Property not found in property pattern | Property '{name}' does not exist on type '{type}' | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
+| `RAV1603` | Error | Property pattern type mismatch | Type '{inputType}' cannot be matched against property pattern type '{patternType}' | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
+| `RAV1604` | Error | Property pattern requires a type | Property pattern requires an explicit type here because it cannot be inferred from the input | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
+| `RAV1605` | Error | Relational pattern not supported for type | Relational pattern operator '{operatorToken}' is not supported for type '{typeName}' | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
+| `RAV1606` | Error | Relational pattern value cannot be converted | Relational pattern value of type '{valueType}' cannot be converted to '{inputType}' | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
+| `RAV1607` | Error | Pattern binding requires a binding keyword | Pattern binding '{name}: {typeName}' requires an explicit binding keyword ('val', 'var', or 'let'). | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
+| `RAV1608` | Info | Bind a new value using 'val' or 'var' | If you meant to bind a new value in this pattern, use 'val {name}' (or 'var {name}'). | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
+| `RAV1610` | Error | Record pattern requires a record type | Record pattern requires a record type; '{type}' is not a record | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
+| `RAV1611` | Error | Record pattern type mismatch | Type '{inputType}' cannot be matched against record pattern type '{patternType}' | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
+| `RAV1612` | Error | Record pattern argument count mismatch | Record '{recordType}' expects {expected} argument(s) but received {actual} | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
+| `RAV1900` | Error | Return statement not allowed here | Return statements are not valid in expressions; use an implicit return instead | `samples/functions/return-expression-basic.rav` |
+| `RAV1901` | Error | If expression requires an else clause | If expressions used as values must include an else clause | `samples/functions/return-expression-basic.rav` |
 | `RAV1902` | Error | Break statement not allowed here | Break statements are not valid in expressions; use a statement block instead | — |
 | `RAV1903` | Error | Continue statement not allowed here | Continue statements are not valid in expressions; use a statement block instead | — |
 | `RAV1904` | Error | Goto statement not allowed here | Goto statements are not valid in expressions; use a statement block instead | — |
@@ -185,39 +185,39 @@ Return/throw context note:
 | `RAV2021` | Error | Invalid use target | You can only 'use' namespaces and types. | — |
 | `RAV2022` | Error | Spread source must be enumerable | Cannot spread expression of type '{typeName}' because it is not enumerable | — |
 | `RAV2023` | Error | Single-element tuple type is not allowed | Single-element tuple types are not supported; use parenthesized type syntax only for grouping | — |
-| `RAV2100` | Error | Match must cover all cases | Missing match case: '{missingType}'. | `samples/match.rav`, `samples/patterns/match.rav`, `samples/discriminated-union/discriminated-unions.rav` |
-| `RAV2101` | Error | Match arm is unreachable | This match arm can never run (a previous arm matches first). | `samples/match.rav`, `samples/patterns/match.rav`, `samples/discriminated-union/discriminated-unions.rav` |
-| `RAV2102` | Error | Match arm pattern is not valid | Pattern {patternType} is not valid for scrutinee of type '{scrutineeType}' | `samples/match.rav`, `samples/patterns/match.rav`, `samples/discriminated-union/discriminated-unions.rav` |
-| `RAV2103` | Warning | Match catch-all is redundant | This catch-all never matches. | `samples/match.rav`, `samples/patterns/match.rav`, `samples/discriminated-union/discriminated-unions.rav` |
-| `RAV2104` | Error | Case pattern requires discriminated union | Case pattern '{caseName}' requires a discriminated union target | `samples/match.rav`, `samples/patterns/match.rav`, `samples/discriminated-union/discriminated-unions.rav` |
-| `RAV2105` | Error | Case not found on discriminated union | Discriminated union '{unionName}' does not contain a case named '{caseName}' | `samples/match.rav`, `samples/patterns/match.rav`, `samples/discriminated-union/discriminated-unions.rav` |
-| `RAV2106` | Error | Case pattern payload count mismatch | Case '{caseName}' expects {expected} argument(s) but received {actual} | `samples/match.rav`, `samples/patterns/match.rav`, `samples/discriminated-union/discriminated-unions.rav` |
+| `RAV2100` | Error | Match must cover all cases | Missing match case: '{missingType}'. | `samples/patterns/match-expression.rav`, `samples/patterns/match-type-pattern-basic.rav`, `samples/discriminated-union/union-basic.rav` |
+| `RAV2101` | Error | Match arm is unreachable | This match arm can never run (a previous arm matches first). | `samples/patterns/match-expression.rav`, `samples/patterns/match-type-pattern-basic.rav`, `samples/discriminated-union/union-basic.rav` |
+| `RAV2102` | Error | Match arm pattern is not valid | Pattern {patternType} is not valid for scrutinee of type '{scrutineeType}' | `samples/patterns/match-expression.rav`, `samples/patterns/match-type-pattern-basic.rav`, `samples/discriminated-union/union-basic.rav` |
+| `RAV2103` | Warning | Match catch-all is redundant | This catch-all never matches. | `samples/patterns/match-expression.rav`, `samples/patterns/match-type-pattern-basic.rav`, `samples/discriminated-union/union-basic.rav` |
+| `RAV2104` | Error | Case pattern requires discriminated union | Case pattern '{caseName}' requires a discriminated union target | `samples/patterns/match-expression.rav`, `samples/patterns/match-type-pattern-basic.rav`, `samples/discriminated-union/union-basic.rav` |
+| `RAV2105` | Error | Case not found on discriminated union | Discriminated union '{unionName}' does not contain a case named '{caseName}' | `samples/patterns/match-expression.rav`, `samples/patterns/match-type-pattern-basic.rav`, `samples/discriminated-union/union-basic.rav` |
+| `RAV2106` | Error | Case pattern payload count mismatch | Case '{caseName}' expects {expected} argument(s) but received {actual} | `samples/patterns/match-expression.rav`, `samples/patterns/match-type-pattern-basic.rav`, `samples/discriminated-union/union-basic.rav` |
 | `RAV2107` | Warning | Match statement value is ignored | This match statement produces a value, but it will not be returned. Either add explicit 'return' statements in statement form, or use expression form where the surrounding context expects a value. | — |
 | `RAV2108` | Warning | If statement value is ignored | This if statement produces values in its branches, but statement-form 'if' does not return a value. Either add explicit 'return' statements in statement form, or use expression form where the surrounding context expects a value. | — |
 | `RAV2109` | Warning | Try statement value is ignored | This try statement produces values in its try/catch blocks, but statement-form 'try' does not return a value. Either add explicit 'return' statements in statement form, or use expression form where the surrounding context expects a value. | — |
-| `RAV2110` | Warning | Match arm pattern does not fully cover subtype/case | Pattern for '{typeName}' does not cover all values. Add broader sub-patterns or a catch-all arm. | `samples/oop/sealed-hierarchies3.rav`, `samples/discriminated-union/discriminated-unions.rav` |
+| `RAV2110` | Warning | Match arm pattern does not fully cover subtype/case | Pattern for '{typeName}' does not cover all values. Add broader sub-patterns or a catch-all arm. | `samples/oop/sealed-record-hierarchy-json-basic.rav`, `samples/discriminated-union/union-basic.rav` |
 | `RAV2200` | Error | Lambda parameter type cannot be inferred | Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context | — |
 | `RAV2201` | Error | Method group requires delegate type | Method group '{methodName}' cannot be used as a value without a delegate type. Specify a delegate annotation or use the method in a target-typed context | — |
 | `RAV2202` | Error | Method group conversion is ambiguous | Method group '{methodName}' is ambiguous in this context. Specify a delegate type to disambiguate the target overload | — |
 | `RAV2203` | Error | No overload matches delegate | No overload for method '{methodName}' matches delegate type '{delegateType}' | — |
-| `RAV2500` | Error | Label already defined | A label named '{name}' is already defined in this scope | `samples/goto.rav` |
-| `RAV2501` | Error | Label not found | The label '{name}' is not in scope | `samples/goto.rav` |
-| `RAV2502` | Error | Reserved word cannot be used as a label | The identifier '{name}' is a reserved word and cannot be used as a label | `samples/goto.rav` |
+| `RAV2500` | Error | Label already defined | A label named '{name}' is already defined in this scope | `samples/control-flow/goto-statement-basic.rav` |
+| `RAV2501` | Error | Label not found | The label '{name}' is not in scope | `samples/control-flow/goto-statement-basic.rav` |
+| `RAV2502` | Error | Reserved word cannot be used as a label | The identifier '{name}' is a reserved word and cannot be used as a label | `samples/control-flow/goto-statement-basic.rav` |
 | `RAV2600` | Error | Break statement not within loop | Break statements are only valid inside loops | — |
 | `RAV2601` | Error | Continue statement not within loop | Continue statements are only valid inside loops | — |
 | `RAV2602` | Error | Range for-loop requires an end value | Ranges in for loops must specify an end value | — |
 | `RAV2603` | Error | Range for-loop does not support from-end indices | Range boundaries in for loops must count from the start | — |
-| `RAV2700` | Error | await needs async | The 'await' operator can only be used within an async method or function | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/hello-world-func-async.rav` |
-| `RAV2701` | Error | Not awaitable | The type '{typeName}' is not awaitable | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/hello-world-func-async.rav` |
-| `RAV2702` | Error | Awaiter is missing IsCompleted | The awaiter type '{awaiterType}' must have an accessible instance property 'IsCompleted' returning 'bool' | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/hello-world-func-async.rav` |
-| `RAV2703` | Error | Awaiter is missing GetResult | The awaiter type '{awaiterType}' must have an accessible parameterless 'GetResult' method | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/hello-world-func-async.rav` |
-| `RAV2704` | Error | Async return type must be Task-like | Async return type '{returnType}' is not supported; async functions must return System.Threading.Tasks.Task, System.Threading.Tasks.Task<T>, System.Threading.Tasks.ValueTask, or System.Threading.Tasks.ValueTask<T> | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/async/async-valuetask.rav`, `samples/hello-world-func-async.rav` |
-| `RAV2705` | Error | Async Task return cannot include a value | Since '{methodName}' is an async method that returns 'Task', a return keyword cannot include a value | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/hello-world-func-async.rav` |
-| `RAV2706` | Warning | Async body lacks await | This async {memberDescription} has no 'await' and will run synchronously. | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/hello-world-func-async.rav` |
-| `RAV2800` | Error | Pipe target must be invocable | The pipe operator requires an invocation or settable property access on the right-hand side | `samples/pipe-operator.rav`, `samples/pipe-operator2.rav`, `samples/pipe-operator3.rav` |
+| `RAV2700` | Error | await needs async | The 'await' operator can only be used within an async method or function | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
+| `RAV2701` | Error | Not awaitable | The type '{typeName}' is not awaitable | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
+| `RAV2702` | Error | Awaiter is missing IsCompleted | The awaiter type '{awaiterType}' must have an accessible instance property 'IsCompleted' returning 'bool' | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
+| `RAV2703` | Error | Awaiter is missing GetResult | The awaiter type '{awaiterType}' must have an accessible parameterless 'GetResult' method | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
+| `RAV2704` | Error | Async return type must be Task-like | Async return type '{returnType}' is not supported; async functions must return System.Threading.Tasks.Task, System.Threading.Tasks.Task<T>, System.Threading.Tasks.ValueTask, or System.Threading.Tasks.ValueTask<T> | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/async/async-valuetask.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
+| `RAV2705` | Error | Async Task return cannot include a value | Since '{methodName}' is an async method that returns 'Task', a return keyword cannot include a value | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
+| `RAV2706` | Warning | Async body lacks await | This async {memberDescription} has no 'await' and will run synchronously. | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
+| `RAV2800` | Error | Pipe target must be invocable | The pipe operator requires an invocation or settable property access on the right-hand side | `samples/operators/pipe-operator-method-call-basic.rav`, `samples/operators/pipe-operator-lambda-basic.rav`, `samples/operators/pipe-operator-terminal-call-basic.rav` |
 | `RAV3600` | Error | Unexpected token | Unexpected token '{token}' | — |
 | `RAV3601` | Error | Unmatched character | Unmatched '{character}' | — |
-| `RAV4000` | Warning | Documentation comment is not attached | Documentation comments must appear immediately before a declaration | `samples/doc.rav` |
-| `RAV4001` | Warning | Documentation comment is not valid XML | Documentation comment is not well-formed XML: {message} | `samples/doc.rav` |
-| `RAV4002` | Warning | Documentation comment is not valid Markdown | Documentation comment is not well-formed Markdown: {message} | `samples/doc.rav` |
-| `RAV4003` | Warning | Documentation comment indentation is inconsistent | Documentation comment lines must have consistent indentation | `samples/doc.rav` |
+| `RAV4000` | Warning | Documentation comment is not attached | Documentation comments must appear immediately before a declaration | `samples/runtime/documentation-comment-basic.rav` |
+| `RAV4001` | Warning | Documentation comment is not valid XML | Documentation comment is not well-formed XML: {message} | `samples/runtime/documentation-comment-basic.rav` |
+| `RAV4002` | Warning | Documentation comment is not valid Markdown | Documentation comment is not well-formed Markdown: {message} | `samples/runtime/documentation-comment-basic.rav` |
+| `RAV4003` | Warning | Documentation comment indentation is inconsistent | Documentation comment lines must have consistent indentation | `samples/runtime/documentation-comment-basic.rav` |

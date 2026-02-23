@@ -1,14 +1,16 @@
 # Generic Math Constraint Investigation
 
+> Status: Resolved (kept as historical investigation notes).
+
 ## Goal
-Document the current failure when compiling the `generic-math-error.rav` sample and outline hypotheses around the recursive substitution path triggered by `INumber<TSelf>` constraints.
+Documented the failure that previously occurred when compiling `generic-math-error.rav`, and captured hypotheses around the recursive substitution path triggered by `INumber<TSelf>` constraints.
 
 ## Reproduction
 1. Run the compiler against the sample:
    ```bash
    dotnet run --project src/Raven.Compiler -- samples/generic-math-error.rav
    ```
-2. The build never produces diagnostics or an output binary. The process remains active until manually cancelled, indicating a hang during compilation rather than an early parse/bind failure.
+2. Historical behavior (before the fix): the build did not produce diagnostics or an output binary, and remained active until manually cancelled.
 
 ## Findings
 - `ConstructedNamedTypeSymbol.NormalizeTypeArguments` substitutes every explicit type argument before storing them, even when the argument is already concrete. The method does not guard against re-entrance or repeated normalization of the same argument set.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L205-L232】
@@ -55,7 +57,7 @@ Document the current failure when compiling the `generic-math-error.rav` sample 
 ### Sample build/run status
 - With the codex build script, samples partially compile.
 - Some failures are known (discriminated unions, pattern binding, overload inference gaps).
-- `test-result3.rav` still hits an emission crash (`FieldInfo` null).
+- `result-error-state-basic.rav` still hits an emission crash (`FieldInfo` null).
 - Runtime failures include missing `runtimeconfig.json`, `BadImageFormat` in async/generators, and missing `TestDep.dll`.
 
 ## Restart Plan (what to re-implement cleanly)
@@ -89,6 +91,4 @@ Document the current failure when compiling the `generic-math-error.rav` sample 
 - ✅ Samples build/run, with remaining failures categorized and documented.
 
 ## Next Steps
-- Add lightweight instrumentation (e.g., a recursion depth counter and an `ImmutableHashSet` of `(parameter, argument)` pairs) around `NormalizeTypeArguments`/`Substitute` to capture the exact loop triggered by `INumber<TSelf>`.
-- Introduce a recursion guard or memoization cache inside `Substitute` (and the equality path that calls it) so re-visiting the same substitution returns the existing symbol instead of reconstructing it.
-- Add a regression sample or unit test that exercises an async generic method constrained to `INumber<T>` to confirm the hang is resolved once substitution short-circuits.
+- Historical next steps (already completed in follow-up work) were to add recursion instrumentation, implement substitution guards/memoization, and add regression coverage for constrained generic math paths.

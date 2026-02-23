@@ -3,11 +3,12 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
+// Feature: async extension method returning `Result`.
 use client = HttpClient()
 val res = await client.FetchAsync("http://www.contoso.com/")
 
 val str = res match {
-    Ok(val str) => "Response is: $str"
+    Ok(val str) => "Response length: ${str.Length}"
     Error(val message) => "Error is: $message"
 }
 

@@ -1,0 +1,11 @@
+import System.Console.*
+
+// Feature: collection pattern with fixed-length destructuring.
+val lineItemQuantities: int[] = [1, 2]
+
+val totalUnits = lineItemQuantities match {
+    [val first, val second] => first + second
+    _ => 0
+}
+
+WriteLine(totalUnits)

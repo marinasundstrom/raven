@@ -1,0 +1,4 @@
+import System.Console.*
+
+// Feature: minimal pipe into terminal call.
+42 |> WriteLine

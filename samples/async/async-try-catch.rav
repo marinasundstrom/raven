@@ -3,6 +3,7 @@ import System.Console.*
 import System.IO.*
 import System.Threading.Tasks.*
 
+// Feature: `await` inside `try/catch` with `use`.
 try {
     use stream = MemoryStream()
     val value = await Task.FromResult(42)

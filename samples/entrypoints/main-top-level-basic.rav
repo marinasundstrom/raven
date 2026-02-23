@@ -1,0 +1,4 @@
+import System.Console.*
+
+// Feature: top-level statements as implicit entry point.
+WriteLine("Hello, World!")

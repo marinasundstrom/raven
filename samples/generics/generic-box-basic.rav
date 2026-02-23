@@ -1,0 +1,14 @@
+import System.*
+
+// Feature: user-defined generic class.
+val ints = Box<int>(1)
+val words = Box<string>("ok")
+
+Console.WriteLine(words.Value)
+
+class Box<T>
+{
+    public Value: T { get; }
+
+    public init(value: T) { Value = value }
+}

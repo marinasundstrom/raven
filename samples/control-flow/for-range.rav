@@ -1,0 +1,10 @@
+import System.Console.*
+
+// Feature: `for` loop with a range expression.
+val region = "NorthHub"
+val startBatchId = 1001
+val endBatchId = 1005
+
+for batchId in startBatchId..endBatchId {
+    WriteLine("[${region}] Create shipment batch ${batchId}")
+}

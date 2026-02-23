@@ -59,6 +59,6 @@ Before rewriting the control flow, `MoveNextBuilder` now walks the iterator body
 
 ## Outstanding work to finish the generator feature
 
-1. **End-to-end validation.**  With the lowering and disposal semantics in place, add integration tests that compile and execute iterator-heavy programs—including script-level functions—to verify the generated state machines behave correctly and that existing lowering paths continue to work. 【F:src/Raven.Compiler/samples/generator.rav†L1-L17】
+1. **End-to-end validation.**  With the lowering and disposal semantics in place, add integration tests that compile and execute iterator-heavy programs—including script-level functions—to verify the generated state machines behave correctly and that existing lowering paths continue to work. 【F:src/Raven.Compiler/samples/functions/generator-yield-basic.rav†L1-L17】
 
 Updating these notes after each milestone will keep the generator roadmap accurate and highlight any additional issues discovered during implementation.

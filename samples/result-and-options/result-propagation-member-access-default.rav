@@ -1,0 +1,24 @@
+import System.*
+
+// Feature: member access propagation plus `UnwrapOrDefault`.
+Console.WriteLine(f())
+
+func GetUser() -> Result<User, Err> {
+    // sample implementation
+    return Ok(User("Marina"))
+}
+
+func f() -> Result<int, Err> {
+    val wrapped = GetUser()?.Name // Result<string, Err>
+
+    val str = wrapped.UnwrapOrDefault()
+
+    return Ok(str.Length + 1)
+}
+
+union Err {
+    MissingUser
+    MissingName
+}
+
+record class User(Name: string)

@@ -1,0 +1,8 @@
+import System.Console.*
+import System.Threading.Tasks.*
+
+// Feature: top-level `async func Main() -> Task` entry point.
+async func Main() -> Task {
+    await Task.Delay(1)
+    WriteLine("Async hello")
+}

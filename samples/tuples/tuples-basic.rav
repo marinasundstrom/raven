@@ -1,0 +1,7 @@
+import System.Console.*
+
+// Feature: the common tuple form (create + named access).
+val customerScore = (customerId: 42, score: 98)
+
+WriteLine(customerScore)
+WriteLine("Customer ${customerScore.customerId} score ${customerScore.score}")

@@ -1,7 +1,0 @@
-val u: Base = D1()
-val x = u.P      // ok (getter common)
-u.P = 3          // error (setter not common)
-
-open class Base { public virtual P: int { get; set; } }
-class D1 : Base { public override P : int { get; set; } }
-class D2 : Base { public override P : int { get; } }

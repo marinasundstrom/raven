@@ -1,0 +1,30 @@
+import System.Console.*
+
+// Feature: statement-form `match` as control flow (constants, ranges, and non-int patterns).
+val ticket = SupportTicket(4217, 2)
+
+match ticket.Priority {
+    1 => WriteLine("Ticket ${ticket.Id}: route to critical-response queue")
+    2 .. 3 => WriteLine("Ticket ${ticket.Id}: route to standard-response queue")
+    _ => {
+        WriteLine("Ticket ${ticket.Id}: route to triage")
+        WriteLine("Ticket ${ticket.Id}: create audit entry for triage routing")
+    }
+}
+
+val escalationTarget: object = ticket
+
+match escalationTarget {
+    SupportTicket(val id, val priority) => {
+        Do()
+        WriteLine("Done")
+    }
+    string teamCode => WriteLine("Escalate to team ${teamCode}")
+    _ => WriteLine("Escalation target is unsupported")
+}
+
+func Do() {
+    WriteLine("Preparing escalation")
+}
+
+record SupportTicket(Id: int, Priority: int)

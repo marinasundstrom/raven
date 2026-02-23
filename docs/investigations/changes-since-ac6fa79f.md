@@ -30,7 +30,7 @@ This note reviews the changes between commit `ac6fa79fbf25cd8d5ef96c8c037bb62f9a
 3. **Exception-driven failure in nested type resolution.** `FindNested` in `ReflectionTypeLoader` throws an `InvalidOperationException` if a nested type cannot be resolved. This is a sharper failure mode than previous behavior; it may surface in new scenarios and violates the preference for diagnostics over exceptions. Consider returning `null` with diagnostics (or error symbols) instead of throwing. 【F:src/Raven.CodeAnalysis/ReflectionTypeLoader.cs†L333-L351】
 
 ## Proposals / follow-ups
-1. **Fix the CLI default sample path.** Update the default to `samples/sandbox/test.rav` or make the lookup case-insensitive / fall back to the existing `samples/option2.rav` path if the sandbox sample is missing. This will avoid a regression for `ravc` users who run without arguments. 【F:src/Raven.Compiler/Program.cs†L292-L294】
+1. **Fix the CLI default sample path.** Update the default to `samples/sandbox/test.rav` or make the lookup case-insensitive / fall back to an existing sample if the sandbox sample is missing. This will avoid a regression for `ravc` users who run without arguments. 【F:src/Raven.Compiler/Program.cs†L292-L294】
 
 2. **Remove commented-out binder code.** Drop the old LINQ block or convert it into an explanatory comment with a rationale (e.g., perf or debugging). This reduces noise and helps reviewers understand the intent behind the loop. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.MemberAccess.cs†L831-L862】
 

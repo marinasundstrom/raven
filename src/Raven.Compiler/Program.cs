@@ -356,7 +356,15 @@ if (printParseSequence)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/cases/test3{RavenFileExtensions.Raven}");
+{
+    var defaultSampleCandidates = new[]
+    {
+        Path.Combine("samples", "sandbox", $"test{RavenFileExtensions.Raven}"),
+        Path.Combine("..", "..", "..", "..", "..", "samples", "sandbox", $"test{RavenFileExtensions.Raven}")
+    };
+
+    sourceFiles.Add(defaultSampleCandidates.FirstOrDefault(File.Exists) ?? defaultSampleCandidates[0]);
+}
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)

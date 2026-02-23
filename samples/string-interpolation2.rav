@@ -1,5 +1,0 @@
-import System.Console.*
-
-val x = 3;
-
-WriteLine("Foo: ${ "Hej " + "test  $x " + x }")

@@ -1,6 +1,7 @@
 import System.Console.*
 import System.Threading.Tasks.*
 
+// Feature: async function returning `Task<T>`.
 async func Test(value: int) -> Task<int> {
     val intermediate = await Task.FromResult(value + 1)
     return intermediate

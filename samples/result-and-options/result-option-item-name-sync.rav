@@ -1,0 +1,27 @@
+import System.*
+
+// Feature: sync `Result` propagation into `Option` and `match`.
+Console.WriteLine(GetItem())
+
+func GetUser() -> Result<User, Err> {
+    // sample implementation
+    //return Error(Err.MissingUser)
+    return Ok(User("Marina", Some(Item("Candy"))))
+}
+
+func GetItem() -> Result<string, Err> {
+    val maybeItem = GetUser()?.Item?
+
+    return maybeItem match {
+        Some(val item) => Ok(item.Name)
+        None  => Error(Err.MissingName)
+    }
+}
+
+union Err {
+    MissingUser
+    MissingName
+}
+
+record class User(Name: string, Item: Option<Item>)
+record class Item(Name: string)

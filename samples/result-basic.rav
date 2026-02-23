@@ -1,0 +1,13 @@
+import System.*
+
+// Feature: simplest `Result<T, E>` form.
+val invoiceTotal: Result<int, string> = Ok(42)
+
+Console.WriteLine(invoiceTotal)
+
+val label = invoiceTotal match {
+    Ok(val total) => "Total: ${total}"
+    Error(val message) => message
+}
+
+Console.WriteLine(label)

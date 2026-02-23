@@ -1,0 +1,15 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+
+// Feature: `try` expression with LINQ `FirstOrError`.
+val pendingShipments = [101, 202, 303]
+
+val selected = try pendingShipments.FirstOrError(() => DomainError.NotFound)
+
+WriteLine(selected)
+
+union DomainError {
+    NotFound
+    Unexpected(exception: Exception)
+}

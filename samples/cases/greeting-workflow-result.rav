@@ -1,0 +1,51 @@
+import System.*
+import System.Console.*
+
+// Feature: composed `Result` workflow with propagation (`?`) and domain errors.
+func Main(args: string[]) -> Result<(), CustomError> {
+    if args.Length == 0 {
+        return Error(CustomError(
+            message: "Missing required argument: <name>",
+            code: .MissingArgument
+        ))
+    }
+
+    val name = args[0]
+    val greeting = BuildGreeting(name)?
+
+    Console.WriteLine(greeting)
+    Ok
+}
+
+func BuildGreeting(name: string) -> Result<string, CustomError> {
+    if name.Length < 2 {
+        return Error(CustomError(
+            message: "Name must be at least 2 characters",
+            code: .InvalidName
+        ))
+    }
+
+    if name == "doom" {
+        return Error(CustomError(
+            message: "That name is forbidden",
+            code: .ForbiddenName
+        ))
+    }
+
+    Ok("Hello, " + name + "!")
+}
+
+record class CustomError(
+    Message: string,
+    Code: ErrorCode
+) {
+    public override ToString() -> string {
+        "Error [${Code}]: ${Message}"
+    }
+}
+
+enum ErrorCode {
+    MissingArgument
+    InvalidName
+    ForbiddenName
+}

@@ -113,7 +113,7 @@ Important follow-up fix discovered during validation:
 
 Additional validation findings (sample100):
 
-- Even after ensuring propagate error returns call `SetResult`, `samples/sample100.rav` still produced `InvalidProgramException` at runtime.
+- Even after ensuring propagate error returns call `SetResult`, `samples/legacy/sample100.rav` still produced `InvalidProgramException` at runtime.
 - Root cause identified during IL inspection:
   - propagate lowering was synthesizing `out` locals with byref types (`Result<T, E>.Ok&`), which are not valid in async state machines.
 - Resolution implemented here:
@@ -121,4 +121,4 @@ Additional validation findings (sample100):
   - add async-state-machine-aware return emission in `StatementGenerator` so propagate early-returns in `MoveNext` always set `_state = -2` and call the builder’s `SetResult`
 - Current status:
   - async propagate without `use` (`samples/async-propagate-error-path.rav`) runs successfully
-  - `samples/sample100.rav` still throws `InvalidProgramException`, indicating remaining IL structure issues around `use` + propagate that need further investigation
+  - `samples/legacy/sample100.rav` still throws `InvalidProgramException`, indicating remaining IL structure issues around `use` + propagate that need further investigation

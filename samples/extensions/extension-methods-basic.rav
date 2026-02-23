@@ -1,0 +1,44 @@
+import System.Console.*
+import System.Collections.Generic.*
+
+// Feature: extension methods and extension properties.
+val items = List<int>()
+items.Add(1)
+items.Add(2)
+val count = items.CountItems()
+val sum = items.SumNumbers()
+
+WriteLine("Count: $count");
+WriteLine("Sum: $sum");
+
+items.CountPlusOne = 5
+val value = items.CountPlusOne
+
+WriteLine("Value: $value");
+
+public extension MyEnumerableExt<T> for IEnumerable<T> {
+    public CountItems() -> int {
+        var total: int = 0
+        for each in self {
+            total = total + 1
+        }
+        return total
+    }
+}
+
+public extension MyIntEnumerableExt for IEnumerable<int> {
+    public SumNumbers() -> int {
+        var sum: int = 0
+        for each x in self {
+            sum = sum + x
+        }
+        return sum
+    }
+}
+
+public extension ListExt for List<int> {
+    public CountPlusOne: int {
+        get => self.Count + 1
+        set => self.Add(value)
+    }
+}

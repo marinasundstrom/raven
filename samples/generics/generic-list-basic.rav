@@ -1,0 +1,13 @@
+import System.Console.*
+import System.Collections.Generic.List<>
+
+// Feature: generic type instantiation with `List<T>`.
+val list = List<int>()
+list.Add(2)
+list.Add(3)
+
+WriteLine(list.Count)
+
+for each item in list {
+    WriteLine(item)
+}

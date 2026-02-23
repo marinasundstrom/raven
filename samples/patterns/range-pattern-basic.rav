@@ -1,0 +1,22 @@
+import System.Console.*
+
+// Feature: range patterns over numeric and character values.
+val shipmentCount = 4
+
+val sizeBand = shipmentCount match {
+    ..4 => "No"
+    40 .. 43 => "Yes"
+    _ => "What?"
+}
+
+WriteLine(sizeBand)
+
+val routeCode = 'B'
+
+val routeBand = routeCode match {
+    'a' .. 'b' => "lowercase"
+    'A' .. 'B' => "uppercase"
+    _ => "Not in range"
+}
+
+WriteLine(routeBand)

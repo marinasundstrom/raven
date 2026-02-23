@@ -1,0 +1,16 @@
+import System.Console.*
+
+// Feature: property override compatibility across base references.
+val writable: Base = D1()
+val readableOnly: Base = D2()
+
+writable.P = 3
+WriteLine(writable.P)
+
+val current = readableOnly.P
+WriteLine(current)
+// readableOnly.P = 4  // Not allowed: setter is not common on all subtypes.
+
+open class Base { public virtual P: int { get; set; } = 0 }
+class D1 : Base { public override P : int { get; set; } = 0 }
+class D2 : Base { public override P : int { get; } = 0 }

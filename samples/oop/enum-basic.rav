@@ -1,0 +1,12 @@
+import System.Console.*
+
+// Feature: basic enum declaration and usage.
+var foo : Grades = .B
+foo = .C
+
+WriteLine(foo)
+WriteLine(foo.GetType())
+WriteLine(Grades.B)
+WriteLine(Grades.B.GetType())
+
+enum Grades { A, B, C }

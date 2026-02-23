@@ -1,0 +1,20 @@
+import System.Console.*
+
+// Feature: `for` loop over a collection.
+val orders = [
+    Order(1001, 120)
+    Order(1002, 80)
+    Order(1003, 45)
+    Order(1004, 210)
+]
+var totalPending = 0
+
+for order in orders {
+    val amount = order.Amount
+    totalPending = totalPending + amount
+    WriteLine("Queued order ${order.Id} amount: ${amount}")
+}
+
+WriteLine("Total pending amount: ${totalPending}")
+
+record Order(Id: int, Amount: int)

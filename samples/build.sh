@@ -32,7 +32,8 @@ Filters:
                           If omitted, all samples are compiled.
 
 Environment overrides:
-  DOTNET_VERSION, BUILD_CONFIG, OUTPUT_DIR, RAVEN_CORE, RAVEN_CODE_ANALYSIS
+  DOTNET_VERSION, BUILD_CONFIG, OUTPUT_DIR, RAVEN_CORE, RAVEN_CODE_ANALYSIS,
+  EXCLUSIONS_FILE
 EOF
 }
 
@@ -81,16 +82,36 @@ if [[ -d "$OUTPUT_DIR" ]]; then
 fi
 mkdir -p "$OUTPUT_DIR"
 
-# List of sample files (filenames only) to exclude
-EXCLUDE=(
-  "test.rav"
-  "args-to-generic-methods.rav"
-)
+EXCLUSIONS_FILE="${EXCLUSIONS_FILE:-$SCRIPT_DIR/exclusions.txt}"
+EXCLUDE_PATTERNS=()
+
+load_exclusions() {
+  local mode="$1"
+  EXCLUDE_PATTERNS=()
+
+  [[ -f "$EXCLUSIONS_FILE" ]] || return 0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+
+    local entry_mode pattern rest
+    read -r entry_mode pattern rest <<< "$line"
+    [[ -n "${rest:-}" ]] && continue
+    [[ -z "${entry_mode:-}" || -z "${pattern:-}" ]] && continue
+
+    if [[ "$entry_mode" == "all" || "$entry_mode" == "$mode" ]]; then
+      EXCLUDE_PATTERNS+=("$pattern")
+    fi
+  done < "$EXCLUSIONS_FILE"
+}
 
 is_excluded() {
-  local file="$1"
-  for ex in "${EXCLUDE[@]}"; do
-    if [[ "$file" == "$ex" ]]; then
+  local path="$1"
+  local filename="$2"
+  local pattern
+  for pattern in "${EXCLUDE_PATTERNS[@]-}"; do
+    if [[ "$path" == $pattern || "$filename" == $pattern ]]; then
       return 0
     fi
   done
@@ -114,7 +135,12 @@ matches_filter() {
   return 1
 }
 
-rav_files=( *.rav async/*.rav generics/*.rav discriminated-union/*.rav extensions/*.rav linq/*.rav oop/*.rav patterns/*.rav result-and-options/*.rav sandbox/*.rav unmanaged/*.rav )
+load_exclusions "build"
+
+rav_files=()
+while IFS= read -r file; do
+  rav_files+=("${file#./}")
+done < <(find . -type f -name "*.rav" ! -path "./output/*" | sort)
 
 if (( ${#rav_files[@]} == 0 )); then
   echo "No .rav files found under samples/."
@@ -169,8 +195,8 @@ fi
 for file in "${rav_files[@]}"; do
   filename=$(basename "$file")
 
-  if is_excluded "$filename"; then
-    echo "Skipping excluded: $filename"
+  if is_excluded "$file" "$filename"; then
+    echo "Skipping excluded: $file"
     continue
   fi
 
@@ -249,6 +275,9 @@ fi
 echo "===== Compile Summary ====="
 if (( ${#FILTERS[@]} > 0 )); then
   echo "Filters:   ${FILTERS[*]}"
+fi
+if (( ${#EXCLUDE_PATTERNS[@]} > 0 )); then
+  echo "Excludes:  ${EXCLUSIONS_FILE}"
 fi
 echo "Succeeded: ${#successes[@]}"
 for s in "${successes[@]-}"; do echo "  - $s"; done

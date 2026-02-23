@@ -1,7 +1,0 @@
-import System.Console.*
-
-var foo : Value = .B
-
-WriteLine(foo)
-
-enum Value { A = 4, B = 3, C = 5 }

@@ -4,6 +4,7 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
+// Feature: basic async `HttpClient` usage with exception handling.
 use client = HttpClient()
 
 try {
@@ -13,7 +14,7 @@ try {
     // Above three lines can be replaced with new helper method below
     // string responseBody = await client.GetStringAsync(uri);
 
-    WriteLine(responseBody)
+    WriteLine("Response length: ${responseBody.Length}")
 } catch (HttpRequestException e) {
     WriteLine("\nException Caught!")
     WriteLine("Message :${e.Message} ")

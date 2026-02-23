@@ -1,0 +1,14 @@
+import System.*
+import System.Console.*
+
+// Feature: `Result<(), E>` success form.
+val result: Result<(), string> = Ok
+
+WriteLine(result)
+
+val r = result match {
+    Ok => "Foo",
+    Error(val str) => "error"
+}
+
+WriteLine(r)

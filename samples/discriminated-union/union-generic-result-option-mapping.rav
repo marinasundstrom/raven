@@ -1,0 +1,15 @@
+import System.*
+
+// Feature: mapping generic union cases into `Option`.
+val ok : Result<int, string> = .Ok(99)
+val err = Result<int, string>.Error("boom")
+
+Console.WriteLine(format(ok))
+Console.WriteLine(format((Result<int, string>)err))
+
+func format<T>(result: Result<T, string>) -> Option<string> {
+    return result match {
+        Ok(val value) => Some(value.ToString())
+        Error(_) => None
+    }
+}

@@ -73,6 +73,6 @@ Current safeguards:
 
 ## Sample playground
 
-- `/Users/robert/Projects/Raven/samples/expression-trees.rav`
+- `/Users/robert/Projects/Raven/samples/runtime/expression-trees-basic.rav`
 
 Note: this sample currently includes both plain delegate lambdas and expression-tree lambdas; plain delegate lambdas are still expected to emit `<lambda_...>` methods.

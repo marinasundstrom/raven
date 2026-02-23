@@ -1,0 +1,28 @@
+import System.*
+
+// Feature: basic discriminated union declaration and matching.
+val first = Token.Identifier("alpha")
+val second : Token = .Number(42)
+val third = Token.Unknown
+
+Console.WriteLine(first)
+Console.WriteLine(second)
+Console.WriteLine(third)
+
+Console.WriteLine(describe(first))
+Console.WriteLine(describe(second))
+Console.WriteLine(describe(third))
+
+func describe(token: Token) -> string {
+    return token match {
+        .Identifier(val text) => "identifier '$text'"
+        .Number(val value) => "number $value"
+        .Unknown => "unknown token"
+    }
+}
+
+union Token {
+    Identifier(text: string)
+    Number(value: int)
+    Unknown
+}

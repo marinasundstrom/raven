@@ -1,8 +1,0 @@
-val x : (a: bool, b: string)? = null
-
-val r = x match {
-    (val a: bool, val b: string) => "tuple $a $b"
-    _ => "else"
-}
-
-System.Console.WriteLine(r)

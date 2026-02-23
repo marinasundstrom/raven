@@ -1,0 +1,15 @@
+import System.*
+import System.Console.*
+
+// Feature: `try` expression composed with `match`.
+val value = TryParseScore("foo")
+
+WriteLine(value)
+
+func TryParseScore(input: string) -> string {
+    return try int.Parse(input) match {
+        Ok(val score) => "Score is ${score}"
+        Error(FormatException ex) => "Format invalid: ${ex.Message}"
+        Error(_) => "Unknown parsing error"
+    }
+}

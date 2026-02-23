@@ -93,7 +93,7 @@ public class SampleProgramsTests
     public async Task Linq_sample_should_execute_extension_lambdas()
     {
         var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
-        var samplePath = Path.Combine(projectDir, "samples", "linq.rav");
+        var samplePath = Path.Combine(projectDir, "samples", "result-linq-first-or-error-basic.rav");
 
         var fixtureAssembly = Path.Combine(AppContext.BaseDirectory, "Raven.ExtensionMethodsFixture.dll");
         Assert.True(File.Exists(fixtureAssembly), $"Fixture assembly missing at '{fixtureAssembly}'.");

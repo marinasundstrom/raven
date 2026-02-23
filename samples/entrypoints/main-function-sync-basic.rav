@@ -1,0 +1,6 @@
+import System.Console.*
+
+// Feature: top-level `func Main() -> ()` entry point.
+func Main() -> () {
+    WriteLine("Hello World")
+}

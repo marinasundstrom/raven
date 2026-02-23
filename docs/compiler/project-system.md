@@ -151,9 +151,9 @@ dotnet run --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App
 
 Sample:
 
-- `samples/project-files/nuget-demo/README.md`
-- `samples/project-files/raven-msbuild-integration/README.md`
-- `samples/project-files/runtime-async-net11/README.md`
+- `samples/projects/nuget-demo/README.md`
+- `samples/projects/raven-msbuild-integration/README.md`
+- `samples/projects/runtime-async-net11/README.md`
 
 ## Runtime async for `net11.0`
 
@@ -203,7 +203,7 @@ Current limitation (temporary bridge):
 
 - Compile-time typed consumption of Raven-defined types from C# may fail with `CS0012` (`System.Private.CoreLib` reference mismatch).
 - Runtime loading/invocation of the produced Raven assembly works.
-- See `samples/project-files/raven-msbuild-integration/README.md` for the current reflection-based host example.
+- See `samples/projects/raven-msbuild-integration/README.md` for the current reflection-based host example.
 
 ## Workspace and project-system services
 

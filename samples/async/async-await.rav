@@ -1,6 +1,7 @@
 import System.Console.*
 import System.Threading.Tasks.*
 
+// Feature: basic async/await flow.
 async func PrintDelayed(label: string, value: int) -> Task {
     await Task.Delay(10)
     WriteLine("$label:$value")

@@ -1,0 +1,9 @@
+import System.*
+import System.Console.*
+
+// Feature: simplest `Option<T>` form + common extension methods.
+val promoPercent: Option<int> = Some(10)
+val fallbackPercent = promoPercent.UnwrapOr(0)
+
+WriteLine("HasSome: ${promoPercent.HasSome}")
+WriteLine("Percent: ${fallbackPercent}")

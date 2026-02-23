@@ -1,0 +1,50 @@
+import System.*
+import System.Console.*
+
+// Feature: combined property/positional patterns over record data.
+func Main() {
+    val charlie = Character("Charlie Hudson", .Human, .Male, 42)
+    val sarah = Character("Sarah Truong", .Human, .Female, 39)
+    val jesse = Character("Jesse Mills", .Human, .Male, 34)
+    val joe = Character("Joe Donovan", .Human, .Male, 50)
+
+    val characters = [charlie, sarah, jesse, joe]
+
+    val rex = Character("Rex", Species.Dog, .Male, 5)
+
+    val fullCast = [rex, ..characters]
+
+    for character in fullCast {
+        val name = "Jesse Mills"
+        if character is Character(name, _, _, _) {
+            Print(character)
+        }
+
+        if character is { Species: .Dog, Name: val dogName } {
+            WriteLine("Dog: $dogName")
+        }
+
+        if character is { Species: .Dog, Age: not > 34 } {
+            Print(character)
+        }
+
+        if character is { Gender: .Female, Age: >= 35 } {
+            Print(character)
+        }
+    }
+}
+
+func Print(character: Character) => WriteLine("Name = ${character.Name}, Species = ${character.Species}, Gender = ${character.Gender}, Age = ${character.Age}")
+
+record class Character(Name: string, Species: Species, Gender: Gender, Age: int);
+
+enum Species {
+    Human,
+    Dog
+}
+
+enum Gender {
+    Unspecified,
+    Male,
+    Female
+}

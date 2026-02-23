@@ -1,0 +1,10 @@
+import System.Console.*
+import System.Threading.Tasks.*
+
+// Feature: class-based async static `Main` entry point.
+class Program {
+    async static Main() -> Task {
+        await Task.Delay(1)
+        WriteLine("Hello, World!")
+    }
+}

@@ -43,15 +43,22 @@ DOTNET_VERSION=net11.0 ./build.sh
 ./run.sh -f net11.0
 ```
 
-## Project-file sample
+## Feature-first sample organization
+
+Feature-based categorization for promoting samples into proper cases:
+- `samples/cases/FEATURE_CATALOG.md`
+- Control-flow folder examples: `samples/control-flow/for-loop.rav`, `samples/control-flow/for-range.rav`
+- Categories are aligned to language spec chapters under `docs/lang/spec/`.
+
+## Project Samples
 
 For `.ravenproj` + NuGet restore/cache behavior, see:
 
-- `samples/project-files/nuget-demo/README.md`
-- `samples/project-files/aspnet-minimal-api/README.md`
-- `samples/project-files/runtime-async-net11/README.md`
-- `samples/project-files/analyzer-editorconfig/README.md` (project-local `.editorconfig` analyzer severity overrides)
-- `samples/project-files/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
+- `samples/projects/nuget-demo/README.md`
+- `samples/projects/aspnet-minimal-api/README.md`
+- `samples/projects/runtime-async-net11/README.md`
+- `samples/projects/analyzer-editorconfig/README.md` (project-local `.editorconfig` analyzer severity overrides)
+- `samples/projects/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
 
 ### Compiler options
 
@@ -72,8 +79,8 @@ Running `RAVEN_CORE=../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll bas
 
 The 28 failing samples from the latest run fall into two buckets:
 
-* **Emission crashes caused by `Error` types flowing into code generation** — 22 samples (such as `catch.rav`, `classes.rav`, `extensions.rav`, `foo2.rav`, `function-types.rav`, `generator.rav`, `io.rav`, `linq.rav`, `option.rav`, `parse-number.rav`, `reflection.rav`, `try-match.rav`, `type-unions.rav`, `unit.rav`, `async-file-io.rav`, `async-generic-compute.rav`, `async-inference.rav`, `async-task-return.rav`, `async-try-catch.rav`, `http-client.rav`, `test-result2.rav`, and `test10.rav`) abort while emitting because `ErrorTypeSymbol` reaches the back-end. This aligns with the recent short-circuiting changes that preserve `BoundErrorExpression`/`ErrorTypeSymbol` instead of fabricating placeholder bindings, so codegen now needs to tolerate or skip these error-typed members.
-* **Front-end diagnostics from invalid discriminated-union/pattern usage** — 6 samples (`introduction.rav`, `main.rav`, `test-result.rav`, `async/async-await.rav`, `async/http-client-result-extension.rav`, and `async/http-client-result.rav`) fail with binding diagnostics such as `RAV0024` and `RAV2104`. These predate the short-circuit changes and indicate missing union cases or error operands in the source rather than codegen crashes.
+* **Emission crashes caused by `Error` types flowing into code generation** — 22 samples (such as `catch.rav`, `classes.rav`, `extensions.rav`, `foo2.rav`, `function-types.rav`, `generator.rav`, `io.rav`, `result-linq-first-or-error-basic.rav`, `option-basic.rav`, `parse-number.rav`, `reflection.rav`, `patterns/try-expression-match.rav`, `type-unions.rav`, `unit.rav`, `async-file-io.rav`, `async-generic-task-return.rav`, `async-await-inference.rav`, `async-task-return.rav`, `async-try-catch.rav`, `http-client.rav`, `result-parse-static-helper.rav`, and `test10.rav`) abort while emitting because `ErrorTypeSymbol` reaches the back-end. This aligns with the recent short-circuiting changes that preserve `BoundErrorExpression`/`ErrorTypeSymbol` instead of fabricating placeholder bindings, so codegen now needs to tolerate or skip these error-typed members.
+* **Front-end diagnostics from invalid discriminated-union/pattern usage** — 6 samples (`cases/ledger-shaping-linq-summary.rav`, `cases/status-ledger-enum-summary.rav`, `result-parse-match.rav`, `async/async-await.rav`, `async/http-client-result-extension.rav`, and `async/http-client-result.rav`) fail with binding diagnostics such as `RAV0024` and `RAV2104`. These predate the short-circuit changes and indicate missing union cases or error operands in the source rather than codegen crashes.
 
 The table below reflects the intended pass status; update entries as failures are fixed.
 
@@ -84,18 +91,24 @@ The table below reflects the intended pass status; update entries as failures ar
 | `foo.rav` | ✅ Run | Executes successfully (prints `1`). |
 | `general.rav` | ✅ Run | Executes successfully (prints the list contents and "Hello, World!"). |
 | `interfaces.rav` | ✅ Run | Executes successfully (shows init/do/dispose output). |
-| `introduction.rav` | ✅ Run | Compiles and executes successfully. |
+| `cases/ledger-shaping-linq-summary.rav` | ✅ Run | Compiles and executes successfully. |
 | `io.rav` | ✅ Run | Compiles and runs (expects an argument, otherwise reports zero files). |
-| `linq.rav` | ✅ Run | Compiles and runs (prints the reversed list). |
-| `main.rav` | ✅ Run | Executes successfully, emitting the critical value report and tuple output. |
+| `result-linq-first-or-error-basic.rav` | ✅ Run | Compiles and runs (prints the selected item wrapped in `Result`). |
+| `cases/status-ledger-enum-summary.rav` | ✅ Run | Executes successfully, emitting the critical value report and tuple output. |
 | `pattern-matching.rav` | ✅ Run | Compiles and prints `else`. |
 | `reflection.rav` | ✅ Run | Compiles and prints the reflected `System.Object` member list. |
-| `test-result.rav` | ✅ Run | Compiles and prints union/error handling output when Raven.Core is referenced. |
-| `test-result2.rav` | ✅ Run | Compiles and prints parsed value output when Raven.Core is referenced. |
+| `result-parse-match.rav` | ✅ Run | Compiles and prints union/error handling output when Raven.Core is referenced. |
+| `result-parse-static-helper.rav` | ✅ Run | Compiles and prints parsed value output when Raven.Core is referenced. |
 | `test10.rav` | ✅ Run | Compiles and prints `(2, test)`. |
 | `test9.rav` | ✅ Run | Compiles and prints `()` once Raven.Core types are available. |
-| `try-match.rav` | ✅ Run | Compiles and prints the formatted exception message (`Format invalid: ...`). |
-| `tuples.rav` | ✅ Run | Compiles and prints tuple element values. |
-| `tuples2.rav` | ✅ Run | Compiles and prints `tuple False foo`. |
+| `patterns/try-expression-match.rav` | ✅ Run | Compiles and prints the formatted exception message (`Format invalid: ...`). |
+| `tuples/tuples-basic.rav` | ✅ Run | Compiles and prints basic tuple creation + named access output. |
+| `tuples/tuples-pattern-match.rav` | ✅ Run | Compiles and prints tuple-pattern match output. |
+| `tuples/tuples-nullable-match.rav` | ✅ Run | Compiles and prints tuple-pattern output from optional tuple state. |
 | `type-unions.rav` | ✅ Run | Compiles and runs successfully with `TestDep.dll` copied by `build.sh`. |
-| `async/try-match-async.rav` | ✅ Run | Compiles and prints the handled exception output when built with Raven.Core. |
+| `async/async-try-match-expression.rav` | ✅ Run | Compiles and prints the handled exception output when built with Raven.Core. |
+
+## Case strategy
+
+For sample deduplication and one-file-per-concept guidance, see:
+- `samples/cases/CASE_STRATEGY.md`

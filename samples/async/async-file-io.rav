@@ -3,6 +3,7 @@ import System.Console.*
 import System.IO.*
 import System.Threading.Tasks.*
 
+// Feature: async file write/read operations.
 val tempFile = Path.GetTempFileName()
 val sample = ["alpha", "beta", "gamma"]
 

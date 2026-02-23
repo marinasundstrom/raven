@@ -1,0 +1,17 @@
+import System.*
+
+// Feature: match expression over discriminated union cases.
+Console.WriteLine(area(.Circle(2)))
+Console.WriteLine(area(.Rectangle(3, 4)))
+
+func area(shape: Shape) -> int {
+    return shape match {
+        .Circle(val r) => r * r * 3,
+        .Rectangle(val w, val h) => w * h,
+    }
+}
+
+union Shape {
+    Circle(radius: int)
+    Rectangle(width: int, height: int)
+}

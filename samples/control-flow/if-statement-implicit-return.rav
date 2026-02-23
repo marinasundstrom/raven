@@ -1,0 +1,25 @@
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+// Feature: statement-form `if` with implicit tail return behavior.
+WriteLine("Approval rules loaded")
+
+func EvaluateManualReview(totalAmount: int) -> Result<int, CustomError> {
+    if totalAmount >= 100 {
+        Ok(1)
+    } else {
+        Error(CustomError)
+    }
+}
+
+async func EvaluateManualReviewAsync(totalAmount: int) -> Task<Result<int, CustomError>> {
+    await Task.Delay(1)
+    if totalAmount >= 100 {
+        Ok(1)
+    } else {
+        Error(CustomError)
+    }
+}
+
+record CustomError()

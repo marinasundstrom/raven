@@ -1,0 +1,54 @@
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+// Feature: `Task<Result<T,E>>` flow with async/await and propagation.
+async func Main(args: string[]) -> Task<Result<(), CustomError>> {
+    if args.Length == 0 {
+        return Error(CustomError(
+            message: "Missing required argument: <name>",
+            code: .MissingArgument
+        ))
+    }
+
+    val name = args[0]
+    val greeting = await BuildGreeting(name)
+
+    Console.WriteLine(greeting?)
+    Ok
+}
+
+async func BuildGreeting(name: string) -> Task<Result<string, CustomError>> {
+    await Task.Delay(25)
+
+    if name.Length < 2 {
+        return Error(CustomError(
+            message: "Name must be at least 2 characters",
+            code: .InvalidName
+        ))
+    }
+
+    if name == "doom" {
+        return Error(CustomError(
+            message: "That name is forbidden",
+            code: .ForbiddenName
+        ))
+    }
+
+    Ok("Hello, " + name + "!")
+}
+
+record class CustomError(
+    Message: string,
+    Code: ErrorCode
+) {
+    public override ToString() -> string {
+        "Error [${Code}]: ${Message}"
+    }
+}
+
+enum ErrorCode {
+    MissingArgument
+    InvalidName
+    ForbiddenName
+}

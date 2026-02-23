@@ -1,9 +1,0 @@
-import System.*
-
-val person = getPerson(name: "Bob", age: 40)
-
-Console.WriteLine("${person.name}")
-
-func getPerson(name: string, age: int) -> (name: string, age: int)  {
-    return (name, age)
-}

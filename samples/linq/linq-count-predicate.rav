@@ -1,0 +1,8 @@
+import System.*
+import System.Linq.*
+
+// Feature: LINQ `Count` with a predicate.
+val shipmentWeights = [1, 2, 3]
+val count = shipmentWeights.Count(x => x > 2)
+
+Console.WriteLine(count)

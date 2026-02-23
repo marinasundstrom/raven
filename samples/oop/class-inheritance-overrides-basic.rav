@@ -1,0 +1,31 @@
+import System.Console.*
+
+// Feature: virtual/abstract members with overrides.
+val test = Derived(42)
+test.Foo()
+test.Bar(2)
+
+val test2 = Derived2("Test")
+test2.Foo()
+test2.Bar(3)
+
+public abstract class Base {
+    /// Test
+    public virtual Foo() {
+        WriteLine("Base.Test")
+    }
+
+    public abstract Bar(x: int)
+}
+
+public class Derived(value: int) : Base {
+    public final override Bar(x: int) -> () => WriteLine("Derived.Bar: $x and $value")
+}
+
+public class Derived2(value: string) : Base {
+    public override Foo() {
+        WriteLine("Derived2.Test: $value")
+    }
+
+    public final override Bar(x: int) -> () => WriteLine("Derived2.Bar: $x and $value")
+}

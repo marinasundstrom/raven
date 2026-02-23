@@ -1,0 +1,10 @@
+import System.*
+
+// Feature: constant pattern in an `if is` check.
+PrintIfPriority(1)
+
+func PrintIfPriority(priorityCode: int) -> () {
+    if priorityCode is 1 {
+        Console.WriteLine("Priority shipment")
+    }
+}

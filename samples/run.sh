@@ -19,7 +19,7 @@ Options:
   -h, --help              Show this help
 
 Environment overrides:
-  DOTNET_VERSION, OUTPUT_DIR
+  DOTNET_VERSION, OUTPUT_DIR, EXCLUSIONS_FILE
 EOF
 }
 
@@ -59,20 +59,36 @@ else
   echo "Warning: could not resolve installed runtime for '$DOTNET_VERSION'; using default dotnet host selection."
 fi
 
-# List of dlls to exclude (filenames only)
-EXCLUDE=(
-  "TestDep.dll"
-  "Raven.Core.dll"
-  "Raven.CodeAnalysis.dll"
-  "goto.dll"
-  "parse-number.dll"
-  # add others as needed
-)
+EXCLUSIONS_FILE="${EXCLUSIONS_FILE:-$SCRIPT_DIR/exclusions.txt}"
+EXCLUDE_PATTERNS=()
+
+load_exclusions() {
+  local mode="$1"
+  EXCLUDE_PATTERNS=()
+
+  [[ -f "$EXCLUSIONS_FILE" ]] || return 0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+
+    local entry_mode pattern rest
+    read -r entry_mode pattern rest <<< "$line"
+    [[ -n "${rest:-}" ]] && continue
+    [[ -z "${entry_mode:-}" || -z "${pattern:-}" ]] && continue
+
+    if [[ "$entry_mode" == "all" || "$entry_mode" == "$mode" ]]; then
+      EXCLUDE_PATTERNS+=("$pattern")
+    fi
+  done < "$EXCLUSIONS_FILE"
+}
 
 is_excluded() {
-  local file="$1"
-  for ex in "${EXCLUDE[@]}"; do
-    if [[ "$file" == "$ex" ]]; then
+  local relpath="$1"
+  local filename="$2"
+  local pattern
+  for pattern in "${EXCLUDE_PATTERNS[@]-}"; do
+    if [[ "$relpath" == $pattern || "$filename" == $pattern ]]; then
       return 0
     fi
   done
@@ -83,6 +99,8 @@ if [[ ! -d "$OUTPUT_DIR" ]]; then
   echo "Output directory '$OUTPUT_DIR' does not exist."
   exit 1
 fi
+
+load_exclusions "run"
 
 dlls=()
 while IFS= read -r dll; do
@@ -104,7 +122,7 @@ for dll in "${dlls[@]}"; do
     relpath="$filename"
   fi
 
-  if is_excluded "$filename"; then
+  if is_excluded "$relpath" "$filename"; then
     echo "Skipping excluded: $relpath"
     continue
   fi

@@ -1,0 +1,11 @@
+import System.Console.*
+
+// Feature: numeric literal type suffixes (`b`, `m`) and default int literals.
+val defaultInt = 2
+val retryCount: byte = 2b
+val basePrice: decimal = 19.95m
+val serviceFee: decimal = 1m
+
+WriteLine("default int: $defaultInt")
+WriteLine("retry count (byte): $retryCount")
+WriteLine("invoice total: ${basePrice + serviceFee}")

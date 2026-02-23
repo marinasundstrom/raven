@@ -1,0 +1,26 @@
+import System.*
+import System.Console.*
+
+// Feature: expression-form `if` in value-producing contexts.
+WriteLine(TapIfPositiveScore(Some(42)))
+WriteLine(TapIfPositiveScore(None))
+WriteLine(ClassifyRisk(3))
+
+func TapIfPositiveScore(opt: Option<int>) -> Option<int> {
+    if opt is Some(val value) {
+        if value > 0 {
+            WriteLine("Positive score observed: ${value}")
+        }
+    }
+    return opt
+}
+
+func ClassifyRisk(value: int) -> string {
+    return if value > 0 {
+        "high-risk"
+    } else if value < 0 {
+        "refund-needed"
+    } else {
+        "balanced"
+    }
+}

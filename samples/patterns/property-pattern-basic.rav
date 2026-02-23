@@ -1,0 +1,48 @@
+import System.*
+import System.Console.*
+
+func Main() {
+    // Feature: property patterns with nested tuple destructuring.
+    val fastLane = new Shipment("REQ-1001", true, (10, 20))
+    val standard = new Shipment("REQ-1002", false, (1, 2))
+
+    PrintRoutingMessage(fastLane)
+    PrintRoutingMessage(standard)
+    PrintRoutingMessage(null)
+}
+
+func PrintRoutingMessage(candidate: object?) {
+    if candidate is Shipment { IsPriority: true } {
+        WriteLine("Priority lane")
+    }
+
+    if candidate is Shipment { IsPriority: val flag } {
+        WriteLine("Priority flag: $flag")
+    }
+
+    if candidate is Shipment { Window: (val startHour, val endHour) } {
+        WriteLine("Window: $startHour-$endHour")
+    }
+
+    if candidate is Shipment { IsPriority: true } and not Shipment { IsPriority: false } {
+        WriteLine("Priority check is consistent")
+    }
+
+    if candidate is { } {
+        WriteLine("Candidate is not null")
+    } else {
+        WriteLine("No shipment candidate")
+    }
+}
+
+class Shipment {
+    public val Id: string
+    public val IsPriority: bool
+    public val Window: (int, int)
+
+    public init(id: string, isPriority: bool, window: (int, int)) {
+        Id = id
+        IsPriority = isPriority
+        Window = window
+    }
+}

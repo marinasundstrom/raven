@@ -1,0 +1,30 @@
+import System.*
+import System.Threading.Tasks.*
+
+// Feature: async `match` over `Option<T>` returning `Result<T, E>`.
+Console.WriteLine(await GetItem())
+
+func GetUser() -> Result<User, Err> {
+    // sample implementation
+    //return Error(Err.MissingUser)
+    return Ok(User("Marina", Some(Item("Candy"))))
+}
+
+async func GetItem() -> Task<Result<string, Err>> {
+    val maybeItem: Option<User> = Some(User("Marina", Some(Item("Candy"))))
+
+    await Task.Delay(20)
+
+    return maybeItem match {
+        Some(val item) => Ok(item.Name)
+        None  => Error(Err.MissingName)
+    }
+}
+
+union Err {
+    MissingUser
+    MissingName
+}
+
+record class User(Name: string, Item: Option<Item>)
+record class Item(Name: string)

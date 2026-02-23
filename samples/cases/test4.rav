@@ -1,9 +1,0 @@
-import System.*
-import System.Console.*
-import System.Linq.*
-
-WriteLine(Foo(42))
-
-func Foo<T>(test: T) -> Result<T, string> {
-    Ok(test)
-}

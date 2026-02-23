@@ -1,0 +1,22 @@
+import System.*
+
+// Feature: chained `?` propagation through `Result` and nullable member.
+Console.WriteLine(f())
+
+func GetUser() -> Result<User, Err> {
+    // sample implementation
+    //return Error(.MissingUser)
+    return Ok(User("Marina"))
+}
+
+func f() -> Result<int, Err> {
+    val str = GetUser()?.Name? // Result<string, Err> unwrapped
+    return Ok(str.Length + 1)
+}
+
+union Err {
+    MissingUser
+    MissingName
+}
+
+record class User(Name: string)

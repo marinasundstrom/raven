@@ -20,7 +20,7 @@ public class SampleProgramsTests
         ["classes.rav"],
         ["enums.rav"],
         ["general.rav"],
-        ["generics/generics.rav"],
+        ["generics/generic-list-basic.rav"],
         ["io.rav"],
         ["main.rav"],
         ["discriminated-unions-generics.rav"],
