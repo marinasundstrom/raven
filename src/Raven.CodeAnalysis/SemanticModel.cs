@@ -705,7 +705,6 @@ public partial class SemanticModel
             UnionDeclarationSyntax or
             MethodDeclarationSyntax or
             ConstructorDeclarationSyntax or
-            NamedConstructorDeclarationSyntax or
             OperatorDeclarationSyntax or
             ConversionOperatorDeclarationSyntax or
             FunctionStatementSyntax or

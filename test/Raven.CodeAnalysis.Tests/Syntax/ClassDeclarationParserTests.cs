@@ -92,7 +92,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void NamedConstructor_WithExpressionBody_ParsesExpressionBody()
+    public void NamedConstructorSyntax_ProducesDiagnostics()
     {
         var source = """
             class Person {
@@ -101,12 +101,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
             """;
 
         var tree = SyntaxTree.ParseText(source);
-        var ctor = tree.GetRoot().DescendantNodes().OfType<NamedConstructorDeclarationSyntax>().Single();
-
-        Assert.Null(ctor.Body);
-        Assert.NotNull(ctor.ExpressionBody);
-        Assert.True(ctor.ExpressionBody!.ArrowToken.IsKind(SyntaxKind.FatArrowToken));
-        Assert.Empty(tree.GetDiagnostics());
+        Assert.NotEmpty(tree.GetDiagnostics());
     }
 
     [Fact]

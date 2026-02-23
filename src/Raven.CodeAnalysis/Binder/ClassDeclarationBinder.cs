@@ -31,18 +31,12 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
             var hasExplicitInstanceConstructor = typeSyntax.Members
                 .OfType<ConstructorDeclarationSyntax>()
                 .Any(ctor => !ctor.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword));
-            var hasNamedConstructor = named.GetMembers()
-                .OfType<IMethodSymbol>()
-                .Any(method => method.MethodKind == MethodKind.NamedConstructor);
 
             var hasParameterlessCtor = named.Constructors
                 .Any(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
-            var hasPublicParameterlessCtor = named.Constructors
-                .Any(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0 && ctor.DeclaredAccessibility == Accessibility.Public);
 
             if (!hasPrimaryConstructor &&
                 !hasExplicitInstanceConstructor &&
-                !hasNamedConstructor &&
                 !hasParameterlessCtor)
             {
                 _ = new SourceMethodSymbol(
@@ -57,24 +51,6 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                     isStatic: false,
                     methodKind: MethodKind.Constructor,
                     declaredAccessibility: Accessibility.Public);
-            }
-
-            if (hasNamedConstructor &&
-                !hasPublicParameterlessCtor &&
-                !hasParameterlessCtor)
-            {
-                _ = new SourceMethodSymbol(
-                    ".ctor",
-                    Compilation.GetSpecialType(SpecialType.System_Unit),
-                    ImmutableArray<SourceParameterSymbol>.Empty,
-                    ContainingSymbol,
-                    ContainingSymbol,
-                    CurrentNamespace!.AsSourceNamespace(),
-                    [typeSyntax.GetLocation()],
-                    [typeSyntax.GetReference()],
-                    isStatic: false,
-                    methodKind: MethodKind.Constructor,
-                    declaredAccessibility: Accessibility.Private);
             }
 
             bool hasStaticCtor = named.GetMembers()

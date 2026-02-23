@@ -716,13 +716,13 @@ class QuietLogger : ILogger {
     }
 
     [Fact]
-    public void Emit_NamedConstructorWithImplicitReceivers_EmitsAndRuns()
+    public void Emit_ConstructorWithImplicitReceivers_EmitsAndRuns()
     {
         var code = """
 class Person {
     var storedName: string;
 
-    public init WithName(name: string) {
+    public init(name: string) {
         storedName = name;
         val snapshot = storedName;
         Normalize();
@@ -753,8 +753,8 @@ class Person {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var assembly = loaded.Assembly;
         var personType = assembly.GetType("Person", throwOnError: true)!;
-        var factory = personType.GetMethod("WithName")!;
-        var instance = factory.Invoke(null, new object?[] { "" });
+        var ctor = personType.GetConstructor(new[] { typeof(string) })!;
+        var instance = ctor.Invoke(new object?[] { "" });
 
         var getName = personType.GetMethod("GetName")!;
         var value = (string)getName.Invoke(instance, Array.Empty<object?>())!;

@@ -786,7 +786,7 @@ partial class BlockBinder : Binder
     {
         if (_containingSymbol is IMethodSymbol method)
         {
-            if (!method.IsStatic || method.IsNamedConstructor)
+            if (!method.IsStatic)
             {
                 var containingType = method.ContainingType;
                 return new BoundSelfExpression(containingType);
@@ -5330,7 +5330,7 @@ partial class BlockBinder : Binder
         if (!methods.Any(static method => !method.IsStatic))
             return null;
 
-        if (_containingSymbol is IMethodSymbol method && (!method.IsStatic || method.IsNamedConstructor))
+        if (_containingSymbol is IMethodSymbol method && !method.IsStatic)
         {
             var containingType = method.ContainingType ?? Compilation.ErrorTypeSymbol;
             return new BoundSelfExpression(containingType);
@@ -7717,14 +7717,6 @@ partial class BlockBinder : Binder
         if (receiver is BoundSelfExpression)
             return true;
 
-        if (methodSymbol.IsNamedConstructor &&
-            receiver is BoundLocalAccess localAccess &&
-            localAccess.Local is SourceLocalSymbol localSymbol &&
-            localSymbol.Name == "__self")
-        {
-            return true;
-        }
-
         return false;
     }
 
@@ -7816,11 +7808,6 @@ partial class BlockBinder : Binder
                      !methodSymbol.IsStatic &&
                      SymbolEqualityComparer.Default.Equals(methodSymbol.ContainingType, fieldSymbol.ContainingType) &&
                      IsConstructorSelfReceiver(methodSymbol, receiver))
-            {
-                return true;
-            }
-            else if (methodSymbol.MethodKind == MethodKind.NamedConstructor &&
-                  SymbolEqualityComparer.Default.Equals(methodSymbol.ContainingType, fieldSymbol.ContainingType))
             {
                 return true;
             }

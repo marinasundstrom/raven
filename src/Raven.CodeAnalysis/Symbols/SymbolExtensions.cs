@@ -1300,29 +1300,22 @@ public static partial class SymbolExtensions
                 break;
 
             case IMethodSymbol method:
-                if (method.IsNamedConstructor)
-                {
-                    parts.Add("init");
-                }
-                else
-                {
-                    // Local functions will also show these correctly.
-                    if (method.IsStatic)
-                        parts.Add("static");
+                // Local functions will also show these correctly.
+                if (method.IsStatic)
+                    parts.Add("static");
 
-                    if (method.IsAbstract)
-                        parts.Add("abstract");
+                if (method.IsAbstract)
+                    parts.Add("abstract");
 
-                    // C#-style: final override
-                    if (method.IsFinal && method.IsOverride)
-                        parts.Add("final");
+                // C#-style: final override
+                if (method.IsFinal && method.IsOverride)
+                    parts.Add("final");
 
-                    if (method.IsVirtual)
-                        parts.Add("virtual");
+                if (method.IsVirtual)
+                    parts.Add("virtual");
 
-                    if (method.IsOverride)
-                        parts.Add("override");
-                }
+                if (method.IsOverride)
+                    parts.Add("override");
 
                 if (method.IsAsync)
                     parts.Add("async");

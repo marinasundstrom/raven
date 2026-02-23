@@ -2527,12 +2527,6 @@ public partial class SemanticModel
                     CacheBinder(ctorDecl, ctorBinder);
                     break;
 
-                case NamedConstructorDeclarationSyntax ctorDecl:
-                    var namedCtorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
-                    var namedCtorBinder = namedCtorMemberBinder.BindNamedConstructorDeclaration(ctorDecl);
-                    CacheBinder(ctorDecl, namedCtorBinder);
-                    break;
-
                 case DelegateDeclarationSyntax del:
                     var delMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var delBinder = delMemberBinder.BindDelegateDeclaration(del);

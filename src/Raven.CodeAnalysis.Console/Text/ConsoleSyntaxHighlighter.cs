@@ -644,7 +644,6 @@ public static class ConsoleSyntaxHighlighter
         if (token.Parent.Kind is SyntaxKind.MethodDeclaration
             or SyntaxKind.FunctionStatement
             or SyntaxKind.ConstructorDeclaration
-            or SyntaxKind.NamedConstructorDeclaration
             or SyntaxKind.ConversionOperatorDeclaration
             or SyntaxKind.OperatorDeclaration)
             return true;

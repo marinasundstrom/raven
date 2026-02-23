@@ -203,7 +203,6 @@ internal abstract class SourceSymbol : Symbol
             MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
             FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,
             ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.AttributeLists,
-            NamedConstructorDeclarationSyntax namedConstructorDeclaration => namedConstructorDeclaration.AttributeLists,
             PropertyDeclarationSyntax propertyDeclaration => propertyDeclaration.AttributeLists,
             IndexerDeclarationSyntax indexerDeclaration => indexerDeclaration.AttributeLists,
             EventDeclarationSyntax eventDeclaration => eventDeclaration.AttributeLists,

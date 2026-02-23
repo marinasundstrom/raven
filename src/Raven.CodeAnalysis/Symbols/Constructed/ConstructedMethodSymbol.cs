@@ -118,7 +118,6 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         _parameters ??= _definition.Parameters.Select(p => (IParameterSymbol)new ConstructedParameterSymbol(p, this)).ToImmutableArray();
 
     public bool IsConstructor => _definition.IsConstructor;
-    public bool IsNamedConstructor => _definition.IsNamedConstructor;
 
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => _definition.GetReturnTypeAttributes();
     public override bool Equals(object? obj) => _definition.Equals(obj);

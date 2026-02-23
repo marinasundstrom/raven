@@ -64,7 +64,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void NamedConstructorCreatesObject()
+    public void StaticFactoryMethodCreatesObject()
     {
         string testCode =
             """
@@ -74,8 +74,12 @@ public class ObjectCreationTests : DiagnosticTestBase
             class Person {
                 var name: string;
 
-                public init WithName(name: string) {
-                    self.name = name;
+                public static WithName(name: string) -> Person {
+                    return Person(name);
+                }
+
+                public init (name: string) {
+                    self.name = name
                 }
 
                 public GetName() -> string => name;
@@ -88,7 +92,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void NamedConstructorWithLocalDeclarationCreatesObject()
+    public void StaticFactoryMethodWithLocalDeclarationCreatesObject()
     {
         string testCode =
             """
@@ -98,9 +102,13 @@ public class ObjectCreationTests : DiagnosticTestBase
             class Person {
                 var name: string;
 
-                public init WithName(name: string) {
+                public static WithName(name: string) -> Person {
                     val temp = name;
-                    self.name = temp;
+                    return Person(temp);
+                }
+
+                public init (name: string) {
+                    self.name = name;
                 }
 
                 public GetName() -> string => name;

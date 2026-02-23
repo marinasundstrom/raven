@@ -233,7 +233,6 @@ internal partial class TypeMemberBinder : Binder
         {
             MethodDeclarationSyntax method => BindMethodSymbol(method),
             ConstructorDeclarationSyntax ctor => BindConstructorSymbol(ctor),
-            NamedConstructorDeclarationSyntax namedCtor => BindConstructorSymbol(namedCtor),
             OperatorDeclarationSyntax opDecl => BindOperatorSymbol(opDecl),
             ConversionOperatorDeclarationSyntax conversionDecl => BindConversionOperatorSymbol(conversionDecl),
             PropertyDeclarationSyntax property => BindPropertySymbol(property),
@@ -303,13 +302,9 @@ internal partial class TypeMemberBinder : Binder
 
     private ISymbol? BindConstructorSymbol(BaseConstructorDeclarationSyntax ctor)
     {
-        string name = ".ctor";
-        if (ctor is NamedConstructorDeclarationSyntax namedCtor)
-            name = namedCtor.Identifier.ValueText;
-
         var method = _containingType.GetMembers()
             .OfType<IMethodSymbol>()
-            .FirstOrDefault(m => m.Name == name &&
+            .FirstOrDefault(m => m.Name == ".ctor" &&
                                  m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == ctor));
 
         return method;
@@ -1487,99 +1482,6 @@ internal partial class TypeMemberBinder : Binder
         }
 
         return methodBinder;
-    }
-
-    public MethodBinder BindNamedConstructorDeclaration(NamedConstructorDeclarationSyntax ctorDecl)
-    {
-        ReportPartialModifierNotSupported(ctorDecl.Modifiers, "constructor", ctorDecl.Identifier.ValueText);
-        var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
-        var ctorAccessibility = AccessibilityUtilities.DetermineAccessibility(ctorDecl.Modifiers, defaultAccessibility);
-
-        ReportInstanceMemberInStaticTypeIfNeeded(
-            false,
-            ctorDecl.Identifier.ValueText,
-            ctorDecl.Identifier.GetLocation());
-
-        var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
-        foreach (var p in ctorDecl.ParameterList.Parameters)
-        {
-            var typeSyntax = p.TypeAnnotation!.Type;
-            var refKindTokenKind = p.RefKindKeyword?.Kind;
-            var refKind = typeSyntax is ByRefTypeSyntax
-                ? refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.Ref,
-                }
-                : refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.None,
-                };
-
-            var pType = ResolveParameterTypeSyntaxForSignature(this, typeSyntax, refKind);
-            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
-            paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
-        }
-
-        foreach (var (paramName, paramType, _, syntax, _) in paramInfos)
-        {
-            ValidateTypeAccessibility(
-                paramType,
-                ctorAccessibility,
-                "constructor",
-                GetMemberDisplayName(ctorDecl.Identifier.ValueText),
-                $"parameter '{paramName}'",
-                syntax.TypeAnnotation!.Type.GetLocation());
-        }
-
-        CheckForDuplicateSignature(ctorDecl.Identifier.ValueText, ctorDecl.Identifier.ValueText, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.Identifier.GetLocation(), ctorDecl);
-
-        var ctorSymbol = new SourceMethodSymbol(
-            ctorDecl.Identifier.ValueText,
-            _containingType,
-            ImmutableArray<SourceParameterSymbol>.Empty,
-            _containingType,
-            _containingType,
-            CurrentNamespace!.AsSourceNamespace(),
-            [ctorDecl.GetLocation()],
-            [ctorDecl.GetReference()],
-            isStatic: true,
-            methodKind: MethodKind.NamedConstructor,
-            declaredAccessibility: ctorAccessibility);
-
-        var parameters = new List<SourceParameterSymbol>();
-        var seenOptionalParameter = false;
-        foreach (var (paramName, paramType, refKind, syntax, isMutable) in paramInfos)
-        {
-            var defaultResult = ProcessParameterDefault(
-                syntax,
-                paramType,
-                paramName,
-                _diagnostics,
-                ref seenOptionalParameter);
-            var pSymbol = new SourceParameterSymbol(
-                paramName,
-                paramType,
-                ctorSymbol,
-                _containingType,
-                CurrentNamespace!.AsSourceNamespace(),
-                [syntax.GetLocation()],
-                [syntax.GetReference()],
-                refKind,
-                defaultResult.HasExplicitDefaultValue,
-                defaultResult.ExplicitDefaultValue,
-                isMutable
-            );
-            parameters.Add(pSymbol);
-        }
-
-        ctorSymbol.SetParameters(parameters);
-        return new MethodBinder(ctorSymbol, this);
     }
 
     public DelegateDeclarationBinder BindDelegateDeclaration(DelegateDeclarationSyntax delegateDecl)
@@ -3024,7 +2926,7 @@ internal partial class TypeMemberBinder : Binder
     {
         return methodKind switch
         {
-            MethodKind.Constructor or MethodKind.NamedConstructor => "constructor",
+            MethodKind.Constructor => "constructor",
             MethodKind.UserDefinedOperator => "operator",
             _ => "method",
         };

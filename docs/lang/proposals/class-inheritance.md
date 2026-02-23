@@ -52,7 +52,7 @@ class Derived : Base {
 }
 ```
 
-The initializer runs before the derived body executes. It is only available on ordinary instance constructors; static constructors report `RAV0312`, and named constructors continue to build user-defined factory patterns without chaining.
+The initializer runs before the derived body executes. It is only available on ordinary instance constructors; static constructors report `RAV0312`.
 
 ### Access modifiers
 

@@ -40,7 +40,7 @@ public static class CompletionProvider
             {
                 if (current.ContainingSymbol is IMethodSymbol method)
                 {
-                    if (!method.IsStatic || method.IsNamedConstructor)
+                    if (!method.IsStatic)
                         return method.ContainingType;
 
                     return null;

@@ -304,13 +304,13 @@ class Counter {
     }
 
     [Fact]
-    public void GetCompletions_InNamedConstructor_IncludesSelf()
+    public void GetCompletions_InConstructor_IncludesSelf()
     {
         var code = """
 class Counter {
     private value: int;
 
-    public init WithValue(value: int) {
+    public init(value: int) {
         /*caret*/
     }
 }

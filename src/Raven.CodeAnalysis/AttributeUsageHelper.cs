@@ -307,7 +307,7 @@ internal static class AttributeUsageHelper
 
     private static AttributeTargets GetMethodTarget(IMethodSymbol method)
     {
-        if (method.MethodKind is MethodKind.Constructor or MethodKind.NamedConstructor or MethodKind.StaticConstructor)
+        if (method.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
             return AttributeTargets.Constructor;
 
         return AttributeTargets.Method;

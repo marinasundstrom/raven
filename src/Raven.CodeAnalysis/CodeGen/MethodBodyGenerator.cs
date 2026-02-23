@@ -574,9 +574,7 @@ internal class MethodBodyGenerator
                 break;
 
             case BaseConstructorDeclarationSyntax constructorDeclaration:
-                var ordinaryConstr = !MethodSymbol.IsNamedConstructor;
-
-                if (ordinaryConstr && !MethodSymbol.IsStatic)
+                if (!MethodSymbol.IsStatic)
                 {
                     EmitConstructorInitializer();
                 }
@@ -590,13 +588,10 @@ internal class MethodBodyGenerator
                     if (expressionBodySyntax is not null)
                         EmitSequencePoint(expressionBodySyntax);
 
-                    EmitExpressionBody(expressionBody, includeReturn: !ordinaryConstr);
+                    EmitExpressionBody(expressionBody, includeReturn: false);
                 }
 
-                if (ordinaryConstr)
-                {
-                    ILGenerator.Emit(OpCodes.Ret);
-                }
+                ILGenerator.Emit(OpCodes.Ret);
                 break;
 
             case AccessorDeclarationSyntax accessorDeclaration:

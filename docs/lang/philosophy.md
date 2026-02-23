@@ -18,18 +18,20 @@ Raven eliminates redundant syntax where it doesn’t add value. Familiar pattern
 val user = User(name: "Anna")  // Not new User(...)
 ```
 
-Constructors are expressed through `init` blocks or named methods, making object creation feel like invoking functionality, not a compiler formality. The language defaults to the shortest spelling that still tells the truth about what the code is doing and encourages the flow of data without redundant wrappers or boilerplate.
+Constructors are expressed through `init` blocks, making object creation feel like invoking functionality, not a compiler formality. The language defaults to the shortest spelling that still tells the truth about what the code is doing and encourages the flow of data without redundant wrappers or boilerplate.
 
 ```raven
-public init WithName(name: string) {
+public init(name: string) {
     self.name = name
 }
 ```
 
-The usage:
+If an API wants a more descriptive creation entry point, use a regular static method:
 
 ```raven
-val user = User.WithName("Anna") 
+public static WithName(name: string) -> User {
+    return User(name)
+}
 ```
 
 ---

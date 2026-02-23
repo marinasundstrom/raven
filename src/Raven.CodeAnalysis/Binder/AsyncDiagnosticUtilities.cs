@@ -16,7 +16,7 @@ internal static class AsyncDiagnosticUtilities
             MethodKind.LambdaMethod => "lambda expression",
             MethodKind.PropertyGet or MethodKind.PropertySet => "accessor",
             MethodKind.Ordinary => "method",
-            MethodKind.Constructor or MethodKind.NamedConstructor => "constructor",
+            MethodKind.Constructor => "constructor",
             _ => "function",
         };
 

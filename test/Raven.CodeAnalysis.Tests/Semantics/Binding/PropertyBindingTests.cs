@@ -62,24 +62,6 @@ public class PropertyBindingTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void GetterOnlyAutoProperty_AssignableInNamedConstructor()
-    {
-        string testCode =
-            """
-            class Person {
-                public Name: string { get; }
-                public init WithName(name: string) {
-                    self.Name = name;
-                }
-            }
-            """;
-
-        var verifier = CreateVerifier(testCode);
-
-        verifier.Verify();
-    }
-
-    [Fact]
     public void GetterOnlyAutoProperty_AssignmentOutsideConstructor_ProducesDiagnostic()
     {
         string testCode =

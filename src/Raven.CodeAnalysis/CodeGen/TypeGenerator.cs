@@ -1290,7 +1290,7 @@ internal class TypeGenerator
         if (_extensionGroupingTypeBuilder is null)
             return;
 
-        if (methodSymbol.MethodKind is MethodKind.Constructor or MethodKind.NamedConstructor or MethodKind.LambdaMethod)
+        if (methodSymbol.MethodKind is MethodKind.Constructor or MethodKind.LambdaMethod)
             return;
         var emittedMethodName = GetEmittedMethodName(methodSymbol);
         if (string.IsNullOrWhiteSpace(emittedMethodName))

@@ -639,16 +639,6 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         ReadToken();
 
-        SyntaxToken? identifier = null;
-        if (CanTokenBeIdentifier(PeekToken()))
-        {
-            identifier = ReadIdentifierToken();
-        }
-        else
-        {
-            ConsumeTokenOrNull(SyntaxKind.IdentifierToken, out identifier);
-        }
-
         var parameterList = ParseParameterList();
 
         ConstructorInitializerSyntax? initializer = null;
@@ -676,27 +666,13 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var terminatorToken = ConsumeMemberTerminator();
 
-        if (identifier is null)
+        if (expressionBody is not null)
         {
-            if (expressionBody is not null)
-            {
-                return ConstructorDeclaration(attributeLists, modifiers, initKeyword, parameterList, initializer, null, expressionBody, terminatorToken);
-            }
-            else if (body is not null)
-            {
-                return ConstructorDeclaration(attributeLists, modifiers, initKeyword, parameterList, initializer, body, null, terminatorToken);
-            }
+            return ConstructorDeclaration(attributeLists, modifiers, initKeyword, parameterList, initializer, null, expressionBody, terminatorToken);
         }
-        else
+        else if (body is not null)
         {
-            if (expressionBody is not null)
-            {
-                return NamedConstructorDeclaration(attributeLists, modifiers, initKeyword, identifier, parameterList, null, expressionBody, terminatorToken);
-            }
-            else if (body is not null)
-            {
-                return NamedConstructorDeclaration(attributeLists, modifiers, initKeyword, identifier, parameterList, body, null, terminatorToken);
-            }
+            return ConstructorDeclaration(attributeLists, modifiers, initKeyword, parameterList, initializer, body, null, terminatorToken);
         }
 
         throw new Exception();

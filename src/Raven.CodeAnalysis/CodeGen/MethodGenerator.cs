@@ -111,7 +111,7 @@ internal class MethodGenerator
 
         var parameterTypes = Array.Empty<Type>();
 
-        if (MethodSymbol.IsConstructor && !MethodSymbol.IsNamedConstructor)
+        if (MethodSymbol.IsConstructor)
         {
             parameterTypes = BuildParameterTypes();
 

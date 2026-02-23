@@ -110,9 +110,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         return _lazyReturnTypeAttributes;
     }
 
-    public bool IsConstructor => MethodKind is MethodKind.Constructor or MethodKind.NamedConstructor;
-
-    public bool IsNamedConstructor => MethodKind is MethodKind.NamedConstructor;
+    public bool IsConstructor => MethodKind is MethodKind.Constructor;
 
     public override bool IsStatic { get; }
 
@@ -277,7 +275,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         // TypeMemberBinder.BindConstructorSymbol. For now we conservatively add the
         // metadata to constructors on record types that contain at least one required
         // member. Later steps will implement full initialization semantics and checks.
-        if (MethodKind is not MethodKind.Constructor and not MethodKind.NamedConstructor)
+        if (MethodKind is not MethodKind.Constructor)
             return false;
 
         var containingType = ContainingType;

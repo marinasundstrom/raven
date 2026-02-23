@@ -264,7 +264,6 @@ public interface IMethodSymbol : ISymbol
     ImmutableArray<IParameterSymbol> Parameters { get; }
     ImmutableArray<AttributeData> GetReturnTypeAttributes();
     bool IsConstructor => MethodKind is MethodKind.Constructor;
-    bool IsNamedConstructor => false;
     IMethodSymbol? OriginalDefinition { get; }
     ISymbol? AssociatedSymbol => null;
 
@@ -302,7 +301,6 @@ public enum MethodKind
 {
     LambdaMethod,
     Constructor,
-    NamedConstructor,
     Conversion,
     Destructor,
     EventAdd,

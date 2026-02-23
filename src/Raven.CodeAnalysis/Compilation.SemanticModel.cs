@@ -155,9 +155,6 @@ public partial class Compilation
                     flags.HasExplicitInstanceConstructor = true;
                 }
 
-                if (classDecl.Members.OfType<NamedConstructorDeclarationSyntax>().Any())
-                    flags.HasNamedConstructor = true;
-
                 constructorFlags[symbol] = flags;
             }
         }
@@ -170,7 +167,7 @@ public partial class Compilation
             if (sourceType.IsStatic)
                 continue;
 
-            if (flags.HasPrimaryConstructor || flags.HasExplicitInstanceConstructor || flags.HasNamedConstructor)
+            if (flags.HasPrimaryConstructor || flags.HasExplicitInstanceConstructor)
                 continue;
 
             if (sourceType.Constructors.Any(c => !c.IsStatic && c.Parameters.Length == 0))
@@ -199,6 +196,5 @@ public partial class Compilation
     {
         public bool HasPrimaryConstructor;
         public bool HasExplicitInstanceConstructor;
-        public bool HasNamedConstructor;
     }
 }
