@@ -160,6 +160,7 @@ fi
 
 failures=()
 successes=()
+sample_output_dirs=()
 
 if [[ -z "${RAVEN_CORE:-}" || ! -f "$RAVEN_CORE" ]]; then
   echo "Warning: Raven.Core.dll not found; samples will be built without --raven-core"
@@ -177,8 +178,15 @@ for file in "${rav_files[@]}"; do
     continue
   fi
 
-  base="${filename%.rav}"
-  output="$OUTPUT_DIR/$base.dll"
+  if [[ "$file" == */* ]]; then
+    output="$OUTPUT_DIR/${file%.rav}.dll"
+  else
+    # Keep root samples separated to avoid file/dir name collisions
+    # (e.g. linq.rav vs linq/*.rav).
+    output="$OUTPUT_DIR/_root/${file%.rav}.dll"
+  fi
+  output_dir="$(dirname "$output")"
+  mkdir -p "$output_dir"
 
   echo "Compiling: $file -> $output"
 
@@ -189,11 +197,12 @@ for file in "${rav_files[@]}"; do
 
   if "${cmd[@]}"; then
     echo "✅ Compile succeeded: $filename"
-    successes+=("$filename")
+    successes+=("$file")
+    sample_output_dirs+=("$output_dir")
   else
     rc=$?
     echo "❌ Compile failed ($rc): $filename"
-    failures+=("$filename (exit $rc)")
+    failures+=("$file (exit $rc)")
   fi
   echo
 done
@@ -209,24 +218,32 @@ do
     break
   fi
 done
-if [[ -n "$TEST_DEP_DLL" ]]; then
-  cp "$TEST_DEP_DLL" "$OUTPUT_DIR"/TestDep.dll 2>/dev/null || \
-    echo "Warning: Could not copy TestDep.dll"
-else
+if [[ -z "$TEST_DEP_DLL" ]]; then
   echo "Warning: TestDep.dll not found"
 fi
 
-if [[ -n "${RAVEN_CORE:-}" && -f "$RAVEN_CORE" ]]; then
-  cp "$RAVEN_CORE" "$OUTPUT_DIR"/ 2>/dev/null || \
-    echo "Warning: Could not copy Raven.Core.dll"
+if [[ ! -f "$RAVEN_CODE_ANALYSIS" ]]; then
+  echo "Warning: Raven.CodeAnalysis.dll not found; tried: $RAVEN_CODE_ANALYSIS"
 fi
 
+if (( ${#sample_output_dirs[@]} > 0 )); then
+  while IFS= read -r dir; do
+    [[ -z "$dir" ]] && continue
+    if [[ -n "$TEST_DEP_DLL" ]]; then
+      cp "$TEST_DEP_DLL" "$dir"/TestDep.dll 2>/dev/null || \
+        echo "Warning: Could not copy TestDep.dll to $dir"
+    fi
 
-if [[ -f "$RAVEN_CODE_ANALYSIS" ]]; then
-  cp "$RAVEN_CODE_ANALYSIS" "$OUTPUT_DIR"/Raven.CodeAnalysis.dll 2>/dev/null || \
-    echo "Warning: Could not copy Raven.CodeAnalysis.dll"
-else
-  echo "Warning: Raven.CodeAnalysis.dll not found; tried: $RAVEN_CODE_ANALYSIS"
+    if [[ -n "${RAVEN_CORE:-}" && -f "$RAVEN_CORE" ]]; then
+      cp "$RAVEN_CORE" "$dir"/Raven.Core.dll 2>/dev/null || \
+        echo "Warning: Could not copy Raven.Core.dll to $dir"
+    fi
+
+    if [[ -f "$RAVEN_CODE_ANALYSIS" ]]; then
+      cp "$RAVEN_CODE_ANALYSIS" "$dir"/Raven.CodeAnalysis.dll 2>/dev/null || \
+        echo "Warning: Could not copy Raven.CodeAnalysis.dll to $dir"
+    fi
+  done < <(printf '%s\n' "${sample_output_dirs[@]}" | sort -u)
 fi
 
 echo "===== Compile Summary ====="

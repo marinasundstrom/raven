@@ -84,7 +84,10 @@ if [[ ! -d "$OUTPUT_DIR" ]]; then
   exit 1
 fi
 
-dlls=( "$OUTPUT_DIR"/*.dll )
+dlls=()
+while IFS= read -r dll; do
+  dlls+=("$dll")
+done < <(find "$OUTPUT_DIR" -type f -name "*.dll" | sort)
 
 if (( ${#dlls[@]} == 0 )); then
   echo "No .dll files found in '$OUTPUT_DIR'."
@@ -96,20 +99,24 @@ successes=()
 
 for dll in "${dlls[@]}"; do
   filename="$(basename "$dll")"
+  relpath="${dll#"$OUTPUT_DIR"/}"
+  if [[ "$relpath" == "$dll" ]]; then
+    relpath="$filename"
+  fi
 
   if is_excluded "$filename"; then
-    echo "Skipping excluded: $filename"
+    echo "Skipping excluded: $relpath"
     continue
   fi
 
   echo "Running: ${DOTNET_CMD[*]} \"$dll\""
   if "${DOTNET_CMD[@]}" "$dll"; then
-    echo "✅ Success: $filename"
-    successes+=("$filename")
+    echo "✅ Success: $relpath"
+    successes+=("$relpath")
   else
     rc=$?
-    echo "❌ Failed ($rc): $filename"
-    failures+=("$filename (exit $rc)")
+    echo "❌ Failed ($rc): $relpath"
+    failures+=("$relpath (exit $rc)")
   fi
   echo
 done

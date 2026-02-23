@@ -1966,7 +1966,7 @@ partial class BlockBinder : Binder
     private BoundStatement BindMatchStatement(MatchStatementSyntax matchStatement)
     {
         var isImplicitReturn = IsMatchStatementImplicitReturn(matchStatement);
-        var armTargetType = _containingSymbol is IMethodSymbol method
+        var armTargetType = isImplicitReturn && _containingSymbol is IMethodSymbol method
             ? GetReturnTargetType(method)
             : null;
 
@@ -2136,7 +2136,18 @@ partial class BlockBinder : Binder
                 guard = BindExpression(whenClause.Condition);
 
             var expressionTargetType = armTargetType;
+
+            var expression = BindExpressionWithTargetType(
+                arm.Expression,
+                expressionTargetType,
+                allowReturn: allowReturnInArmExpressions);
+
+            // Case-only arm expressions like `None` can bind as open generic case carriers
+            // (`Option<T>`) when no explicit target exists. If the arm pattern already
+            // establishes the scrutinee union, retarget only union-case expressions to that
+            // concrete scrutinee carrier.
             if (expressionTargetType is null &&
+                expression is BoundUnionCaseExpression &&
                 pattern is BoundCasePattern &&
                 scrutinee.Type is INamedTypeSymbol scrutineeUnion &&
                 pattern.Type.TryGetDiscriminatedUnionCase()?.Union is INamedTypeSymbol caseUnion &&
@@ -2145,12 +2156,12 @@ partial class BlockBinder : Binder
                     (caseUnion.OriginalDefinition as INamedTypeSymbol) ?? caseUnion))
             {
                 expressionTargetType = scrutineeUnion;
+                RemoveCachedBoundNode(arm.Expression);
+                expression = BindExpressionWithTargetType(
+                    arm.Expression,
+                    expressionTargetType,
+                    allowReturn: allowReturnInArmExpressions);
             }
-
-            var expression = BindExpressionWithTargetType(
-                arm.Expression,
-                expressionTargetType,
-                allowReturn: allowReturnInArmExpressions);
 
             if (expressionTargetType is not null &&
                 expressionTargetType.TypeKind != TypeKind.Error &&
@@ -4082,7 +4093,7 @@ partial class BlockBinder : Binder
                 container = container.ContainingSymbol;
 
             if (container is IMethodSymbol m)
-                return m.ReturnType;
+                return GetReturnTargetType(m);
         }
 
         // Target type from binary equality/inequality: `x == .Member` / `.Member == x`.
