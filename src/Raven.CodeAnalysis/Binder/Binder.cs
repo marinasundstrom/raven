@@ -1694,8 +1694,6 @@ internal abstract partial class Binder
             ExpressionSyntax expr => BindExpression(expr),
             StatementSyntax stmt => BindStatement(stmt),
 
-            // Temp workaround?
-            ArrowExpressionClauseSyntax stmt => BindExpression(stmt.Expression),
             _ => throw new NotSupportedException($"Unsupported node kind: {node.Kind}")
         };
         return result;
