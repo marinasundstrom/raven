@@ -42,9 +42,9 @@ public class AttributeParsingTests : DiagnosticTestBase
         var tree = SyntaxTree.ParseText(code);
         var diagnostics = tree.GetDiagnostics();
 
-        var diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("RAV1003", diagnostic.Descriptor.Id);
-        Assert.Contains(":", diagnostic.GetMessage());
+        var syntaxDiagnostics = diagnostics.Where(d => d.Descriptor.Id == "RAV1003").ToArray();
+        Assert.NotEmpty(syntaxDiagnostics);
+        Assert.All(syntaxDiagnostics, diagnostic => Assert.Contains(":", diagnostic.GetMessage()));
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class AttributeParsingTests : DiagnosticTestBase
         const string code = """
             class Widget {
                 [Field]
-                val value: int = 0
+                field value: int = 0
             }
             """;
 

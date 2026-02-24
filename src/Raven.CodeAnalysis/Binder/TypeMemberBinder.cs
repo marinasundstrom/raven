@@ -376,8 +376,9 @@ internal partial class TypeMemberBinder : Binder
         ReportPartialModifierNotSupported(fieldDecl.Modifiers, "field", firstDeclaratorName);
         ReportRedundantPublicModifierIfNeeded(fieldDecl.Modifiers);
 
-        var bindingKeyword = fieldDecl.Declaration.BindingKeyword;
-        var isConstDeclaration = bindingKeyword.IsKind(SyntaxKind.ConstKeyword);
+        var fieldKeyword = fieldDecl.FieldKeyword;
+        var isConstDeclaration = fieldKeyword.IsKind(SyntaxKind.ConstKeyword);
+        var isReadonlyField = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.ReadonlyKeyword);
         var isStatic = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || isConstDeclaration;
         var hasNewModifier = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var isRequired = fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.RequiredKeyword));
@@ -442,7 +443,12 @@ internal partial class TypeMemberBinder : Binder
             var isConst = isConstDeclaration && constantValueComputed;
             var initializerForSymbol = isConst ? null : initializer;
             var constantValueForSymbol = isConst ? constantValue : null;
-            var isMutable = bindingKeyword.Kind == SyntaxKind.VarKeyword;
+            var isMutable = fieldKeyword.Kind switch
+            {
+                SyntaxKind.FieldKeyword => !isReadonlyField,
+                SyntaxKind.ConstKeyword => false,
+                _ => !isReadonlyField,
+            };
 
             // Required fields must be mutable (assignable from an object initializer or equivalent init semantics).
             if (isRequired && !isMutable)

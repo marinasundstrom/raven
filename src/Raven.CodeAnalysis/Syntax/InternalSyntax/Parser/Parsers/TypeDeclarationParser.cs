@@ -166,6 +166,7 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.InternalKeyword or
             SyntaxKind.ProtectedKeyword or
             SyntaxKind.StaticKeyword or
+            SyntaxKind.ReadonlyKeyword or
             SyntaxKind.AbstractKeyword or
             SyntaxKind.FinalKeyword or
             SyntaxKind.SealedKeyword or
@@ -188,6 +189,7 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.ExplicitKeyword or
             SyntaxKind.ImplicitKeyword or
             SyntaxKind.EventKeyword or
+            SyntaxKind.FieldKeyword or
             SyntaxKind.LetKeyword or
             SyntaxKind.ValKeyword or
             SyntaxKind.VarKeyword or
@@ -491,35 +493,16 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParseEventDeclaration(attributeLists, modifiers);
         }
 
-        if (keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ValKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.VarKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ConstKeyword))
+        if (keywordOrIdentifier.IsKind(SyntaxKind.ValKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.VarKeyword))
         {
-            return ParseFieldDeclarationSyntax(attributeLists, modifiers);
+            return ParsePropertyBindingDeclaration(attributeLists, modifiers);
         }
 
-        if (keywordOrIdentifier.IsKind(SyntaxKind.IdentifierToken) && PeekToken(1).Kind == SyntaxKind.ColonToken)
+        if (keywordOrIdentifier.IsKind(SyntaxKind.ConstKeyword) ||
+            keywordOrIdentifier.IsKind(SyntaxKind.FieldKeyword) ||
+            keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword))
         {
-            var checkpoint = CreateCheckpoint();
-            ReadToken();
-            _ = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
-
-            var nextToken = PeekToken();
-
-            bool looksLikeField = nextToken.Kind is SyntaxKind.EqualsToken
-                or SyntaxKind.CommaToken
-                or SyntaxKind.SemicolonToken
-                or SyntaxKind.CloseBraceToken
-                or SyntaxKind.EndOfFileToken
-                or SyntaxKind.LineFeedToken
-                or SyntaxKind.CarriageReturnToken
-                or SyntaxKind.CarriageReturnLineFeedToken
-                or SyntaxKind.NewLineToken;
-
-            checkpoint.Rewind();
-
-            if (looksLikeField)
-            {
-                return ParseFieldDeclarationSyntax(attributeLists, modifiers);
-            }
+            return ParseFieldDeclarationSyntax(attributeLists, modifiers);
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.InitKeyword))
@@ -845,7 +828,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var terminatorToken = ConsumeMemberTerminator();
 
-        return PropertyDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, expressionBody, initializer, terminatorToken);
+        return PropertyDeclaration(attributeLists, modifiers, Token(SyntaxKind.None), explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, expressionBody, initializer, terminatorToken);
     }
 
     private EventDeclarationSyntax ParseEventDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
@@ -1162,12 +1145,13 @@ internal class TypeDeclarationParser : SyntaxParser
     private FieldDeclarationSyntax ParseFieldDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)
     {
         var declaration = ParseVariableDeclarationSyntax();
+        var fieldKeyword = declaration?.BindingKeyword ?? MissingToken(SyntaxKind.FieldKeyword);
 
         SetTreatNewlinesAsTokens(true);
 
         var terminatorToken = ConsumeMemberTerminator();
 
-        return FieldDeclaration(attributeLists, modifiers, declaration, terminatorToken);
+        return FieldDeclaration(attributeLists, modifiers, fieldKeyword, declaration, terminatorToken);
     }
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
@@ -1177,7 +1161,7 @@ internal class TypeDeclarationParser : SyntaxParser
         SyntaxToken bindingKeyword;
         SyntaxToken identifier;
 
-        if (firstToken.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+        if (firstToken.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword or SyntaxKind.FieldKeyword)
         {
             bindingKeyword = firstToken;
 
@@ -1197,7 +1181,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     CompilerDiagnostics.FieldDeclarationRequiresBindingKeyword,
                     GetSpanOfLastToken()));
 
-            bindingKeyword = MissingToken(SyntaxKind.LetKeyword);
+                bindingKeyword = MissingToken(SyntaxKind.FieldKeyword);
 
             if (CanTokenBeIdentifier(firstToken))
             {
@@ -1227,6 +1211,71 @@ internal class TypeDeclarationParser : SyntaxParser
             [VariableDeclarator(identifier, typeAnnotation, initializer)]);
 
         return new VariableDeclarationSyntax(bindingKeyword, declarators);
+    }
+
+    private PropertyDeclarationSyntax ParsePropertyBindingDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
+    {
+        var bindingKeyword = ReadToken();
+
+        var identifier = CanTokenBeIdentifier(PeekToken())
+            ? ReadIdentifierToken()
+            : ExpectToken(SyntaxKind.IdentifierToken);
+
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
+            ?? CreateMissingTypeAnnotationClause();
+
+        AccessorListSyntax? accessorList = null;
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+            accessorList = ParseAccessorList();
+
+        ArrowExpressionClauseSyntax? expressionBody = null;
+        if (PeekToken().IsKind(SyntaxKind.FatArrowToken))
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+
+        EqualsValueClauseSyntax? initializer = null;
+        if (IsNextToken(SyntaxKind.EqualsToken, out _))
+            initializer = new EqualsValueClauseSyntaxParser(this).Parse();
+
+        // Stored property shorthand: synthesize accessor list when no explicit body/accessors are provided.
+        accessorList ??= expressionBody is null
+            ? CreateImplicitAccessorList(isMutable: bindingKeyword.IsKind(SyntaxKind.VarKeyword))
+            : null;
+
+        var terminatorToken = ConsumeMemberTerminator();
+        return PropertyDeclaration(attributeLists, modifiers, bindingKeyword, null, identifier, typeAnnotation, accessorList, expressionBody, initializer, terminatorToken);
+    }
+
+    private static AccessorListSyntax CreateImplicitAccessorList(bool isMutable)
+    {
+        var accessors = new List<GreenNode>
+        {
+            AccessorDeclaration(
+                SyntaxKind.GetAccessorDeclaration,
+                SyntaxList.Empty,
+                SyntaxList.Empty,
+                Token(SyntaxKind.GetKeyword),
+                null,
+                null,
+                Token(SyntaxKind.None))
+        };
+
+        if (isMutable)
+        {
+            accessors.Add(
+                AccessorDeclaration(
+                    SyntaxKind.SetAccessorDeclaration,
+                    SyntaxList.Empty,
+                    SyntaxList.Empty,
+                    Token(SyntaxKind.SetKeyword),
+                    null,
+                    null,
+                    Token(SyntaxKind.None)));
+        }
+
+        return AccessorList(
+            Token(SyntaxKind.OpenBraceToken),
+            List(accessors),
+            Token(SyntaxKind.CloseBraceToken));
     }
 
     public DelegateDeclarationSyntax ParseDelegateDeclaration(SyntaxList attributeLists, SyntaxList modifiers)

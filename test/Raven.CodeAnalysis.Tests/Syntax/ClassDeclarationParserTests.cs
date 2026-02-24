@@ -252,4 +252,61 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
 
         Assert.True(method.FuncKeyword.IsMissing);
     }
+
+    [Fact]
+    public void PropertyDeclaration_WithVarKeyword_ParsesAsStoredProperty()
+    {
+        var source = """
+            class Counter {
+                var Count: int = 0
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var @class = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+
+        var property = Assert.IsType<PropertyDeclarationSyntax>(Assert.Single(@class.Members));
+        Assert.True(property.BindingKeyword.IsKind(SyntaxKind.VarKeyword));
+        Assert.NotNull(property.Initializer);
+        Assert.NotNull(property.AccessorList);
+        Assert.Equal(2, property.AccessorList!.Accessors.Count);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void PropertyDeclaration_WithValKeywordAndExpressionBody_ParsesComputedProperty()
+    {
+        var source = """
+            class Customer(name: string) {
+                val Name: string => name
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var @class = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+
+        var property = Assert.IsType<PropertyDeclarationSyntax>(Assert.Single(@class.Members));
+        Assert.True(property.BindingKeyword.IsKind(SyntaxKind.ValKeyword));
+        Assert.NotNull(property.ExpressionBody);
+        Assert.Null(property.Initializer);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FieldDeclaration_WithFieldKeywordAndReadonlyModifier_ParsesField()
+    {
+        var source = """
+            class Customer(name: string) {
+                private readonly field _name: string = name
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var @class = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+
+        var field = Assert.IsType<FieldDeclarationSyntax>(Assert.Single(@class.Members));
+        Assert.Contains(field.Modifiers, token => token.IsKind(SyntaxKind.ReadonlyKeyword));
+        Assert.Equal(SyntaxKind.FieldKeyword, field.FieldKeyword.Kind);
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }

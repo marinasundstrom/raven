@@ -29,6 +29,7 @@
   <TokenKind Name="ValKeyword" Text="val" IsReservedWord="true" />
   <TokenKind Name="VarKeyword" Text="var" IsReservedWord="true" />
   <TokenKind Name="ConstKeyword" Text="const" IsReservedWord="true" />
+  <TokenKind Name="FieldKeyword" Text="field" IsReservedWord="false" />
   <TokenKind Name="FuncKeyword" Text="func" IsReservedWord="true" />
   <TokenKind Name="EnumKeyword" Text="enum" IsReservedWord="true" />
   <TokenKind Name="UnionKeyword" Text="union" IsReservedWord="true" />
@@ -86,6 +87,7 @@
   <TokenKind Name="InternalKeyword" Text="internal" IsReservedWord="false" />
   <TokenKind Name="ProtectedKeyword" Text="protected" IsReservedWord="false" />
   <TokenKind Name="StaticKeyword" Text="static" IsReservedWord="false" />
+  <TokenKind Name="ReadonlyKeyword" Text="readonly" IsReservedWord="false" />
   <TokenKind Name="AbstractKeyword" Text="abstract" IsReservedWord="false" />
   <TokenKind Name="FinalKeyword" Text="final" IsReservedWord="false" />
   <TokenKind Name="SealedKeyword" Text="sealed" IsReservedWord="false" />

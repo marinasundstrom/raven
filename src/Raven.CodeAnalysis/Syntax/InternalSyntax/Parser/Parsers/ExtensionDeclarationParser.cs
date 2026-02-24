@@ -266,6 +266,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         return PropertyDeclaration(
             attributeLists,
             modifiers,
+            Token(SyntaxKind.None),
             explicitInterfaceSpecifier: null,
             identifier,
             typeAnnotation,

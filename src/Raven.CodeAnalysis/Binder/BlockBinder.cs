@@ -1196,7 +1196,7 @@ partial class BlockBinder : Binder
     {
         SourceFieldSymbol? backingField = null;
 
-        if (propertySymbol.SetMethod is null)
+        if (!propertySymbol.IsMutable)
         {
             if (!TryGetWritableAutoPropertyBackingField(propertySymbol, memberAccess, out backingField))
             {
@@ -4523,7 +4523,7 @@ partial class BlockBinder : Binder
 
             var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
 
-            if (indexer is null || indexer.SetMethod is null)
+            if (indexer is null || !indexer.IsMutable)
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
@@ -4703,7 +4703,7 @@ partial class BlockBinder : Binder
 
             var receiver = GetReceiver(left);
 
-            if (propertySymbol.SetMethod is null)
+            if (!propertySymbol.IsMutable)
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -5745,7 +5745,7 @@ partial class BlockBinder : Binder
 
         SourceFieldSymbol? backingField = null;
 
-        if (propertySymbol.SetMethod is null &&
+        if (!propertySymbol.IsMutable &&
             !TryGetWritableAutoPropertyBackingField(propertySymbol, target, out backingField))
         {
             _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, propertySyntax.GetLocation());
@@ -10043,7 +10043,7 @@ partial class BlockBinder : Binder
             if (!inWithInitializer)
             {
                 // Outside of `with`, require a real setter.
-                if (property.SetMethod is null)
+                if (!property.IsMutable)
                 {
                     _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(property.Name, assignment.Name.GetLocation());
                     _ = BindExpression(assignment.Expression, allowReturn: false);
@@ -10222,7 +10222,7 @@ partial class BlockBinder : Binder
                     if (p.IsStatic)
                         continue;
 
-                    if (p.SetMethod is null)
+                    if (!p.IsMutable)
                         continue;
 
                     // Use the existing accessibility helper.

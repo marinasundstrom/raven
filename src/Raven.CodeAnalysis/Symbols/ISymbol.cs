@@ -374,6 +374,7 @@ public interface IPropertySymbol : ISymbol
     ITypeSymbol Type { get; }
     IMethodSymbol? GetMethod { get; }
     IMethodSymbol? SetMethod { get; }
+    bool IsMutable => SetMethod is not null;
     bool IsIndexer { get; }
     bool IsRequired { get; }
     ImmutableArray<IParameterSymbol> Parameters => IsIndexer ? GetMethod?.Parameters ?? [] : [];

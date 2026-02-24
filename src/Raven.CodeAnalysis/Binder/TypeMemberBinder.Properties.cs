@@ -251,6 +251,34 @@ internal partial class TypeMemberBinder : Binder
         var hasSetter = propertyDecl.AccessorList?.Accessors.Any(a =>
             a.Kind == SyntaxKind.SetAccessorDeclaration ||
             a.Kind == SyntaxKind.InitAccessorDeclaration) ?? false;
+        var hasStorageInitializer = propertyDecl.Initializer is not null;
+        bool? declaredMutable = propertyDecl.BindingKeyword.Kind switch
+        {
+            SyntaxKind.VarKeyword => true,
+            SyntaxKind.ValKeyword => false,
+            _ => null,
+        };
+
+        if (declaredMutable == false && propertyDecl.AccessorList is { } declaredAccessorList)
+        {
+            foreach (var accessor in declaredAccessorList.Accessors)
+            {
+                if (accessor.Kind is not (SyntaxKind.SetAccessorDeclaration or SyntaxKind.InitAccessorDeclaration))
+                    continue;
+
+                _diagnostics.ReportValPropertyCannotDeclareWritableAccessor(
+                    propertyName,
+                    accessor.Keyword.Text,
+                    accessor.Keyword.GetLocation());
+            }
+        }
+
+        if (declaredMutable == true && !hasSetter && !hasStorageInitializer)
+        {
+            _diagnostics.ReportVarPropertyRequiresWritableShape(
+                propertyName,
+                propertyDecl.BindingKeyword.GetLocation());
+        }
 
         IMethodSymbol? overriddenGetter = null;
         IMethodSymbol? overriddenSetter = null;
@@ -765,6 +793,7 @@ internal partial class TypeMemberBinder : Binder
         if (sourcePropertySymbol is not null)
         {
             sourcePropertySymbol.SetAccessors(getMethod, setMethod);
+            sourcePropertySymbol.SetMutability(declaredMutable ?? setMethod is not null);
         }
         else if (propertySymbol is SynthesizedExtensionPropertySymbol synthesized)
         {

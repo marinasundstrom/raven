@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.Tests.Bugs;
 public class FieldDeclarationMissingBindingKeywordTests : DiagnosticTestBase
 {
     [Fact]
-    public void FieldWithoutBindingKeyword_ReportsDiagnostic()
+    public void MemberWithoutBindingKeyword_ParsesAsProperty()
     {
         const string code = """
         class Foo {
@@ -14,15 +14,12 @@ public class FieldDeclarationMissingBindingKeywordTests : DiagnosticTestBase
         }
         """;
 
-        var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV1007").WithAnySpan(),
-        ]);
-
+        var verifier = CreateVerifier(code);
         verifier.Verify();
     }
 
     [Fact]
-    public void FieldWithoutBindingKeyword_ParsesSingleMember()
+    public void MemberWithoutBindingKeyword_ParsesSinglePropertyMember()
     {
         const string code = """
         class Foo {
@@ -34,9 +31,8 @@ public class FieldDeclarationMissingBindingKeywordTests : DiagnosticTestBase
         var root = tree.GetRoot();
 
         var type = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(root.Members));
-        var field = Assert.IsType<FieldDeclarationSyntax>(Assert.Single(type.Members));
+        var property = Assert.IsType<PropertyDeclarationSyntax>(Assert.Single(type.Members));
 
-        var declarator = Assert.Single(field.Declaration.Declarators);
-        Assert.Equal("name", declarator.Identifier.Text);
+        Assert.Equal("name", property.Identifier.Text);
     }
 }

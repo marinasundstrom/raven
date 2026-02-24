@@ -5,6 +5,42 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class PropertyBindingTests : DiagnosticTestBase
 {
     [Fact]
+    public void StoredVarProperty_DeclarationBindsAsProperty()
+    {
+        const string testCode =
+            """
+            class Counter {
+                public var Count: int = 0
+            }
+
+            val counter = Counter()
+            counter.Count = 1
+            val current = counter.Count
+            """;
+
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ExplicitFieldDeclaration_WithFieldKeyword_BindsAsStorageMember()
+    {
+        const string testCode =
+            """
+            class Counter {
+                private field _count: int = 0
+
+                public func Increment() -> unit {
+                    _count = _count + 1
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
+    [Fact]
     public void AccessingInstancePropertyAsStatic_ProducesDiagnostic()
     {
         string testCode =
@@ -125,4 +161,54 @@ public class PropertyBindingTests : DiagnosticTestBase
         verifier.Verify();
     }
 
+    [Fact]
+    public void ValProperty_WithSetAccessor_ProducesDiagnostic()
+    {
+        const string testCode =
+            """
+            class Counter {
+                val Count: int {
+                    get => field
+                    set => field = value
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode,
+            [new DiagnosticResult(CompilerDiagnostics.ValPropertyCannotDeclareWritableAccessor.Id).WithSpan(4, 9, 4, 12).WithArguments("Count", "set")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void VarProperty_WithoutWritableShape_ProducesDiagnostic()
+    {
+        const string testCode =
+            """
+            class Counter {
+                var Count: int {
+                    get => field
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode,
+            [new DiagnosticResult(CompilerDiagnostics.VarPropertyRequiresWritableShape.Id).WithSpan(2, 5, 2, 8).WithArguments("Count")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void VarProperty_WithStorageInitializer_DoesNotProduceDiagnostic()
+    {
+        const string testCode =
+            """
+            class Counter {
+                var Count: int = 0
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
 }

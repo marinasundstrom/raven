@@ -1934,7 +1934,7 @@ partial class BlockBinder
 
             var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
 
-            if (indexer is null || indexer.SetMethod is null)
+            if (indexer is null || !indexer.IsMutable)
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
@@ -2147,7 +2147,7 @@ partial class BlockBinder
                 return new BoundErrorExpression(propertySymbol.Type ?? Compilation.ErrorTypeSymbol, propertySymbol, BoundExpressionReason.UnsupportedOperation);
             }
 
-            if (propertySymbol.SetMethod is null)
+            if (!propertySymbol.IsMutable)
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {

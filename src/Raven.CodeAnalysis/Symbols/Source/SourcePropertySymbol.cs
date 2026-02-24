@@ -9,6 +9,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     private SourceFieldSymbol? _backingField;
     private bool _declaredInExtension;
     private ITypeSymbol? _extensionReceiverType;
+    private bool? _isMutable;
     private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
 
     public SourcePropertySymbol(
@@ -37,6 +38,8 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 
     public IMethodSymbol? SetMethod { get; private set; }
 
+    public bool IsMutable => _isMutable ?? SetMethod is not null;
+
     public bool IsIndexer { get; }
 
     public override bool IsStatic => _isStatic;
@@ -55,6 +58,11 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     {
         GetMethod = getMethod;
         SetMethod = setMethod;
+    }
+
+    internal void SetMutability(bool isMutable)
+    {
+        _isMutable = isMutable;
     }
 
     internal void SetBackingField(SourceFieldSymbol backingField)

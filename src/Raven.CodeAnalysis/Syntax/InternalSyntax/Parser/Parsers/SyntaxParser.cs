@@ -36,6 +36,7 @@ internal class SyntaxParser : ParseContext
                      SyntaxKind.InternalKeyword or
                      SyntaxKind.ProtectedKeyword or
                      SyntaxKind.StaticKeyword or
+                     SyntaxKind.ReadonlyKeyword or
                      SyntaxKind.AbstractKeyword or
                      SyntaxKind.FinalKeyword or
                      SyntaxKind.SealedKeyword or
