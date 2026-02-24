@@ -167,4 +167,48 @@ class C {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void MethodWithOnlyAssignmentStatement_NoDiagnostic()
+    {
+        const string code = """
+class C {
+    var name: string = "x"
+
+    func Anonymize() {
+        name = ""
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MethodWithInvalidAssignmentStatement_NoReturnTypeDiagnostic()
+    {
+        const string code = """
+class C {
+    val name: string = "x"
+
+    func Anonymize() {
+        name = ""
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [
+                "RAV1503",
+                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id,
+                CompilerDiagnostics.ReadOnlyFieldCannotBeAssignedTo.Id
+            ]);
+
+        verifier.Verify();
+    }
 }

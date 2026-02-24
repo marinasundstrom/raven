@@ -20,6 +20,7 @@ internal static class ReturnTypeCollector
 
         if (node is BoundBlockStatement block &&
             block.Statements.LastOrDefault() is BoundExpressionStatement exprStmt &&
+            IsValueReturningExpressionForInference(exprStmt) &&
             exprStmt.Expression.Type is ITypeSymbol tailType)
         {
             collector.AddInferredType(tailType);
@@ -34,6 +35,11 @@ internal static class ReturnTypeCollector
         }
 
         return collected;
+    }
+
+    private static bool IsValueReturningExpressionForInference(BoundExpressionStatement statement)
+    {
+        return statement.Expression is not (BoundAssignmentExpression or BoundErrorExpression);
     }
 
     private sealed class Collector : BoundTreeWalker
@@ -70,7 +76,6 @@ internal static class ReturnTypeCollector
 
         public override void VisitExpressionStatement(BoundExpressionStatement node)
         {
-            VisitExpression(node.Expression);
         }
 
         private void AddType(ITypeSymbol type)

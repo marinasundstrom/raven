@@ -2,10 +2,16 @@ import System.*
 import System.Console.*
 
 val customer = Customer("Acme", 20)
+val customer2 = Customer("Marina")
 
-WriteLine("${customer.Name} score: ${customer.Score}")
+PrintCustomer(customer)
+PrintCustomer(customer2)
 
-class Customer(name: string, age: int) {
+func PrintCustomer(customer: Customer) {
+    WriteLine("${customer.Name} age: ${customer.Age ?? "n/a"} score: ${customer.Score}")
+}
+
+class Customer(name: string, age: int? = null) {
     {
         if name is "Marina" {
             Score = 100
@@ -16,7 +22,11 @@ class Customer(name: string, age: int) {
 
     val Name: string => name
 
-    val Age: int => age
+    val Age: int? => age
 
     val Score: int { get; }
+
+    func Anonymize() {
+        //name = ""
+    }
 }
