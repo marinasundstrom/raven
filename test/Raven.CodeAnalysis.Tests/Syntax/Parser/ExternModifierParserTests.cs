@@ -29,7 +29,7 @@ public class ExternModifierParserTests
         var tree = SyntaxTree.ParseText(
             """
             class Native {
-                public extern static Sleep(milliseconds: int) -> unit;
+                public extern static func Sleep(milliseconds: int) -> unit;
             }
             """
         );

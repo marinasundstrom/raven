@@ -10,7 +10,7 @@ public class EarlyReturnTypeInferenceTests
     {
         var code = """
 class Foo {
-    Test(flag: bool) -> int | () {
+    func Test(flag: bool) -> int | () {
         if flag {
             return 42
         } else {
@@ -42,7 +42,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    Test(flag: bool) -> int | () {
+    func Test(flag: bool) -> int | () {
         if flag {
             return 42
         }
@@ -73,7 +73,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    Test(flag: bool) -> {
+    func Test(flag: bool) -> {
         if flag {
             0
         }

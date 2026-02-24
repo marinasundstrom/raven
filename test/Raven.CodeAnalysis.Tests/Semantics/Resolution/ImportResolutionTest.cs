@@ -250,7 +250,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             val value = Increment(1, 2)
 
             public static class MathHelpers {
-                public static Increment(x: int, amount: int) -> int {
+                public static func Increment(x: int, amount: int) -> int {
                     return x + amount
                 }
             }

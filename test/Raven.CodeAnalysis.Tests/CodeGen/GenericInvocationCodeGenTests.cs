@@ -15,11 +15,11 @@ public class GenericInvocationCodeGenTests
 import System.*
 
 class Formatter {
-    Format<T>(value: T) -> string {
+    func Format<T>(value: T) -> string {
         return value.ToString()
     }
 
-    Run() -> string {
+    func Run() -> string {
         return Format<int>(42)
     }
 }

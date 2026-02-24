@@ -210,7 +210,7 @@ public class ParserRecoveryTests
     {
         var source = """
             class C {
-                public A() -> int { return 1 } public B() -> int { return 2 }
+                public func A() -> int { return 1 } public B() -> int { return 2 }
             }
             """;
 
@@ -306,7 +306,7 @@ public class ParserRecoveryTests
         var source = """
             class C {
                 ?
-                public M() -> int { return 1 }
+                public func M() -> int { return 1 }
             }
             """;
 
@@ -322,7 +322,7 @@ public class ParserRecoveryTests
     {
         var source = """
             extension OptionExtensions<T> for Option<T> {
-                public UnwrapOr(defaultValue: T) -> T {
+                public func UnwrapOr(defaultValue: T) -> T {
                     if self is .Some(val value) {
                         return value
                     return defaultValue

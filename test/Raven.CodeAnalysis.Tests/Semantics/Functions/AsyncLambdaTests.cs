@@ -19,11 +19,11 @@ import System.*
 import System.Threading.Tasks.*
 
 class C {
-    M() -> () {
+    func M() -> () {
         val projector: Func<Task<int>> = async () => await G()
     }
 
-    G() -> Task<int> {
+    func G() -> Task<int> {
         Task.FromResult(1)
     }
 }
@@ -89,13 +89,13 @@ val projector = async () => 42
 import System.Threading.Tasks.*
 
 class C {
-    M() -> () {
+    func M() -> () {
         val handler = async () => {
             await G()
         }
     }
 
-    G() -> Task {
+    func G() -> Task {
         Task.CompletedTask
     }
 }
@@ -128,7 +128,7 @@ import System.*
 import System.Threading.Tasks.*
 
 class C {
-    M() -> () {
+    func M() -> () {
         val projector: Func<int> = async () -> int => 42
     }
 }

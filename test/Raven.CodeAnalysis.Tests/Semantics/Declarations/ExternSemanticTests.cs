@@ -15,7 +15,7 @@ public class ExternSemanticTests : CompilationTestBase
     {
         const string source = """
 class Native {
-    extern Sleep(milliseconds: int) -> unit;
+    extern func Sleep(milliseconds: int) -> unit;
 }
 """;
 

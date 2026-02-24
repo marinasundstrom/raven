@@ -105,7 +105,7 @@ public class NamespaceDirectiveTests
         {
             public init () {}
 
-            public AddRole(role: string) -> Person
+            public func AddRole(role: string) -> Person
             {
                 self
             }

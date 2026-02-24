@@ -9,7 +9,7 @@ public class StringConcatenationErrorTests : DiagnosticTestBase
     {
         const string code = """
         class Foo {
-            Test() -> unit {
+            func Test() -> unit {
                 val value = $"Value: {missing}"
             }
         }
@@ -27,7 +27,7 @@ public class StringConcatenationErrorTests : DiagnosticTestBase
     {
         const string code = """
         class Foo {
-            Test() -> unit {
+            func Test() -> unit {
                 val value = "Value: " + missing
             }
         }

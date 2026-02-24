@@ -15,7 +15,7 @@ public class InvocationOperatorTests : CompilationTestBase
     {
         var source = """
 class Test {
-    public self(no: int) -> int {
+    public func self(no: int) -> int {
         return no + 1;
     }
 }
@@ -36,11 +36,11 @@ val x = t(2)
     {
         var source = """
 interface ICallable {
-    self(value: int) -> int;
+    func self(value: int) -> int;
 }
 
 class Callable : ICallable {
-    public self(value: int) -> int {
+    public func self(value: int) -> int {
         return value + 1;
     }
 }
@@ -64,23 +64,23 @@ val result = callable(2)
     {
         var source = """
 abstract class Base {
-    public abstract self(value: int) -> int;
+    public abstract func self(value: int) -> int;
 }
 
 class Derived : Base {
-    public override self(value: int) -> int {
+    public override func self(value: int) -> int {
         return value;
     }
 }
 
 open class VirtualBase {
-    public virtual self(value: int) -> int {
+    public virtual func self(value: int) -> int {
         return value;
     }
 }
 
 class VirtualDerived : VirtualBase {
-    public override self(value: int) -> int {
+    public override func self(value: int) -> int {
         return value + 2;
     }
 }

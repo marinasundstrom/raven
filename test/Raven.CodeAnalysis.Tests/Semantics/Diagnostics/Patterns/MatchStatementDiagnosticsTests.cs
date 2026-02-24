@@ -53,7 +53,7 @@ match 1 {
     {
         const string code = """
 class Program {
-    eval(color: Color) -> int {
+    func eval(color: Color) -> int {
         match color {
             .Red => 1
         }

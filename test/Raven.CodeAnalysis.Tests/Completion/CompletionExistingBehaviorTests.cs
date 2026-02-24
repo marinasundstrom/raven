@@ -21,7 +21,7 @@ public class CompletionExistingBehaviorTests
     {
         var code = """
 class Counter {
-    public Increment() -> unit { }
+    public func Increment() -> unit { }
 }
 
 val counter = new Counter();
@@ -48,7 +48,7 @@ counter.Inc
     {
         var code = """
 class Counter {
-    public Increment() -> unit { }
+    public func Increment() -> unit { }
 }
 
 val counter = new Counter();
@@ -97,7 +97,7 @@ ret
     {
         var code = """
 class Logger {
-    public WriteLine(text: string) -> unit { }
+    public func WriteLine(text: string) -> unit { }
 }
 
 val logger = new Logger();
@@ -124,7 +124,7 @@ logger.WriteLine("Hello").
     {
         var code = """
 class Factory {
-    public Create() -> string {
+    public func Create() -> string {
         return ""
     }
 }
@@ -152,7 +152,7 @@ factory.Create().
     {
         var code = """
 class Factory {
-    public Create() -> string {
+    public func Create() -> string {
         return ""
     }
 }
@@ -180,7 +180,7 @@ factory.Create().
     {
         var code = """
 class Counter {
-    public Increment() -> unit { }
+    public func Increment() -> unit { }
 }
 
 val counter = new Counter();
@@ -207,7 +207,7 @@ counter.Inc
     {
         var code = """
 class Factory {
-    public Create() -> string {
+    public func Create() -> string {
         return ""
     }
 }

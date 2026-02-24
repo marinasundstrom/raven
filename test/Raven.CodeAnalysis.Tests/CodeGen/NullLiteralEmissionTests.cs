@@ -13,7 +13,7 @@ public class NullLiteralEmissionTests
     {
         const string code = """
 class C {
-    Run() -> string? {
+    func Run() -> string? {
         return null
     }
 }
@@ -48,7 +48,7 @@ class C {
     {
         const string code = """
 class C {
-    Run() -> int? {
+    func Run() -> int? {
         return null
     }
 }
@@ -84,7 +84,7 @@ class C {
     {
         const string code = """
 class C {
-    Run() -> int? {
+    func Run() -> int? {
         val value: int? = null
         return value
     }
@@ -121,7 +121,7 @@ class C {
     {
         const string code = """
 class C {
-    Run() -> Action<int>? {
+    func Run() -> Action<int>? {
         val f: Action<int>? = null
         return f
     }
@@ -158,17 +158,17 @@ class C {
     {
         const string code = """
 class C {
-    EqNull() -> bool {
+    func EqNull() -> bool {
         val x: int? = null
         return x == 1
     }
 
-    EqValue() -> bool {
+    func EqValue() -> bool {
         val x: int? = 1
         return x == 1
     }
 
-    NeqNull() -> bool {
+    func NeqNull() -> bool {
         val x: int? = null
         return x != 1
     }

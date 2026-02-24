@@ -20,7 +20,7 @@ val created = Widget.Build(1)
 class Widget { }
 
 extension WidgetExtensions for Widget {
-    public static Build(value: int) -> Widget {
+    public static func Build(value: int) -> Widget {
         return Widget()
     }
 }
@@ -58,7 +58,7 @@ val created = Build(1)
 class Widget { }
 
 extension WidgetExtensions for Widget {
-    public static Build(value: int) -> Widget {
+    public static func Build(value: int) -> Widget {
         return Widget()
     }
 }
@@ -85,13 +85,13 @@ extension WidgetExtensions for Widget {
 val created = Widget.Build(1)
 
 class Widget {
-    public static Build(value: int) -> Widget {
+    public static func Build(value: int) -> Widget {
         return Widget()
     }
 }
 
 extension WidgetExtensions for Widget {
-    public static Build(value: int) -> Widget {
+    public static func Build(value: int) -> Widget {
         return Widget()
     }
 }
@@ -122,7 +122,7 @@ val boxed = Box<int>.Wrap(1)
 class Box<T> { }
 
 extension BoxExtensions<T> for Box<T> {
-    public static Wrap(value: T) -> Box<T> {
+    public static func Wrap(value: T) -> Box<T> {
         return Box<T>()
     }
 }

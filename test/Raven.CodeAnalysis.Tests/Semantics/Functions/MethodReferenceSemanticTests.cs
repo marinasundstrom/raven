@@ -12,8 +12,8 @@ public class MethodReferenceSemanticTests : CompilationTestBase
     {
         const string source = """
 class Logger {
-    public static Log(value: string) -> unit {}
-    public static Log(value: int) -> unit {}
+    public static func Log(value: string) -> unit {}
+    public static func Log(value: int) -> unit {}
 }
 
 func Main() -> () {
@@ -53,8 +53,8 @@ func Main() -> () {
 import System.*
 
 class Logger {
-    public static Log(value: string) -> unit {}
-    public static Log(value: int) -> unit {}
+    public static func Log(value: string) -> unit {}
+    public static func Log(value: int) -> unit {}
 }
 
 func Main() -> () {
@@ -84,7 +84,7 @@ func Main() -> () {
     {
         const string source = """
 class Calculator {
-    public static Add(x: int, y: int) -> int { x + y }
+    public static func Add(x: int, y: int) -> int { x + y }
 }
 
 func Main() -> () {

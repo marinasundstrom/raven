@@ -18,7 +18,7 @@ public class NullShimTests : CompilationTestBase
     {
         var source = """
 class C {
-    public M(x: string | null) -> unit { }
+    public func M(x: string | null) -> unit { }
 }
 """;
 
@@ -41,7 +41,7 @@ class C {
     {
         var source = """
 class C {
-    public M(x: string) -> unit { }
+    public func M(x: string) -> unit { }
 }
 """;
 
@@ -62,7 +62,7 @@ class C {
     {
         var source = """
 class C {
-    public M(x: string | int) -> unit { }
+    public func M(x: string | int) -> unit { }
 }
 """;
 

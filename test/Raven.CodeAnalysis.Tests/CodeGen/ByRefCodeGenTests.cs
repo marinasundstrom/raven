@@ -13,7 +13,7 @@ public class ByRefCodeGenTests
     {
         const string code = """
 class C {
-    static WriteThrough() -> int {
+    static func WriteThrough() -> int {
         var value = 1
         val handle: &int = &value
         handle = 5
@@ -47,11 +47,11 @@ class C {
     {
         const string code = """
 class Buffer {
-    static Identity(slot: &int) -> &int {
+    static func Identity(slot: &int) -> &int {
         return slot
     }
 
-    static Run() -> int {
+    static func Run() -> int {
         var value = 10
         var slot = Identity(&value)
         slot = 42

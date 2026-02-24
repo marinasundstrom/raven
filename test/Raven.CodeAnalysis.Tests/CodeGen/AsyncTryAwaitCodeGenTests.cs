@@ -20,12 +20,12 @@ import System.*
 import System.Threading.Tasks.*
 
 class Program {
-    static async Fetch() -> Task<Result<int, Exception>> {
+    static async func Fetch() -> Task<Result<int, Exception>> {
         val value = try? await Task.FromResult(42)
         return .Ok(value)
     }
 
-    static async Main() -> Task {
+    static async func Main() -> Task {
         val result = await Program.Fetch()
         Console.WriteLine(result)
     }
@@ -50,11 +50,11 @@ union Result<T, E> {
 }
 
 class Program {
-    static async ThrowingAsync() -> Task<int> {
+    static async func ThrowingAsync() -> Task<int> {
         throw Exception("boom")
     }
 
-    static async Fetch(shouldThrow: bool) -> Task<Result<int, Exception>> {
+    static async func Fetch(shouldThrow: bool) -> Task<Result<int, Exception>> {
         use stream = MemoryStream()
 
         if shouldThrow {
@@ -66,7 +66,7 @@ class Program {
         return .Ok(okValue)
     }
 
-    static async Main() -> Task {
+    static async func Main() -> Task {
         val success = await Program.Fetch(false)
         val failure = await Program.Fetch(true)
 
@@ -98,7 +98,7 @@ import System.*
 import System.Threading.Tasks.*
 
 class Program {
-    static async Action(throwExc: bool) -> Task<Result<int, Exception>> {
+    static async func Action(throwExc: bool) -> Task<Result<int, Exception>> {
         await Task.Delay(1)
         if throwExc {
             throw Exception("Boom!")
@@ -107,12 +107,12 @@ class Program {
         return .Ok(40)
     }
 
-    static async Test(throwExc: bool) -> Task<Result<int, Exception>> {
+    static async func Test(throwExc: bool) -> Task<Result<int, Exception>> {
         val x = try? await Program.Action(throwExc)
         return .Ok(x + 2)
     }
 
-    static async Main() -> Task {
+    static async func Main() -> Task {
         Console.WriteLine(await Program.Test(false))
         Console.WriteLine(await Program.Test(true))
     }
@@ -140,7 +140,7 @@ union ApiError {
 }
 
 class Program {
-    static async DownloadText() -> Task<Result<string, ApiError>> {
+    static async func DownloadText() -> Task<Result<string, ApiError>> {
         use stream = MemoryStream()
 
         return try await Task.FromResult("ok") match {
@@ -149,7 +149,7 @@ class Program {
         }
     }
 
-    static async Main() -> Task {
+    static async func Main() -> Task {
         val result = await Program.DownloadText()
         Console.WriteLine(result)
     }
@@ -180,11 +180,11 @@ class User {
 record class Item(Name: string)
 
 class Program {
-    static GetUser() -> Result<User, Err> {
+    static func GetUser() -> Result<User, Err> {
         return .Ok(User { Name = "Marina", Item = Item("Candy") })
     }
 
-    static async GetItem() -> Task<Result<string, Err>> {
+    static async func GetItem() -> Task<Result<string, Err>> {
         val maybeItem = GetUser()?.Item?
         await Task.Delay(1)
 
@@ -194,7 +194,7 @@ class Program {
         }
     }
 
-    static async Main() -> Task {
+    static async func Main() -> Task {
         Console.WriteLine(await Program.GetItem())
     }
 }
@@ -214,7 +214,7 @@ import System.Threading.Tasks.*
 class Probe : IDisposable {
     public var IsDisposed: bool = false
 
-    public async ReadAsync() -> Task<int> {
+    public async func ReadAsync() -> Task<int> {
         await Task.Delay(10)
 
         if self.IsDisposed {
@@ -224,13 +224,13 @@ class Probe : IDisposable {
         return 42
     }
 
-    public Dispose() -> () {
+    public func Dispose() -> () {
         self.IsDisposed = true
     }
 }
 
 class Program {
-    static async Run() -> Task<Result<int, string>> {
+    static async func Run() -> Task<Result<int, string>> {
         use probe = Probe()
 
         try {
@@ -241,7 +241,7 @@ class Program {
         }
     }
 
-    static async Main() -> Task {
+    static async func Main() -> Task {
         val result = await Program.Run()
         Console.WriteLine(result)
     }

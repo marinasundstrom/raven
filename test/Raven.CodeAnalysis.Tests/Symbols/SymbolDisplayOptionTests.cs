@@ -109,7 +109,7 @@ public sealed class SymbolDisplayOptionTests : CompilationTestBase
     {
         const string source = """
 class Sample {
-    test() -> unit {
+    func test() -> unit {
         val number = 42;
     }
 }
@@ -177,7 +177,7 @@ class Sample {
     {
         const string source = """
 class Sample {
-    test() -> unit {
+    func test() -> unit {
         val groupedNullable: (() -> ())? = null
     }
 }
@@ -196,7 +196,7 @@ class Sample {
     {
         const string source = """
 class Sample {
-    test() -> unit {
+    func test() -> unit {
         val nullableReturn: () -> ()? = () => ()
     }
 }
@@ -217,7 +217,7 @@ class Sample {
 import System.Threading.Tasks.*
 
 class Sample {
-    test() -> unit {
+    func test() -> unit {
         val value: Task<int> = Task.FromResult(1)
     }
 }
@@ -241,7 +241,7 @@ class Sample {
 import System.Threading.Tasks.*
 
 class Sample {
-    test() -> unit {
+    func test() -> unit {
         val value: Task<Task<int>> = Task.FromResult(Task.FromResult(42))
     }
 }

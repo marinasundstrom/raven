@@ -55,7 +55,7 @@ class C {
     {
         const string source = """
         class C {
-            async f() -> int {
+            async func f() -> int {
                 return 1;
             }
         }
@@ -71,7 +71,7 @@ class C {
     {
         const string source = """
         class C {
-            async f() -> int {
+            async func f() -> int {
                 return;
             }
         }
@@ -124,7 +124,7 @@ class C {
         import System.Threading.Tasks.*
 
         class C {
-            async f() -> Task<Int32> {
+            async func f() -> Task<Int32> {
                 return "oops";
             }
         }
@@ -150,7 +150,7 @@ union Result<T, E> {
 }
 
 class C {
-    async f(v: int) -> Task<Result<int, string>> {
+    async func f(v: int) -> Task<Result<int, string>> {
         await Task.Yield()
         if v < 0 {
             return .Error("neg")

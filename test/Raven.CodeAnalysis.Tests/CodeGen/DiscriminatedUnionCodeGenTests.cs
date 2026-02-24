@@ -22,7 +22,7 @@ union Option {
 }
 
 class Container {
-    public Create() -> Option {
+    public func Create() -> Option {
         return Option.Some(value: 42, label: "ok")
     }
 }
@@ -98,7 +98,7 @@ public union Result<T> {
     {
         const string code = """
 class Runner {
-    public static Run(flag: bool) -> Option<int> {
+    public static func Run(flag: bool) -> Option<int> {
         val input: Option<int> = Some(42)
         return input match {
             Some(val value) => Option<int>.Some(value)
@@ -152,7 +152,7 @@ union Option<T> {
 import System.*
 
 class Runner {
-    public static Run() -> string {
+    public static func Run() -> string {
         val result: Result<string, Exception> = Error(InvalidOperationException("x"))
         return result match {
             Error(val e) => e.GetType().Name
@@ -305,7 +305,7 @@ union Option {
 }
 
 class Container {
-    public Create() -> Option {
+    public func Create() -> Option {
         return Option.Some(value: 42)
     }
 }
@@ -362,7 +362,7 @@ union Result<T, E> {
 }
 
 class Container {
-    public Make() -> Result<(), string> {
+    public func Make() -> Result<(), string> {
         .Ok
     }
 }
@@ -571,7 +571,7 @@ union Option {
 }
 
 class Container {
-    public static Measure() -> long {
+    public static func Measure() -> long {
         val before = GC.GetAllocatedBytesForCurrentThread()
         val opt: Option = .Some(123)
         val after = GC.GetAllocatedBytesForCurrentThread()
@@ -615,11 +615,11 @@ union Result {
 }
 
 class Container {
-    public GetOk() -> Result {
+    public func GetOk() -> Result {
         return Result.Ok(value: 7)
     }
 
-    public GetError() -> Result {
+    public func GetError() -> Result {
         return Result.Error(message: "boom")
     }
 }
@@ -695,7 +695,7 @@ union Result<T, E> {
 }
 
 class Container {
-    public Create() -> Result<int, string> {
+    public func Create() -> Result<int, string> {
         return Result<int, string>.Error(message: "boom")
     }
 }
@@ -776,7 +776,7 @@ union Result<T> {
 }
 
 class Container {
-    public static CreateOk() -> Result<int> {
+    public static func CreateOk() -> Result<int> {
         return .Ok(99)
     }
 }
@@ -875,7 +875,7 @@ union Result<T> {
 }
 
 class Container {
-    public static Create() -> Result<int> {
+    public static func Create() -> Result<int> {
         return .Ok(5)
     }
 }
@@ -927,7 +927,7 @@ union Result<T, E> {
 }
 
 class Container {
-    public static Build() -> Result<int, string> {
+    public static func Build() -> Result<int, string> {
         val factory: Func<int, Result<int, string>> = x => Result.Ok(x)
         return factory(42)
     }
@@ -970,19 +970,19 @@ union Result<T, E> {
 }
 
 class Container {
-    public static CaseValue() -> Ok<int> {
+    public static func CaseValue() -> Ok<int> {
         return Ok(2)
     }
 
-    public static CaseValueExplicit() -> Ok<int> {
+    public static func CaseValueExplicit() -> Ok<int> {
         return Ok<int>(2)
     }
 
-    public static CarrierQualified() -> Result<int, string> {
+    public static func CarrierQualified() -> Result<int, string> {
         return Result<int, string>.Ok(2)
     }
 
-    public static CarrierTargetTyped() -> Result<int, string> {
+    public static func CarrierTargetTyped() -> Result<int, string> {
         val value: Result<int, string> = .Ok(2)
         return value
     }
@@ -1073,7 +1073,7 @@ union Shape {
 }
 
 class Container {
-    public static Create() -> Shape {
+    public static func Create() -> Shape {
         return .Label("a\"b")
     }
 }
@@ -1225,11 +1225,11 @@ extension ResultExtensions<T, E> for Result<T, E> {
 }
 
 class Container {
-    public CreateError() -> Result<int, string> {
+    public func CreateError() -> Result<int, string> {
         return Result<int, string>.Error(message: "oops")
     }
 
-    public Check() -> bool {
+    public func Check() -> bool {
         var value = CreateError()
         return value.IsError
     }
@@ -1279,7 +1279,7 @@ union Result<T, E> {
 }
 
 class Container {
-    public static Create(items: IEnumerable<int>) -> Result<int, string> {
+    public static func Create(items: IEnumerable<int>) -> Result<int, string> {
         val values = items.Take(1).ToList()
         if values.Count == 1 {
             return .Ok(values[0])
@@ -1317,13 +1317,13 @@ class Container {
 import System.*
 
 public extension IntExtensions for int {
-    public Double() -> int {
+    public func Double() -> int {
         return self * 2
     }
 }
 
 internal extension StringExtensions for string {
-    internal Echo() -> string {
+    internal func Echo() -> string {
         return self
     }
 }
@@ -1364,11 +1364,11 @@ class Widget {
 }
 
 extension WidgetExtensions for Widget {
-    public static Build() -> Widget {
+    public static func Build() -> Widget {
         return Widget()
     }
 
-    public Describe() -> int {
+    public func Describe() -> int {
         return self.Id
     }
 }
@@ -1446,14 +1446,14 @@ extension ResultExtensions<T, E> for Result<T, E> {
 }
 
 class Container {
-    private Parse(text: string) -> Result<int, string> {
+    private func Parse(text: string) -> Result<int, string> {
         if text == "42" {
             return Result<int, string>.Ok(42)
         }
         return Result<int, string>.Error("bad")
     }
 
-    public Check(text: string) -> bool {
+    public func Check(text: string) -> bool {
         return Parse(text).IsError
     }
 }

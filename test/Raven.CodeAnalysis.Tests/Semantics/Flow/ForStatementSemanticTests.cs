@@ -262,7 +262,7 @@ class Counter {
         _values.Add(value)
     }
 
-    public GetEnumerator() -> List<int>.Enumerator {
+    public func GetEnumerator() -> List<int>.Enumerator {
         return _values.GetEnumerator()
     }
 }
@@ -309,13 +309,13 @@ class Counter {
         _values.Add(value)
     }
 
-    public Values() -> List<int> {
+    public func Values() -> List<int> {
         return _values
     }
 }
 
 extension CounterExt for Counter {
-    public GetEnumerator() -> List<int>.Enumerator {
+    public func GetEnumerator() -> List<int>.Enumerator {
         return self.Values().GetEnumerator()
     }
 }

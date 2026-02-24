@@ -13,7 +13,7 @@ public class AssignmentStatementTests
     {
         var code = """
 class Foo {
-    Run() -> int {
+    func Run() -> int {
         var x: int = 0
         x = 42
         return x
@@ -46,7 +46,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         _ = System.Console.WriteLine("discard")
         return ()
     }
@@ -79,7 +79,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         val _ = System.Console.WriteLine("discard")
         return ()
     }
@@ -112,7 +112,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         val _ = 42
         return ()
     }

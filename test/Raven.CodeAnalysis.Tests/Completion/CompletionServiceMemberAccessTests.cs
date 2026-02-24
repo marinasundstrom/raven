@@ -214,8 +214,8 @@ Console.
     {
         var code = """
 class Container {
-    private static Hidden() -> unit { }
-    public static Visible() -> unit { }
+    private static func Hidden() -> unit { }
+    public static func Visible() -> unit { }
 }
 
 Container.
@@ -251,7 +251,7 @@ Container.
 class Counter {
     private value: int;
 
-    public Increment(delta: int) -> int {
+    public func Increment(delta: int) -> int {
         sel
     }
 }
@@ -280,7 +280,7 @@ class Counter {
 class Counter {
     private value: int;
 
-    public Increment(delta: int) -> int {
+    public func Increment(delta: int) -> int {
         /*caret*/
     }
 }
@@ -340,7 +340,7 @@ class Counter {
 class Counter {
     private value: int;
 
-    public Increment(delta: int) -> int {
+    public func Increment(delta: int) -> int {
         return self./*caret*/value
     }
 }

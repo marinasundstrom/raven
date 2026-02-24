@@ -17,13 +17,13 @@ public class MultipleSyntaxTreeTests
 class Helper {
     public init () {}
 
-    public GetValue() -> int => 42;
+    public func GetValue() -> int => 42;
 }
 """);
 
         var tree2 = SyntaxTree.ParseText("""
 class Program {
-    static Main() -> unit {
+    static func Main() -> unit {
         val helper = Helper();
         val value = helper.GetValue();
         return;

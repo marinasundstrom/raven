@@ -32,10 +32,10 @@ public class PublicType { }
     {
         var code = """
 public class MethodContainer {
-    public Foo() -> unit { return; }
-    internal Bar() -> unit { return; }
-    private Baz() -> unit { return; }
-    protected Quux() -> unit { return; }
+    public func Foo() -> unit { return; }
+    internal func Bar() -> unit { return; }
+    private func Baz() -> unit { return; }
+    protected func Quux() -> unit { return; }
     protected internal Mix() -> unit { return; }
     private protected Inter() -> unit { return; }
 }
@@ -61,7 +61,7 @@ public class MethodContainer {
 internal class Sample {
     private init() { }
     protected internal init(value: int) { }
-    public Run() -> unit { return; }
+    public func Run() -> unit { return; }
 }
 """;
 

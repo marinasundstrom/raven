@@ -15,7 +15,7 @@ import System.*
 
 class Foo : IDisposable {
     public init() {}
-    public Dispose() -> unit {}
+    public func Dispose() -> unit {}
 }
 
 use foo = Foo()
@@ -55,7 +55,7 @@ import System.*
 
 class Foo : IDisposable {
     public init() {}
-    public Dispose() -> unit {}
+    public func Dispose() -> unit {}
 }
 
 use foo: object = Foo()

@@ -17,7 +17,7 @@ public sealed class ExtensionDeclarationSemanticTests : CompilationTestBase
 import System.Collections.Generic.*
 
 extension MyIntEnumerableExt for IEnumerable<int> {
-    SumItems() -> int {
+    func SumItems() -> int {
         return 0
     }
 }
@@ -80,7 +80,7 @@ items.Add(2)
 val count = items.CountItems()
 
 extension MyEnumerableExt<T> for IEnumerable<T> {
-    CountItems() -> int {
+    func CountItems() -> int {
         var total: int = 0
         for each x in self {
             total = total + 1
@@ -106,7 +106,7 @@ import System.Threading.Tasks.*
 val result = await 1.IncrementAsync()
 
 extension IntExtensions for int {
-    public async IncrementAsync() -> Task<int> {
+    public async func IncrementAsync() -> Task<int> {
         return await Task.FromResult(self + 1)
     }
 }
@@ -140,7 +140,7 @@ extension IntExtensions for int {
     {
         const string source = """
 public extension PublicExt for int {
-    public Increment() -> int {
+    public func Increment() -> int {
         return self + 1
     }
 }

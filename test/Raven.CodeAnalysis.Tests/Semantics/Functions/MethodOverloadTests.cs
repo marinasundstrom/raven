@@ -15,8 +15,8 @@ public class MethodOverloadTests : CompilationTestBase
     {
         var source = """
         class C {
-            f(x: string) -> int { 0 }
-            f(x: string?) -> int { 1 }
+            func f(x: string) -> int { 0 }
+            func f(x: string?) -> int { 1 }
         }
         """;
 
@@ -36,8 +36,8 @@ public class MethodOverloadTests : CompilationTestBase
     {
         var source = """
         class C {
-            f(x: int) -> int { 0 }
-            f(x: int?) -> int { 1 }
+            func f(x: int) -> int { 0 }
+            func f(x: int?) -> int { 1 }
         }
         """;
 
@@ -59,9 +59,9 @@ public class MethodOverloadTests : CompilationTestBase
         class D1 : Base {}
         class D2 : Base {}
         class C {
-            static m(x: Base) -> int { 0 }
-            static m(x: object) -> int { 1 }
-            test(u: D1 | D2) -> int {
+            static func m(x: Base) -> int { 0 }
+            static func m(x: object) -> int { 1 }
+            func test(u: D1 | D2) -> int {
                 return m(u);
             }
         }
@@ -83,8 +83,8 @@ public class MethodOverloadTests : CompilationTestBase
         var source = """
         import System.*
         class C {
-            static takes(handler: Delegate) -> int { 1 }
-            run() -> int {
+            static func takes(handler: Delegate) -> int { 1 }
+            func run() -> int {
                 return takes(() => 42)
             }
         }
@@ -109,10 +109,10 @@ public class MethodOverloadTests : CompilationTestBase
         var source = """
         import System.*
         class C {
-            static pick(handler: Delegate) -> int { 1 }
-            static pick(handler: Func<string>) -> int { 2 }
+            static func pick(handler: Delegate) -> int { 1 }
+            static func pick(handler: Func<string>) -> int { 2 }
 
-            run() -> int {
+            func run() -> int {
                 return pick(() => "ok")
             }
         }
@@ -143,10 +143,10 @@ public class MethodOverloadTests : CompilationTestBase
         }
 
         class C {
-            static map(handler: Func<Microsoft.AspNetCore.Http.HttpContext, Task>) -> int { 1 }
-            static map(handler: Func<string, string>) -> int { 2 }
+            static func map(handler: Func<Microsoft.AspNetCore.Http.HttpContext, Task>) -> int { 1 }
+            static func map(handler: Func<string, string>) -> int { 2 }
 
-            run() -> int {
+            func run() -> int {
                 return map((name: string) => "ok")
             }
         }
@@ -177,10 +177,10 @@ public class MethodOverloadTests : CompilationTestBase
         }
 
         class C {
-            static map(handler: Func<Microsoft.AspNetCore.Http.HttpContext, Task>) -> int { 1 }
-            static map(handler: Func<string, string>) -> int { 2 }
+            static func map(handler: Func<Microsoft.AspNetCore.Http.HttpContext, Task>) -> int { 1 }
+            static func map(handler: Func<string, string>) -> int { 2 }
 
-            run() -> int {
+            func run() -> int {
                 return map((name: string) => missingValue)
             }
         }
@@ -208,10 +208,10 @@ public class MethodOverloadTests : CompilationTestBase
         }
 
         class C {
-            static map(handler: Func<Microsoft.AspNetCore.Http.HttpContext, Task>) -> int { 1 }
-            static map(handler: Func<string, string>) -> int { 2 }
+            static func map(handler: Func<Microsoft.AspNetCore.Http.HttpContext, Task>) -> int { 1 }
+            static func map(handler: Func<string, string>) -> int { 2 }
 
-            run() -> int {
+            func run() -> int {
                 return map(() => "ok")
             }
         }

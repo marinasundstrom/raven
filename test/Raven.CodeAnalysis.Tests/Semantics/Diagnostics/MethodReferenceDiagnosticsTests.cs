@@ -11,8 +11,8 @@ public class MethodReferenceDiagnosticsTests : DiagnosticTestBase
 import System.*
 
 class Logger {
-    public static Log(value: string) -> unit {}
-    public static Log(value: int) -> unit {}
+    public static func Log(value: string) -> unit {}
+    public static func Log(value: int) -> unit {}
 }
 
 val callback = Logger.Log
@@ -32,8 +32,8 @@ val callback = Logger.Log
 import System.*
 
 class Logger {
-    public static Log(value: int) -> unit {}
-    public static Log(value: double) -> unit {}
+    public static func Log(value: int) -> unit {}
+    public static func Log(value: double) -> unit {}
 }
 
 val callback: System.Action<int> = Logger.Log
@@ -51,8 +51,8 @@ val callback: System.Action<int> = Logger.Log
 import System.*
 
 class Logger {
-    public static Log(value: int) -> unit {}
-    public static Log(value: double) -> unit {}
+    public static func Log(value: int) -> unit {}
+    public static func Log(value: double) -> unit {}
 }
 
 val callback: int -> () = Logger.Log
@@ -70,7 +70,7 @@ val callback: int -> () = Logger.Log
 import System.*
 
 class Logger {
-    public static Log(value: int) -> unit {}
+    public static func Log(value: int) -> unit {}
 }
 
 val callback: System.Action<string> = Logger.Log

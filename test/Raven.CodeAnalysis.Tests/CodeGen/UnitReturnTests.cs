@@ -11,7 +11,7 @@ public class UnitReturnTests
     {
         var code = """
 class Foo {
-    public Test() -> unit {
+    public func Test() -> unit {
         return ()
     }
 }

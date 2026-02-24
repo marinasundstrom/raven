@@ -211,7 +211,7 @@ val ne = a != b
         var source = """
 class Number
 {
-    public Ping() -> unit { }
+    public func Ping() -> unit { }
 
     public static operator ==(left: Number?, right: Number?) -> bool { return true }
     public static operator !=(left: Number?, right: Number?) -> bool { return false }
@@ -219,7 +219,7 @@ class Number
 
 class C
 {
-    Run() -> unit
+    func Run() -> unit
     {
         val x: Number? = null
         if x != null {

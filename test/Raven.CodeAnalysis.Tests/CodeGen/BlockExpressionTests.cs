@@ -12,7 +12,7 @@ public class BlockExpressionTests
     {
         var code = """
 class Foo {
-    Run(flag: bool, w: int) -> object {
+    func Run(flag: bool, w: int) -> object {
         val y = if flag { 40 + w; } else { true }
         return y
     }

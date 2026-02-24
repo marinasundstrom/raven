@@ -12,13 +12,13 @@ public class MemberHidingTests : DiagnosticTestBase
     {
         const string source = """
 open class Base {
-    public Speak() -> unit {
+    public func Speak() -> unit {
         return
     }
 }
 
 class Derived : Base {
-    public Speak() -> unit {
+    public func Speak() -> unit {
         return
     }
 }
@@ -66,7 +66,7 @@ class Derived : Base {
     {
         const string source = """
 open class Base {
-    public Speak() -> unit {
+    public func Speak() -> unit {
         return
     }
 }

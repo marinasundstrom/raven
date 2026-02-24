@@ -18,7 +18,7 @@ public class CodeGeneratorTests
     {
         var code = """
 class Foo {
-    Test() -> unit {
+    func Test() -> unit {
         return;
     }
 }
@@ -48,7 +48,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    static Main() -> int {
+    static func Main() -> int {
         return 0;
     }
 }
@@ -100,7 +100,7 @@ class Foo {
     {
         var code = """
 class Helper {
-    static Main() -> int {
+    static func Main() -> int {
         return 0;
     }
 }
@@ -134,7 +134,7 @@ class Helper {
 import System.Threading.Tasks.*
 
 class Helper {
-    static async Main(args: string[]) -> Task<int> {
+    static async func Main(args: string[]) -> Task<int> {
         await Task.Delay(1);
         return 7;
     }
@@ -285,13 +285,13 @@ async func Main() -> Task {
     {
         var code = """
 class Program {
-    static Main() -> int {
+    static func Main() -> int {
         return 42;
     }
 }
 
 class Helper {
-    static Main() -> int {
+    static func Main() -> int {
         return 0;
     }
 }
@@ -392,7 +392,7 @@ interface IFoo {
 }
 
 class Foo : IFoo {
-    Foo() -> unit {
+    func Foo() -> unit {
         return;
     }
 }
@@ -447,7 +447,7 @@ class Foo : IDisposable {
 
     }
 
-    Dispose() -> unit {
+    func Dispose() -> unit {
 
     }
 }
@@ -517,7 +517,7 @@ class Foo : IDisposable {
     {
         var code = """
 class Greeter {
-    static Message() -> string {
+    static func Message() -> string {
         return "Hello";
     }
 }
@@ -550,13 +550,13 @@ class Greeter {
     {
         var code = """
 interface IUtility {
-    public static GetValue() -> int {
+    public static func GetValue() -> int {
         return 42;
     }
 }
 
 class Consumer {
-    public Combine() -> int {
+    public func Combine() -> int {
         return IUtility.GetValue();
     }
 }
@@ -603,13 +603,13 @@ class Consumer {
     {
         var code = """
 interface ILogger {
-    public Log(message: string) -> string {
+    public func Log(message: string) -> string {
         return "[default]";
     }
 }
 
 class ConsoleLogger : ILogger {
-    ConsoleLogger() -> unit { return; }
+    func ConsoleLogger() -> unit { return; }
 }
 """;
 
@@ -647,7 +647,7 @@ class ConsoleLogger : ILogger {
     {
         var code = """
 interface ILogger {
-    Log(message: string) -> string
+    func Log(message: string) -> string
 }
 
 class QuietLogger : ILogger {
@@ -655,7 +655,7 @@ class QuietLogger : ILogger {
         return "[quiet]"
     }
 
-    public Log(message: string) -> string {
+    public func Log(message: string) -> string {
         return message
     }
 }
@@ -728,13 +728,13 @@ class Person {
         Normalize();
     }
 
-    private Normalize() -> unit {
+    private func Normalize() -> unit {
         if storedName == "" {
             storedName = "Unknown";
         }
     }
 
-    public GetName() -> string => storedName;
+    public func GetName() -> string => storedName;
 }
 """;
 

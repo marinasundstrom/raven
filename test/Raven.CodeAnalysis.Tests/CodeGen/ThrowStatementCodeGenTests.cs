@@ -89,7 +89,7 @@ class Logger : IDisposable {
         Console.WriteLine("init:" + name);
     }
 
-    public Dispose() -> unit => Console.WriteLine("dispose:" + self.name);
+    public func Dispose() -> unit => Console.WriteLine("dispose:" + self.name);
 }
 """;
 

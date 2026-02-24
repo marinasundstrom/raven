@@ -68,7 +68,7 @@ public class PropertyBindingTests : DiagnosticTestBase
             """
             class Person {
                 public Name: string { get; }
-                public SetName(name: string) -> unit {
+                public func SetName(name: string) -> unit {
                     Name = name;
                 }
             }

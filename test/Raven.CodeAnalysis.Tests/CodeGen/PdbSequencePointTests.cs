@@ -19,7 +19,7 @@ public sealed class PdbSequencePointTests
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task<int> {
+    async func Work() -> Task<int> {
         await Task.Delay(1)
         return 42
     }
@@ -48,7 +48,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    Values() -> IEnumerable<int> {
+    func Values() -> IEnumerable<int> {
         yield return 1
         yield return 2
     }
@@ -77,7 +77,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task<int> {
+    async func Work() -> Task<int> {
         await Task.Delay(1)
         return 42
     }
@@ -104,7 +104,7 @@ class C {
     {
         var code = """
 class C {
-    Evaluate(x: int) -> int {
+    func Evaluate(x: int) -> int {
         var result = 0
         match x {
             1 => result = 10
@@ -133,7 +133,7 @@ class C {
 import System.*
 
 class C {
-    Compute(v: int) -> int {
+    func Compute(v: int) -> int {
         try {
             if v == 0 {
                 throw Exception()

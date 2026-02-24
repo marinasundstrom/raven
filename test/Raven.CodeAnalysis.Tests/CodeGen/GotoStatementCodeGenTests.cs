@@ -84,7 +84,7 @@ exit:
 
 class Foo : IDisposable {
     public init(name: string) {}
-    public Dispose() -> unit {}
+    public func Dispose() -> unit {}
 }
 """;
 

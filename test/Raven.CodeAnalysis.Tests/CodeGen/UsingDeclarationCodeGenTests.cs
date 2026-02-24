@@ -23,7 +23,7 @@ foo.Do()
 class Foo : IDisposable {
     public init() => Console.WriteLine("Init")
     public Do() => Console.WriteLine("Do")
-    public Dispose() -> unit => Console.WriteLine("Dispose")
+    public func Dispose() -> unit => Console.WriteLine("Dispose")
 }
 """;
 

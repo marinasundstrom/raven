@@ -16,7 +16,7 @@ import System.*
 import System.Linq.Expressions.*
 
 class Checker {
-    Eval(value: int) -> bool {
+    func Eval(value: int) -> bool {
         val tree: Expression<System.Func<int, bool>> = (x: int) => x > 0
         val compiled = tree.Compile()
         return compiled(value)
@@ -52,7 +52,7 @@ import System.*
 import System.Linq.Expressions.*
 
 class Checker {
-    Build() -> Expression<System.Func<int, bool>> {
+    func Build() -> Expression<System.Func<int, bool>> {
         val tree: Expression<System.Func<int, bool>> = (x: int) => x > 0
         return tree
     }

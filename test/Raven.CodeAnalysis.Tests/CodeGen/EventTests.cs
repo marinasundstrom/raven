@@ -14,15 +14,15 @@ public class EventTests
 class Clicker {
     public event Clicked: System.Action;
 
-    public Add(handler: System.Action) -> unit {
+    public func Add(handler: System.Action) -> unit {
         Clicked += handler;
     }
 
-    public Remove(handler: System.Action) -> unit {
+    public func Remove(handler: System.Action) -> unit {
         Clicked -= handler;
     }
 
-    public Raise() -> unit {
+    public func Raise() -> unit {
         Clicked();
     }
 }
@@ -72,7 +72,7 @@ interface Logger {
 class ConsoleLogger : Logger {
     public event Logged: System.Action<string>?
 
-    public Log(message: string) -> unit {
+    public func Log(message: string) -> unit {
         Logged?.Invoke(message)
     }
 }
@@ -80,13 +80,13 @@ class ConsoleLogger : Logger {
 class Counter {
     public static Hits: int { get; set; }
 
-    public static Increment() -> unit {
+    public static func Increment() -> unit {
         Hits += 1
     }
 }
 
 class Program {
-    public static Run() -> int {
+    public static func Run() -> int {
         Counter.Hits = 0
         val logger = ConsoleLogger()
 

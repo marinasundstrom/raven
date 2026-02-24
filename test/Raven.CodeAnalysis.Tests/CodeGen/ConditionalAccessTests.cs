@@ -12,7 +12,7 @@ public class ConditionalAccessTests
     {
         var code = """
 class Foo {
-    public Run() -> string? {
+    public func Run() -> string? {
         var x: object? = null
         return x?.ToString()
     }
@@ -39,7 +39,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    public Run() -> string? {
+    public func Run() -> string? {
         var x: int? = 1
         return x?.ToString()
     }
@@ -68,7 +68,7 @@ class Foo {
 import System.*
 
 class Foo {
-    public Run() -> int? {
+    public func Run() -> int? {
         var f: Func<int, int>? = null
         return f?(2)
     }
@@ -95,7 +95,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    public Run() -> int? {
+    public func Run() -> int? {
         var values: int[]? = null
         return values?[0]
     }

@@ -18,8 +18,8 @@ class Bar {
 }
 
 class Program {
-    static Consume(x: Bar) -> unit {}
-    static Run() -> unit {
+    static func Consume(x: Bar) -> unit {}
+    static func Run() -> unit {
         Consume(.Instance)
     }
 }
@@ -33,7 +33,7 @@ class Program {
     {
         string testCode = """
 class Program {
-    static Run() -> unit {
+    static func Run() -> unit {
         val number: int = .Parse("42")
     }
 }
@@ -49,7 +49,7 @@ class Program {
 enum Color { Red, Blue }
 
 class Program {
-    static Run() -> unit {
+    static func Run() -> unit {
         var color: Color = .Red
         color = .Blue
     }
@@ -67,7 +67,7 @@ import System.*
 import System.Reflection.*
 
 class Program {
-    static Run() -> unit {
+    static func Run() -> unit {
         val members = typeof(System.Object).GetMembers(.NonPublic)
     }
 }
@@ -83,9 +83,9 @@ class Program {
 import System.Reflection.*
 
 class Program {
-    static Use(flags: BindingFlags) -> unit {}
+    static func Use(flags: BindingFlags) -> unit {}
 
-    static Run() -> unit {
+    static func Run() -> unit {
         val flags: BindingFlags = .NonPublic | .Static
         Use(.Public & .Static)
     }
@@ -106,7 +106,7 @@ class Item {
 }
 
 class Program {
-    static Run() -> unit {
+    static func Run() -> unit {
         val item = Item(.A)
     }
 }

@@ -12,7 +12,7 @@ public class VirtualMemberTests : CompilationTestBase
     {
         const string source = """
 class C {
-    public virtual M() -> unit {
+    public virtual func M() -> unit {
         return
     }
 }
@@ -30,7 +30,7 @@ class C {
     {
         const string source = """
 class C {
-    public sealed M() -> unit {
+    public sealed func M() -> unit {
         return
     }
 }
@@ -48,19 +48,19 @@ class C {
     {
         const string source = """
 open class Animal {
-    public virtual Speak() -> unit {
+    public virtual func Speak() -> unit {
         return
     }
 }
 
 open class Dog : Animal {
-    public sealed override Speak() -> unit {
+    public sealed override func Speak() -> unit {
         return
     }
 }
 
 class Puppy : Dog {
-    public override Speak() -> unit {
+    public override func Speak() -> unit {
         return
     }
 }
@@ -77,13 +77,13 @@ class Puppy : Dog {
     {
         const string source = """
 open class Animal {
-    public virtual Speak() -> unit {
+    public virtual func Speak() -> unit {
         return
     }
 }
 
 class Dog : Animal {
-    public static override Speak() -> unit {
+    public static override func Speak() -> unit {
         return
     }
 }
@@ -101,7 +101,7 @@ class Dog : Animal {
     {
         const string source = """
 class C {
-    public static virtual M() -> unit {
+    public static virtual func M() -> unit {
         return
     }
 }

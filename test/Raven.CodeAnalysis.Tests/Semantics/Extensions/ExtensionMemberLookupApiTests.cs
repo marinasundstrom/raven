@@ -18,7 +18,7 @@ public sealed class ExtensionMemberLookupApiTests : CompilationTestBase
 class Counter { }
 
 extension CounterExtensions for Counter {
-    Increment() -> int {
+    func Increment() -> int {
         return 1
     }
 
@@ -26,7 +26,7 @@ extension CounterExtensions for Counter {
         get { return 42; }
     }
 
-    public static Create() -> Counter {
+    public static func Create() -> Counter {
         return Counter()
     }
 
@@ -63,7 +63,7 @@ import System.Runtime.CompilerServices.*
 namespace Sample.Extensions {
     public static class NumberExtensions {
         [ExtensionAttribute]
-        public static Double(x: int) -> int {
+        public static func Double(x: int) -> int {
             return x + x
         }
     }

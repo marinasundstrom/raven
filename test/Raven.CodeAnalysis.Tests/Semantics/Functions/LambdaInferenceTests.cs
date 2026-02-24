@@ -17,11 +17,11 @@ public class LambdaInferenceTests : CompilationTestBase
         const string code = """
 import System.*
 class Calculator {
-    Transform(value: int, projector: Func<int, int>) -> int {
+    func Transform(value: int, projector: Func<int, int>) -> int {
         return projector(value)
     }
 
-    Apply() -> int {
+    func Apply() -> int {
         return Transform(5, delta => delta + 1)
     }
 }
@@ -73,10 +73,10 @@ class Calculator {
         const string code = """
 import System.*
 class Container {
-    Overloaded(pred: Func<int, bool>) -> unit { }
-    Overloaded(pred: Func<string, bool>) -> unit { }
+    func Overloaded(pred: Func<int, bool>) -> unit { }
+    func Overloaded(pred: Func<string, bool>) -> unit { }
 
-    Invoke() -> unit {
+    func Invoke() -> unit {
         Overloaded(value => true)
     }
 }
@@ -107,16 +107,16 @@ class Container {
         const string code = """
 import System.*
 class Container {
-    Overloaded(projector: Func<int, int>) -> int {
+    func Overloaded(projector: Func<int, int>) -> int {
         return projector(1)
     }
 
-    Overloaded(callback: Action) -> int {
+    func Overloaded(callback: Action) -> int {
         callback()
         return 0
     }
 
-    Invoke() -> int {
+    func Invoke() -> int {
         return Overloaded(value => value + 1)
     }
 }
@@ -145,7 +145,7 @@ class Container {
         const string code = """
 import System.*
 class Container {
-    Provide() -> unit {
+    func Provide() -> unit {
         val lambda = (value: int) => value + 1
         lambda(1)
     }
@@ -176,7 +176,7 @@ class Container {
         const string code = """
 import System.*
 class Container {
-    Provide() -> unit {
+    func Provide() -> unit {
         val f = (name: string, age: int = 1) => age
     }
 }
@@ -207,7 +207,7 @@ class Container {
 import System.*
 
 class Container {
-    Provide() -> unit {
+    func Provide() -> unit {
         val f = [Obsolete](content: string) => content
     }
 }
@@ -237,7 +237,7 @@ class Container {
 import System.Linq.*
 
 class Container {
-    Run() -> unit {
+    func Run() -> unit {
         val arr = [1, -1, 3]
         val result = arr.Select(n => if n < 0 { 0 } else { n * 2 })
     }
@@ -262,7 +262,7 @@ public union Option<T> {
 }
 
 class Container {
-    Run() -> unit {
+    func Run() -> unit {
         val arr = [1, -1, 3]
         val result = arr.Select(n => if n < 0 {
             Option<int>.None
@@ -311,7 +311,7 @@ public union Result<T, E> {
 }
 
 class Container {
-    Run() -> unit {
+    func Run() -> unit {
         val arr = [1, -1, 3]
         val result = arr.Select(n => if n < 0 {
             Result<int, string>.Error("neg")
@@ -362,7 +362,7 @@ public union Response<T, E> {
 }
 
 class Container {
-    Run() -> unit {
+    func Run() -> unit {
         val arr = [1, -1, 3]
         val result = arr.Select(n => if n < 0 {
             Response<int, string>.Failure("neg")
@@ -408,7 +408,7 @@ import System.*
 import System.Linq.*
 
 class Container {
-    Run() -> unit {
+    func Run() -> unit {
         val arr = [1, -1, 3]
         val result = arr.Select(n => if n < 0 {
             InvalidOperationException()
@@ -456,7 +456,7 @@ class B {
 }
 
 class Container {
-    Run() -> unit {
+    func Run() -> unit {
         val arr = [1, -1, 3]
         val result = arr.Select(n => if n < 0 { A() } else { B() })
     }
@@ -493,7 +493,7 @@ import System.Collections.Generic.*
 record class RatePlan(Carrier: string)
 
 class Container {
-    HasCarrier(carrier: string) -> bool {
+    func HasCarrier(carrier: string) -> bool {
         val plans = List<RatePlan> { RatePlan("NorthStar") }
         val selected = plans.Where(p => p.Carrier == carrier)
         return selected.Any()
@@ -512,7 +512,7 @@ class Container {
         const string code = """
 import System.*
 class Container {
-    Provide() -> unit {
+    func Provide() -> unit {
         val projector = (value: int) => value + 2
         val result = projector(1)
     }
@@ -611,15 +611,15 @@ val result = projector(1)
         const string code = """
 import System.*
 class Container {
-    Overloaded(projector: Func<int, int>, value: int) -> int {
+    func Overloaded(projector: Func<int, int>, value: int) -> int {
         return projector(value)
     }
 
-    Overloaded(projector: Func<string, string>, value: string) -> string {
+    func Overloaded(projector: Func<string, string>, value: string) -> string {
         return projector(value)
     }
 
-    Invoke() -> int {
+    func Invoke() -> int {
         return Overloaded(value => value + 1, 5)
     }
 }
@@ -663,7 +663,7 @@ class Container {
         const string code = """
 import System.*
 class Calculator {
-    Compute() -> int {
+    func Compute() -> int {
         val add = (left: int, right: int) -> int => left + right
         return add(2, 3)
     }
@@ -717,11 +717,11 @@ public union Option<T> {
 }
 
 class Container {
-    Map(value: int, selector: Func<int, Option<int>>) -> Option<int> {
+    func Map(value: int, selector: Func<int, Option<int>>) -> Option<int> {
         return selector(value)
     }
 
-    Test() -> Option<int> {
+    func Test() -> Option<int> {
         return Map(1, n => if n < 0 { Option<int>.None } else { Option<int>.Some(n * 2) })
     }
 }
@@ -825,9 +825,9 @@ val result = apply(5, doubled)
 import System.*
 
 class Container {
-    Map(projector: Func<string, string>) -> unit { }
+    func Map(projector: Func<string, string>) -> unit { }
 
-    Test() -> unit {
+    func Test() -> unit {
         Map((name: string) => missingValue)
     }
 }

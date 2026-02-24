@@ -73,7 +73,7 @@ match value {
     {
         const string code = """
 class Evaluator {
-    Eval(scrutinee: bool) -> bool {
+    func Eval(scrutinee: bool) -> bool {
         match scrutinee {
             true => {
                 return true

@@ -11,7 +11,7 @@ public class PreferIsNullOverEqualityCodeFixTests : CodeFixTestBase
         var code = """
 class C
 {
-    Run(x: int?) -> unit
+    func Run(x: int?) -> unit
     {
         if x != null { }
     }
@@ -21,7 +21,7 @@ class C
         var fixedCode = """
 class C
 {
-    Run(x: int?) -> unit
+    func Run(x: int?) -> unit
     {
         if x is not null { }
     }

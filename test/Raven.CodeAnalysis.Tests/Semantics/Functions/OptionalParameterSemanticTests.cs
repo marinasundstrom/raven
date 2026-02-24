@@ -23,7 +23,7 @@ public sealed class OptionalParameterSemanticTests : CompilationTestBase
 val result = Calculator.Add()
 
 class Calculator {
-    public static Add(value: int = 42) -> int {
+    public static func Add(value: int = 42) -> int {
         return value
     }
 }

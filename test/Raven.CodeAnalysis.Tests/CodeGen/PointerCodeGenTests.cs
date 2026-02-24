@@ -14,14 +14,14 @@ public class PointerCodeGenTests
     {
         const string code = """
 class PointerMath {
-    unsafe static Distance() -> nint {
+    unsafe static func Distance() -> nint {
         var value = 0
         val pointer: *int = &value;
         val advanced = pointer + 3
         advanced - pointer
     }
 
-    static SizeOfInt() -> int {
+    static func SizeOfInt() -> int {
         sizeof(int)
     }
 }
@@ -58,13 +58,13 @@ class PointerMath {
 struct Counter {
     public var Value: int = 0
 
-    public Increment() -> unit {
+    public func Increment() -> unit {
         self.Value = self.Value + 1
     }
 }
 
 class PointerMethods {
-    unsafe static Run() -> int {
+    unsafe static func Run() -> int {
         var counter = Counter()
         val pointer: *Counter = &counter
         pointer->Increment()
@@ -103,7 +103,7 @@ struct Holder {
 }
 
 class PointerAssignment {
-    unsafe static Run() -> int {
+    unsafe static func Run() -> int {
         var holder = Holder()
         val pointer: *Holder = &holder
         pointer->Foo = 2

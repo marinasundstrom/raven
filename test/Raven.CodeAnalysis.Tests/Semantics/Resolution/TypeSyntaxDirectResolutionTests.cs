@@ -298,7 +298,7 @@ val value: List<MissingType> = null
     {
         const string source = """
 class C {
-    M<T>(value: T) -> () {
+    func M<T>(value: T) -> () {
         val local: T = value
     }
 }
@@ -325,7 +325,7 @@ class C {
     {
         const string source = """
 class Box<T> {
-    M(value: T) -> () {
+    func M(value: T) -> () {
         val local: T = value
     }
 }
@@ -480,7 +480,7 @@ val value: Outer<int>.Inner<string> = null
     {
         const string source = """
 class C {
-    M<T>(value: T) -> () {
+    func M<T>(value: T) -> () {
         val local: T = value
     }
 }
@@ -516,7 +516,7 @@ class C {
     {
         const string source = """
 class C {
-    M<T>(value: T) -> () {
+    func M<T>(value: T) -> () {
         val local: T = value
     }
 }

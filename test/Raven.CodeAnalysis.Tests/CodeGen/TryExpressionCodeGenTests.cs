@@ -96,7 +96,7 @@ async func Action2(throwExc: bool) -> Task<Result<int, Exception>> {
 }
 
 class Program {
-    static async Main() -> Task {
+    static async func Main() -> Task {
         _ = await Test(throwExc: false)
         _ = await Test(throwExc: true)
     }

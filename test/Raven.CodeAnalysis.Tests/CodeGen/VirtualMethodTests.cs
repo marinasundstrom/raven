@@ -14,24 +14,24 @@ public class VirtualMethodTests
     {
         const string code = """
 open class Animal {
-    public virtual Speak() -> string {
+    public virtual func Speak() -> string {
         return "base"
     }
 }
 
 class Dog : Animal {
-    public override Speak() -> string {
+    public override func Speak() -> string {
         return "woof"
     }
 }
 
 class Program {
-    public Run() -> string {
+    public func Run() -> string {
         val animal: Animal = Dog()
         return animal.Speak()
     }
 
-    static Main() -> unit {
+    static func Main() -> unit {
         return
     }
 }

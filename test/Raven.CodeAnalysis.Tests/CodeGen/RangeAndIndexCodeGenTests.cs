@@ -12,7 +12,7 @@ public class RangeAndIndexCodeGenTests
     {
         var code = """
 class SliceHarness {
-    public static Run() -> int {
+    public static func Run() -> int {
         val values = [10, 20, 30, 40]
         val slice = values[1..3]
         return slice.Length + slice[0] + slice[1]
@@ -46,7 +46,7 @@ class SliceHarness {
 import System.*
 
 class IndexHarness {
-    public static Run() -> int {
+    public static func Run() -> int {
         val values = [1, 2, 3, 4]
         val i: Index = ^1
         return values[i]
@@ -80,7 +80,7 @@ class IndexHarness {
 import System.*
 
 class Buffer() {
-    public GetSeed() -> int {
+    public func GetSeed() -> int {
         0
     }
 
@@ -94,7 +94,7 @@ class Buffer() {
 }
 
 class StringHarness {
-    public static Run() -> int {
+    public static func Run() -> int {
         val buffer = Buffer()
         val tail = buffer[1..3]
         val i: Index = ^1

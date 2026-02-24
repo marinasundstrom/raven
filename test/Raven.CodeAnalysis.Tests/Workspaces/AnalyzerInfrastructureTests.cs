@@ -131,7 +131,7 @@ public class AnalyzerInfrastructureTests
         var docId = DocumentId.CreateNew(projectId);
         var code = """
 class C {
-    public M() -> unit { }
+    public func M() -> unit { }
 }
 
 func F() -> unit { }

@@ -81,7 +81,7 @@ val foo = Foo()
 foo.Bar()
 
 class Foo {
-  public Bar() -> () {
+  public func Bar() -> () {
     val x = 2
     WriteLine(x)
   }
@@ -96,7 +96,7 @@ import System.Console.*
 val foo = Foo()
 foo.Bar()
 class Foo {
-    public Bar() -> () {
+    public func Bar() -> () {
         val x = 2
         WriteLine(x)
     }

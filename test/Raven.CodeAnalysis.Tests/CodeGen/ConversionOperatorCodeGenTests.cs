@@ -53,13 +53,13 @@ class NumberBox {
         import System.*
 
         class OptionConversionRunner {
-            public static RunReference() -> string? {
+            public static func RunReference() -> string? {
                 val opt1 = Option<string>.Some("OK")
                 val opt12: string? = opt1
                 return opt12
             }
 
-            public static RunValue() -> int? {
+            public static func RunValue() -> int? {
                 val opt2 = Option<int>.Some(42)
                 val opt22: int? = opt2
                 return opt22

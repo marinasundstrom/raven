@@ -9,7 +9,7 @@ public sealed class StaticClassInstantiationTests : DiagnosticTestBase
     {
         const string source = """
 static class Foo {
-    static Test() -> unit {}
+    static func Test() -> unit {}
 }
 
 val value = Foo();

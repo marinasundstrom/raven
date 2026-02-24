@@ -26,15 +26,15 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 public extension EnumerableExt<T> for IEnumerable<T> {
-    public ToArrayOrException() -> Result<T[], Exception> {
+    public func ToArrayOrException() -> Result<T[], Exception> {
         try self.ToArray()
     }
 
-    public Step1() -> Result<T[], Exception> {
+    public func Step1() -> Result<T[], Exception> {
         self.ToArrayOrException()
     }
 
-    public Step2() -> Result<T[], Exception> {
+    public func Step2() -> Result<T[], Exception> {
         self.Step1()
     }
 }
@@ -68,7 +68,7 @@ public union Result<T, E> {
 }
 
 public extension ResultExtensions<T, E> for Result<T, E> {
-    public MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
+    public func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
             .Ok(val value) => .Ok(value)
             .Error(val error) => .Error(mapper(error))
@@ -83,15 +83,15 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 public extension EnumerableExt<T> for IEnumerable<T> {
-    public ToArrayOrException() -> Result<T[], Exception> {
+    public func ToArrayOrException() -> Result<T[], Exception> {
         try self.ToArray()
     }
 
-    public Step1() -> Result<T[], Exception> {
+    public func Step1() -> Result<T[], Exception> {
         self.ToArrayOrException()
     }
 
-    public Step2<E>(errorFactory: Exception -> E) -> Result<T[], E> {
+    public func Step2<E>(errorFactory: Exception -> E) -> Result<T[], E> {
         self.Step1().MapError(errorFactory)
     }
 }
@@ -128,7 +128,7 @@ public union Result<T, E> {
 }
 
 public extension ResultExtensions<T, E> for Result<T, E> {
-    public MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
+    public func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
             .Ok(val value) => .Ok(value)
             .Error(val error) => .Error(mapper(error))
@@ -143,19 +143,19 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 public extension EnumerableExt<T> for IEnumerable<T> {
-    public ToListOrException() -> Result<List<T>, Exception> {
+    public func ToListOrException() -> Result<List<T>, Exception> {
         try List<T>()
     }
 
-    public ToDictionaryOrException() -> Result<Dictionary<string, T>, Exception> {
+    public func ToDictionaryOrException() -> Result<Dictionary<string, T>, Exception> {
         try Dictionary<string, T>()
     }
 
-    public ListStep<E>(errorFactory: Exception -> E) -> Result<List<T>, E> {
+    public func ListStep<E>(errorFactory: Exception -> E) -> Result<List<T>, E> {
         self.ToListOrException().MapError(errorFactory)
     }
 
-    public DictionaryStep<E>(errorFactory: Exception -> E) -> Result<Dictionary<string, T>, E> {
+    public func DictionaryStep<E>(errorFactory: Exception -> E) -> Result<Dictionary<string, T>, E> {
         self.ToDictionaryOrException().MapError(errorFactory)
     }
 }

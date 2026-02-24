@@ -10,7 +10,7 @@ public class ReturnStatementUnitTests : DiagnosticTestBase
     {
         var code = """
 class Foo {
-    Test() -> unit {
+    func Test() -> unit {
         return;
     }
 }
@@ -24,7 +24,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    Test() -> int {
+    func Test() -> int {
         return;
     }
 }
@@ -45,7 +45,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    Test() -> int {
+    func Test() -> int {
         return "";
     }
 }

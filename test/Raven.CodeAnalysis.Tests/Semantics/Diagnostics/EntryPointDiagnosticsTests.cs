@@ -26,13 +26,13 @@ public class EntryPointDiagnosticsTests
     {
         var code = """
 class Program {
-    static Main() -> unit {
+    static func Main() -> unit {
         return;
     }
 }
 
 class Helper {
-    static Main() -> unit {
+    static func Main() -> unit {
         return;
     }
 }
@@ -52,7 +52,7 @@ class Helper {
         var topLevel = SyntaxTree.ParseText("val x = 0");
         var mainClass = SyntaxTree.ParseText("""
 class App {
-    static Main() -> unit {
+    static func Main() -> unit {
         return;
     }
 }
@@ -72,7 +72,7 @@ class App {
 import System.Threading.Tasks.*
 
 class Program {
-    static Main() -> ValueTask {
+    static func Main() -> ValueTask {
         return default(ValueTask);
     }
 }
@@ -104,7 +104,7 @@ public union Result<T, E> {
 }
 
 class Program {
-    static Main() -> Result<string, string> {
+    static func Main() -> Result<string, string> {
         .Ok("done")
     }
 }
@@ -130,7 +130,7 @@ class Program {
 import System.Threading.Tasks.*
 
 class Program {
-    static Main() -> Task {
+    static func Main() -> Task {
         return Task.CompletedTask;
     }
 }
@@ -180,7 +180,7 @@ class Program {
 import System.Threading.Tasks.*
 
 class Program {
-    static Main() -> Task<int> {
+    static func Main() -> Task<int> {
         return Task.FromResult(0);
     }
 }

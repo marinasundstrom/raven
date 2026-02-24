@@ -75,7 +75,7 @@ class Program {
 }
 
 class Describer {
-    public Describe(value: int) -> string {
+    public func Describe(value: int) -> string {
         return value match {
             0 => "zero"
             _ => value.ToString()
@@ -127,7 +127,7 @@ val tupleResult = describer.Describe(tuple)
 System.Console.WriteLine(boolResult + "," + tupleResult)
 
 class Describer {
-    public Describe(value: bool | (flag: bool, text: string)) -> string {
+    public func Describe(value: bool | (flag: bool, text: string)) -> string {
         return value match {
             true => "true"
             false => "false"
@@ -148,7 +148,7 @@ class Describer {
     {
         const string code = """
 class Formatter {
-    public Describe(values: int[]) -> string {
+    public func Describe(values: int[]) -> string {
         return values match {
             [val first, val second] => (first + second).ToString()
             _ => "none"
@@ -181,7 +181,7 @@ union Result<T, TError> {
 }
 
 class Formatter {
-    public Format(result: Result<int, string>) -> string {
+    public func Format(result: Result<int, string>) -> string {
         return result match {
             .Ok(val value) => "ok ${value}"
             .Error(val message) => "error ${message}"
@@ -222,7 +222,7 @@ union Test {
 }
 
 class Formatter {
-    public Describe(value: Test) -> string {
+    public func Describe(value: Test) -> string {
         return value match {
             .Something(val text) => text
             .Nothing => "none"
@@ -289,7 +289,7 @@ union Test {
 }
 
 class Program {
-    static describe(value: Test) -> string {
+    static func describe(value: Test) -> string {
         return value match {
             .Something(val text) => text
             .Nothing => "none"
@@ -348,7 +348,7 @@ val tupleResult = describer.Describe(tupleValue)
 System.Console.WriteLine(boolResult + "," + tupleResult)
 
 class Describer {
-    public Describe(value: bool | (flag: bool, text: string)) -> string {
+    public func Describe(value: bool | (flag: bool, text: string)) -> string {
         return value match {
             false => "false"
             true => "true"

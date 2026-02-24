@@ -9,7 +9,7 @@ public class UninitializedLocalTests : DiagnosticTestBase
     {
         const string code = """
         class Foo {
-            Test() -> unit {
+            func Test() -> unit {
                 var x: int;
             }
         }
@@ -26,7 +26,7 @@ public class UninitializedLocalTests : DiagnosticTestBase
     {
         const string code = """
         class Foo {
-            Test() -> unit {
+            func Test() -> unit {
                 val x: int;
             }
         }

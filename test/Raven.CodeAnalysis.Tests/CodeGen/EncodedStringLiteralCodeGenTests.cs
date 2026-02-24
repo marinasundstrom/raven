@@ -13,7 +13,7 @@ public sealed class EncodedStringLiteralCodeGenTests
     {
         const string source = """
 class C {
-    static Get() -> byte[] {
+    static func Get() -> byte[] {
         return "Pågen"u8
     }
 }
@@ -44,7 +44,7 @@ class C {
     {
         const string source = """
 class C {
-    static Get() -> byte[] {
+    static func Get() -> byte[] {
         return "Hello"ascii
     }
 }
@@ -75,7 +75,7 @@ class C {
     {
         const string source = """
 class C {
-    Get() -> byte[] {
+    func Get() -> byte[] {
         return "På"u8 + "gen"u8
     }
 }

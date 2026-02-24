@@ -277,7 +277,7 @@ val (first, second, third) = (1, 2)
 class Widget {}
 
 extension WidgetExtensions for Widget {
-    Deconstruct(out var first: &int, out var second: &string) -> unit {
+    func Deconstruct(out var first: &int, out var second: &string) -> unit {
         first = 1
         second = "ok"
     }

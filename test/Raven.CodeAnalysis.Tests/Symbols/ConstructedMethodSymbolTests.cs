@@ -17,7 +17,7 @@ import System.*
 
 class Outer<T>
 {
-    public static Wrap<U>(value: T, other: U) -> T => value;
+    public static func Wrap<U>(value: T, other: U) -> T => value;
 }
 """;
 
@@ -68,7 +68,7 @@ import System.*
 
 class Outer<T>
 {
-    public static Wrap<U>(value: T, other: U) -> T => value;
+    public static func Wrap<U>(value: T, other: U) -> T => value;
 }
 """;
 
@@ -142,7 +142,7 @@ class Outer<T> {
 }
 
 class Factory {
-    public static Create<U>(value: U) -> Outer<U>.Inner {
+    public static func Create<U>(value: U) -> Outer<U>.Inner {
         return Outer<U>.Inner(value)
     }
 }
@@ -193,7 +193,7 @@ class Outer<T> {
 }
 
 class Factory {
-    public static Create<U, V>(value: U, other: V) -> Outer<U>.Inner<V> {
+    public static func Create<U, V>(value: U, other: V) -> Outer<U>.Inner<V> {
         return Outer<U>.Inner<V>(value, other)
     }
 }
@@ -247,7 +247,7 @@ class Outer<T> {
         public init(value: T, other: U) { }
     }
 
-    public static Make<U>(value: T, other: U) -> Outer<T>.Node<U> {
+    public static func Make<U>(value: T, other: U) -> Outer<T>.Node<U> {
         return Outer<T>.Node<U>(value, other)
     }
 }

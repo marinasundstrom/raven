@@ -20,18 +20,18 @@ union Flag {
 }
 
 class Program {
-    public static IsOn(flag: Flag) -> bool {
+    public static func IsOn(flag: Flag) -> bool {
         return flag match {
             .On => true
             .Off => false
         }
     }
 
-    public static TestOn() -> bool {
+    public static func TestOn() -> bool {
         return IsOn(.On)
     }
 
-    public static TestOff() -> bool {
+    public static func TestOff() -> bool {
         return IsOn(.Off)
     }
 }

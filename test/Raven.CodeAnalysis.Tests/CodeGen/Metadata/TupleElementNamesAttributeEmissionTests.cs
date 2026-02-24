@@ -47,7 +47,7 @@ class C
         const string source = """
 class C
 {
-    public M(x: (no: int, str: string)) -> (flag: bool, text: string)
+    public func M(x: (no: int, str: string)) -> (flag: bool, text: string)
     {
         return (flag: x.no == 0, text: x.str)
     }
@@ -84,7 +84,7 @@ class C
         const string source = """
 class C
 {
-    public M(x: System.Collections.Generic.Dictionary<string, (count: int, name: string)>) -> unit
+    public func M(x: System.Collections.Generic.Dictionary<string, (count: int, name: string)>) -> unit
     {
     }
 }
@@ -114,7 +114,7 @@ class C
         const string source = """
 class C
 {
-    public M(x: (int, string)) -> (int, string)
+    public func M(x: (int, string)) -> (int, string)
     {
         return x
     }

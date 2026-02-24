@@ -13,7 +13,7 @@ public class DefaultLiteralEmissionTests
     {
         const string code = """
 class C {
-    Run<T>() -> T {
+    func Run<T>() -> T {
         return default
     }
 }
@@ -50,7 +50,7 @@ class C {
     {
         const string code = """
 class C {
-    RunStruct<T : struct>() -> T {
+    func RunStruct<T : struct>() -> T {
         return default
     }
 }
@@ -87,7 +87,7 @@ class C {
     {
         const string code = """
 class C {
-    RunClass<T : class>() -> T {
+    func RunClass<T : class>() -> T {
         return default
     }
 }
@@ -124,7 +124,7 @@ class C {
     {
         const string code = """
 class C {
-    Run<T>() -> T {
+    func Run<T>() -> T {
         return default(T)
     }
 }
@@ -161,7 +161,7 @@ class C {
     {
         const string code = """
 class C {
-    RunStruct<T : struct>() -> T {
+    func RunStruct<T : struct>() -> T {
         return default(T)
     }
 }
@@ -198,7 +198,7 @@ class C {
     {
         const string code = """
 class C {
-    RunClass<T : class>() -> T {
+    func RunClass<T : class>() -> T {
         return default(T)
     }
 }

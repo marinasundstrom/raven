@@ -138,7 +138,7 @@ val s = f?(2)
 WriteLine("$s")
 
 public class Foo(b: int) {
-    public self(factor: int) -> int {
+    public func self(factor: int) -> int {
         return b * factor
     }
 }

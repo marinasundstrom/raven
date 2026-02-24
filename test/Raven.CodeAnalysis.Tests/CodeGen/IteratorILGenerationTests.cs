@@ -21,7 +21,7 @@ public sealed class IteratorILGenerationTests
 import System.Collections.Generic.*
 
 class C {
-    Values() -> IEnumerable<int> {
+    func Values() -> IEnumerable<int> {
         yield return 42
         var i = 0
         while i < 2 {

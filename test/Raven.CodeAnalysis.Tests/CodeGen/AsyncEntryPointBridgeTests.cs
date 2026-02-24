@@ -21,7 +21,7 @@ import System.Threading.Tasks.*
 class Program {
     public static var Flag: bool = false
 
-    static async Main() -> Task {
+    static async func Main() -> Task {
         await Task.Delay(1)
         Flag = true
     }
@@ -102,7 +102,7 @@ public union Result<T, E> {
 }
 
 class Program {
-    static Main() -> Result<int, string> {
+    static func Main() -> Result<int, string> {
         return .Error("Wrong args")
     }
 }
@@ -154,7 +154,7 @@ public union Result<T, E> {
 }
 
 class Program {
-    static async Main(args: string[]) -> Task<Result<int, string>> {
+    static async func Main(args: string[]) -> Task<Result<int, string>> {
         await Task.Yield()
         if args.Length == 0 {
             return .Error("boom")
@@ -209,7 +209,7 @@ public union Result<T, E> {
 }
 
 class Program {
-    static async Main(args: string[]) -> Task<Result<(), string>> {
+    static async func Main(args: string[]) -> Task<Result<(), string>> {
         val first = args[0]
         await Task.Yield()
 
@@ -253,7 +253,7 @@ public union Result<T, E> {
 }
 
 class Program {
-    static Main(args: string[]) -> Result<(), string> {
+    static func Main(args: string[]) -> Result<(), string> {
         .Ok
     }
 }
@@ -304,7 +304,7 @@ public union Result<T, E> {
 }
 
 class Program {
-    static Main(args: string[]) -> Result<int, string> {
+    static func Main(args: string[]) -> Result<int, string> {
         .Ok(42)
     }
 }

@@ -186,7 +186,7 @@ val pointer: *int = &value
     {
         const string source = """
 class Test {
-    unsafe static Run() -> int {
+    unsafe static func Run() -> int {
         var value = 41
         val pointer: *int = &value
         *pointer = 42
@@ -218,7 +218,7 @@ struct Holder {
 }
 
 class Test {
-    unsafe static Run() -> int {
+    unsafe static func Run() -> int {
         var holder = Holder()
         val pointer: *Holder = &holder
         return pointer->Value
@@ -240,7 +240,7 @@ struct Holder {
 }
 
 class Test {
-    unsafe static Run() -> int {
+    unsafe static func Run() -> int {
         var holder = Holder()
         val pointer: *Holder = &holder
         return pointer->Value
@@ -269,7 +269,7 @@ class Test {
     {
         const string source = """
 class Test {
-    static Run() -> int {
+    static func Run() -> int {
         var value = 0
         val pointer: *int = &value
         return *pointer
@@ -294,7 +294,7 @@ class Holder {
 }
 
 class Test {
-    unsafe static Run() -> int {
+    unsafe static func Run() -> int {
         var holder = Holder()
         return holder->Value
     }
@@ -313,7 +313,7 @@ class Test {
     {
         const string source = """
 class Test {
-    static Run() -> int {
+    static func Run() -> int {
         var value = 0
         unsafe {
             val pointer: *int = &value
@@ -335,7 +335,7 @@ class Test {
     {
         const string source = """
 class Test {
-    unsafe static Run() -> int {
+    unsafe static func Run() -> int {
         var value = 0
         val pointer: *int = &value
         *pointer = 9
@@ -355,7 +355,7 @@ class Test {
     {
         const string source = """
 class Test {
-    unsafe static Run() -> nint {
+    unsafe static func Run() -> nint {
         var value = 0
         val pointer: *int = &value;
         val p1 = pointer + 1
@@ -395,7 +395,7 @@ class Test {
     {
         const string source = """
 class Test {
-    static Run() -> *int {
+    static func Run() -> *int {
         var value = 0
         val pointer: *int = &value
         pointer + 1

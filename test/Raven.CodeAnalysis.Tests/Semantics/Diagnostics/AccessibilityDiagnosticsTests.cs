@@ -64,7 +64,7 @@ union Result<T, E> {
 }
 
 public class Container {
-    public static ParseNumber(str: string) -> Result<int, string> {
+    public static func ParseNumber(str: string) -> Result<int, string> {
         return .Ok(0);
     }
 }
@@ -85,7 +85,7 @@ public class Container {
 internal class Hidden {}
 
 public class Exposer {
-    public Call(value: Hidden) -> int {
+    public func Call(value: Hidden) -> int {
         return 0;
     }
 }

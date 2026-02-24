@@ -231,7 +231,7 @@ val result = value match {
     {
         const string code = """
 class Program {
-    eval(color: Color) -> int {
+    func eval(color: Color) -> int {
         return color match {
             .Red => 1
         }

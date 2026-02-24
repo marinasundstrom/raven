@@ -11,7 +11,7 @@ public class StringInterpolationTests
     {
         var code = """
 class Test {
-    GetInfo(name: string, age: int, year: int) -> string {
+    func GetInfo(name: string, age: int, year: int) -> string {
         return "Name: ${name}, Age in ${year}: ${year - (System.DateTime.Now.Year - age)}";
     }
 }
@@ -46,7 +46,7 @@ class Test {
     {
         var code = """
 class Test {
-    Format(name: string) -> string {
+    func Format(name: string) -> string {
         val city = "東京";
         return "こんにちは、${name}さん。${city}へようこそ";
     }
@@ -80,7 +80,7 @@ class Test {
     {
         var code = """
 class Test {
-    Format(name: string, city: string) -> string {
+    func Format(name: string, city: string) -> string {
         val greeting = "\u200Fمرحبا ${name}! أهلا بك في ${city}";
         return greeting;
     }

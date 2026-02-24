@@ -25,7 +25,7 @@ class Widget {
 }
 
 extension WidgetExtensions for Widget {
-    Count() -> int {
+    func Count() -> int {
         return 1
     }
 }
@@ -68,7 +68,7 @@ import System.Runtime.CompilerServices.*
 namespace Sample.Extensions {
     public static class NumberExtensions {
         [ExtensionAttribute]
-        public static Double(x: int) -> int {
+        public static func Double(x: int) -> int {
             return x + x
         }
     }
@@ -134,7 +134,7 @@ import System.Runtime.CompilerServices.*
 namespace Sample.Extensions {
     public static class NumberExtensions {
         [ExtensionAttribute]
-        public static Double(x: int) -> int {
+        public static func Double(x: int) -> int {
             return x * 2
         }
     }
@@ -191,7 +191,7 @@ val result = x.Test()
 
 public static class Extensions {
     [ExtensionAttribute]
-    public static Test(x: string) -> int {
+    public static func Test(x: string) -> int {
         return 42
     }
 }
@@ -231,7 +231,7 @@ val result = x.Test()
 
 public static class Extensions {
     [ExtensionAttribute]
-    public static Test(x: object) -> int {
+    public static func Test(x: object) -> int {
         return 42
     }
 }
@@ -372,7 +372,7 @@ val result = text.AddSuffix(suffix, count)
 
 public static class Extensions {
     [ExtensionAttribute]
-    public static AddSuffix(x: string, suffix: string, count: int) -> string {
+    public static func AddSuffix(x: string, suffix: string, count: int) -> string {
         return x
     }
 }
@@ -425,7 +425,7 @@ public class Box<T>
 public static class Extensions
 {
     [ExtensionAttribute]
-    public static Test<T>(items: Box<T>, value: T) -> T
+    public static func Test<T>(items: Box<T>, value: T) -> T
     {
         return value
     }
@@ -483,14 +483,14 @@ val numberResult = number.Describe()
 
 public static class TextExtensions {
     [ExtensionAttribute]
-    public static Describe(x: string) -> string {
+    public static func Describe(x: string) -> string {
         return x
     }
 }
 
 public static class NumberExtensions {
     [ExtensionAttribute]
-    public static Describe(x: int) -> string {
+    public static func Describe(x: int) -> string {
         return "number"
     }
 }
@@ -549,12 +549,12 @@ val objectResult = textAsObject.Describe()
 
 public static class DescribeExtensions {
     [ExtensionAttribute]
-    public static Describe(x: object) -> string {
+    public static func Describe(x: object) -> string {
         return "object"
     }
 
     [ExtensionAttribute]
-    public static Describe(x: string) -> string {
+    public static func Describe(x: string) -> string {
         return x
     }
 }
@@ -613,7 +613,7 @@ val numberResult = number.Identity()
 
 public static class GenericExtensions {
     [ExtensionAttribute]
-    public static Identity<T>(value: T) -> T {
+    public static func Identity<T>(value: T) -> T {
         return value
     }
 }
@@ -679,7 +679,7 @@ public static class GenericExtensions {
 import Sample.Extensions.NumberExtensions
 
 class Query {
-    Run() -> int {
+    func Run() -> int {
         val value = 3
         return value.Double()
     }
@@ -692,7 +692,7 @@ import System.Runtime.CompilerServices.*
 namespace Sample.Extensions {
     public static class NumberExtensions {
         [ExtensionAttribute]
-        public static Double(x: int) -> int {
+        public static func Double(x: int) -> int {
             return x + x
         }
     }
@@ -749,7 +749,7 @@ namespace Sample.Extensions {
 import System.Runtime.CompilerServices.*
 
 class Query {
-    Run() -> int {
+    func Run() -> int {
         val value = 3
         return value.Double()
     }
@@ -757,7 +757,7 @@ class Query {
 
 public static class NumberExtensions {
     [ExtensionAttribute]
-    public static Double(x: int) -> int {
+    public static func Double(x: int) -> int {
         return x + x
     }
 }
@@ -799,7 +799,7 @@ public static class NumberExtensions {
 import System.Runtime.CompilerServices.*
 
 class Query {
-    Run() -> object {
+    func Run() -> object {
         val value = 3
         return value.ToObject()
     }
@@ -807,7 +807,7 @@ class Query {
 
 public static class BoxingExtensions {
     [ExtensionAttribute]
-    public static ToObject(x: object) -> object {
+    public static func ToObject(x: object) -> object {
         return x
     }
 }
@@ -856,7 +856,7 @@ import System.Linq.*
 import System.Runtime.CompilerServices.*
 
 class Query {
-    Run() -> IEnumerable<int> {
+    func Run() -> IEnumerable<int> {
         val numbers = [1, 2, 3, 4]
         return numbers
             .Where(value => value > 1)
@@ -867,7 +867,7 @@ class Query {
 
 public static class RavenPipelineExtensions {
     [ExtensionAttribute]
-    public static ProjectSquares(values: IEnumerable<int>, projector: Func<int, int>) -> IEnumerable<int> {
+    public static func ProjectSquares(values: IEnumerable<int>, projector: Func<int, int>) -> IEnumerable<int> {
         return values.Select(projector)
     }
 }
@@ -962,7 +962,7 @@ import System.Linq.*
 import System.Runtime.CompilerServices.*
 
 class Query {
-    Run() -> IEnumerable<int> {
+    func Run() -> IEnumerable<int> {
         val numbers = [1, 2, 3, 4]
         return numbers
             .Where(value => value > 1)
@@ -973,7 +973,7 @@ class Query {
 
 public static class RavenPipelineExtensions {
     [ExtensionAttribute]
-    public static ProjectSquaresAndFilter(values: IEnumerable<int>, projector: Func<int, int>) -> IEnumerable<int> {
+    public static func ProjectSquaresAndFilter(values: IEnumerable<int>, projector: Func<int, int>) -> IEnumerable<int> {
         return values
             .Select(projector)
             .Where(result => result.IsEven())
@@ -982,7 +982,7 @@ public static class RavenPipelineExtensions {
 
 public static class IntExtensions {
     [ExtensionAttribute]
-    public static IsEven(value: int) -> bool {
+    public static func IsEven(value: int) -> bool {
         return value % 2 == 0
     }
 }
@@ -1084,7 +1084,7 @@ public static class IntExtensions {
 import System.Runtime.CompilerServices.*
 
 class Query {
-    Run() -> int {
+    func Run() -> int {
         val value: int? = null
         return value.Double()
     }
@@ -1092,7 +1092,7 @@ class Query {
 
 public static class NumberExtensions {
     [ExtensionAttribute]
-    public static Double(x: int) -> int {
+    public static func Double(x: int) -> int {
         return x + x
     }
 }
@@ -1119,13 +1119,13 @@ public class NonComparable { }
 
 public static class Extensions {
     [ExtensionAttribute]
-    public static RequiresComparison<T: System.IComparable>(value: T) -> int {
+    public static func RequiresComparison<T: System.IComparable>(value: T) -> int {
         return 0
     }
 }
 
 class Query {
-    Run() -> int {
+    func Run() -> int {
         val receiver = NonComparable()
         return receiver.RequiresComparison()
     }
@@ -1153,7 +1153,7 @@ import System.Runtime.CompilerServices.*
 namespace Sample.Extensions {
     public static class NumberExtensions {
         [ExtensionAttribute]
-        public static Double(x: int) -> int {
+        public static func Double(x: int) -> int {
             return x + x
         }
     }
@@ -1182,7 +1182,7 @@ val holder = Container()
 val description = holder.Describe()
 
 public class Container {
-    Describe() -> string {
+    func Describe() -> string {
         return "instance"
     }
 }
@@ -1190,7 +1190,7 @@ public class Container {
 namespace Sample.Extensions {
     public static class ContainerExtensions {
         [ExtensionAttribute]
-        public static Describe(x: Container) -> string {
+        public static func Describe(x: Container) -> string {
             return "extension"
         }
     }
@@ -1234,12 +1234,12 @@ val result = number.Apply(value => value > 0)
 namespace Sample.Extensions {
     public static class NumberExtensions {
         [ExtensionAttribute]
-        public static Apply(value: int, predicate: System.Predicate<int>) -> bool {
+        public static func Apply(value: int, predicate: System.Predicate<int>) -> bool {
             return predicate(value)
         }
 
         [ExtensionAttribute]
-        public static Apply(value: int, predicate: System.Func<int, bool>) -> bool {
+        public static func Apply(value: int, predicate: System.Func<int, bool>) -> bool {
             return predicate(value)
         }
     }
@@ -1281,12 +1281,12 @@ import System.Runtime.CompilerServices.*
 namespace Sample.Extensions {
     public static class NumberExtensions {
         [ExtensionAttribute]
-        public static Apply(value: int, predicate: System.Predicate<int>) -> bool {
+        public static func Apply(value: int, predicate: System.Predicate<int>) -> bool {
             return predicate(value)
         }
 
         [ExtensionAttribute]
-        public static Apply(value: int, predicate: System.Func<int, bool>) -> bool {
+        public static func Apply(value: int, predicate: System.Func<int, bool>) -> bool {
             return predicate(value)
         }
     }
@@ -1332,7 +1332,7 @@ val doubled = await value.DoubleAsync()
 
 public static class Extensions {
     [ExtensionAttribute]
-    public static DoubleAsync(x: int) -> Task<int> {
+    public static func DoubleAsync(x: int) -> Task<int> {
         return Task.FromResult(x + x)
     }
 }
@@ -1367,7 +1367,7 @@ val doubled = value |> Double()
 
 public static class NumberExtensions {
     [ExtensionAttribute]
-    public static Double(x: int) -> int {
+    public static func Double(x: int) -> int {
         return x * 2
     }
 }
@@ -1396,7 +1396,7 @@ public static class NumberExtensions {
     {
         const string source = """
 extension IntExt for int {
-    public Inc(amount: int) -> int {
+    public func Inc(amount: int) -> int {
         return self + amount
     }
 }
@@ -1428,7 +1428,7 @@ val result = 5 |> Inc(2)
     {
         const string source = """
 extension IntExt for int {
-    public Inc() -> int {
+    public func Inc() -> int {
         return self + 1
     }
 }
@@ -1463,7 +1463,7 @@ val start = 3
 val result = start |> MathHelpers.Increment(2)
 
 public static class MathHelpers {
-    public static Increment(x: int, amount: int) -> int {
+    public static func Increment(x: int, amount: int) -> int {
         return x + amount
     }
 }
@@ -1499,7 +1499,7 @@ val start = 3
 val result = start |> MathHelpers.Increment
 
 public static class MathHelpers {
-    public static Increment(x: int) -> int {
+    public static func Increment(x: int) -> int {
         return x + 1
     }
 }
@@ -1621,7 +1621,7 @@ val value = 5
 val result = value |> Increment(2)
 
 public static class MathHelpers {
-    public static Increment(x: int, amount: int) -> int {
+    public static func Increment(x: int, amount: int) -> int {
         return x + amount
     }
 }
@@ -1722,7 +1722,7 @@ val result = 5 |> increment(2)
 val result = 5 |> MathHelpers.Increment(2)
 
 public static class MathHelpers {
-    public static Increment<T>(x: T, amount: int) -> int {
+    public static func Increment<T>(x: T, amount: int) -> int {
         return 42 + amount
     }
 }
@@ -1852,7 +1852,7 @@ public union Option<T> {
 }
 
 public extension OptionExtensionsNested<T> for Option<Option<T>> {
-    public Flatten() -> Option<T> {
+    public func Flatten() -> Option<T> {
         return self match {
             .Some(val inner) => inner
             .None => .None
@@ -1861,7 +1861,7 @@ public extension OptionExtensionsNested<T> for Option<Option<T>> {
 }
 
 class Container {
-    Test() -> Option<int> {
+    func Test() -> Option<int> {
         val nested: Option<Option<int>> = .Some(.Some(42))
         return nested.Flatten()
     }
@@ -1901,7 +1901,7 @@ public union Result<T, E> {
 }
 
 extension OptionExtensions<T> for Option<T> {
-    Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
         return self match {
             .Some(val value) => .Some(mapper(value))
             .None => .None
@@ -1910,7 +1910,7 @@ extension OptionExtensions<T> for Option<T> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
+    func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
         return self match {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
@@ -1919,7 +1919,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
 }
 
 class Container {
-    Test() -> Option<int> {
+    func Test() -> Option<int> {
         val option: Option<int> = .Some(42)
         return option.Map(x => x * 2)
     }
@@ -1960,7 +1960,7 @@ public union Result<T, E> {
 }
 
 extension OptionExtensions<T> for Option<T> {
-    Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
         return self match {
             .Some(val value) => .Some(mapper(value))
             .None => .None
@@ -1969,7 +1969,7 @@ extension OptionExtensions<T> for Option<T> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
+    func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
         return self match {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
@@ -1978,7 +1978,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
 }
 
 class Container {
-    Test() -> Option<int> {
+    func Test() -> Option<int> {
         val option: Option<int> = .Some(42)
         return option.Map(x => 42)
     }
@@ -2017,7 +2017,7 @@ public union Result<T, E> {
 }
 
 extension OptionExtensions<T> for Option<T> {
-    Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
         return self match {
             .Some(val value) => .Some(mapper(value))
             .None => .None
@@ -2026,7 +2026,7 @@ extension OptionExtensions<T> for Option<T> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
+    func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
         return self match {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
@@ -2035,7 +2035,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
 }
 
 class Container {
-    Test() -> Option<int> {
+    func Test() -> Option<int> {
         val option: Option<int> = .Some(42)
         return option.Map((x: int) -> int => x * 2)
     }

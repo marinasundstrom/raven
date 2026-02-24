@@ -104,7 +104,7 @@ class C {
     {
         const string source = """
 class C {
-    Test(param: int) -> int {
+    func Test(param: int) -> int {
         return param
     }
 }

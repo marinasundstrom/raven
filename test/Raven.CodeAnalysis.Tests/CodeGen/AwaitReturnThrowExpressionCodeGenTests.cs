@@ -16,7 +16,7 @@ public class AwaitReturnThrowExpressionCodeGenTests
 import System.Threading.Tasks.*
 
 class Worker {
-    public async LenOrNegativeOne(task: Task<string?>) -> Task<int> {
+    public async func LenOrNegativeOne(task: Task<string?>) -> Task<int> {
         val required = await task ?? return -1
         return required.Length
     }
@@ -55,7 +55,7 @@ class Worker {
 import System.Threading.Tasks.*
 
 class Worker {
-    public async LenOrThrow(task: Task<string?>) -> Task<int> {
+    public async func LenOrThrow(task: Task<string?>) -> Task<int> {
         val required = await task ?? throw System.InvalidOperationException("missing")
         return required.Length
     }
@@ -93,11 +93,11 @@ class Worker {
 import System.Threading.Tasks.*
 
 class Worker {
-    private async Fallback(x: int) -> Task<int> {
+    private async func Fallback(x: int) -> Task<int> {
         return x + 10
     }
 
-    public async LenOrFallback(task: Task<string?>, x: int) -> Task<int> {
+    public async func LenOrFallback(task: Task<string?>, x: int) -> Task<int> {
         val required = await task ?? return await Fallback(x)
         return required.Length
     }

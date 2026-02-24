@@ -14,7 +14,7 @@ public class IncrementDecrementTests
     {
         var code = """
 class Foo {
-    public Run() -> int {
+    public func Run() -> int {
         var x: int = 1
         var y: int = ++x
         return x * 10 + y
@@ -48,7 +48,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    public Run() -> int {
+    public func Run() -> int {
         var x: int = 3
         var y: int = x--
         return x * 10 + y
@@ -84,7 +84,7 @@ class Foo {
 class Counter {
     public var Value: int = 0
 
-    public Run() -> int {
+    public func Run() -> int {
         Value = 10
         var original = Value++
         return Value * 10 + original

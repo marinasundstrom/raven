@@ -43,7 +43,7 @@ namespace System {
 import System.*
 
 class IntHelpers {
-    ParseNumber(value: int) -> Result<int> {
+    func ParseNumber(value: int) -> Result<int> {
         return .Ok(value)
     }
 }
@@ -109,7 +109,7 @@ namespace System {
 import System.*
 
 class IntHelpers {
-    ParseNumber(value: int) -> Result<int> {
+    func ParseNumber(value: int) -> Result<int> {
         return .Ok(value)
     }
 }

@@ -18,7 +18,7 @@ open class Base {}
 class A : Base {}
 class B : Base {}
 class C {
-    M(x: A | B | null) -> unit { }
+    func M(x: A | B | null) -> unit { }
 }
 """;
 
@@ -66,7 +66,7 @@ interface IThing {}
 class A : IThing {}
 class B : IThing {}
 class C {
-    M(x: A | B) -> unit { }
+    func M(x: A | B) -> unit { }
 }
 """;
 
@@ -90,7 +90,7 @@ class C {
     {
         var source = """
 class C {
-    M(x: int | null) -> unit { }
+    func M(x: int | null) -> unit { }
 }
 """;
 

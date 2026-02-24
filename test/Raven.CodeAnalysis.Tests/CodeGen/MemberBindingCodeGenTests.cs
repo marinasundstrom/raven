@@ -12,7 +12,7 @@ public class MemberBindingCodeGenTests
     {
         const string code = """
 class Program {
-    public static Get() -> string {
+    public static func Get() -> string {
         .Empty
     }
 }
@@ -64,7 +64,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
 }
 
 class Program {
-    public static Get() -> string {
+    public static func Get() -> string {
         val r: Result<int, string> = .Ok(42)
         r.IsOk.ToString()
     }

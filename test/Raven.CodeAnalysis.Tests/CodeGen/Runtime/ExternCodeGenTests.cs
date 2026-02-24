@@ -20,7 +20,7 @@ import System.Runtime.InteropServices.*
 
 class Native {
     [DllImport("kernel32", EntryPoint: "GetTickCount")]
-    public extern static GetTickCount() -> uint;
+    public extern static func GetTickCount() -> uint;
 }
 """;
 

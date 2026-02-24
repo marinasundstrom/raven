@@ -275,7 +275,7 @@ class Comparer : IComparer<object>
 {
     init() {}
 
-    Compare(x: object?, y: object?) -> int => 0
+    func Compare(x: object?, y: object?) -> int => 0
 }
 """;
 

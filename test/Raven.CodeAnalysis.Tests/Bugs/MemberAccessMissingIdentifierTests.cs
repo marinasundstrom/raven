@@ -9,7 +9,7 @@ public class MemberAccessMissingIdentifierTests : DiagnosticTestBase
     {
         const string code = """
         class C {
-            Test() -> unit {
+            func Test() -> unit {
                 val a = 1
                 val b = a.
             }

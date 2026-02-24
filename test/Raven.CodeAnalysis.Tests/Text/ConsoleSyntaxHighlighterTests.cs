@@ -65,7 +65,7 @@ Console.WriteLine(Console.WriteLine())
     {
         var source = """
 class Test {
-    GetInfo(name: string) -> string {
+    func GetInfo(name: string) -> string {
         return "Hello ${name}";
     }
 }
@@ -85,7 +85,7 @@ class Test {
     {
         var source = """
 class Test {
-    GetInfo(name: string) -> string {
+    func GetInfo(name: string) -> string {
         return "Hello ${name}";
     }
 }
@@ -360,7 +360,7 @@ let value = 1
     {
         var source = """
 class Widget {
-    Build(item: Widget) -> Widget {
+    func Build(item: Widget) -> Widget {
         let localValue = item
         return Build(localValue)
     }

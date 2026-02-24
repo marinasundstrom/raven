@@ -74,7 +74,7 @@ public class ObjectCreationTests : DiagnosticTestBase
             class Person {
                 var name: string;
 
-                public static WithName(name: string) -> Person {
+                public static func WithName(name: string) -> Person {
                     return Person(name);
                 }
 
@@ -82,7 +82,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                     self.name = name
                 }
 
-                public GetName() -> string => name;
+                public func GetName() -> string => name;
             }
             """;
 
@@ -102,7 +102,7 @@ public class ObjectCreationTests : DiagnosticTestBase
             class Person {
                 var name: string;
 
-                public static WithName(name: string) -> Person {
+                public static func WithName(name: string) -> Person {
                     val temp = name;
                     return Person(temp);
                 }
@@ -111,7 +111,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                     self.name = name;
                 }
 
-                public GetName() -> string => name;
+                public func GetName() -> string => name;
             }
             """;
 
@@ -179,7 +179,7 @@ public class ObjectCreationTests : DiagnosticTestBase
 
             class Person(name: string)
             {
-                public GetName() -> string => name
+                public func GetName() -> string => name
             }
             """;
 

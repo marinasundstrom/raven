@@ -19,7 +19,7 @@ import System.*
 class Foo : IDisposable {
     public init() => Console.WriteLine("Init")
 
-    public Dispose() -> unit => Console.WriteLine("Dispose")
+    public func Dispose() -> unit => Console.WriteLine("Dispose")
 }
 """;
 

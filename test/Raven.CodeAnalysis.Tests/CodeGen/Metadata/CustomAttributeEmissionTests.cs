@@ -54,7 +54,7 @@ class Widget
     public Value: string { get; set; }
 
     [System.Obsolete("Method")]
-    public M([System.Obsolete("Parameter")] x: string) -> string
+    public func M([System.Obsolete("Parameter")] x: string) -> string
     {
         return x
     }

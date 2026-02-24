@@ -12,7 +12,7 @@ public class LambdaCapturedVariablesTests
     {
         var code = """
 class Calculator {
-    Apply(base: int) -> int {
+    func Apply(base: int) -> int {
         val lambda = (offset: int) -> int => base + offset
         return lambda(2)
     }
@@ -40,7 +40,7 @@ class Calculator {
     {
         var code = """
 class Calculator {
-    Apply() -> int {
+    func Apply() -> int {
         val factor = 3
         val lambda = (value: int) -> int => factor * value
         return lambda(4)

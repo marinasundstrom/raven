@@ -18,7 +18,7 @@ import System.*
 import System.Linq.Expressions.*
 
 class C {
-    Build() -> Expression<System.Func<int, bool>> {
+    func Build() -> Expression<System.Func<int, bool>> {
         val tree: Expression<System.Func<int, bool>> = (x: int) => x > 0
         return tree
     }

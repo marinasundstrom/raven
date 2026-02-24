@@ -78,8 +78,8 @@ class C {
     {
         const string code = """
 class C {
-    GetInt() -> int => 1
-    GetLong() -> long => 2
+    func GetInt() -> int => 1
+    func GetLong() -> long => 2
 
     Test(flag: bool) {
         if flag {

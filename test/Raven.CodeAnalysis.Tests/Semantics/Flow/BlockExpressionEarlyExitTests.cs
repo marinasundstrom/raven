@@ -14,7 +14,7 @@ public class BlockExpressionEarlyExitTests : DiagnosticTestBase
     {
         const string code = """
 class Foo {
-    Test(flag: bool) -> int | () {
+    func Test(flag: bool) -> int | () {
         val x = if flag {
             return 42
         } else {
@@ -80,7 +80,7 @@ val x = if true {
     {
         const string code = """
 class C {
-    M(f: bool) -> bool {
+    func M(f: bool) -> bool {
         val x = {
             if f {
                 return true
@@ -103,7 +103,7 @@ class C {
     {
         const string code = """
 class C {
-    M(obj: string?) -> () {
+    func M(obj: string?) -> () {
         val foo = obj ?? {
             return ()
         }
@@ -122,7 +122,7 @@ class C {
     {
         const string code = """
 class Foo {
-    Test(flag: bool) -> int | () {
+    func Test(flag: bool) -> int | () {
         if flag {
             return 42
         } else {
@@ -141,7 +141,7 @@ class Foo {
     {
         const string code = """
 class C {
-    M(value: int) -> int | () {
+    func M(value: int) -> int | () {
         val x = value match {
             0 => {
                 return 1

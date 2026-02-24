@@ -10,7 +10,7 @@ public class VarCanBeValAnalyzerTests : AnalyzerTestBase
     {
         const string code = """
 class C {
-    public M() -> unit {
+    public func M() -> unit {
         var count = 0
     }
 }
@@ -34,7 +34,7 @@ class C {
     {
         const string code = """
 class C {
-    public M() -> unit {
+    public func M() -> unit {
         var count = 0
         count = 1
     }

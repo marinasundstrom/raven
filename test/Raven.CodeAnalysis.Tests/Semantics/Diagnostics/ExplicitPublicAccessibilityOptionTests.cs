@@ -54,7 +54,7 @@ extension NumberExtensions for int {
         const string source = """
 extension NumberExtensions for int {
     public func AddOne() -> int => self + 1
-    private Hidden() -> int => self
+    private func Hidden() -> int => self
 }
 """;
 

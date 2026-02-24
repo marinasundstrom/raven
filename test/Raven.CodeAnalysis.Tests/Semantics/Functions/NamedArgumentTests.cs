@@ -14,9 +14,9 @@ public class NamedArgumentTests : CompilationTestBase
     {
         var source = """
         class C {
-            static sum(x: int, y: int) -> int { x + y }
+            static func sum(x: int, y: int) -> int { x + y }
 
-            static test() -> int {
+            static func test() -> int {
                 return sum(y: 2, x: 1);
             }
         }
@@ -48,9 +48,9 @@ public class NamedArgumentTests : CompilationTestBase
     {
         var source = """
         class C {
-            static combine(a: int, b: int, c: int) -> int { a + b + c }
+            static func combine(a: int, b: int, c: int) -> int { a + b + c }
 
-            static test() -> int {
+            static func test() -> int {
                 return combine(a: 1, 2, c: 3);
             }
         }
@@ -82,9 +82,9 @@ public class NamedArgumentTests : CompilationTestBase
     {
         var source = """
         class C {
-            static combine(a: int, b: int, c: int) -> int { a + b + c }
+            static func combine(a: int, b: int, c: int) -> int { a + b + c }
 
-            static test() -> int {
+            static func test() -> int {
                 return combine(c: 3, 1, b: 2);
             }
         }

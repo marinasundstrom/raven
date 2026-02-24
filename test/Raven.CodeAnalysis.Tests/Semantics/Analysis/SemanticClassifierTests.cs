@@ -15,7 +15,7 @@ public class SemanticClassifierTests : CompilationTestBase
     {
         var source = """
 class C {
-    M(name: string) -> string {
+    func M(name: string) -> string {
         return "Hello ${name}";
     }
 }

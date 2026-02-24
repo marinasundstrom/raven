@@ -9,7 +9,7 @@ public class ErrorTypeSymbolAssignmentTests : DiagnosticTestBase
     {
         const string code = """
         class Foo {
-            Test() -> unit {
+            func Test() -> unit {
                 val x: string = y;
             }
         }

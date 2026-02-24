@@ -1040,7 +1040,7 @@ union Option<T> {
 }
 
 class Container {
-    Create() -> Option<int> {
+    func Create() -> Option<int> {
         return Option.Some(value: 1)
     }
 }
@@ -1074,7 +1074,7 @@ union Option {
 }
 
 class Container {
-    Create() -> Option {
+    func Create() -> Option {
         return Option.Some(value: 1)
     }
 }

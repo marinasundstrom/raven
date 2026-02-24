@@ -64,7 +64,7 @@ public sealed class AsyncILGenerationTests
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         await Task.CompletedTask
     }
 }
@@ -74,7 +74,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Compute(value: int) -> Task<int> {
+    async func Compute(value: int) -> Task<int> {
         await Task.Delay(10)
         return value
     }
@@ -155,7 +155,7 @@ return value
 import System.Threading.Tasks.*
 
 class Container {
-    async Identity<T>(value: T) -> Task<T> {
+    async func Identity<T>(value: T) -> Task<T> {
         await Task.Delay(1)
         return value
     }
@@ -212,7 +212,7 @@ return result
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         var attempt = try await Task.FromResult(1)
     }
 }
@@ -224,7 +224,7 @@ import System.Console.*
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         try {
             try {
                 await Task.Delay(1)
@@ -251,11 +251,11 @@ import System.Threading.Tasks.*
 class Disposable : IDisposable {
     public init() { }
 
-    public Dispose() -> unit => WriteLine("disposed")
+    public func Dispose() -> unit => WriteLine("disposed")
 }
 
 class Worker {
-    async Work() -> Task {
+    async func Work() -> Task {
         try {
             use outer = Disposable()
             await Task.Delay(1)
@@ -1960,7 +1960,7 @@ WriteLine(result)
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         await Task.CompletedTask
         return Task.CompletedTask
     }

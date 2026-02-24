@@ -19,7 +19,7 @@ public class LiteralUnionEmissionTests
     {
         var source = """
 class C {
-    M(x: int | "yes") -> unit { }
+    func M(x: int | "yes") -> unit { }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -46,7 +46,7 @@ class C {
     {
         var source = """
 class C {
-    M(x: int | string) -> unit { }
+    func M(x: int | string) -> unit { }
 }
 """;
         var tree = SyntaxTree.ParseText(source);

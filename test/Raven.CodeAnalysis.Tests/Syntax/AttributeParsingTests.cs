@@ -293,7 +293,7 @@ public class AttributeParsingTests : DiagnosticTestBase
         const string code = """
             class Widget {
                 [return: A, B("Test")]
-                public M() -> int => 42
+                public func M() -> int => 42
             }
             """;
 

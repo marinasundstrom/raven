@@ -17,12 +17,12 @@ import System.*
 class Api
 {
     [Obsolete("Use NewMethod")]
-    public static Old() -> int { return 1 }
+    public static func Old() -> int { return 1 }
 }
 
 class Consumer
 {
-    public Run() -> int { return Api.Old() }
+    public func Run() -> int { return Api.Old() }
 }
 """;
 
@@ -44,12 +44,12 @@ import System.*
 class Api
 {
     [Obsolete("Removed", true)]
-    public static Old() -> int { return 1 }
+    public static func Old() -> int { return 1 }
 }
 
 class Consumer
 {
-    public Run() -> int { return Api.Old() }
+    public func Run() -> int { return Api.Old() }
 }
 """;
 

@@ -13,7 +13,7 @@ public class ImperativeContextTests : CompilationTestBase
     {
         var code = """
 class C {
-    Test(flag: bool, action: () -> ()) -> int {
+    func Test(flag: bool, action: () -> ()) -> int {
         if flag {
             action()
         }
@@ -35,7 +35,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    Test(flag: bool, list: List<int>) -> IEnumerable<int> {
+    func Test(flag: bool, list: List<int>) -> IEnumerable<int> {
         if flag {
             list.Add(1)
         }

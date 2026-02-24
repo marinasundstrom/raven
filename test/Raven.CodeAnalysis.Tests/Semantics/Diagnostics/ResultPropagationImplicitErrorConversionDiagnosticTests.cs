@@ -17,7 +17,7 @@ public union Result<T, E> {
 }
 
 public extension ResultExtensions<T, E> for Result<T, E> {
-    public UnwrapError() -> E {
+    public func UnwrapError() -> E {
         return default
     }
 }
@@ -32,11 +32,11 @@ public extension ErrorConverters for ParserError {
 }
 
 public class Pipeline {
-    public static Parse(text: string) -> Result<int, ParserError> {
+    public static func Parse(text: string) -> Result<int, ParserError> {
         return .Error(default)
     }
 
-    public static Execute(text: string) -> Result<int, DomainError> {
+    public static func Execute(text: string) -> Result<int, DomainError> {
         val value = Pipeline.Parse(text)?
         return .Ok(value)
     }
@@ -64,7 +64,7 @@ public union Result<T, E> {
 }
 
 public extension ResultExtensions<T, E> for Result<T, E> {
-    public UnwrapError() -> E {
+    public func UnwrapError() -> E {
         return default
     }
 }
@@ -72,11 +72,11 @@ public extension ResultExtensions<T, E> for Result<T, E> {
 public class ParserError { }
 
 public class Pipeline {
-    public static Parse(text: string) -> Result<int, ParserError> {
+    public static func Parse(text: string) -> Result<int, ParserError> {
         return .Error(default)
     }
 
-    public static Execute(text: string) -> Result<int, ParserError> {
+    public static func Execute(text: string) -> Result<int, ParserError> {
         val value = Pipeline.Parse(text)?
         return .Ok(value)
     }
@@ -111,11 +111,11 @@ public extension ErrorConverters for ParserError {
 }
 
 public class Pipeline {
-    public static Parse(text: string) -> Result<int, ParserError> {
+    public static func Parse(text: string) -> Result<int, ParserError> {
         return .Error(default)
     }
 
-    public static Execute(text: string) -> Result<string, DomainError> {
+    public static func Execute(text: string) -> Result<string, DomainError> {
         return Parse(text)?.ToString()
     }
 }
@@ -148,11 +148,11 @@ public union Result<T, E> {
 public class ParserError { }
 
 public class Pipeline {
-    public static Parse(text: string) -> Result<int, ParserError> {
+    public static func Parse(text: string) -> Result<int, ParserError> {
         return .Error(default)
     }
 
-    public static Execute(text: string) -> Result<string, ParserError> {
+    public static func Execute(text: string) -> Result<string, ParserError> {
         return Parse(text)?.ToString()
     }
 }

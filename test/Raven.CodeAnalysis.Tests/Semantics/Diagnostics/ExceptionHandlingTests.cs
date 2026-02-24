@@ -157,7 +157,7 @@ import System.*
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task<string> {
+    async func Work() -> Task<string> {
         return try await Task.FromResult(1) match {
             int value => value.ToString()
             Exception ex => ex.Message
@@ -196,7 +196,7 @@ import System.*
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task<Result<int, Exception>> {
+    async func Work() -> Task<Result<int, Exception>> {
         val value = try? await Task.FromResult(1)
         return .Ok(value)
     }

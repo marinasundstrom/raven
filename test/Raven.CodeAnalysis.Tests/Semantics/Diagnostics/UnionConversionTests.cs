@@ -17,7 +17,7 @@ class Foo {}
 class Bar {}
 
 class Baz {
-    Test(flag: bool) -> Object {
+    func Test(flag: bool) -> Object {
         if flag {
             return Foo()
         } else {
@@ -64,7 +64,7 @@ class Baz {
 import System.*
 
 open class Animal {
-    public Speak() -> string {
+    public func Speak() -> string {
         "sound"
     }
 }
@@ -97,7 +97,7 @@ class Foo {}
 class Bar {}
 
 class Baz {
-    Test(flag: bool) -> Foo {
+    func Test(flag: bool) -> Foo {
         if flag {
             return Foo()
         } else {

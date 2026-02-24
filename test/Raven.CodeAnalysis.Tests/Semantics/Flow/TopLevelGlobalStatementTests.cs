@@ -20,11 +20,11 @@ greeter.Greet();
 val shade = Shade.Green;
 
 interface IGreeter {
-    public Greet() -> unit;
+    public func Greet() -> unit;
 };
 
 class Greeter : IGreeter {
-    public Greet() -> unit => ();
+    public func Greet() -> unit => ();
 };
 
 enum Shade {

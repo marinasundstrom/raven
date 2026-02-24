@@ -19,7 +19,7 @@ public sealed class IteratorLowererTests : CompilationTestBase
 import System.Collections.Generic.*
 
 class C {
-    Iterator() -> IEnumerable<int> {
+    func Iterator() -> IEnumerable<int> {
         yield return 1
     }
 }
@@ -52,7 +52,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    Iterator(count: int) -> IEnumerable<int> {
+    func Iterator(count: int) -> IEnumerable<int> {
         yield return count
     }
 }
@@ -127,7 +127,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    Iterator(count: int) -> IEnumerable<int> {
+    func Iterator(count: int) -> IEnumerable<int> {
         yield return count
     }
 }
@@ -176,7 +176,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    Iterator(count: int) -> IEnumerable<int> {
+    func Iterator(count: int) -> IEnumerable<int> {
         yield return count
     }
 }
@@ -236,7 +236,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    static Iterator(count: int) -> IEnumerable<int> {
+    static func Iterator(count: int) -> IEnumerable<int> {
         yield return count
     }
 }
@@ -346,7 +346,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    Iterator(count: int) -> IEnumerable<int> {
+    func Iterator(count: int) -> IEnumerable<int> {
         yield return count
     }
 }
@@ -423,7 +423,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    Iterator(count: int) -> IEnumerable<int> {
+    func Iterator(count: int) -> IEnumerable<int> {
         try {
             yield return count
         } finally {
@@ -477,7 +477,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    Iterator(count: int) -> IEnumerable<int> {
+    func Iterator(count: int) -> IEnumerable<int> {
         try {
             yield return count
         } finally {
@@ -546,7 +546,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    Iterator(count: int) -> IEnumerator<int> {
+    func Iterator(count: int) -> IEnumerator<int> {
         yield return count
     }
 }

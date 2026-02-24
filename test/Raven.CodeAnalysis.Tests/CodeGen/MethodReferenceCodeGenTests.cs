@@ -13,9 +13,9 @@ public class MethodReferenceCodeGenTests
     {
         const string code = """
 class Calculator {
-    public static Add(x: int, y: int) -> int { x + y }
+    public static func Add(x: int, y: int) -> int { x + y }
 
-    public static Compute() -> int {
+    public static func Compute() -> int {
         val add = Calculator.Add
         add(2, 3)
     }
@@ -49,9 +49,9 @@ class Calculator {
 class Counter {
     var value: int = 3
 
-    public Increment(delta: int) -> int { self.value + delta }
+    public func Increment(delta: int) -> int { self.value + delta }
 
-    public Run() -> int {
+    public func Run() -> int {
         val increment = self.Increment
         increment(7)
     }
@@ -84,13 +84,13 @@ class Counter {
     {
         const string code = """
 class Accumulator {
-    public static TryAccumulate(var state: &int, out var doubled: &int) -> bool {
+    public static func TryAccumulate(var state: &int, out var doubled: &int) -> bool {
         state = 21
         doubled = 42
         true
     }
 
-    public static Execute(value: int) -> int {
+    public static func Execute(value: int) -> int {
         val callback = Accumulator.TryAccumulate
         var current = value
         var doubled = 0
@@ -149,9 +149,9 @@ class Accumulator {
     {
         const string code = """
 class Calculator {
-    public static Test<T>(value: T) -> T { value }
+    public static func Test<T>(value: T) -> T { value }
 
-    public static Run() -> int {
+    public static func Run() -> int {
         Test(42)
     }
 }

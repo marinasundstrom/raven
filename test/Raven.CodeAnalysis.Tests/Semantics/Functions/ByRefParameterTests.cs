@@ -15,7 +15,7 @@ public class ByRefParameterTests : CompilationTestBase
     {
         var source = """
 class C {
-    test(x: &int) -> unit { }
+    func test(x: &int) -> unit { }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -33,7 +33,7 @@ class C {
     {
         var source = """
 class C {
-    test(out var x: &int) -> unit { x = 1 }
+    func test(out var x: &int) -> unit { x = 1 }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -138,9 +138,9 @@ class C {
     {
         var source = """
 class C {
-    static Set(var value: &int) -> unit { value = 42 }
+    static func Set(var value: &int) -> unit { value = 42 }
 
-    static Run() -> unit {
+    static func Run() -> unit {
         var data = 0
         Set(&data)
     }
@@ -157,12 +157,12 @@ class C {
     {
         var source = """
 class C {
-    static TryParse(text: string, out var result: &int) -> bool {
+    static func TryParse(text: string, out var result: &int) -> bool {
         result = 1
         return true
     }
 
-    static Consume(arg: string) -> bool {
+    static func Consume(arg: string) -> bool {
         var total = 0
         if !TryParse(arg, &total) {
             return false
@@ -184,7 +184,7 @@ class C {
     {
         var source = """
 class C {
-    static TryParse(text: string, out result: &int) -> bool {
+    static func TryParse(text: string, out result: &int) -> bool {
         result = 0
         return true
     }
@@ -203,7 +203,7 @@ class C {
     {
         var source = """
 class C {
-    static Increment(var value: int) -> int {
+    static func Increment(var value: int) -> int {
         value = value + 1
         return value
     }
@@ -221,7 +221,7 @@ class C {
     {
         var source = """
 class C {
-    static MakeRef() -> &int {
+    static func MakeRef() -> &int {
         val x = 2
         return &x
     }
@@ -240,7 +240,7 @@ class C {
     {
         var source = """
 class C {
-    static Forward(x: int) -> &int {
+    static func Forward(x: int) -> &int {
         return &x
     }
 }

@@ -17,7 +17,7 @@ public sealed class SymbolPropertyTests : CompilationTestBase
 class Widget {
     val field = 1
 
-    M(value: int) -> int {
+    func M(value: int) -> int {
         let local = value
         return local
     }

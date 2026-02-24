@@ -21,11 +21,11 @@ public sealed class RuntimeAsyncCodeGenTests
 import System.Threading.Tasks.*
 
 class Program {
-    async Compute() -> Task<int> {
+    async func Compute() -> Task<int> {
         return await Task.FromResult(1)
     }
 
-    Sync() -> int {
+    func Sync() -> int {
         return 2
     }
 }
@@ -49,7 +49,7 @@ class Program {
 import System.Threading.Tasks.*
 
 class Program {
-    async Compute() -> Task<int> {
+    async func Compute() -> Task<int> {
         return await Task.FromResult(1)
     }
 }
@@ -71,7 +71,7 @@ class Program {
 import System.Threading.Tasks.*
 
 class Program {
-    async Compute() -> Task<int> {
+    async func Compute() -> Task<int> {
         return await Task.FromResult(1)
     }
 }
@@ -92,19 +92,19 @@ class Program {
 import System.Threading.Tasks.*
 
 class Program {
-    async ComputeTaskConfigured() -> Task<int> {
+    async func ComputeTaskConfigured() -> Task<int> {
         return await Task.FromResult(1).ConfigureAwait(false)
     }
 
-    async ComputeTask() -> Task {
+    async func ComputeTask() -> Task {
         await Task.Delay(1).ConfigureAwait(false)
     }
 
-    async ComputeValueTaskConfigured() -> Task<int> {
+    async func ComputeValueTaskConfigured() -> Task<int> {
         return await ValueTask.FromResult(2).ConfigureAwait(false)
     }
 
-    async ComputeValueTask() -> Task<int> {
+    async func ComputeValueTask() -> Task<int> {
         return await ValueTask.FromResult(3)
     }
 }
@@ -141,7 +141,7 @@ class Program {
 import System.Threading.Tasks.*
 
 class Program {
-    async Compute() -> Task<int> {
+    async func Compute() -> Task<int> {
         return await Task.FromResult(1)
     }
 }
@@ -183,7 +183,7 @@ import System.IO.*
 import System.Threading.Tasks.*
 
 class Program {
-    async Fetch() -> Task<int> {
+    async func Fetch() -> Task<int> {
         use stream = MemoryStream()
         try {
             val value = await Task.FromResult(42)
@@ -216,7 +216,7 @@ class Program {
 import System.Threading.Tasks.*
 
 class Program {
-    public async Compute() -> Task<string> {
+    public async func Compute() -> Task<string> {
         val run = async () => {
             await Task.Delay(1)
             return "ok"

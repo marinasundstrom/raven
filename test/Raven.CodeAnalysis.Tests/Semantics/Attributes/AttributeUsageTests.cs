@@ -88,7 +88,7 @@ import System.*
 
 class WithProperty
 {
-    public static Value() -> int { return 42 }
+    public static func Value() -> int { return 42 }
 }
 
 class MyAttribute : Attribute

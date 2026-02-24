@@ -100,7 +100,7 @@ exit:
 
 class Disposable : IDisposable {
     public init() {}
-    public Dispose() -> unit {}
+    public func Dispose() -> unit {}
 }
 """;
 

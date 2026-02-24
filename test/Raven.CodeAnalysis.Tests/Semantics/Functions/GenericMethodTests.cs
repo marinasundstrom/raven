@@ -16,7 +16,7 @@ public sealed class GenericMethodTests : CompilationTestBase
         var source = """
             class Container
             {
-                static identity<T>(value: T) -> T
+                static func identity<T>(value: T) -> T
                 {
                     return value;
                 }
@@ -47,12 +47,12 @@ public sealed class GenericMethodTests : CompilationTestBase
         var source = """
             class Container
             {
-                static identity<T>(value: T) -> T
+                static func identity<T>(value: T) -> T
                 {
                     return value;
                 }
 
-                static call() -> int
+                static func call() -> int
                 {
                     return identity<int>(1);
                 }
@@ -81,11 +81,11 @@ public sealed class GenericMethodTests : CompilationTestBase
         var source = """
             class C
             {
-                static f<T>(value: T) -> ()
+                static func f<T>(value: T) -> ()
                 {
                 }
 
-                static test() -> ()
+                static func test() -> ()
                 {
                     f(null);
                 }

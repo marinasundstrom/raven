@@ -165,7 +165,7 @@ public class SymbolEqualityComparerTests
 class C {
     class Nested {}
 
-    M() -> unit {
+    func M() -> unit {
         let number = 42;
     }
 }

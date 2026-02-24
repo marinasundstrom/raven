@@ -207,7 +207,7 @@ class Wrapper<T> {
 }
 
 class Program {
-    public static CreateNode<T>(value: T) -> Wrapper<T>.Node {
+    public static func CreateNode<T>(value: T) -> Wrapper<T>.Node {
         return Wrapper<T>.Node(value)
     }
 }
@@ -310,7 +310,7 @@ class Outer<T> {
 }
 
 class Factory {
-    public static Create<T, U>(value: T, other: U) -> Outer<T>.Node<U> {
+    public static func Create<T, U>(value: T, other: U) -> Outer<T>.Node<U> {
         return Outer<T>.Node<U>()
     }
 }

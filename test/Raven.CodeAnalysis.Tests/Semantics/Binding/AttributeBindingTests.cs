@@ -204,7 +204,7 @@ import System.Diagnostics.CodeAnalysis.*
 class C
 {
     [return: MaybeNull]
-    public GetName() -> string => "ok"
+    public func GetName() -> string => "ok"
 }
 """;
 

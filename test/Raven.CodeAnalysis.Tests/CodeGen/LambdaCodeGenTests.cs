@@ -13,7 +13,7 @@ public class LambdaCodeGenTests
     {
         var code = """
 class Calculator {
-    Add() -> int {
+    func Add() -> int {
         val add = (x: int, y: int) -> int => x + y
         return add(2, 3)
     }
@@ -46,7 +46,7 @@ class Calculator {
     {
         var code = """
 class Checker {
-    AreEqual(left: int, right: int) -> bool {
+    func AreEqual(left: int, right: int) -> bool {
         val equals = (x: int, y: int) -> bool => x == y
         return equals(left, right)
     }
@@ -82,7 +82,7 @@ class Checker {
     {
         var code = """
 class Calculator {
-    Sum() -> int {
+    func Sum() -> int {
         val make = (x: int, y: int) -> int => {
             val total = x + y
             total
@@ -119,7 +119,7 @@ class Calculator {
     {
         var code = """
 class Calculator {
-    Sum() -> int {
+    func Sum() -> int {
         val make = (x: int, y: int) -> int => {
             return x + y;
         }
@@ -155,7 +155,7 @@ class Calculator {
     {
         var code = """
 class Calculator {
-    Combine(x: int) -> int {
+    func Combine(x: int) -> int {
         val add = (y: int) -> int => x + y
         return add(4)
     }
@@ -188,7 +188,7 @@ class Calculator {
     {
         var code = """
 class Counter {
-    Multiply() -> int {
+    func Multiply() -> int {
         val factor = 5
         val multiply = (value: int) -> int => factor * value
         return multiply(3)
@@ -224,7 +224,7 @@ class Counter {
 class Holder {
     var value: int
 
-    Compute() -> int {
+    func Compute() -> int {
         self.value = 8
         val add = (offset: int) -> int => self.value + offset
         return add(7)
@@ -258,7 +258,7 @@ class Holder {
     {
         var code = """
 class Handler {
-    Compute(input: string?) -> int {
+    func Compute(input: string?) -> int {
         val lengthOrNegativeOne = (text: string?) -> int => {
             val required = text ?? return -1
             return required.Length
@@ -298,7 +298,7 @@ class Handler {
     {
         var code = """
 class Handler {
-    Compute(input: string?) -> int {
+    func Compute(input: string?) -> int {
         val lengthOrThrow = (text: string?) -> int => {
             val required = text ?? throw System.InvalidOperationException("missing")
             return required.Length

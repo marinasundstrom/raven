@@ -10,7 +10,7 @@ public class StaticClassMemberTests : DiagnosticTestBase
         const string source = """
 static class Foo {
     public val Value: int = 0;
-    public Test() -> unit {}
+    public func Test() -> unit {}
     public init() {}
 }
 """;

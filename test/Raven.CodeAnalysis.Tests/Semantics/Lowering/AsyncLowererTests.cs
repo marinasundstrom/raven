@@ -27,7 +27,7 @@ public sealed class AsyncLowererTests : CompilationTestBase
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         await Task.CompletedTask
     }
 }
@@ -61,7 +61,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         return Task.CompletedTask
     }
 }
@@ -95,7 +95,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Compute() -> Task<Int32> {
+    async func Compute() -> Task<Int32> {
         return 42
     }
 }
@@ -199,7 +199,7 @@ import System.Net.Http.*
 import System.Threading.Tasks.*
 
 class C {
-    async Fetch(url: string) -> Task<string> {
+    async func Fetch(url: string) -> Task<string> {
         use client = HttpClient()
         use response = await client.GetAsync(url)
         return await response.Content.ReadAsStringAsync()
@@ -269,7 +269,7 @@ async func Fetch(url: string) -> Task<string> {
 import System.Threading.Tasks.*
 
 class C {
-    async Compute<T>(value: T) -> Task<T> {
+    async func Compute<T>(value: T) -> Task<T> {
         await Task.Delay(1)
         return value
     }
@@ -313,7 +313,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Compute<T>(value: T) -> Task<T> {
+    async func Compute<T>(value: T) -> Task<T> {
         await Task.Delay(1)
         return value
     }
@@ -421,7 +421,7 @@ union Result<T> {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task<Int32> {
+    async func Work() -> Task<Int32> {
         return await Task.FromResult(42)
     }
 }
@@ -550,7 +550,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task<Int32> {
+    async func Work() -> Task<Int32> {
         return Wrap(await Task.FromResult(5))
     }
 
@@ -608,7 +608,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work(flag: Bool) -> Task {
+    async func Work(flag: Bool) -> Task {
         if flag {
             await Task.CompletedTask
         } else {
@@ -659,7 +659,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         val first = await Task.FromResult(1)
         val second = await Task.FromResult(first + 2)
         val third = await Task.FromResult(second + 3)
@@ -700,7 +700,7 @@ import System.*
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         await Task.CompletedTask
         throw InvalidOperationException("boom")
     }
@@ -794,7 +794,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         var i = 0
         while i < 3 {
             await Task.CompletedTask
@@ -836,7 +836,7 @@ import System.Threading.Tasks.*
 import System.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         try {
             await Task.CompletedTask
         } catch (Exception ex) {
@@ -882,7 +882,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task {
+    async func Work() -> Task {
         await Task.CompletedTask
     }
 }
@@ -1094,7 +1094,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Compute() -> Task {
+    async func Compute() -> Task {
         var value = 42
         await Task.CompletedTask
         value = value + 1
@@ -1159,7 +1159,7 @@ import System.IO.*
 import System.Threading.Tasks.*
 
 class C {
-    async Compute() -> Task {
+    async func Compute() -> Task {
         using var stream = new MemoryStream()
         await Task.CompletedTask
     }
@@ -1231,7 +1231,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    static async Compute<T>(value: T) -> Task<T> {
+    static async func Compute<T>(value: T) -> Task<T> {
         await Task.FromResult(value)
         return value
     }
@@ -1290,7 +1290,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    static async Compute<T>(value: T) -> Task<T> {
+    static async func Compute<T>(value: T) -> Task<T> {
         await Task.Delay(1)
         return value
     }
@@ -1347,7 +1347,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    static async Compute<T>(value: T) -> Task<T> {
+    static async func Compute<T>(value: T) -> Task<T> {
         await Task.FromResult(value)
         return value
     }

@@ -19,7 +19,7 @@ public class NullableAttributeEmissionTests
     {
         var source = """
 class C {
-    M(x: string?) -> string? { return null }
+    func M(x: string?) -> string? { return null }
 }
 """;
 
@@ -52,7 +52,7 @@ class C {
     {
         var source = """
 class C {
-    M(x: string) -> string { return x }
+    func M(x: string) -> string { return x }
 }
 """;
 
@@ -85,7 +85,7 @@ class C {
     {
         var source = """
 class C {
-    M(x: string | null) -> string | null { return null }
+    func M(x: string | null) -> string | null { return null }
 }
 """;
 

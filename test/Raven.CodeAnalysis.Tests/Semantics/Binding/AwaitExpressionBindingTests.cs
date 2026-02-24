@@ -103,14 +103,14 @@ async func outer() {
 
 class Awaitable
 {
-    public GetAwaiter() -> MissingIsCompletedAwaiter {
+    public func GetAwaiter() -> MissingIsCompletedAwaiter {
         return MissingIsCompletedAwaiter();
     }
 }
 
 class MissingIsCompletedAwaiter
 {
-    public GetResult() -> unit {}
+    public func GetResult() -> unit {}
 }
 """;
         var (compilation, _) = CreateCompilation(source);
@@ -128,7 +128,7 @@ async func outer() {
 
 class Awaitable
 {
-    public GetAwaiter() -> MissingGetResultAwaiter {
+    public func GetAwaiter() -> MissingGetResultAwaiter {
         return MissingGetResultAwaiter();
     }
 }

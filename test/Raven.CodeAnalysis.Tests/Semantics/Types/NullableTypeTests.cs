@@ -188,7 +188,7 @@ public class NullableTypeTests : CompilationTestBase
 import System.*
 
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         val f: Action<int>? = null
         f(2)
     }
@@ -212,7 +212,7 @@ class Foo {
 import System.*
 
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         val f: Action<int>? = null
         f?(2)
     }
@@ -233,7 +233,7 @@ class Foo {
 import System.*
 
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         val f: Action<int>? = null
         if f is not null {
             f(2)
@@ -256,7 +256,7 @@ class Foo {
 import System.*
 
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         val f: Action<int>? = null
         if f is not null {
             f(2)
@@ -279,7 +279,7 @@ class Foo {
 import System.*
 
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         val f: Action<int>? = null
         if (f is not null) {
             f.Invoke(2)
@@ -302,7 +302,7 @@ class Foo {
 import System.*
 
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         val f: Action<int>? = null
         if f is null {
             return
@@ -326,7 +326,7 @@ class Foo {
 import System.*
 
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         val f: Action<int>? = null
         if f is null {
             return
@@ -350,7 +350,7 @@ class Foo {
 import System.*
 
 class Foo {
-    Run() -> unit {
+    func Run() -> unit {
         val f: Action<int>? = null
         if f != null {
             f(2)

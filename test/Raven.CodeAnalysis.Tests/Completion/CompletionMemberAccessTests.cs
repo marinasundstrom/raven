@@ -13,8 +13,8 @@ public class CompletionMemberAccessTests
     {
         var code = """
 class Counter {
-    public static Reset() -> unit { }
-    public Increment() -> unit { }
+    public static func Reset() -> unit { }
+    public func Increment() -> unit { }
 }
 
 Counter.
@@ -40,8 +40,8 @@ Counter.
     {
         var code = """
 class Counter {
-    public static Reset() -> unit { }
-    public Increment() -> unit { }
+    public static func Reset() -> unit { }
+    public func Increment() -> unit { }
 }
 
 val counter = new Counter();

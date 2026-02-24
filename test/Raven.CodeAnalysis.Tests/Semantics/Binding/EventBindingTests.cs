@@ -30,7 +30,7 @@ func Use(button: Button) -> unit {
 class Button {
     public event Clicked: System.Action;
 
-    public Assign(handler: System.Action) -> unit {
+    public func Assign(handler: System.Action) -> unit {
         Clicked = handler;
     }
 }
@@ -52,7 +52,7 @@ class Button {
         remove { }
     }
 
-    public Fire() -> unit {
+    public func Fire() -> unit {
         Clicked();
     }
 }
