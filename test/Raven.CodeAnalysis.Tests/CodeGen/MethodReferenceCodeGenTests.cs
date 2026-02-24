@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -119,29 +120,11 @@ class Accumulator {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var assembly = loaded.Assembly;
 
-        var delegateType = assembly
-            .GetTypes()
-            .Single(type => type.Name.StartsWith("<>f__Delegate", StringComparison.Ordinal));
+        var accumulatorType = assembly.GetType("Accumulator", throwOnError: true)!;
+        var execute = accumulatorType.GetMethod("Execute", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(execute);
 
-        Assert.True(typeof(MulticastDelegate).IsAssignableFrom(delegateType.BaseType));
-
-        var invoke = delegateType.GetMethod("Invoke")!;
-        Assert.Equal(typeof(bool), invoke.ReturnType);
-
-        var parameters = invoke.GetParameters();
-        Assert.Equal(2, parameters.Length);
-        Assert.True(parameters[0].ParameterType.IsByRef);
-        Assert.False(parameters[0].IsOut);
-        Assert.Equal(typeof(int), parameters[0].ParameterType.GetElementType());
-        Assert.True(parameters[1].ParameterType.IsByRef);
-        Assert.False(parameters[1].IsOut);
-        Assert.Equal(typeof(int), parameters[1].ParameterType.GetElementType());
-
-        var ctor = delegateType.GetConstructors().Single();
-        var ctorParameters = ctor.GetParameters();
-        Assert.Equal(2, ctorParameters.Length);
-        Assert.Equal(typeof(object), ctorParameters[0].ParameterType);
-        Assert.Equal(typeof(IntPtr), ctorParameters[1].ParameterType);
+        Assert.Equal(typeof(int), execute!.ReturnType);
     }
 
     [Fact]

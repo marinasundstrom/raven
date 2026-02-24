@@ -79,9 +79,11 @@ class IndexHarness {
         var code = """
 import System.*
 
-class Buffer() {
+class LocalBuffer {
+    var data: int = 0
+
     public func GetSeed() -> int {
-        0
+        data
     }
 
     public self[i: Index]: int {
@@ -95,7 +97,7 @@ class Buffer() {
 
 class StringHarness {
     public static func Run() -> int {
-        val buffer = Buffer()
+        val buffer = LocalBuffer()
         val tail = buffer[1..3]
         val i: Index = ^1
         return tail[0] + tail[1] + buffer[i]

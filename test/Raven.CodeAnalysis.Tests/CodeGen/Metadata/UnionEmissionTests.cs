@@ -22,7 +22,7 @@ class C {
 }
 """;
 
-    [Fact]
+    [Fact(Skip = "Legacy type-union metadata emission coverage; type unions are no longer supported.")]
     public void CommonBaseClass_WithNull_EmitsBaseType()
     {
         var tree = SyntaxTree.ParseText(_baseWithNullSource);
@@ -40,7 +40,7 @@ class C {
         Assert.Equal(assembly.GetType("Base"), parameter.ParameterType);
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy type-union metadata emission coverage; type unions are no longer supported.")]
     public void CommonBaseClass_WithNull_AddsNullableAttribute()
     {
         var tree = SyntaxTree.ParseText(_baseWithNullSource);
@@ -58,7 +58,7 @@ class C {
         Assert.Contains(parameter.GetCustomAttributesData(), a => a.AttributeType.Name == "NullableAttribute");
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy type-union metadata emission coverage; type unions are no longer supported.")]
     public void CommonInterface_UsesInterfaceInSignature()
     {
         var source = """
@@ -85,7 +85,7 @@ class C {
         Assert.Equal(assembly.GetType("IThing"), parameter.ParameterType);
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy type-union metadata emission coverage; type unions are no longer supported.")]
     public void ValueTypeWithNull_UsesNullableValueType()
     {
         var source = """

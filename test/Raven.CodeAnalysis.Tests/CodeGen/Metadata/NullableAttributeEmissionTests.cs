@@ -80,7 +80,7 @@ class C {
         Assert.DoesNotContain(md.GetCustomAttributes(returnParam), h => IsNullableAttribute(md, h));
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy nullable-via-type-union coverage; type unions are no longer supported.")]
     public void UnionContainingNull_EmitsNullableAttribute()
     {
         var source = """

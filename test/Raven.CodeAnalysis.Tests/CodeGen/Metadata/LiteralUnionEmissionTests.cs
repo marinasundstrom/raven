@@ -14,7 +14,7 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class LiteralUnionEmissionTests
 {
-    [Fact]
+    [Fact(Skip = "Legacy type-union metadata emission coverage; type unions are no longer supported.")]
     public void LiteralUnion_EmitsLiteralInAttribute()
     {
         var source = """
@@ -41,7 +41,7 @@ class C {
         Assert.Contains(values, v => v is Type t && t == typeof(string));
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy type-union metadata emission coverage; type unions are no longer supported.")]
     public void EmbedCoreTypes_ProducesTypeUnionAttribute()
     {
         var source = """

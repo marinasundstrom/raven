@@ -49,9 +49,9 @@ class Button : Control { }
 class Widget
 {
     [System.Obsolete("Field")]
-    public var field: string
+    public field storage: string
 
-    public Value: string { get; set; }
+    public var Value: string { get; set; }
 
     [System.Obsolete("Method")]
     public func M([System.Obsolete("Parameter")] x: string) -> string
@@ -75,7 +75,7 @@ class Widget
         var typeAttribute = Assert.Single(widgetType.GetCustomAttributesData(), a => a.AttributeType.Name == "ObsoleteAttribute");
         Assert.Equal("Widget", typeAttribute.ConstructorArguments[0].Value);
 
-        var field = widgetType.GetField("field", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        var field = widgetType.GetField("storage", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.NotNull(field);
         var fieldAttribute = Assert.Single(field!.GetCustomAttributesData(), a => a.AttributeType.Name == "ObsoleteAttribute");
         Assert.Equal("Field", fieldAttribute.ConstructorArguments[0].Value);
@@ -98,7 +98,7 @@ class Widget
         const string source = """
 class Widget
 {
-    public Value: string { get; set; }
+    public var Value: string { get; set; }
 }
 """;
 

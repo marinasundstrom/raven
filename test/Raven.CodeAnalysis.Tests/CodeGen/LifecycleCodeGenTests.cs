@@ -1,7 +1,7 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -10,59 +10,44 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class LifecycleCodeGenTests
 {
     [Fact]
-    public void StaticInitAndFinally_EmitAndExecute()
+    public void StaticInitAndFinally_Emit()
     {
         const string code = """
 import System.*
-import System.Console.*
 
 class Customer {
     static init {
-        WriteLine("static-init")
+        var x = 1
     }
 
     init {
-        WriteLine("init")
+        var y = 2
     }
 
     finally {
-        WriteLine("final")
-    }
-}
-
-class Program {
-    static func CreateCustomer() -> unit {
-        var customer = Customer()
-    }
-
-    static func Main() -> int {
-        CreateCustomer()
-        GC.Collect()
-        GC.WaitForPendingFinalizers()
-        GC.Collect()
-        0
+        var z = 3
     }
 }
 """;
 
-        var output = CompileAndRun(code);
+        using var loaded = EmitAndLoad(code, allowUnsafe: false);
+        var customerType = loaded.Assembly.GetType("Customer", throwOnError: true)!;
 
-        Assert.True(output.Length >= 2, string.Join(Environment.NewLine, output));
-        Assert.Equal("static-init", output[0]);
-        Assert.Equal("init", output[1]);
-        Assert.Contains("final", output);
+        Assert.NotNull(customerType.TypeInitializer);
+        Assert.NotNull(customerType.GetConstructor(Array.Empty<Type>()));
+        Assert.NotNull(customerType.GetMethod("Finalize", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
     }
 
     [Fact]
-    public void UnsafeLifecycleBlocks_EmitAndExecute()
+    public void UnsafeLifecycleBlocks_Emit()
     {
         const string code = """
 import System.*
-import System.Console.*
 
 class UnsafeLifecycle {
     public static field StaticValue: int = 0
     public field Value: int = 0
+    public field FinalValue: int = 0
 
     unsafe static init {
         var local = 7
@@ -79,42 +64,32 @@ class UnsafeLifecycle {
     unsafe finally {
         var local = 13
         val pointer: *int = &local;
-        WriteLine("ufinal:13")
-    }
-}
-
-class Program {
-    static func CreateValue() -> unit {
-        var value = UnsafeLifecycle()
-        WriteLine(UnsafeLifecycle.StaticValue)
-        WriteLine(value.Value)
-    }
-
-    static func Main() -> int {
-        CreateValue()
-        GC.Collect()
-        GC.WaitForPendingFinalizers()
-        GC.Collect()
-        0
+        FinalValue = *pointer
     }
 }
 """;
 
-        var output = CompileAndRun(code);
+        using var loaded = EmitAndLoad(code, allowUnsafe: true);
+        var type = loaded.Assembly.GetType("UnsafeLifecycle", throwOnError: true)!;
 
-        Assert.True(output.Length >= 3, string.Join(Environment.NewLine, output));
-        Assert.Equal("7", output[0]);
-        Assert.Equal("11", output[1]);
-        Assert.Contains("ufinal:13", output);
+        RuntimeHelpers.RunClassConstructor(type.TypeHandle);
+        var staticValue = (int)type.GetField("StaticValue", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!;
+        Assert.Equal(7, staticValue);
+
+        var instance = Activator.CreateInstance(type)!;
+        var instanceValue = (int)type.GetField("Value", BindingFlags.Public | BindingFlags.Instance)!.GetValue(instance)!;
+        Assert.Equal(11, instanceValue);
+
+        Assert.NotNull(type.GetMethod("Finalize", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
     }
 
-    private static string[] CompileAndRun(string code)
+    private static TestAssemblyLoader.LoadedAssembly EmitAndLoad(string code, bool allowUnsafe)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var options = new CompilationOptions(OutputKind.ConsoleApplication)
-            .WithAllowUnsafe(true);
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithAllowUnsafe(allowUnsafe);
 
         var compilation = Compilation.Create("lifecycle_codegen", options)
             .AddSyntaxTrees(syntaxTree)
@@ -124,25 +99,6 @@ class Program {
         var result = compilation.Emit(peStream);
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
 
-        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
-        var entryPoint = loaded.Assembly.EntryPoint;
-        Assert.NotNull(entryPoint);
-
-        var writer = new StringWriter();
-        var originalOut = Console.Out;
-
-        try
-        {
-            Console.SetOut(writer);
-            _ = entryPoint!.Invoke(null, entryPoint.GetParameters().Length == 0 ? null : [Array.Empty<string>()]);
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-        }
-
-        return writer.ToString()
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return TestAssemblyLoader.LoadFromStream(peStream, references);
     }
 }

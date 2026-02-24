@@ -1,0 +1,22 @@
+import System.*
+import System.Console.*
+
+val customer = Customer("Acme", 20)
+
+WriteLine("${customer.Name} score: ${customer.Score}")
+
+class Customer(name: string, age: int) {
+    init {
+        if name is "Marina" {
+            Score = 100
+        } else {
+            Score = 0
+        }
+    }
+
+    val Name: int => name
+
+    val Age: int => age
+
+    val Score: int { get; }
+}

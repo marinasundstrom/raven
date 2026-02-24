@@ -16,7 +16,7 @@ public sealed class ConversionOperatorCodeGenTests
     {
         const string code = """
 class NumberBox {
-    public Value: int { get { return 42; } }
+    public val Value: int { get { return 42; } }
     public static explicit operator(value: NumberBox) -> int { return value.Value }
 }
 """;

@@ -22,7 +22,7 @@ public class TupleElementNamesAttributeEmissionTests
         const string source = """
 class C
 {
-    public var Data: (no: int, str: string)
+    public field Data: (no: int, str: string)
 }
 """;
 

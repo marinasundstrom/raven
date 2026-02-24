@@ -114,7 +114,7 @@ System.Console.WriteLine(foo + "," + empty)
         Assert.Equal("str,None", output);
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy tuple type-union pattern coverage; type unions are no longer supported.")]
     public void MatchExpression_WithUnionTupleArm_EmitsAndRuns()
     {
         const string code = """
@@ -310,7 +310,7 @@ class Program {
         Assert.Equal("foo,none", output);
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy tuple type-union pattern coverage; type unions are no longer supported.")]
     public void MatchExpression_WithUnionTupleFallback_EmitsAndRuns()
     {
         const string code = """
@@ -335,7 +335,7 @@ System.Console.WriteLine(r)
         Assert.Equal("none", output);
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy tuple type-union pattern coverage; type unions are no longer supported.")]
     public void MatchExpression_WithMixedPrimitiveAndTupleArms_EmitsAndRuns()
     {
         const string code = """

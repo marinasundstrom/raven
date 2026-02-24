@@ -13,7 +13,7 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class NullShimTests : CompilationTestBase
 {
-    [Fact]
+    [Fact(Skip = "Legacy type-union metadata emission coverage; type unions are no longer supported.")]
     public void NullShimType_EmittedForNullableUnion()
     {
         var source = """
@@ -36,7 +36,7 @@ class C {
         Assert.Equal("System.String", parameter.ParameterType.FullName);
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy type-union metadata emission coverage; type unions are no longer supported.")]
     public void NoUnion_NoShimTypesEmitted()
     {
         var source = """
@@ -57,7 +57,7 @@ class C {
         Assert.NotNull(assembly.GetType("System.Runtime.CompilerServices.TypeUnionAttribute"));
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy type-union metadata emission coverage; type unions are no longer supported.")]
     public void UnionWithoutNull_EmitsTypeUnionAttributeOnly()
     {
         var source = """
