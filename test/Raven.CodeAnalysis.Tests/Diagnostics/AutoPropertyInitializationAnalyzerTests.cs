@@ -10,7 +10,7 @@ public class AutoPropertyInitializationAnalyzerTests : AnalyzerTestBase
     {
         const string code = """
 class C {
-    Name: string { get; set; }
+    var Name: string { get; set; }
 }
 """;
 
@@ -18,7 +18,7 @@ class C {
             code,
             expectedDiagnostics: [
                 new DiagnosticResult(AutoPropertyInitializationAnalyzer.DiagnosticId)
-                    .WithSpan(2, 5, 2, 9)
+                    .WithSpan(2, 9, 2, 13)
                     .WithArguments("Name")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -31,7 +31,7 @@ class C {
     {
         const string code = """
 class C {
-    Name: string { get; set; } = "ok"
+    var Name: string { get; set; } = "ok"
 }
 """;
 
@@ -48,7 +48,7 @@ class C {
     {
         const string code = """
 class C {
-    Name: string { get; set; }
+    var Name: string { get; set; }
 
     public init() {
         Name = "ok"
@@ -69,7 +69,7 @@ class C {
     {
         const string code = """
 class C {
-    public required Name: string { get; set; }
+    public required var Name: string { get; set; }
 }
 """;
 

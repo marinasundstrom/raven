@@ -15,7 +15,7 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         string testCode =
             """
             class Foo {
-                public static Value: int {
+                public static val Value: int {
                     get => 0
                 }
             }
@@ -57,7 +57,7 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         string testCode =
             """
             class Foo {
-                public Value: int {
+                public val Value: int {
                     [Getter]
                     get => 0
                 }
@@ -84,7 +84,7 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         const string code =
             """
             class Foo {
-                public Value {
+                public val Value {
                     get => 0
                 }
             }
@@ -107,7 +107,7 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         const string code =
             """
             struct Token {
-                public Kind: SyntaxKind { get } = kind
+                public val Kind: SyntaxKind { get } = kind
             }
             """;
 

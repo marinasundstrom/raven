@@ -10,13 +10,15 @@ public class MemberCanBePrivateCodeFixTests : CodeFixTestBase
     {
         const string code = """
 class Counter {
-    public func Increment() -> () { }
+    internal func Increment() -> () { }
+    func Touch() -> () { Increment() }
 }
 """;
 
         const string fixedCode = """
 class Counter {
     private func Increment() -> () { }
+    func Touch() -> () { Increment() }
 }
 """;
 

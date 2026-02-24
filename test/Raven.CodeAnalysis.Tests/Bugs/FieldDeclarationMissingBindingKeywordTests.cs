@@ -14,7 +14,11 @@ public class FieldDeclarationMissingBindingKeywordTests : DiagnosticTestBase
         }
         """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult("RAV0914")
+                .WithSpan(2, 5, 2, 9)
+                .WithArguments("name")
+        ]);
         verifier.Verify();
     }
 
