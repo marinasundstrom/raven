@@ -53,8 +53,7 @@ func main(x: int, y: int) -> int {
             "func f(x:int)->int{if(x>0){return x}else{return -x}}"
         };
 
-        foreach (var snippet in snippets)
-        {
+        foreach (var snippet in snippets) {
             var tree = SyntaxTree.ParseText(snippet);
             if (tree.GetDiagnostics().Any())
             {

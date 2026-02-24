@@ -87,7 +87,7 @@ func Foo() {}
         var firstStatement = parser.ParseStatement().CreateRed();
         var secondStatement = parser.ParseStatement().CreateRed();
 
-        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
+        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.CloseBraceToken);
 
         var nextFirstToken = secondStatement.GetFirstToken(includeZeroWidth: true);
         nextFirstToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
@@ -123,7 +123,7 @@ func Foo() {}
         var firstStatement = parser.ParseStatement().CreateRed();
         var secondStatement = parser.ParseStatement().CreateRed();
 
-        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
+        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.CloseBraceToken);
 
         var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
@@ -213,11 +213,9 @@ func Foo() {}
         var longLine = "/// " + new string('x', 80);
         var repeatedComment = string.Join("\n", Enumerable.Repeat(longLine, 40));
 
-        var code = $""""
-Foo()
-
-{repeatedComment}
-"""" + "\nfunc Foo() {}";
+        var code = "Foo()\n\n"
+            + repeatedComment
+            + "\nfunc Foo() {}";
 
 
         var lexer = new Lexer(new StringReader(code));

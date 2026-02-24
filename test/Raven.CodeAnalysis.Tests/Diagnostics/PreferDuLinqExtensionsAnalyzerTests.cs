@@ -23,7 +23,7 @@ func Test() {
             [
                 new DiagnosticResult(PreferDuLinqExtensionsAnalyzer.DiagnosticId)
                     .WithSpan(5, 21, 5, 26)
-                    .WithArguments("First", "FirstOrError")
+                    .WithArguments("FirstOrError")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -48,7 +48,7 @@ func Test() {
             [
                 new DiagnosticResult(PreferDuLinqExtensionsAnalyzer.DiagnosticId)
                     .WithSpan(5, 26, 5, 40)
-                    .WithArguments("FirstOrDefault", "FirstOrNone")
+                    .WithArguments("FirstOrNone")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -71,7 +71,12 @@ func Test() {
         var verifier = CreateAnalyzerVerifier<PreferDuLinqExtensionsAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id]);
+            disabledDiagnostics:
+            [
+                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id,
+                CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id,
+                CompilerDiagnostics.MemberDoesNotContainDefinition.Id
+            ]);
 
         verifier.Verify();
     }

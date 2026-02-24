@@ -258,7 +258,7 @@ import System.Collections.Generic.*
 class Counter {
     private var _values = List<int>()
 
-    public Add(value: int) {
+    public func Add(value: int) {
         _values.Add(value)
     }
 
@@ -268,7 +268,7 @@ class Counter {
 }
 
 class Runner {
-    Run() {
+    func Run() {
         val counter = Counter()
         counter.Add(1)
         counter.Add(2)
@@ -305,7 +305,7 @@ import System.Collections.Generic.*
 class Counter {
     private var _values = List<int>()
 
-    public Add(value: int) {
+    public func Add(value: int) {
         _values.Add(value)
     }
 
@@ -321,7 +321,7 @@ extension CounterExt for Counter {
 }
 
 class Runner {
-    Run() {
+    func Run() {
         val counter = Counter()
         counter.Add(1)
         counter.Add(2)

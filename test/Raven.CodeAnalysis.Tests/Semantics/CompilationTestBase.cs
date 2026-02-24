@@ -39,8 +39,7 @@ public abstract class CompilationTestBase
         if (options is not null)
             return options;
 
-        foreach (var tree in trees)
-        {
+        foreach (var tree in trees) {
             if (HasGlobalStatements(tree))
                 return new CompilationOptions(OutputKind.ConsoleApplication);
         }

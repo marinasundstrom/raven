@@ -18,6 +18,20 @@ Useful sample entry points:
 - `samples/async/async-await.rav` and `samples/async/async-task-return.rav` for async/await diagnostics.
 - `samples/patterns/match-expression.rav` and `samples/patterns/*` for match/pattern diagnostics.
 
+## Missing `func` migration guard (`RAV0909`)
+
+To enforce missing-`func` migration in changed files (without changing compiler compatibility yet):
+
+```bash
+bash scripts/check-missing-func-migration.sh --base origin/main
+```
+
+Or wire it into the build script:
+
+```bash
+RUN_MISSING_FUNC_GUARD=1 MISSING_FUNC_GUARD_BASE_REF=origin/main scripts/codex-build.sh
+```
+
 Return/throw context note:
 - `RAV1900` and `RAV1907` apply to inline expression contexts.
 - Explicit `return <value>` and `throw` statements are valid in statement contexts (including statement-form `match` arms and supported block-expression early-exit regions).

@@ -150,7 +150,7 @@ public static partial class SyntaxFactory
 {
     public static SeparatedSyntaxList<TNode> SeparatedList<TNode>()
         where TNode : SyntaxNode
-        => new SeparatedSyntaxList<TNode>(null, (SyntaxNode)null);
+        => SeparatedSyntaxList<TNode>.Empty;
 
     public static SeparatedSyntaxList<TNode> SeparatedList<TNode>(params SyntaxNodeOrToken[] items)
         where TNode : SyntaxNode

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -20,7 +21,7 @@ class Test {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -31,7 +32,9 @@ class Test {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var type = loaded.Assembly.GetType("Test", true);
         var instance = Activator.CreateInstance(type!);
-        var method = type!.GetMethod("GetInfo");
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type!.GetMethod("GetInfo", flags);
+        Assert.NotNull(method);
 
         var name = "Alice";
         var age = 30;
@@ -56,7 +59,7 @@ class Test {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -67,7 +70,9 @@ class Test {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var type = loaded.Assembly.GetType("Test", true);
         var instance = Activator.CreateInstance(type!);
-        var method = type!.GetMethod("Format");
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type!.GetMethod("Format", flags);
+        Assert.NotNull(method);
 
         var name = "花子";
         var expected = $"こんにちは、{name}さん。東京へようこそ";
@@ -90,7 +95,7 @@ class Test {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -101,7 +106,9 @@ class Test {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var type = loaded.Assembly.GetType("Test", true);
         var instance = Activator.CreateInstance(type!);
-        var method = type!.GetMethod("Format");
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type!.GetMethod("Format", flags);
+        Assert.NotNull(method);
 
         var name = "ليلى";
         var city = "دبي";

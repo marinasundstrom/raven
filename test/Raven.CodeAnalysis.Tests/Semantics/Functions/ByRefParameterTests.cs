@@ -123,8 +123,8 @@ func outer() {
     {
         var source = """
 class C {
-    static Set(var x: &int) { x = 1 }
-    static Pass(x: &int) { Set(&x) }
+    static func Set(var x: &int) { x = 1 }
+    static func Pass(x: &int) { Set(&x) }
 }
 """;
         var tree = SyntaxTree.ParseText(source);

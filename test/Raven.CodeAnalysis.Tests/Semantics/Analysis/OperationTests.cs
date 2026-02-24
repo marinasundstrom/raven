@@ -77,7 +77,7 @@ var value = if flag 1 else 2
     {
         const string source = """
 class C {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         if flag return else return
     }
 }
@@ -265,7 +265,7 @@ var result = Apply(1, v => v + 1)
     {
         const string source = """
 class C {
-    Test() {
+    func Test() {
         try {
             return
         } catch (System.Exception ex) {

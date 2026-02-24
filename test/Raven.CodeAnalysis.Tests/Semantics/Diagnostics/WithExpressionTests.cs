@@ -94,7 +94,7 @@ class Person {
         Name = name
     }
 
-    public f() {
+    public func f() {
         Name = "Bob"
     }
 }

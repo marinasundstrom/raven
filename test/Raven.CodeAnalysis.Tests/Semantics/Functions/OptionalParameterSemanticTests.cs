@@ -60,7 +60,7 @@ class Calculator {
 import Raven.Metadata.DefaultParameterValueAttributeFixture.*
 
 class C {
-    InvokeMetadata() {
+    func InvokeMetadata() {
         return Library.Optional()
     }
 }
@@ -114,7 +114,7 @@ class C {
 import Raven.Metadata.DefaultParameterValueAttributeFixture.*
 
 class C {
-    InvokeMetadata() {
+    func InvokeMetadata() {
         Library.OptionalNamed(trailing: 456, first: 1)
     }
 }
@@ -155,7 +155,7 @@ class C {
 import Raven.Metadata.DefaultParameterValueAttributeFixture.*
 
 class C {
-    InvokeMetadata() {
+    func InvokeMetadata() {
         Library.OverloadedOptional(1)
     }
 }
@@ -198,7 +198,7 @@ class C {
 import Raven.Metadata.DefaultParameterValueAttributeFixture.*
 
 class C {
-    InvokeMetadata() {
+    func InvokeMetadata() {
         Library.OptionalEnum()
     }
 }
@@ -235,7 +235,7 @@ class C {
 import Raven.Metadata.DefaultParameterValueAttributeFixture.*
 
 class C {
-    InvokeMetadata() {
+    func InvokeMetadata() {
         Library.OptionalAttributeOnly()
     }
 }
@@ -272,7 +272,7 @@ class C {
 import Raven.Metadata.DefaultParameterValueAttributeFixture.*
 
 class C {
-    InvokeMetadata() {
+    func InvokeMetadata() {
         Library.OptionalStruct()
     }
 }
@@ -311,7 +311,7 @@ class C {
 import Raven.Metadata.DefaultParameterValueAttributeFixture.*
 
 class C {
-    InvokeMetadata() {
+    func InvokeMetadata() {
         Library.OptionalReference()
     }
 }
@@ -350,7 +350,7 @@ class C {
 import Raven.Metadata.DefaultParameterValueAttributeFixture.*
 
 class C {
-    InvokeMetadata() {
+    func InvokeMetadata() {
         return Library.OptionalString()
     }
 }

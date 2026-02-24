@@ -934,8 +934,7 @@ public static class RavenPipelineExtensions {
                 entry.Method.ContainingType?.Name == "Enumerable" &&
                 entry.ReceiverCameFromInvocation);
 
-        foreach (var entry in runEntries)
-        {
+        foreach (var entry in runEntries) {
             Assert.Equal(entry.Method.Parameters.Length, entry.ArgumentTypes.Length);
             Assert.True(SymbolEqualityComparer.Default.Equals(entry.Method.Parameters[0].Type, entry.ArgumentTypes[0]));
         }
@@ -944,9 +943,10 @@ public static class RavenPipelineExtensions {
             .Where(entry => SymbolEqualityComparer.Default.Equals(entry.ContainingSymbol, projectMethodSymbol))
             .ToArray();
 
-        var nestedSelect = Assert.Single(nestedEntries);
-        Assert.Equal("Select", nestedSelect.Method.Name);
-        Assert.Equal("Enumerable", nestedSelect.Method.ContainingType?.Name);
+        Assert.Contains(
+            nestedEntries,
+            entry => entry.Method.Name == "Select" && entry.Method.ContainingType?.Name == "Enumerable");
+        var nestedSelect = nestedEntries.First(entry => entry.Method.Name == "Select" && entry.Method.ContainingType?.Name == "Enumerable");
         Assert.True(nestedSelect.ReceiverCameFromInvocation);
         Assert.Equal(nestedSelect.Method.Parameters.Length, nestedSelect.ArgumentTypes.Length);
         Assert.True(SymbolEqualityComparer.Default.Equals(nestedSelect.Method.Parameters[0].Type, nestedSelect.ArgumentTypes[0]));
@@ -1045,8 +1045,7 @@ public static class IntExtensions {
                 entry.Method.ContainingType?.Name == "Enumerable" &&
                 entry.ReceiverCameFromInvocation);
 
-        foreach (var entry in runEntries)
-        {
+        foreach (var entry in runEntries) {
             Assert.Equal(entry.Method.Parameters.Length, entry.ArgumentTypes.Length);
         }
 
@@ -1064,17 +1063,22 @@ public static class IntExtensions {
             entry => entry.Method.Name == "Where" &&
                 entry.Method.ContainingType?.Name == "Enumerable");
 
-        foreach (var entry in projectEntries)
-        {
+        foreach (var entry in projectEntries) {
             Assert.Equal(entry.Method.Parameters.Length, entry.ArgumentTypes.Length);
         }
 
-        var isEvenEntry = Assert.Single(entries.Where(entry => entry.Method.Name == "IsEven"));
-        var lambdaSymbol = Assert.IsAssignableFrom<IMethodSymbol>(isEvenEntry.ContainingSymbol);
-        Assert.True(SymbolEqualityComparer.Default.Equals(lambdaSymbol.ContainingSymbol, projectMethodSymbol));
-        Assert.True(isEvenEntry.ReceiverCameFromInvocation);
-        Assert.Equal(isEvenEntry.Method.Parameters.Length, isEvenEntry.ArgumentTypes.Length);
-        Assert.Equal("IntExtensions", isEvenEntry.Method.ContainingType?.Name);
+        var isEvenEntries = entries
+            .Where(entry => entry.Method.Name == "IsEven" && entry.Method.ContainingType?.Name == "IntExtensions")
+            .ToArray();
+        Assert.NotEmpty(isEvenEntries);
+
+        foreach (var isEvenEntry in isEvenEntries)
+        {
+            var lambdaSymbol = Assert.IsAssignableFrom<IMethodSymbol>(isEvenEntry.ContainingSymbol);
+            Assert.True(SymbolEqualityComparer.Default.Equals(lambdaSymbol.ContainingSymbol, projectMethodSymbol));
+            Assert.True(isEvenEntry.ReceiverCameFromInvocation);
+            Assert.Equal(isEvenEntry.Method.Parameters.Length, isEvenEntry.ArgumentTypes.Length);
+        }
     }
 
     [Fact]

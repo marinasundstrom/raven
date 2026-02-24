@@ -190,8 +190,7 @@ class C {
         MetadataReader metadataReader,
         Func<string, string, bool> predicate)
     {
-        foreach (var typeHandle in metadataReader.TypeDefinitions)
-        {
+        foreach (var typeHandle in metadataReader.TypeDefinitions) {
             var type = metadataReader.GetTypeDefinition(typeHandle);
             var typeName = metadataReader.GetString(type.Name);
 
@@ -237,8 +236,7 @@ class C {
 
     private static void AssertNoMethod(MetadataReader metadataReader, Func<string, string, bool> predicate)
     {
-        foreach (var typeHandle in metadataReader.TypeDefinitions)
-        {
+        foreach (var typeHandle in metadataReader.TypeDefinitions) {
             var type = metadataReader.GetTypeDefinition(typeHandle);
             var typeName = metadataReader.GetString(type.Name);
 

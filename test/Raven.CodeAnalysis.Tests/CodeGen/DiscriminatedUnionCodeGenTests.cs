@@ -284,8 +284,7 @@ union Option {
             .ToArray();
         Assert.NotEmpty(caseTypes);
 
-        foreach (var caseType in caseTypes)
-        {
+        foreach (var caseType in caseTypes) {
             var attribute = Assert.Single(caseType
                 .GetCustomAttributesData()
                 .Where(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.UnionCaseAttribute"));

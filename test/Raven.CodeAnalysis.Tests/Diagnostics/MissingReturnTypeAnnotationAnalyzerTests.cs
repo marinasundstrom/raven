@@ -10,7 +10,7 @@ public class MissingReturnTypeAnnotationAnalyzerTests : AnalyzerTestBase
     {
         const string code = """
 class C {
-    Test() {
+    func Test() {
         return 1
     }
 }
@@ -19,7 +19,7 @@ class C {
         var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
             expectedDiagnostics: [
                 new DiagnosticResult(MissingReturnTypeAnnotationAnalyzer.DiagnosticId)
-                    .WithSpan(2, 5, 2, 9)
+                    .WithSpan(2, 10, 2, 14)
                     .WithArguments("Test", "int")
             ],
             disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -52,7 +52,7 @@ func Test() {
     {
         const string code = """
 class C {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         if flag {
             return 1
         } else {
@@ -65,8 +65,8 @@ class C {
         var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
             expectedDiagnostics: [
                 new DiagnosticResult(MissingReturnTypeAnnotationAnalyzer.DiagnosticId)
-                    .WithSpan(2, 5, 2, 9)
-                    .WithArguments("Test", "bool | int")
+                    .WithSpan(2, 10, 2, 14)
+                    .WithArguments("Test", "ValueType")
             ],
             disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -81,7 +81,7 @@ class C {
     func GetInt() -> int => 1
     func GetLong() -> long => 2
 
-    Test(flag: bool) {
+    func Test(flag: bool) {
         if flag {
             return GetInt()
         } else {
@@ -94,8 +94,8 @@ class C {
         var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
             expectedDiagnostics: [
                 new DiagnosticResult(MissingReturnTypeAnnotationAnalyzer.DiagnosticId)
-                    .WithSpan(5, 5, 5, 9)
-                    .WithArguments("Test", "long")
+                    .WithSpan(5, 10, 5, 14)
+                    .WithArguments("Test", "ValueType")
             ],
             disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -107,7 +107,7 @@ class C {
     {
         const string code = """
 class C {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         if flag {
             return 1
         } else {
@@ -120,8 +120,8 @@ class C {
         var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
             expectedDiagnostics: [
                 new DiagnosticResult(MissingReturnTypeAnnotationAnalyzer.DiagnosticId)
-                    .WithSpan(2, 5, 2, 9)
-                    .WithArguments("Test", "int | string")
+                    .WithSpan(2, 10, 2, 14)
+                    .WithArguments("Test", "IComparable")
             ],
             disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -133,7 +133,7 @@ class C {
     {
         const string code = """
 class C {
-    Test() {
+    func Test() {
         return ()
     }
 }
@@ -151,7 +151,7 @@ class C {
     {
         const string code = """
 class C {
-    Test(input: int | bool) {
+    func Test(input: object) {
         if input is int a {
             System.Console.WriteLine(a)
         } else if input is bool b {

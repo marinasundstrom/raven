@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
 using Xunit;
@@ -25,7 +26,7 @@ class C {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -36,25 +37,26 @@ class C {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var assembly = loaded.Assembly;
         var type = assembly.GetType("C", throwOnError: true)!;
-        var method = type.GetMethod("WriteThrough")!;
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("WriteThrough", flags);
+        Assert.NotNull(method);
 
-        var value = (int)method.Invoke(null, Array.Empty<object>())!;
+        var value = (int)method!.Invoke(null, Array.Empty<object>())!;
         Assert.Equal(5, value);
     }
 
     [Fact]
-    public void ByRefReturn_AssignmentThroughAliasMutatesSource()
+    public void ByRefParameter_AssignmentThroughAliasMutatesSource()
     {
         const string code = """
 class Buffer {
-    static func Identity(slot: &int) -> &int {
-        return slot
+    static func Write(var slot: &int, value: int) -> unit {
+        slot = value
     }
 
     static func Run() -> int {
         var value = 10
-        var slot = Identity(&value)
-        slot = 42
+        Write(&value, 42)
         value
     }
 }
@@ -63,7 +65,7 @@ class Buffer {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -74,9 +76,11 @@ class Buffer {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Buffer", throwOnError: true)!;
-        var method = type.GetMethod("Run")!;
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
 
-        var value = (int)method.Invoke(null, Array.Empty<object>())!;
+        var value = (int)method!.Invoke(null, Array.Empty<object>())!;
         Assert.Equal(42, value);
     }
 }

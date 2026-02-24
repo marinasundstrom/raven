@@ -20,8 +20,7 @@ public class MatchExpressionCodeGenTests
     private static readonly OpCode[] SingleByteOpCodes;
     private static readonly OpCode[] MultiByteOpCodes;
 
-    static MatchExpressionCodeGenTests()
-    {
+    static MatchExpressionCodeGenTests() {
         SingleByteOpCodes = new OpCode[0x100];
         MultiByteOpCodes = new OpCode[0x100];
 
@@ -66,7 +65,7 @@ System.Console.WriteLine(result)
     {
         const string code = """
 class Program {
-    static Main() {
+    static func Main() {
         val describer = Describer()
         val zero = describer.Describe(0)
         val two = describer.Describe(2)
@@ -157,7 +156,7 @@ class Formatter {
 }
 
 class Program {
-    static Main() {
+    static func Main() {
         val formatter = Formatter()
         System.Console.WriteLine(formatter.Describe([2, 3]))
     }
@@ -231,7 +230,7 @@ class Formatter {
 }
 
 class Program {
-    static Main() {
+    static func Main() {
         val formatter = Formatter()
         val something = Test.Something("hello")
         val nothing = Test.Nothing
@@ -296,7 +295,7 @@ class Program {
         }
     }
 
-    static Main() {
+    static func Main() {
         val a = Test.Something("foo")
         val b = Test.Nothing
         System.Console.WriteLine(describe(a) + "," + describe(b))

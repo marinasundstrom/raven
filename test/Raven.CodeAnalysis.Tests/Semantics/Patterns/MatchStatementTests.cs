@@ -86,7 +86,12 @@ class Evaluator {
 }
 """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult("RAV1503").WithSpan(4, 21, 6, 14).WithArguments("()", "bool"),
+                new DiagnosticResult("RAV1503").WithSpan(7, 22, 9, 14).WithArguments("()", "bool")
+            ]);
         verifier.Verify();
     }
 

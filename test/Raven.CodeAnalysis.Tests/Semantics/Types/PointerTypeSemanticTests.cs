@@ -16,7 +16,7 @@ public class PointerTypeSemanticTests : CompilationTestBase
     {
         const string source = """
 class C {
-    unsafe static Test() {
+    unsafe static func Test() {
         val value = 0
         val pointer: *int = &value
     }
@@ -36,7 +36,7 @@ class C {
     {
         const string source = """
 class C {
-    static Test() {
+    static func Test() {
         var value = 0
         val alias = &value
     }
@@ -59,7 +59,7 @@ class C {
     {
         const string source = """
 class C {
-    unsafe static Test() {
+    unsafe static func Test() {
         var value = 0
         val alias: *int = &value
     }
@@ -84,7 +84,7 @@ class C {
 class Buffer {
     var head: int = 0
 
-    static Pin(storage: &Buffer) {
+    static func Pin(storage: &Buffer) {
         var alias = &storage.head
         alias = 5
     }
@@ -109,7 +109,7 @@ class Buffer {
 class Counter {
     static var total: int = 0
 
-    static Pin() {
+    static func Pin() {
         var alias = &Counter.total
         alias = 1
     }
@@ -132,7 +132,7 @@ class Counter {
     {
         const string source = """
 class Data {
-    static Pin() {
+    static func Pin() {
         var numbers: int[] = [1, 2, 3]
         var slot = &numbers[0]
         slot = 42

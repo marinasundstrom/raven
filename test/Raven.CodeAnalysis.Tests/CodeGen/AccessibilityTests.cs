@@ -36,8 +36,8 @@ public class MethodContainer {
     internal func Bar() -> unit { return; }
     private func Baz() -> unit { return; }
     protected func Quux() -> unit { return; }
-    protected internal Mix() -> unit { return; }
-    private protected Inter() -> unit { return; }
+    protected internal func Mix() -> unit { return; }
+    private protected func Inter() -> unit { return; }
 }
 """;
 
@@ -111,7 +111,7 @@ internal class Sample {
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(MetadataReference.CreateFromFile(runtimePath));
 

@@ -12,9 +12,13 @@ public class PatternVariableTests
         var code = """
 import System.*
 
-val v = if true { 1; } else { true; }
-if v is int a {
-    Console.WriteLine(a)
+class Program {
+    static func Main() -> unit {
+        val v = if true { 1; } else { 2; }
+        if v is int a {
+            Console.WriteLine(a)
+        }
+    }
 }
 """;
 
@@ -26,6 +30,6 @@ if v is int a {
 
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        Assert.True(result.Success, string.Join(System.Environment.NewLine, result.Diagnostics));
     }
 }

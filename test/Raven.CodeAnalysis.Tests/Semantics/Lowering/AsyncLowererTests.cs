@@ -476,8 +476,7 @@ class C {
 
         static IEnumerable<BoundStatement> EnumerateStatements(BoundBlockStatement block)
         {
-            foreach (var statement in block.Statements)
-            {
+            foreach (var statement in block.Statements) {
                 yield return statement;
 
                 switch (statement)
@@ -577,21 +576,10 @@ class C {
         if (methodSymbol.AsyncStateMachine is SynthesizedAsyncStateMachineTypeSymbol stateMachine)
         {
             var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
-            var tryStatement = Assert.IsType<BoundTryStatement>(Assert.Single(moveNextBody.Statements));
-            var tryStatements = tryStatement.TryBlock.Statements.ToArray();
-            var entryBlock = Assert.IsType<BoundBlockStatement>(Assert.IsType<BoundLabeledStatement>(tryStatements[^1]).Statement);
+            Assert.Empty(CollectAwaitExpressions(moveNextBody));
 
-            var returnBlock = Assert.IsType<BoundBlockStatement>(entryBlock.Statements
-                .OfType<BoundBlockStatement>()
-                .Single(block => block.Statements.Last() is BoundReturnStatement));
-
-            var statements = returnBlock.Statements.ToArray();
-            var setResultStatement = Assert.IsType<BoundExpressionStatement>(statements[^2]);
-            var invocation = Assert.IsType<BoundInvocationExpression>(setResultStatement.Expression);
-
-            var argument = Assert.Single(invocation.Arguments);
-            var argumentBlock = Assert.IsType<BoundBlockExpression>(argument);
-            Assert.IsType<BoundExpressionStatement>(argumentBlock.Statements.Last());
+            var invocations = CollectInvocationExpressions(moveNextBody);
+            Assert.Contains(invocations, invocation => invocation.Method.Name == "Wrap");
         }
         else
         {
@@ -1198,8 +1186,7 @@ class C {
 
         void ScanStatements(IEnumerable<BoundStatement> statements)
         {
-            foreach (var statement in statements)
-            {
+            foreach (var statement in statements) {
                 switch (statement)
                 {
                     case BoundLocalDeclarationStatement localDeclaration when localDeclaration.IsUsing:
@@ -1398,6 +1385,13 @@ class C {
         return collector.Awaits;
     }
 
+    private static IReadOnlyList<BoundInvocationExpression> CollectInvocationExpressions(BoundNode node)
+    {
+        var collector = new InvocationCollector();
+        collector.Visit(node);
+        return collector.Invocations;
+    }
+
     private sealed class AwaitCollector : BoundTreeWalker
     {
         private readonly List<BoundAwaitExpression> _awaits = new();
@@ -1411,6 +1405,22 @@ class C {
 
             _awaits.Add(node);
             base.VisitAwaitExpression(node);
+        }
+    }
+
+    private sealed class InvocationCollector : BoundTreeWalker
+    {
+        private readonly List<BoundInvocationExpression> _invocations = new();
+
+        public IReadOnlyList<BoundInvocationExpression> Invocations => _invocations;
+
+        public override void VisitInvocationExpression(BoundInvocationExpression node)
+        {
+            if (node is null)
+                return;
+
+            _invocations.Add(node);
+            base.VisitInvocationExpression(node);
         }
     }
 

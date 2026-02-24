@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_CONFIG="${BUILD_CONFIG:-Debug}"
+RUN_MISSING_FUNC_GUARD="${RUN_MISSING_FUNC_GUARD:-0}"
+MISSING_FUNC_GUARD_BASE_REF="${MISSING_FUNC_GUARD_BASE_REF:-}"
 
 echo "==> Restoring dependencies"
 (cd "$ROOT_DIR" && dotnet restore)
@@ -35,6 +37,15 @@ dotnet run -f net9.0 --project "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.cspr
 
 echo "==> Building Raven.Compiler with Raven.Core"
 dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0
+
+if [[ "$RUN_MISSING_FUNC_GUARD" == "1" ]]; then
+  echo "==> Running missing-func migration guard"
+  if [[ -n "$MISSING_FUNC_GUARD_BASE_REF" ]]; then
+    bash "$ROOT_DIR/scripts/check-missing-func-migration.sh" --base "$MISSING_FUNC_GUARD_BASE_REF"
+  else
+    bash "$ROOT_DIR/scripts/check-missing-func-migration.sh"
+  fi
+fi
 
 # echo "==> Building Raven solution"
 # dotnet build "$ROOT_DIR" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0

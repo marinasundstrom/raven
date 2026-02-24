@@ -570,7 +570,7 @@ union Result<T, E> {
     {
         const string source = """
 class C {
-    create() {
+    func create() {
         var value = Ok(42)
     }
 }
@@ -621,7 +621,7 @@ union Result<T, E> {
     {
         const string source = """
 class C {
-    create() {
+    func create() {
         var value = Ok<int>(42)
     }
 }
@@ -669,7 +669,7 @@ import A.Result<,>
 import B.Option<>
 
 class C {
-    create() {
+    func create() {
         var value = Ok(42)
     }
 }
@@ -692,7 +692,7 @@ class C {
         // "UnionName<TypeParams>.CaseName" rather than just "CaseName<TypeParams>".
         const string source = """
 class C {
-    create() {
+    func create() {
         var value = Ok(42)
     }
 }
@@ -747,7 +747,7 @@ import A.Result<,>
 import B.Result<>
 
 class C {
-    create() {
+    func create() {
         var value = Ok(42)
     }
 }
@@ -858,8 +858,7 @@ union Option {
 
         Assert.Equal(unionSymbol.Cases.Length, conversionMethods.Length);
 
-        foreach (var caseSymbol in unionSymbol.Cases)
-        {
+        foreach (var caseSymbol in unionSymbol.Cases) {
             var matchingConversion = conversionMethods.Single(m =>
                 m.Parameters.Length == 1 &&
                 SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, caseSymbol));

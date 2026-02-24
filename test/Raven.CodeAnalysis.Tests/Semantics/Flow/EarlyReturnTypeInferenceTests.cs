@@ -6,11 +6,11 @@ namespace Raven.CodeAnalysis.Tests;
 public class EarlyReturnTypeInferenceTests
 {
     [Fact]
-    public void ReturnTypeCollector_InfersUnionFromEarlyReturns()
+    public void ReturnTypeCollector_InfersBestCommonTypeFromEarlyReturns()
     {
         var code = """
 class Foo {
-    func Test(flag: bool) -> int | () {
+    func Test(flag: bool) {
         if flag {
             return 42
         } else {
@@ -32,17 +32,15 @@ class Foo {
         var inferred = ReturnTypeCollector.Infer(boundBody);
 
         Assert.NotNull(inferred);
-        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(inferred);
-        Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Int32);
-        Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Unit);
+        Assert.Equal(SpecialType.System_ValueType, inferred.SpecialType);
     }
 
     [Fact]
-    public void ReturnTypeCollector_InfersUnionFromImplicitFinalExpression()
+    public void ReturnTypeCollector_InfersBestCommonTypeFromImplicitFinalExpression()
     {
         var code = """
 class Foo {
-    func Test(flag: bool) -> int | () {
+    func Test(flag: bool) {
         if flag {
             return 42
         }
@@ -63,9 +61,7 @@ class Foo {
         var inferred = ReturnTypeCollector.Infer(boundBody);
 
         Assert.NotNull(inferred);
-        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(inferred);
-        Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Int32);
-        Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Unit);
+        Assert.Equal(SpecialType.System_ValueType, inferred.SpecialType);
     }
 
     [Fact]
@@ -98,11 +94,11 @@ class Foo {
     }
 
     [Fact]
-    public void ReturnTypeCollector_InfersUnionFromIfExpressionReturnedValue()
+    public void ReturnTypeCollector_InfersBestCommonTypeFromIfExpressionReturnedValue()
     {
         var code = """
 class Foo {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         return if flag {
             1
         } else {
@@ -124,9 +120,8 @@ class Foo {
         var inferred = ReturnTypeCollector.Infer(boundBody);
 
         Assert.NotNull(inferred);
-        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(inferred);
-        Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Int32);
-        Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_String);
+        Assert.IsAssignableFrom<INamedTypeSymbol>(inferred);
+        Assert.Equal(SpecialType.None, inferred.SpecialType);
     }
 
     [Fact]
@@ -134,7 +129,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         return {
             val x = if flag {
                 1

@@ -292,8 +292,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
     private abstract class FakeSymbol : ISymbol
     {
-        protected FakeSymbol(SymbolKind kind, string name)
-        {
+        protected FakeSymbol(SymbolKind kind, string name) {
             Kind = kind;
             Name = name;
             MetadataName = name;
@@ -372,8 +371,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
             Parameters = parameters;
             _isExtensionMethod = isExtensionMethod;
 
-            foreach (var parameter in parameters)
-            {
+            foreach (var parameter in parameters) {
                 if (parameter is FakeSymbol fakeParameter)
                 {
                     fakeParameter.SetContainer(this);

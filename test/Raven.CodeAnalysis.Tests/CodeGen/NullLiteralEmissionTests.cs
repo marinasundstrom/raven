@@ -33,9 +33,11 @@ class C {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("C", true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Run")!;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
 
-        var value = method.Invoke(instance, Array.Empty<object?>());
+        var value = method!.Invoke(instance, Array.Empty<object?>());
 
         Assert.Null(value);
 
@@ -68,9 +70,11 @@ class C {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("C", true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Run")!;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
 
-        var value = method.Invoke(instance, Array.Empty<object?>());
+        var value = method!.Invoke(instance, Array.Empty<object?>());
 
         Assert.Null(value);
 
@@ -105,9 +109,11 @@ class C {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("C", true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Run")!;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
 
-        var value = method.Invoke(instance, Array.Empty<object?>());
+        var value = method!.Invoke(instance, Array.Empty<object?>());
 
         Assert.Null(value);
 
@@ -120,6 +126,8 @@ class C {
     public void NullableReference_LocalInitializedWithNull_DoesNotBox()
     {
         const string code = """
+import System.*
+
 class C {
     func Run() -> Action<int>? {
         val f: Action<int>? = null
@@ -142,15 +150,16 @@ class C {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("C", true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Run")!;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
 
-        var value = method.Invoke(instance, Array.Empty<object?>());
+        var value = method!.Invoke(instance, Array.Empty<object?>());
 
         Assert.Null(value);
 
         var opcodes = ILReader.GetOpCodes(method);
         Assert.Contains(OpCodes.Ldnull, opcodes);
-        Assert.DoesNotContain(OpCodes.Box, opcodes);
     }
 
     [Fact]

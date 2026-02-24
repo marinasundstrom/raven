@@ -16,7 +16,7 @@ public class AsyncMethodTests : CompilationTestBase
     {
         const string source = """
 class C {
-    async f() {}
+    async func f() {}
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -29,11 +29,11 @@ class C {
     }
 
     [Fact]
-    public void AsyncMethod_WithoutReturnType_WithReturnExpression_InfersTaskOfResult()
+    public void AsyncMethod_WithoutReturnType_WithReturnExpression_ReportsTaskReturnDiagnostic()
     {
         const string source = """
 class C {
-    async f() {
+    async func f() {
         return 42;
     }
 }
@@ -47,7 +47,9 @@ class C {
 
         Assert.True(symbol.IsAsync);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task, symbol.ReturnType.SpecialType);
-        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.AsyncTaskReturnCannotHaveExpression);
     }
 
     [Fact]
@@ -88,7 +90,7 @@ class C {
         import System.Threading.Tasks.*
 
         class C {
-            async f() {
+            async func f() {
                 return Task.CompletedTask;
             }
         }

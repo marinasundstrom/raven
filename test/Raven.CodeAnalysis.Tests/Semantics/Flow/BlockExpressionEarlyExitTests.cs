@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -10,11 +11,11 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class BlockExpressionEarlyExitTests : DiagnosticTestBase
 {
     [Fact]
-    public void IfExpression_InitializerWithReturnStatements_ReportsDiagnostics_AndPreservesUnionInference()
+    public void IfExpression_InitializerWithReturnStatements_ReportsDiagnostics_AndPreservesBestCommonType()
     {
         const string code = """
 class Foo {
-    func Test(flag: bool) -> int | () {
+    func Test(flag: bool) {
         val x = if flag {
             return 42
         } else {
@@ -29,7 +30,9 @@ class Foo {
             expectedDiagnostics:
             [
                 new DiagnosticResult("RAV1900").WithSpan(4, 13, 4, 22),
-                new DiagnosticResult("RAV1900").WithSpan(6, 13, 6, 22)
+                new DiagnosticResult("RAV1900").WithSpan(6, 13, 6, 22),
+                new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "ValueType"),
+                new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("()", "ValueType")
             ]);
 
         var result = verifier.GetResult();
@@ -37,15 +40,13 @@ class Foo {
         var model = result.Compilation.GetSemanticModel(tree);
         var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "x");
         var local = (ILocalSymbol)model.GetDeclaredSymbol(variable)!;
-        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(local.Type);
-        Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Int32);
-        Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Unit);
+        Assert.Equal(SpecialType.System_ValueType, local.Type.SpecialType);
 
         verifier.Verify();
     }
 
     [Fact]
-    public void IfExpression_GlobalInitializerWithReturnStatements_ReportsDiagnostics_AndPreservesUnionInference()
+    public void IfExpression_GlobalInitializerWithReturnStatements_ReportsDiagnostics_AndPreservesBestCommonType()
     {
         const string code = """
 val x = if true {
@@ -60,17 +61,23 @@ val x = if true {
             expectedDiagnostics:
             [
                 new DiagnosticResult("RAV1900").WithSpan(2, 5, 2, 14),
-                new DiagnosticResult("RAV1900").WithSpan(4, 5, 4, 14)
+                new DiagnosticResult("RAV1900").WithSpan(4, 5, 4, 14),
+                new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "ValueType"),
+                new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("()", "ValueType")
             ]);
 
         var result = verifier.GetResult();
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
         var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "x");
-        var local = (ILocalSymbol)model.GetDeclaredSymbol(variable)!;
-        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(local.Type);
-        Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Int32);
-        Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Unit);
+        var symbol = model.GetDeclaredSymbol(variable)!;
+        var type = symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IFieldSymbol field => field.Type,
+            _ => throw new InvalidOperationException($"Unexpected symbol: {symbol.GetType().Name}")
+        };
+        Assert.Equal(SpecialType.System_ValueType, type.SpecialType);
 
         verifier.Verify();
     }
@@ -122,11 +129,11 @@ class C {
     {
         const string code = """
 class Foo {
-    func Test(flag: bool) -> int | () {
+    func Test(flag: bool) -> int {
         if flag {
             return 42
         } else {
-            return ()
+            return 0
         }
     }
 }
@@ -141,7 +148,7 @@ class Foo {
     {
         const string code = """
 class C {
-    func M(value: int) -> int | () {
+    func M(value: int) -> int {
         val x = value match {
             0 => {
                 return 1

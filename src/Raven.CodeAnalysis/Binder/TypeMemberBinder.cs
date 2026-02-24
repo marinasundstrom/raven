@@ -685,9 +685,6 @@ internal partial class TypeMemberBinder : Binder
         if (isExtensionMember)
             methodSymbol.MarkDeclaredInExtension();
 
-        if (isAsync && methodDecl.ReturnType is null)
-            methodSymbol.RequireAsyncReturnTypeInference();
-
         // Bind method-declared type parameters first (e.g. <B>)
         InitializeMethodTypeParameters(methodSymbol, methodDecl.TypeParameterList);
 

@@ -23,8 +23,7 @@ public class CompilerDiagnosticsLookupTests
 
         allIds.Count.ShouldBe(allDescriptors.Length);
 
-        foreach (var descriptor in allDescriptors)
-        {
+        foreach (var descriptor in allDescriptors) {
             allIds.Contains(descriptor.Id).ShouldBeTrue();
             ReferenceEquals(descriptor.Id, string.Intern(descriptor.Id)).ShouldBeTrue();
         }

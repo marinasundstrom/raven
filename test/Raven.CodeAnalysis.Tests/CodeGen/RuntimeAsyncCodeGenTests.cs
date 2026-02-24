@@ -122,8 +122,7 @@ class Program {
             "ComputeValueTask"
         };
 
-        foreach (var methodName in expectedAsyncMethods)
-        {
+        foreach (var methodName in expectedAsyncMethods) {
             var asyncMethod = programType.GetMethod(methodName, methodFlags)!;
             Assert.NotEqual(0, ((int)asyncMethod.GetMethodImplementationFlags()) & RuntimeAsyncMethodImplBit);
         }

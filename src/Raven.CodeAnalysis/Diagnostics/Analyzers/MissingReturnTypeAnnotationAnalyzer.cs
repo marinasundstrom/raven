@@ -84,7 +84,11 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
             return;
 
         if (inferred is ITypeUnionSymbol union)
+        {
             inferred = InferBestEffortType(context.SemanticModel.Compilation, union);
+            if (inferred is null)
+                return;
+        }
 
         var typeDisplay = FormatType(inferred);
         var location = identifier.GetLocation();
@@ -105,15 +109,18 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
         return type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
     }
 
-    private static ITypeSymbol InferBestEffortType(Compilation compilation, ITypeUnionSymbol union)
+    private static ITypeSymbol? InferBestEffortType(Compilation compilation, ITypeUnionSymbol union)
     {
         var members = union.Types
             .Where(t => t.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void))
             .Distinct<ITypeSymbol>(SymbolEqualityComparer.Default)
             .ToArray();
 
-        if (members.Length <= 1)
-            return union;
+        if (members.Length == 0)
+            return null;
+
+        if (members.Length == 1)
+            return members[0];
 
         var memberCandidate = members
             .Select(candidate => new CandidateScore(candidate, ScoreImplicitTarget(compilation, members, candidate)))
@@ -133,7 +140,8 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
             return commonDenominator;
         }
 
-        return union;
+        // Union return-type suggestions are intentionally disabled.
+        return null;
     }
 
     private static int ScoreImplicitTarget(Compilation compilation, ITypeSymbol[] sources, ITypeSymbol target)

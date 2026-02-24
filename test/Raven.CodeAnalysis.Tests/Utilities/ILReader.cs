@@ -10,8 +10,7 @@ internal static class ILReader
     private static readonly OpCode[] SingleByteOpCodes;
     private static readonly OpCode[] MultiByteOpCodes;
 
-    static ILReader()
-    {
+    static ILReader() {
         SingleByteOpCodes = new OpCode[0x100];
         MultiByteOpCodes = new OpCode[0x100];
 

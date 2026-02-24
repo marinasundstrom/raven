@@ -143,8 +143,7 @@ public class TestSyntaxVisitor : SyntaxVisitor
 {
     public override void VisitCompilationUnit(CompilationUnitSyntax node)
     {
-        foreach (var member in node.Members)
-        {
+        foreach (var member in node.Members) {
             member.Accept(this);
         }
     }

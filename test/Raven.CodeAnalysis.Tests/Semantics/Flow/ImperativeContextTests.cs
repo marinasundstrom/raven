@@ -55,7 +55,7 @@ class C {
     {
         var code = """
 class C {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         if flag {
             ()
         } else {
@@ -79,7 +79,7 @@ class C {
     {
         var code = """
 class C {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         if flag {
             ()
         } else ()
@@ -103,7 +103,7 @@ class C {
     {
         var code = """
 class C {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         if flag return else return
     }
 }
@@ -124,7 +124,7 @@ class C {
     {
         var code = """
 class C {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         while flag {
             break
         }
@@ -146,7 +146,7 @@ class C {
     {
         var code = """
 class C {
-    Test(items: int[]) {
+    func Test(items: int[]) {
         for each item in items {
             ()
         }
@@ -168,7 +168,7 @@ class C {
     {
         var code = """
 class C {
-    Test() {
+    func Test() {
         {
             ()
         }

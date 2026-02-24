@@ -24,7 +24,7 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -36,8 +36,10 @@ class Foo {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Foo", true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Run")!;
-        var value = (int)method.Invoke(instance, Array.Empty<object>())!;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
+        var value = (int)method!.Invoke(instance, Array.Empty<object>())!;
         Assert.Equal(42, value);
     }
 
@@ -56,7 +58,7 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -68,9 +70,11 @@ class Foo {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Foo", true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Run")!;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
 
-        var returnValue = method.Invoke(instance, Array.Empty<object?>());
+        var returnValue = method!.Invoke(instance, Array.Empty<object?>());
         Assert.Null(returnValue);
     }
 
@@ -89,7 +93,7 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -101,9 +105,11 @@ class Foo {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Foo", true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Run")!;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
 
-        var returnValue = method.Invoke(instance, Array.Empty<object?>());
+        var returnValue = method!.Invoke(instance, Array.Empty<object?>());
         Assert.Null(returnValue);
     }
 
@@ -122,7 +128,7 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 

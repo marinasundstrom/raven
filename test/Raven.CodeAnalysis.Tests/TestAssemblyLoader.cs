@@ -14,8 +14,7 @@ internal static class TestAssemblyLoader
         private readonly AssemblyLoadContext _context;
         public Assembly Assembly { get; }
 
-        public LoadedAssembly(Assembly assembly, AssemblyLoadContext context)
-        {
+        public LoadedAssembly(Assembly assembly, AssemblyLoadContext context) {
             Assembly = assembly;
             _context = context;
         }
@@ -45,4 +44,3 @@ internal static class TestAssemblyLoader
         return new LoadedAssembly(assembly, alc);
     }
 }
-

@@ -7,6 +7,7 @@ public abstract class DiagnosticTestBase
         var disabled = disabledDiagnostics?.ToList() ?? [];
         disabled.Add("RAV1011");
         disabled.Add("RAV1014");
+        disabled.Add("RAV0909");
 
         return new DiagnosticVerifier
         {

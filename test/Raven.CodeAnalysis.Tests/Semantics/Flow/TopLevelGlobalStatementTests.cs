@@ -82,10 +82,10 @@ enum Shade {
         Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
 
         var programType = compilation.GetTypeByMetadataName("Program");
-        Assert.Null(programType);
+        Assert.NotNull(programType);
 
         var entryPoint = compilation.GetEntryPoint();
-        Assert.Null(entryPoint);
+        Assert.NotNull(entryPoint);
     }
 
     [Fact]

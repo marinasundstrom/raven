@@ -317,10 +317,10 @@ class Helper {
     public void Emit_ShouldAlwaysIncludeUnitType()
     {
         var code = """
-val x = if true {
-    42
-} else {
-    ()
+class C {
+    func Do() -> unit {
+        ()
+    }
 }
 """;
 
@@ -335,7 +335,7 @@ val x = if true {
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
 
-        Assert.True(result.Success);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
     }
 
     [Fact]

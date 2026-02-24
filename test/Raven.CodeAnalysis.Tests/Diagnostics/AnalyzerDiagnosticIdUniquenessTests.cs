@@ -16,13 +16,11 @@ public class AnalyzerDiagnosticIdUniquenessTests
 
         var ids = new List<(string AnalyzerName, string Id)>();
 
-        foreach (var analyzerType in analyzerTypes)
-        {
+        foreach (var analyzerType in analyzerTypes) {
             var descriptorFields = analyzerType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
                 .Where(f => typeof(DiagnosticDescriptor).IsAssignableFrom(f.FieldType));
 
-            foreach (var field in descriptorFields)
-            {
+            foreach (var field in descriptorFields) {
                 if (field.GetValue(null) is not DiagnosticDescriptor descriptor)
                     continue;
 

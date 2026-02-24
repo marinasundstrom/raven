@@ -272,8 +272,7 @@ Missing1(); Missing2()
 
         Assert.Equal(2, renderedSourceLines.Length);
 
-        foreach (var renderedLine in renderedSourceLines)
-        {
+        foreach (var renderedLine in renderedSourceLines) {
             Assert.Equal(1, CountOccurrences(renderedLine, "\u001b[4:3m"));
             Assert.Equal(1, CountOccurrences(renderedLine, "\u001b[4:0m"));
         }

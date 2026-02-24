@@ -259,7 +259,7 @@ val length = 10.ToString().Length;
     }
 
     [Fact]
-    public void IfExpression_InferredLiteralUnion()
+    public void IfExpression_InferredBestCommonType()
     {
         var code = """
 val x = if true { "true" } else { 1 }
@@ -272,17 +272,15 @@ val x = if true { "true" } else { 1 }
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
-        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(local.Type);
-
-        Assert.Contains(union.Types, t => t is LiteralTypeSymbol lt && Equals(lt.ConstantValue, "true"));
-        Assert.Contains(union.Types, t => t is LiteralTypeSymbol lt && Equals(lt.ConstantValue, 1));
+        Assert.IsAssignableFrom<INamedTypeSymbol>(local.Type);
+        Assert.Equal(SpecialType.None, local.Type.SpecialType);
     }
 
     [Fact]
-    public void LiteralUnionTarget_WithMatchingLiteral_AssignsSuccessfully()
+    public void LiteralTypeTarget_WithMatchingLiteral_AssignsSuccessfully()
     {
         const string code = """
-val mode: "on" | "off" = "on"
+val mode: "on" = "on"
 """;
 
         var verifier = CreateVerifier(code);
@@ -290,15 +288,15 @@ val mode: "on" | "off" = "on"
     }
 
     [Fact]
-    public void LiteralUnionTarget_WithNonMemberLiteral_ReportsConversionDiagnostic()
+    public void LiteralTypeTarget_WithNonMemberLiteral_ReportsConversionDiagnostic()
     {
         const string code = """
-val mode: "on" | "off" = "unknown"
+val mode: "on" = "unknown"
 """;
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("\"unknown\"", "\"on\" | \"off\"")]);
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("\"unknown\"", "\"on\"")]);
         verifier.Verify();
     }
 

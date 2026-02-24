@@ -124,8 +124,7 @@ union Result<T, E> {
     {
         private readonly MetadataReader _reader;
 
-        public TypeNameProvider(MetadataReader reader)
-        {
+        public TypeNameProvider(MetadataReader reader) {
             _reader = reader;
         }
 

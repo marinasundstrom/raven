@@ -27,11 +27,11 @@ union Result<T, E> {
 class Disposable : IDisposable {
     public static var DisposedCount: int = 0
 
-    public static Reset() {
+    public static func Reset() {
         DisposedCount = 0
     }
 
-    public Dispose() {
+    public func Dispose() {
         DisposedCount = DisposedCount + 1
     }
 }

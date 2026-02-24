@@ -34,8 +34,10 @@ class C {
         var type = assembly.GetType("C", true)!;
         var instance = Activator.CreateInstance(type)!;
 
-        var method = type.GetMethod("Run")!;
-        var genericMethod = method.MakeGenericMethod(typeof(int));
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
+        var genericMethod = method!.MakeGenericMethod(typeof(int));
         var value = genericMethod.Invoke(instance, Array.Empty<object?>());
 
         Assert.Equal(0, value);
@@ -71,8 +73,10 @@ class C {
         var type = assembly.GetType("C", true)!;
         var instance = Activator.CreateInstance(type)!;
 
-        var method = type.GetMethod("RunStruct")!;
-        var genericMethod = method.MakeGenericMethod(typeof(int));
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("RunStruct", flags);
+        Assert.NotNull(method);
+        var genericMethod = method!.MakeGenericMethod(typeof(int));
         var value = genericMethod.Invoke(instance, Array.Empty<object?>());
 
         Assert.Equal(0, value);
@@ -108,8 +112,10 @@ class C {
         var type = assembly.GetType("C", true)!;
         var instance = Activator.CreateInstance(type)!;
 
-        var method = type.GetMethod("RunClass")!;
-        var genericMethod = method.MakeGenericMethod(typeof(string));
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("RunClass", flags);
+        Assert.NotNull(method);
+        var genericMethod = method!.MakeGenericMethod(typeof(string));
         var value = genericMethod.Invoke(instance, Array.Empty<object?>());
 
         Assert.Null(value);
@@ -145,8 +151,10 @@ class C {
         var type = assembly.GetType("C", true)!;
         var instance = Activator.CreateInstance(type)!;
 
-        var method = type.GetMethod("Run")!;
-        var genericMethod = method.MakeGenericMethod(typeof(int));
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
+        var genericMethod = method!.MakeGenericMethod(typeof(int));
         var value = genericMethod.Invoke(instance, Array.Empty<object?>());
 
         Assert.Equal(0, value);
@@ -182,8 +190,10 @@ class C {
         var type = assembly.GetType("C", true)!;
         var instance = Activator.CreateInstance(type)!;
 
-        var method = type.GetMethod("RunStruct")!;
-        var genericMethod = method.MakeGenericMethod(typeof(int));
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("RunStruct", flags);
+        Assert.NotNull(method);
+        var genericMethod = method!.MakeGenericMethod(typeof(int));
         var value = genericMethod.Invoke(instance, Array.Empty<object?>());
 
         Assert.Equal(0, value);
@@ -219,8 +229,10 @@ class C {
         var type = assembly.GetType("C", true)!;
         var instance = Activator.CreateInstance(type)!;
 
-        var method = type.GetMethod("RunClass")!;
-        var genericMethod = method.MakeGenericMethod(typeof(string));
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("RunClass", flags);
+        Assert.NotNull(method);
+        var genericMethod = method!.MakeGenericMethod(typeof(string));
         var value = genericMethod.Invoke(instance, Array.Empty<object?>());
 
         Assert.Null(value);

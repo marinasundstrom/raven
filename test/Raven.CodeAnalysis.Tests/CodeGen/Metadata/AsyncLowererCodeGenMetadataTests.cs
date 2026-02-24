@@ -82,8 +82,7 @@ WriteLine(x)
 
         if (!found)
         {
-            foreach (var handle in reader.MemberReferences)
-            {
+            foreach (var handle in reader.MemberReferences) {
                 var target = MetadataHelpers.GetMethodDisplay(reader, handle);
                 if (target is not null &&
                     target.EndsWith(".Start", StringComparison.Ordinal) &&
@@ -96,8 +95,7 @@ WriteLine(x)
         }
 
         var runtimeAsyncMethodFound = false;
-        foreach (var handle in reader.MethodDefinitions)
-        {
+        foreach (var handle in reader.MethodDefinitions) {
             var method = reader.GetMethodDefinition(handle);
             if ((((int)method.ImplAttributes) & 0x2000) != 0)
             {
@@ -147,8 +145,7 @@ WriteLine(x)
 
         var found = false;
 
-        foreach (var handle in reader.MemberReferences)
-        {
+        foreach (var handle in reader.MemberReferences) {
             var target = MetadataHelpers.GetMethodDisplay(reader, handle);
             if (target is null)
                 continue;
@@ -227,8 +224,7 @@ WriteLine(x)
     {
         private readonly MetadataReader _reader;
 
-        public MetadataTypeProvider(MetadataReader reader)
-        {
+        public MetadataTypeProvider(MetadataReader reader) {
             _reader = reader ?? throw new ArgumentNullException(nameof(reader));
         }
 

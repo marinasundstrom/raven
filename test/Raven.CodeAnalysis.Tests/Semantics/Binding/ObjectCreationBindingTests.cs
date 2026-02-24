@@ -19,7 +19,7 @@ class Foo<T>
 {
     public class Bar
     {
-        public Bar() {}
+        public func Bar() {}
     }
 }
 
@@ -37,7 +37,7 @@ class Outer<T>
 {
     public class Inner<U>
     {
-        public Inner() {}
+        public func Inner() {}
     }
 }
 
@@ -55,7 +55,7 @@ class Outer<T>
 {
     public class Inner<U>
     {
-        public Inner() {}
+        public func Inner() {}
     }
 }
 

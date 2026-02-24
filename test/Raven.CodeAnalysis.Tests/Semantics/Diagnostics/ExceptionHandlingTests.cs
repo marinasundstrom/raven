@@ -129,7 +129,7 @@ func ParseFlag(text: string) -> Result<bool, string> {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() {
+    async func Work() {
         val attempt = try await Task.FromResult(1)
     }
 }

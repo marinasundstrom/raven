@@ -70,7 +70,7 @@ val value = 0 match {
     {
         const string source = """
 class C {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         if flag {
             ()
         }
@@ -108,7 +108,7 @@ class C {
     {
         const string source = """
 class C {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         while flag {
             break
         }
@@ -159,7 +159,7 @@ class C {
     {
         const string source = """
 class C {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         val lambda = () => {
             while flag {
                 ()
@@ -207,7 +207,7 @@ class C {
     {
         const string source = """
 class C {
-    Test() {
+    func Test() {
         func nested() {
             ()
         }

@@ -16,8 +16,7 @@ public class IdentifierTokenTests
         private int _index;
         public Action<IS.DiagnosticInfo>? DiagnosticSink { get; set; }
 
-        public SingleTokenLexer(ParserInternal.Token token)
-        {
+        public SingleTokenLexer(ParserInternal.Token token) {
             _tokens = new[] { token, new ParserInternal.Token(SyntaxKind.EndOfFileToken, string.Empty) };
         }
 

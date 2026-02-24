@@ -26,8 +26,7 @@ public class SolutionProjectPersistenceTests
         solution = solution
             .AddProject(libId, "Lib", libPath, assemblyName: "Lib", compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddProject(appId, "App", appPath);
-        foreach (var reference in TestMetadataReferences.Default)
-        {
+        foreach (var reference in TestMetadataReferences.Default) {
             solution = solution.AddMetadataReference(libId, reference);
             solution = solution.AddMetadataReference(appId, reference);
         }

@@ -41,7 +41,7 @@ class Foo {}
 class Bar {}
 
 class Baz {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         val value = if flag {
             Foo()
         } else {
@@ -73,7 +73,7 @@ class Dog : Animal {}
 class Cat : Animal {}
 
 class Zoo {
-    Test(flag: bool) {
+    func Test(flag: bool) {
         val pet = if flag {
             Dog()
         } else {
@@ -118,7 +118,8 @@ class Baz {
     {
         var code = "val x: \"true\" | 1 = true";
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'true'", "\"true\" | 1")
+            new DiagnosticResult(CompilerDiagnostics.LocalVariableMustBeInitialized.Id).WithSpan(1, 5, 1, 6).WithArguments("x"),
+            new DiagnosticResult(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id).WithSpan(1, 14, 1, 15)
         ]);
         verifier.Verify();
     }
@@ -137,7 +138,9 @@ func test(flag: bool) {
 """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'() | int'", "'int'")
+            new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithSpan(2, 22, 6, 6).WithArguments("'ValueType'", "'int'"),
+            new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(2, 30, 4, 6).WithArguments("()", "ValueType"),
+            new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(4, 12, 6, 6).WithArguments("int", "ValueType")
         ]);
         verifier.Verify();
     }
@@ -147,7 +150,8 @@ func test(flag: bool) {
     {
         var code = "val x: \"true\" | 1 = 2";
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'2'", "\"true\" | 1")
+            new DiagnosticResult(CompilerDiagnostics.LocalVariableMustBeInitialized.Id).WithSpan(1, 5, 1, 6).WithArguments("x"),
+            new DiagnosticResult(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id).WithSpan(1, 14, 1, 15)
         ]);
         verifier.Verify();
     }
@@ -161,7 +165,21 @@ func describe(input: string | int | null) {}
 describe(null)
 """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.CharacterExpected.Id).WithSpan(1, 22, 1, 28).WithArguments(","),
+            new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id).WithSpan(1, 29, 1, 30),
+            new DiagnosticResult(CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax.Id).WithSpan(1, 29, 1, 30).WithArguments("|"),
+            new DiagnosticResult(CompilerDiagnostics.CharacterExpected.Id).WithSpan(1, 29, 1, 30).WithArguments(","),
+            new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id).WithSpan(1, 31, 1, 34),
+            new DiagnosticResult(CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax.Id).WithSpan(1, 31, 1, 34).WithArguments("int"),
+            new DiagnosticResult(CompilerDiagnostics.CharacterExpected.Id).WithSpan(1, 31, 1, 34).WithArguments(","),
+            new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id).WithSpan(1, 35, 1, 36),
+            new DiagnosticResult(CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax.Id).WithSpan(1, 35, 1, 36).WithArguments("|"),
+            new DiagnosticResult(CompilerDiagnostics.CharacterExpected.Id).WithSpan(1, 35, 1, 36).WithArguments(","),
+            new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id).WithSpan(1, 37, 1, 41),
+            new DiagnosticResult(CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax.Id).WithSpan(1, 37, 1, 41).WithArguments("null"),
+            new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(1, 44, 3, 2).WithArguments("null", "string")
+        ]);
         verifier.Verify();
     }
 

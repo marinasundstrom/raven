@@ -29,7 +29,7 @@ class C {
         value = 1
     }
 
-    public f() {
+    public func f() {
         value = 2
     }
 }

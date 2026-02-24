@@ -103,9 +103,6 @@ class FunctionBinder : Binder
         if (hasInvalidAsyncReturnType)
             _methodSymbol.MarkAsyncReturnTypeError();
 
-        if (isAsync && _syntax.ReturnType is null)
-            _methodSymbol.RequireAsyncReturnTypeInference();
-
         if (isExtern && (_syntax.Body is not null || _syntax.ExpressionBody is not null))
         {
             _diagnostics.ReportExternMemberCannotHaveBody(_syntax.Identifier.ValueText, _syntax.Identifier.GetLocation());

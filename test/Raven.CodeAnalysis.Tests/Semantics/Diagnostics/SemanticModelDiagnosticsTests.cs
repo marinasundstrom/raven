@@ -14,7 +14,7 @@ public class SemanticModelDiagnosticsTests : CompilationTestBase
     {
         var source = """
 class Test {
-    M() {
+    func M() {
         1();
     }
 }

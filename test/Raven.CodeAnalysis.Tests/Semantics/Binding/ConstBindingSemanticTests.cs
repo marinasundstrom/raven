@@ -16,7 +16,7 @@ public class ConstBindingSemanticTests : CompilationTestBase
     {
         const string source = """
 class C {
-    static Run() {
+    static func Run() {
         const greeting = "Hello"
     }
 }
@@ -43,7 +43,7 @@ class C {
 import System.*
 
 class C {
-    static Run() {
+    static func Run() {
         const total: Int64 = 1
         const small: Byte = 5
     }
@@ -73,7 +73,7 @@ class C {
     {
         const string source = """
 class C {
-    static Run() {
+    static func Run() {
         const text: string = null
     }
 }
@@ -99,7 +99,7 @@ class C {
 import System.*
 
 class C {
-    static Run() {
+    static func Run() {
         const today = DateTime.Now
     }
 }
@@ -115,7 +115,7 @@ class C {
     {
         const string source = """
 class C {
-    static Run() {
+    static func Run() {
         const value = "Hi"
         value = "Bye"
     }

@@ -10,7 +10,7 @@ public class SymbolQueryTests : DiagnosticTestBase
         string testCode =
             """
             class Foo {
-                M() {}
+                func M() {}
             }
 
             Foo.M();

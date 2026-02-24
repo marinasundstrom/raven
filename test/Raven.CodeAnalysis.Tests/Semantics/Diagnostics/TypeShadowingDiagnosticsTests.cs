@@ -24,7 +24,7 @@ namespace System {
     }
 
     [Fact]
-    public void ShadowingMetadataTypeAcrossNamespaces_AllowsLocalBinding()
+    public void ShadowingMetadataTypeAcrossNamespaces_ReportsConversionDiagnostic()
     {
         const string source = """
 import System.*
@@ -38,7 +38,7 @@ val local: Exception = Exception()
 
         var verifier = CreateVerifier(
             source,
-            Array.Empty<DiagnosticResult>(),
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithSpan(7, 24, 7, 35).WithArguments("'Exception'", "'Exception'")],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();

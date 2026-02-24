@@ -16,8 +16,7 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
     private List<RecordedInstruction>? _capturedInstructions;
     private IMethodSymbol? _capturedMethod;
 
-    public RecordingILBuilderFactory(IILBuilderFactory inner, Func<MethodGenerator, bool> predicate)
-    {
+    public RecordingILBuilderFactory(IILBuilderFactory inner, Func<MethodGenerator, bool> predicate) {
         _inner = inner;
         _predicate = predicate;
     }
@@ -49,8 +48,7 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
         private int _nextLabelId;
         private int _nextLocalId;
 
-        public RecordingILBuilder(IILBuilder inner, List<RecordedInstruction> instructions)
-        {
+        public RecordingILBuilder(IILBuilder inner, List<RecordedInstruction> instructions) {
             _inner = inner;
             _instructions = instructions;
         }

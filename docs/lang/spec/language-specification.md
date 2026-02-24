@@ -407,18 +407,20 @@ underlying type when selecting among method overloads. For example,
 `Console.WriteLine(1)` binds to `Console.WriteLine(int)` if such an overload
 exists, and `Console.WriteLine("test")` chooses `Console.WriteLine(string)`.
 
-Functions and lambdas without an annotated return type infer their result by
-collecting:
+Functions and methods without an annotated return type default to `unit`; the
+declaration return type is not inferred from body expressions.
+
+Lambdas without an annotated return type infer their result by collecting:
 
 1. the types of all explicit `return` statements, and
 2. the final expression of the outer body when that body has a value-producing tail expression.
 
 Expression statements in nested statement blocks (for example, inside `if`/`while`/`for`
-statement bodies) do not participate in return-type inference. If no value-returning
-path exists, the type defaults to `unit`.
+statement bodies) do not participate in lambda return-type inference. If no value-returning
+path exists, the lambda return type defaults to `unit`.
 
 ```raven
-func example(x: int) -> {
+val example = (x: int) -> {
     if x > 0 { return x }
     "neg"
 }
@@ -2912,9 +2914,9 @@ func outer() {
 The `async` modifier may appear on free functions, methods, and nested
 functions. An async declaration opts the body into asynchronous control flow so
 `await` expressions can suspend and resume execution. When no return type is
-annotated, the compiler infers `System.Threading.Tasks.Task` for bodies that
-complete without a value and `System.Threading.Tasks.Task<T>` when the body
-produces a value of type `T`.
+annotated, async declarations default to `System.Threading.Tasks.Task`
+(`unit`-returning async body). The compiler does not infer `Task<T>` from
+omitted return annotations.
 
 Async functions with an explicit return type must annotate one of the supported
 task shapes: `System.Threading.Tasks.Task` or `System.Threading.Tasks.Task<T>`.
@@ -2924,6 +2926,10 @@ methods, file-scoped functions, and local functions declared inside other
 bodies. Property and indexer accessors may also carry `async`; getters must
 expose a task-shaped return type to remain valid, while setters may await
 asynchronous work before storing values.
+
+Diagnostic analyzers may still suggest adding an explicit return type annotation
+based on observed body shape; such suggestions are advisory and do not change
+the language binding rule above.
 
 Async declarations support both block bodies and expression bodies. Every
 `return` inside an async declaration completes the task produced by the method.

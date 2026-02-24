@@ -9,7 +9,7 @@ public class MethodBindingTests : DiagnosticTestBase
     {
         string testCode = """
         class Foo {
-            f() {}
+            func f() {}
         }
         Foo.f()
         """;

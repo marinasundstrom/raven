@@ -274,7 +274,7 @@ class C {
     {
         const string source = """
 class C {
-    Test() {
+    func Test() {
         val value = 1
         value
     }
@@ -308,7 +308,7 @@ class C {
 import System.Collections.Generic.*
 
 class C {
-    Test() {
+    func Test() {
         func nested() -> IEnumerable<int> {
             yield return 1
         }
@@ -621,8 +621,7 @@ class C {
         switch (root)
         {
             case BoundBlockStatement block:
-                foreach (var statement in block.Statements)
-                {
+                foreach (var statement in block.Statements) {
                     foreach (var descendant in FindDescendantStatements(statement))
                     {
                         yield return descendant;
@@ -655,8 +654,7 @@ class C {
                     yield return descendant;
                 }
 
-                foreach (var catchClause in tryStatement.CatchClauses)
-                {
+                foreach (var catchClause in tryStatement.CatchClauses) {
                     foreach (var descendant in FindDescendantStatements(catchClause.Block))
                     {
                         yield return descendant;

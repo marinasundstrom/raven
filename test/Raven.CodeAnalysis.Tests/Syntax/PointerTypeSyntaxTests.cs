@@ -51,7 +51,7 @@ public class PointerTypeSyntaxTests
     {
         var code = """
 class Test {
-    static Run() {
+    static func Run() {
         var value = 41
         val pointer: *int = &value
         *pointer = 42
