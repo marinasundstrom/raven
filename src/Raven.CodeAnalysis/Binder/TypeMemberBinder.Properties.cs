@@ -28,6 +28,7 @@ internal partial class TypeMemberBinder : Binder
         var propertyType = declaredPropertyType;
 
         var modifiers = propertyDecl.Modifiers;
+        ReportRedundantPublicModifierIfNeeded(modifiers);
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isStatic = hasStaticModifier;
         var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
@@ -36,7 +37,7 @@ internal partial class TypeMemberBinder : Binder
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var isRequired = modifiers.Any(m => m.Kind == SyntaxKind.RequiredKeyword);
-        var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
+        var defaultAccessibility = GetDefaultMemberAccessibility();
         var propertyAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = propertyDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(propertyDecl.Identifier, explicitInterfaceSpecifier);

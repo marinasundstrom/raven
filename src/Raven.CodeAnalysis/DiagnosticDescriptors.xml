@@ -770,4 +770,12 @@
   <Descriptor Id="RAV0906" Identifier="RequiredFieldMustBeMutable"
     Title="Required field must be mutable" Message="Required field '{fieldName}' must be mutable"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0907" Identifier="ExplicitPublicAccessibilityRequired"
+    Title="Public-by-default mode is disabled"
+    Message="Public-by-default mode is disabled; declare member accessibility explicitly while migrating."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0908" Identifier="PublicModifierRedundantInPublicByDefaultMode"
+    Title="Redundant public modifier"
+    Message="Modifier 'public' is redundant when members are public by default."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

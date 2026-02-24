@@ -29,6 +29,8 @@ var stopwatch = Stopwatch.StartNew();
 // --output-type <console|classlib> - output kind
 // --unsafe           - enable unsafe mode (required for pointer declarations/usages)
 // --no-global-statements - disable top-level/global statements
+// --members-public-by-default - members default to public in classes/structs
+// --no-members-public-by-default - members use context defaults (private in classes/structs)
 // --runtime-async    - enable runtime-async metadata emission
 // --no-runtime-async - disable runtime-async metadata emission
 // -o <path>         - output assembly path
@@ -67,6 +69,7 @@ var embedCoreTypes = false;
 var skipDefaultRavenCoreLookup = false;
 var allowUnsafe = false;
 var allowGlobalStatements = true;
+bool? membersPublicByDefaultOverride = null;
 bool? runtimeAsyncOverride = null;
 
 var printSyntaxTree = false;
@@ -316,6 +319,12 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--no-global-statements":
             allowGlobalStatements = false;
+            break;
+        case "--members-public-by-default":
+            membersPublicByDefaultOverride = true;
+            break;
+        case "--no-members-public-by-default":
+            membersPublicByDefaultOverride = false;
             break;
         case "--runtime-async":
             runtimeAsyncOverride = true;
@@ -782,6 +791,7 @@ var executionOptions = new CompilerExecutionOptions(
     outputKind,
     allowUnsafe,
     allowGlobalStatements,
+    membersPublicByDefaultOverride,
     useRuntimeAsync,
     showSuggestions,
     enableAsyncInvestigation,
@@ -871,6 +881,10 @@ foreach (var r in additionalRefs)
 
 if (projectFileInput is not null)
 {
+    var cliMembersPublicByDefaultOverride = options.MembersPublicByDefaultConfigured
+        ? options.MembersPublicByDefault
+        : (bool?)null;
+
     if (project.CompilationOptions is { } projectOptions)
     {
         options = projectOptions
@@ -885,6 +899,9 @@ if (projectFileInput is not null)
             .WithAllowGlobalStatements(options.AllowGlobalStatements)
             .WithEnableSuggestions(options.EnableSuggestions)
             .WithRuntimeAsync(options.UseRuntimeAsync);
+
+        if (cliMembersPublicByDefaultOverride is bool membersPublicByDefault)
+            options = options.WithMembersPublicByDefault(membersPublicByDefault);
     }
 
     assemblyName = project.AssemblyName ?? project.Name;
@@ -1331,6 +1348,9 @@ static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog
         .WithEmbedCoreTypes(executionOptions.EmbedCoreTypes)
         .WithEnableSuggestions(executionOptions.EnableSuggestions);
 
+    if (executionOptions.MembersPublicByDefault is bool membersPublicByDefault)
+        options = options.WithMembersPublicByDefault(membersPublicByDefault);
+
     if (executionOptions.EnableAsyncInvestigation)
     {
         options = options.WithAsyncInvestigation(
@@ -1664,6 +1684,10 @@ static void PrintHelp()
     Console.WriteLine("                     Enable top-level/global statements (default)");
     Console.WriteLine("  --no-global-statements");
     Console.WriteLine("                     Disable top-level/global statements");
+    Console.WriteLine("  --members-public-by-default");
+    Console.WriteLine("                     Members default to public in classes/structs");
+    Console.WriteLine("  --no-members-public-by-default");
+    Console.WriteLine("                     Members use context defaults (private in classes/structs)");
     Console.WriteLine("  --runtime-async  Enable runtime-async metadata emission");
     Console.WriteLine("  --no-runtime-async");
     Console.WriteLine("                     Disable runtime-async metadata emission (auto-enabled for net11+)");
@@ -2165,6 +2189,7 @@ readonly record struct CompilerExecutionOptions(
     OutputKind OutputKind,
     bool AllowUnsafe,
     bool AllowGlobalStatements,
+    bool? MembersPublicByDefault,
     bool UseRuntimeAsync,
     bool EnableSuggestions,
     bool EnableAsyncInvestigation,

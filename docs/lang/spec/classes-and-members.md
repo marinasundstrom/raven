@@ -145,8 +145,10 @@ Default accessibility depends on the declaration context:
 * Nested types default to `private` unless they are declared inside an
   interface, in which case they are implicitly `public`.
 * Member declarations (fields, methods, properties, indexers, and constructors)
-  default to `public`. Members of interfaces are always public, even when no
-  modifier is written.
+  default to `private` for classes/structs and `public` for interfaces.
+  When `CompilationOptions.MembersPublicByDefault` is enabled, class/struct
+  members default to `public`; in that mode, an explicit `public` modifier is
+  reported as redundant.
 
 Constructors follow these rules as well. An explicitly declared parameterless
 constructor may specify any of the modifiers above to control how instances

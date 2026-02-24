@@ -26,6 +26,8 @@ dotnet run --project src/Raven.Compiler -- init [--name <project-name>] [--frame
 - `--no-runtime-async` &ndash; disable runtime-async emission and keep classic awaiter pattern/state-machine lowering
 - `--global-statements` &ndash; enable top-level/global statements (default)
 - `--no-global-statements` &ndash; disable top-level/global statements
+- `--members-public-by-default` &ndash; class/struct members default to `public`
+- `--no-members-public-by-default` &ndash; class/struct members use normal defaults (`private` for class/struct members)
 - `-s` &ndash; display the syntax tree (single file only)
 - `-d [plain|pretty[:no-diagnostics]]` &ndash; dump syntax (`plain` writes the source text, `pretty` emits highlighted syntax; append `:no-diagnostics` to skip diagnostic underlines, single file only)
 - `--highlight` &ndash; display diagnostics with highlighted source snippets and severity-coloured underlines (covers

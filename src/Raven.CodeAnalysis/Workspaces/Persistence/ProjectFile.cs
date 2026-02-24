@@ -52,6 +52,8 @@ internal static class ProjectFile
             projectElement.Add(new XAttribute("OutputKind", opts.OutputKind));
             projectElement.Add(new XAttribute("AllowUnsafe", opts.AllowUnsafe));
             projectElement.Add(new XAttribute("AllowGlobalStatements", opts.AllowGlobalStatements));
+            if (opts.MembersPublicByDefaultConfigured)
+                projectElement.Add(new XAttribute("MembersPublicByDefault", opts.MembersPublicByDefault));
         }
 
         foreach (var projRef in project.ProjectReferences)
@@ -80,6 +82,7 @@ internal static class ProjectFile
         var outputKindAttr = (string?)root.Attribute("OutputKind");
         var allowUnsafeAttr = (string?)root.Attribute("AllowUnsafe");
         var allowGlobalStatementsAttr = (string?)root.Attribute("AllowGlobalStatements");
+        var membersPublicByDefaultAttr = (string?)root.Attribute("MembersPublicByDefault");
         CompilationOptions? options = null;
         if (outputKindAttr is string ok && Enum.TryParse<OutputKind>(ok, out var kind))
             options = new CompilationOptions(kind);
@@ -91,6 +94,9 @@ internal static class ProjectFile
 
         if (allowGlobalStatementsAttr is string ags && bool.TryParse(ags, out var allowGlobalStatements))
             options = options.WithAllowGlobalStatements(allowGlobalStatements);
+
+        if (membersPublicByDefaultAttr is string mpbd && bool.TryParse(mpbd, out var membersPublicByDefault))
+            options = options.WithMembersPublicByDefault(membersPublicByDefault);
         var tempSolutionId = SolutionId.CreateNew();
         var projectId = ProjectId.CreateNew(tempSolutionId);
         var projectDir = Path.GetDirectoryName(filePath)!;

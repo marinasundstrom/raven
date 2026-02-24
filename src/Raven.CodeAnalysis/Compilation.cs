@@ -1022,7 +1022,9 @@ public partial class Compilation
             if (declaredInExtension)
                 isStatic = true;
             var defaultAccessibility = containingType is not null
-                ? AccessibilityUtilities.GetDefaultMemberAccessibility(containingType)
+                ? (Options.MembersPublicByDefault
+                    ? Accessibility.Public
+                    : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType))
                 : AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol);
             var methodAccessibility = AccessibilityUtilities.DetermineAccessibility(
                 methodDeclaration.Modifiers,

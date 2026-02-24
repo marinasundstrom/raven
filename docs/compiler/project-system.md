@@ -20,6 +20,7 @@ Supported attributes on `<Project>`:
 - `OutputKind`: `ConsoleApplication` or `DynamicallyLinkedLibrary`.
 - `AllowUnsafe`: `true`/`false`.
 - `AllowGlobalStatements`: `true`/`false` (`true` by default).
+- `MembersPublicByDefault`: `true`/`false` (when set, controls whether class/struct members default to `public`).
 - `Configuration`: Build configuration name used for generated intermediate files (`Debug` default).
 
 Supported child elements:

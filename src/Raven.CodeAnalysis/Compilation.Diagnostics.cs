@@ -39,6 +39,9 @@ public partial class Compilation
         if (Options.AllowUnsafe)
             Add(Diagnostic.Create(CompilerDiagnostics.UnsafeModeEnabled, Location.None));
 
+        if (Options.MembersPublicByDefaultConfigured && !Options.MembersPublicByDefault)
+            Add(Diagnostic.Create(CompilerDiagnostics.ExplicitPublicAccessibilityRequired, Location.None));
+
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
 
         void Add(Diagnostic diagnostic)
