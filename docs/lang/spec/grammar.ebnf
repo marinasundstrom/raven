@@ -152,6 +152,8 @@ NewLineToken             ::= /* newline trivia promoted to a token after type de
 
 ClassMember              ::= FieldDeclaration
                            | ConstDeclaration
+                           | InitDeclaration
+                           | FinalDeclaration
                            | MethodDeclaration
                            | ConversionOperatorDeclaration
                            | OperatorDeclaration
@@ -168,9 +170,20 @@ ConstDeclaration         ::= MemberModifiers? 'const' VariableDeclarators ';' ;
 VariableDeclarators      ::= VariableDeclarator {',' VariableDeclarator} ;
 VariableDeclarator       ::= Identifier (':' Type)? ['=' Expression] ;
 
-ConstructorDeclaration   ::= MemberModifiers?
-                             'init' Identifier? '(' ParameterList? ')'
+InitDeclaration          ::= MemberModifiers?
+                             'init'
                              ( Block | '=>' Expression ) ;
+
+ConstructorDeclaration   ::= MemberModifiers?
+                             'init' '(' ParameterList? ')'
+                             ConstructorInitializer?
+                             ( Block | '=>' Expression ) ;
+
+FinalDeclaration         ::= MemberModifiers?
+                             'final'
+                             Block ;
+
+ConstructorInitializer   ::= ':' 'base' ArgumentList ;
 
 MethodDeclaration        ::= MemberModifiers?
                              'func'

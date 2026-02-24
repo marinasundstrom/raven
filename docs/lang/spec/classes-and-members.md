@@ -156,35 +156,47 @@ Default accessibility depends on the declaration context:
   top level.
 * Nested types default to `private` unless they are declared inside an
   interface, in which case they are implicitly `public`.
-* Member declarations (fields, methods, properties, indexers, and constructors)
+* Member declarations (fields, methods, properties, indexers, constructors, and lifecycle blocks)
   default to `private` for classes/structs and `public` for interfaces.
   When `CompilationOptions.MembersPublicByDefault` is enabled, class/struct
   members default to `public`; in that mode, an explicit `public` modifier is
   reported as redundant.
   This mode is the migration path toward Raven's public-by-default member model.
 
-Constructors follow these rules as well. An explicitly declared parameterless
-constructor may specify any of the modifiers above to control how instances
-are created:
+Constructors and lifecycle declarations follow these rules as well.
+
+### Initialization model
+
+Raven’s preferred object-initialization model is:
+
+* a type parameter list on the class/struct header (primary-constructor parameters), plus
+* one or more `init { ... }` blocks for initialization logic.
+
+`static init { ... }` provides type initialization, and `final { ... }`
+provides finalization logic.
 
 ```raven
-class Widget
-{
-    private init() { /* singleton helper */ }
-    protected init(name: string) { /* subclass hook */ }
-    protected internal init Clone(source: Widget) { /* reuse state */ }
+class Widget(name: string) {
+    static init {
+        // type initialization
+    }
+
+    init {
+        // primary initialization logic
+        // primary parameters are in scope here
+    }
+
+    final {
+        // finalization
+    }
 }
 ```
 
-### Primary constructors
-
-Classes may declare a primary constructor by adding an argument list to the
-type header. Each parameter is captured and stored in an implicit instance
+Classes may declare primary-constructor parameters by adding an argument list to
+the type header. Each parameter is captured and stored in an implicit instance
 field with the same name. The compiler synthesizes an instance constructor
 whose signature matches the header parameters and assigns the arguments to
-those fields before any other field initializers execute. Supplying a primary
-constructor suppresses the implicit parameterless constructor; callers must
-provide the declared arguments.
+those fields before other instance initialization logic executes.
 
 ```raven
 class Person(name: string, age: int)
@@ -195,6 +207,21 @@ class Person(name: string, age: int)
 
 val person = Person("Ada", 42)
 val years = person.GetAge()
+```
+
+### `init(...)` declarations
+
+`init(...)` member declarations are constructor-shape declarations.
+
+* When used alongside the primary model above, they are **secondary constructors**.
+* When used without type-header parameters/`init {}` blocks, they are a valid
+  alternative syntax for initializing the object.
+
+```raven
+class Widget {
+    public init(name: string) { /* constructor-shape init */ }
+    public init(name: string, age: int) { /* secondary overload */ }
+}
 ```
 
 ### Record declarations

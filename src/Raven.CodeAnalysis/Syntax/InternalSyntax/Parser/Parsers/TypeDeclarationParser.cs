@@ -2,6 +2,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -161,6 +162,7 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         return token.Kind is
             SyntaxKind.OpenBracketToken or
+            SyntaxKind.OpenBraceToken or
             SyntaxKind.PublicKeyword or
             SyntaxKind.PrivateKeyword or
             SyntaxKind.InternalKeyword or
@@ -476,6 +478,12 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParseDelegateDeclaration(attributeLists, modifiers);
         }
 
+        if (keywordOrIdentifier.IsKind(SyntaxKind.OpenBraceToken) &&
+            TryExtractModifier(modifiers, SyntaxKind.FinalKeyword, out var finalKeyword, out var filteredFinalModifiers))
+        {
+            return ParseFinalDeclaration(attributeLists, filteredFinalModifiers, finalKeyword);
+        }
+
         if ((keywordOrIdentifier.IsKind(SyntaxKind.ExplicitKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ImplicitKeyword))
             && PeekToken(1).IsKind(SyntaxKind.OperatorKeyword))
         {
@@ -509,7 +517,10 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.InitKeyword))
         {
-            return ParseConstructorDeclaration(attributeLists, modifiers, keywordOrIdentifier);
+            if (PeekToken(1).IsKind(SyntaxKind.OpenParenToken))
+                return ParseConstructorDeclaration(attributeLists, modifiers, keywordOrIdentifier);
+
+            return ParseInitDeclaration(attributeLists, modifiers);
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.FuncKeyword))
@@ -549,6 +560,29 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         return ParsePropertyDeclaration(attributeLists, modifiers);
+    }
+
+    private static bool TryExtractModifier(
+        SyntaxList modifiers,
+        SyntaxKind modifierKind,
+        out SyntaxToken modifierToken,
+        out SyntaxList filteredModifiers)
+    {
+        var tokens = modifiers.GetChildren().OfType<SyntaxToken>().ToList();
+        var index = tokens.FindIndex(t => t.Kind == modifierKind);
+        if (index < 0)
+        {
+            modifierToken = MissingToken(modifierKind);
+            filteredModifiers = modifiers;
+            return false;
+        }
+
+        modifierToken = tokens[index];
+        tokens.RemoveAt(index);
+        filteredModifiers = tokens.Count == 0
+            ? SyntaxList.Empty
+            : List(tokens.Cast<GreenNode>().ToArray());
+        return true;
     }
 
     private MemberDeclarationSyntax ParseOperatorDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
@@ -668,6 +702,30 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         throw new Exception();
+    }
+
+    private MemberDeclarationSyntax ParseInitDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
+    {
+        var initKeyword = ReadToken();
+        var token = PeekToken();
+
+        BlockStatementSyntax? body = null;
+        ArrowExpressionClauseSyntax? expressionBody = null;
+
+        if (token.IsKind(SyntaxKind.OpenBraceToken))
+            body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
+        else if (token.IsKind(SyntaxKind.FatArrowToken))
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+
+        var terminatorToken = ConsumeMemberTerminator();
+        return InitDeclaration(attributeLists, modifiers, initKeyword, body, expressionBody, terminatorToken);
+    }
+
+    private MemberDeclarationSyntax ParseFinalDeclaration(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken finalKeyword)
+    {
+        var body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
+        var terminatorToken = ConsumeMemberTerminator();
+        return FinalDeclaration(attributeLists, modifiers, finalKeyword, body, terminatorToken);
     }
 
     private MemberDeclarationSyntax ParseMethodOrConstructorDeclarationBase(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)

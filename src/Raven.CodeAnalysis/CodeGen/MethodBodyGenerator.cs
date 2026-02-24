@@ -378,6 +378,8 @@ internal class MethodBodyGenerator
             ConversionOperatorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            InitDeclarationSyntax i when i.Body != null => semanticModel.GetBoundNode(i.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            FinalDeclarationSyntax f when f.Body != null => semanticModel.GetBoundNode(f.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             _ => null
         };
@@ -392,6 +394,8 @@ internal class MethodBodyGenerator
                 => semanticModel.GetBoundNode(c.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             BaseConstructorDeclarationSyntax c when c.ExpressionBody is not null
                 => semanticModel.GetBoundNode(c.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
+            InitDeclarationSyntax i when i.ExpressionBody is not null
+                => semanticModel.GetBoundNode(i.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             AccessorDeclarationSyntax a when a.ExpressionBody is not null
                 => semanticModel.GetBoundNode(a.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             PropertyDeclarationSyntax p when p.ExpressionBody is not null
@@ -407,6 +411,7 @@ internal class MethodBodyGenerator
             OperatorDeclarationSyntax o when o.ExpressionBody is not null => o.ExpressionBody.Expression,
             ConversionOperatorDeclarationSyntax c when c.ExpressionBody is not null => c.ExpressionBody.Expression,
             BaseConstructorDeclarationSyntax c when c.ExpressionBody is not null => c.ExpressionBody.Expression,
+            InitDeclarationSyntax i when i.ExpressionBody is not null => i.ExpressionBody.Expression,
             AccessorDeclarationSyntax a when a.ExpressionBody is not null => a.ExpressionBody.Expression,
             PropertyDeclarationSyntax p when p.ExpressionBody is not null => p.ExpressionBody.Expression,
             FunctionStatementSyntax l when l.ExpressionBody is not null => l.ExpressionBody.Expression,
@@ -592,6 +597,34 @@ internal class MethodBodyGenerator
                 }
 
                 ILGenerator.Emit(OpCodes.Ret);
+                break;
+
+            case InitDeclarationSyntax:
+                if (!MethodSymbol.IsStatic)
+                {
+                    EmitConstructorInitializer();
+                }
+
+                EmitFieldInitializers(MethodSymbol.IsStatic);
+
+                if (boundBody != null)
+                    EmitMethodBlock(boundBody, includeImplicitReturn: false);
+                else if (expressionBody is not null)
+                {
+                    if (expressionBodySyntax is not null)
+                        EmitSequencePoint(expressionBodySyntax);
+
+                    EmitExpressionBody(expressionBody, includeReturn: false);
+                }
+
+                ILGenerator.Emit(OpCodes.Ret);
+                break;
+
+            case FinalDeclarationSyntax:
+                if (boundBody != null)
+                    EmitMethodBlock(boundBody);
+                else
+                    ILGenerator.Emit(OpCodes.Ret);
                 break;
 
             case AccessorDeclarationSyntax accessorDeclaration:
@@ -2754,6 +2787,8 @@ internal class MethodBodyGenerator
                 FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? (SyntaxNode?)function.ExpressionBody?.Expression ?? function,
                 AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? (SyntaxNode?)accessor.ExpressionBody?.Expression ?? accessor,
                 BaseConstructorDeclarationSyntax ctor => (SyntaxNode?)ctor.Body ?? (SyntaxNode?)ctor.ExpressionBody?.Expression ?? ctor,
+                InitDeclarationSyntax initDecl => (SyntaxNode?)initDecl.Body ?? (SyntaxNode?)initDecl.ExpressionBody?.Expression ?? initDecl,
+                FinalDeclarationSyntax finalDecl => finalDecl.Body,
                 ArrowExpressionClauseSyntax arrow => arrow.Expression,
                 LambdaExpressionSyntax lambda => lambda.ExpressionBody,
                 _ => syntax

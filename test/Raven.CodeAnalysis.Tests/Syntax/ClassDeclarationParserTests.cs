@@ -327,4 +327,42 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         Assert.Empty(tree.GetDiagnostics());
     }
 
+    [Fact]
+    public void InitDeclaration_WithoutParameterList_ParsesAsInitDeclaration()
+    {
+        var source = """
+            class C {
+                init {
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var @class = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+
+        var initDecl = Assert.IsType<InitDeclarationSyntax>(Assert.Single(@class.Members));
+        Assert.Equal(SyntaxKind.InitKeyword, initDecl.InitKeyword.Kind);
+        Assert.NotNull(initDecl.Body);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FinalDeclaration_ParsesAsDedicatedSyntaxNode()
+    {
+        var source = """
+            class C {
+                final {
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var @class = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+
+        var finalDecl = Assert.IsType<FinalDeclarationSyntax>(Assert.Single(@class.Members));
+        Assert.Equal(SyntaxKind.FinalKeyword, finalDecl.FinalKeyword.Kind);
+        Assert.NotNull(finalDecl.Body);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
 }

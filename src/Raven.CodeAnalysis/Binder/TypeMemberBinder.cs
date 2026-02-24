@@ -253,6 +253,8 @@ internal partial class TypeMemberBinder : Binder
         {
             MethodDeclarationSyntax method => BindMethodSymbol(method),
             ConstructorDeclarationSyntax ctor => BindConstructorSymbol(ctor),
+            InitDeclarationSyntax initDecl => BindInitSymbol(initDecl),
+            FinalDeclarationSyntax finalDecl => BindFinalSymbol(finalDecl),
             OperatorDeclarationSyntax opDecl => BindOperatorSymbol(opDecl),
             ConversionOperatorDeclarationSyntax conversionDecl => BindConversionOperatorSymbol(conversionDecl),
             PropertyDeclarationSyntax property => BindPropertySymbol(property),
@@ -328,6 +330,30 @@ internal partial class TypeMemberBinder : Binder
                                  m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == ctor));
 
         return method;
+    }
+
+    private ISymbol? BindInitSymbol(InitDeclarationSyntax initDecl)
+    {
+        var isStatic = initDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var metadataName = isStatic ? ".cctor" : ".ctor";
+        var methodKind = isStatic ? MethodKind.StaticConstructor : MethodKind.Constructor;
+
+        return _containingType.GetMembers()
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m =>
+                m.Name == metadataName &&
+                m.MethodKind == methodKind &&
+                m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == initDecl));
+    }
+
+    private ISymbol? BindFinalSymbol(FinalDeclarationSyntax finalDecl)
+    {
+        return _containingType.GetMembers()
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m =>
+                m.Name == "Finalize" &&
+                m.MethodKind == MethodKind.Destructor &&
+                m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == finalDecl));
     }
 
     private ISymbol? BindPropertySymbol(PropertyDeclarationSyntax property)
@@ -1534,6 +1560,63 @@ internal partial class TypeMemberBinder : Binder
         }
 
         return methodBinder;
+    }
+
+    public MethodBinder BindInitDeclaration(InitDeclarationSyntax initDecl)
+    {
+        ReportPartialModifierNotSupported(initDecl.Modifiers, "init", _containingType.Name);
+        ReportRedundantPublicModifierIfNeeded(initDecl.Modifiers);
+
+        var isStatic = initDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var defaultAccessibility = GetDefaultMemberAccessibility();
+        var initAccessibility = AccessibilityUtilities.DetermineAccessibility(initDecl.Modifiers, defaultAccessibility);
+        if (isStatic)
+            initAccessibility = Accessibility.Private;
+
+        ReportInstanceMemberInStaticTypeIfNeeded(
+            isStatic,
+            "init",
+            initDecl.GetLocation());
+
+        var constructorMetadataName = isStatic ? ".cctor" : ".ctor";
+        var constructorKind = isStatic ? MethodKind.StaticConstructor : MethodKind.Constructor;
+
+        var ctorSymbol = new SourceMethodSymbol(
+            constructorMetadataName,
+            Compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            _containingType,
+            _containingType,
+            CurrentNamespace!.AsSourceNamespace(),
+            [initDecl.GetLocation()],
+            [initDecl.GetReference()],
+            isStatic: isStatic,
+            methodKind: constructorKind,
+            declaredAccessibility: initAccessibility);
+
+        return new MethodBinder(ctorSymbol, this);
+    }
+
+    public MethodBinder BindFinalDeclaration(FinalDeclarationSyntax finalDecl)
+    {
+        ReportPartialModifierNotSupported(finalDecl.Modifiers, "final", _containingType.Name);
+        ReportRedundantPublicModifierIfNeeded(finalDecl.Modifiers);
+
+        var finalizerSymbol = new SourceMethodSymbol(
+            "Finalize",
+            Compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            _containingType,
+            _containingType,
+            CurrentNamespace!.AsSourceNamespace(),
+            [finalDecl.GetLocation()],
+            [finalDecl.GetReference()],
+            isStatic: false,
+            methodKind: MethodKind.Destructor,
+            isOverride: true,
+            declaredAccessibility: Accessibility.ProtectedAndProtected);
+
+        return new MethodBinder(finalizerSymbol, this);
     }
 
     public DelegateDeclarationBinder BindDelegateDeclaration(DelegateDeclarationSyntax delegateDecl)
