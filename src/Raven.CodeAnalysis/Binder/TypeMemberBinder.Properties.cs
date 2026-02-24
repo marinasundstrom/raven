@@ -625,7 +625,7 @@ internal partial class TypeMemberBinder : Binder
                 binders[accessor] = binder;
                 if (accessor.ExpressionBody is not null)
                 {
-                    _ = binder.GetOrBind(accessor.ExpressionBody);
+                    _ = binder.GetOrBind(accessor.ExpressionBody.Expression);
                     foreach (var diagnostic in binder.Diagnostics.AsEnumerable())
                         _diagnostics.Report(diagnostic);
                 }
@@ -745,7 +745,7 @@ internal partial class TypeMemberBinder : Binder
             var expressionBodyBinder = new MethodBodyBinder(methodSymbol, binder);
 
             binders[propertyDecl.ExpressionBody!] = expressionBodyBinder;
-            _ = expressionBodyBinder.GetOrBind(propertyDecl.ExpressionBody);
+            _ = expressionBodyBinder.GetOrBind(propertyDecl.ExpressionBody.Expression);
             foreach (var diagnostic in expressionBodyBinder.Diagnostics.AsEnumerable())
                 _diagnostics.Report(diagnostic);
 
