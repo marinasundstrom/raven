@@ -81,7 +81,7 @@ Raven lifecycle declarations map to CLR methods:
   explicit parameter list in source.
 * `static init { ... }` lowers as a static constructor (`.cctor`).
 * `init(...)` remains constructor-shape syntax and maps to `.ctor` overloads.
-* `final { ... }` lowers as a `Finalize` override.
+* `finally { ... }` lowers as a `Finalize` override.
 
 ## Union types
 When emitted to .NET metadata, a union is projected as the narrowest common denominator of its members. If every member shares a base class, that base type becomes the metadata type; otherwise, `object` is used. Including `null` in the union marks the emitted type as nullable.

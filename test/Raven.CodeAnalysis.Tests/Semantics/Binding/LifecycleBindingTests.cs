@@ -57,11 +57,11 @@ class C {
     }
 
     [Fact]
-    public void FinalDeclaration_BindsAsDestructorMethodKind()
+    public void FinallyDeclaration_BindsAsDestructorMethodKind()
     {
         const string source = """
 class C {
-    final {
+    finally {
     }
 }
 """;
@@ -72,7 +72,7 @@ class C {
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
-        var finalDecl = tree.GetRoot().DescendantNodes().OfType<FinalDeclarationSyntax>().Single();
+        var finalDecl = tree.GetRoot().DescendantNodes().OfType<FinallyDeclarationSyntax>().Single();
         var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(finalDecl));
 
         Assert.Equal(MethodKind.Destructor, symbol.MethodKind);
@@ -91,7 +91,7 @@ class C {
     unsafe init {
     }
 
-    unsafe final {
+    unsafe finally {
     }
 }
 """;
@@ -101,7 +101,7 @@ class C {
 
         var model = compilation.GetSemanticModel(tree);
         var initDecls = tree.GetRoot().DescendantNodes().OfType<InitDeclarationSyntax>().ToArray();
-        var finalDecl = tree.GetRoot().DescendantNodes().OfType<FinalDeclarationSyntax>().Single();
+        var finalDecl = tree.GetRoot().DescendantNodes().OfType<FinallyDeclarationSyntax>().Single();
 
         Assert.Equal(2, initDecls.Length);
 
@@ -120,12 +120,12 @@ class C {
     }
 
     [Fact]
-    public void MultipleFinalDeclarations_ReportDuplicateMemberDiagnostic()
+    public void MultipleFinallyDeclarations_ReportDuplicateMemberDiagnostic()
     {
         const string source = """
 class C {
-    final { }
-    final { }
+    finally { }
+    finally { }
 }
 """;
 

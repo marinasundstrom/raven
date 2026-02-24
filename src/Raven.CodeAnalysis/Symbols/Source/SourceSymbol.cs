@@ -204,7 +204,7 @@ internal abstract class SourceSymbol : Symbol
             FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,
             ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.AttributeLists,
             InitDeclarationSyntax initDeclaration => initDeclaration.AttributeLists,
-            FinalDeclarationSyntax finalDeclaration => finalDeclaration.AttributeLists,
+            FinallyDeclarationSyntax finalDeclaration => finalDeclaration.AttributeLists,
             PropertyDeclarationSyntax propertyDeclaration => propertyDeclaration.AttributeLists,
             IndexerDeclarationSyntax indexerDeclaration => indexerDeclaration.AttributeLists,
             EventDeclarationSyntax eventDeclaration => eventDeclaration.AttributeLists,

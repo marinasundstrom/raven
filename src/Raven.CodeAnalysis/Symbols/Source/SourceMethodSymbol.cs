@@ -240,7 +240,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
                 MethodDeclarationSyntax methodDeclaration => methodDeclaration.Modifiers,
                 ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.Modifiers,
                 InitDeclarationSyntax initDeclaration => initDeclaration.Modifiers,
-                FinalDeclarationSyntax finalDeclaration => finalDeclaration.Modifiers,
+                FinallyDeclarationSyntax finalDeclaration => finalDeclaration.Modifiers,
                 OperatorDeclarationSyntax operatorDeclaration => operatorDeclaration.Modifiers,
                 ConversionOperatorDeclarationSyntax conversionDeclaration => conversionDeclaration.Modifiers,
                 FunctionStatementSyntax functionStatement => functionStatement.Modifiers,

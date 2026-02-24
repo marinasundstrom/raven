@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class LifecycleCodeGenTests
 {
     [Fact]
-    public void StaticInitAndFinal_EmitAndExecute()
+    public void StaticInitAndFinally_EmitAndExecute()
     {
         const string code = """
 import System.*
@@ -25,7 +25,7 @@ class Customer {
         WriteLine("init")
     }
 
-    final {
+    finally {
         WriteLine("final")
     }
 }
@@ -76,7 +76,7 @@ class UnsafeLifecycle {
         Value = *pointer
     }
 
-    unsafe final {
+    unsafe finally {
         var local = 13
         val pointer: *int = &local;
         WriteLine("ufinal:13")

@@ -384,11 +384,11 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void FinalDeclaration_ParsesAsDedicatedSyntaxNode()
+    public void FinallyDeclaration_ParsesAsDedicatedSyntaxNode()
     {
         var source = """
             class C {
-                final {
+                finally {
                 }
             }
             """;
@@ -396,8 +396,8 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var tree = SyntaxTree.ParseText(source);
         var @class = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
 
-        var finalDecl = Assert.IsType<FinalDeclarationSyntax>(Assert.Single(@class.Members));
-        Assert.Equal(SyntaxKind.FinalKeyword, finalDecl.FinalKeyword.Kind);
+        var finalDecl = Assert.IsType<FinallyDeclarationSyntax>(Assert.Single(@class.Members));
+        Assert.Equal(SyntaxKind.FinallyKeyword, finalDecl.FinallyKeyword.Kind);
         Assert.NotNull(finalDecl.Body);
         Assert.Empty(tree.GetDiagnostics());
     }

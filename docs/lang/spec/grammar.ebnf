@@ -153,7 +153,7 @@ NewLineToken             ::= /* newline trivia promoted to a token after type de
 ClassMember              ::= FieldDeclaration
                            | ConstDeclaration
                            | InitDeclaration
-                           | FinalDeclaration
+                           | FinallyDeclaration
                            | MethodDeclaration
                            | ConversionOperatorDeclaration
                            | OperatorDeclaration
@@ -179,8 +179,8 @@ ConstructorDeclaration   ::= MemberModifiers?
                              ConstructorInitializer?
                              ( Block | '=>' Expression ) ;
 
-FinalDeclaration         ::= MemberModifiers?
-                             'final'
+FinallyDeclaration       ::= MemberModifiers?
+                             'finally'
                              Block ;
 
 ConstructorInitializer   ::= ':' 'base' ArgumentList ;

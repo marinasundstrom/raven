@@ -49,7 +49,7 @@ class MethodBinder : TypeMemberBinder
         if (node is MethodDeclarationSyntax
             or ConstructorDeclarationSyntax
             or InitDeclarationSyntax
-            or FinalDeclarationSyntax
+            or FinallyDeclarationSyntax
             or AccessorDeclarationSyntax
             or PropertyDeclarationSyntax)
             return _methodSymbol;
@@ -99,7 +99,7 @@ class MethodBinder : TypeMemberBinder
                     MethodDeclarationSyntax methodDeclaration => methodDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
                     ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
                     InitDeclarationSyntax initDeclaration => initDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
-                    FinalDeclarationSyntax finalDeclaration => finalDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
+                    FinallyDeclarationSyntax finalDeclaration => finalDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
                     FunctionStatementSyntax functionStatement => functionStatement.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
                     _ => false,
                 };

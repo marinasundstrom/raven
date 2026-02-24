@@ -254,7 +254,7 @@ internal partial class TypeMemberBinder : Binder
             MethodDeclarationSyntax method => BindMethodSymbol(method),
             ConstructorDeclarationSyntax ctor => BindConstructorSymbol(ctor),
             InitDeclarationSyntax initDecl => BindInitSymbol(initDecl),
-            FinalDeclarationSyntax finalDecl => BindFinalSymbol(finalDecl),
+            FinallyDeclarationSyntax finalDecl => BindFinallySymbol(finalDecl),
             OperatorDeclarationSyntax opDecl => BindOperatorSymbol(opDecl),
             ConversionOperatorDeclarationSyntax conversionDecl => BindConversionOperatorSymbol(conversionDecl),
             PropertyDeclarationSyntax property => BindPropertySymbol(property),
@@ -346,7 +346,7 @@ internal partial class TypeMemberBinder : Binder
                 m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == initDecl));
     }
 
-    private ISymbol? BindFinalSymbol(FinalDeclarationSyntax finalDecl)
+    private ISymbol? BindFinallySymbol(FinallyDeclarationSyntax finalDecl)
     {
         return _containingType.GetMembers()
             .OfType<IMethodSymbol>()
@@ -1577,9 +1577,9 @@ internal partial class TypeMemberBinder : Binder
         return new MethodBinder(target, this);
     }
 
-    public MethodBinder BindFinalDeclaration(FinalDeclarationSyntax finalDecl)
+    public MethodBinder BindFinallyDeclaration(FinallyDeclarationSyntax finalDecl)
     {
-        ReportPartialModifierNotSupported(finalDecl.Modifiers, "final", _containingType.Name);
+        ReportPartialModifierNotSupported(finalDecl.Modifiers, "finally", _containingType.Name);
         ReportRedundantPublicModifierIfNeeded(finalDecl.Modifiers);
 
         var existingFinalizer = _containingType.GetMembers("Finalize")
@@ -1590,7 +1590,7 @@ internal partial class TypeMemberBinder : Binder
         {
             _diagnostics.ReportTypeAlreadyDefinesMember(
                 _containingType.Name,
-                "final",
+                "finally",
                 finalDecl.GetLocation());
             return new MethodBinder(existingSourceFinalizer, this);
         }

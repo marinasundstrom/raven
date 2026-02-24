@@ -171,6 +171,7 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.ReadonlyKeyword or
             SyntaxKind.AbstractKeyword or
             SyntaxKind.FinalKeyword or
+            SyntaxKind.FinallyKeyword or
             SyntaxKind.SealedKeyword or
             SyntaxKind.PartialKeyword or
             SyntaxKind.VirtualKeyword or
@@ -478,11 +479,8 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParseDelegateDeclaration(attributeLists, modifiers);
         }
 
-        if (keywordOrIdentifier.IsKind(SyntaxKind.OpenBraceToken) &&
-            TryExtractModifier(modifiers, SyntaxKind.FinalKeyword, out var finalKeyword, out var filteredFinalModifiers))
-        {
-            return ParseFinalDeclaration(attributeLists, filteredFinalModifiers, finalKeyword);
-        }
+        if (keywordOrIdentifier.IsKind(SyntaxKind.FinallyKeyword))
+            return ParseFinallyDeclaration(attributeLists, modifiers);
 
         if ((keywordOrIdentifier.IsKind(SyntaxKind.ExplicitKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ImplicitKeyword))
             && PeekToken(1).IsKind(SyntaxKind.OperatorKeyword))
@@ -533,29 +531,6 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParseMemberDeclarationWithoutFuncKeyword(attributeLists, modifiers);
 
         return ParsePropertyDeclaration(attributeLists, modifiers);
-    }
-
-    private static bool TryExtractModifier(
-        SyntaxList modifiers,
-        SyntaxKind modifierKind,
-        out SyntaxToken modifierToken,
-        out SyntaxList filteredModifiers)
-    {
-        var tokens = modifiers.GetChildren().OfType<SyntaxToken>().ToList();
-        var index = tokens.FindIndex(t => t.Kind == modifierKind);
-        if (index < 0)
-        {
-            modifierToken = MissingToken(modifierKind);
-            filteredModifiers = modifiers;
-            return false;
-        }
-
-        modifierToken = tokens[index];
-        tokens.RemoveAt(index);
-        filteredModifiers = tokens.Count == 0
-            ? SyntaxList.Empty
-            : List(tokens.Cast<GreenNode>().ToArray());
-        return true;
     }
 
     private MemberDeclarationSyntax ParseOperatorDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
@@ -694,11 +669,12 @@ internal class TypeDeclarationParser : SyntaxParser
         return InitDeclaration(attributeLists, modifiers, initKeyword, body, expressionBody, terminatorToken);
     }
 
-    private MemberDeclarationSyntax ParseFinalDeclaration(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken finalKeyword)
+    private MemberDeclarationSyntax ParseFinallyDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
     {
+        var finallyKeyword = ReadToken();
         var body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
         var terminatorToken = ConsumeMemberTerminator();
-        return FinalDeclaration(attributeLists, modifiers, finalKeyword, body, terminatorToken);
+        return FinallyDeclaration(attributeLists, modifiers, finallyKeyword, body, terminatorToken);
     }
 
     private MemberDeclarationSyntax ParseMethodOrIndexerDeclaration(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)

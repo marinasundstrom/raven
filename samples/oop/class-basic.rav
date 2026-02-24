@@ -47,7 +47,7 @@ class Customer {
 
     val OrderCount: int => orderCount
 
-    final {
+    finally {
         WriteLine("$_name was collected by GC")
     }
 }

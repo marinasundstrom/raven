@@ -169,7 +169,7 @@ Raven’s preferred object-initialization model is:
 * a type parameter list on the class/struct header (primary-constructor parameters), plus
 * one or more `init { ... }` blocks for initialization logic.
 
-`static init { ... }` provides type initialization, and `final { ... }`
+`static init { ... }` provides type initialization, and `finally { ... }`
 provides finalization logic.
 
 ```raven
@@ -183,7 +183,7 @@ class Widget(name: string) {
         // primary parameters are in scope here
     }
 
-    final {
+    finally {
         // finalization
     }
 }
