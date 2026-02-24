@@ -1318,24 +1318,7 @@ overloadResolutionLog?.Dispose();
 
 static Project AddDefaultAnalyzers(Project project, bool enableSuggestions)
 {
-    project = project
-        .AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new NonNullDeclarationsAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new MatchExhaustivenessAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new AutoPropertyInitializationAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new PreferNewLineBetweenDeclarationsAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new ThrowStatementUseResultAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
-
-    if (!enableSuggestions)
-        return project;
-
-    return project
-        .AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseAnalyzer()))
-        .AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer()));
+    return project.AddBuiltInAnalyzers(enableSuggestions);
 }
 
 static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog) CreateCompilationOptions(

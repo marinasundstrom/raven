@@ -13,10 +13,12 @@ public static class BuiltInCodeFixProviders
             new PreferTargetTypedUnionCaseInTargetTypedContextCodeFixProvider(),
             new PreferValInsteadOfLetCodeFixProvider(),
             new VarCanBeValCodeFixProvider(),
+            new MemberCanBePrivateCodeFixProvider(),
+            new MemberCanBeStaticCodeFixProvider(),
             new PreferNewLineBetweenDeclarationsCodeFixProvider(),
             new NonNullDeclarationsCodeFixProvider(),
             new PreferDuLinqExtensionsCodeFixProvider(),
             new PreferIsNullOverEqualityCodeFixProvider(),
         ];
-}
+    }
 }

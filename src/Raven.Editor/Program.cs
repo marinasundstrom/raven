@@ -73,17 +73,11 @@ internal class Program
             solution = solution.AddMetadataReference(_projectId, reference);
         }
 
-        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()));
-        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()));
-        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new NonNullDeclarationsAnalyzer()));
-        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new VarCanBeValAnalyzer()));
-        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new MatchExhaustivenessAnalyzer()));
-        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()));
-        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new AutoPropertyInitializationAnalyzer()));
-        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new ThrowStatementUseResultAnalyzer()));
-        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
-
         Workspace.TryApplyChanges(solution);
+
+        var project = Workspace.CurrentSolution.GetProject(_projectId)!;
+        project = project.AddBuiltInAnalyzers();
+        Workspace.TryApplyChanges(project.Solution);
 
         var editorScheme = new ColorScheme
         {
