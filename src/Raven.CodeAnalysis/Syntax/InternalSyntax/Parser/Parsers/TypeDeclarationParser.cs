@@ -1156,7 +1156,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return FieldDeclaration(attributeLists, modifiers, fieldKeyword, declaration, terminatorToken);
     }
 
-    private FieldDeclarationSyntax ParseConstDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)
+    private ConstDeclarationSyntax ParseConstDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)
     {
         var constKeyword = ReadToken();
         var declaration = ParseFieldLikeVariableDeclaration(constKeyword);
@@ -1165,7 +1165,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var terminatorToken = ConsumeMemberTerminator();
 
-        return FieldDeclaration(attributeLists, modifiers, constKeyword, declaration, terminatorToken);
+        return ConstDeclaration(attributeLists, modifiers, constKeyword, declaration, terminatorToken);
     }
 
     private VariableDeclarationSyntax ParseFieldLikeVariableDeclaration(SyntaxToken bindingKeyword)

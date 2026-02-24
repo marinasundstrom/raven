@@ -70,7 +70,8 @@ Raven is property-first for type members:
 Explicit `field` declarations are emitted as CLR fields and are intended for
 storage/layout-sensitive scenarios (for example interop with
 `StructLayout(LayoutKind.Sequential|Explicit)` and `FieldOffset`).
-`readonly field` emits an `initonly` field; `const` emits a metadata literal.
+`readonly field` emits an `initonly` field. Dedicated `const` declarations emit
+metadata literal fields (`static`/`literal`).
 
 ## Union types
 When emitted to .NET metadata, a union is projected as the narrowest common denominator of its members. If every member shares a base class, that base type becomes the metadata type; otherwise, `object` is used. Including `null` in the union marks the emitted type as nullable.

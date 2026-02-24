@@ -7,9 +7,9 @@ This chapter describes Raven's object-oriented constructs: declaring classes and
 ## Members (classes/structs)
 
 Raven supports classes and structs with properties, methods, constructors,
-indexers, and fields. The model is property-first: `val`/`var` declarations in
-type bodies define properties by default. Explicit `field` declarations are
-available for low-level storage scenarios.
+indexers, fields, and const members. The model is property-first: `val`/`var`
+declarations in type bodies define properties by default. Explicit `field` and
+`const` declarations are available for low-level or constant storage scenarios.
 
 Modifiers are C#-like but validated by the binder (e.g., `abstract` members
 require an `abstract` type; `override` requires a virtual base member).
@@ -38,6 +38,7 @@ class Counter(name: string)
 
 * `val`/`var` type members declare properties.
 * `field` declarations are explicit storage and are intended for low-level scenarios.
+* `const` declarations are compile-time constants and map to CLR literal fields.
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
@@ -83,8 +84,16 @@ class Counter {
 }
 ```
 
-`const` declarations remain compile-time constants and are emitted as metadata
-constants (implicitly static), similar to other .NET languages.
+`const` declarations are separate member declarations:
+
+```raven
+class MathConstants {
+    public const Pi: double = 3.141592653589793
+}
+```
+
+They remain compile-time constants and are emitted as metadata constants
+(implicitly static), similar to other .NET languages.
 
 ### Generic types
 
@@ -95,7 +104,7 @@ throughout the member list.
 ```raven
 class Box<T>
 {
-    public Value: T { get; }
+    public val Value: T { get; }
 
     init(value: T) { Value = value }
 }

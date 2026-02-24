@@ -208,7 +208,9 @@ internal abstract class SourceSymbol : Symbol
             EventDeclarationSyntax eventDeclaration => eventDeclaration.AttributeLists,
             AccessorDeclarationSyntax accessorDeclaration => accessorDeclaration.AttributeLists,
             FieldDeclarationSyntax fieldDeclaration => fieldDeclaration.AttributeLists,
+            ConstDeclarationSyntax constDeclaration => constDeclaration.AttributeLists,
             VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Parent?.Parent is FieldDeclarationSyntax field => field.AttributeLists,
+            VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Parent?.Parent is ConstDeclarationSyntax @const => @const.AttributeLists,
             ParameterSyntax parameter => parameter.AttributeLists,
             ArrowTypeClauseSyntax arrowTypeClause => arrowTypeClause.AttributeLists,
             _ => Enumerable.Empty<AttributeListSyntax>()

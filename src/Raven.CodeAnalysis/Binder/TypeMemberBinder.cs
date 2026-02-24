@@ -370,23 +370,45 @@ internal partial class TypeMemberBinder : Binder
 
     public void BindFieldDeclaration(FieldDeclarationSyntax fieldDecl)
     {
-        var firstDeclaratorName = fieldDecl.Declaration.Declarators.Count > 0
-            ? fieldDecl.Declaration.Declarators[0].Identifier.ValueText
-            : "<field>";
-        ReportPartialModifierNotSupported(fieldDecl.Modifiers, "field", firstDeclaratorName);
-        ReportRedundantPublicModifierIfNeeded(fieldDecl.Modifiers);
-
-        var fieldKeyword = fieldDecl.FieldKeyword;
-        var isConstDeclaration = fieldKeyword.IsKind(SyntaxKind.ConstKeyword);
-        var isReadonlyField = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.ReadonlyKeyword);
-        var isStatic = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || isConstDeclaration;
-        var hasNewModifier = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
-        var isRequired = fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.RequiredKeyword));
-        var fieldAccessibility = AccessibilityUtilities.DetermineAccessibility(
+        BindFieldLikeDeclaration(
             fieldDecl.Modifiers,
+            fieldDecl.FieldKeyword,
+            fieldDecl.Declaration,
+            fieldDecl.GetReference());
+    }
+
+    public void BindConstDeclaration(ConstDeclarationSyntax constDecl)
+    {
+        BindFieldLikeDeclaration(
+            constDecl.Modifiers,
+            constDecl.ConstKeyword,
+            constDecl.Declaration,
+            constDecl.GetReference());
+    }
+
+    private void BindFieldLikeDeclaration(
+        SyntaxTokenList modifiers,
+        SyntaxToken declarationKeyword,
+        VariableDeclarationSyntax declaration,
+        SyntaxReference declarationReference)
+    {
+        var firstDeclaratorName = declaration.Declarators.Count > 0
+            ? declaration.Declarators[0].Identifier.ValueText
+            : "<field>";
+        ReportPartialModifierNotSupported(modifiers, "field", firstDeclaratorName);
+        ReportRedundantPublicModifierIfNeeded(modifiers);
+
+        var fieldKeyword = declarationKeyword;
+        var isConstDeclaration = declarationKeyword.IsKind(SyntaxKind.ConstKeyword);
+        var isReadonlyField = modifiers.Any(m => m.Kind == SyntaxKind.ReadonlyKeyword);
+        var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || isConstDeclaration;
+        var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
+        var isRequired = modifiers.Any(m => m.IsKind(SyntaxKind.RequiredKeyword));
+        var fieldAccessibility = AccessibilityUtilities.DetermineAccessibility(
+            modifiers,
             GetDefaultMemberAccessibility());
 
-        foreach (var decl in fieldDecl.Declaration.Declarators)
+        foreach (var decl in declaration.Declarators)
         {
             ITypeSymbol? fieldType = decl.TypeAnnotation is null
                 ? null
@@ -487,7 +509,7 @@ internal partial class TypeMemberBinder : Binder
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
                 [decl.GetLocation()],
-                [decl.GetReference(), fieldDecl.GetReference()],
+                [decl.GetReference(), declarationReference],
                 initializerForSymbol,
                 declaredAccessibility: fieldAccessibility
             );

@@ -2477,6 +2477,14 @@ public partial class SemanticModel
                         CacheBinder(decl, fieldBinder);
                     break;
 
+                case ConstDeclarationSyntax constDecl:
+                    var constBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    constBinder.BindConstDeclaration(constDecl);
+                    CacheBinder(constDecl, constBinder);
+                    foreach (var decl in constDecl.Declaration.Declarators)
+                        CacheBinder(decl, constBinder);
+                    break;
+
                 case MethodDeclarationSyntax methodDecl:
                     var memberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);

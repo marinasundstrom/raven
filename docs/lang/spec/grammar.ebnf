@@ -65,7 +65,7 @@ ExtensionMember          ::= ExtensionMethodDeclaration
 
 ExtensionMethodDeclaration
                            ::= ExtensionMethodModifiers?
-                               Identifier TypeParameterList?
+                               'func' Identifier TypeParameterList?
                                '(' ParameterList? ')'
                                ReturnTypeClause?
                                WhereClauseList?
@@ -75,7 +75,8 @@ ExtensionMethodModifiers ::= AccessModifier ;
 
 ExtensionPropertyDeclaration
                            ::= ExtensionPropertyModifiers?
-                               Identifier ':' Type AccessorList ;
+                               PropertyBindingKeyword
+                               Identifier ':' Type PropertyBody ;
 
 ExtensionPropertyModifiers ::= AccessModifier ;
 
@@ -150,6 +151,7 @@ TypeTerminator           ::= NewLineToken | ';' ;
 NewLineToken             ::= /* newline trivia promoted to a token after type declarations */ ;
 
 ClassMember              ::= FieldDeclaration
+                           | ConstDeclaration
                            | MethodDeclaration
                            | ConversionOperatorDeclaration
                            | OperatorDeclaration
@@ -160,8 +162,8 @@ ClassMember              ::= FieldDeclaration
                            | IndexerDeclaration
                            | DelegateDeclaration ;
 
-FieldDeclaration         ::= MemberModifiers? FieldKind VariableDeclarators ';' ;  (* `required` is a MemberModifier *)
-FieldKind                ::= 'let' | 'val' | 'var' | 'const' ;
+FieldDeclaration         ::= MemberModifiers? 'field' VariableDeclarators ';' ;  (* `readonly`/`required` are MemberModifiers *)
+ConstDeclaration         ::= MemberModifiers? 'const' VariableDeclarators ';' ;
 
 VariableDeclarators      ::= VariableDeclarator {',' VariableDeclarator} ;
 VariableDeclarator       ::= Identifier (':' Type)? ['=' Expression] ;
@@ -171,6 +173,7 @@ ConstructorDeclaration   ::= MemberModifiers?
                              ( Block | '=>' Expression ) ;
 
 MethodDeclaration        ::= MemberModifiers?
+                             'func'
                              ExplicitInterfaceSpecifier?
                              Identifier TypeParameterList?
                              '(' ParameterList? ')'
@@ -208,7 +211,13 @@ InvocationOperatorDeclaration
                                ( Block | '=>' Expression ) ;
 
 PropertyDeclaration      ::= MemberModifiers?
-                             ExplicitInterfaceSpecifier? Identifier ':' Type AccessorList ;  (* `required` is a MemberModifier *)
+                             PropertyBindingKeyword
+                             ExplicitInterfaceSpecifier? Identifier ':' Type PropertyBody ;  (* `required` is a MemberModifier *)
+
+PropertyBindingKeyword   ::= 'val' | 'var' ;
+PropertyBody             ::= AccessorList
+                           | '=>' Expression
+                           | '=' Expression ;
 
 IndexerDeclaration       ::= MemberModifiers?
                              ExplicitInterfaceSpecifier? Identifier BracketedParameterList ':' Type AccessorList ;

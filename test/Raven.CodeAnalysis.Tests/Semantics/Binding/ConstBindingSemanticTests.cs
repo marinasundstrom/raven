@@ -229,4 +229,54 @@ class C {
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.ThisValueIsNotMutable.Id, diagnostic.Id);
     }
+
+    [Fact]
+    public void ConstField_UsesConstDeclarationSyntaxPath()
+    {
+        const string source = """
+class C {
+    const Answer: int = 42
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+
+        var root = tree.GetRoot();
+        var declaration = root.DescendantNodes().OfType<ConstDeclarationSyntax>().Single();
+        var declarator = declaration.Declaration.Declarators.Single();
+
+        var model = compilation.GetSemanticModel(tree);
+        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("Answer", field.Name);
+        Assert.True(field.IsConst);
+        Assert.Equal(42, field.GetConstantValue());
+    }
+
+    [Fact]
+    public void ConstField_AttributeBindsFromConstDeclaration()
+    {
+        const string source = """
+import System.*
+
+class C {
+    [Obsolete("old")]
+    const OldValue: int = 1
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ConstDeclarationSyntax>().Single();
+        var declarator = declaration.Declaration.Declarators.Single();
+        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
+        var attribute = Assert.Single(field.GetAttributes());
+
+        Assert.Equal("ObsoleteAttribute", attribute.AttributeClass?.Name);
+    }
 }

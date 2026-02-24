@@ -15,7 +15,7 @@ public sealed class SymbolPropertyTests : CompilationTestBase
     {
         const string source = """
 class Widget {
-    val field = 1
+    field stored: int = 1
 
     func M(value: int) -> int {
         let local = value
@@ -30,7 +30,7 @@ class Widget {
 
         var fieldDeclarator = root.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
-            .Single(declarator => declarator.Parent?.Parent is FieldDeclarationSyntax);
+            .Single(declarator => declarator.Parent?.Parent is FieldDeclarationSyntax or ConstDeclarationSyntax);
         var localDeclarator = root.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Parent?.Parent is LocalDeclarationStatementSyntax);

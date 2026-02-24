@@ -322,8 +322,8 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var tree = SyntaxTree.ParseText(source);
         var @class = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
 
-        var field = Assert.IsType<FieldDeclarationSyntax>(Assert.Single(@class.Members));
-        Assert.Equal(SyntaxKind.ConstKeyword, field.FieldKeyword.Kind);
+        var field = Assert.IsType<ConstDeclarationSyntax>(Assert.Single(@class.Members));
+        Assert.Equal(SyntaxKind.ConstKeyword, field.ConstKeyword.Kind);
         Assert.Empty(tree.GetDiagnostics());
     }
 
