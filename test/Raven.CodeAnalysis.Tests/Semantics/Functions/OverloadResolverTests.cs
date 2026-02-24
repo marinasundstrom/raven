@@ -401,6 +401,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public bool IsExtern => false;
 
+        public bool IsUnsafe => false;
+
         public bool IsGenericMethod => false;
 
         public bool IsOverride => false;

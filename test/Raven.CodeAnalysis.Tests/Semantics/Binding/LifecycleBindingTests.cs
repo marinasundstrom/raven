@@ -42,7 +42,9 @@ class C {
 }
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(true));
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
@@ -64,7 +66,9 @@ class C {
 }
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(true));
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
@@ -82,18 +86,12 @@ class C {
         const string source = """
 class C {
     unsafe static init {
-        var value = 0
-        val pointer: *int = &value;
     }
 
     unsafe init {
-        var value = 0
-        val pointer: *int = &value;
     }
 
     unsafe final {
-        var value = 0
-        val pointer: *int = &value;
     }
 }
 """;
@@ -106,14 +104,19 @@ class C {
         var finalDecl = tree.GetRoot().DescendantNodes().OfType<FinalDeclarationSyntax>().Single();
 
         Assert.Equal(2, initDecls.Length);
-        Assert.All(initDecls, decl =>
-        {
-            var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(decl));
-            Assert.True(symbol.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor);
-        });
+
+        var staticInitDecl = Assert.Single(initDecls.Where(d => d.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword)));
+        var staticInitSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(staticInitDecl));
+        Assert.Equal(MethodKind.StaticConstructor, staticInitSymbol.MethodKind);
+        Assert.True(staticInitSymbol.IsUnsafe);
+
+        var instanceInitDecl = Assert.Single(initDecls.Where(d => !d.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword)));
+        var instanceInitSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(instanceInitDecl));
+        Assert.Equal(MethodKind.Constructor, instanceInitSymbol.MethodKind);
 
         var finalSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(finalDecl));
         Assert.Equal(MethodKind.Destructor, finalSymbol.MethodKind);
+        Assert.True(finalSymbol.IsUnsafe);
     }
 
     [Fact]

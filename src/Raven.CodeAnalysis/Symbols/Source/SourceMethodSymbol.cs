@@ -33,6 +33,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _requiresAsyncReturnTypeInference;
     private bool _asyncReturnTypeInferenceComplete;
     private bool _setsRequiredMembers;
+    private bool? _lazyIsUnsafe;
 
     private bool IsAutoPropertyAccessor
         => MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
@@ -138,6 +139,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public bool IsExtern { get; }
 
+    public bool IsUnsafe => _lazyIsUnsafe ??= ComputeIsUnsafe();
+
     public bool IsGenericMethod => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0;
 
     public bool IsOverride => _isOverride;
@@ -222,6 +225,34 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     {
         _declaredInExtension = true;
         _lazyIsExtensionMethod = true;
+    }
+
+    private bool ComputeIsUnsafe()
+    {
+        if (DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return false;
+
+        foreach (var syntaxRef in DeclaringSyntaxReferences)
+        {
+            var syntax = syntaxRef.GetSyntax();
+            var modifiers = syntax switch
+            {
+                MethodDeclarationSyntax methodDeclaration => methodDeclaration.Modifiers,
+                ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.Modifiers,
+                InitDeclarationSyntax initDeclaration => initDeclaration.Modifiers,
+                FinalDeclarationSyntax finalDeclaration => finalDeclaration.Modifiers,
+                OperatorDeclarationSyntax operatorDeclaration => operatorDeclaration.Modifiers,
+                ConversionOperatorDeclarationSyntax conversionDeclaration => conversionDeclaration.Modifiers,
+                FunctionStatementSyntax functionStatement => functionStatement.Modifiers,
+                AccessorDeclarationSyntax accessorDeclaration => accessorDeclaration.Modifiers,
+                _ => SyntaxTokenList.Empty
+            };
+
+            if (modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword))
+                return true;
+        }
+
+        return false;
     }
 
     public override ImmutableArray<AttributeData> GetAttributes()

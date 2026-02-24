@@ -1244,6 +1244,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         public bool IsExtern => _original.IsExtern;
 
+        public bool IsUnsafe => _original.IsUnsafe;
+
         public bool IsGenericMethod => _original.IsGenericMethod;
 
         public bool IsOverride => _original.IsOverride;

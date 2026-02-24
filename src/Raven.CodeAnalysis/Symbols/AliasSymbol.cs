@@ -275,6 +275,8 @@ internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol
 
     public bool IsExtern => _method.IsExtern;
 
+    public bool IsUnsafe => _method.IsUnsafe;
+
     public bool IsGenericMethod => _method.IsGenericMethod;
 
     public bool IsOverride => _method.IsOverride;

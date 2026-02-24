@@ -299,6 +299,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public bool IsExtern => _methodInfo.IsAbstract || (_methodInfo.Attributes & MethodAttributes.PinvokeImpl) != 0;
 
+    public bool IsUnsafe => false;
+
     public bool IsGenericMethod => _methodInfo.IsGenericMethod;
 
     public bool IsOverride

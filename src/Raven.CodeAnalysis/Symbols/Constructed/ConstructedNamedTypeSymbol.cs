@@ -1346,6 +1346,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public bool IsDefinition => _original.IsDefinition;
     public bool IsExtensionMethod => _original.IsExtensionMethod;
     public bool IsExtern => _original.IsExtern;
+    public bool IsUnsafe => _original.IsUnsafe;
     public bool IsGenericMethod => _original.IsGenericMethod;
     public bool IsOverride => _original.IsOverride;
     public bool IsReadOnly => _original.IsReadOnly;

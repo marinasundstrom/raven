@@ -275,6 +275,7 @@ public interface IMethodSymbol : ISymbol
     bool IsDefinition { get; }
     bool IsExtensionMethod { get; }
     bool IsExtern { get; }
+    bool IsUnsafe { get; }
     bool IsGenericMethod { get; }
     bool IsOverride { get; }
     bool IsReadOnly { get; }

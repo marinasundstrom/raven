@@ -131,6 +131,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public bool IsDefinition => false;
     public bool IsExtensionMethod => _definition.IsExtensionMethod;
     public bool IsExtern => _definition.IsExtern;
+    public bool IsUnsafe => _definition.IsUnsafe;
     public bool IsGenericMethod => _definition.IsGenericMethod;
     public bool IsOverride => _definition.IsOverride;
     public bool IsReadOnly => _definition.IsReadOnly;

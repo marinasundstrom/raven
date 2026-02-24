@@ -62,6 +62,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public bool IsDefinition => true;
     public bool IsExtensionMethod => false;
     public bool IsExtern => false;
+    public bool IsUnsafe => false;
     public bool IsGenericMethod => false;
     public bool IsOverride => false;
     public bool IsReadOnly => false;
