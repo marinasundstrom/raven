@@ -309,4 +309,22 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         Assert.Equal(SyntaxKind.FieldKeyword, field.FieldKeyword.Kind);
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void FieldDeclaration_WithConstKeyword_ParsesAsConstFieldDeclaration()
+    {
+        var source = """
+            class Constants {
+                const Pi: double = 3.14
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var @class = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+
+        var field = Assert.IsType<FieldDeclarationSyntax>(Assert.Single(@class.Members));
+        Assert.Equal(SyntaxKind.ConstKeyword, field.FieldKeyword.Kind);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
 }

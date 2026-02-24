@@ -24,7 +24,7 @@ var y = (x = 1)
     {
         const string source = """
 class C {
-    val value: int
+    readonly field value: int
     public init() {
         value = 1
     }
@@ -39,7 +39,7 @@ class C {
             source,
             [
                 new DiagnosticResult(CompilerDiagnostics.ReadOnlyFieldCannotBeAssignedTo.Id)
-                    .WithSpan(8, 9, 8, 14)
+                    .WithSpan(8, 15, 9, 2)
             ]);
 
         verifier.Verify();
@@ -50,7 +50,7 @@ class C {
     {
         const string source = """
 class C {
-    val value: int
+    readonly field value: int
 
     public init() {
         value = 1
@@ -68,7 +68,7 @@ class C {
     {
         const string source = """
 class C {
-    public static val count: int
+    public static readonly field count: int
 
     static init() {
         count = 1
@@ -86,7 +86,7 @@ class C {
     {
         const string source = """
 class C {
-    public static val count: int
+    public static readonly field count: int
 
     static init() {
         count = 1
@@ -102,7 +102,7 @@ class C {
             source,
             [
                 new DiagnosticResult(CompilerDiagnostics.ReadOnlyFieldCannotBeAssignedTo.Id)
-                    .WithSpan(9, 9, 9, 14)
+                    .WithSpan(9, 15, 10, 2)
             ]);
 
         verifier.Verify();

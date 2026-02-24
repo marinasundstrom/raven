@@ -190,7 +190,6 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.ImplicitKeyword or
             SyntaxKind.EventKeyword or
             SyntaxKind.FieldKeyword or
-            SyntaxKind.LetKeyword or
             SyntaxKind.ValKeyword or
             SyntaxKind.VarKeyword or
             SyntaxKind.ConstKeyword or
@@ -498,9 +497,12 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParsePropertyBindingDeclaration(attributeLists, modifiers);
         }
 
-        if (keywordOrIdentifier.IsKind(SyntaxKind.ConstKeyword) ||
-            keywordOrIdentifier.IsKind(SyntaxKind.FieldKeyword) ||
-            keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword))
+        if (keywordOrIdentifier.IsKind(SyntaxKind.ConstKeyword))
+        {
+            return ParseConstDeclarationSyntax(attributeLists, modifiers);
+        }
+
+        if (keywordOrIdentifier.IsKind(SyntaxKind.FieldKeyword))
         {
             return ParseFieldDeclarationSyntax(attributeLists, modifiers);
         }
@@ -1144,8 +1146,8 @@ internal class TypeDeclarationParser : SyntaxParser
 
     private FieldDeclarationSyntax ParseFieldDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)
     {
-        var declaration = ParseVariableDeclarationSyntax();
-        var fieldKeyword = declaration?.BindingKeyword ?? MissingToken(SyntaxKind.FieldKeyword);
+        var fieldKeyword = ReadToken();
+        var declaration = ParseFieldLikeVariableDeclaration(fieldKeyword);
 
         SetTreatNewlinesAsTokens(true);
 
@@ -1154,48 +1156,29 @@ internal class TypeDeclarationParser : SyntaxParser
         return FieldDeclaration(attributeLists, modifiers, fieldKeyword, declaration, terminatorToken);
     }
 
-    private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
+    private FieldDeclarationSyntax ParseConstDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)
     {
-        var firstToken = ReadToken();
+        var constKeyword = ReadToken();
+        var declaration = ParseFieldLikeVariableDeclaration(constKeyword);
 
-        SyntaxToken bindingKeyword;
+        SetTreatNewlinesAsTokens(true);
+
+        var terminatorToken = ConsumeMemberTerminator();
+
+        return FieldDeclaration(attributeLists, modifiers, constKeyword, declaration, terminatorToken);
+    }
+
+    private VariableDeclarationSyntax ParseFieldLikeVariableDeclaration(SyntaxToken bindingKeyword)
+    {
         SyntaxToken identifier;
 
-        if (firstToken.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword or SyntaxKind.FieldKeyword)
+        if (CanTokenBeIdentifier(PeekToken()))
         {
-            bindingKeyword = firstToken;
-
-            if (CanTokenBeIdentifier(PeekToken()))
-            {
-                identifier = ReadIdentifierToken();
-            }
-            else
-            {
-                identifier = ExpectToken(SyntaxKind.IdentifierToken);
-            }
+            identifier = ReadIdentifierToken();
         }
         else
         {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.FieldDeclarationRequiresBindingKeyword,
-                    GetSpanOfLastToken()));
-
-                bindingKeyword = MissingToken(SyntaxKind.FieldKeyword);
-
-            if (CanTokenBeIdentifier(firstToken))
-            {
-                identifier = ToIdentifierToken(firstToken);
-                UpdateLastToken(identifier);
-            }
-            else if (CanTokenBeIdentifier(PeekToken()))
-            {
-                identifier = ReadIdentifierToken();
-            }
-            else
-            {
-                identifier = ExpectToken(SyntaxKind.IdentifierToken);
-            }
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
 
         EqualsValueClauseSyntax? initializer = null;
