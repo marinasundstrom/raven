@@ -49,6 +49,7 @@ class MethodBinder : TypeMemberBinder
         if (node is MethodDeclarationSyntax
             or ConstructorDeclarationSyntax
             or InitDeclarationSyntax
+            or InitBlockDeclarationSyntax
             or FinallyDeclarationSyntax
             or AccessorDeclarationSyntax
             or PropertyDeclarationSyntax)
@@ -91,6 +92,9 @@ class MethodBinder : TypeMemberBinder
     {
         get
         {
+            if (_methodSymbol.IsUnsafe)
+                return true;
+
             foreach (var reference in _methodSymbol.DeclaringSyntaxReferences)
             {
                 var syntax = reference.GetSyntax();
@@ -99,6 +103,7 @@ class MethodBinder : TypeMemberBinder
                     MethodDeclarationSyntax methodDeclaration => methodDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
                     ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
                     InitDeclarationSyntax initDeclaration => initDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
+                    InitBlockDeclarationSyntax initBlockDeclaration => initBlockDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
                     FinallyDeclarationSyntax finalDeclaration => finalDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
                     FunctionStatementSyntax functionStatement => functionStatement.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
                     _ => false,

@@ -52,9 +52,36 @@ class MethodBodyBinder : BlockBinder
         if (expression is BoundBlockExpression blockExpression)
             return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
 
-        BoundStatement statement = _methodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
-            ? new BoundExpressionStatement(expression)
-            : new BoundReturnStatement(ValidateByRefReturnExpression(_methodSymbol, expression, clause.Expression));
+        BoundStatement statement;
+        if (_methodSymbol.ReturnType.SpecialType == SpecialType.System_Unit)
+        {
+            statement = new BoundExpressionStatement(expression);
+        }
+        else
+        {
+            var targetType = GetTrailingExpressionTargetType(_methodSymbol);
+            var convertedExpression = expression;
+
+            if (convertedExpression.Type is { } sourceType &&
+                !targetType.ContainsErrorType() &&
+                !sourceType.ContainsErrorType())
+            {
+                if (!IsAssignable(targetType, sourceType, out var conversion))
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        clause.Expression.GetLocation());
+                    convertedExpression = new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
+                }
+                else if (!SymbolEqualityComparer.Default.Equals(sourceType, targetType))
+                {
+                    convertedExpression = new BoundConversionExpression(convertedExpression, targetType, conversion);
+                }
+            }
+
+            statement = new BoundReturnStatement(ValidateByRefReturnExpression(_methodSymbol, convertedExpression, clause.Expression));
+        }
 
         return new BoundBlockStatement([statement]);
     }

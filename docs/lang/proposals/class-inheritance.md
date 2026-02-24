@@ -54,6 +54,18 @@ class Derived : Base {
 
 The initializer runs before the derived body executes. It is only available on ordinary instance constructors; static constructors report `RAV0312`.
 
+For types with primary constructor parameters, the primary constructor body is written as a bare block and must be the first member:
+
+```raven
+class Customer(name: string) {
+    {
+        // primary constructor body
+    }
+}
+```
+
+`init { ... }` is sugar for `init() { ... }` (a parameterless constructor overload), not a primary-constructor body.
+
 ### Access modifiers
 
 Classes and their members support the existing access modifiers (`public`, `internal`, `protected`, `private`). A `protected` member is accessible within the declaring class and its subclasses.

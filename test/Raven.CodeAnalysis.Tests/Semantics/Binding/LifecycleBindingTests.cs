@@ -24,12 +24,12 @@ class C {
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
-        var initDecl = tree.GetRoot().DescendantNodes().OfType<InitDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(initDecl));
+        var ctorDecl = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(ctorDecl));
 
         Assert.Equal(MethodKind.Constructor, symbol.MethodKind);
         Assert.Equal(".ctor", symbol.Name);
-        Assert.Equal(0, symbol.Parameters.Length);
+        Assert.Empty(symbol.Parameters);
     }
 
     [Fact]
@@ -48,8 +48,8 @@ class C {
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
-        var initDecl = tree.GetRoot().DescendantNodes().OfType<InitDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(initDecl));
+        var ctorDecl = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(ctorDecl));
 
         Assert.Equal(MethodKind.StaticConstructor, symbol.MethodKind);
         Assert.Equal(".cctor", symbol.Name);
@@ -100,17 +100,17 @@ class C {
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
-        var initDecls = tree.GetRoot().DescendantNodes().OfType<InitDeclarationSyntax>().ToArray();
+        var ctorDecls = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().ToArray();
         var finalDecl = tree.GetRoot().DescendantNodes().OfType<FinallyDeclarationSyntax>().Single();
 
-        Assert.Equal(2, initDecls.Length);
+        Assert.Equal(2, ctorDecls.Length);
 
-        var staticInitDecl = Assert.Single(initDecls.Where(d => d.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword)));
+        var staticInitDecl = Assert.Single(ctorDecls.Where(d => d.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword)));
         var staticInitSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(staticInitDecl));
         Assert.Equal(MethodKind.StaticConstructor, staticInitSymbol.MethodKind);
         Assert.True(staticInitSymbol.IsUnsafe);
 
-        var instanceInitDecl = Assert.Single(initDecls.Where(d => !d.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword)));
+        var instanceInitDecl = Assert.Single(ctorDecls.Where(d => !d.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword)));
         var instanceInitSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(instanceInitDecl));
         Assert.Equal(MethodKind.Constructor, instanceInitSymbol.MethodKind);
 
@@ -134,4 +134,43 @@ class C {
 
         Assert.Contains(diagnostics, d => d.Id == CompilerDiagnostics.TypeAlreadyDefinesMember.Id);
     }
+
+    [Fact]
+    public void PrimaryInitializerBlock_BindsToPrimaryConstructor()
+    {
+        const string source = """
+class C(name: string) {
+    {
+        val x = name
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var model = compilation.GetSemanticModel(tree);
+        var initBlockDecl = tree.GetRoot().DescendantNodes().OfType<InitBlockDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(initBlockDecl));
+
+        Assert.Equal(MethodKind.Constructor, symbol.MethodKind);
+        Assert.Equal(".ctor", symbol.Name);
+        Assert.Single(symbol.Parameters);
+    }
+
+    [Fact]
+    public void PrimaryInitializerBlock_WithoutPrimaryConstructor_ReportsDiagnostic()
+    {
+        const string source = """
+class C {
+    { }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+
+        Assert.Contains(diagnostics, d => d.Id == CompilerDiagnostics.PrimaryInitializerRequiresPrimaryConstructor.Id);
+    }
+
 }

@@ -83,6 +83,43 @@ class UnsafeLifecycle {
         Assert.NotNull(type.GetMethod("Finalize", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
     }
 
+    [Fact]
+    public void PrimaryInitializerBlock_ExecutesInPrimaryConstructorPath()
+    {
+        const string code = """
+import System.*
+
+class Customer(name: string, age: int) {
+    {
+        if name is "Marina" {
+            Score = 100
+        } else {
+            Score = 0
+        }
+    }
+
+    val Name: string => name
+    val Age: int => age
+    val Score: int { get; }
+}
+""";
+
+        using var loaded = EmitAndLoad(code, allowUnsafe: false);
+        var type = loaded.Assembly.GetType("Customer", throwOnError: true)!;
+        var ctor = type.GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            [typeof(string), typeof(int)],
+            modifiers: null)!;
+        var instance = ctor.Invoke(["Acme", 20]);
+        var scoreProperty = type.GetProperty("Score", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        var score = scoreProperty is not null
+            ? (int)scoreProperty.GetValue(instance)!
+            : (int)type.GetField("Score", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(instance)!;
+
+        Assert.Equal(0, score);
+    }
+
     private static TestAssemblyLoader.LoadedAssembly EmitAndLoad(string code, bool allowUnsafe)
     {
         var syntaxTree = SyntaxTree.ParseText(code);

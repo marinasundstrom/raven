@@ -379,6 +379,7 @@ internal class MethodBodyGenerator
             FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             InitDeclarationSyntax i when i.Body != null => semanticModel.GetBoundNode(i.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            InitBlockDeclarationSyntax i when i.Body != null => semanticModel.GetBoundNode(i.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             FinallyDeclarationSyntax f when f.Body != null => semanticModel.GetBoundNode(f.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             _ => null
@@ -586,6 +587,7 @@ internal class MethodBodyGenerator
 
                 EmitFieldInitializers(MethodSymbol.IsStatic);
                 EmitLifecycleInitBlocks(semanticModel, MethodSymbol.IsStatic);
+                EmitPrimaryInitializerBlocks(semanticModel);
 
                 if (boundBody != null)
                     EmitMethodBlock(boundBody, includeImplicitReturn: false);
@@ -608,6 +610,20 @@ internal class MethodBodyGenerator
 
                 EmitFieldInitializers(MethodSymbol.IsStatic);
                 EmitLifecycleInitBlocks(semanticModel, MethodSymbol.IsStatic);
+                EmitPrimaryInitializerBlocks(semanticModel);
+
+                ILGenerator.Emit(OpCodes.Ret);
+                break;
+
+            case InitBlockDeclarationSyntax:
+                if (!MethodSymbol.IsStatic)
+                {
+                    EmitConstructorInitializer();
+                }
+
+                EmitFieldInitializers(MethodSymbol.IsStatic);
+                EmitLifecycleInitBlocks(semanticModel, MethodSymbol.IsStatic);
+                EmitPrimaryInitializerBlocks(semanticModel);
 
                 ILGenerator.Emit(OpCodes.Ret);
                 break;
@@ -712,6 +728,7 @@ internal class MethodBodyGenerator
 
                 EmitFieldInitializers(MethodSymbol.IsStatic);
                 EmitLifecycleInitBlocks(semanticModel, MethodSymbol.IsStatic);
+                EmitPrimaryInitializerBlocks(semanticModel);
 
                 ILGenerator.Emit(OpCodes.Ret);
                 break;
@@ -727,19 +744,7 @@ internal class MethodBodyGenerator
 
     private void EmitLifecycleInitBlocks(SemanticModel semanticModel, bool isStatic)
     {
-        if (MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
-            return;
-
-        var ownerTypeSyntax = MethodSymbol.DeclaringSyntaxReferences
-            .Select(r => r.GetSyntax())
-            .OfType<TypeDeclarationSyntax>()
-            .FirstOrDefault()
-            ?? MethodSymbol.DeclaringSyntaxReferences
-                .Select(r => r.GetSyntax())
-                .OfType<MemberDeclarationSyntax>()
-                .Select(m => m.Parent)
-                .OfType<TypeDeclarationSyntax>()
-                .FirstOrDefault();
+        var ownerTypeSyntax = TryGetOwningTypeSyntax();
 
         if (ownerTypeSyntax is null)
             return;
@@ -764,6 +769,52 @@ internal class MethodBodyGenerator
                 EmitExpressionBody(initExpr, includeReturn: false);
             }
         }
+    }
+
+    private void EmitPrimaryInitializerBlocks(SemanticModel semanticModel)
+    {
+        if (!IsPrimaryConstructorSymbol(MethodSymbol))
+            return;
+
+        var ownerTypeSyntax = TryGetOwningTypeSyntax();
+        if (ownerTypeSyntax is null)
+            return;
+
+        foreach (var initBlockDecl in ownerTypeSyntax.Members.OfType<InitBlockDeclarationSyntax>())
+        {
+            if (semanticModel.GetBoundNode(initBlockDecl.Body, BoundTreeView.Lowered) is not BoundBlockStatement initBlock)
+                continue;
+
+            EmitBoundBlock(initBlock);
+        }
+    }
+
+    private TypeDeclarationSyntax? TryGetOwningTypeSyntax()
+    {
+        if (MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return null;
+
+        return MethodSymbol.DeclaringSyntaxReferences
+            .Select(r => r.GetSyntax())
+            .OfType<TypeDeclarationSyntax>()
+            .FirstOrDefault()
+            ?? MethodSymbol.DeclaringSyntaxReferences
+                .Select(r => r.GetSyntax())
+                .OfType<MemberDeclarationSyntax>()
+                .Select(m => m.Parent)
+                .OfType<TypeDeclarationSyntax>()
+                .FirstOrDefault();
+    }
+
+    private static bool IsPrimaryConstructorSymbol(IMethodSymbol methodSymbol)
+    {
+        if (methodSymbol.MethodKind != MethodKind.Constructor || methodSymbol.IsStatic)
+            return false;
+
+        return methodSymbol.DeclaringSyntaxReferences
+            .Select(static r => r.GetSyntax())
+            .OfType<TypeDeclarationSyntax>()
+            .Any(static typeDecl => typeDecl.ParameterList is not null);
     }
 
     private void EmitEntryPointBridge(IMethodSymbol bridgeMethod, IMethodSymbol implementationMethod)
@@ -1308,6 +1359,12 @@ internal class MethodBodyGenerator
 
         foreach (var field in fields)
         {
+            if (field.Initializer is BoundParameterAccess parameterAccess &&
+                MethodSymbol.Parameters.All(p => !SymbolEqualityComparer.Default.Equals(p, parameterAccess.Parameter)))
+            {
+                continue;
+            }
+
             BoundExpression assignment = new BoundFieldAssignmentExpression(
                 isStatic ? null : new BoundSelfExpression(MethodSymbol.ContainingType!),
                 field,

@@ -30,10 +30,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                 or StructDeclarationSyntax { ParameterList: not null };
             var hasExplicitInstanceConstructor = typeSyntax.Members
                 .OfType<ConstructorDeclarationSyntax>()
-                .Any(ctor => !ctor.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword))
-                || typeSyntax.Members
-                    .OfType<InitDeclarationSyntax>()
-                    .Any(initDecl => !initDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword));
+                .Any(ctor => !ctor.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword));
 
             var hasParameterlessCtor = named.Constructors
                 .Any(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);

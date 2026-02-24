@@ -80,4 +80,25 @@ class C {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void AutoPropertyAssignedInPrimaryInitializerBlock_NoDiagnostic()
+    {
+        const string code = """
+class C(name: string) {
+    {
+        Score = 1
+    }
+
+    var Score: int { get; set; }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<AutoPropertyInitializationAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
 }

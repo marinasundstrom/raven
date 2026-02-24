@@ -254,6 +254,7 @@ internal partial class TypeMemberBinder : Binder
             MethodDeclarationSyntax method => BindMethodSymbol(method),
             ConstructorDeclarationSyntax ctor => BindConstructorSymbol(ctor),
             InitDeclarationSyntax initDecl => BindInitSymbol(initDecl),
+            InitBlockDeclarationSyntax initBlockDecl => BindInitBlockSymbol(initBlockDecl),
             FinallyDeclarationSyntax finalDecl => BindFinallySymbol(finalDecl),
             OperatorDeclarationSyntax opDecl => BindOperatorSymbol(opDecl),
             ConversionOperatorDeclarationSyntax conversionDecl => BindConversionOperatorSymbol(conversionDecl),
@@ -344,6 +345,24 @@ internal partial class TypeMemberBinder : Binder
                 m.Name == metadataName &&
                 m.MethodKind == methodKind &&
                 m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == initDecl));
+    }
+
+    private ISymbol? BindInitBlockSymbol(InitBlockDeclarationSyntax initBlockDecl)
+    {
+        var primaryConstructor = _containingType.GetMembers()
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static m =>
+                m.MethodKind == MethodKind.Constructor &&
+                m.DeclaringSyntaxReferences.Any(static r => r.GetSyntax() is TypeDeclarationSyntax { ParameterList: not null }));
+
+        if (primaryConstructor is not null)
+            return primaryConstructor;
+
+        return _containingType.GetMembers()
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m =>
+                m.MethodKind == MethodKind.Constructor &&
+                m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == initBlockDecl));
     }
 
     private ISymbol? BindFinallySymbol(FinallyDeclarationSyntax finalDecl)
@@ -1577,6 +1596,57 @@ internal partial class TypeMemberBinder : Binder
         return new MethodBinder(target, this);
     }
 
+    public MethodBinder BindInitBlockDeclaration(InitBlockDeclarationSyntax initBlockDecl)
+    {
+        ReportPartialModifierNotSupported(initBlockDecl.Modifiers, "primary initializer", _containingType.Name);
+
+        foreach (var modifier in initBlockDecl.Modifiers)
+        {
+            if (modifier.Kind != SyntaxKind.UnsafeKeyword)
+            {
+                _diagnostics.ReportModifierNotValidOnMember(
+                    modifier.Text,
+                    "primary initializer",
+                    _containingType.Name,
+                    modifier.GetLocation());
+            }
+        }
+
+        if (!TypeDeclaresPrimaryConstructor())
+            _diagnostics.ReportPrimaryInitializerRequiresPrimaryConstructor(initBlockDecl.GetLocation());
+
+        if (initBlockDecl.Parent is TypeDeclarationSyntax ownerTypeDecl)
+        {
+            static bool IsSameInitBlock(MemberDeclarationSyntax member, InitBlockDeclarationSyntax target)
+                => member.Kind == target.Kind &&
+                   member.SyntaxTree == target.SyntaxTree &&
+                   member.Span.Start == target.Span.Start &&
+                   member.Span.Length == target.Span.Length;
+
+            if (ownerTypeDecl.Members.FirstOrDefault() is not { } firstMember || !IsSameInitBlock(firstMember, initBlockDecl))
+                _diagnostics.ReportPrimaryInitializerMustBeFirstMember(initBlockDecl.GetLocation());
+
+            var hasPreviousPrimaryInitBlock = false;
+            foreach (var member in ownerTypeDecl.Members)
+            {
+                if (IsSameInitBlock(member, initBlockDecl))
+                    break;
+
+                if (member is InitBlockDeclarationSyntax)
+                {
+                    hasPreviousPrimaryInitBlock = true;
+                    break;
+                }
+            }
+
+            if (hasPreviousPrimaryInitBlock)
+                _diagnostics.ReportPrimaryInitializerOnlyOneAllowed(initBlockDecl.GetLocation());
+        }
+
+        var target = ResolvePrimaryInitializerTargetConstructor(initBlockDecl);
+        return new MethodBinder(target, this);
+    }
+
     public MethodBinder BindFinallyDeclaration(FinallyDeclarationSyntax finalDecl)
     {
         ReportPartialModifierNotSupported(finalDecl.Modifiers, "finally", _containingType.Name);
@@ -1639,6 +1709,39 @@ internal partial class TypeMemberBinder : Binder
             isStatic: isStatic,
             methodKind: methodKind,
             declaredAccessibility: initAccessibility);
+    }
+
+    private SourceMethodSymbol ResolvePrimaryInitializerTargetConstructor(InitBlockDeclarationSyntax initBlockDecl)
+    {
+        var primaryConstructor = _containingType.GetMembers()
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static m =>
+                m.MethodKind == MethodKind.Constructor &&
+                m.DeclaringSyntaxReferences.Any(static r => r.GetSyntax() is TypeDeclarationSyntax { ParameterList: not null }));
+
+        if (primaryConstructor is SourceMethodSymbol primarySource)
+            return primarySource;
+
+        return new SourceMethodSymbol(
+            ".ctor",
+            Compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            _containingType,
+            _containingType,
+            CurrentNamespace!.AsSourceNamespace(),
+            [initBlockDecl.GetLocation()],
+            [initBlockDecl.GetReference()],
+            isStatic: false,
+            methodKind: MethodKind.Constructor,
+            declaredAccessibility: GetDefaultMemberAccessibility());
+    }
+
+    private bool TypeDeclaresPrimaryConstructor()
+    {
+        return _containingType.DeclaringSyntaxReferences
+            .Select(static r => r.GetSyntax())
+            .OfType<TypeDeclarationSyntax>()
+            .Any(static d => d.ParameterList is not null);
     }
 
     public DelegateDeclarationBinder BindDelegateDeclaration(DelegateDeclarationSyntax delegateDecl)
@@ -2749,6 +2852,12 @@ internal partial class TypeMemberBinder : Binder
 
                 var binder = new MethodBinder(methodSymbol, this);
                 binders[accessor] = binder;
+                if (accessor.ExpressionBody is not null)
+                {
+                    _ = binder.GetOrBind(accessor.ExpressionBody);
+                    foreach (var diagnostic in binder.Diagnostics.AsEnumerable())
+                        _diagnostics.Report(diagnostic);
+                }
 
                 if (isGet)
                     getMethod = methodSymbol;

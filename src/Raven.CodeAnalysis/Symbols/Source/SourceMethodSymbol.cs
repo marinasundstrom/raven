@@ -240,6 +240,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
                 MethodDeclarationSyntax methodDeclaration => methodDeclaration.Modifiers,
                 ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.Modifiers,
                 InitDeclarationSyntax initDeclaration => initDeclaration.Modifiers,
+                InitBlockDeclarationSyntax initBlockDeclaration => initBlockDeclaration.Modifiers,
                 FinallyDeclarationSyntax finalDeclaration => finalDeclaration.Modifiers,
                 OperatorDeclarationSyntax operatorDeclaration => operatorDeclaration.Modifiers,
                 ConversionOperatorDeclarationSyntax conversionDeclaration => conversionDeclaration.Modifiers,
@@ -250,6 +251,15 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
             if (modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword))
                 return true;
+
+            if (syntax is TypeDeclarationSyntax { ParameterList: not null } typeDecl &&
+                MethodKind == MethodKind.Constructor &&
+                typeDecl.Members
+                    .OfType<InitBlockDeclarationSyntax>()
+                    .Any(b => b.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword)))
+            {
+                return true;
+            }
         }
 
         return false;

@@ -802,4 +802,16 @@
     Title="Property declaration requires a binding keyword"
     Message="Property '{propertyName}' requires an explicit binding keyword ('val' or 'var')."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0915" Identifier="PrimaryInitializerRequiresPrimaryConstructor"
+    Title="Primary initializer requires primary constructor"
+    Message="A primary initializer block requires a primary constructor parameter list on the containing type."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0916" Identifier="PrimaryInitializerMustBeFirstMember"
+    Title="Primary initializer must be first"
+    Message="A primary initializer block must be the first member in the containing type."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0917" Identifier="PrimaryInitializerOnlyOneAllowed"
+    Title="Only one primary initializer is allowed"
+    Message="A type can declare at most one primary initializer block."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

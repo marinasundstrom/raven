@@ -521,6 +521,11 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParseInitDeclaration(attributeLists, modifiers);
         }
 
+        if (keywordOrIdentifier.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            return ParsePrimaryInitializerDeclaration(attributeLists, modifiers);
+        }
+
         if (keywordOrIdentifier.IsKind(SyntaxKind.FuncKeyword))
         {
             var funcKeyword = ReadToken();
@@ -655,6 +660,9 @@ internal class TypeDeclarationParser : SyntaxParser
     private MemberDeclarationSyntax ParseInitDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
     {
         var initKeyword = ReadToken();
+        var openParenToken = MissingToken(SyntaxKind.OpenParenToken);
+        var closeParenToken = MissingToken(SyntaxKind.CloseParenToken);
+        var parameterList = ParameterList(openParenToken, SyntaxList.Empty, closeParenToken);
         var token = PeekToken();
 
         BlockStatementSyntax? body = null;
@@ -666,7 +674,14 @@ internal class TypeDeclarationParser : SyntaxParser
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
 
         var terminatorToken = ConsumeMemberTerminator();
-        return InitDeclaration(attributeLists, modifiers, initKeyword, body, expressionBody, terminatorToken);
+        return ConstructorDeclaration(attributeLists, modifiers, initKeyword, parameterList, null, body, expressionBody, terminatorToken);
+    }
+
+    private MemberDeclarationSyntax ParsePrimaryInitializerDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
+    {
+        var body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
+        var terminatorToken = ConsumeMemberTerminator();
+        return InitBlockDeclaration(attributeLists, modifiers, body, terminatorToken);
     }
 
     private MemberDeclarationSyntax ParseFinallyDeclaration(SyntaxList attributeLists, SyntaxList modifiers)

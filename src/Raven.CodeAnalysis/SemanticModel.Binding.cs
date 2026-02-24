@@ -2541,6 +2541,12 @@ public partial class SemanticModel
                     CacheBinder(initDecl, initBinder);
                     break;
 
+                case InitBlockDeclarationSyntax initBlockDecl:
+                    var initBlockMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var initBlockBinder = initBlockMemberBinder.BindInitBlockDeclaration(initBlockDecl);
+                    CacheBinder(initBlockDecl, initBlockBinder);
+                    break;
+
                 case FinallyDeclarationSyntax finalDecl:
                     var finalMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var finalBinder = finalMemberBinder.BindFinallyDeclaration(finalDecl);

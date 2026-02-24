@@ -18,11 +18,13 @@ Raven eliminates redundant syntax where it doesn’t add value. Familiar pattern
 val user = User(name: "Anna")  // Not new User(...)
 ```
 
-Constructors are expressed through `init` blocks, making object creation feel like invoking functionality, not a compiler formality. The language defaults to the shortest spelling that still tells the truth about what the code is doing and encourages the flow of data without redundant wrappers or boilerplate.
+Constructors keep object creation explicit while staying low-ceremony: constructor overloads use `init(...)`, and types with a primary constructor can define their primary constructor body with a bare block (`{ ... }`) as the first member. This keeps creation flow readable without blurring constructor roles.
 
 ```raven
-public init(name: string) {
-    self.name = name
+class User(name: string) {
+    {
+        self.name = name
+    }
 }
 ```
 
