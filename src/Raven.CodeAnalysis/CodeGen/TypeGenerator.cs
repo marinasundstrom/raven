@@ -1870,7 +1870,6 @@ internal class TypeGenerator
                 continue;
 
             if (sourceProperty.DeclaredAccessibility == Accessibility.Private &&
-                propertyDecl.Initializer is not null &&
                 (propertyDecl.AccessorList is null || propertyDecl.AccessorList.IsMissing) &&
                 propertyDecl.ExpressionBody is null)
             {

@@ -235,7 +235,6 @@ internal partial class TypeMemberBinder : Binder
             propertyAccessibility == Accessibility.Private &&
             propertyDecl.ExpressionBody is null &&
             hasNoDeclaredAccessorList &&
-            propertyDecl.Initializer is not null &&
             !isExtensionContainer &&
             _containingType.TypeKind != TypeKind.Interface;
 
