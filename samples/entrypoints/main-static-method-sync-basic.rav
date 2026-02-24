@@ -2,7 +2,7 @@ import System.Console.*
 
 // Feature: class-based static `Main` entry point.
 class Program {
-    static Main() -> () {
+    static func Main() -> () {
         WriteLine("Hello, World!")
     }
 }

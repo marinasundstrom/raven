@@ -19,7 +19,7 @@ WriteLine(inferredOverload)
 
 
 public extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T> {
-    public CountItems() -> int {
+    public func CountItems() -> int {
         var total: int = 0
         for each in self {
             total = total + 1
@@ -27,11 +27,11 @@ public extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T
         return total
     }
 
-    public CountItems<B>(arg: T) -> B {
+    public func CountItems<B>(arg: T) -> B {
         return default(B)
     }
 
-    public CountItems<B>(arg: B) -> B {
+    public func CountItems<B>(arg: B) -> B {
         return arg
     }
 }

@@ -58,15 +58,15 @@ class Window {
 
     public IsVisible: bool { get; private set; } = false
 
-    public Show() -> () {
+    public func Show() -> () {
         IsVisible = true
     }
 
-    public Close() -> () {
+    public func Close() -> () {
         IsVisible = false
     }
 
-    public ShowDialog() -> Result<DialogResult, Exception> {
+    public func ShowDialog() -> Result<DialogResult, Exception> {
         return Ok(DialogResult.Cancel)
     }
 }
@@ -87,7 +87,7 @@ abstract class Control {}
 interface IHasChildren {
     Children: IEnumerable<Control> { get; }
 
-    Add(control: Control) -> ();
+    func Add(control: Control) -> ();
 }
 
 class StackPanel : Control, IHasChildren {
@@ -104,7 +104,7 @@ class StackPanel : Control, IHasChildren {
 
     public Children: IEnumerable<Control> => children
 
-    public Add(control: Control) -> () {
+    public func Add(control: Control) -> () {
         children.Add(control)
     }
 }

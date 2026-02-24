@@ -17,7 +17,7 @@ val value = items.CountPlusOne
 WriteLine("Value: $value");
 
 public extension MyEnumerableExt<T> for IEnumerable<T> {
-    public CountItems() -> int {
+    public func CountItems() -> int {
         var total: int = 0
         for each in self {
             total = total + 1
@@ -27,7 +27,7 @@ public extension MyEnumerableExt<T> for IEnumerable<T> {
 }
 
 public extension MyIntEnumerableExt for IEnumerable<int> {
-    public SumNumbers() -> int {
+    public func SumNumbers() -> int {
         var sum: int = 0
         for each x in self {
             sum = sum + x

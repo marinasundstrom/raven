@@ -8,7 +8,7 @@ val z = int.Value
 WriteLine(z)
 
 extension for int {
-    public static Hello() -> int => 42
+    public static func Hello() -> int => 42
 
     public static Value: string => "test"
 }

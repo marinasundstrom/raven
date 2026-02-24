@@ -18,7 +18,7 @@ union HttpResult<T> {
 }
 
 class WebAppBuilder {
-    public MapPost(path: string, d: Delegate) -> () {
+    public func MapPost(path: string, d: Delegate) -> () {
         val invoke = d.Method
         WriteLine("${invoke.Name} -> ${invoke.ReturnType}")
         for param in invoke.GetParameters() {

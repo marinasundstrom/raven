@@ -17,7 +17,7 @@ Console.WriteLine(v)
 Console.WriteLine(foo.Value)
 
 class Foo(value: int) {
-    public async Test(flag: bool) -> Task<Option<int>> {
+    public async func Test(flag: bool) -> Task<Option<int>> {
         await Task.Delay(20)
 
         if flag {

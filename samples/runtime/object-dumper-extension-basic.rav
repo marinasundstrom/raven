@@ -15,7 +15,7 @@ obj.AddRange([2, 3])
 obj.Dump()
 
 extension Dumper<T> for T {
-    public Dump() -> () {
+    public func Dump() -> () {
         val type = self.GetType()
         val obj = self
         if obj is IEnumerable ex {

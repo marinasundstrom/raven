@@ -6,13 +6,47 @@ customer.AddOrder(2)
 
 WriteLine("${customer.Name} orders: ${customer.OrderCount}")
 
-class Customer(name: string) {
-    public Name: string => name
-    var orderCount: int = 0
+class Customer(name: string, var age: int) {
+    static init {
+        WriteLine("Customer type initialized")
+    }
 
-    public AddOrder(count: int) -> () {
+    init {
+        WriteLine("Created $name with age $age")
+    }
+
+    // Secondary constructor
+    init(name: string, petName: string) {
+        WriteLine("Created $name with pet $petName")
+    }
+
+    const PI: double = 2.14
+
+    readonly field Factor: int = 2
+
+    // Compute property with get accessor
+    val Name: string => name
+
+    // Private non-computed properties with no accessor logic will be emitted as fields
+    private var orderCount: int = 0
+
+    // Compute property with accessors
+    var Age: int {
+        get => field
+        set => field = value
+    }
+
+    func AddOrder(count: int) -> () {
         orderCount += count
     }
 
-    public OrderCount: int => orderCount
+    val OrderCount: int => orderCount
+
+    event Foo: EventHandler?
+
+    delegate Foo(a: int, b: int) -> int
+
+    final {
+        WriteLine("$name was collected by GC")
+    }
 }

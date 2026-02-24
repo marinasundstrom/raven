@@ -22,11 +22,11 @@ WriteLine(message)
 public class ShipmentOrderService(var pendingCount: int = 0) {
     public PendingCount: int => pendingCount
 
-    public RecordPending(count: int) -> () {
+    public func RecordPending(count: int) -> () {
         pendingCount += count
     }
 
-    public async BuildQuote(weightKg: int) -> Task<Result<int, string>> {
+    public async func BuildQuote(weightKg: int) -> Task<Result<int, string>> {
         await Delay(20)
         if weightKg > 0 {
             return Ok(weightKg * 2)

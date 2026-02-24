@@ -43,20 +43,20 @@ public class Person : Base {
     }
 
     /// Named constructor
-    public static WithName(name: string) -> Person {
+    public static func WithName(name: string) -> Person {
         val person = Person(20)
         person.name = name
         person
     }
 
     /// Regular method
-    public AddRole(role: string) -> Person {
+    public func AddRole(role: string) -> Person {
         roles.Add(role)
         self
     }
 
     /// Expression-bodied method
-    public Test() -> int => 2
+    public func Test() -> int => 2
 
     /// Expression-bodied property
     public Test2: int => 2

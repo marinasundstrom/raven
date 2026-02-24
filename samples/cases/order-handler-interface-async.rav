@@ -35,7 +35,7 @@ interface IRequestHandler<TRequest, TReturn>
     where TRequest : class 
     where TReturn : new () {
  
-    Handle(request: TRequest, cancellationToken: CancellationToken) -> Task<TReturn>; 
+    func Handle(request: TRequest, cancellationToken: CancellationToken) -> Task<TReturn>; 
 }
 
 record class SubmitOrder(OrderItems: OrderItem[])
@@ -47,7 +47,7 @@ class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
     val discountedProduct = "Item 2"
     val discountedQuantityThreshold = 10
 
-    public async Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<decimal>> {
+    public async func Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<decimal>> {
         await Task.Delay(500)
         var total = .0m
         for item in request.OrderItems {
