@@ -57,6 +57,21 @@ programs, including LINQ-style pipelines that rely on lambda arguments, to
 ensure the metadata load context path continues to resolve delegate
 constructors and emit correct IL.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L66-L140】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L563-L703】
 
+## Properties and fields
+
+Raven is property-first for type members:
+
+* `val`/`var` declarations in classes/structs emit CLR properties with accessor
+  methods (`get_`/`set_`/`init` as applicable).
+* Stored and auto-style properties synthesize backing storage when needed.
+* `field` used inside a property accessor refers to that synthesized backing
+  field for the current property.
+
+Explicit `field` declarations are emitted as CLR fields and are intended for
+storage/layout-sensitive scenarios (for example interop with
+`StructLayout(LayoutKind.Sequential|Explicit)` and `FieldOffset`).
+`readonly field` emits an `initonly` field; `const` emits a metadata literal.
+
 ## Union types
 When emitted to .NET metadata, a union is projected as the narrowest common denominator of its members. If every member shares a base class, that base type becomes the metadata type; otherwise, `object` is used. Including `null` in the union marks the emitted type as nullable.
 

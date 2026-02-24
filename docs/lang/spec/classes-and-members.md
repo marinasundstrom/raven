@@ -6,37 +6,38 @@ This chapter describes Raven's object-oriented constructs: declaring classes and
 
 ## Members (classes/structs)
 
-Raven supports classes and structs with fields, methods, constructors,
-properties, and indexers. Modifiers are C#-like but validated by the
-binder (e.g., `abstract` members require an `abstract` type; `override`
-requires a virtual base member).
+Raven supports classes and structs with properties, methods, constructors,
+indexers, and fields. The model is property-first: `val`/`var` declarations in
+type bodies define properties by default. Explicit `field` declarations are
+available for low-level storage scenarios.
+
+Modifiers are C#-like but validated by the binder (e.g., `abstract` members
+require an `abstract` type; `override` requires a virtual base member).
 
 ```raven
-class Counter
+class Counter(name: string)
 {
-    public val Name: string
+    val Name: string => name
+    private field _value: int = 0
 
-    private var _value: int = 0
-
-    init(name: string) { Name = name }
-
-    public Value: int {
+    var Value: int {
         get => _value
         private set => _value = value
     }
 
     // Indexer
-    public this[i: int]: int {
+    this[i: int]: int {
         get => _value + i
     }
 
-    public Increment() -> () => _value = _value + 1
+    func Increment() -> () => _value = _value + 1
 }
 ```
 
 **Notes**
 
-* Fields use binding keywords (`let`, `var`, or `const`) and require `;` after declarators.
+* `val`/`var` type members declare properties.
+* `field` declarations are explicit storage and are intended for low-level scenarios.
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
@@ -69,19 +70,21 @@ are not permitted inside a static class.
 Use `final` alongside `override` to seal an override and prevent further overrides in derived types (`final override` in Raven,
 equivalent to C#'s `sealed override`). The compiler reports an error if `final` is applied without `override`.
 
-`const` fields behave like their local counterparts: they must specify a
-compile-time constant initializer, and the compiler records the folded value in
-metadata. Raven treats these declarations as implicitly `static` even if the
-modifier is omitted, and any attempt to reassign the field produces a diagnostic
-just like rebinding an immutable local.
+### Field declarations (low-level storage)
 
-`let` fields are immutable after initialization. Instance `let` fields may only
-be assigned inline or within instance constructors of the declaring type (on the
-`self` receiver); static `let` fields may only be assigned inline or inside the
-type's static constructor. Any other assignment is rejected in the same way as a
-`readonly` field in C#.
+Fields are explicit CLR storage members. Use them when source code needs direct
+control over storage/layout (for example interop with `StructLayout` and
+`FieldOffset`, fixed buffers, or ABI-sensitive layouts).
 
-`var` fields are mutable and can be reassigned anywhere the field is accessible.
+```raven
+class Counter {
+    private field _count: int
+    private readonly field _id: int = 42
+}
+```
+
+`const` declarations remain compile-time constants and are emitted as metadata
+constants (implicitly static), similar to other .NET languages.
 
 ### Generic types
 
@@ -149,6 +152,7 @@ Default accessibility depends on the declaration context:
   When `CompilationOptions.MembersPublicByDefault` is enabled, class/struct
   members default to `public`; in that mode, an explicit `public` modifier is
   reported as redundant.
+  This mode is the migration path toward Raven's public-by-default member model.
 
 Constructors follow these rules as well. An explicitly declared parameterless
 constructor may specify any of the modifiers above to control how instances
@@ -210,21 +214,22 @@ val same = a == b
 
 ### Properties
 
-Property declarations expose a value through accessor methods rather than by
-directly exposing a field. A property appears inside a class or struct and must
-declare a name, type, and one or more accessors:
+Property declarations are Raven's default data member model. In classes and
+structs, `val`/`var` declarations define properties and support three forms:
+computed (`=>`), stored (`= initializer`), and accessor-list properties.
 
 ```raven
-public Value: int {
-    get {
-        return _value
-    }
-
-    set {
-        _value = value
-    }
+val Name: string => name
+var Count: int = 0
+var Value: int {
+    get => field
+    set => field = value
 }
 ```
+
+`val` declares an immutable property shape. Writable accessors (`set`/`init`)
+require `var`. A `var` declaration is expected to have a writable shape
+(writable accessor or stored initializer).
 
 The compiler synthesizes accessor methods named `get_<PropertyName>` and
 `set_<PropertyName>`. Setters receive an implicit parameter named `value` whose
@@ -238,9 +243,9 @@ also collapse to a single expression-bodied member; it is shorthand for a `get`
 accessor with the same expression body.
 
 ```raven
-public Value: int => _value
+val Value: int => _value
 
-public Value: int {
+var Value: int {
     get => _value
     private set => _value = value
 }
@@ -250,7 +255,7 @@ Inside class/struct property accessors, the contextual keyword `field` refers
 to the property's synthesized backing field:
 
 ```raven
-public Value: int {
+var Value: int {
     get => field
     set {
         field = value
