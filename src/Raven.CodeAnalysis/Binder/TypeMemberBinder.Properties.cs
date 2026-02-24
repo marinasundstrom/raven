@@ -219,20 +219,43 @@ internal partial class TypeMemberBinder : Binder
                 _diagnostics.Report(diag);
         }
 
-        var hasAutoAccessorList = propertyDecl.AccessorList is { } accessorList &&
+        bool? declaredMutable = propertyDecl.BindingKeyword.Kind switch
+        {
+            SyntaxKind.VarKeyword => true,
+            SyntaxKind.ValKeyword => false,
+            _ => null,
+        };
+
+        var hasAutoAccessorList = propertyDecl.AccessorList is { IsMissing: false } accessorList &&
             accessorList.Accessors.All(a => a.Body is null && a.ExpressionBody is null);
         var usesFieldKeyword = UsesAutoPropertyFieldKeyword(propertyDecl);
+        var hasNoDeclaredAccessorList = propertyDecl.AccessorList is null || propertyDecl.AccessorList.IsMissing;
+        var isPrivateInitializerOnlyStoredProperty =
+            sourcePropertySymbol is not null &&
+            propertyAccessibility == Accessibility.Private &&
+            propertyDecl.ExpressionBody is null &&
+            hasNoDeclaredAccessorList &&
+            propertyDecl.Initializer is not null &&
+            !isExtensionContainer &&
+            _containingType.TypeKind != TypeKind.Interface;
 
         if (!isExtensionContainer &&
             _containingType.TypeKind != TypeKind.Interface &&
             sourcePropertySymbol is not null &&
-            (hasAutoAccessorList || usesFieldKeyword))
+            (hasAutoAccessorList || usesFieldKeyword || isPrivateInitializerOnlyStoredProperty))
         {
+            var isMutableBackingField = isPrivateInitializerOnlyStoredProperty
+                ? declaredMutable != false
+                : true;
+            var fieldName = isPrivateInitializerOnlyStoredProperty
+                ? propertySymbol.Name
+                : $"<{propertySymbol.Name}>k__BackingField";
+
             var backingField = new SourceFieldSymbol(
-                $"<{propertySymbol.Name}>k__BackingField",
+                fieldName,
                 propertyType,
                 isStatic: isStatic,
-                isMutable: true,
+                isMutable: isMutableBackingField,
                 isConst: false,
                 constantValue: null,
                 _containingType,
@@ -244,6 +267,9 @@ internal partial class TypeMemberBinder : Binder
                 declaredAccessibility: Accessibility.Private);
 
             sourcePropertySymbol?.SetBackingField(backingField);
+
+            if (isPrivateInitializerOnlyStoredProperty)
+                sourcePropertySymbol.MarkEmitAsFieldOnly();
         }
 
         var hasExpressionBody = propertyDecl.ExpressionBody is not null;
@@ -252,13 +278,6 @@ internal partial class TypeMemberBinder : Binder
             a.Kind == SyntaxKind.SetAccessorDeclaration ||
             a.Kind == SyntaxKind.InitAccessorDeclaration) ?? false;
         var hasStorageInitializer = propertyDecl.Initializer is not null;
-        bool? declaredMutable = propertyDecl.BindingKeyword.Kind switch
-        {
-            SyntaxKind.VarKeyword => true,
-            SyntaxKind.ValKeyword => false,
-            _ => null,
-        };
-
         if (propertyDecl.BindingKeyword.Kind == SyntaxKind.None)
         {
             _diagnostics.ReportPropertyDeclarationRequiresBindingKeyword(

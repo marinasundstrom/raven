@@ -88,7 +88,7 @@ class Counter {
 
 ```raven
 class MathConstants {
-    public const Pi: double = 3.141592653589793
+    const Pi: double = 3.141592653589793
 }
 ```
 
@@ -315,6 +315,17 @@ Any accessor may be omitted. A property with only `get` remains read-only and
 exposes the default value of its backing field until assigned from within the
 type (e.g., via a constructor calling another accessor). Auto-properties are not
 available on interfaces, where accessors remain abstract.
+
+For storage-only private members declared in initializer form (no expression
+body and no accessor list), Raven may lower the declaration directly to a
+private field and omit CLR property emission:
+
+```raven
+private var orderCount: int = 0
+```
+
+This is an implementation optimization; source semantics remain property-like
+within Raven.
 
 ### Events
 

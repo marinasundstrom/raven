@@ -1195,8 +1195,9 @@ partial class BlockBinder : Binder
         bool isPostfix)
     {
         SourceFieldSymbol? backingField = null;
+        var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
-        if (!propertySymbol.IsMutable)
+        if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
         {
             if (!TryGetWritableAutoPropertyBackingField(propertySymbol, memberAccess, out backingField))
             {
@@ -1204,6 +1205,23 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
+            var backingAccess = new BoundFieldAccess(memberAccess.Receiver, backingField);
+
+            if (!CanAssignToField(backingField, memberAccess.Receiver, operandSyntax))
+                return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
+
+            return BindIncrementCore(
+                operandSyntax,
+                backingAccess,
+                propertySymbol.Type,
+                binaryOperatorKind,
+                binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
+                isPostfix,
+                value => CreateFieldAssignmentExpression(memberAccess.Receiver, backingField, value));
+        }
+
+        if (useFieldOnlyLowering && backingField is not null)
+        {
             var backingAccess = new BoundFieldAccess(memberAccess.Receiver, backingField);
 
             if (!CanAssignToField(backingField, memberAccess.Receiver, operandSyntax))
@@ -4700,10 +4718,11 @@ partial class BlockBinder : Binder
         else if (left.Symbol is IPropertySymbol propertySymbol)
         {
             SourceFieldSymbol? backingField = null;
+            var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
             var receiver = GetReceiver(left);
 
-            if (!propertySymbol.IsMutable)
+            if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -5375,6 +5394,13 @@ partial class BlockBinder : Binder
                         return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                     ReportObsoleteIfNeeded(prop, syntax.Identifier.GetLocation());
+
+                    if (TryGetFieldOnlyPropertyBackingField(prop, out var fieldSymbol))
+                    {
+                        var f = new BoundFieldAccess(fieldSymbol);
+                        return UnwrapNullableIfKnownNonNull(f, fieldSymbol);
+                    }
+
                     var p2 = new BoundPropertyAccess(prop);
                     return UnwrapNullableIfKnownNonNull(p2, prop);
                 }
@@ -5778,8 +5804,10 @@ partial class BlockBinder : Binder
         }
 
         SourceFieldSymbol? backingField = null;
+        var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
-        if (!propertySymbol.IsMutable &&
+        if (!useFieldOnlyLowering &&
+            !propertySymbol.IsMutable &&
             !TryGetWritableAutoPropertyBackingField(propertySymbol, target, out backingField))
         {
             _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, propertySyntax.GetLocation());
@@ -7910,6 +7938,50 @@ partial class BlockBinder : Binder
 
         backingField = sourceProperty.BackingField;
         return true;
+    }
+
+    private static bool TryGetFieldOnlyPropertyBackingField(
+        IPropertySymbol propertySymbol,
+        out SourceFieldSymbol? backingField)
+    {
+        backingField = null;
+
+        if (propertySymbol is not SourcePropertySymbol &&
+            propertySymbol.UnderlyingSymbol is SourcePropertySymbol underlying)
+        {
+            propertySymbol = underlying;
+        }
+
+        if (propertySymbol is not SourcePropertySymbol sourceProperty ||
+            sourceProperty.BackingField is null)
+        {
+            return false;
+        }
+
+        if (!sourceProperty.EmitAsFieldOnly && !IsPrivateInitializerOnlyStoredProperty(sourceProperty))
+            return false;
+
+        backingField = sourceProperty.BackingField;
+        return true;
+    }
+
+    private static bool IsPrivateInitializerOnlyStoredProperty(SourcePropertySymbol sourceProperty)
+    {
+        foreach (var syntaxReference in sourceProperty.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not PropertyDeclarationSyntax propertyDecl)
+                continue;
+
+            if (sourceProperty.DeclaredAccessibility == Accessibility.Private &&
+                propertyDecl.Initializer is not null &&
+                (propertyDecl.AccessorList is null || propertyDecl.AccessorList.IsMissing) &&
+                propertyDecl.ExpressionBody is null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsConstructorSelfReceiver(IMethodSymbol methodSymbol, BoundExpression? receiver)

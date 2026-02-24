@@ -10,6 +10,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     private bool _declaredInExtension;
     private ITypeSymbol? _extensionReceiverType;
     private bool? _isMutable;
+    private bool _emitAsFieldOnly;
     private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
 
     public SourcePropertySymbol(
@@ -49,6 +50,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     public bool IsAutoProperty => _backingField is not null;
 
     public SourceFieldSymbol? BackingField => _backingField;
+    internal bool EmitAsFieldOnly => _emitAsFieldOnly;
 
     internal bool IsDeclaredInExtension => _declaredInExtension;
 
@@ -75,6 +77,11 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     {
         _declaredInExtension = true;
         _extensionReceiverType = receiverType;
+    }
+
+    internal void MarkEmitAsFieldOnly()
+    {
+        _emitAsFieldOnly = true;
     }
 
     public bool IsRequired

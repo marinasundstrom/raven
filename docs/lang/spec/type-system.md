@@ -279,7 +279,7 @@ annotation is allowed.
 ```raven
 class Box<T>
 {
-    public Value: T { get; }
+    val Value: T { get; }
 
     init(value: T) { Value = value }
 }

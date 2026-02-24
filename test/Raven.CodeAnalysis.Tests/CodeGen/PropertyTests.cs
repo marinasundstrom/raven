@@ -16,7 +16,7 @@ public class PropertyTests
     {
         var code = """
 class Sample {
-    public Value: int { get; set; }
+    public var Value: int { get; set; }
 }
 """;
 
@@ -65,7 +65,7 @@ class Sample {
     {
         var code = """
 class Counter {
-    public static Count: int { get; set; }
+    public static var Count: int { get; set; }
 }
 """;
 
@@ -106,5 +106,57 @@ class Counter {
 
         property.SetValue(null, 7);
         Assert.Equal(7, (int)property.GetValue(null)!);
+    }
+
+    [Fact]
+    public void PrivateStoredPropertyInitializer_LowersToFieldWithoutClrProperty()
+    {
+        var code = """
+class Counter {
+    private var orderCount: int = 0
+
+    func Add(count: int) -> () {
+        orderCount = orderCount + count
+    }
+
+    func Get() -> int => orderCount
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var type = runtimeAssembly.GetType("Counter", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+
+        var property = type.GetProperty("orderCount", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.Null(property);
+
+        var field = type.GetField("orderCount", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        Assert.Equal(0, (int)field!.GetValue(instance)!);
+
+        var addMethod = type.GetMethod("Add", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(addMethod);
+        addMethod!.Invoke(instance, [3]);
+        Assert.Equal(3, (int)field.GetValue(instance)!);
+        var getMethod = type.GetMethod("Get", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(getMethod);
+        Assert.Equal(3, (int)getMethod!.Invoke(instance, null)!);
     }
 }

@@ -2134,6 +2134,7 @@ partial class BlockBinder
         else if (left.Symbol is IPropertySymbol propertySymbol)
         {
             SourceFieldSymbol? backingField = null;
+            var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
             var receiver = GetReceiver(left);
 
@@ -2147,7 +2148,7 @@ partial class BlockBinder
                 return new BoundErrorExpression(propertySymbol.Type ?? Compilation.ErrorTypeSymbol, propertySymbol, BoundExpressionReason.UnsupportedOperation);
             }
 
-            if (!propertySymbol.IsMutable)
+            if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -2735,6 +2736,13 @@ partial class BlockBinder
                 if (IsSymbolAccessible(nonMethodMember))
                 {
                     ReportObsoleteIfNeeded(nonMethodMember, nameLocation);
+
+                    if (nonMethodMember is IPropertySymbol property &&
+                        TryGetFieldOnlyPropertyBackingField(property, out var backingField))
+                    {
+                        return new BoundMemberAccessExpression(receiver, backingField);
+                    }
+
                     return new BoundMemberAccessExpression(receiver, nonMethodMember);
                 }
                 inaccessibleNonMethodMember = nonMethodMember;
@@ -2795,6 +2803,13 @@ partial class BlockBinder
                 }
 
                 ReportObsoleteIfNeeded(instanceMember, nameLocation);
+
+                if (instanceMember is IPropertySymbol property &&
+                    TryGetFieldOnlyPropertyBackingField(property, out var backingField))
+                {
+                    return new BoundMemberAccessExpression(receiver, backingField);
+                }
+
                 return new BoundMemberAccessExpression(receiver, instanceMember);
             }
 
