@@ -42,6 +42,10 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
         if (!IsDeclarationTypeAnnotation(annotation.Parent))
             return;
 
+        // Events naturally use nullable handler types to represent "no subscribers".
+        if (annotation.Parent is EventDeclarationSyntax)
+            return;
+
         AnalyzeTypeSyntax(context, annotation.Type);
     }
 

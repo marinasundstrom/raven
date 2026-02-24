@@ -18,6 +18,8 @@ public static class BuiltInAnalyzers
             .AddAnalyzerReference(new AnalyzerReference(new ThrowStatementUseResultAnalyzer()))
             .AddAnalyzerReference(new AnalyzerReference(new MemberCanBePrivateAnalyzer()))
             .AddAnalyzerReference(new AnalyzerReference(new MemberCanBeStaticAnalyzer()))
+            .AddAnalyzerReference(new AnalyzerReference(new UnusedPropertyAnalyzer()))
+            .AddAnalyzerReference(new AnalyzerReference(new UnusedMethodAnalyzer()))
             .AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
 
         if (!enableSuggestions)

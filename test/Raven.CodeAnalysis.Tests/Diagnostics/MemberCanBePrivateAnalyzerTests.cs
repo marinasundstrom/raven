@@ -9,6 +9,8 @@ public class MemberCanBePrivateAnalyzerTests : AnalyzerTestBase
     public void PublicMethod_OnlyUsedInsideType_ReportsDiagnostic()
     {
         const string code = """
+val x = 0
+
 class Counter {
     public func Increment() -> () { }
 
@@ -23,7 +25,7 @@ class Counter {
             expectedDiagnostics:
             [
                 new DiagnosticResult(MemberCanBePrivateAnalyzer.DiagnosticId)
-                    .WithLocation(2, 17)
+                    .WithLocation(4, 17)
                     .WithArguments("Increment")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);

@@ -14,6 +14,17 @@ Raven currently provides analyzers for two different contexts:
 - **MatchExhaustivenessAnalyzer** (Raven) – reports informational diagnostics when a
   match expression is one case away from being exhaustive, or when a discard pattern could
   be replaced by a specific missing case to make the match exhaustive.
+- **MemberCanBePrivateAnalyzer** (Raven, `RAV9016`) – reports when an internal/public
+  member is only used from within its declaring type and can be narrowed to `private`.
+- **MemberCanBeStaticAnalyzer** (Raven, `RAV9017`) – reports instance members that do not
+  access instance state and can be made `static`.
+- **UnusedPropertyAnalyzer** (Raven, `RAV9018`) – reports properties
+  that are never referenced. In console applications, all properties are considered; in
+  library-style outputs, only non-public properties are considered.
+- **UnusedMethodAnalyzer** (Raven, `RAV9019`) – reports ordinary
+  methods that are never invoked. In console applications, all ordinary methods are
+  considered (entry points are excluded); in library-style outputs, only non-public methods
+  are considered.
 - **TypeUnionAnalyzer** (C#) – enforces the semantics of `[TypeUnion]` attributes in C#
   code. Members annotated with `TypeUnionAttribute` must use a CLR type that is assignable
   from all declared union members (e.g., `object`, `dynamic`, or a suitable base type), and
@@ -23,6 +34,11 @@ Raven currently provides analyzers for two different contexts:
 
 The `Raven.Compiler` CLI uses `RavenWorkspace` to attach analyzers during compilation. Any
 analyzer diagnostics appear alongside regular compilation errors and warnings.
+
+Built-in code fixes currently include:
+- `RAV9016` (`Make member private`)
+- `RAV9017` (`Make member static`)
+- `RAV9018` (`Remove unused property`)
 
 For suggestion payload conventions (`--suggestions`, rewrite property keys, and option
 gating), see `docs/compiler/development/suggestions.md`.

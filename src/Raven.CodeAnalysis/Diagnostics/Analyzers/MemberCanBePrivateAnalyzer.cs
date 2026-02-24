@@ -1,4 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+using System.Threading;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Diagnostics;
@@ -26,13 +31,17 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeTypeDeclaration(SyntaxNodeAnalysisContext context)
     {
+        if (context.SemanticModel.GetDiagnostics(context.CancellationToken).Any(d => d.Severity == DiagnosticSeverity.Error))
+            return;
+
         if (context.Node is not TypeDeclarationSyntax typeDecl)
             return;
 
         if (context.SemanticModel.GetDeclaredSymbol(typeDecl) is not INamedTypeSymbol containingType)
             return;
 
-        var candidates = CollectCandidates(typeDecl, context.SemanticModel);
+        var isConsoleApplication = context.Compilation.Options.OutputKind == OutputKind.ConsoleApplication;
+        var candidates = CollectCandidates(typeDecl, context.SemanticModel, isConsoleApplication);
         if (candidates.Count == 0)
             return;
 
@@ -41,16 +50,22 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
             candidateSymbols.Add(candidate.Symbol.UnderlyingSymbol);
 
         var referencedOutside = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        MarkReferencedOutsideContainingType(
+        var referencedAnywhere = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        MarkReferences(
             context.Compilation,
             containingType,
             candidateSymbols,
             referencedOutside,
+            referencedAnywhere,
             context.CancellationToken);
 
         foreach (var candidate in candidates)
         {
-            if (referencedOutside.Contains(candidate.Symbol.UnderlyingSymbol))
+            var symbol = candidate.Symbol.UnderlyingSymbol;
+            if (!referencedAnywhere.Contains(symbol))
+                continue;
+
+            if (referencedOutside.Contains(symbol))
                 continue;
 
             context.ReportDiagnostic(Diagnostic.Create(
@@ -60,7 +75,10 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static List<Candidate> CollectCandidates(TypeDeclarationSyntax typeDecl, SemanticModel semanticModel)
+    private static List<Candidate> CollectCandidates(
+        TypeDeclarationSyntax typeDecl,
+        SemanticModel semanticModel,
+        bool isConsoleApplication)
     {
         var candidates = new List<Candidate>();
 
@@ -73,21 +91,10 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                     if (semanticModel.GetDeclaredSymbol(methodDecl) is not IMethodSymbol methodSymbol)
                         break;
 
-                    if (!CanBePrivate(methodSymbol))
+                    if (!CanBePrivate(methodSymbol, isConsoleApplication))
                         break;
 
                     candidates.Add(new Candidate(methodSymbol, methodDecl.Identifier.GetLocation()));
-                    break;
-                }
-                case PropertyDeclarationSyntax propertyDecl:
-                {
-                    if (semanticModel.GetDeclaredSymbol(propertyDecl) is not IPropertySymbol propertySymbol)
-                        break;
-
-                    if (!CanBePrivate(propertySymbol))
-                        break;
-
-                    candidates.Add(new Candidate(propertySymbol, propertyDecl.Identifier.GetLocation()));
                     break;
                 }
                 case EventDeclarationSyntax eventDecl:
@@ -95,7 +102,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                     if (semanticModel.GetDeclaredSymbol(eventDecl) is not IEventSymbol eventSymbol)
                         break;
 
-                    if (!CanBePrivate(eventSymbol))
+                    if (!CanBePrivate(eventSymbol, isConsoleApplication))
                         break;
 
                     candidates.Add(new Candidate(eventSymbol, eventDecl.Identifier.GetLocation()));
@@ -107,7 +114,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                     if (semanticModel.GetDeclaredSymbol(declarator) is not IFieldSymbol fieldSymbol)
                         break;
 
-                    if (!CanBePrivate(fieldSymbol))
+                    if (!CanBePrivate(fieldSymbol, isConsoleApplication))
                         break;
 
                     candidates.Add(new Candidate(fieldSymbol, declarator.Identifier.GetLocation()));
@@ -119,7 +126,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
         return candidates;
     }
 
-    private static bool CanBePrivate(ISymbol symbol)
+    private static bool CanBePrivate(ISymbol symbol, bool isConsoleApplication)
     {
         symbol = symbol.UnderlyingSymbol;
 
@@ -131,6 +138,12 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        if (!isConsoleApplication && symbol.DeclaredAccessibility is not Accessibility.Internal)
+            return false;
+
+        if (ImplementsInterfaceMember(symbol))
+            return false;
+
         return symbol switch
         {
             IMethodSymbol method => method.MethodKind == MethodKind.Ordinary &&
@@ -138,19 +151,70 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                                     !method.IsVirtual &&
                                     !method.IsOverride &&
                                     method.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
-            IPropertySymbol property => !property.IsIndexer &&
-                                        property.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
             IEventSymbol @event => @event.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
             IFieldSymbol => true,
             _ => false
         };
     }
 
-    private static void MarkReferencedOutsideContainingType(
+    private static bool ImplementsInterfaceMember(ISymbol symbol)
+    {
+        if (symbol.ContainingType is null)
+            return false;
+
+        foreach (var interfaceType in symbol.ContainingType.AllInterfaces)
+        {
+            foreach (var interfaceMember in interfaceType.GetMembers(symbol.Name))
+            {
+                if (IsMatchingInterfaceMember(symbol, interfaceMember))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsMatchingInterfaceMember(ISymbol symbol, ISymbol interfaceMember)
+    {
+        return (symbol, interfaceMember) switch
+        {
+            (IMethodSymbol method, IMethodSymbol ifaceMethod) => method.MethodKind == MethodKind.Ordinary &&
+                ifaceMethod.MethodKind == MethodKind.Ordinary &&
+                HasSameParameters(method.Parameters, ifaceMethod.Parameters) &&
+                SymbolEqualityComparer.Default.Equals(method.ReturnType, ifaceMethod.ReturnType),
+
+            (IEventSymbol @event, IEventSymbol ifaceEvent) =>
+                SymbolEqualityComparer.Default.Equals(@event.Type, ifaceEvent.Type),
+
+            _ => false
+        };
+    }
+
+    private static bool HasSameParameters(
+        ImmutableArray<IParameterSymbol> left,
+        ImmutableArray<IParameterSymbol> right)
+    {
+        if (left.Length != right.Length)
+            return false;
+
+        for (var i = 0; i < left.Length; i++)
+        {
+            if (left[i].RefKind != right[i].RefKind)
+                return false;
+
+            if (!SymbolEqualityComparer.Default.Equals(left[i].Type, right[i].Type))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static void MarkReferences(
         Compilation compilation,
         INamedTypeSymbol containingType,
         HashSet<ISymbol> candidateSymbols,
         HashSet<ISymbol> referencedOutside,
+        HashSet<ISymbol> referencedAnywhere,
         CancellationToken cancellationToken)
     {
         foreach (var tree in compilation.SyntaxTrees)
@@ -163,9 +227,28 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                 if (node is not (IdentifierNameSyntax or MemberAccessExpressionSyntax or InvocationExpressionSyntax))
                     continue;
 
-                var referenced = model.GetSymbolInfo(node).Symbol?.UnderlyingSymbol;
+                ISymbol? referenced = null;
+                try
+                {
+                    referenced = node switch
+                    {
+                        InvocationExpressionSyntax invocation => model.GetSymbolInfo(invocation.Expression).Symbol?.UnderlyingSymbol,
+                        _ => model.GetSymbolInfo(node).Symbol?.UnderlyingSymbol
+                    };
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    continue;
+                }
+
                 if (referenced is null || !candidateSymbols.Contains(referenced))
                     continue;
+
+                referencedAnywhere.Add(referenced);
 
                 if (!IsInsideContainingType(node, model, containingType))
                     referencedOutside.Add(referenced);

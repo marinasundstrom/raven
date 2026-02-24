@@ -15,6 +15,7 @@ public static class BuiltInCodeFixProviders
             new VarCanBeValCodeFixProvider(),
             new MemberCanBePrivateCodeFixProvider(),
             new MemberCanBeStaticCodeFixProvider(),
+            new UnusedPropertyCodeFixProvider(),
             new PreferNewLineBetweenDeclarationsCodeFixProvider(),
             new NonNullDeclarationsCodeFixProvider(),
             new PreferDuLinqExtensionsCodeFixProvider(),
