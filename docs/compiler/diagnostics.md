@@ -18,20 +18,6 @@ Useful sample entry points:
 - `samples/async/async-await.rav` and `samples/async/async-task-return.rav` for async/await diagnostics.
 - `samples/patterns/match-expression.rav` and `samples/patterns/*` for match/pattern diagnostics.
 
-## Missing `func` migration guard (`RAV0909`)
-
-To enforce missing-`func` migration in changed files (without changing compiler compatibility yet):
-
-```bash
-bash scripts/check-missing-func-migration.sh --base origin/main
-```
-
-Or wire it into the build script:
-
-```bash
-RUN_MISSING_FUNC_GUARD=1 MISSING_FUNC_GUARD_BASE_REF=origin/main scripts/codex-build.sh
-```
-
 Return/throw context note:
 - `RAV1900` and `RAV1907` apply to inline expression contexts.
 - Explicit `return <value>` and `throw` statements are valid in statement contexts (including statement-form `match` arms and supported block-expression early-exit regions).
@@ -131,7 +117,12 @@ Return/throw context note:
 | `RAV0906` | Error | Required field must be mutable | Required field '{fieldName}' must be mutable | `samples/oop/required-members-basic.rav` |
 | `RAV0907` | Warning | Public-by-default mode is disabled | Public-by-default mode is disabled; declare member accessibility explicitly while migrating. | — |
 | `RAV0908` | Warning | Redundant public modifier | Modifier 'public' is redundant when members are public by default. | — |
-| `RAV0909` | Warning | Method declaration missing func keyword | Method declaration '{methodName}' should include the 'func' keyword. | — |
+| `RAV0909` | Error | Method declaration missing func keyword | Method declaration '{methodName}' must include the 'func' keyword. | — |
+| `RAV0910` | Warning | val property cannot declare writable accessor | Property '{propertyName}' is declared 'val' and cannot declare a '{accessorKind}' accessor. Use 'var' instead. | — |
+| `RAV0911` | Warning | var property requires writable shape | Property '{propertyName}' is declared 'var' but has no writable shape. Add a 'set'/'init' accessor or a storage initializer. | — |
+| `RAV0912` | Error | field keyword is only valid in property accessors | 'field' is only valid inside property 'get', 'set', or 'init' accessor bodies. | — |
+| `RAV0913` | Error | field keyword requires property backing storage | Property '{propertyName}' does not have backing storage, so 'field' cannot be used here. | — |
+| `RAV0914` | Error | Property declaration requires a binding keyword | Property '{propertyName}' requires an explicit binding keyword ('val' or 'var'). | — |
 | `RAV1000` | Error | Expression expected | Expression expected | — |
 | `RAV1001` | Error | Identifier expected | Identifier expected | — |
 | `RAV1002` | Error | Semicolon expected | ';' expected | — |
@@ -139,7 +130,7 @@ Return/throw context note:
 | `RAV1004` | Error | Duplicate modifier | Duplicate '{modifier}' modifier | — |
 | `RAV1005` | Error | Import directives must come first | 'import' directives must appear before 'alias' and declarations. | — |
 | `RAV1006` | Error | Alias directive out of order | Alias directives must appear before member declarations | — |
-| `RAV1007` | Error | Field declaration requires a binding keyword | Field declarations must start with 'val', 'var', or 'const' | — |
+| `RAV1007` | Error | Field declaration requires a binding keyword | Field declarations must start with 'field' or 'const' | — |
 | `RAV1008` | Error | Duplicate named argument | Named argument '{name}' specified multiple times | — |
 | `RAV1009` | Error | Unrecognized escape sequence | Unrecognized escape sequence | — |
 | `RAV1010` | Error | Newline in constant | Newline in constant | — |

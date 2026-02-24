@@ -652,20 +652,20 @@ func LoadAndParse(path: string) -> Result<int, Exception> {
 ##### Propagating into a different error type with an extension implicit converter
 
 ```raven
-public class ParserError { }
-public class DomainError { }
+class ParserError { }
+class DomainError { }
 
-public extension ErrorConverters for ParserError {
-    public static implicit operator(value: ParserError) -> DomainError {
+extension ErrorConverters for ParserError {
+    static implicit operator(value: ParserError) -> DomainError {
         return DomainError()
     }
 }
 
-public func Parse(text: string) -> Result<int, ParserError> {
+func Parse(text: string) -> Result<int, ParserError> {
     return .Error(ParserError())
 }
 
-public func Execute(text: string) -> Result<int, DomainError> {
+func Execute(text: string) -> Result<int, DomainError> {
     val value = Parse(text)?
     return .Ok(value)
 }
@@ -1208,8 +1208,8 @@ Init-only accessors are treated as initializer-only members, so they may be assi
 ```raven
 class Settings
 {
-    public Theme: string { get; init; }
-    public FontSize: int { get; init; }
+    Theme: string { get; init; }
+    FontSize: int { get; init; }
 }
 
 val settings = Settings {
@@ -1367,7 +1367,7 @@ Examples:
 // Named extension: can be imported and referenced by name.
 public extension StringExt for string
 {
-    ToSlug() -> string => self.Trim().ToLowerInvariant().Replace(" ", "-")
+    func ToSlug() -> string => self.Trim().ToLowerInvariant().Replace(" ", "-")
 }
 
 import MyApp.StringExt.*
@@ -1379,7 +1379,7 @@ val slug = " Hello World ".ToSlug()
 // Intended for internal / assembly-local augmentation (and cannot be imported by name).
 extension for string
 {
-    IsNullOrWhiteSpace() -> bool => self.Trim().Length == 0
+    func IsNullOrWhiteSpace() -> bool => self.Trim().Length == 0
 }
 
 // In the same compilation unit where it is visible:
@@ -1391,7 +1391,7 @@ val empty = "   ".IsNullOrWhiteSpace()
 public trait ValueSequenceExt<T> for System.Collections.Generic.IEnumerable<T>
     where T: struct
 {
-    Sum() -> T { /* ... */ }
+    func Sum() -> T { /* ... */ }
 }
 
 // If the receiver's element type is not a struct, this extension is ignored during lookup.
@@ -1422,8 +1422,8 @@ items.CountPlusOne = 5          // invokes setter
 // Static extension members: accessed through the receiver type when no real static member matches.
 public extension ListStatics for System.Collections.Generic.List<int>
 {
-    public static Empty() -> System.Collections.Generic.List<int> => System.Collections.Generic.List<int>()
-    public static DefaultCapacity: int { get => 4 }
+    static func Empty() -> System.Collections.Generic.List<int> => System.Collections.Generic.List<int>()
+    static DefaultCapacity: int { get => 4 }
 }
 
 import System.Collections.Generic.*
@@ -1454,7 +1454,7 @@ inside an `extension` container as function members:
 ```raven
 extension StringExt for string
 {
-    ToSlug() -> string
+    func ToSlug() -> string
     {
         // inside the body, `self` is a synthesized parameter of type string
         return self.Trim().ToLowerInvariant().Replace(" ", "-")
@@ -1584,7 +1584,7 @@ When the pipeline targets an invocation, the syntax mirrors a regular call:
 val result = 5 |> MathHelpers.Increment(2)
 
 public static class MathHelpers {
-    public static Increment(x: int, amount: int) -> int {
+    static func Increment(x: int, amount: int) -> int {
         return x + amount
     }
 }
@@ -1619,8 +1619,8 @@ val _ = 42 |> container.Value
 val _ = 42 |> Container.Count
 
 public class Container {
-    public Value: int { get; set; }
-    public static Count: int { get; set; }
+    Value: int { get; set; }
+    static Count: int { get; set; }
 }
 ```
 
@@ -1957,7 +1957,7 @@ machine that implements the appropriate enumerator pattern. 【F:src/Raven.CodeA
 import System.Collections.Generic.*
 
 class Counter {
-    Numbers(max: int) -> IEnumerable<int> {
+    func Numbers(max: int) -> IEnumerable<int> {
         var current = 0
         while current < max {
             yield return current
@@ -2096,7 +2096,7 @@ Statement-form `match` with block arms may use explicit `return`:
 
 ```raven
 class Evaluator {
-    Eval(scrutinee: bool) -> bool {
+    func Eval(scrutinee: bool) -> bool {
         match scrutinee {
             true => {
                 return true
@@ -2663,7 +2663,7 @@ delegate Transformer(value: int) -> string
 
 class Pipeline
 {
-    public delegate Stage<T>(ref value: T) -> bool
+    delegate Stage<T>(ref value: T) -> bool
 }
 ```
 
@@ -3045,9 +3045,9 @@ method so later invocations execute against the same object:
 class Counter {
     value: int = 3
 
-    Increment(delta: int) -> int { self.value + delta }
+    func Increment(delta: int) -> int { self.value + delta }
 
-    Run() -> int {
+    func Run() -> int {
         val increment = self.Increment
         increment(7) // returns 10
     }
@@ -3072,13 +3072,13 @@ framework-provided types and faithfully propagate modifiers:
 
 ```raven
 class Accumulator {
-    static TryAccumulate(state: &int, out doubled: &int) -> bool {
+    static func TryAccumulate(state: &int, out doubled: &int) -> bool {
         state = state + 1
         doubled = state * 2
         true
     }
 
-    static Execute(value: int) -> int {
+    static func Execute(value: int) -> int {
         val callback = Accumulator.TryAccumulate
         var current = value
         var doubled = 0

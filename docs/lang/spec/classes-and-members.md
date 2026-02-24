@@ -53,7 +53,7 @@ delegate Transformer(value: int) -> string
 
 class Pipeline
 {
-    public delegate Stage<T>(ref value: T) -> bool
+    delegate Stage<T>(ref value: T) -> bool
 }
 ```
 
@@ -104,7 +104,7 @@ throughout the member list.
 ```raven
 class Box<T>
 {
-    public val Value: T { get; }
+    val Value: T { get; }
 
     init(value: T) { Value = value }
 }
@@ -157,11 +157,8 @@ Default accessibility depends on the declaration context:
 * Nested types default to `private` unless they are declared inside an
   interface, in which case they are implicitly `public`.
 * Member declarations (fields, methods, properties, indexers, constructors, and lifecycle blocks)
-  default to `private` for classes/structs and `public` for interfaces.
-  When `CompilationOptions.MembersPublicByDefault` is enabled, class/struct
-  members default to `public`; in that mode, an explicit `public` modifier is
-  reported as redundant.
-  This mode is the migration path toward Raven's public-by-default member model.
+  default to `public` for classes/structs and interfaces.
+  Use `private`/`internal`/`protected` only when narrower visibility is intended.
 
 Constructors and lifecycle declarations follow these rules as well.
 
@@ -201,8 +198,8 @@ those fields before other instance initialization logic executes.
 ```raven
 class Person(name: string, age: int)
 {
-    public func GetName() -> string => name
-    public func GetAge() -> int => age
+    func GetName() -> string => name
+    func GetAge() -> int => age
 }
 
 val person = Person("Ada", 42)
@@ -219,8 +216,8 @@ val years = person.GetAge()
 
 ```raven
 class Widget {
-    public init(name: string) { /* constructor-shape init */ }
-    public init(name: string, age: int) { /* secondary overload */ }
+    init(name: string) { /* constructor-shape init */ }
+    init(name: string, age: int) { /* secondary overload */ }
 }
 ```
 
@@ -327,7 +324,7 @@ the event handler type:
 
 ```raven
 class Button {
-    public event Clicked: System.Action;
+    event Clicked: System.Action;
 }
 ```
 
@@ -338,7 +335,7 @@ Custom events supply `add` and `remove` accessors, which receive the implicit
 
 ```raven
 class Button {
-    public event Clicked: System.Action {
+    event Clicked: System.Action {
         add { /* register value */ }
         remove { /* unregister value */ }
     }
@@ -354,9 +351,9 @@ the declaring type:
 
 ```raven
 class Button {
-    public event Clicked: System.Action? // Events can be null
+    event Clicked: System.Action? // Events can be null
 
-    public Raise() -> unit {
+    func Raise() -> unit {
         Clicked?();
     }
 }
@@ -399,10 +396,10 @@ instance constructor may chain to a specific base overload by adding a construct
 body:
 
 ```raven
-open class Base { public init(value: int) {} }
+open class Base { init(value: int) {} }
 
 class Derived : Base {
-    public init(value: int): base(value) {
+    init(value: int): base(value) {
         // The base invocation runs before the derived body executes.
     }
 }
@@ -536,8 +533,8 @@ diagnostic.
 ```raven
 class Printer
 {
-    public Print(x: int) -> () => Console.WriteLine(x)
-    public Print(x: string) -> () => Console.WriteLine(x)
+    func Print(x: int) -> () => Console.WriteLine(x)
+    func Print(x: string) -> () => Console.WriteLine(x)
 }
 
 Print(42)
@@ -594,7 +591,7 @@ call operator `()`.
 ```raven
 class Adder
 {
-    public self(x: int, y: int) -> int => x + y
+    func self(x: int, y: int) -> int => x + y
 }
 
 val add = Adder()
@@ -611,7 +608,7 @@ methods with different parameter signatures.
 ```raven
 interface ILogger
 {
-    Log(message: string) -> ()
+    func Log(message: string) -> ()
 }
 ```
 
@@ -634,9 +631,9 @@ Classes and structs implement interfaces by listing them in their base list. The
 ```raven
 class FileLogger : ILogger, IDisposable
 {
-    public func Dispose() -> () { /* release resources */ }
+    func Dispose() -> () { /* release resources */ }
 
-    public func Log(message: string) -> ()
+    func Log(message: string) -> ()
     {
         Console.WriteLine(message)
     }
