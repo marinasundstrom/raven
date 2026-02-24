@@ -29,8 +29,8 @@ var stopwatch = Stopwatch.StartNew();
 // --output-type <console|classlib> - output kind
 // --unsafe           - enable unsafe mode (required for pointer declarations/usages)
 // --no-global-statements - disable top-level/global statements
-// --members-public-by-default - members default to public in classes/structs
-// --no-members-public-by-default - members use context defaults (private in classes/structs)
+// --members-public-by-default - members default to public in classes/structs (default behavior)
+// --no-members-public-by-default - disable public-by-default and require explicit public
 // --runtime-async    - enable runtime-async metadata emission
 // --no-runtime-async - disable runtime-async metadata emission
 // -o <path>         - output assembly path
@@ -69,7 +69,7 @@ var embedCoreTypes = false;
 var skipDefaultRavenCoreLookup = false;
 var allowUnsafe = false;
 var allowGlobalStatements = true;
-bool? membersPublicByDefaultOverride = null;
+bool? membersPublicByDefaultOverride = true;
 bool? runtimeAsyncOverride = null;
 
 var printSyntaxTree = false;
@@ -1668,9 +1668,9 @@ static void PrintHelp()
     Console.WriteLine("  --no-global-statements");
     Console.WriteLine("                     Disable top-level/global statements");
     Console.WriteLine("  --members-public-by-default");
-    Console.WriteLine("                     Members default to public in classes/structs");
+    Console.WriteLine("                     Members default to public in classes/structs (default)");
     Console.WriteLine("  --no-members-public-by-default");
-    Console.WriteLine("                     Members use context defaults (private in classes/structs)");
+    Console.WriteLine("                     Disable public-by-default and require explicit public");
     Console.WriteLine("  --runtime-async  Enable runtime-async metadata emission");
     Console.WriteLine("  --no-runtime-async");
     Console.WriteLine("                     Disable runtime-async metadata emission (auto-enabled for net11+)");
