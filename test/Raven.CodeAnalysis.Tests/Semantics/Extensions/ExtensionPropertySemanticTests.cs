@@ -15,7 +15,7 @@ public sealed class ExtensionPropertySemanticTests : CompilationTestBase
     {
         const string source = """
 extension IntExtensions for int {
-    IsZero: bool {
+    val IsZero: bool {
         get { return self == 0; }
     }
 }

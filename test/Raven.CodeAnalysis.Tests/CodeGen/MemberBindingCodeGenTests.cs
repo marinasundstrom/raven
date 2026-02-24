@@ -53,7 +53,7 @@ union Result<T, E> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    IsOk: Option<T> {
+    val IsOk: Option<T> {
         get {
             if self is .Ok(val value) {
                 return .Some(value)

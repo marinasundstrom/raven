@@ -106,10 +106,10 @@ public class OptionJsonConverterFactory : JsonConverterFactory {
 public extension OptionExtensions<T> for Option<T> {
 
     /// Gets a value indicating whether the Option has Some
-    public HasSome: bool => self is Some(val v)
+    public val HasSome: bool => self is Some(val v)
 
     /// Gets a value indicating whether the Option has None
-    public HasNone: bool => self is None
+    public val HasNone: bool => self is None
 
     /// Projects the value inside `Some` using `mapper`. `None` stays `None`.
     public func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {

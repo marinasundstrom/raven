@@ -93,6 +93,10 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
     {
         var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
         var modifiers = ParseMemberModifiers();
+        var bindingKeyword = Token(SyntaxKind.None);
+        if (PeekToken().Kind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            bindingKeyword = ReadToken();
+
         var funcKeyword = MissingToken(SyntaxKind.FuncKeyword);
 
         if (PeekToken().IsKind(SyntaxKind.FuncKeyword))
@@ -127,7 +131,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         if (!funcKeyword.IsMissing || PeekToken().IsKind(SyntaxKind.OpenParenToken))
             return ParseMethodMember(attributeLists, modifiers, funcKeyword, identifier, typeParameterList);
 
-        return ParsePropertyMember(attributeLists, modifiers, identifier);
+        return ParsePropertyMember(attributeLists, modifiers, bindingKeyword, identifier);
     }
 
     private MemberDeclarationSyntax ParseMethodMember(
@@ -244,6 +248,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
     private MemberDeclarationSyntax ParsePropertyMember(
         SyntaxList attributeLists,
         SyntaxList modifiers,
+        SyntaxToken bindingKeyword,
         SyntaxToken identifier)
     {
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
@@ -266,7 +271,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         return PropertyDeclaration(
             attributeLists,
             modifiers,
-            Token(SyntaxKind.None),
+            bindingKeyword,
             explicitInterfaceSpecifier: null,
             identifier,
             typeAnnotation,

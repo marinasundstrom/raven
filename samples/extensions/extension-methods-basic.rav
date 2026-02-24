@@ -37,7 +37,7 @@ public extension MyIntEnumerableExt for IEnumerable<int> {
 }
 
 public extension ListExt for List<int> {
-    public CountPlusOne: int {
+    public var CountPlusOne: int {
         get => self.Count + 1
         set => self.Add(value)
     }

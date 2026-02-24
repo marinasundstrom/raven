@@ -259,6 +259,13 @@ internal partial class TypeMemberBinder : Binder
             _ => null,
         };
 
+        if (propertyDecl.BindingKeyword.Kind == SyntaxKind.None)
+        {
+            _diagnostics.ReportPropertyDeclarationRequiresBindingKeyword(
+                propertyName,
+                propertyDecl.Identifier.GetLocation());
+        }
+
         if (declaredMutable == false && propertyDecl.AccessorList is { } declaredAccessorList)
         {
             foreach (var accessor in declaredAccessorList.Accessors)

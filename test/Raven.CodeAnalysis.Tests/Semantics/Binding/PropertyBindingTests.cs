@@ -46,7 +46,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Foo {
-                public Bar: int {
+                public val Bar: int {
                     get => 0
                 }
             }
@@ -65,7 +65,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Foo {
-                public static Bar: int {
+                public static val Bar: int {
                     get => 0
                 }
             }
@@ -85,7 +85,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Person {
-                public Name: string { get; }
+                public val Name: string { get; }
                 init (name: string) {
                     Name = name;
                 }
@@ -103,7 +103,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Person {
-                public Name: string { get; }
+                public val Name: string { get; }
                 public func SetName(name: string) -> unit {
                     Name = name;
                 }
@@ -122,7 +122,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Person {
-                public Name: string {
+                public val Name: string {
                     get => ""
                 }
                 init (name: string) {
@@ -143,7 +143,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Box {
-                public Value: int {
+                public var Value: int {
                     get => field
                     set {
                         field = value;

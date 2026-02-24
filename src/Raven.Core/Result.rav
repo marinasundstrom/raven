@@ -109,13 +109,13 @@ public class ResultJsonConverterFactory : JsonConverterFactory {
 public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Gets a value indicating whether the Result was Ok
-    public HasOk: bool => self is Ok(val message)
+    public val HasOk: bool => self is Ok(val message)
 
     /// Gets a value indicating whether the Result was Error
-    public HasError: bool => self is Error(val message)
+    public val HasError: bool => self is Error(val message)
 
     /// Converts the Result to an Option
-    public IsOk: Option<T> {
+    public val IsOk: Option<T> {
         get {
             if self is Ok(val value) {
                 return Some(value)
@@ -125,7 +125,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Converts the Result error channel to an Option
-    public IsError: Option<E> {
+    public val IsError: Option<E> {
         get {
             if self is Error(val e) {
                 return Some(e)

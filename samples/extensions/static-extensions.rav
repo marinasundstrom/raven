@@ -10,5 +10,5 @@ WriteLine(z)
 extension for int {
     public static func Hello() -> int => 42
 
-    public static Value: string => "test"
+    public static val Value: string => "test"
 }

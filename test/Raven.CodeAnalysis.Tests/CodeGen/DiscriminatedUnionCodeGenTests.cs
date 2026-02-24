@@ -1213,7 +1213,7 @@ union Result<T, E> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    public IsError: bool {
+    public val IsError: bool {
         get {
             if self is .Error(_) {
                 return true
@@ -1434,7 +1434,7 @@ union Outcome<T, E> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    public IsError: bool {
+    public val IsError: bool {
         get {
             if self is .Error(_) {
                 return true

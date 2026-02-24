@@ -157,7 +157,7 @@ val total = Counter.Total
 class Counter { }
 
 extension CounterExtensions for Counter {
-    public static Total: int {
+    public static val Total: int {
         get { return 42; }
     }
 }

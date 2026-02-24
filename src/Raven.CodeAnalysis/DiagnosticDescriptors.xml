@@ -798,4 +798,8 @@
     Title="field keyword requires property backing storage"
     Message="Property '{propertyName}' does not have backing storage, so 'field' cannot be used here."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0914" Identifier="PropertyDeclarationRequiresBindingKeyword"
+    Title="Property declaration requires a binding keyword"
+    Message="Property '{propertyName}' requires an explicit binding keyword ('val' or 'var')."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

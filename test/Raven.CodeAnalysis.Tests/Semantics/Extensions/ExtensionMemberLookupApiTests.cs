@@ -22,7 +22,7 @@ extension CounterExtensions for Counter {
         return 1
     }
 
-    Total: int {
+    val Total: int {
         get { return 42; }
     }
 
@@ -30,7 +30,7 @@ extension CounterExtensions for Counter {
         return Counter()
     }
 
-    public static Name: string {
+    public static val Name: string {
         get { return "Counter"; }
     }
 }
