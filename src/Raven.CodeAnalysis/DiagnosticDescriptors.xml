@@ -790,4 +790,12 @@
     Title="var property requires writable shape"
     Message="Property '{propertyName}' is declared 'var' but has no writable shape. Add a 'set'/'init' accessor or a storage initializer."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0912" Identifier="FieldKeywordOnlyValidInPropertyAccessor"
+    Title="field keyword is only valid in property accessors"
+    Message="'field' is only valid inside property 'get', 'set', or 'init' accessor bodies."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0913" Identifier="FieldKeywordRequiresPropertyBackingStorage"
+    Title="field keyword requires property backing storage"
+    Message="Property '{propertyName}' does not have backing storage, so 'field' cannot be used here."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

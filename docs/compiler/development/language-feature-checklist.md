@@ -69,6 +69,8 @@ relates to Raven's compiler architecture.
   required to validate the change.
 - **Integration tests** — Create end-to-end or scenario tests when the feature impacts multiple compiler layers or runtime
   behavior.
+- **Sample suite validation** — Update affected files under `samples/` and run sample compilation to ensure examples stay in
+  sync with the current syntax/semantics.
 - **Stress and regression tests** — Consider targeted stress cases (incremental parsing, concurrency, large projects) when the
   feature could impact performance or stability.
 

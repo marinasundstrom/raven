@@ -5216,10 +5216,8 @@ partial class BlockBinder : Binder
             if (TryBindAutoPropertyFieldKeyword(out var fieldAccess))
                 return fieldAccess;
 
-            if (IsExtensionPropertyAccessor())
+            if (TryReportInvalidFieldKeywordUsage(syntax))
             {
-                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, syntax.Identifier.GetLocation());
-
                 var error = ErrorExpression(reason: BoundExpressionReason.NotFound);
                 CacheBoundNode(syntax, error);
                 return error;
@@ -5406,6 +5404,42 @@ partial class BlockBinder : Binder
             return false;
 
         fieldAccess = new BoundFieldAccess(propertySymbol.BackingField);
+        return true;
+    }
+
+    private bool TryReportInvalidFieldKeywordUsage(IdentifierNameSyntax syntax)
+    {
+        if (_containingSymbol is IMethodSymbol
+            {
+                MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly,
+                ContainingSymbol: SourcePropertySymbol propertySymbol
+            })
+        {
+            if (propertySymbol.BackingField is null)
+            {
+                _diagnostics.ReportFieldKeywordRequiresPropertyBackingStorage(
+                    propertySymbol.Name,
+                    syntax.Identifier.GetLocation());
+                return true;
+            }
+
+            return false;
+        }
+
+        if (_containingSymbol is IMethodSymbol
+            {
+                MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly,
+                ContainingSymbol: IPropertySymbol extensionProperty
+            } &&
+            extensionProperty.IsExtensionProperty)
+        {
+            _diagnostics.ReportFieldKeywordRequiresPropertyBackingStorage(
+                extensionProperty.Name,
+                syntax.Identifier.GetLocation());
+            return true;
+        }
+
+        _diagnostics.ReportFieldKeywordOnlyValidInPropertyAccessor(syntax.Identifier.GetLocation());
         return true;
     }
 

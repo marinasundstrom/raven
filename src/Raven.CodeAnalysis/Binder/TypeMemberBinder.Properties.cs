@@ -823,12 +823,6 @@ internal partial class TypeMemberBinder : Binder
             }
         }
 
-        if (propertyDecl.ExpressionBody is { } propertyExpressionBody &&
-            propertyExpressionBody.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(static id => id.Identifier.ValueText == "field"))
-        {
-            return true;
-        }
-
         return false;
     }
 }

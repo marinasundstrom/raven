@@ -211,4 +211,40 @@ public class PropertyBindingTests : DiagnosticTestBase
         var verifier = CreateVerifier(testCode);
         verifier.Verify();
     }
+
+    [Fact]
+    public void FieldKeyword_OutsidePropertyAccessor_ProducesDiagnostic()
+    {
+        const string testCode =
+            """
+            class Counter {
+                func Read() -> int {
+                    val value = field
+                    return value
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode,
+            [new DiagnosticResult(CompilerDiagnostics.FieldKeywordOnlyValidInPropertyAccessor.Id).WithSpan(3, 21, 3, 26)]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void FieldKeyword_InComputedProperty_ProducesDiagnostic()
+    {
+        const string testCode =
+            """
+            class Counter {
+                val Value: int => field
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode,
+            [new DiagnosticResult(CompilerDiagnostics.FieldKeywordRequiresPropertyBackingStorage.Id).WithSpan(2, 23, 2, 28).WithArguments("Value")]);
+
+        verifier.Verify();
+    }
+
 }
