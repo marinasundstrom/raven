@@ -3,8 +3,8 @@ import System.Console.*
 
 func Main() {
     // Feature: property patterns with nested tuple destructuring.
-    val fastLane = new Shipment("REQ-1001", true, (10, 20))
-    val standard = new Shipment("REQ-1002", false, (1, 2))
+    val fastLane = Shipment("REQ-1001", true, (10, 20))
+    val standard = Shipment("REQ-1002", false, (1, 2))
 
     PrintRoutingMessage(fastLane)
     PrintRoutingMessage(standard)
@@ -40,7 +40,7 @@ class Shipment {
     var IsPriority: bool
     var Window: (int, int)
 
-    public init(id: string, isPriority: bool, window: (int, int)) {
+    init(id: string, isPriority: bool, window: (int, int)) {
         Id = id
         IsPriority = isPriority
         Window = window
