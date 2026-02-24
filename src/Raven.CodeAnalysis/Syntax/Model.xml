@@ -354,7 +354,7 @@
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
     <Slot Name="TerminatorToken" Type="Token" IsInherited="true" IsOptionalToken="true" />
   </Node>
-  <Node Name="InitDeclaration" Inherits="MemberDeclaration">
+  <Node Name="ParameterlessConstructorDeclaration" Inherits="MemberDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="InitKeyword" Type="Token" DefaultToken="InitKeyword" />
@@ -362,7 +362,7 @@
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
-  <Node Name="InitBlockDeclaration" Inherits="MemberDeclaration">
+  <Node Name="InitializerBlockDeclaration" Inherits="MemberDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Body" Type="BlockStatement" />

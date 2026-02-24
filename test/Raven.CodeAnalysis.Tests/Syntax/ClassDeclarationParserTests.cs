@@ -365,7 +365,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void InitDeclaration_WithoutParameterList_ParsesAsParameterlessConstructor()
+    public void InitDeclaration_WithoutParameterList_ParsesAsParameterlessConstructorDeclaration()
     {
         var source = """
             class C {
@@ -377,12 +377,9 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var tree = SyntaxTree.ParseText(source);
         var @class = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
 
-        var ctor = Assert.IsType<ConstructorDeclarationSyntax>(Assert.Single(@class.Members));
+        var ctor = Assert.IsType<ParameterlessConstructorDeclarationSyntax>(Assert.Single(@class.Members));
         Assert.Equal(SyntaxKind.InitKeyword, ctor.InitKeyword.Kind);
-        Assert.Empty(ctor.ParameterList.Parameters);
         Assert.NotNull(ctor.Body);
-        Assert.True(ctor.ParameterList.OpenParenToken.IsMissing);
-        Assert.True(ctor.ParameterList.CloseParenToken.IsMissing);
         Assert.Empty(tree.GetDiagnostics());
     }
 
@@ -400,7 +397,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var tree = SyntaxTree.ParseText(source);
         var @class = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
 
-        var initBlock = Assert.IsType<InitBlockDeclarationSyntax>(Assert.Single(@class.Members));
+        var initBlock = Assert.IsType<InitializerBlockDeclarationSyntax>(Assert.Single(@class.Members));
         Assert.NotNull(initBlock.Body);
         Assert.Empty(tree.GetDiagnostics());
     }

@@ -660,9 +660,6 @@ internal class TypeDeclarationParser : SyntaxParser
     private MemberDeclarationSyntax ParseInitDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
     {
         var initKeyword = ReadToken();
-        var openParenToken = MissingToken(SyntaxKind.OpenParenToken);
-        var closeParenToken = MissingToken(SyntaxKind.CloseParenToken);
-        var parameterList = ParameterList(openParenToken, SyntaxList.Empty, closeParenToken);
         var token = PeekToken();
 
         BlockStatementSyntax? body = null;
@@ -674,14 +671,14 @@ internal class TypeDeclarationParser : SyntaxParser
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
 
         var terminatorToken = ConsumeMemberTerminator();
-        return ConstructorDeclaration(attributeLists, modifiers, initKeyword, parameterList, null, body, expressionBody, terminatorToken);
+        return ParameterlessConstructorDeclaration(attributeLists, modifiers, initKeyword, body, expressionBody, terminatorToken);
     }
 
     private MemberDeclarationSyntax ParsePrimaryInitializerDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
     {
         var body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
         var terminatorToken = ConsumeMemberTerminator();
-        return InitBlockDeclaration(attributeLists, modifiers, body, terminatorToken);
+        return InitializerBlockDeclaration(attributeLists, modifiers, body, terminatorToken);
     }
 
     private MemberDeclarationSyntax ParseFinallyDeclaration(SyntaxList attributeLists, SyntaxList modifiers)

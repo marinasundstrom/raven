@@ -253,8 +253,8 @@ internal partial class TypeMemberBinder : Binder
         {
             MethodDeclarationSyntax method => BindMethodSymbol(method),
             ConstructorDeclarationSyntax ctor => BindConstructorSymbol(ctor),
-            InitDeclarationSyntax initDecl => BindInitSymbol(initDecl),
-            InitBlockDeclarationSyntax initBlockDecl => BindInitBlockSymbol(initBlockDecl),
+            ParameterlessConstructorDeclarationSyntax initDecl => BindInitSymbol(initDecl),
+            InitializerBlockDeclarationSyntax initBlockDecl => BindInitBlockSymbol(initBlockDecl),
             FinallyDeclarationSyntax finalDecl => BindFinallySymbol(finalDecl),
             OperatorDeclarationSyntax opDecl => BindOperatorSymbol(opDecl),
             ConversionOperatorDeclarationSyntax conversionDecl => BindConversionOperatorSymbol(conversionDecl),
@@ -333,7 +333,7 @@ internal partial class TypeMemberBinder : Binder
         return method;
     }
 
-    private ISymbol? BindInitSymbol(InitDeclarationSyntax initDecl)
+    private ISymbol? BindInitSymbol(ParameterlessConstructorDeclarationSyntax initDecl)
     {
         var isStatic = initDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var metadataName = isStatic ? ".cctor" : ".ctor";
@@ -347,7 +347,7 @@ internal partial class TypeMemberBinder : Binder
                 m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == initDecl));
     }
 
-    private ISymbol? BindInitBlockSymbol(InitBlockDeclarationSyntax initBlockDecl)
+    private ISymbol? BindInitBlockSymbol(InitializerBlockDeclarationSyntax initBlockDecl)
     {
         var primaryConstructor = _containingType.GetMembers()
             .OfType<IMethodSymbol>()
@@ -1581,7 +1581,7 @@ internal partial class TypeMemberBinder : Binder
         return methodBinder;
     }
 
-    public MethodBinder BindInitDeclaration(InitDeclarationSyntax initDecl)
+    public MethodBinder BindInitDeclaration(ParameterlessConstructorDeclarationSyntax initDecl)
     {
         ReportPartialModifierNotSupported(initDecl.Modifiers, "init", _containingType.Name);
         ReportRedundantPublicModifierIfNeeded(initDecl.Modifiers);
@@ -1596,7 +1596,7 @@ internal partial class TypeMemberBinder : Binder
         return new MethodBinder(target, this);
     }
 
-    public MethodBinder BindInitBlockDeclaration(InitBlockDeclarationSyntax initBlockDecl)
+    public MethodBinder BindInitBlockDeclaration(InitializerBlockDeclarationSyntax initBlockDecl)
     {
         ReportPartialModifierNotSupported(initBlockDecl.Modifiers, "primary initializer", _containingType.Name);
 
@@ -1617,7 +1617,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (initBlockDecl.Parent is TypeDeclarationSyntax ownerTypeDecl)
         {
-            static bool IsSameInitBlock(MemberDeclarationSyntax member, InitBlockDeclarationSyntax target)
+            static bool IsSameInitBlock(MemberDeclarationSyntax member, InitializerBlockDeclarationSyntax target)
                 => member.Kind == target.Kind &&
                    member.SyntaxTree == target.SyntaxTree &&
                    member.Span.Start == target.Span.Start &&
@@ -1632,7 +1632,7 @@ internal partial class TypeMemberBinder : Binder
                 if (IsSameInitBlock(member, initBlockDecl))
                     break;
 
-                if (member is InitBlockDeclarationSyntax)
+                if (member is InitializerBlockDeclarationSyntax)
                 {
                     hasPreviousPrimaryInitBlock = true;
                     break;
@@ -1682,7 +1682,7 @@ internal partial class TypeMemberBinder : Binder
         return new MethodBinder(finalizerSymbol, this);
     }
 
-    private SourceMethodSymbol ResolveLifecycleInitTargetConstructor(InitDeclarationSyntax initDecl, bool isStatic)
+    private SourceMethodSymbol ResolveLifecycleInitTargetConstructor(ParameterlessConstructorDeclarationSyntax initDecl, bool isStatic)
     {
         var methodKind = isStatic ? MethodKind.StaticConstructor : MethodKind.Constructor;
         var existing = _containingType.GetMembers()
@@ -1711,7 +1711,7 @@ internal partial class TypeMemberBinder : Binder
             declaredAccessibility: initAccessibility);
     }
 
-    private SourceMethodSymbol ResolvePrimaryInitializerTargetConstructor(InitBlockDeclarationSyntax initBlockDecl)
+    private SourceMethodSymbol ResolvePrimaryInitializerTargetConstructor(InitializerBlockDeclarationSyntax initBlockDecl)
     {
         var primaryConstructor = _containingType.GetMembers()
             .OfType<IMethodSymbol>()

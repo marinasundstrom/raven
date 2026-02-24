@@ -71,7 +71,7 @@ public sealed class AutoPropertyInitializationAnalyzer : DiagnosticAnalyzer
             CollectAssignedProperties(semanticModel, ctor, autoProperties, assigned);
         }
 
-        foreach (var initBlock in classDecl.Members.OfType<InitBlockDeclarationSyntax>())
+        foreach (var initBlock in classDecl.Members.OfType<InitializerBlockDeclarationSyntax>())
             CollectAssignedProperties(semanticModel, initBlock.Body, autoProperties, assigned);
 
         foreach (var (propertySymbol, propertyDecl) in autoProperties)

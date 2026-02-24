@@ -24,8 +24,8 @@ class C {
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
-        var ctorDecl = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(ctorDecl));
+        var initDecl = tree.GetRoot().DescendantNodes().OfType<ParameterlessConstructorDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(initDecl));
 
         Assert.Equal(MethodKind.Constructor, symbol.MethodKind);
         Assert.Equal(".ctor", symbol.Name);
@@ -48,8 +48,8 @@ class C {
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
-        var ctorDecl = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(ctorDecl));
+        var initDecl = tree.GetRoot().DescendantNodes().OfType<ParameterlessConstructorDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(initDecl));
 
         Assert.Equal(MethodKind.StaticConstructor, symbol.MethodKind);
         Assert.Equal(".cctor", symbol.Name);
@@ -100,7 +100,7 @@ class C {
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
-        var ctorDecls = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().ToArray();
+        var ctorDecls = tree.GetRoot().DescendantNodes().OfType<ParameterlessConstructorDeclarationSyntax>().ToArray();
         var finalDecl = tree.GetRoot().DescendantNodes().OfType<FinallyDeclarationSyntax>().Single();
 
         Assert.Equal(2, ctorDecls.Length);
@@ -150,7 +150,7 @@ class C(name: string) {
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
-        var initBlockDecl = tree.GetRoot().DescendantNodes().OfType<InitBlockDeclarationSyntax>().Single();
+        var initBlockDecl = tree.GetRoot().DescendantNodes().OfType<InitializerBlockDeclarationSyntax>().Single();
         var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(initBlockDecl));
 
         Assert.Equal(MethodKind.Constructor, symbol.MethodKind);

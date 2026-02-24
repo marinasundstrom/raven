@@ -2535,13 +2535,13 @@ public partial class SemanticModel
                     CacheBinder(ctorDecl, ctorBinder);
                     break;
 
-                case InitDeclarationSyntax initDecl:
+                case ParameterlessConstructorDeclarationSyntax initDecl:
                     var initMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var initBinder = initMemberBinder.BindInitDeclaration(initDecl);
                     CacheBinder(initDecl, initBinder);
                     break;
 
-                case InitBlockDeclarationSyntax initBlockDecl:
+                case InitializerBlockDeclarationSyntax initBlockDecl:
                     var initBlockMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var initBlockBinder = initBlockMemberBinder.BindInitBlockDeclaration(initBlockDecl);
                     CacheBinder(initBlockDecl, initBlockBinder);

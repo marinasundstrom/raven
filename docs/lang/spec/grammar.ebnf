@@ -152,7 +152,7 @@ NewLineToken             ::= /* newline trivia promoted to a token after type de
 
 ClassMember              ::= FieldDeclaration
                            | ConstDeclaration
-                           | InitDeclaration
+                           | ParameterlessConstructorDeclaration
                            | FinallyDeclaration
                            | MethodDeclaration
                            | ConversionOperatorDeclaration
@@ -170,7 +170,7 @@ ConstDeclaration         ::= MemberModifiers? 'const' VariableDeclarators ';' ;
 VariableDeclarators      ::= VariableDeclarator {',' VariableDeclarator} ;
 VariableDeclarator       ::= Identifier (':' Type)? ['=' Expression] ;
 
-InitDeclaration          ::= MemberModifiers?
+ParameterlessConstructorDeclaration          ::= MemberModifiers?
                              'init'
                              ( Block | '=>' Expression ) ;
 
