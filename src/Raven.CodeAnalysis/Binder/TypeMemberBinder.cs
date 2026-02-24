@@ -2854,7 +2854,7 @@ internal partial class TypeMemberBinder : Binder
                 binders[accessor] = binder;
                 if (accessor.ExpressionBody is not null)
                 {
-                    _ = binder.GetOrBind(accessor.ExpressionBody);
+                    _ = binder.GetOrBind(accessor.ExpressionBody.Expression);
                     foreach (var diagnostic in binder.Diagnostics.AsEnumerable())
                         _diagnostics.Report(diagnostic);
                 }
