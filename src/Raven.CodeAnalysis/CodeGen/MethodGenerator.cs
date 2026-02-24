@@ -111,11 +111,11 @@ internal class MethodGenerator
 
         var parameterTypes = Array.Empty<Type>();
 
-        if (MethodSymbol.IsConstructor)
+        if (MethodSymbol.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
         {
             parameterTypes = BuildParameterTypes();
 
-            if (MethodSymbol.IsStatic)
+            if (MethodSymbol.MethodKind == MethodKind.StaticConstructor)
                 MethodBase = targetTypeBuilder.DefineTypeInitializer();
             else
                 MethodBase = targetTypeBuilder

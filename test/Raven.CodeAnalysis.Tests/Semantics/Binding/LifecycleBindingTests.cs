@@ -18,7 +18,9 @@ class C {
 }
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(true));
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var model = compilation.GetSemanticModel(tree);
@@ -72,6 +74,46 @@ class C {
         Assert.Equal(MethodKind.Destructor, symbol.MethodKind);
         Assert.Equal("Finalize", symbol.Name);
         Assert.False(symbol.IsStatic);
+    }
+
+    [Fact]
+    public void UnsafeLifecycleDeclarations_BindAsUnsafeMethods()
+    {
+        const string source = """
+class C {
+    unsafe static init {
+        var value = 0
+        val pointer: *int = &value;
+    }
+
+    unsafe init {
+        var value = 0
+        val pointer: *int = &value;
+    }
+
+    unsafe final {
+        var value = 0
+        val pointer: *int = &value;
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var model = compilation.GetSemanticModel(tree);
+        var initDecls = tree.GetRoot().DescendantNodes().OfType<InitDeclarationSyntax>().ToArray();
+        var finalDecl = tree.GetRoot().DescendantNodes().OfType<FinalDeclarationSyntax>().Single();
+
+        Assert.Equal(2, initDecls.Length);
+        Assert.All(initDecls, decl =>
+        {
+            var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(decl));
+            Assert.True(symbol.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor);
+        });
+
+        var finalSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(finalDecl));
+        Assert.Equal(MethodKind.Destructor, finalSymbol.MethodKind);
     }
 
     [Fact]
