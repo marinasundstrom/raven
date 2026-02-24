@@ -111,6 +111,38 @@ label:
     }
 
     [Fact]
+    public void MatchCasePattern_UnqualifiedCaseIdentifier_ClassifiesAsType()
+    {
+        var source = """
+union Option<T> {
+    Some(T)
+    None
+}
+
+func Render(input: Option<int>) -> int {
+    return input match {
+        None => 0
+        .Some(val value) => value
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var result = SemanticClassifier.Classify(tree.GetRoot(), model);
+
+        var noneToken = tree.GetRoot()
+            .DescendantTokens()
+            .Single(token => token.Kind == SyntaxKind.IdentifierToken
+                             && token.Text == "None"
+                             && token.Parent is not null
+                             && token.Parent.AncestorsAndSelf().Any(node => node.Kind == SyntaxKind.MatchArm));
+
+        result.Tokens[noneToken].ShouldBe(SemanticClassification.Type);
+    }
+
+    [Fact]
     public void ReturnExpressionKeyword_IsClassifiedAsKeyword()
     {
         var source = """

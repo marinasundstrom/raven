@@ -57,6 +57,7 @@ public static class SemanticClassifier
                         ? ClassifyBySyntaxOrEventFallback(bindNode, model)
                         : ClassifySymbol(symbol);
 
+                    classification = ClassifyDiscriminatedUnionCasePattern(descendant, bindNode, symbol, model, classification);
                     tokenMap[descendant] = classification;
                 }
             }
@@ -133,6 +134,89 @@ public static class SemanticClassifier
         }
 
         return SemanticClassification.Default;
+    }
+
+    private static SemanticClassification ClassifyDiscriminatedUnionCasePattern(
+        SyntaxToken token,
+        SyntaxNode bindNode,
+        ISymbol? symbol,
+        SemanticModel model,
+        SemanticClassification current)
+    {
+        if (IsDiscriminatedUnionCasePatternNode(bindNode))
+        {
+            if (current == SemanticClassification.Type)
+                return SemanticClassification.Type;
+
+            if (symbol is ITypeSymbol typeSymbol && typeSymbol.IsDiscriminatedUnionCase)
+                return SemanticClassification.Type;
+
+            if (symbol is IMethodSymbol methodSymbol && methodSymbol.ReturnType.IsDiscriminatedUnionCase)
+                return SemanticClassification.Type;
+
+            if (symbol is IMethodSymbol methodOnDiscriminatedUnion &&
+                (methodOnDiscriminatedUnion.ContainingType.IsDiscriminatedUnionCase ||
+                 methodOnDiscriminatedUnion.ContainingType.IsDiscriminatedUnion))
+            {
+                return SemanticClassification.Type;
+            }
+
+            if (symbol is IPropertySymbol propertyOnDiscriminatedUnion &&
+                (propertyOnDiscriminatedUnion.ContainingType?.IsDiscriminatedUnionCase == true ||
+                 propertyOnDiscriminatedUnion.ContainingType?.IsDiscriminatedUnion == true ||
+                 propertyOnDiscriminatedUnion.Type.IsDiscriminatedUnionCase))
+            {
+                return SemanticClassification.Type;
+            }
+
+            if (symbol is IFieldSymbol fieldOnDiscriminatedUnion &&
+                (fieldOnDiscriminatedUnion.ContainingType?.IsDiscriminatedUnionCase == true ||
+                 fieldOnDiscriminatedUnion.ContainingType?.IsDiscriminatedUnion == true ||
+                 fieldOnDiscriminatedUnion.Type.IsDiscriminatedUnionCase))
+            {
+                return SemanticClassification.Type;
+            }
+
+            if (current == SemanticClassification.Method && bindNode is IdentifierNameSyntax { Parent: ConstantPatternSyntax })
+                return SemanticClassification.Type;
+
+            if (bindNode is ExpressionSyntax expression)
+            {
+                var typeInfo = model.GetTypeInfo(expression).Type;
+                if (typeInfo?.IsDiscriminatedUnionCase == true)
+                    return SemanticClassification.Type;
+            }
+        }
+
+        if (current == SemanticClassification.Method && IsIdentifierInMatchArmPatternPosition(token))
+            return SemanticClassification.Type;
+
+        return current;
+    }
+
+    private static bool IsDiscriminatedUnionCasePatternNode(SyntaxNode bindNode)
+    {
+        return bindNode switch
+        {
+            MemberPatternPathSyntax => true,
+            IdentifierNameSyntax { Parent: ConstantPatternSyntax } => true,
+            GenericNameSyntax { Parent: ConstantPatternSyntax } => true,
+            _ => false
+        };
+    }
+
+    private static bool IsIdentifierInMatchArmPatternPosition(SyntaxToken token)
+    {
+        if (token.Kind != SyntaxKind.IdentifierToken)
+            return false;
+
+        for (var current = token.Parent; current is not null; current = current.Parent)
+        {
+            if (current is MatchArmSyntax matchArm)
+                return token.Span.End <= matchArm.ArrowToken.Span.Start;
+        }
+
+        return false;
     }
 
     private static bool IsInterpolationPunctuation(SyntaxToken token)

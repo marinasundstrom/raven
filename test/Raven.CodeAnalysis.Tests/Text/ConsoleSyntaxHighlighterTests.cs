@@ -419,6 +419,45 @@ func Render(result: Result) -> int {
         }
     }
 
+    [Fact]
+    public void WriteNodeToText_ColorizesUnqualifiedCaseIdentifierInMatchPattern()
+    {
+        var source = """
+union Option<T> {
+    Some(T)
+    None
+}
+
+func Render(input: Option<int>) -> int {
+    return input match {
+        None => 0
+        .Some(val value) => value
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var originalScheme = ConsoleSyntaxHighlighter.ColorScheme;
+        try
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+
+            var text = root.WriteNodeToText(compilation);
+            var typeAnsi = $"\u001b[{(int)ConsoleSyntaxHighlighter.ColorScheme.Type}m";
+            var methodAnsi = $"\u001b[{(int)ConsoleSyntaxHighlighter.ColorScheme.Method}m";
+
+            Assert.Contains($"{typeAnsi}None", text);
+            Assert.DoesNotContain($"{methodAnsi}None", text);
+        }
+        finally
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = originalScheme;
+        }
+    }
+
     private static int CountOccurrences(string source, string value)
     {
         if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(value))
