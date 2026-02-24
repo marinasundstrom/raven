@@ -11,7 +11,7 @@ public class ExplicitPublicAccessibilityOptionTests : CompilationTestBase
     {
         const string source = """
 extension NumberExtensions for int {
-    AddOne() -> int => self + 1
+    func AddOne() -> int => self + 1
 }
 """;
 
@@ -31,7 +31,7 @@ extension NumberExtensions for int {
     {
         const string source = """
 extension NumberExtensions for int {
-    AddOne() -> int => self + 1
+    func AddOne() -> int => self + 1
 }
 """;
 
@@ -53,7 +53,7 @@ extension NumberExtensions for int {
     {
         const string source = """
 extension NumberExtensions for int {
-    public AddOne() -> int => self + 1
+    public func AddOne() -> int => self + 1
     private Hidden() -> int => self
 }
 """;
@@ -75,7 +75,7 @@ extension NumberExtensions for int {
     {
         const string source = """
 class C {
-    public M() -> unit { return; }
+    public func M() -> unit { return; }
 }
 """;
 
@@ -97,7 +97,7 @@ class C {
     {
         const string source = """
 class C {
-    M() -> unit { return; }
+    func M() -> unit { return; }
 }
 """;
 

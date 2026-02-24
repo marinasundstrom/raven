@@ -176,8 +176,8 @@ provide the declared arguments.
 ```raven
 class Person(name: string, age: int)
 {
-    public GetName() -> string => name
-    public GetAge() -> int => age
+    public func GetName() -> string => name
+    public func GetAge() -> int => age
 }
 
 val person = Person("Ada", 42)
@@ -344,8 +344,8 @@ If the base list contains additional types after the base class, each of those e
 ```raven
 class Worker : IDisposable, ILogger
 {
-    Dispose() -> () { /* ... */ }
-    Log(message: string) -> () { /* ... */ }
+    func Dispose() -> () { /* ... */ }
+    func Log(message: string) -> () { /* ... */ }
 }
 ```
 
@@ -593,9 +593,9 @@ Classes and structs implement interfaces by listing them in their base list. The
 ```raven
 class FileLogger : ILogger, IDisposable
 {
-    public Dispose() -> () { /* release resources */ }
+    public func Dispose() -> () { /* release resources */ }
 
-    public Log(message: string) -> ()
+    public func Log(message: string) -> ()
     {
         Console.WriteLine(message)
     }
@@ -607,7 +607,7 @@ An **explicit interface implementation** qualifies the member name with the inte
 ```raven
 class QuietLogger : ILogger
 {
-    ILogger.Log(message: string) -> string
+    func ILogger.Log(message: string) -> string
     {
         return "[quiet]"
     }

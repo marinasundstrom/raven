@@ -117,6 +117,7 @@ Return/throw context note:
 | `RAV0906` | Error | Required field must be mutable | Required field '{fieldName}' must be mutable | `samples/oop/required-members-basic.rav` |
 | `RAV0907` | Warning | Public-by-default mode is disabled | Public-by-default mode is disabled; declare member accessibility explicitly while migrating. | — |
 | `RAV0908` | Warning | Redundant public modifier | Modifier 'public' is redundant when members are public by default. | — |
+| `RAV0909` | Warning | Method declaration missing func keyword | Method declaration '{methodName}' should include the 'func' keyword. | — |
 | `RAV1000` | Error | Expression expected | Expression expected | — |
 | `RAV1001` | Error | Identifier expected | Identifier expected | — |
 | `RAV1002` | Error | Semicolon expected | ';' expected | — |

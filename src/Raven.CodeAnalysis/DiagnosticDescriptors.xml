@@ -778,4 +778,8 @@
     Title="Redundant public modifier"
     Message="Modifier 'public' is redundant when members are public by default."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0909" Identifier="MethodDeclarationMissingFuncKeyword"
+    Title="Method declaration missing func keyword"
+    Message="Method declaration '{methodName}' should include the 'func' keyword."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

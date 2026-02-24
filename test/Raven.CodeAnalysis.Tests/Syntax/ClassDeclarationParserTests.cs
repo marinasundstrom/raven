@@ -203,4 +203,53 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var diagnostic = Assert.Single(tree.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.IdentifierExpected.Id, diagnostic.Descriptor.Id);
     }
+
+    [Fact]
+    public void MethodDeclaration_WithFuncKeyword_ParsesWithoutSyntaxErrors()
+    {
+        var source = """
+            class Calculator {
+                public func Add(x: int, y: int) -> int => x + y
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.FuncKeyword, method.FuncKeyword.Kind);
+        Assert.Equal("Add", method.Identifier.ValueText);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ExtensionMethod_WithFuncKeyword_ParsesWithoutSyntaxErrors()
+    {
+        var source = """
+            extension NumberOps for int {
+                public func AddOne() -> int => self + 1
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.FuncKeyword, method.FuncKeyword.Kind);
+        Assert.Equal("AddOne", method.Identifier.ValueText);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void MethodDeclaration_WithoutFuncKeyword_HasMissingFuncToken()
+    {
+        var source = """
+            class Calculator {
+                Add(x: int, y: int) -> int => x + y
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+
+        Assert.True(method.FuncKeyword.IsMissing);
+    }
 }

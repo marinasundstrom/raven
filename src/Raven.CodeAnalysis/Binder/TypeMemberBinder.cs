@@ -499,6 +499,8 @@ internal partial class TypeMemberBinder : Binder
         var identifierToken = ResolveExplicitInterfaceIdentifier(methodDecl.Identifier, explicitInterfaceSpecifier);
         var name = identifierToken.Kind == SyntaxKind.SelfKeyword ? "Invoke" : identifierToken.ValueText;
         ReportPartialModifierNotSupported(methodDecl.Modifiers, "method", name);
+        if (methodDecl.FuncKeyword.IsMissing)
+            _diagnostics.ReportMethodDeclarationMissingFuncKeyword(name, methodDecl.Identifier.GetLocation());
         INamedTypeSymbol? explicitInterfaceType = null;
         IMethodSymbol? explicitInterfaceMember = null;
 
@@ -530,10 +532,10 @@ internal partial class TypeMemberBinder : Binder
             }
         }
 
-        var paramInfos = new List<(string name, TypeSyntax typeSyntax, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
+        var paramInfos = new List<(string name, TypeSyntax? typeSyntax, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in methodDecl.ParameterList.Parameters)
         {
-            var typeSyntax = p.TypeAnnotation!.Type;
+            var typeSyntax = p.TypeAnnotation?.Type;
             var refKindTokenKind = p.RefKindKeyword?.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
@@ -754,7 +756,9 @@ internal partial class TypeMemberBinder : Binder
         var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var (paramName, typeSyntax, refKind, syntax, isMutable) in paramInfos)
         {
-            var resolvedType = ResolveParameterTypeSyntaxForSignature(methodBinder, typeSyntax, refKind);
+            var resolvedType = typeSyntax is null
+                ? Compilation.ErrorTypeSymbol
+                : ResolveParameterTypeSyntaxForSignature(methodBinder, typeSyntax, refKind);
             resolvedParamInfos.Add((paramName, resolvedType, refKind, syntax, isMutable));
         }
 
@@ -806,7 +810,7 @@ internal partial class TypeMemberBinder : Binder
                 GetMethodKindDisplay(methodKind),
                 GetMemberDisplayName(displayName),
                 $"parameter '{paramName}'",
-                syntax.TypeAnnotation!.Type.GetLocation());
+                syntax.TypeAnnotation?.Type.GetLocation() ?? syntax.GetLocation());
         }
 
         if (explicitInterfaceType is not null)

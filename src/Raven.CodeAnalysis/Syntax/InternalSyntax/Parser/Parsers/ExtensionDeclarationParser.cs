@@ -93,6 +93,12 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
     {
         var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
         var modifiers = ParseMemberModifiers();
+        var funcKeyword = MissingToken(SyntaxKind.FuncKeyword);
+
+        if (PeekToken().IsKind(SyntaxKind.FuncKeyword))
+        {
+            funcKeyword = ReadToken();
+        }
 
         if ((PeekToken().IsKind(SyntaxKind.ExplicitKeyword) || PeekToken().IsKind(SyntaxKind.ImplicitKeyword))
             && PeekToken(1).IsKind(SyntaxKind.OperatorKeyword))
@@ -118,8 +124,8 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.LessThanToken))
             typeParameterList = ParseTypeParameterList();
 
-        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
-            return ParseMethodMember(attributeLists, modifiers, identifier, typeParameterList);
+        if (!funcKeyword.IsMissing || PeekToken().IsKind(SyntaxKind.OpenParenToken))
+            return ParseMethodMember(attributeLists, modifiers, funcKeyword, identifier, typeParameterList);
 
         return ParsePropertyMember(attributeLists, modifiers, identifier);
     }
@@ -127,6 +133,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
     private MemberDeclarationSyntax ParseMethodMember(
         SyntaxList attributeLists,
         SyntaxList modifiers,
+        SyntaxToken funcKeyword,
         SyntaxToken identifier,
         TypeParameterListSyntax? typeParameterList)
     {
@@ -152,6 +159,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         return MethodDeclaration(
             attributeLists,
             modifiers,
+            funcKeyword,
             explicitInterfaceSpecifier: null,
             identifier,
             typeParameterList,

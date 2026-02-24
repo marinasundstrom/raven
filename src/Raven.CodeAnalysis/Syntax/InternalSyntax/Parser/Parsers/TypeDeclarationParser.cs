@@ -192,6 +192,7 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.ValKeyword or
             SyntaxKind.VarKeyword or
             SyntaxKind.ConstKeyword or
+            SyntaxKind.FuncKeyword or
             SyntaxKind.InitKeyword or
             SyntaxKind.SelfKeyword or
             SyntaxKind.IdentifierToken;
@@ -526,6 +527,12 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParseConstructorDeclaration(attributeLists, modifiers, keywordOrIdentifier);
         }
 
+        if (keywordOrIdentifier.IsKind(SyntaxKind.FuncKeyword))
+        {
+            var funcKeyword = ReadToken();
+            return ParseMethodOrConstructorDeclarationBase(attributeLists, modifiers, funcKeyword);
+        }
+
         var nameCheckpoint = CreateCheckpoint();
         _ = ParseMemberNameWithExplicitInterface();
         var tokenAfterName = PeekToken();
@@ -540,7 +547,7 @@ internal class TypeDeclarationParser : SyntaxParser
             if (tokenAfterTypeParameters.IsKind(SyntaxKind.OpenParenToken))
             {
                 nameCheckpoint.Rewind();
-                return ParseMethodOrConstructorDeclarationBase(attributeLists, modifiers);
+                return ParseMethodOrConstructorDeclarationBase(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword));
             }
         }
 
@@ -548,7 +555,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (tokenAfterName.IsKind(SyntaxKind.OpenParenToken))
         {
-            return ParseMethodOrConstructorDeclarationBase(attributeLists, modifiers);
+            return ParseMethodOrConstructorDeclarationBase(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword));
         }
 
         if (tokenAfterName.IsKind(SyntaxKind.OpenBracketToken))
@@ -678,7 +685,7 @@ internal class TypeDeclarationParser : SyntaxParser
         throw new Exception();
     }
 
-    private MemberDeclarationSyntax ParseMethodOrConstructorDeclarationBase(SyntaxList attributeLists, SyntaxList modifiers)
+    private MemberDeclarationSyntax ParseMethodOrConstructorDeclarationBase(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)
     {
         var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
 
@@ -686,7 +693,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (potentialOpenParenToken.IsKind(SyntaxKind.OpenParenToken))
         {
-            return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier);
+            return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
         }
 
         if (potentialOpenParenToken.IsKind(SyntaxKind.LessThanToken))
@@ -698,7 +705,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
             if (tokenAfterTypeParameters.IsKind(SyntaxKind.OpenParenToken))
             {
-                return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier);
+                return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
             }
         }
 
@@ -710,6 +717,7 @@ internal class TypeDeclarationParser : SyntaxParser
     private MemberDeclarationSyntax ParseMethodOrConstructorDeclaration(
         SyntaxList attributeLists,
         SyntaxList modifiers,
+        SyntaxToken funcKeyword,
         ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier,
         SyntaxToken identifier)
     {
@@ -749,14 +757,14 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (expressionBody is not null)
         {
-            return MethodDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, null, expressionBody, terminatorToken);
+            return MethodDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, null, expressionBody, terminatorToken);
         }
         else if (body is not null)
         {
-            return MethodDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, body, null, terminatorToken);
+            return MethodDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, body, null, terminatorToken);
         }
 
-        return MethodDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, null, null, terminatorToken);
+        return MethodDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, null, null, terminatorToken);
     }
 
     private (ExplicitInterfaceSpecifierSyntax? ExplicitInterfaceSpecifier, SyntaxToken Identifier) ParseMemberNameWithExplicitInterface()
