@@ -1235,7 +1235,7 @@ internal class TypeDeclarationParser : SyntaxParser
     private FieldDeclarationSyntax ParseFieldDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)
     {
         var fieldKeyword = ReadToken();
-        var declaration = ParseFieldLikeVariableDeclaration(fieldKeyword);
+        var declaration = ParseFieldLikeVariableDeclaration(MissingToken(fieldKeyword.Kind));
 
         SetTreatNewlinesAsTokens(true);
 
@@ -1247,7 +1247,7 @@ internal class TypeDeclarationParser : SyntaxParser
     private ConstDeclarationSyntax ParseConstDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)
     {
         var constKeyword = ReadToken();
-        var declaration = ParseFieldLikeVariableDeclaration(constKeyword);
+        var declaration = ParseFieldLikeVariableDeclaration(MissingToken(constKeyword.Kind));
 
         SetTreatNewlinesAsTokens(true);
 
