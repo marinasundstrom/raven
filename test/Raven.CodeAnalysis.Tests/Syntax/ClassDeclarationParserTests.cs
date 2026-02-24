@@ -239,6 +239,43 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void SelfInvocation_WithFuncKeyword_ParsesWithoutSyntaxErrors()
+    {
+        var source = """
+            class Foo {
+                public func self(flag: bool) -> Task<Option<int>> {
+                    return Test(flag)
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.FuncKeyword, method.FuncKeyword.Kind);
+        Assert.Equal(SyntaxKind.SelfKeyword, method.Identifier.Kind);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void SelfIndexer_WithFuncKeyword_ParsesWithoutSyntaxErrors()
+    {
+        var source = """
+            class Foo {
+                public func self[index: int]: string {
+                    get => "x"
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var indexer = tree.GetRoot().DescendantNodes().OfType<IndexerDeclarationSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.SelfKeyword, indexer.Identifier.Kind);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void MethodDeclaration_WithoutFuncKeyword_HasMissingFuncToken()
     {
         var source = """

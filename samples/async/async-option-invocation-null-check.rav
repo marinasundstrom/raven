@@ -39,9 +39,9 @@ class Foo(value: int) {
         return None
     }
 
-    public Value: int => value
+    public val Value: int => value
 
-    public self(flag: bool) -> Task<Option<int>> {
+    public func self(flag: bool) -> Task<Option<int>> {
         return Test(flag)
     }
 }

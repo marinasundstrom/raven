@@ -556,7 +556,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (tokenAfterName.IsKind(SyntaxKind.OpenBracketToken))
         {
-            return ParseIndexerDeclaration(attributeLists, modifiers);
+            return ParseIndexerDeclaration(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword));
         }
 
         return ParsePropertyDeclaration(attributeLists, modifiers);
@@ -752,9 +752,13 @@ internal class TypeDeclarationParser : SyntaxParser
             }
         }
 
-        // Remove below
+        if (potentialOpenParenToken.IsKind(SyntaxKind.OpenBracketToken))
+        {
+            return ParseIndexerDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
+        }
 
-        throw new Exception();
+        // Recover by parsing a method with a missing parameter list instead of throwing.
+        return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
     }
 
     private MemberDeclarationSyntax ParseMethodOrConstructorDeclaration(
@@ -925,10 +929,19 @@ internal class TypeDeclarationParser : SyntaxParser
         return TypeAnnotationClause(colonToken, missingType);
     }
 
-    private IndexerDeclarationSyntax ParseIndexerDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
+    private IndexerDeclarationSyntax ParseIndexerDeclaration(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)
     {
         var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
+        return ParseIndexerDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
+    }
 
+    private IndexerDeclarationSyntax ParseIndexerDeclaration(
+        SyntaxList attributeLists,
+        SyntaxList modifiers,
+        SyntaxToken funcKeyword,
+        ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier,
+        SyntaxToken identifier)
+    {
         var parameterList = ParseBracketedParameterList();
 
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
@@ -956,7 +969,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var terminatorToken = ConsumeMemberTerminator();
 
-        return IndexerDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, parameterList, typeAnnotation, accessorList, expressionBody, null, terminatorToken);
+        return IndexerDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier, parameterList, typeAnnotation, accessorList, expressionBody, null, terminatorToken);
     }
 
     private AccessorListSyntax ParseAccessorList()

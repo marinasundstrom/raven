@@ -52,6 +52,6 @@ unsafe func GetPriority(header: *PacketHeader) -> int {
 //
 
 struct PacketHeader {
-    public var Id: int
-    public var Flags: int
+    field Id: int = 0
+    field Flags: int = 0
 }

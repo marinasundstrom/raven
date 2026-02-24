@@ -73,4 +73,20 @@ class C {
         Assert.Equal("Finalize", symbol.Name);
         Assert.False(symbol.IsStatic);
     }
+
+    [Fact]
+    public void MultipleFinalDeclarations_ReportDuplicateMemberDiagnostic()
+    {
+        const string source = """
+class C {
+    final { }
+    final { }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+
+        Assert.Contains(diagnostics, d => d.Id == CompilerDiagnostics.TypeAlreadyDefinesMember.Id);
+    }
 }

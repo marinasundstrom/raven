@@ -585,6 +585,7 @@ internal class MethodBodyGenerator
                 }
 
                 EmitFieldInitializers(MethodSymbol.IsStatic);
+                EmitLifecycleInitBlocks(semanticModel, MethodSymbol.IsStatic);
 
                 if (boundBody != null)
                     EmitMethodBlock(boundBody, includeImplicitReturn: false);
@@ -606,16 +607,7 @@ internal class MethodBodyGenerator
                 }
 
                 EmitFieldInitializers(MethodSymbol.IsStatic);
-
-                if (boundBody != null)
-                    EmitMethodBlock(boundBody, includeImplicitReturn: false);
-                else if (expressionBody is not null)
-                {
-                    if (expressionBodySyntax is not null)
-                        EmitSequencePoint(expressionBodySyntax);
-
-                    EmitExpressionBody(expressionBody, includeReturn: false);
-                }
+                EmitLifecycleInitBlocks(semanticModel, MethodSymbol.IsStatic);
 
                 ILGenerator.Emit(OpCodes.Ret);
                 break;
@@ -719,6 +711,7 @@ internal class MethodBodyGenerator
                 }
 
                 EmitFieldInitializers(MethodSymbol.IsStatic);
+                EmitLifecycleInitBlocks(semanticModel, MethodSymbol.IsStatic);
 
                 ILGenerator.Emit(OpCodes.Ret);
                 break;
@@ -729,6 +722,47 @@ internal class MethodBodyGenerator
 
             default:
                 throw new InvalidOperationException($"Unsupported syntax node in MethodBodyGenerator: {syntax.GetType().Name}");
+        }
+    }
+
+    private void EmitLifecycleInitBlocks(SemanticModel semanticModel, bool isStatic)
+    {
+        if (MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return;
+
+        var ownerTypeSyntax = MethodSymbol.DeclaringSyntaxReferences
+            .Select(r => r.GetSyntax())
+            .OfType<TypeDeclarationSyntax>()
+            .FirstOrDefault()
+            ?? MethodSymbol.DeclaringSyntaxReferences
+                .Select(r => r.GetSyntax())
+                .OfType<MemberDeclarationSyntax>()
+                .Select(m => m.Parent)
+                .OfType<TypeDeclarationSyntax>()
+                .FirstOrDefault();
+
+        if (ownerTypeSyntax is null)
+            return;
+
+        foreach (var initDecl in ownerTypeSyntax.Members.OfType<InitDeclarationSyntax>())
+        {
+            var initIsStatic = initDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+            if (initIsStatic != isStatic)
+                continue;
+
+            if (initDecl.Body is not null &&
+                semanticModel.GetBoundNode(initDecl.Body, BoundTreeView.Lowered) is BoundBlockStatement initBlock)
+            {
+                EmitBoundBlock(initBlock);
+            }
+            else if (initDecl.ExpressionBody is not null &&
+                     semanticModel.GetBoundNode(initDecl.ExpressionBody.Expression, BoundTreeView.Lowered) is BoundExpression initExpr)
+            {
+                if (initDecl.ExpressionBody.Expression is { } exprSyntax)
+                    EmitSequencePoint(exprSyntax);
+
+                EmitExpressionBody(initExpr, includeReturn: false);
+            }
         }
     }
 

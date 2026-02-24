@@ -8,7 +8,7 @@ Console.WriteLine(words.Value)
 
 class Box<T>
 {
-    public Value: T { get; }
+    public val Value: T { get; }
 
     public init(value: T) { Value = value }
 }

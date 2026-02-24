@@ -20,7 +20,7 @@ val message = quoteResult match {
 WriteLine(message)
 
 public class ShipmentOrderService(var pendingCount: int = 0) {
-    public PendingCount: int => pendingCount
+    public val PendingCount: int => pendingCount
 
     public func RecordPending(count: int) -> () {
         pendingCount += count

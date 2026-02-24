@@ -1568,39 +1568,32 @@ internal partial class TypeMemberBinder : Binder
         ReportRedundantPublicModifierIfNeeded(initDecl.Modifiers);
 
         var isStatic = initDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
-        var defaultAccessibility = GetDefaultMemberAccessibility();
-        var initAccessibility = AccessibilityUtilities.DetermineAccessibility(initDecl.Modifiers, defaultAccessibility);
-        if (isStatic)
-            initAccessibility = Accessibility.Private;
-
         ReportInstanceMemberInStaticTypeIfNeeded(
             isStatic,
             "init",
             initDecl.GetLocation());
 
-        var constructorMetadataName = isStatic ? ".cctor" : ".ctor";
-        var constructorKind = isStatic ? MethodKind.StaticConstructor : MethodKind.Constructor;
-
-        var ctorSymbol = new SourceMethodSymbol(
-            constructorMetadataName,
-            Compilation.GetSpecialType(SpecialType.System_Unit),
-            ImmutableArray<SourceParameterSymbol>.Empty,
-            _containingType,
-            _containingType,
-            CurrentNamespace!.AsSourceNamespace(),
-            [initDecl.GetLocation()],
-            [initDecl.GetReference()],
-            isStatic: isStatic,
-            methodKind: constructorKind,
-            declaredAccessibility: initAccessibility);
-
-        return new MethodBinder(ctorSymbol, this);
+        var target = ResolveLifecycleInitTargetConstructor(initDecl, isStatic);
+        return new MethodBinder(target, this);
     }
 
     public MethodBinder BindFinalDeclaration(FinalDeclarationSyntax finalDecl)
     {
         ReportPartialModifierNotSupported(finalDecl.Modifiers, "final", _containingType.Name);
         ReportRedundantPublicModifierIfNeeded(finalDecl.Modifiers);
+
+        var existingFinalizer = _containingType.GetMembers("Finalize")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.MethodKind == MethodKind.Destructor);
+
+        if (existingFinalizer is SourceMethodSymbol existingSourceFinalizer)
+        {
+            _diagnostics.ReportTypeAlreadyDefinesMember(
+                _containingType.Name,
+                "final",
+                finalDecl.GetLocation());
+            return new MethodBinder(existingSourceFinalizer, this);
+        }
 
         var finalizerSymbol = new SourceMethodSymbol(
             "Finalize",
@@ -1617,6 +1610,35 @@ internal partial class TypeMemberBinder : Binder
             declaredAccessibility: Accessibility.ProtectedAndProtected);
 
         return new MethodBinder(finalizerSymbol, this);
+    }
+
+    private SourceMethodSymbol ResolveLifecycleInitTargetConstructor(InitDeclarationSyntax initDecl, bool isStatic)
+    {
+        var methodKind = isStatic ? MethodKind.StaticConstructor : MethodKind.Constructor;
+        var existing = _containingType.GetMembers()
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.MethodKind == methodKind && m.Parameters.Length == 0);
+
+        if (existing is SourceMethodSymbol existingSource)
+            return existingSource;
+
+        var defaultAccessibility = GetDefaultMemberAccessibility();
+        var initAccessibility = AccessibilityUtilities.DetermineAccessibility(initDecl.Modifiers, defaultAccessibility);
+        if (isStatic)
+            initAccessibility = Accessibility.Private;
+
+        return new SourceMethodSymbol(
+            isStatic ? ".cctor" : ".ctor",
+            Compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            _containingType,
+            _containingType,
+            CurrentNamespace!.AsSourceNamespace(),
+            [initDecl.GetLocation()],
+            [initDecl.GetReference()],
+            isStatic: isStatic,
+            methodKind: methodKind,
+            declaredAccessibility: initAccessibility);
     }
 
     public DelegateDeclarationBinder BindDelegateDeclaration(DelegateDeclarationSyntax delegateDecl)

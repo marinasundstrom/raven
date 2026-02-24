@@ -13,7 +13,7 @@ val foo2 = Foo2 {
 public record class Foo(Name: string)
 
 class Foo2 {
-    public required Test: int { get; init; }
+    public required var Test: int { get; init; }
 
     public required var x = 2
 }

@@ -1,3 +1,4 @@
+import System.*
 import System.Console.*
 
 // Feature: basic class with constructor, method, and property.
@@ -6,17 +7,24 @@ customer.AddOrder(2)
 
 WriteLine("${customer.Name} orders: ${customer.OrderCount}")
 
-class Customer(name: string, var age: int) {
+class Customer {
     static init {
         WriteLine("Customer type initialized")
     }
 
-    init {
+    private readonly field _name: string
+    private var orderCount: int = 0
+
+    public init(name: string, age: int = 0) {
+        _name = name
+        Age = age
         WriteLine("Created $name with age $age")
     }
 
     // Secondary constructor
-    init(name: string, petName: string) {
+    public init(name: string, petName: string) {
+        _name = name
+        Age = 0
         WriteLine("Created $name with pet $petName")
     }
 
@@ -25,10 +33,7 @@ class Customer(name: string, var age: int) {
     readonly field Factor: int = 2
 
     // Compute property with get accessor
-    val Name: string => name
-
-    // Private non-computed properties with no accessor logic will be emitted as fields
-    private var orderCount: int = 0
+    public val Name: string => _name
 
     // Compute property with accessors
     var Age: int {
@@ -36,17 +41,13 @@ class Customer(name: string, var age: int) {
         set => field = value
     }
 
-    func AddOrder(count: int) -> () {
+    public func AddOrder(count: int) -> () {
         orderCount += count
     }
 
-    val OrderCount: int => orderCount
-
-    event Foo: EventHandler?
-
-    delegate Foo(a: int, b: int) -> int
+    public val OrderCount: int => orderCount
 
     final {
-        WriteLine("$name was collected by GC")
+        WriteLine("$_name was collected by GC")
     }
 }
