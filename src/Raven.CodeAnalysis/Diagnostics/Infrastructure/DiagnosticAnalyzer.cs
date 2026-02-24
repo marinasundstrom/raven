@@ -22,8 +22,19 @@ public abstract class DiagnosticAnalyzer
     {
         if (!_initialized)
         {
-            Initialize(new AnalysisContext(_syntaxTreeActions, _syntaxNodeActions));
-            _initialized = true;
+            try
+            {
+                Initialize(new AnalysisContext(_syntaxTreeActions, _syntaxNodeActions));
+                _initialized = true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return [];
+            }
         }
 
         var diagnostics = new List<Diagnostic>();
@@ -31,7 +42,20 @@ public abstract class DiagnosticAnalyzer
         {
             var treeContext = new SyntaxTreeAnalysisContext(tree, compilation, diagnostics.Add, cancellationToken);
             foreach (var action in _syntaxTreeActions)
-                action(treeContext);
+            {
+                try
+                {
+                    action(treeContext);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    // Analyzer failures should not stop compilation.
+                }
+            }
 
             if (_syntaxNodeActions.Count == 0)
                 continue;
@@ -54,7 +78,18 @@ public abstract class DiagnosticAnalyzer
                         diagnostics.Add,
                         cancellationToken);
 
-                    registration.Action(nodeContext);
+                    try
+                    {
+                        registration.Action(nodeContext);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch
+                    {
+                        // Analyzer failures should not stop compilation.
+                    }
                 }
             }
         }

@@ -228,8 +228,22 @@ public class Workspace
                 foreach (var analyzer in reference.GetAnalyzers())
                 {
                     var isInternalAnalyzer = AnalyzerDiagnosticIdValidator.IsInternalAnalyzer(analyzer);
+                    IEnumerable<Diagnostic> analyzerDiagnostics;
+                    try
+                    {
+                        analyzerDiagnostics = analyzer.Analyze(compilation, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch
+                    {
+                        // Analyzer failures should not stop normal compilation diagnostics.
+                        continue;
+                    }
 
-                    foreach (var diagnostic in analyzer.Analyze(compilation, cancellationToken))
+                    foreach (var diagnostic in analyzerDiagnostics)
                     {
                         AnalyzerDiagnosticIdValidator.Validate(analyzer, diagnostic, isInternalAnalyzer);
 

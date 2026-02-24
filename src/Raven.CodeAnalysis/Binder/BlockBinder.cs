@@ -726,6 +726,7 @@ partial class BlockBinder : Binder
             PostfixUnaryExpressionSyntax postfixUnary => BindPostfixUnaryExpression(postfixUnary),
             IndexExpressionSyntax indexExpression => BindIndexExpression(indexExpression),
             SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
+            ReceiverBindingExpressionSyntax receiverBindingExpression => BindReceiverBindingExpression(receiverBindingExpression),
             DiscardExpressionSyntax discardExpression => BindDiscardExpression(discardExpression),
             UnitExpressionSyntax unitExpression => BindUnitExpression(unitExpression),
             ExpressionSyntax.Missing missing => BindMissingExpression(missing),
@@ -736,6 +737,12 @@ partial class BlockBinder : Binder
             CacheBoundNode(syntax, boundNode);
 
         return boundNode;
+    }
+
+    private BoundExpression BindReceiverBindingExpression(ReceiverBindingExpressionSyntax syntax)
+    {
+        _diagnostics.ReportInvalidInvocation(syntax.GetLocation());
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindNullCoalesceExpression(NullCoalesceExpressionSyntax coalesce)
