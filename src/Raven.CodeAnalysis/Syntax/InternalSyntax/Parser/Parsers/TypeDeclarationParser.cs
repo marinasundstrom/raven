@@ -526,38 +526,11 @@ internal class TypeDeclarationParser : SyntaxParser
         if (keywordOrIdentifier.IsKind(SyntaxKind.FuncKeyword))
         {
             var funcKeyword = ReadToken();
-            return ParseMethodOrConstructorDeclarationBase(attributeLists, modifiers, funcKeyword);
+            return ParseMethodOrIndexerDeclaration(attributeLists, modifiers, funcKeyword);
         }
 
-        var nameCheckpoint = CreateCheckpoint();
-        _ = ParseMemberNameWithExplicitInterface();
-        var tokenAfterName = PeekToken();
-
-        if (tokenAfterName.IsKind(SyntaxKind.LessThanToken))
-        {
-            var typeParameterCheckpoint = CreateCheckpoint();
-            _ = ParseTypeParameterList();
-            var tokenAfterTypeParameters = PeekToken();
-            typeParameterCheckpoint.Rewind();
-
-            if (tokenAfterTypeParameters.IsKind(SyntaxKind.OpenParenToken))
-            {
-                nameCheckpoint.Rewind();
-                return ParseMethodOrConstructorDeclarationBase(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword));
-            }
-        }
-
-        nameCheckpoint.Rewind();
-
-        if (tokenAfterName.IsKind(SyntaxKind.OpenParenToken))
-        {
-            return ParseMethodOrConstructorDeclarationBase(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword));
-        }
-
-        if (tokenAfterName.IsKind(SyntaxKind.OpenBracketToken))
-        {
-            return ParseIndexerDeclaration(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword));
-        }
+        if (CanTokenBeIdentifier(keywordOrIdentifier) || keywordOrIdentifier.IsKind(SyntaxKind.SelfKeyword))
+            return ParseMemberDeclarationWithoutFuncKeyword(attributeLists, modifiers);
 
         return ParsePropertyDeclaration(attributeLists, modifiers);
     }
@@ -728,9 +701,19 @@ internal class TypeDeclarationParser : SyntaxParser
         return FinalDeclaration(attributeLists, modifiers, finalKeyword, body, terminatorToken);
     }
 
-    private MemberDeclarationSyntax ParseMethodOrConstructorDeclarationBase(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)
+    private MemberDeclarationSyntax ParseMethodOrIndexerDeclaration(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)
     {
         var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
+        return ParseMethodOrIndexerDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
+    }
+
+    private MemberDeclarationSyntax ParseMethodOrIndexerDeclaration(
+        SyntaxList attributeLists,
+        SyntaxList modifiers,
+        SyntaxToken funcKeyword,
+        ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier,
+        SyntaxToken identifier)
+    {
 
         var potentialOpenParenToken = PeekToken();
 
@@ -759,6 +742,31 @@ internal class TypeDeclarationParser : SyntaxParser
 
         // Recover by parsing a method with a missing parameter list instead of throwing.
         return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
+    }
+
+    private MemberDeclarationSyntax ParseMemberDeclarationWithoutFuncKeyword(SyntaxList attributeLists, SyntaxList modifiers)
+    {
+        var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
+        var tokenAfterName = PeekToken();
+
+        if (tokenAfterName.IsKind(SyntaxKind.OpenParenToken))
+            return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword), explicitInterfaceSpecifier, identifier);
+
+        if (tokenAfterName.IsKind(SyntaxKind.LessThanToken))
+        {
+            var typeParameterCheckpoint = CreateCheckpoint();
+            _ = ParseTypeParameterList();
+            var tokenAfterTypeParameters = PeekToken();
+            typeParameterCheckpoint.Rewind();
+
+            if (tokenAfterTypeParameters.IsKind(SyntaxKind.OpenParenToken))
+                return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword), explicitInterfaceSpecifier, identifier);
+        }
+
+        if (tokenAfterName.IsKind(SyntaxKind.OpenBracketToken))
+            return ParseIndexerDeclaration(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword), explicitInterfaceSpecifier, identifier);
+
+        return ParsePropertyDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier);
     }
 
     private MemberDeclarationSyntax ParseMethodOrConstructorDeclaration(
@@ -860,7 +868,15 @@ internal class TypeDeclarationParser : SyntaxParser
     private PropertyDeclarationSyntax ParsePropertyDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
     {
         var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
+        return ParsePropertyDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier);
+    }
 
+    private PropertyDeclarationSyntax ParsePropertyDeclaration(
+        SyntaxList attributeLists,
+        SyntaxList modifiers,
+        ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier,
+        SyntaxToken identifier)
+    {
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
             ?? CreateMissingTypeAnnotationClause();
 
@@ -978,6 +994,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         List<GreenNode> accessorList = new List<GreenNode>();
 
+        var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
         SetTreatNewlinesAsTokens(false);
 
         while (true)
@@ -1091,7 +1108,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
 
-        SetTreatNewlinesAsTokens(false);
+        SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
 
         return AccessorList(openBraceToken, List(accessorList.ToArray()), closeBraceToken);
     }
@@ -1307,7 +1324,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 SyntaxKind.GetAccessorDeclaration,
                 SyntaxList.Empty,
                 SyntaxList.Empty,
-                Token(SyntaxKind.GetKeyword),
+                MissingToken(SyntaxKind.GetKeyword),
                 null,
                 null,
                 Token(SyntaxKind.None))
@@ -1320,16 +1337,16 @@ internal class TypeDeclarationParser : SyntaxParser
                     SyntaxKind.SetAccessorDeclaration,
                     SyntaxList.Empty,
                     SyntaxList.Empty,
-                    Token(SyntaxKind.SetKeyword),
+                    MissingToken(SyntaxKind.SetKeyword),
                     null,
                     null,
                     Token(SyntaxKind.None)));
         }
 
         return AccessorList(
-            Token(SyntaxKind.OpenBraceToken),
+            MissingToken(SyntaxKind.OpenBraceToken),
             List(accessors),
-            Token(SyntaxKind.CloseBraceToken));
+            MissingToken(SyntaxKind.CloseBraceToken));
     }
 
     public DelegateDeclarationSyntax ParseDelegateDeclaration(SyntaxList attributeLists, SyntaxList modifiers)

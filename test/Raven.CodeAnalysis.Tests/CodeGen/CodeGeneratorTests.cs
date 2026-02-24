@@ -96,6 +96,69 @@ class Foo {
     }
 
     [Fact]
+    public void Emit_WithSelfOverrideAndIndexer_DoesNotCrashOnSequencePoint()
+    {
+        var code = """
+namespace Samples
+
+import System.Console.*
+import System.Collections.Generic.List<>
+
+val p = Person(42)
+WriteLine(p(2025))
+
+open class Base {
+    public virtual func self(str: string) -> () {
+    }
+}
+
+class Person : Base {
+    var age: int = 0
+    var name: string
+    var roles: List<string> = []
+
+    public init(age: int) {
+        self.age = age
+    }
+
+    public var Name: string {
+        get {
+            name
+        }
+        set {
+            name = value
+        }
+    }
+
+    public func self[index: int]: string {
+        get => roles[index];
+        set => roles[index] = value
+    }
+
+    public func self(year: int) -> string {
+        "ok"
+    }
+
+    public override func self(str: string) -> () {
+
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+    }
+
+    [Fact]
     public void Emit_WithSingleMainInNonProgramType_UsesThatEntryPoint()
     {
         var code = """
