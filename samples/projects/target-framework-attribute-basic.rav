@@ -6,8 +6,8 @@ import System.Runtime.Versioning.*
 
 WriteLine(Greeter.Message())
 
-public class Greeter {
-    public static Message() -> string {
+class Greeter {
+    static func Message() -> string {
         "Hello from Raven via MSBuild integration"
     }
 }

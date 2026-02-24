@@ -47,7 +47,7 @@ class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
     val discountedProduct = "Item 2"
     val discountedQuantityThreshold = 10
 
-    public async func Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<decimal>> {
+    async func Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<decimal>> {
         await Task.Delay(500)
         var total = .0m
         for item in request.OrderItems {

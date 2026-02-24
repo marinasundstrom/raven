@@ -4,8 +4,8 @@ import System.Threading.Tasks.*
 val foo = Foo()
 await foo.Bar(42)
 
-public class Foo {
-    public async Bar(x: int?) -> Task {
+class Foo {
+    async Bar(x: int?) -> Task {
         await Task.Delay(500)
         Console.WriteLine("Value: $x")
     }

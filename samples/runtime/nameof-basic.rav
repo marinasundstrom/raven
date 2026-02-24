@@ -18,5 +18,5 @@ WriteLine(nameof(System.Console.WriteLine))
 WriteLine(nameof(Test.Test2))
 
 class Test {
-    public static val Test2 = ""
+    static val Test2 = ""
 }

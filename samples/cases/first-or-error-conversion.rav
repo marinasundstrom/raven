@@ -23,15 +23,15 @@ func Main() -> Result<(), AppError> {
 record Person(FirstName: string, LastName: string, YearOfBirth: int)
 
 record DomainError(Message: string) {
-    public override ToString() -> string => Message
+    override func ToString() -> string => Message
 }
 
 record AppError(Message: string) {
-    public override ToString() -> string => "App error: ${Message}"
+    override func ToString() -> string => "App error: ${Message}"
 }
 
 extension ErrorConverters for AppError {
-    public static implicit operator(value: DomainError) -> AppError {
+    static implicit operator(value: DomainError) -> AppError {
         return AppError(value.Message)
     }
 }

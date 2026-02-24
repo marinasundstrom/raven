@@ -42,7 +42,7 @@ record class CustomError(
     Message: string,
     Code: ErrorCode
 ) {
-    public override ToString() -> string {
+    override func ToString() -> string {
         "Error [${Code}]: ${Message}"
     }
 }

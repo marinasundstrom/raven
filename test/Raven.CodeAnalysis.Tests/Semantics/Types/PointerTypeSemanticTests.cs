@@ -214,7 +214,7 @@ class Test {
     {
         const string source = """
 struct Holder {
-    public var Value: int = 42
+    public field Value: int = 42
 }
 
 class Test {
@@ -236,7 +236,7 @@ class Test {
     {
         const string source = """
 struct Holder {
-    public var Value: int = 42
+    public field Value: int = 42
 }
 
 class Test {

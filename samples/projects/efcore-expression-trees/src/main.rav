@@ -32,12 +32,12 @@ func Main() -> () {
     Console.WriteLine("Matched users count: " + names.Count.ToString())
 }
 
-public record class User(Id: int, Name: string, Age: int, IsActive: bool)
+record class User(Id: int, Name: string, Age: int, IsActive: bool)
 
-public class AppDbContext : DbContext {
-    public Users: DbSet<User> { get; set; }
+class AppDbContext : DbContext {
+    Users: DbSet<User> { get; set; }
 
-    protected override OnConfiguring(optionsBuilder: DbContextOptionsBuilder) -> () {
+    protected override func OnConfiguring(optionsBuilder: DbContextOptionsBuilder) -> () {
         optionsBuilder.UseInMemoryDatabase("Raven.ExpressionTrees.Stage1")
     }
 }

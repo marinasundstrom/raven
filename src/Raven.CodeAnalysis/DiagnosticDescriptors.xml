@@ -780,8 +780,8 @@
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0909" Identifier="MethodDeclarationMissingFuncKeyword"
     Title="Method declaration missing func keyword"
-    Message="Method declaration '{methodName}' should include the 'func' keyword."
-    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Method declaration '{methodName}' must include the 'func' keyword."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0910" Identifier="ValPropertyCannotDeclareWritableAccessor"
     Title="val property cannot declare writable accessor"
     Message="Property '{propertyName}' is declared 'val' and cannot declare a '{accessorKind}' accessor. Use 'var' instead."

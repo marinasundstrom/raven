@@ -19,14 +19,14 @@ val message = quoteResult match {
 
 WriteLine(message)
 
-public class ShipmentOrderService(var pendingCount: int = 0) {
-    public val PendingCount: int => pendingCount
+class ShipmentOrderService(var pendingCount: int = 0) {
+    val PendingCount: int => pendingCount
 
-    public func RecordPending(count: int) -> () {
+    func RecordPending(count: int) -> () {
         pendingCount += count
     }
 
-    public async func BuildQuote(weightKg: int) -> Task<Result<int, string>> {
+    async func BuildQuote(weightKg: int) -> Task<Result<int, string>> {
         await Delay(20)
         if weightKg > 0 {
             return Ok(weightKg * 2)

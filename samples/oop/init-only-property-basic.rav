@@ -11,5 +11,5 @@ WriteLine(foo.A)
 //foo.A = 2
 
 class Foo {
-    public var A: int { get; init; }
+    var A: int { get; init; }
 }

@@ -7,9 +7,9 @@ foo.Do()
 class Foo : IDisposable {
     val x = 1
     
-    public init() => Console.WriteLine("Init")
+    init() => Console.WriteLine("Init")
 
-    public func Do() -> () => Console.WriteLine("Do")
+    func Do() -> () => Console.WriteLine("Do")
 
-    public func Dispose() -> () => Console.WriteLine("Dispose $x")
+    func Dispose() -> () => Console.WriteLine("Dispose $x")
 }

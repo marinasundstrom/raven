@@ -14,18 +14,18 @@ val s3 = Foo.Hello2()
 
 WriteLine("Static extension: $s3")
 
-public class Foo(b: int) {
-    public self(factor: int) -> int {
+class Foo(b: int) {
+    func self(factor: int) -> int {
         return b * factor
     }
 } 
 
-public trait Test for Foo {
-    public func Hello() -> string {
+trait Test for Foo {
+    func Hello() -> string {
         return self.ToString() 
     }
 
-    public static Hello2() -> string {
+    static func Hello2() -> string {
         return "Foobar" 
     }
 }

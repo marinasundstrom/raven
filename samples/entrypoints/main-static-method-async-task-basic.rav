@@ -3,7 +3,7 @@ import System.Threading.Tasks.*
 
 // Feature: class-based async static `Main` entry point.
 class Program {
-    async static Main() -> Task {
+    async static func Main() -> Task {
         await Task.Delay(1)
         WriteLine("Hello, World!")
     }

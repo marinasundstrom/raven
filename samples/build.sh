@@ -216,7 +216,7 @@ for file in "${rav_files[@]}"; do
 
   echo "Compiling: $file -> $output"
 
-  cmd=("$COMPILER_BIN" -- "$file" -o "$output" --framework "$DOTNET_VERSION")
+  cmd=("$COMPILER_BIN" -- "$file" -o "$output" --framework "$DOTNET_VERSION" --members-public-by-default)
   if [[ -n "${RAVEN_CORE:-}" && -f "$RAVEN_CORE" ]]; then
     cmd+=(--raven-core "$RAVEN_CORE")
   fi

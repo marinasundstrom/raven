@@ -36,11 +36,11 @@ func PrintRoutingMessage(candidate: object?) {
 }
 
 class Shipment {
-    public val Id: string
-    public val IsPriority: bool
-    public val Window: (int, int)
+    val Id: string
+    val IsPriority: bool
+    val Window: (int, int)
 
-    public init(id: string, isPriority: bool, window: (int, int)) {
+    init(id: string, isPriority: bool, window: (int, int)) {
         Id = id
         IsPriority = isPriority
         Window = window

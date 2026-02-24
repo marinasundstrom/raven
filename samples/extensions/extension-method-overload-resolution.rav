@@ -18,8 +18,8 @@ val inferredOverload = items.CountItems(true)
 WriteLine(inferredOverload)
 
 
-public extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T> {
-    public func CountItems() -> int {
+extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T> {
+    func CountItems() -> int {
         var total: int = 0
         for each in self {
             total = total + 1
@@ -27,11 +27,11 @@ public extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T
         return total
     }
 
-    public func CountItems<B>(arg: T) -> B {
+    func CountItems<B>(arg: T) -> B {
         return default(B)
     }
 
-    public func CountItems<B>(arg: B) -> B {
+    func CountItems<B>(arg: B) -> B {
         return arg
     }
 }

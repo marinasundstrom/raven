@@ -11,6 +11,6 @@ val current = readableOnly.P
 WriteLine(current)
 // readableOnly.P = 4  // Not allowed: setter is not common on all subtypes.
 
-open class Base { public virtual var P: int { get; set; } = 0 }
-class D1 : Base { public override var P : int { get; set; } = 0 }
-class D2 : Base { public override val P : int { get; } = 0 }
+open class Base { virtual var P: int { get; set; } = 0 }
+class D1 : Base { override var P : int { get; set; } = 0 }
+class D2 : Base { override val P : int { get; } = 0 }

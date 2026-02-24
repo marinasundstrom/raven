@@ -10,6 +10,6 @@ func ping(name: string) -> Result<PingResult, CustomError> {
     }
 }
 
-public record class PingResult(Message: string)
+record class PingResult(Message: string)
 
-public record class CustomError(Message: string)
+record class CustomError(Message: string)

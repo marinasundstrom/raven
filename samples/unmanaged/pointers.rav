@@ -22,5 +22,5 @@ unsafe func Run2() -> int {
 }
 
 struct Holder {
-    public var Value: int = 42
+    field Value: int = 42
 }

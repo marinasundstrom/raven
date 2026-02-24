@@ -15,17 +15,17 @@ f.Raised -= handler
 
 f.RaiseEvent(3)
 
-public interface IFoo {
+interface IFoo {
     func RaiseEvent(x: int) -> int
 
     event Raised: EventHandler?
 }
 
-public class Foo : IFoo {
-    public func RaiseEvent(x: int) -> int {
+class Foo : IFoo {
+    func RaiseEvent(x: int) -> int {
         Raised?(self, EventArgs.Empty)
         return 42
     }
     
-    public event Raised: EventHandler?
+    event Raised: EventHandler?
 }

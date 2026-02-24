@@ -24,5 +24,5 @@ func Main() -> Result<(), CustomError> {
 record Person(FirstName: string, LastName: string, YearOfBirth: int)
 
 record CustomError(Message: string) {
-    public override ToString() -> string => Message
+    override func ToString() -> string => Message
 }

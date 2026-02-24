@@ -48,25 +48,25 @@ if window.Content is StackPanel stackPanel {
 }
 
 class Window {
-    public var Title: string { get; set; } = ""
+    var Title: string { get; set; } = ""
 
-    public var Width: int { get; set; } = 250
+    var Width: int { get; set; } = 250
 
-    public var Height: int { get; set; } = 250
+    var Height: int { get; set; } = 250
 
-    public var Content: Control? { get; set; } = null
+    var Content: Control? { get; set; } = null
 
-    public var IsVisible: bool { get; private set; } = false
+    var IsVisible: bool { get; private set; } = false
 
-    public func Show() -> () {
+    func Show() -> () {
         IsVisible = true
     }
 
-    public func Close() -> () {
+    func Close() -> () {
         IsVisible = false
     }
 
-    public func ShowDialog() -> Result<DialogResult, Exception> {
+    func ShowDialog() -> Result<DialogResult, Exception> {
         return Ok(DialogResult.Cancel)
     }
 }
@@ -93,26 +93,26 @@ interface IHasChildren {
 class StackPanel : Control, IHasChildren {
     val children: List<Control> = []
 
-    public init() {
+    init() {
     }
 
-    public init(orientation: Orientation) {
+    init(orientation: Orientation) {
         Orientation = orientation
     }
 
-    public var Orientation: Orientation { get; set; } = .Vertical
+    var Orientation: Orientation { get; set; } = .Vertical
 
-    public val Children: IEnumerable<Control> => children
+    val Children: IEnumerable<Control> => children
 
-    public func Add(control: Control) -> () {
+    func Add(control: Control) -> () {
         children.Add(control)
     }
 }
 
 class Button(text: string) : Control {
-    public var Text: string { get; set; } = text
+    var Text: string { get; set; } = text
 
-    public var HorizontalAlignment: HorizontalAlignment { get; set; } = .Fill
+    var HorizontalAlignment: HorizontalAlignment { get; set; } = .Fill
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<Orientation>))]

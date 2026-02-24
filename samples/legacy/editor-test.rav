@@ -5,7 +5,7 @@ val foo = Foo()
 foo.Bar()
 
 class Foo {
-    public Bar() -> () {
+    Bar() -> () {
         val x = 2
         WriteLine(x)
     }

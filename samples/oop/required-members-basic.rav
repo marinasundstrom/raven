@@ -10,10 +10,10 @@ val foo2 = Foo2 {
 
 //foo2.Test = 2
 
-public record class Foo(Name: string)
+record class Foo(Name: string)
 
 class Foo2 {
-    public required var Test: int { get; init; }
+    required var Test: int { get; init; }
 
-    public required var x = 2
+    required var x = 2
 }

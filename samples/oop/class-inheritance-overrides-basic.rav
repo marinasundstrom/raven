@@ -9,23 +9,23 @@ val test2 = Derived2("Test")
 test2.Foo()
 test2.Bar(3)
 
-public abstract class Base {
+abstract class Base {
     /// Test
-    public virtual Foo() {
+    virtual func Foo() {
         WriteLine("Base.Test")
     }
 
-    public abstract Bar(x: int)
+    abstract func Bar(x: int) -> ()
 }
 
-public class Derived(value: int) : Base {
-    public final override Bar(x: int) -> () => WriteLine("Derived.Bar: $x and $value")
+class Derived(value: int) : Base {
+    final override func Bar(x: int) -> () => WriteLine("Derived.Bar: $x and $value")
 }
 
-public class Derived2(value: string) : Base {
-    public override Foo() {
+class Derived2(value: string) : Base {
+    override func Foo() {
         WriteLine("Derived2.Test: $value")
     }
 
-    public final override Bar(x: int) -> () => WriteLine("Derived2.Bar: $x and $value")
+    final override func Bar(x: int) -> () => WriteLine("Derived2.Bar: $x and $value")
 }

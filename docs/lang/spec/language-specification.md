@@ -3135,7 +3135,7 @@ val result = *pointer // 42
 
 ```raven
 struct Holder {
-    public var Foo: int = 0
+    field Foo: int = 0
 }
 
 unsafe func assignThroughPointer() -> int {

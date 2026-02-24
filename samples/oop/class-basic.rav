@@ -15,14 +15,14 @@ class Customer {
     private readonly field _name: string
     private var orderCount: int = 0
 
-    public init(name: string, age: int = 0) {
+    init(name: string, age: int = 0) {
         _name = name
         Age = age
         WriteLine("Created $name with age $age")
     }
 
     // Secondary constructor
-    public init(name: string, petName: string) {
+    init(name: string, petName: string) {
         _name = name
         Age = 0
         WriteLine("Created $name with pet $petName")
@@ -33,7 +33,7 @@ class Customer {
     readonly field Factor: int = 2
 
     // Compute property with get accessor
-    public val Name: string => _name
+    val Name: string => _name
 
     // Compute property with accessors
     var Age: int {
@@ -41,11 +41,11 @@ class Customer {
         set => field = value
     }
 
-    public func AddOrder(count: int) -> () {
+    func AddOrder(count: int) -> () {
         orderCount += count
     }
 
-    public val OrderCount: int => orderCount
+    val OrderCount: int => orderCount
 
     final {
         WriteLine("$_name was collected by GC")

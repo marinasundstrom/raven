@@ -104,7 +104,7 @@ async func Main() -> Task {
 
 /// A small OO model (class + properties + method).
 record class User(Id: int, Name: string, Email: string?) {
-    public func Display() -> string => "$Id: $Name <${Email ?? "(no email)"}>"
+    func Display() -> string => "$Id: $Name <${Email ?? "(no email)"}>"
 }
 
 /// A user-defined union (explicit modeling).
@@ -120,9 +120,9 @@ interface Logger {
 }
 
 class ConsoleLogger : Logger {
-    public event Logged: Action<string>?
+    event Logged: Action<string>?
 
-    public func Log(message: string) -> () {
+    func Log(message: string) -> () {
         WriteLine(message)
         Logged?.Invoke(message) // nullable interop style (event can be null)
     }

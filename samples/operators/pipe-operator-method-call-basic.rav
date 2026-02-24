@@ -6,8 +6,8 @@ val result = 5 |> Increment(2)
 
 WriteLine("Result: $result")
 
-public static class MathHelpers {
-    public static func Increment(x: int, amount: int) -> int {
+static class MathHelpers {
+    static func Increment(x: int, amount: int) -> int {
         return x + amount
     }
 }

@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -99,7 +100,7 @@ class PointerMethods {
     {
         const string code = """
 struct Holder {
-    public var Foo: int = 0
+    public field Foo: int = 0
 }
 
 class PointerAssignment {
