@@ -50,7 +50,7 @@ public union Option<T> {
 
 public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
 
-    public override Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
+    public override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 
@@ -73,7 +73,7 @@ public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
         }
     }
 
-    public override Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
+    public override func Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
         writer.WriteStartObject()
 
         if value is Some(val someValue) {
@@ -90,12 +90,12 @@ public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
 
 public class OptionJsonConverterFactory : JsonConverterFactory {
 
-    public override CanConvert(typeToConvert: Type) -> bool {
+    public override func CanConvert(typeToConvert: Type) -> bool {
         return typeToConvert.IsGenericType
             && typeToConvert.GetGenericTypeDefinition() == typeof(Option<>)
     }
 
-    public override CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
+    public override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
         val tArg = typeToConvert.GetGenericArguments()[0]
         val converterType = typeof(OptionJsonConverter<>).MakeGenericType([tArg])
         return (JsonConverter)Activator.CreateInstance(converterType)!
@@ -112,7 +112,7 @@ public extension OptionExtensions<T> for Option<T> {
     public HasNone: bool => self is None
 
     /// Projects the value inside `Some` using `mapper`. `None` stays `None`.
-    public Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+    public func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
         self match {
             Some(val value) => Some(mapper(value))
             None => None
@@ -120,7 +120,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Monadic bind / flatMap: chains an `Option`-producing function.
-    public Then<TResult>(binder: T -> Option<TResult>) -> Option<TResult> {
+    public func Then<TResult>(binder: T -> Option<TResult>) -> Option<TResult> {
         self match {
             Some(val value) => binder(value)
             None => None
@@ -128,7 +128,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Keeps the value only if `predicate` returns true.
-    public Where(predicate: T -> bool) -> Option<T> {
+    public func Where(predicate: T -> bool) -> Option<T> {
         self match {
             Some(val value) => if predicate(value) { Some(value) } else { None }
             None => None
@@ -136,12 +136,12 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Alias for `Where`.
-    public Filter(predicate: T -> bool) -> Option<T> {
+    public func Filter(predicate: T -> bool) -> Option<T> {
         self.Where(predicate)
     }
 
     /// Returns this option if it is `Some`, otherwise returns `alternative()`.
-    public OrElse(alternative: () -> Option<T>) -> Option<T> {
+    public func OrElse(alternative: () -> Option<T>) -> Option<T> {
         self match {
             Some(_) => self
             None => alternative()
@@ -149,7 +149,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Returns the contained value or evaluates `factory()`.
-    public UnwrapOrElse(factory: () -> T) -> T {
+    public func UnwrapOrElse(factory: () -> T) -> T {
         self match {
             Some(val value) => value
             None => factory()
@@ -157,7 +157,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Matches the option and produces a value.
-    public Match<TResult>(some: T -> TResult, none: () -> TResult) -> TResult {
+    public func Match<TResult>(some: T -> TResult, none: () -> TResult) -> TResult {
         self match {
             Some(val value) => some(value)
             None => none()
@@ -165,7 +165,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Runs `action` if this is `Some`, returning the original option.
-    public Tap(action: T -> ()) -> Option<T> {
+    public func Tap(action: T -> ()) -> Option<T> {
         if self is Some(val value) {
             action(value)
         }
@@ -173,7 +173,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Runs `action` if this is `None`, returning the original option.
-    public TapNone(action: () -> ()) -> Option<T> {
+    public func TapNone(action: () -> ()) -> Option<T> {
         if self is None {
             action()
         }
@@ -181,7 +181,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Converts `Some(x)` to a single-item sequence and `None` to an empty sequence.
-    public ToEnumerable() -> IEnumerable<T> {
+    public func ToEnumerable() -> IEnumerable<T> {
         val list = List<T>()
         if self is Some(val value) {
             list.Add(value)
@@ -189,13 +189,13 @@ public extension OptionExtensions<T> for Option<T> {
         list
     }
 
-    public GetEnumerator() -> IEnumerator<T> {
+    public func GetEnumerator() -> IEnumerator<T> {
         self.ToEnumerable().GetEnumerator()
     }
 
     /// Bridges `Option` into a `Result`-producing pipeline.
     /// If this is `None`, returns `Error(noneError())`.
-    public ThenResult<TResult, E>(binder: T -> Result<TResult, E>, noneError: () -> E) -> Result<TResult, E> {
+    public func ThenResult<TResult, E>(binder: T -> Result<TResult, E>, noneError: () -> E) -> Result<TResult, E> {
         self match {
             Some(val value) => binder(value)
             None => Error(noneError())
@@ -203,7 +203,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Maps the contained value into a `Result`. If this is `None`, returns `Error(noneError())`.
-    public MapResult<TResult, E>(mapper: T -> TResult, noneError: () -> E) -> Result<TResult, E> {
+    public func MapResult<TResult, E>(mapper: T -> TResult, noneError: () -> E) -> Result<TResult, E> {
         self match {
             Some(val value) => Ok(mapper(value))
             None => Error(noneError())
@@ -211,7 +211,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     // Converts Option into a Result
-    public IsOkOr<E>(error: E) -> Result<T, E> {
+    public func IsOkOr<E>(error: E) -> Result<T, E> {
         if self is Some(val value) {
             return Ok(value)
         }
@@ -219,7 +219,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     // Converts Option into a Result
-    public IsOkOr<E>(errorFactory: () -> E) -> Result<T, E> {
+    public func IsOkOr<E>(errorFactory: () -> E) -> Result<T, E> {
         if self is Some(val value) {
             return Ok(value)
         }
@@ -227,7 +227,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Unwrap the value if Some, otherwise return the default value
-    public UnwrapOrDefault() -> T {
+    public func UnwrapOrDefault() -> T {
         if self is Some(val value) {
             return value
         }
@@ -235,7 +235,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Unwrap the value if Some, otherwise throw an exception
-    public UnwrapOrThrow() -> T {
+    public func UnwrapOrThrow() -> T {
         if self is Some(val value) {
             return value
         }
@@ -243,7 +243,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 
     /// Unwrap the value if Some, otherwise return the specified value
-    public UnwrapOr(defaultValue: T) -> T {
+    public func UnwrapOr(defaultValue: T) -> T {
         if self is Some(val value) {
             return value
         }
@@ -254,7 +254,7 @@ public extension OptionExtensions<T> for Option<T> {
 public extension OptionExtensionsNested<T> for Option<Option<T>> {
 
     /// Flattens `Option<Option<T>>` into `Option<T>`.
-    public Flatten() -> Option<T> {
+    public func Flatten() -> Option<T> {
         self match {
             Some(val inner) => inner
             None => None

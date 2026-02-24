@@ -13,7 +13,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // Captures the first element, or none. May throw.
     // Some(x)   => first element
     // None      => no elements
-    public FirstOrNone() -> Option<T> {
+    public func FirstOrNone() -> Option<T> {
         val values = self.Take(1).ToList()
         if values.Count == 1 {
             return Some(values[0])
@@ -24,7 +24,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // Captures the first element on predicate, or none. May throw.
     // Some(x)   => first element
     // None      => no elements
-    public FirstOrNone(predicate: T -> bool) -> Option<T> {
+    public func FirstOrNone(predicate: T -> bool) -> Option<T> {
         val values = self.Where(predicate).Take(1).ToList()
         if values.Count == 1 {
             return Some(values[0])
@@ -32,7 +32,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         None
     }
 
-    public FirstOrError<E>(errorFactory: () -> E) -> Result<T, E> {
+    public func FirstOrError<E>(errorFactory: () -> E) -> Result<T, E> {
         val values = self.Take(1).ToList()
         if values.Count == 1 {
             return Ok(values[0])
@@ -40,7 +40,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         Error(errorFactory())
     }
 
-    public FirstOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
+    public func FirstOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
         val values = self.Where(predicate).Take(1).ToList()
         if values.Count == 1 {
             return Ok(values[0])
@@ -52,7 +52,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // Last
     // -------------------------
 
-    public LastOrNone() -> Option<T> {
+    public func LastOrNone() -> Option<T> {
         val values = self.ToList()
         if values.Count == 0 {
             return None
@@ -60,7 +60,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         Some(values[values.Count - 1])
     }
 
-    public LastOrNone(predicate: T -> bool) -> Option<T> {
+    public func LastOrNone(predicate: T -> bool) -> Option<T> {
         val values = self.Where(predicate).ToList()
         if values.Count == 0 {
             return None
@@ -68,7 +68,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         Some(values[values.Count - 1])
     }
 
-    public LastOrError<E>(errorFactory: () -> E) -> Result<T, E> {
+    public func LastOrError<E>(errorFactory: () -> E) -> Result<T, E> {
         val values = self.ToList()
         if values.Count == 0 {
             return Error(errorFactory())
@@ -76,7 +76,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         Ok(values[values.Count - 1])
     }
 
-    public LastOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
+    public func LastOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
         val values = self.Where(predicate).ToList()
         if values.Count == 0 {
             return Error(errorFactory())
@@ -88,7 +88,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // Single
     // -------------------------
 
-    public SingleOrNone() -> Option<T> {
+    public func SingleOrNone() -> Option<T> {
         val values = self.Take(2).ToList()
         if values.Count == 1 {
             return Some(values[0])
@@ -96,7 +96,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         None
     }
 
-    public SingleOrNone(predicate: T -> bool) -> Option<T> {
+    public func SingleOrNone(predicate: T -> bool) -> Option<T> {
         val values = self.Where(predicate).Take(2).ToList()
         if values.Count == 1 {
             return Some(values[0])
@@ -104,7 +104,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         None
     }
 
-    public SingleOrError<E>(errorFactory: () -> E) -> Result<T, E> {
+    public func SingleOrError<E>(errorFactory: () -> E) -> Result<T, E> {
         val values = self.Take(2).ToList()
         if values.Count == 1 {
             return Ok(values[0])
@@ -112,7 +112,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         Error(errorFactory())
     }
 
-    public SingleOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
+    public func SingleOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
         val values = self.Where(predicate).Take(2).ToList()
         if values.Count == 1 {
             return Ok(values[0])
@@ -120,7 +120,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         Error(errorFactory())
     }
 
-    public SingleOrError<E>(errorIfNone: () -> E, errorIfMany: () -> E) -> Result<T, E> {
+    public func SingleOrError<E>(errorIfNone: () -> E, errorIfMany: () -> E) -> Result<T, E> {
         val values = self.Take(2).ToList()
         if values.Count == 1 {
             return Ok(values[0])
@@ -131,7 +131,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         Error(errorIfMany())
     }
 
-    public SingleOrError<E>(predicate: T -> bool, errorIfNone: () -> E, errorIfMany: () -> E) -> Result<T, E> {
+    public func SingleOrError<E>(predicate: T -> bool, errorIfNone: () -> E, errorIfMany: () -> E) -> Result<T, E> {
         val values = self.Where(predicate).Take(2).ToList()
         if values.Count == 1 {
             return Ok(values[0])
@@ -146,7 +146,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // ElementAt
     // -------------------------
 
-    public ElementAtOrNone(index: int) -> Option<T> {
+    public func ElementAtOrNone(index: int) -> Option<T> {
         if index < 0 {
             return None
         }
@@ -159,7 +159,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         None
     }
 
-    public ElementAtOrError<E>(index: int, errorFactory: () -> E) -> Result<T, E> {
+    public func ElementAtOrError<E>(index: int, errorFactory: () -> E) -> Result<T, E> {
         val opt = self.ElementAtOrNone(index)
         return opt match {
             Some(val v) => Ok(v)
@@ -171,11 +171,11 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // Materialization with exception capture
     // -------------------------
 
-    public ToArrayOrException() -> Result<T[], Exception> {
+    public func ToArrayOrException() -> Result<T[], Exception> {
         try self.ToArray()
     }
 
-    public ToArrayOrError<E>(errorFactory: Exception -> E) -> Result<T[], E> {
+    public func ToArrayOrError<E>(errorFactory: Exception -> E) -> Result<T[], E> {
         try {
             return Ok(self.ToArray())
         } catch (Exception ex) {
@@ -183,11 +183,11 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         }
     }
 
-    public ToListOrException() -> Result<List<T>, Exception> {
+    public func ToListOrException() -> Result<List<T>, Exception> {
         try self.ToList()
     }
 
-    public ToListOrError<E>(errorFactory: Exception -> E) -> Result<List<T>, E> {
+    public func ToListOrError<E>(errorFactory: Exception -> E) -> Result<List<T>, E> {
         try {
             return Ok(self.ToList())
         } catch (Exception ex) {
@@ -195,11 +195,11 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         }
     }
 
-    public ToHashSetOrException() -> Result<HashSet<T>, Exception> {
+    public func ToHashSetOrException() -> Result<HashSet<T>, Exception> {
         try self.ToHashSet()
     }
 
-    public ToHashSetOrError<E>(errorFactory: Exception -> E) -> Result<HashSet<T>, E> {
+    public func ToHashSetOrError<E>(errorFactory: Exception -> E) -> Result<HashSet<T>, E> {
         try {
             return Ok(self.ToHashSet())
         } catch (Exception ex) {
@@ -207,11 +207,11 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         }
     }
 
-    public ToDictionaryOrException<TKey>(keySelector: T -> TKey) -> Result<Dictionary<TKey, T>, Exception> {
+    public func ToDictionaryOrException<TKey>(keySelector: T -> TKey) -> Result<Dictionary<TKey, T>, Exception> {
         try self.ToDictionary(keySelector)
     }
 
-    public ToDictionaryOrError<TKey, E>(
+    public func ToDictionaryOrError<TKey, E>(
         keySelector: T -> TKey,
         errorFactory: Exception -> E
     ) -> Result<Dictionary<TKey, T>, E> {
@@ -222,14 +222,14 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         }
     }
 
-    public ToDictionaryOrException<TKey, TValue>(
+    public func ToDictionaryOrException<TKey, TValue>(
         keySelector: T -> TKey,
         elementSelector: T -> TValue
     ) -> Result<Dictionary<TKey, TValue>, Exception> {
         try self.ToDictionary(keySelector, elementSelector)
     }
 
-    public ToDictionaryOrError<TKey, TValue, E>(
+    public func ToDictionaryOrError<TKey, TValue, E>(
         keySelector: T -> TKey,
         elementSelector: T -> TValue,
         errorFactory: Exception -> E
