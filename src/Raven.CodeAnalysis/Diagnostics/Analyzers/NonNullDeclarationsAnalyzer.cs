@@ -46,6 +46,13 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
         if (annotation.Parent is EventDeclarationSyntax)
             return;
 
+        // Lambda parameter types are constrained by their target delegate signatures.
+        if (annotation.Parent is ParameterSyntax parameter &&
+            parameter.FirstAncestorOrSelf<LambdaExpressionSyntax>() is not null)
+        {
+            return;
+        }
+
         AnalyzeTypeSyntax(context, annotation.Type);
     }
 

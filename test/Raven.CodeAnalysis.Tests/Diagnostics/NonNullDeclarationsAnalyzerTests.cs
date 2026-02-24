@@ -63,4 +63,19 @@ class C {
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
         verifier.Verify();
     }
+
+    [Fact]
+    public void NullableLambdaParameterType_DoesNotReportDiagnostic()
+    {
+        const string code = """
+import System.*
+
+val handler: EventHandler = (s: object?, e: EventArgs) => Console.WriteLine("Hello")
+""";
+
+        var verifier = CreateAnalyzerVerifier<NonNullDeclarationsAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+        verifier.Verify();
+    }
 }

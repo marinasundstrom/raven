@@ -104,4 +104,27 @@ class C {
         Assert.Single(diagnostics);
         Assert.Equal("Unused", diagnostics[0].GetMessageArgs().FirstOrDefault()?.ToString());
     }
+
+    [Fact]
+    public void InterfaceImplementation_IsNotReported()
+    {
+        const string code = """
+interface IFoo {
+    func RaiseEvent(x: int) -> int
+}
+
+class Foo : IFoo {
+    func RaiseEvent(x: int) -> int => 42
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedMethodAnalyzer>(
+            code,
+            disabledDiagnostics:
+            [
+                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id
+            ]);
+
+        verifier.Verify();
+    }
 }

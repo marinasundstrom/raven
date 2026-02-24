@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -97,9 +98,59 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
             method.IsVirtual ||
             method.IsOverride ||
             method.IsExtern ||
-            !method.ExplicitInterfaceImplementations.IsDefaultOrEmpty)
+            !method.ExplicitInterfaceImplementations.IsDefaultOrEmpty ||
+            ImplementsInterfaceMember(method))
         {
             return false;
+        }
+
+        return true;
+    }
+
+    private static bool ImplementsInterfaceMember(IMethodSymbol method)
+    {
+        if (method.ContainingType is null)
+            return false;
+
+        foreach (var interfaceType in method.ContainingType.AllInterfaces)
+        {
+            foreach (var interfaceMember in interfaceType.GetMembers(method.Name).OfType<IMethodSymbol>())
+            {
+                if (interfaceMember.MethodKind != MethodKind.Ordinary)
+                    continue;
+
+                if (!HasSameSignature(method, interfaceMember))
+                    continue;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasSameSignature(IMethodSymbol candidate, IMethodSymbol contract)
+    {
+        if (!SymbolEqualityComparer.Default.Equals(candidate.ReturnType, contract.ReturnType))
+            return false;
+
+        return HasSameParameters(candidate.Parameters, contract.Parameters);
+    }
+
+    private static bool HasSameParameters(
+        ImmutableArray<IParameterSymbol> left,
+        ImmutableArray<IParameterSymbol> right)
+    {
+        if (left.Length != right.Length)
+            return false;
+
+        for (var i = 0; i < left.Length; i++)
+        {
+            if (left[i].RefKind != right[i].RefKind)
+                return false;
+
+            if (!SymbolEqualityComparer.Default.Equals(left[i].Type, right[i].Type))
+                return false;
         }
 
         return true;
