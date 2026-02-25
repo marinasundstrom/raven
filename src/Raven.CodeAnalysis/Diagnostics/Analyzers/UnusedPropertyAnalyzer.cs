@@ -123,10 +123,24 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
                     continue;
                 }
 
-                if (symbol is null || !candidateSymbols.Contains(symbol))
+                if (symbol is null)
                     continue;
 
-                referenced.Add(symbol);
+                // Direct hit: the resolved symbol is itself a candidate property.
+                if (candidateSymbols.Contains(symbol))
+                {
+                    referenced.Add(symbol);
+                    continue;
+                }
+
+                // Indirect hit: private stored properties are lowered to field access by the binder,
+                // so GetSymbolInfo returns the backing IFieldSymbol. Chase AssociatedSymbol to find
+                // the owning property and mark it as referenced.
+                if (symbol is IFieldSymbol field && field.AssociatedSymbol is { } associated && candidateSymbols.Contains(associated))
+                {
+                    referenced.Add(associated);
+                    continue;
+                }
             }
         }
     }

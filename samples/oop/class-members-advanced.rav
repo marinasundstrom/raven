@@ -14,6 +14,8 @@ user.AddRole("admin")
 val user2 = Person.WithName("John")
     .AddRole("admin")
 
+user2.Test()
+
 PrintLine(user2.Name)
 
 PrintLine(user2(2003))

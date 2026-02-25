@@ -82,6 +82,95 @@ class C {
     }
 
     [Fact]
+    public void PrivateStoredProperty_AccessedViaIdentifier_DoesNotReportDiagnostic()
+    {
+        // Regression: private stored properties (omitted accessor list) are lowered to
+        // BoundFieldAccess by the binder, so GetSymbolInfo returns the IFieldSymbol.
+        // The analyzer must chase IFieldSymbol.AssociatedSymbol to find the owning property.
+        const string code = """
+val x = 0
+
+class Counter {
+    private var count: int = 0
+    private var name: string = ""
+
+    func Increment() -> () {
+        count = count + 1
+    }
+
+    func GetName() -> string => name
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedPropertyAnalyzer>(
+            code,
+            disabledDiagnostics:
+            [
+                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PrivateStoredProperty_AccessedViaMemberAccess_DoesNotReportDiagnostic()
+    {
+        // Regression: self.age style access lowers to BoundMemberAccessExpression with
+        // IFieldSymbol as Member. AssociatedSymbol must be chased to avoid false positive.
+        const string code = """
+val x = 0
+
+class Person {
+    private var age: int = 0
+    private var roles: System.Collections.Generic.List<string> = []
+
+    init(a: int) {
+        self.age = a
+    }
+
+    func AddRole(role: string) -> () {
+        roles.Add(role)
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedPropertyAnalyzer>(
+            code,
+            disabledDiagnostics:
+            [
+                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PrivateStoredProperty_NeverAccessed_ReportsDiagnostic()
+    {
+        // A private stored property that is genuinely never read or written should still warn.
+        const string code = """
+class Foo {
+    private val unused: int = 42
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "lib",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var diagnostics = new UnusedPropertyAnalyzer()
+            .Analyze(compilation)
+            .Where(d => d.Id == UnusedPropertyAnalyzer.DiagnosticId)
+            .ToArray();
+
+        Assert.Single(diagnostics);
+        Assert.Equal("unused", diagnostics[0].GetMessageArgs().FirstOrDefault()?.ToString());
+    }
+
+    [Fact]
     public void Library_InternalUnusedProperty_ReportsDiagnostic()
     {
         const string code = """

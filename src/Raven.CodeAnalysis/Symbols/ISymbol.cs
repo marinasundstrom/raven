@@ -367,6 +367,12 @@ public interface IFieldSymbol : ISymbol
     bool IsRequired { get; }
 
     object? GetConstantValue();
+
+    /// <summary>
+    /// For auto-property or event backing fields: the owning property or event symbol.
+    /// Returns null for regular fields.
+    /// </summary>
+    ISymbol? AssociatedSymbol => null;
 }
 
 public interface IPropertySymbol : ISymbol

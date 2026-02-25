@@ -78,6 +78,8 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
         return _lazyAttributesWithSynthesized;
     }
 
+    public ISymbol? AssociatedSymbol => (ISymbol?)_associatedProperty ?? _associatedEvent;
+
     internal void SetAssociatedProperty(SourcePropertySymbol property)
     {
         _associatedProperty = property;
