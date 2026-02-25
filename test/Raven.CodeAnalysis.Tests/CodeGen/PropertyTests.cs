@@ -109,6 +109,251 @@ class Counter {
     }
 
     [Fact]
+    public void ImplicitVarAutoProperty_GeneratesBackingFieldAndGetterSetter()
+    {
+        var code = """
+class Entity {
+    public var Id: string
+    public var Count: int
+    public init(id: string, count: int) {
+        Id = id
+        Count = count
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSemanticModel(syntaxTree);
+        var compilationType = compilation.SourceGlobalNamespace.LookupType("Entity");
+        Assert.NotNull(compilationType);
+
+        var idProperty = Assert.Single(
+            compilationType!.GetMembers().OfType<IPropertySymbol>(),
+            p => p.Name == "Id");
+        Assert.NotNull(idProperty.GetMethod);
+        Assert.NotNull(idProperty.SetMethod);
+
+        var countProperty = Assert.Single(
+            compilationType.GetMembers().OfType<IPropertySymbol>(),
+            p => p.Name == "Count");
+        Assert.NotNull(countProperty.GetMethod);
+        Assert.NotNull(countProperty.SetMethod);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var type = runtimeAssembly.GetType("Entity", throwOnError: true)!;
+
+        // Verify CLR property metadata
+        var idClrProperty = type.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance);
+        Assert.NotNull(idClrProperty);
+        Assert.NotNull(idClrProperty!.GetMethod);
+        Assert.NotNull(idClrProperty.SetMethod);
+
+        var countClrProperty = type.GetProperty("Count", BindingFlags.Public | BindingFlags.Instance);
+        Assert.NotNull(countClrProperty);
+        Assert.NotNull(countClrProperty!.GetMethod);
+        Assert.NotNull(countClrProperty.SetMethod);
+
+        // Verify backing fields are named <Prop>k__BackingField (auto-property convention)
+        Assert.NotNull(type.GetField("<Id>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(type.GetField("<Count>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic));
+
+        // Verify round-trip via constructor + getter + setter
+        var ctor = type.GetConstructor(BindingFlags.Public | BindingFlags.Instance, [typeof(string), typeof(int)]);
+        Assert.NotNull(ctor);
+        var instance = ctor!.Invoke(["hello", 42]);
+
+        Assert.Equal("hello", (string)idClrProperty.GetValue(instance)!);
+        Assert.Equal(42, (int)countClrProperty.GetValue(instance)!);
+
+        idClrProperty.SetValue(instance, "world");
+        countClrProperty.SetValue(instance, 99);
+
+        Assert.Equal("world", (string)idClrProperty.GetValue(instance)!);
+        Assert.Equal(99, (int)countClrProperty.GetValue(instance)!);
+    }
+
+    [Fact]
+    public void ImplicitValAutoProperty_GeneratesBackingFieldAndGetterOnly()
+    {
+        var code = """
+class Point {
+    public val X: int
+    public val Y: int
+    public init(x: int, y: int) {
+        X = x
+        Y = y
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSemanticModel(syntaxTree);
+        var compilationType = compilation.SourceGlobalNamespace.LookupType("Point");
+        Assert.NotNull(compilationType);
+
+        var xProperty = Assert.Single(
+            compilationType!.GetMembers().OfType<IPropertySymbol>(),
+            p => p.Name == "X");
+        Assert.NotNull(xProperty.GetMethod);
+        Assert.Null(xProperty.SetMethod);
+
+        var yProperty = Assert.Single(
+            compilationType.GetMembers().OfType<IPropertySymbol>(),
+            p => p.Name == "Y");
+        Assert.NotNull(yProperty.GetMethod);
+        Assert.Null(yProperty.SetMethod);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var type = runtimeAssembly.GetType("Point", throwOnError: true)!;
+
+        var xClrProperty = type.GetProperty("X", BindingFlags.Public | BindingFlags.Instance);
+        Assert.NotNull(xClrProperty);
+        Assert.NotNull(xClrProperty!.GetMethod);
+        Assert.Null(xClrProperty.SetMethod);
+
+        var yClrProperty = type.GetProperty("Y", BindingFlags.Public | BindingFlags.Instance);
+        Assert.NotNull(yClrProperty);
+        Assert.NotNull(yClrProperty!.GetMethod);
+        Assert.Null(yClrProperty.SetMethod);
+
+        // Verify backing fields use auto-property naming
+        Assert.NotNull(type.GetField("<X>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(type.GetField("<Y>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic));
+
+        // Verify values set through init are readable
+        var ctor = type.GetConstructor(BindingFlags.Public | BindingFlags.Instance, [typeof(int), typeof(int)]);
+        Assert.NotNull(ctor);
+        var instance = ctor!.Invoke([3, 7]);
+
+        Assert.Equal(3, (int)xClrProperty.GetValue(instance)!);
+        Assert.Equal(7, (int)yClrProperty.GetValue(instance)!);
+    }
+
+    [Fact]
+    public void ImplicitVarAutoProperty_BoolProperty_RoundTrips()
+    {
+        // Regression test: get_IsPriority() raised InvalidProgramException before fix
+        var code = """
+class Shipment {
+    public var IsPriority: bool
+    public init(isPriority: bool) {
+        IsPriority = isPriority
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Shipment", throwOnError: true)!;
+        var ctor = type.GetConstructor(BindingFlags.Public | BindingFlags.Instance, [typeof(bool)]);
+        Assert.NotNull(ctor);
+
+        var trueInstance = ctor!.Invoke([true]);
+        var falseInstance = ctor.Invoke([false]);
+
+        var prop = type.GetProperty("IsPriority", BindingFlags.Public | BindingFlags.Instance)!;
+        Assert.True((bool)prop.GetValue(trueInstance)!);
+        Assert.False((bool)prop.GetValue(falseInstance)!);
+    }
+
+    [Fact]
+    public void ImplicitVarAutoProperty_StaticProperty_GeneratesBackingField()
+    {
+        var code = """
+class Registry {
+    public static var Version: string
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSemanticModel(syntaxTree);
+        var compilationType = compilation.SourceGlobalNamespace.LookupType("Registry");
+        Assert.NotNull(compilationType);
+
+        var propSymbol = Assert.Single(
+            compilationType!.GetMembers().OfType<IPropertySymbol>(),
+            p => p.Name == "Version");
+        Assert.NotNull(propSymbol.GetMethod);
+        Assert.NotNull(propSymbol.SetMethod);
+        Assert.True(propSymbol.IsStatic);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Registry", throwOnError: true)!;
+
+        var clrProp = type.GetProperty("Version", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(clrProp);
+        Assert.NotNull(clrProp!.GetMethod);
+        Assert.NotNull(clrProp.SetMethod);
+
+        Assert.NotNull(type.GetField("<Version>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic));
+
+        clrProp.SetValue(null, "1.0");
+        Assert.Equal("1.0", (string)clrProp.GetValue(null)!);
+    }
+
+    [Fact]
     public void PrivateStoredPropertyInitializer_LowersToFieldWithoutClrProperty()
     {
         var code = """

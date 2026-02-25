@@ -247,4 +247,87 @@ public class PropertyBindingTests : DiagnosticTestBase
         verifier.Verify();
     }
 
+    [Fact]
+    public void ImplicitVarAutoProperty_OmittedAccessorList_NoErrors()
+    {
+        // var properties with omitted accessor list are treated as implicit auto-properties
+        // (synthesized getter + setter + <Name>k__BackingField). No diagnostic expected.
+        const string testCode =
+            """
+            class Entity {
+                public var Id: string
+                public var Count: int
+                public init(id: string, count: int) {
+                    Id = id
+                    Count = count
+                }
+            }
+            val e = Entity("x", 1)
+            val id = e.Id
+            e.Count = 2
+            """;
+
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ImplicitValAutoProperty_OmittedAccessorList_NoErrors()
+    {
+        // val properties with omitted accessor list are treated as implicit getter-only auto-properties.
+        const string testCode =
+            """
+            class Point {
+                public val X: int
+                public val Y: int
+                public init(x: int, y: int) {
+                    X = x
+                    Y = y
+                }
+            }
+            val p = Point(3, 7)
+            val x = p.X
+            """;
+
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ImplicitVarAutoProperty_DoesNotFireVarRequiresWritableShape()
+    {
+        // var with omitted accessor list synthesizes a setter, so VarPropertyRequiresWritableShape
+        // must NOT fire (it would fire spuriously before the fix).
+        const string testCode =
+            """
+            class Box {
+                public var Value: int
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ImplicitVarAutoProperty_MultipleProperties_InitAssignment_NoErrors()
+    {
+        // Regression: "Property Id does not have a setter" was thrown by the emitter
+        // when assigning to a non-private var property with omitted accessor list.
+        const string testCode =
+            """
+            class Shipment {
+                public var Id: string
+                public var IsPriority: bool
+                public init(id: string, isPriority: bool) {
+                    Id = id
+                    IsPriority = isPriority
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
 }

@@ -238,12 +238,22 @@ internal partial class TypeMemberBinder : Binder
             !isExtensionContainer &&
             _containingType.TypeKind != TypeKind.Interface;
 
+        // Non-private property with no accessor list and no expression body: treat as implicit auto-property.
+        // Synthesizes a backing field + getter (and setter for var) so that init/constructor assignments work.
+        var isImplicitAutoProperty =
+            sourcePropertySymbol is not null &&
+            hasNoDeclaredAccessorList &&
+            propertyDecl.ExpressionBody is null &&
+            !isPrivateInitializerOnlyStoredProperty &&
+            !isExtensionContainer &&
+            _containingType.TypeKind != TypeKind.Interface;
+
         if (!isExtensionContainer &&
             _containingType.TypeKind != TypeKind.Interface &&
             sourcePropertySymbol is not null &&
-            (hasAutoAccessorList || usesFieldKeyword || isPrivateInitializerOnlyStoredProperty))
+            (hasAutoAccessorList || usesFieldKeyword || isPrivateInitializerOnlyStoredProperty || isImplicitAutoProperty))
         {
-            var isMutableBackingField = isPrivateInitializerOnlyStoredProperty
+            var isMutableBackingField = (isPrivateInitializerOnlyStoredProperty || isImplicitAutoProperty)
                 ? declaredMutable != false
                 : true;
             var fieldName = isPrivateInitializerOnlyStoredProperty
@@ -298,7 +308,7 @@ internal partial class TypeMemberBinder : Binder
             }
         }
 
-        if (declaredMutable == true && !hasSetter && !hasStorageInitializer)
+        if (declaredMutable == true && !hasSetter && !hasStorageInitializer && !isImplicitAutoProperty)
         {
             _diagnostics.ReportVarPropertyRequiresWritableShape(
                 propertyName,
@@ -750,6 +760,63 @@ internal partial class TypeMemberBinder : Binder
                 _diagnostics.Report(diagnostic);
 
             getMethod = methodSymbol;
+        }
+        else if (isImplicitAutoProperty)
+        {
+            // Synthesize getter (and setter for var) with no declaring syntax references.
+            // MethodBodyGenerator detects BackingField and emits ldarg.0/ldfld/ret (or stfld/ret) automatically.
+            var getterName = "get_" + propertyName;
+            var getterSymbol = new SourceMethodSymbol(
+                getterName,
+                propertyType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                propertySymbol,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [],
+                [],
+                isStatic: isStatic,
+                methodKind: MethodKind.PropertyGet,
+                isAsync: false,
+                isVirtual: isVirtual,
+                isOverride: isOverride,
+                isSealed: isSealed,
+                isAbstract: isAbstract,
+                declaredAccessibility: propertyAccessibility);
+            getterSymbol.SetParameters([]);
+            getMethod = getterSymbol;
+
+            if (declaredMutable == true)
+            {
+                var setterName = "set_" + propertyName;
+                var setterSymbol = new SourceMethodSymbol(
+                    setterName,
+                    Compilation.GetSpecialType(SpecialType.System_Unit),
+                    ImmutableArray<SourceParameterSymbol>.Empty,
+                    propertySymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [],
+                    [],
+                    isStatic: isStatic,
+                    methodKind: MethodKind.PropertySet,
+                    isAsync: false,
+                    isVirtual: isVirtual,
+                    isOverride: isOverride,
+                    isSealed: isSealed,
+                    isAbstract: isAbstract,
+                    declaredAccessibility: propertyAccessibility);
+                var valueParam = new SourceParameterSymbol(
+                    "value",
+                    propertyType,
+                    setterSymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [],
+                    []);
+                setterSymbol.SetParameters([valueParam]);
+                setMethod = setterSymbol;
+            }
         }
 
         if (isExtensionMember && _extensionReceiverTypeSyntax is not null)

@@ -363,6 +363,16 @@ internal class MethodBodyGenerator
         var syntaxReference = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is null)
         {
+            // Synthesized implicit auto-property accessor (omitted accessor list, non-private).
+            // Detect the backing field and emit getter/setter IL directly.
+            if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly &&
+                MethodSymbol.ContainingSymbol is SourcePropertySymbol implicitAutoProperty &&
+                implicitAutoProperty.BackingField is SourceFieldSymbol implicitBackingField)
+            {
+                EmitAutoPropertyAccessor(MethodSymbol.MethodKind, implicitAutoProperty, implicitBackingField);
+                return;
+            }
+
             ILGenerator.Emit(OpCodes.Ret);
             return;
         }
