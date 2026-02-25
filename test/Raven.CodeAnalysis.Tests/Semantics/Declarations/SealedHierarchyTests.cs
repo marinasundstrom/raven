@@ -682,4 +682,67 @@ record Add(Left: Expr, Right: Expr) : Expr
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
     }
+
+    // ── Record inheritance with primary constructor forwarding ──
+
+    [Fact]
+    public void RecordInheritance_PrimaryConstructorBaseCall_BindsWithoutErrors()
+    {
+        var source = """
+sealed record Expr
+abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Lit(Value: int) : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void RecordInheritance_PrimaryConstructorBaseCall_ParametersResolveable()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Add(Lit(1), Lit(2))
+
+val result = expr match {
+    Lit(val v) => v
+    Add(val left, val right) => 0
+    Sub(val left, val right) => 0
+}
+
+sealed record Expr
+abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Lit(Value: int) : Expr
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void RecordInheritance_PrimaryConstructorBaseCall_BaseConstructorInitializerIsSet()
+    {
+        var source = """
+sealed record Expr
+abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+
+        var addType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SourceGlobalNamespace.LookupType("Add"));
+        var addCtor = Assert.IsAssignableFrom<IMethodSymbol>(
+            addType.Constructors.Single(c => !c.IsStatic && c.Parameters.Length == 2));
+
+        Assert.Equal("BinaryExpr", addCtor.ContainingType.BaseType?.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }

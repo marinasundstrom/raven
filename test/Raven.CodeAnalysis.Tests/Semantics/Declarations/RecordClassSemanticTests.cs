@@ -170,4 +170,61 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         Assert.Equal(2, person.GetMembers().OfType<IPropertySymbol>().Count());
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void RecordClass_NamedArgsCamelCase_MatchPascalCaseParams_BindsWithoutErrors()
+    {
+        // Regression test: Raven convention is PascalCase params but camelCase named argument labels.
+        // Named arg "x:" must resolve to parameter "X", "y:" to "Y".
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var (compilation, tree) = CreateCompilation("""
+            func CreatePoint() -> Point {
+                Point(x: 1, y: 2)
+            }
+            record class Point(X: int, Y: int)
+            """, options: options);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void RecordClass_PascalCaseNamedArgs_AlsoWorkAsAlternative()
+    {
+        // PascalCase named args should also work (exact match on parameter names).
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var (compilation, tree) = CreateCompilation("""
+            func CreatePoint() -> Point {
+                Point(X: 1, Y: 2)
+            }
+            record class Point(X: int, Y: int)
+            """, options: options);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void RecordClass_WithDuTypeInScope_CamelCaseNamedArgsDoNotShadowDuCases()
+    {
+        // Regression test: Primary constructor parameters with PascalCase names (e.g. Code: ErrorCode)
+        // should NOT shadow DU case constructors (e.g. MissingArgument) when used as named args.
+        var source = """
+            import System.*
+
+            func CreateError(code: ErrorCode) -> CustomError {
+                CustomError(message: "test", code: code)
+            }
+
+            record class CustomError(
+                Message: string,
+                Code: ErrorCode
+            )
+
+            enum ErrorCode {
+                MissingArgument
+                InvalidName
+            }
+            """;
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }

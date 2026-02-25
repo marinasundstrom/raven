@@ -3247,7 +3247,7 @@ public partial class SemanticModel
                 ref seenOptionalParameter);
             var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             var parameterSymbol = new SourceParameterSymbol(
-                ToCamelCase(parameterSyntax.Identifier.ValueText),
+                parameterSyntax.Identifier.ValueText,
                 parameterType,
                 constructorSymbol,
                 classSymbol,
@@ -3300,6 +3300,37 @@ public partial class SemanticModel
 
         if (recordProperties is not null)
             classSymbol.SetRecordProperties(recordProperties.ToImmutable());
+
+        // For records with a primary constructor that inherit from another record,
+        // bind the base constructor call from the PrimaryConstructorBaseTypeSyntax in the base list.
+        var baseList = classDecl switch
+        {
+            RecordDeclarationSyntax rec => rec.BaseList,
+            ClassDeclarationSyntax cls => cls.BaseList,
+            _ => null
+        };
+
+        if (baseList is not null)
+        {
+            var primaryCtorBase = baseList.Types
+                .OfType<PrimaryConstructorBaseTypeSyntax>()
+                .FirstOrDefault();
+
+            if (primaryCtorBase is not null)
+            {
+                // Use a MethodBinder as the parent so that the primary constructor's
+                // parameters are in scope when binding the base argument list.
+                var methodBinder = new MethodBinder(constructorSymbol, classBinder);
+                var initializerBinder = new ConstructorInitializerBinder(constructorSymbol, methodBinder);
+                var boundInitializer = initializerBinder.BindFromPrimaryConstructorBase(primaryCtorBase.ArgumentList);
+
+                foreach (var diagnostic in initializerBinder.Diagnostics.AsEnumerable())
+                    classBinder.Diagnostics.Report(diagnostic);
+
+                if (boundInitializer is not null)
+                    constructorSymbol.SetConstructorInitializer(boundInitializer);
+            }
+        }
     }
 
     private string ToCamelCase(string valueText)

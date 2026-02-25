@@ -20,13 +20,14 @@ func Evaluate(expr: Expr) -> int {
     }
 }
 
+expr |> WriteLine
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName: "\$type")]
 [JsonDerivedType(typeof(Lit), "Lit")]
 [JsonDerivedType(typeof(Add), "Add")]
 [JsonDerivedType(typeof(Sub), "Sub")]
 sealed record Expr
-record Lit(Value: int) : Expr
+record Lit(Value: int) : Expr;
 abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
-record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
-record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right);
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right);

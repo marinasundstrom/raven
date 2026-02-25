@@ -375,7 +375,9 @@ partial class BlockBinder
                     continue;
 
                 // Named arguments bind by parameter name.
-                var parameter = method.Parameters.FirstOrDefault(p => p.Name == argumentName);
+                // Use OrdinalIgnoreCase: Raven convention declares record parameters as PascalCase
+                // (e.g. Code: ErrorCode) but call sites use camelCase labels (e.g. code:).
+                var parameter = method.Parameters.FirstOrDefault(p => string.Equals(p.Name, argumentName, StringComparison.OrdinalIgnoreCase));
                 if (parameter is null)
                     return null;
 

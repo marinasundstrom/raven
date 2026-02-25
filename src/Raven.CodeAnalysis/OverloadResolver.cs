@@ -1327,9 +1327,12 @@ internal sealed class OverloadResolver
 
     private static int FindParameterIndex(ImmutableArray<IParameterSymbol> parameters, string name)
     {
+        // Raven convention: primary constructor parameters are declared PascalCase (e.g. Message, Code)
+        // but named argument labels in call sites are camelCase (e.g. message:, code:).
+        // Use OrdinalIgnoreCase so that both conventions resolve to the correct parameter.
         for (int i = 0; i < parameters.Length; i++)
         {
-            if (string.Equals(parameters[i].Name, name, StringComparison.Ordinal))
+            if (string.Equals(parameters[i].Name, name, StringComparison.OrdinalIgnoreCase))
                 return i;
         }
 

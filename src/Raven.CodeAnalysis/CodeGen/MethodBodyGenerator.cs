@@ -1555,9 +1555,29 @@ internal class MethodBodyGenerator
 
     private void EmitRecordCopyConstructor(SourceNamedTypeSymbol recordType)
     {
-        var baseCtor = GetBaseConstructor();
+        // When the base type is also a source record, call its copy constructor
+        // (which takes an instance of the base type). Otherwise fall back to
+        // the parameterless base constructor.
+        var baseType = recordType.BaseType;
+        var baseCopyCtorSymbol = baseType is SourceNamedTypeSymbol { IsRecord: true } sourceBase
+            ? sourceBase.Constructors.FirstOrDefault(c =>
+                !c.IsStatic &&
+                c.Parameters.Length == 1 &&
+                SymbolEqualityComparer.Default.Equals(c.Parameters[0].Type, sourceBase))
+            : null;
+
         ILGenerator.Emit(OpCodes.Ldarg_0);
-        ILGenerator.Emit(OpCodes.Call, baseCtor);
+        if (baseCopyCtorSymbol is not null)
+        {
+            var baseCopyCtor = MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetConstructorInfo(baseCopyCtorSymbol);
+            ILGenerator.Emit(OpCodes.Ldarg_1);
+            ILGenerator.Emit(OpCodes.Call, baseCopyCtor);
+        }
+        else
+        {
+            var baseCtor = GetBaseConstructor();
+            ILGenerator.Emit(OpCodes.Call, baseCtor);
+        }
 
         foreach (var property in recordType.RecordProperties)
         {

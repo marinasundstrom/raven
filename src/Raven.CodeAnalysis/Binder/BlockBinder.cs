@@ -4202,7 +4202,7 @@ partial class BlockBinder : Binder
         {
             IParameterSymbol? parameter = null;
             if (!string.IsNullOrEmpty(argumentName))
-                parameter = constructor.Parameters.FirstOrDefault(p => p.Name == argumentName);
+                parameter = constructor.Parameters.FirstOrDefault(p => string.Equals(p.Name, argumentName, StringComparison.OrdinalIgnoreCase));
             else if (argumentIndex < constructor.Parameters.Length)
                 parameter = constructor.Parameters[argumentIndex];
 

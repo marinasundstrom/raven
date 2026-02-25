@@ -160,7 +160,7 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
         if (argument.NameColon is not null)
         {
             var name = argument.NameColon.Name.Identifier.ValueText;
-            var named = method.Parameters.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.Ordinal));
+            var named = method.Parameters.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
             if (named is null)
                 return false;
 

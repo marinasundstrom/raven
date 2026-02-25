@@ -21,12 +21,19 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
     {
         return initializerSyntax switch
         {
-            BaseConstructorInitializerSyntax baseInitializer => BindBaseInitializer(baseInitializer),
+            BaseConstructorInitializerSyntax baseInitializer => BindBaseInitializer(baseInitializer.ArgumentList),
             _ => null
         };
     }
 
-    private BoundObjectCreationExpression? BindBaseInitializer(BaseConstructorInitializerSyntax initializerSyntax)
+    /// <summary>
+    /// Binds the base constructor call expressed as a <see cref="PrimaryConstructorBaseTypeSyntax"/>
+    /// argument list (e.g. <c>record Add(Expr Left, Expr Right) : BinaryExpr(Left, Right)</c>).
+    /// </summary>
+    public BoundObjectCreationExpression? BindFromPrimaryConstructorBase(ArgumentListSyntax argumentList)
+        => BindBaseInitializer(argumentList);
+
+    private BoundObjectCreationExpression? BindBaseInitializer(ArgumentListSyntax argumentList)
     {
         var baseType = _constructor.ContainingType?.BaseType;
         if (baseType is null)
@@ -35,7 +42,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
         var boundArguments = new List<BoundArgument>();
         var hasErrors = false;
 
-        foreach (var argument in initializerSyntax.ArgumentList.Arguments)
+        foreach (var argument in argumentList.Arguments)
         {
             var boundArgument = BindExpression(argument.Expression);
             if (boundArgument is BoundErrorExpression)
@@ -52,13 +59,13 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
 
         var constructors = baseType.Constructors.Where(c => !c.IsStatic).ToImmutableArray();
         var argumentArray = boundArguments.ToArray();
-        var resolution = OverloadResolver.ResolveOverload(constructors, argumentArray, Compilation, callSyntax: initializerSyntax);
+        var resolution = OverloadResolver.ResolveOverload(constructors, argumentArray, Compilation, callSyntax: argumentList);
 
         if (!resolution.Success)
         {
             if (resolution.IsAmbiguous)
             {
-                _diagnostics.ReportCallIsAmbiguous(baseType.Name, resolution.AmbiguousCandidates, initializerSyntax.ArgumentList.GetLocation());
+                _diagnostics.ReportCallIsAmbiguous(baseType.Name, resolution.AmbiguousCandidates, argumentList.GetLocation());
                 return null;
             }
 
@@ -73,7 +80,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
                     return null;
             }
 
-            _diagnostics.ReportNoOverloadForMethod("constructor for type", baseType.Name, boundArguments.Count, initializerSyntax.ArgumentList.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("constructor for type", baseType.Name, boundArguments.Count, argumentList.GetLocation());
             return null;
         }
 
