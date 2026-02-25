@@ -742,7 +742,7 @@ public partial class Compilation
                 var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                 foreach (var t in baseList.Types)
                 {
-                    if (ResolveSimpleType(t, declaringSymbol) is INamedTypeSymbol resolved)
+                    if (ResolveSimpleType(t.Type, declaringSymbol) is INamedTypeSymbol resolved)
                     {
                         if (resolved.TypeKind == TypeKind.Interface)
                             builder.Add(resolved);

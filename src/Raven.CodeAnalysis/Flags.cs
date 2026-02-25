@@ -26,7 +26,7 @@ public static class CodeGenFlags
     public static bool PrintDebug { get; set; } =
         IsEnabled("RAVEN_CODEGEN_DEBUG") || IsEnabled("RAVEN_DEBUG_CONSTRUCTED_METHOD");
 
-    public static bool PrintEmittedBoundNodes { get; set; } = false;
+    public static bool PrintEmittedBoundNodes { get; set; } = true;
 
     private static bool IsEnabled(string variableName)
     {

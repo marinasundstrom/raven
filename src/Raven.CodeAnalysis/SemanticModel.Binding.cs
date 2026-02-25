@@ -1238,7 +1238,7 @@ public partial class SemanticModel
                             var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                             foreach (var t in interfaceDecl.BaseList.Types)
                             {
-                                if (parentBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) &&
+                                if (parentBinder.TryResolveNamedTypeFromTypeSyntax(t.Type, out var resolved) &&
                                     resolved is not null &&
                                     resolved.TypeKind == TypeKind.Interface)
                                     builder.Add(resolved);
@@ -2607,7 +2607,7 @@ public partial class SemanticModel
                         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                         foreach (var t in nestedInterface.BaseList.Types)
                         {
-                            if (classBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) &&
+                            if (classBinder.TryResolveNamedTypeFromTypeSyntax(t.Type, out var resolved) &&
                                 resolved is not null &&
                                 resolved.TypeKind == TypeKind.Interface)
                                 builder.Add(resolved);
@@ -2767,11 +2767,11 @@ public partial class SemanticModel
             }
         }
 
-        var underlyingTypeSyntax = baseList.Types[0];
-        var resolvedResult = binder.BindTypeSyntax(underlyingTypeSyntax);
+        var underlyingBaseTypeSyntax = baseList.Types[0];
+        var resolvedResult = binder.BindTypeSyntax(underlyingBaseTypeSyntax.Type);
         if (!resolvedResult.Success)
         {
-            binder.ReportResolveTypeResultDiagnostics(resolvedResult, underlyingTypeSyntax);
+            binder.ReportResolveTypeResultDiagnostics(resolvedResult, underlyingBaseTypeSyntax.Type);
             return defaultType;
         }
 
@@ -2785,7 +2785,7 @@ public partial class SemanticModel
         {
             binder.Diagnostics.ReportEnumUnderlyingTypeMustBeIntegral(
                 resolvedType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                underlyingTypeSyntax.GetLocation());
+                underlyingBaseTypeSyntax.GetLocation());
             return defaultType;
         }
 
@@ -2990,7 +2990,7 @@ public partial class SemanticModel
                             var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                             foreach (var t in nestedInterface.BaseList.Types)
                             {
-                                if (interfaceBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) &&
+                                if (interfaceBinder.TryResolveNamedTypeFromTypeSyntax(t.Type, out var resolved) &&
                                     resolved is not null &&
                                     resolved.TypeKind == TypeKind.Interface)
                                     builder.Add(resolved);

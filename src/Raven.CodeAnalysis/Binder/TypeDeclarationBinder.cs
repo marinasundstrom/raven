@@ -73,9 +73,9 @@ internal abstract class TypeDeclarationBinder : Binder
         if (baseList is not null)
         {
             var resolvedInterfaces = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-            foreach (var typeSyntax in baseList.Types)
+            foreach (var baseTypeSyntax in baseList.Types)
             {
-                if (!TryResolveNamedTypeFromTypeSyntax(typeSyntax, out var resolved) || resolved is null)
+                if (!TryResolveNamedTypeFromTypeSyntax(baseTypeSyntax.Type, out var resolved) || resolved is null)
                     continue;
 
                 if (resolved.TypeKind == TypeKind.Interface)

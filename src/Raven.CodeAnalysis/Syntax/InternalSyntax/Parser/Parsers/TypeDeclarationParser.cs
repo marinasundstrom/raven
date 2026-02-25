@@ -354,7 +354,19 @@ internal class TypeDeclarationParser : SyntaxParser
             while (true)
             {
                 var type = new NameSyntaxParser(this).ParseTypeName();
-                types.Add(type);
+
+                GreenNode baseEntry;
+                if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+                {
+                    var argumentList = new ExpressionSyntaxParser(this).ParseArgumentListSyntax();
+                    baseEntry = PrimaryConstructorBaseType(type, argumentList);
+                }
+                else
+                {
+                    baseEntry = SimpleBaseType(type);
+                }
+
+                types.Add(baseEntry);
 
                 var commaToken = PeekToken();
                 if (commaToken.IsKind(SyntaxKind.CommaToken))

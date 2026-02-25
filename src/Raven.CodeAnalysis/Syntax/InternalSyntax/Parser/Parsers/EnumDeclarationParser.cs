@@ -68,7 +68,7 @@ internal class EnumDeclarationParser : SyntaxParser
             while (true)
             {
                 var type = new NameSyntaxParser(this).ParseTypeName();
-                types.Add(type);
+                types.Add(SimpleBaseType(type));
 
                 var commaToken = PeekToken();
                 if (commaToken.IsKind(SyntaxKind.CommaToken))

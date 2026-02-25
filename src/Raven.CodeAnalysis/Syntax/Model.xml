@@ -184,7 +184,7 @@
   </Node>
   <Node Name="BaseList" Inherits="Node">
     <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
-    <Slot Name="Types" Type="SeparatedList" ElementType="Type" />
+    <Slot Name="Types" Type="SeparatedList" ElementType="BaseType" />
   </Node>
   <Node Name="PermitsClause" Inherits="Node">
     <Slot Name="PermitsKeyword" Type="Token" DefaultToken="PermitsKeyword" />
@@ -482,6 +482,16 @@
   <Node Name="NameEquals" Inherits="Node">
     <Slot Name="Name" Type="IdentifierName" />
     <Slot Name="EqualsToken" Type="Token" DefaultToken="EqualsToken" />
+  </Node>
+  <Node Name="BaseType" Inherits="Node" IsAbstract="true">
+    <Slot Name="Type" Type="Type" IsAbstract="true" />
+  </Node>
+  <Node Name="SimpleBaseType" Inherits="BaseType">
+    <Slot Name="Type" Type="Type" IsInherited="true" />
+  </Node>
+  <Node Name="PrimaryConstructorBaseType" Inherits="BaseType">
+    <Slot Name="Type" Type="Type" IsInherited="true" />
+    <Slot Name="ArgumentList" Type="ArgumentList" />
   </Node>
   <Node Name="NullableType" Inherits="Type">
     <Slot Name="ElementType" Type="Type" />
