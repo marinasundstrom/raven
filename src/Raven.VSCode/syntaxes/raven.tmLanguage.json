@@ -19,12 +19,6 @@
             "include": "#keywords"
         },
         {
-            "include": "#punctuation"
-        },
-        {
-            "include": "#operators"
-        },
-        {
             "include": "#types"
         },
         {
@@ -32,6 +26,12 @@
         },
         {
             "include": "#functionCall"
+        },
+        {
+            "include": "#operators"
+        },
+        {
+            "include": "#punctuation"
         }
     ],
     "repository": {
@@ -51,9 +51,88 @@
         "strings": {
             "patterns": [
                 {
+                    "name": "meta.string.encoded.triple.raven",
+                    "begin": "\"\"\"(?=(?:.|\\n)*?\"\"\"(u8|ascii)\\b)",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.begin.raven"
+                        }
+                    },
+                    "end": "\"\"\"(u8|ascii)\\b",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.end.raven"
+                        },
+                        "1": {
+                            "name": "storage.modifier.encoding-suffix.raven"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#interpolation"
+                        }
+                    ]
+                },
+                {
+                    "name": "meta.string.encoded.double.raven",
+                    "begin": "\\\"(?=[^\\n]*\\\"(u8|ascii)\\b)",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.begin.raven"
+                        }
+                    },
+                    "end": "\"(u8|ascii)\\b",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.end.raven"
+                        },
+                        "1": {
+                            "name": "storage.modifier.encoding-suffix.raven"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#stringEscapes"
+                        },
+                        {
+                            "include": "#interpolation"
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.triple.raven",
+                    "begin": "\"\"\"",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.begin.raven"
+                        }
+                    },
+                    "end": "\"\"\"",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.end.raven"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#interpolation"
+                        }
+                    ]
+                },
+                {
                     "name": "string.quoted.double.raven",
                     "begin": "\"",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.begin.raven"
+                        }
+                    },
                     "end": "\"",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.end.raven"
+                        }
+                    },
                     "patterns": [
                         {
                             "include": "#stringEscapes"
@@ -94,14 +173,31 @@
                             "include": "source.raven"
                         }
                     ]
+                },
+                {
+                    "name": "meta.interpolation.simple.raven",
+                    "match": "\\$[A-Za-z_][A-Za-z0-9_]*",
+                    "captures": {
+                        "0": {
+                            "name": "variable.other.interpolated.raven"
+                        }
+                    }
                 }
             ]
         },
         "numbers": {
             "patterns": [
                 {
+                    "name": "constant.numeric.hex.raven",
+                    "match": "\\b0[xX][0-9A-Fa-f](?:[0-9A-Fa-f_]*[0-9A-Fa-f])?\\b"
+                },
+                {
+                    "name": "constant.numeric.binary.raven",
+                    "match": "\\b0[bB][01](?:[01_]*[01])?\\b"
+                },
+                {
                     "name": "constant.numeric.raven",
-                    "match": "\\b\\d+(?:_\\d+)*(?:\\.\\d+(?:_\\d+)*)?(?:[eE][+-]?\\d+(?:_\\d+)*)?\\b"
+                    "match": "\\b\\d+(?:_\\d+)*(?:\\.\\d+(?:_\\d+)*)?(?:[eE][+-]?\\d+(?:_\\d+)*)?\\b|\\B\\.\\d+(?:_\\d+)*(?:[eE][+-]?\\d+(?:_\\d+)*)?\\b"
                 }
             ]
         },
@@ -113,7 +209,7 @@
                 },
                 {
                     "name": "storage.type.declaration.raven",
-                    "match": "\\b(class|record|struct|union|enum|interface|extension)\\b"
+                    "match": "\\b(class|record|struct|union|enum|interface|delegate|extension|trait)\\b"
                 },
                 {
                     "name": "storage.type.function.raven",
@@ -121,27 +217,19 @@
                 },
                 {
                     "name": "storage.type.init.raven",
-                    "match": "\\b(init)\\b"
-                },
-                {
-                    "name": "storage.type.event.raven",
-                    "match": "\\b(event)\\b"
-                },
-                {
-                    "name": "storage.type.delegate.raven",
-                    "match": "\\b(delegate)\\b"
+                    "match": "\\b(init|finally|self|event|operator)\\b"
                 },
                 {
                     "name": "storage.modifier.raven",
-                    "match": "\\b(val|var|const|use|static|open|virtual|override|final|sealed|abstract|private|public|internal|protected|readonly|required|async|unsafe)\\b"
+                    "match": "\\b(val|var|let|const|static|abstract|virtual|override|final|sealed|new|open|partial|readonly|required|async|extern|unsafe|public|internal|protected|private)\\b"
                 },
                 {
                     "name": "keyword.control.raven",
-                    "match": "\\b(if|else|match|for|goto|in|while|do|return|break|continue|throw|try|catch|finally)\\b"
+                    "match": "\\b(if|else|match|when|for|each|in|by|while|do|try|catch|finally|with|return|throw|break|continue|await)\\b"
                 },
                 {
-                    "name": "keyword.misc.raven",
-                    "match": "\\b(new|with|nameof|typeof|sizeof|is|get|set|init|where|notnull|default|await)\\b"
+                    "name": "keyword.operator.word.raven",
+                    "match": "\\b(and|or|not|as|is|default|typeof|nameof|sizeof|notnull|unmanaged|where|permits|ref|out|in)\\b"
                 },
                 {
                     "name": "constant.language.raven",
@@ -153,7 +241,7 @@
             "patterns": [
                 {
                     "name": "keyword.operator.raven",
-                    "match": "(\\|>|\\?\\?|\\?\\.|\\.\\?|==|!=|<=|>=|=>|->|::|\\+\\+|--|\\+=|-=|\\*=|/=|%=|&&|\\|\\||\\+|-|\\*|/|%|=|<|>|!|~|&|\\||\\^|\\?|:)"
+                    "match": "(\\|>|\\?\\?=|\\?\\?|\\?\\.|\\.\\?|==|!=|<=|>=|<<|>>|=>|->|::|\\+\\+|--|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|&&|\\|\\||\\+|-|\\*|/|%|=|<|>|!|~|&|\\||\\^|\\?|:)"
                 }
             ]
         },
@@ -197,7 +285,7 @@
             "patterns": [
                 {
                     "name": "storage.type.primitive.raven",
-                    "match": "\\b(bool|byte|sbyte|short|ushort|int|uint|long|ulong|nint|nuint|float|double|decimal|char|string|object|unit)\\b"
+                    "match": "\\b(bool|byte|sbyte|short|ushort|int|uint|long|ulong|nint|nuint|float|double|decimal|char|string|object|unit|void)\\b"
                 },
                 {
                     "name": "support.type.builtin.raven",
