@@ -322,6 +322,27 @@ var self[index: int]: string {
 }
 ```
 
+#### Private storage property lowering
+
+Private storage properties may be lowered to field-only emission when observable
+semantics are preserved.
+
+```raven
+private val count: int
+private var score: int
+```
+
+This lowering affects emitted representation only. In semantic analysis and the
+symbol model, the member remains a property and continues to participate in
+property diagnostics/tooling.
+
+Lowering is valid for private storage properties that do not require accessor
+logic. Computed properties are not lowered this way.
+
+When applied, reads/writes may lower to direct field access and accessor methods
+may be omitted from emitted metadata. This is an implementation optimization:
+source-level behavior remains property-centric.
+
 ### Events
 
 Events expose a delegate-like member that supports handler subscription via
