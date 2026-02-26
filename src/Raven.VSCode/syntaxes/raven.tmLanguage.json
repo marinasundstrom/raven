@@ -1,0 +1,232 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "Raven",
+    "scopeName": "source.raven",
+    "fileTypes": [
+        "rav"
+    ],
+    "patterns": [
+        {
+            "include": "#comments"
+        },
+        {
+            "include": "#strings"
+        },
+        {
+            "include": "#numbers"
+        },
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#punctuation"
+        },
+        {
+            "include": "#operators"
+        },
+        {
+            "include": "#types"
+        },
+        {
+            "include": "#functionDecl"
+        },
+        {
+            "include": "#functionCall"
+        }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.double-slash.raven",
+                    "match": "//.*$"
+                },
+                {
+                    "name": "comment.block.raven",
+                    "begin": "/\\*",
+                    "end": "\\*/"
+                }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.raven",
+                    "begin": "\"",
+                    "end": "\"",
+                    "patterns": [
+                        {
+                            "include": "#stringEscapes"
+                        },
+                        {
+                            "include": "#interpolation"
+                        }
+                    ]
+                }
+            ]
+        },
+        "stringEscapes": {
+            "patterns": [
+                {
+                    "name": "constant.character.escape.raven",
+                    "match": "\\\\([\\\\\"'nrt0]|x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})"
+                }
+            ]
+        },
+        "interpolation": {
+            "patterns": [
+                {
+                    "name": "meta.interpolation.raven",
+                    "begin": "\\$\\{",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.section.interpolation.begin.raven"
+                        }
+                    },
+                    "end": "\\}",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.section.interpolation.end.raven"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "source.raven"
+                        }
+                    ]
+                }
+            ]
+        },
+        "numbers": {
+            "patterns": [
+                {
+                    "name": "constant.numeric.raven",
+                    "match": "\\b\\d+(?:_\\d+)*(?:\\.\\d+(?:_\\d+)*)?(?:[eE][+-]?\\d+(?:_\\d+)*)?\\b"
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.other.import.raven",
+                    "match": "\\b(import|namespace|alias)\\b"
+                },
+                {
+                    "name": "storage.type.declaration.raven",
+                    "match": "\\b(class|record|enum|interface|struct)\\b"
+                },
+                {
+                    "name": "storage.type.function.raven",
+                    "match": "\\b(func)\\b"
+                },
+                {
+                    "name": "storage.modifier.raven",
+                    "match": "\\b(val|var|static|override|sealed|abstract|private|public|internal|protected)\\b"
+                },
+                {
+                    "name": "keyword.control.raven",
+                    "match": "\\b(if|else|match|for|in|while|do|return|break|continue|throw|try|catch|finally)\\b"
+                },
+                {
+                    "name": "constant.language.raven",
+                    "match": "\\b(true|false|null)\\b"
+                }
+            ]
+        },
+        "operators": {
+            "patterns": [
+                {
+                    "name": "keyword.operator.raven",
+                    "match": "(\\|>|\\?\\?|\\?\\.|\\.\\?|==|!=|<=|>=|=>|->|::|\\+\\+|--|\\+=|-=|\\*=|/=|%=|&&|\\|\\||\\+|-|\\*|/|%|=|<|>|!|~|&|\\||\\^|\\?|:)"
+                }
+            ]
+        },
+        "punctuation": {
+            "patterns": [
+                {
+                    "name": "punctuation.separator.comma.raven",
+                    "match": ","
+                },
+                {
+                    "name": "punctuation.terminator.statement.raven",
+                    "match": ";"
+                },
+                {
+                    "name": "punctuation.section.parens.begin.raven",
+                    "match": "\\("
+                },
+                {
+                    "name": "punctuation.section.parens.end.raven",
+                    "match": "\\)"
+                },
+                {
+                    "name": "punctuation.section.braces.begin.raven",
+                    "match": "\\{"
+                },
+                {
+                    "name": "punctuation.section.braces.end.raven",
+                    "match": "\\}"
+                },
+                {
+                    "name": "punctuation.section.brackets.begin.raven",
+                    "match": "\\["
+                },
+                {
+                    "name": "punctuation.section.brackets.end.raven",
+                    "match": "\\]"
+                }
+            ]
+        },
+        "types": {
+            "patterns": [
+                {
+                    "name": "storage.type.primitive.raven",
+                    "match": "\\b(bool|byte|sbyte|short|ushort|int|uint|long|ulong|nint|nuint|float|double|decimal|char|string|object|void)\\b"
+                },
+                {
+                    "name": "support.type.builtin.raven",
+                    "match": "\\b(Option|Result|Task|ValueTask)\\b"
+                },
+                {
+                    "name": "entity.name.type.raven",
+                    "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+                }
+            ]
+        },
+        "functionDecl": {
+            "patterns": [
+                {
+                    "name": "meta.function.declaration.raven",
+                    "match": "\\bfunc\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.function.raven"
+                        }
+                    }
+                },
+                {
+                    "name": "meta.constructor.declaration.raven",
+                    "match": "\\b(init)\\b(?=\\s*(\\(|\\{|$))",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.function.constructor.raven"
+                        }
+                    }
+                }
+            ]
+        },
+        "functionCall": {
+            "patterns": [
+                {
+                    "name": "meta.function-call.raven",
+                    "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.function.raven"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}
