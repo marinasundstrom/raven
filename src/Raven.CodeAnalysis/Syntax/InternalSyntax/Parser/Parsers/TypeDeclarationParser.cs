@@ -704,10 +704,10 @@ internal class TypeDeclarationParser : SyntaxParser
     private MemberDeclarationSyntax ParseMethodOrIndexerDeclaration(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)
     {
         var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
-        return ParseMethodOrIndexerDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
+        return ParseMethodDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
     }
 
-    private MemberDeclarationSyntax ParseMethodOrIndexerDeclaration(
+    private MemberDeclarationSyntax ParseMethodDeclaration(
         SyntaxList attributeLists,
         SyntaxList modifiers,
         SyntaxToken funcKeyword,
@@ -733,11 +733,6 @@ internal class TypeDeclarationParser : SyntaxParser
             {
                 return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
             }
-        }
-
-        if (potentialOpenParenToken.IsKind(SyntaxKind.OpenBracketToken))
-        {
-            return ParseIndexerDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
         }
 
         // Recover by parsing a method with a missing parameter list instead of throwing.
@@ -943,12 +938,6 @@ internal class TypeDeclarationParser : SyntaxParser
         var colonToken = MissingToken(SyntaxKind.ColonToken);
         var missingType = IdentifierName(MissingToken(SyntaxKind.IdentifierToken));
         return TypeAnnotationClause(colonToken, missingType);
-    }
-
-    private IndexerDeclarationSyntax ParseIndexerDeclaration(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)
-    {
-        var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
-        return ParseIndexerDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
     }
 
     private IndexerDeclarationSyntax ParseIndexerDeclaration(
@@ -1284,13 +1273,26 @@ internal class TypeDeclarationParser : SyntaxParser
         return new VariableDeclarationSyntax(bindingKeyword, declarators);
     }
 
-    private PropertyDeclarationSyntax ParsePropertyBindingDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
+    private BasePropertyDeclarationSyntax ParsePropertyBindingDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
     {
         var bindingKeyword = ReadToken();
 
-        var identifier = CanTokenBeIdentifier(PeekToken())
-            ? ReadIdentifierToken()
-            : ExpectToken(SyntaxKind.IdentifierToken);
+        // Support indexer declarations written as `var self[...]` / `val self[...]`.
+        // `self` is a keyword token, not an identifier token, so we must accept it here.
+        SyntaxToken identifier;
+        if (!ConsumeToken(SyntaxKind.SelfKeyword, out identifier))
+        {
+            identifier = CanTokenBeIdentifier(PeekToken())
+                ? ReadIdentifierToken()
+                : ExpectToken(SyntaxKind.IdentifierToken);
+        }
+
+        var potentialOpenBracketToken = PeekToken();
+
+        if (potentialOpenBracketToken.IsKind(SyntaxKind.OpenBracketToken))
+        {
+            return ParseIndexerDeclaration(attributeLists, modifiers, bindingKeyword, null, identifier);
+        }
 
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
             ?? CreateMissingTypeAnnotationClause();

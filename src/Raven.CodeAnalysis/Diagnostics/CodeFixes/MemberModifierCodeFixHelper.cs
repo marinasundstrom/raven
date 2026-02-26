@@ -90,7 +90,7 @@ internal static class MemberModifierCodeFixHelper
                     : property.BindingKeyword).SpanStart,
             FieldDeclarationSyntax field => field.FieldKeyword.SpanStart,
             EventDeclarationSyntax eventDecl => eventDecl.EventKeyword.SpanStart,
-            IndexerDeclarationSyntax indexer => indexer.FuncKeyword.SpanStart,
+            IndexerDeclarationSyntax indexer => indexer.BindingKeyword.SpanStart,
             _ => null
         };
     }
