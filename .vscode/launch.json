@@ -52,6 +52,18 @@
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "externalTerminal",
             "stopAtEntry": false
+        },
+        {
+            "name": "Debug Raven output (test.dll)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "dotnet",
+            "args": [
+                "${workspaceFolder}/samples/test.dll"
+            ],
+            "cwd": "${workspaceFolder}/samples",
+            "justMyCode": false,
+            "requireExactSource": false
         }
     ]
 }

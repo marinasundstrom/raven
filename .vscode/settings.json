@@ -1,3 +1,6 @@
 {
     "csharp.debug.enableStepFiltering": true,
+    "files.associations": {
+        "*.rav": "csharp"
+    }
 }
