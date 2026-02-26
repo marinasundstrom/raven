@@ -7,7 +7,9 @@
   "engines": {
     "vscode": "^1.80.0"
   },
-  "categories": ["Programming Languages"],
+  "categories": [
+    "Programming Languages"
+  ],
   "activationEvents": [
     "onLanguage:raven"
   ],
@@ -16,8 +18,13 @@
     "languages": [
       {
         "id": "raven",
-        "aliases": ["Raven", "raven"],
-        "extensions": [".rav"],
+        "aliases": [
+          "Raven",
+          "raven"
+        ],
+        "extensions": [
+          ".rav"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -46,6 +53,6 @@
     "@types/node": "^20.11.30",
     "@types/vscode": "1.80.0",
     "typescript": "^5.4.5",
-    "vsce": "^2.15.0"
+    "@vscode/vsce": "^3.7.1"
   }
 }

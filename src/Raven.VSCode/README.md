@@ -23,5 +23,7 @@ npm run compile
 2. Open the repository in VS Code.
 3. Launch the "Run Extension" target from the debug view. The client starts the server with `dotnet <path-to-Raven.LanguageServer.dll>`.
 
+`code --extensionDevelopmentPath=_my_extension_folder.`
+
 ## Configuration
 - `raven.languageServerPath`: override the resolved server assembly path when the defaults do not apply.

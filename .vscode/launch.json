@@ -64,6 +64,40 @@
             "cwd": "${workspaceFolder}/samples",
             "justMyCode": false,
             "requireExactSource": false
+        },
+        {
+            "name": "Raven.LanguageServer (stdio)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build:language-server",
+            "program": "${workspaceFolder}/src/Raven.LanguageServer/bin/Debug/net9.0/Raven.LanguageServer.dll",
+            "args": [
+                "--stdio"
+            ],
+            "cwd": "${workspaceFolder}/src/Raven.LanguageServer",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "justMyCode": false,
+            "requireExactSource": false
+        },
+        {
+            "name": "Raven VS Code Extension Host",
+            "type": "extensionHost",
+            "request": "launch",
+            "preLaunchTask": "compile:vscode-extension",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/src/Raven.VSCode"
+            ]
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Raven: LSP + Extension",
+            "configurations": [
+                "Raven.LanguageServer (stdio)",
+                "Raven VS Code Extension Host"
+            ]
         }
     ]
 }

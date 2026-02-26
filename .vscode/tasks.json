@@ -37,6 +37,30 @@
                 "/consoleloggerparameters:NoSummary"
             ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build:language-server",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Raven.LanguageServer/Raven.LanguageServer.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "compile:vscode-extension",
+            "command": "npm",
+            "type": "process",
+            "args": [
+                "--prefix",
+                "${workspaceFolder}/src/Raven.VSCode",
+                "run",
+                "compile"
+            ],
+            "problemMatcher": []
         }
     ]
 }
