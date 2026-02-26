@@ -5071,6 +5071,22 @@ partial class BlockBinder : Binder
 
         if (!isMultiline)
         {
+            if (syntax.Contents.Count == 1)
+            {
+                var first = syntax.Contents.First();
+                if (first is InterpolationSyntax interpolationSyntax)
+                {
+                    var expr = BindExpression(interpolationSyntax.Expression);
+
+                    IMethodSymbol? toStringMethod = ResolveToStringMethod(expr.Type);
+
+                    if (toStringMethod is null)
+                        return new BoundErrorExpression(expr.Type);
+
+                    return new BoundInvocationExpression(toStringMethod, [], expr);
+                }
+            }
+
             foreach (var content in syntax.Contents)
             {
                 BoundExpression expr = content switch
@@ -5228,6 +5244,23 @@ partial class BlockBinder : Binder
         }
     }
 
+    private IMethodSymbol? ResolveToStringMethod(ITypeSymbol type)
+    {
+        var currentType = type;
+        while (currentType != null)
+        {
+            var method = currentType.GetMembers("ToString")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(m => m.Parameters.Length == 0);
+
+            if (method != null)
+                return method;
+
+            currentType = currentType.BaseType;
+        }
+        return null;
+    }
+
     private static bool IsErrorOrNull(BoundExpression expression)
     {
         return expression.Type is null || expression.Type.TypeKind == TypeKind.Error;
@@ -5252,8 +5285,31 @@ partial class BlockBinder : Binder
 
         var symbol = LookupSymbol(name);
 
+        // Locals/parameters must win over implicit instance members.
+        // Otherwise record ctor parameters like `Left`/`Right` get captured by `self.Left`/`self.Right`
+        // and we emit `base(this.Left, this.Right)` instead of `base(Left, Right)`.
+        if (symbol is ILocalSymbol localEarly)
+        {
+            var b = new BoundLocalAccess(localEarly);
+            return UnwrapNullableIfKnownNonNull(b, localEarly);
+        }
+
+        if (symbol is IParameterSymbol paramEarly)
+        {
+            var p = new BoundParameterAccess(paramEarly);
+            return UnwrapNullableIfKnownNonNull(p, paramEarly);
+        }
+
+        if (TryBindImplicitInstanceMember(name, syntax, out var memberExpr))
+            return memberExpr;
+
         if (symbol is null)
         {
+            // Prefer implicit instance members over union cases with the same name.
+            // This is intentionally placed *after* local/parameter binding.
+            if (TryBindImplicitInstanceMember(name, syntax, out memberExpr))
+                return memberExpr;
+
             var type = LookupType(name);
             if (type is not null)
             {
@@ -5418,6 +5474,43 @@ partial class BlockBinder : Binder
                     return n;
                 }
         }
+    }
+
+    private bool TryBindImplicitInstanceMember(string name, IdentifierNameSyntax syntax, out BoundExpression expr)
+    {
+        expr = null!;
+
+        if (_containingSymbol is not IMethodSymbol m || m.IsStatic)
+            return false;
+
+        var type = m.ContainingType;
+        if (type is null || type.TypeKind == TypeKind.Error)
+            return false;
+
+        var containingType = type;
+
+        // Walk the base-type chain so unqualified identifiers can bind to inherited members.
+        // Search most-derived first so derived members win.
+        for (INamedTypeSymbol? current = containingType; current is not null; current = current.BaseType)
+        {
+            var members = current.GetMembers(name);
+
+            var field = members.OfType<IFieldSymbol>().FirstOrDefault(f => !f.IsStatic);
+            if (field is not null && IsSymbolAccessible(field))
+            {
+                expr = new BoundFieldAccess(new BoundSelfExpression(containingType), field);
+                return true;
+            }
+
+            var property = members.OfType<IPropertySymbol>().FirstOrDefault(p => !p.IsStatic);
+            if (property is not null && IsSymbolAccessible(property))
+            {
+                expr = new BoundPropertyAccess(/* new BoundSelfExpression(containingType), */ property);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool TryBindAutoPropertyFieldKeyword(out BoundFieldAccess fieldAccess)
