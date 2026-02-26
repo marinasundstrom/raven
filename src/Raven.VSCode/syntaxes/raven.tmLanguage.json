@@ -220,6 +220,10 @@
                     "match": "\\b(init|finally|self|event|operator)\\b"
                 },
                 {
+                    "name": "keyword.other.accessor.raven",
+                    "match": "\\b(get|set|init|add|remove)\\b(?=\\s*(?:;|=>|\\{))"
+                },
+                {
                     "name": "storage.modifier.raven",
                     "match": "\\b(val|var|let|const|static|abstract|virtual|override|final|sealed|new|open|partial|readonly|required|async|extern|unsafe|public|internal|protected|private)\\b"
                 },
