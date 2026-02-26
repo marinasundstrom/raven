@@ -41,9 +41,9 @@ public class RecordDeclarationParserTests : DiagnosticTestBase
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 
-        var declaration = Assert.IsType<StructDeclarationSyntax>(Assert.Single(root.Members));
+        var declaration = Assert.IsType<RecordDeclarationSyntax>(Assert.Single(root.Members));
 
-        Assert.Contains(declaration.Modifiers, modifier => modifier.IsKind(SyntaxKind.RecordKeyword));
+        Assert.True(declaration.ClassOrStructKeyword.IsKind(SyntaxKind.StructKeyword));
         Assert.NotNull(declaration.ParameterList);
         Assert.Equal(2, declaration.ParameterList!.Parameters.Count);
         Assert.Empty(tree.GetDiagnostics());

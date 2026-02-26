@@ -231,10 +231,10 @@ record class Person(name: string, age: int);  // explicit record class
 record struct Point(x: int, y: int);          // explicit record struct
 ```
 
-Primary constructor parameters are promoted to public auto-properties (use
-`var` to make a property mutable). The compiler synthesizes value-based members
-such as `Equals`, `GetHashCode`, and record equality operators where
-applicable.
+Primary-constructor semantics differ between nominal types and records:
+
+* `class` / `struct` primary-constructor parameters are constructor parameters only. They are captured in synthesized private storage and are **not** promoted to public properties.
+* `record class` / `record struct` positional parameters are promoted to public auto-properties (use `var` to make a property mutable). The compiler synthesizes value-based members such as `Equals`, `GetHashCode`, deconstruction, and record equality operators.
 
 ```raven
 record class Person(name: string, age: int);
@@ -416,6 +416,8 @@ class Worker : IDisposable, ILogger
 
 Implementations are matched by name, parameter count, and `ref`/`out` modifiers. Each successfully matched member is emitted as a
 final override so the CLR records the implementation in the type's interface map. See [Interfaces](#interfaces) for interface declaration rules and inheritance.
+
+For struct-like declarations (`struct` and `record struct`), the base list is interface-only; the runtime base remains `System.ValueType`.
 
 If a derived class omits a constructor, the base class' parameterless constructor is invoked automatically. Access modifiers
 (`public`, `internal`, `protected`, `private`) apply as usual; `protected` members are accessible to derived classes. An

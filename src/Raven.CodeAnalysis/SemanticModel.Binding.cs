@@ -1649,7 +1649,7 @@ public partial class SemanticModel
 
     private static bool IsStructLikeNominalType(TypeDeclarationSyntax declaration)
         => declaration is StructDeclarationSyntax ||
-           declaration.Modifiers.Any(modifier => modifier.Kind == SyntaxKind.StructKeyword);
+           declaration is RecordDeclarationSyntax { ClassOrStructKeyword.Kind: SyntaxKind.StructKeyword };
 
     private ImmutableArray<INamedTypeSymbol> GetDefaultNominalInterfaces(INamedTypeSymbol typeSymbol)
     {
@@ -3303,12 +3303,14 @@ public partial class SemanticModel
 
         // For records with a primary constructor that inherit from another record,
         // bind the base constructor call from the PrimaryConstructorBaseTypeSyntax in the base list.
-        var baseList = classDecl switch
-        {
-            RecordDeclarationSyntax rec => rec.BaseList,
-            ClassDeclarationSyntax cls => cls.BaseList,
-            _ => null
-        };
+        var baseList = IsStructLikeNominalType(classDecl)
+            ? null
+            : classDecl switch
+            {
+                RecordDeclarationSyntax rec => rec.BaseList,
+                ClassDeclarationSyntax cls => cls.BaseList,
+                _ => null
+            };
 
         if (baseList is not null)
         {

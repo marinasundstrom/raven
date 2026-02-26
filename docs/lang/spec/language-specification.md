@@ -1286,6 +1286,11 @@ val p = Person("Ada", 36)   // ok
 `record Name(...)` is shorthand for `record class Name(...)`. Use
 `record struct Name(...)` for a value-type record.
 
+Primary-constructor behavior is intentionally split:
+
+1. `class`/`struct`: parameters are constructor parameters (captured into compiler-generated private storage when referenced by members).
+2. `record class`/`record struct`: positional parameters additionally define the record's public data shape via synthesized properties and value members.
+
 For constructors **without** this attribute, all required members must be provided by an object initializer at each creation site.
 
 ##### Object initializer checking
@@ -1337,7 +1342,7 @@ val moved = origin with { X = 10 }
 
 When binding a with expression, the compiler selects the first applicable strategy in the following order:
 
-1. **Record clone** — Record types use their copy constructor (synthesized if needed) to create a clone, then apply assignments as initializer-style member assignments.
+1. **Record clone** — Record types clone first, then apply assignments as initializer-style member assignments.
 2. **`Update(...)` convention** — An instance method named `Update` whose parameter names correspond to readable members on the receiver. Each parameter receives either the provided assignment value (if present) or the receiver's current member value.
 3. **`With(...)` convention** — Same as `Update`, but with an instance method named `With`.
 4. **`WithX(...)` chaining** — For each assignment `X = expr`, invoke a single-parameter method named `WithX`. Methods are invoked in source order, and each invocation receives the assignment's value expression.

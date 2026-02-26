@@ -1600,6 +1600,38 @@ internal class MethodBodyGenerator
     private void EmitRecordObjectEquals(SourceNamedTypeSymbol recordType)
     {
         var recordClrType = MethodGenerator.ResolveClrType(recordType);
+        if (recordType.IsValueType)
+        {
+            var otherLocalValue = ILGenerator.DeclareLocal(recordClrType);
+            var compareFieldsLabelValue = ILGenerator.DefineLabel();
+            var returnFalseLabelValue = ILGenerator.DefineLabel();
+
+            ILGenerator.Emit(OpCodes.Ldarg_1);
+            ILGenerator.Emit(OpCodes.Isinst, recordClrType);
+            ILGenerator.Emit(OpCodes.Brtrue_S, compareFieldsLabelValue);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Ret);
+
+            ILGenerator.MarkLabel(compareFieldsLabelValue);
+            ILGenerator.Emit(OpCodes.Ldarg_1);
+            ILGenerator.Emit(OpCodes.Unbox_Any, recordClrType);
+            ILGenerator.Emit(OpCodes.Stloc, otherLocalValue);
+
+            EmitRecordFieldComparisonsForValueType(
+                recordType,
+                loadLeftAddress: () => ILGenerator.Emit(OpCodes.Ldarg_0),
+                loadRightAddress: () => ILGenerator.Emit(OpCodes.Ldloca, otherLocalValue),
+                returnFalseLabelValue);
+
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Ret);
+
+            ILGenerator.MarkLabel(returnFalseLabelValue);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
         var otherLocal = ILGenerator.DeclareLocal(recordClrType);
         var compareFieldsLabel = ILGenerator.DefineLabel();
         var returnFalseLabel = ILGenerator.DefineLabel();
@@ -1640,6 +1672,30 @@ internal class MethodBodyGenerator
 
     private void EmitRecordTypedEquals(SourceNamedTypeSymbol recordType)
     {
+        if (recordType.IsValueType)
+        {
+            var recordClrType = MethodGenerator.ResolveClrType(recordType);
+            var otherLocal = ILGenerator.DeclareLocal(recordClrType);
+            var valueTypeReturnFalseLabel = ILGenerator.DefineLabel();
+
+            ILGenerator.Emit(OpCodes.Ldarg_1);
+            ILGenerator.Emit(OpCodes.Stloc, otherLocal);
+
+            EmitRecordFieldComparisonsForValueType(
+                recordType,
+                loadLeftAddress: () => ILGenerator.Emit(OpCodes.Ldarg_0),
+                loadRightAddress: () => ILGenerator.Emit(OpCodes.Ldloca, otherLocal),
+                valueTypeReturnFalseLabel);
+
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Ret);
+
+            ILGenerator.MarkLabel(valueTypeReturnFalseLabel);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
         var compareFieldsLabel = ILGenerator.DefineLabel();
         var returnFalseLabel = ILGenerator.DefineLabel();
 
@@ -1676,6 +1732,25 @@ internal class MethodBodyGenerator
 
     private void EmitRecordEqualityOperator(SourceNamedTypeSymbol recordType)
     {
+        if (recordType.IsValueType)
+        {
+            var valueTypeReturnFalseLabel = ILGenerator.DefineLabel();
+
+            EmitRecordFieldComparisonsForValueType(
+                recordType,
+                loadLeftAddress: () => ILGenerator.Emit(OpCodes.Ldarga, (short)0),
+                loadRightAddress: () => ILGenerator.Emit(OpCodes.Ldarga, (short)1),
+                valueTypeReturnFalseLabel);
+
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Ret);
+
+            ILGenerator.MarkLabel(valueTypeReturnFalseLabel);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
         var leftNotNullLabel = ILGenerator.DefineLabel();
         var compareFieldsLabel = ILGenerator.DefineLabel();
 
@@ -1718,6 +1793,25 @@ internal class MethodBodyGenerator
 
     private void EmitRecordInequalityOperator(SourceNamedTypeSymbol recordType)
     {
+        if (recordType.IsValueType)
+        {
+            var valueTypeReturnTrueLabel = ILGenerator.DefineLabel();
+
+            EmitRecordFieldComparisonsForValueType(
+                recordType,
+                loadLeftAddress: () => ILGenerator.Emit(OpCodes.Ldarga, (short)0),
+                loadRightAddress: () => ILGenerator.Emit(OpCodes.Ldarga, (short)1),
+                valueTypeReturnTrueLabel);
+
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Ret);
+
+            ILGenerator.MarkLabel(valueTypeReturnTrueLabel);
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
         var returnTrueLabel = ILGenerator.DefineLabel();
         var compareFieldsLabel = ILGenerator.DefineLabel();
 
@@ -1981,6 +2075,41 @@ internal class MethodBodyGenerator
             loadLeft();
             ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
             loadRight();
+            ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+            ILGenerator.Emit(OpCodes.Callvirt, equalsMethod);
+            ILGenerator.Emit(OpCodes.Brfalse_S, returnFalseLabel);
+        }
+    }
+
+    private void EmitRecordFieldComparisonsForValueType(
+        SourceNamedTypeSymbol recordType,
+        Action loadLeftAddress,
+        Action loadRightAddress,
+        ILLabel returnFalseLabel)
+    {
+        var recordProperties = recordType.RecordProperties;
+        foreach (var property in recordProperties)
+        {
+            if (property.BackingField is not SourceFieldSymbol backingField)
+                continue;
+
+            var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            var propertyClrType = MethodGenerator.ResolveClrType(property.Type);
+            var comparerTypeDefinition = typeof(EqualityComparer<>);
+            var comparerType = comparerTypeDefinition.MakeGenericType(propertyClrType);
+            var comparerGenericArgument = comparerTypeDefinition.GetGenericArguments()[0];
+            var defaultGetterDefinition = comparerTypeDefinition.GetProperty("Default")?.GetGetMethod();
+            var equalsDefinition = comparerTypeDefinition.GetMethod("Equals", [comparerGenericArgument, comparerGenericArgument]);
+            var defaultGetter = GetConstructedMethod(comparerType, defaultGetterDefinition);
+            var equalsMethod = GetConstructedMethod(comparerType, equalsDefinition);
+
+            if (defaultGetter is null || equalsMethod is null)
+                continue;
+
+            ILGenerator.Emit(OpCodes.Call, defaultGetter);
+            loadLeftAddress();
+            ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+            loadRightAddress();
             ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
             ILGenerator.Emit(OpCodes.Callvirt, equalsMethod);
             ILGenerator.Emit(OpCodes.Brfalse_S, returnFalseLabel);

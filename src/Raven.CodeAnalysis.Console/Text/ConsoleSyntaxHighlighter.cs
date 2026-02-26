@@ -485,48 +485,7 @@ public static class ConsoleSyntaxHighlighter
             if (end <= start)
                 continue;
 
-            // IMPORTANT: only attempt “relocation” if the expected slice doesn't match.
-            // This prevents “Foo() -> Foo” from highlighting the wrong Foo.
-            if (tokenText is { Length: > 0 } && startLine == endLine)
-            {
-                var expectedLen = Math.Min(tokenText.Length, lineText.Length - start);
-                var slice = expectedLen > 0 ? lineText.Substring(start, expectedLen) : string.Empty;
-
-                if (!slice.Equals(tokenText, StringComparison.Ordinal))
-                {
-                    // Search in a small window near the expected location and pick the closest match.
-                    var windowStart = Math.Max(0, start - 8);
-                    var windowEnd = Math.Min(lineText.Length, end + 8);
-                    var windowLen = windowEnd - windowStart;
-
-                    if (windowLen > 0)
-                    {
-                        var window = lineText.Substring(windowStart, windowLen);
-
-                        var bestIndex = -1;
-                        var bestDistance = int.MaxValue;
-
-                        for (var idx = window.IndexOf(tokenText, StringComparison.Ordinal);
-                             idx >= 0;
-                             idx = window.IndexOf(tokenText, idx + 1, StringComparison.Ordinal))
-                        {
-                            var absolute = windowStart + idx;
-                            var dist = Math.Abs(absolute - start);
-                            if (dist < bestDistance)
-                            {
-                                bestDistance = dist;
-                                bestIndex = absolute;
-                            }
-                        }
-
-                        if (bestIndex >= 0)
-                        {
-                            start = bestIndex;
-                            end = Math.Min(lineText.Length, bestIndex + tokenText.Length);
-                        }
-                    }
-                }
-            }
+            _ = tokenText;
 
             var list = lineTokens[line] ??= new List<TokenSpan>();
             list.Add(new TokenSpan(start, end, classification));
@@ -737,18 +696,12 @@ public static class ConsoleSyntaxHighlighter
 
     private static string GetUnderlineStart(DiagnosticSeverity severity)
     {
-        var color = GetColorForSeverity(severity);
-        var underlineColor = color switch
-        {
-            AnsiColor.BrightRed => 9,
-            AnsiColor.BrightGreen => 10,
-            AnsiColor.BrightBlue => 12,
-            _ => 12
-        };
-        return $"\u001b[4:3m\u001b[58;5;{underlineColor}m";
+        _ = severity;
+        // Prefer widely-supported ANSI underline sequences for broad terminal compatibility.
+        return "\u001b[4m";
     }
 
-    private static string UnderlineEnd => "\u001b[4:0m\u001b[59m";
+    private static string UnderlineEnd => "\u001b[24m";
 
     private static AnsiColor GetColorForSeverity(DiagnosticSeverity severity) => severity switch
     {

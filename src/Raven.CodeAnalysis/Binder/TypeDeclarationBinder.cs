@@ -69,19 +69,30 @@ internal abstract class TypeDeclarationBinder : Binder
         var baseType = defaultBaseType;
         var interfaces = defaultInterfaces;
         var baseList = GetBaseList(declaration);
+        var isStructLike = IsStructLikeNominalType(declaration);
+        var baseTypeAssigned = false;
 
         if (baseList is not null)
         {
             var resolvedInterfaces = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-            foreach (var baseTypeSyntax in baseList.Types)
+            foreach (var (baseTypeSyntax, index) in baseList.Types.Select((syntax, i) => (syntax, i)))
             {
                 if (!TryResolveNamedTypeFromTypeSyntax(baseTypeSyntax.Type, out var resolved) || resolved is null)
                     continue;
 
                 if (resolved.TypeKind == TypeKind.Interface)
+                {
                     resolvedInterfaces.Add(resolved);
-                else
+                    continue;
+                }
+
+                // Classes and record classes can have one non-interface base type in the first slot.
+                // Structs/record structs only support interfaces in the base list.
+                if (!isStructLike && index == 0 && !baseTypeAssigned)
+                {
                     baseType = resolved;
+                    baseTypeAssigned = true;
+                }
             }
 
             if (resolvedInterfaces.Count > 0)
@@ -161,6 +172,10 @@ internal abstract class TypeDeclarationBinder : Binder
             StructDeclarationSyntax structDeclaration => structDeclaration.BaseList,
             _ => null
         };
+
+    private static bool IsStructLikeNominalType(TypeDeclarationSyntax declaration)
+        => declaration is StructDeclarationSyntax ||
+           declaration is RecordDeclarationSyntax { ClassOrStructKeyword.Kind: SyntaxKind.StructKeyword };
 
     private static ImmutableArray<INamedTypeSymbol> MergeInterfaceSets(
         ImmutableArray<INamedTypeSymbol> existing,
