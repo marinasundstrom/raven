@@ -1277,21 +1277,18 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         var bindingKeyword = ReadToken();
 
-        // Support indexer declarations written as `var self[...]` / `val self[...]`.
-        // `self` is a keyword token, not an identifier token, so we must accept it here.
-        SyntaxToken identifier;
-        if (!ConsumeToken(SyntaxKind.SelfKeyword, out identifier))
-        {
-            identifier = CanTokenBeIdentifier(PeekToken())
-                ? ReadIdentifierToken()
-                : ExpectToken(SyntaxKind.IdentifierToken);
-        }
+        // Support explicit interface specifiers and indexers written as:
+        //   val IFoo.Bar: int { get; }
+        //   var IFoo.self[...]: int { get; set; }
+        //   val self[...]: int { get; }
+        // ParseMemberNameWithExplicitInterface handles both identifiers and the `self` keyword.
+        var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
 
         var potentialOpenBracketToken = PeekToken();
 
         if (potentialOpenBracketToken.IsKind(SyntaxKind.OpenBracketToken))
         {
-            return ParseIndexerDeclaration(attributeLists, modifiers, bindingKeyword, null, identifier);
+            return ParseIndexerDeclaration(attributeLists, modifiers, bindingKeyword, explicitInterfaceSpecifier, identifier);
         }
 
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
@@ -1315,7 +1312,7 @@ internal class TypeDeclarationParser : SyntaxParser
             : null;
 
         var terminatorToken = ConsumeMemberTerminator();
-        return PropertyDeclaration(attributeLists, modifiers, bindingKeyword, null, identifier, typeAnnotation, accessorList, expressionBody, initializer, terminatorToken);
+        return PropertyDeclaration(attributeLists, modifiers, bindingKeyword, explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, expressionBody, initializer, terminatorToken);
     }
 
     private static AccessorListSyntax CreateImplicitAccessorList(bool isMutable)

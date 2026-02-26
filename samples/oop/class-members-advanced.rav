@@ -66,7 +66,7 @@ class Person {
     }
 
     /// Indexer: e.g., person[0]
-    func self[index: int]: string {
+    var self[index: int]: string {
         get => roles[index];
         set => roles[index] = value
     }
