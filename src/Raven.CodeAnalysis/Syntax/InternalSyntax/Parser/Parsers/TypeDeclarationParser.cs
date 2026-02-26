@@ -147,15 +147,15 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (typeKeyword.IsKind(SyntaxKind.StructKeyword))
         {
-            return StructDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return StructDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, parameterList, baseList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
         if (isRecordDecl)
         {
-            return RecordDeclaration(attributeLists, modifiers, typeKeyword, classOrStructKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return RecordDeclaration(attributeLists, modifiers, typeKeyword, classOrStructKeyword, identifier, typeParameterList, parameterList, baseList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
-        return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, parameterList, baseList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
     private static bool IsPossibleTypeMemberStart(SyntaxToken token)
