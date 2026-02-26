@@ -5246,12 +5246,12 @@ partial class BlockBinder : Binder
 
     private IMethodSymbol? ResolveToStringMethod(ITypeSymbol type)
     {
+        var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+
         var currentType = type;
         while (currentType != null)
         {
-            var method = currentType.GetMembers("ToString")
-                .OfType<IMethodSymbol>()
-                .FirstOrDefault(m => m.Parameters.Length == 0);
+            var method = currentType.GetMethodRecursive("ToString", stringType, []);
 
             if (method != null)
                 return method;
