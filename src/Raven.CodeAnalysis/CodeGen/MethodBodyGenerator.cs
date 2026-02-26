@@ -160,16 +160,18 @@ internal class MethodBodyGenerator
             return;
 
         var span = syntax.Span;
-        if (span.Length == 0)
+
+        var location = syntax.GetLocation();
+
+        if (span.Length == 0 || !location.IsInSource)
             return;
 
-        var sourceText = syntax.SyntaxTree.GetText();
-        var (startLine, startColumn) = sourceText.GetLineAndColumn(span.Start);
-        var (endLine, endColumn) = sourceText.GetLineAndColumn(span.End);
         var document = GetOrAddDocument(syntax.SyntaxTree);
 
+        var lineSpan = location.GetLineSpan();
+
         ILGenerator.Emit(OpCodes.Nop);
-        ILGenerator.MarkSequencePoint(document, startLine + 1, startColumn + 1, endLine + 1, endColumn + 1);
+        ILGenerator.MarkSequencePoint(document, lineSpan.StartLinePosition.Line + 1, lineSpan.StartLinePosition.Character + 1, lineSpan.EndLinePosition.Line + 1, lineSpan.EndLinePosition.Character + 1);
     }
 
     private SyntaxNode? TryGetSyntax(BoundNode node)
