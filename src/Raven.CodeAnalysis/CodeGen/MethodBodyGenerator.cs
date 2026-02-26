@@ -1907,11 +1907,44 @@ internal class MethodBodyGenerator
 
         for (var i = 0; i < parameterCount; i++)
         {
-            if (recordProperties[i].BackingField is not SourceFieldSymbol backingField)
-                continue;
+            var property = recordProperties[i];
+            var parameter = MethodSymbol.Parameters[i];
 
-            var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
-            EmitStoreRecordDeconstructParameter(MethodSymbol.Parameters[i], recordProperties[i].Type, fieldInfo);
+            // Deconstruct parameters are `out`/byref.
+            var parameterPosition = GetParameterPosition(parameter);
+            ILGenerator.Emit(OpCodes.Ldarg, parameterPosition);
+
+            // Prefer the property getter when the backing field is not declared on the current record type
+            // (e.g. inherited auto-property backing fields are private on the base type).
+            var useGetter = property.GetMethod is not null;
+            if (property.BackingField is SourceFieldSymbol backingField &&
+                SymbolEqualityComparer.Default.Equals(backingField.ContainingType, recordType))
+            {
+                // Safe: field declared on this record type.
+                var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+            }
+            else if (useGetter)
+            {
+                var getterSymbol = property.GetMethod!;
+                var getterInfo = MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetMethodInfo(getterSymbol);
+
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(GetCallOpCode(getterSymbol, getterInfo), getterInfo);
+            }
+            else
+            {
+                // Fallback: if we somehow have no getter, try the backing field even if inherited.
+                if (property.BackingField is not SourceFieldSymbol backingField2)
+                    continue;
+
+                var fieldInfo = backingField2.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+            }
+
+            EmitStoreDeconstructParameterCore(parameter, property.Type);
         }
 
         ILGenerator.Emit(OpCodes.Ret);
@@ -2160,7 +2193,13 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ldarg, parameterPosition);
         ILGenerator.Emit(OpCodes.Ldarg_0);
         ILGenerator.Emit(OpCodes.Ldfld, payloadField);
+        EmitStoreDeconstructParameterCore(parameter, payloadType);
+    }
 
+    private void EmitStoreDeconstructParameterCore(
+        IParameterSymbol parameter,
+        ITypeSymbol payloadType)
+    {
         var parameterType = parameter.Type;
 
         if (parameterType.IsValueType)

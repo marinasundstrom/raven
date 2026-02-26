@@ -17,6 +17,8 @@ func Evaluate(expr: Expr) -> int {
         Lit(val value) => value
         Add(val left, val right) => Evaluate(left) + Evaluate(right)
         Sub(val left, val right) => Evaluate(left) - Evaluate(right)
+        Mul(val left, val right) => Evaluate(left) * Evaluate(right)
+        Div(val left, val right) => Evaluate(left) / Evaluate(right)
     }
 }
 
@@ -26,8 +28,28 @@ expr |> WriteLine
 [JsonDerivedType(typeof(Lit), "Lit")]
 [JsonDerivedType(typeof(Add), "Add")]
 [JsonDerivedType(typeof(Sub), "Sub")]
+[JsonDerivedType(typeof(Mul), "Mul")]
+[JsonDerivedType(typeof(Div), "Div")]
 sealed record Expr
-record Lit(Value: int) : Expr;
-abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
-record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right);
-record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right);
+
+record Lit(Value: int) : Expr {
+    override func ToString() -> string => "$Value"
+}
+
+sealed record BinaryExpr(Left: Expr, Right: Expr) : Expr
+
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right) {
+    override func ToString() -> string => "($Left + $Right)"
+}
+
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right) {
+    override func ToString() -> string => "($Left - $Right)"
+}
+
+record Mul(Left: Expr, Right: Expr) : BinaryExpr(Left, Right) {
+    override func ToString() -> string => "($Left * $Right)"
+}
+
+record Div(Left: Expr, Right: Expr) : BinaryExpr(Left, Right) {
+    override func ToString() -> string => "($Left / $Right)"
+}

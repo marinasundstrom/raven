@@ -3347,6 +3347,33 @@ public partial class SemanticModel
         ClassDeclarationBinder classBinder)
     {
         var propertyName = parameterSyntax.Identifier.ValueText;
+        // C# record inheritance semantics (compatible with C# derived-record forwarding):
+        // If a derived record redeclares a primary-ctor parameter whose name matches an inherited
+        // instance member, we must NOT synthesize a *new* property (which would hide the base member).
+        // However, the parameter should still contribute to the record’s positional shape. In Raven,
+        // that shape is driven by `RecordProperties`, so we reuse the inherited property symbol when possible.
+        if (classSymbol.BaseType is INamedTypeSymbol baseType)
+        {
+            for (var current = baseType; current is not null; current = current.BaseType)
+            {
+                // Only consider inherited instance members.
+                var inherited = current.GetMembers(propertyName).FirstOrDefault(static m => !m.IsStatic);
+                if (inherited is null)
+                    continue;
+
+                // Reuse the inherited property if it is a source property symbol.
+                // This avoids creating a new property on the derived record while preserving the
+                // record’s positional parameter/property list used by downstream logic.
+                if (inherited is SourcePropertySymbol sourceProperty)
+                    return sourceProperty;
+
+                if (inherited is IPropertySymbol)
+                    return null;
+
+                // Inherited non-property instance member with the same name: do not synthesize.
+                return null;
+            }
+        }
         if (classSymbol.IsMemberDefined(propertyName, out _))
         {
             classBinder.Diagnostics.ReportTypeAlreadyDefinesMember(
