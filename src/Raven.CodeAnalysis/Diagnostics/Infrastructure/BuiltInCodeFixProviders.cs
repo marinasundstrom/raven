@@ -20,6 +20,7 @@ public static class BuiltInCodeFixProviders
             new NonNullDeclarationsCodeFixProvider(),
             new PreferDuLinqExtensionsCodeFixProvider(),
             new PreferIsNullOverEqualityCodeFixProvider(),
+            new RedundantAccessorDeclarationCodeFixProvider(),
         ];
     }
 }

@@ -544,10 +544,9 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParseMethodOrIndexerDeclaration(attributeLists, modifiers, funcKeyword);
         }
 
-        if (CanTokenBeIdentifier(keywordOrIdentifier) || keywordOrIdentifier.IsKind(SyntaxKind.SelfKeyword))
-            return ParseMemberDeclarationWithoutFuncKeyword(attributeLists, modifiers);
-
-        return ParsePropertyDeclaration(attributeLists, modifiers);
+        var skippedMember = ParseIncompleteTypeMemberTokens();
+        TryConsumeTerminator(out var skippedTerminator);
+        return IncompleteMemberDeclaration(attributeLists, modifiers, skippedMember, skippedTerminator);
     }
 
     private MemberDeclarationSyntax ParseOperatorDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
@@ -739,31 +738,6 @@ internal class TypeDeclarationParser : SyntaxParser
         return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier);
     }
 
-    private MemberDeclarationSyntax ParseMemberDeclarationWithoutFuncKeyword(SyntaxList attributeLists, SyntaxList modifiers)
-    {
-        var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
-        var tokenAfterName = PeekToken();
-
-        if (tokenAfterName.IsKind(SyntaxKind.OpenParenToken))
-            return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword), explicitInterfaceSpecifier, identifier);
-
-        if (tokenAfterName.IsKind(SyntaxKind.LessThanToken))
-        {
-            var typeParameterCheckpoint = CreateCheckpoint();
-            _ = ParseTypeParameterList();
-            var tokenAfterTypeParameters = PeekToken();
-            typeParameterCheckpoint.Rewind();
-
-            if (tokenAfterTypeParameters.IsKind(SyntaxKind.OpenParenToken))
-                return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword), explicitInterfaceSpecifier, identifier);
-        }
-
-        if (tokenAfterName.IsKind(SyntaxKind.OpenBracketToken))
-            return ParseIndexerDeclaration(attributeLists, modifiers, MissingToken(SyntaxKind.FuncKeyword), explicitInterfaceSpecifier, identifier);
-
-        return ParsePropertyDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier);
-    }
-
     private MemberDeclarationSyntax ParseMethodOrConstructorDeclaration(
         SyntaxList attributeLists,
         SyntaxList modifiers,
@@ -858,52 +832,6 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         return (null, identifier);
-    }
-
-    private PropertyDeclarationSyntax ParsePropertyDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
-    {
-        var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
-        return ParsePropertyDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier);
-    }
-
-    private PropertyDeclarationSyntax ParsePropertyDeclaration(
-        SyntaxList attributeLists,
-        SyntaxList modifiers,
-        ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier,
-        SyntaxToken identifier)
-    {
-        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
-            ?? CreateMissingTypeAnnotationClause();
-
-        var token = PeekToken();
-
-        AccessorListSyntax? accessorList = null;
-        if (token.IsKind(SyntaxKind.OpenBraceToken))
-        {
-            accessorList = ParseAccessorList();
-        }
-        else
-        {
-            // Handle skipped trivia
-
-            //var lastToken = typeAnnotation.GetLastToken();
-            //var newToken = token.WithTrailingTrivia();
-            //typeAnnotation = (ArrowTypeClauseSyntax)typeAnnotation.ReplaceNode(lastToken, newToken);
-        }
-
-        ArrowExpressionClauseSyntax? expressionBody = null;
-        if (PeekToken().IsKind(SyntaxKind.FatArrowToken))
-            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
-
-        EqualsValueClauseSyntax? initializer = null;
-        if (IsNextToken(SyntaxKind.EqualsToken, out _))
-        {
-            initializer = new EqualsValueClauseSyntaxParser(this).Parse();
-        }
-
-        var terminatorToken = ConsumeMemberTerminator();
-
-        return PropertyDeclaration(attributeLists, modifiers, Token(SyntaxKind.None), explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, expressionBody, initializer, terminatorToken);
     }
 
     private EventDeclarationSyntax ParseEventDeclaration(SyntaxList attributeLists, SyntaxList modifiers)

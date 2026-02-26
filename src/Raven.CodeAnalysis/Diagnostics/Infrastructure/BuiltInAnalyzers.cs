@@ -20,7 +20,8 @@ public static class BuiltInAnalyzers
             .AddAnalyzerReference(new AnalyzerReference(new MemberCanBeStaticAnalyzer()))
             .AddAnalyzerReference(new AnalyzerReference(new UnusedPropertyAnalyzer()))
             .AddAnalyzerReference(new AnalyzerReference(new UnusedMethodAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
+            .AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()))
+            .AddAnalyzerReference(new AnalyzerReference(new RedundantAccessorDeclarationAnalyzer()));
 
         if (!enableSuggestions)
             return project;

@@ -14,7 +14,7 @@ public class ExpressionBodiedPropertyBindingTests
         var syntaxTree = SyntaxTree.ParseText(
             """
             class C {
-                public IsOk: int => 2
+                public val IsOk: int => 2
             }
             """);
 

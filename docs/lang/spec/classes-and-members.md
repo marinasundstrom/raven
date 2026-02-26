@@ -247,85 +247,80 @@ val same = a == b
 
 ### Properties
 
-Property declarations are Raven's default data member model. In classes and
-structs, `val`/`var` declarations define properties and support three forms:
-computed (`=>`), stored (`= initializer`), and accessor-list properties.
+Raven uses a property-first model. `val` and `var` define the public mutability
+contract, while storage is an implementation detail.
+
+#### Property kinds
+
+- `val`: publicly read-only after initialization.
+- `var`: publicly mutable after initialization.
+
+`val` may still declare `set`/`init` accessors. A `set` accessor on `val` must
+be less accessible than the getter. `init` remains compatible with public
+object-initializer assignment.
+
+#### Storage (auto) properties
+
+Storage properties are declarations without computed implementation:
 
 ```raven
-val Name: string => name
+val Name: string
 var Count: int = 0
-var Value: int {
+```
+
+The compiler synthesizes backing storage. You can still provide accessors to
+refine behavior:
+
+```raven
+public val Status: OrderStatus { private set; }
+public var Score: int {
     get => field
-    set => field = value
+    set => field = max(0, value)
 }
 ```
 
-`val` declares an immutable property shape. Writable accessors (`set`/`init`)
-require `var`. A `var` declaration is expected to have a writable shape
-(writable accessor or stored initializer).
+Accessor defaults:
 
-The compiler synthesizes accessor methods named `get_<PropertyName>` and
-`set_<PropertyName>`. Setters receive an implicit parameter named `value` whose
-type matches the property type. The `static` modifier may be applied to the
-property declaration to associate both accessors with the containing type.
+| Contract | Getter | Setter |
+| -------- | ------ | ------ |
+| `val`    | public | none   |
+| `var`    | public | public |
 
-#### Accessor bodies
+#### Computed properties
 
-Accessors may use block bodies or expression bodies. A property declaration may
-also collapse to a single expression-bodied member; it is shorthand for a `get`
-accessor with the same expression body.
+Computed properties provide implementation directly and do not use synthesized
+storage unless explicitly needed:
 
 ```raven
-val Value: int => _value
+val FullName: string => first + " " + last
+```
 
-var Value: int {
-    get => _value
-    private set => _value = value
+#### `init` accessor and initialization phase
+
+`init` permits assignment only during initialization and preserves `val`
+semantics:
+
+```raven
+val Name: string { init; }
+```
+
+Initialization includes inline initializers, constructors (`init(...)`),
+initializer blocks, and object initializers.
+
+#### `field` and indexers
+
+Inside storage-property accessors, `field` references the synthesized backing
+field.
+
+Indexers are a property form using `self[...]` and follow the same `val`/`var`,
+`get`/`set`/`init`, and accessibility rules:
+
+```raven
+var self[index: int]: string {
+    get => items[index]
+    set { items[index] = value }
 }
 ```
-
-Inside class/struct property accessors, the contextual keyword `field` refers
-to the property's synthesized backing field:
-
-```raven
-var Value: int {
-    get => field
-    set {
-        field = value
-    }
-}
-```
-
-`field` is not available in extension properties.
-
-#### Auto-implemented properties
-
-When every accessor in a class or struct property omits both a block body and an
-expression body, the property is treated as **auto-implemented**. The compiler
-generates a hidden backing field of the same type and emits trivial accessor
-bodies that read from and write to that field. Auto-properties respect the
-property's modifiers: a `static` auto-property produces a static backing field,
-and accessor-level accessibility (for example `private set`) controls exposure
-without affecting code generation.
-
-The compiler also synthesizes a backing field when a property accessor body
-uses `field`.
-
-Any accessor may be omitted. A property with only `get` remains read-only and
-exposes the default value of its backing field until assigned from within the
-type (e.g., via a constructor calling another accessor). Auto-properties are not
-available on interfaces, where accessors remain abstract.
-
-For storage-only private members declared in initializer form (no expression
-body and no accessor list), Raven may lower the declaration directly to a
-private field and omit CLR property emission:
-
-```raven
-private var orderCount: int = 0
-```
-
-This is an implementation optimization; source semantics remain property-like
-within Raven.
 
 ### Events
 

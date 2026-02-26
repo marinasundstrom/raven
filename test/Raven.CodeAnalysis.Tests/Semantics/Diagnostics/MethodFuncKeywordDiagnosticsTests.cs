@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class MethodFuncKeywordDiagnosticsTests : CompilationTestBase
 {
     [Fact]
-    public void MethodDeclaration_WithoutFuncKeyword_ReportsError()
+    public void MethodDeclaration_WithoutFuncKeyword_ReportsParserErrors()
     {
         const string source = """
 class C {
@@ -19,10 +19,9 @@ class C {
             source,
             options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var diagnostic = Assert.Single(compilation.GetDiagnostics()
-            .Where(d => d.Id == CompilerDiagnostics.MethodDeclarationMissingFuncKeyword.Id));
-
-        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        Assert.DoesNotContain(diagnostics, d => d.Id == CompilerDiagnostics.MethodDeclarationMissingFuncKeyword.Id);
     }
 
     [Fact]

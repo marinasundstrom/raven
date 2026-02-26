@@ -110,7 +110,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var source = """
             class Foo {
                 public init() => Console.WriteLine("Init")
-                public Dispose() -> unit {}
+                public func Dispose() -> unit {}
             }
             """;
 
@@ -150,7 +150,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var source = """
             class Widget {
                 [Inline]
-                public Do() -> unit {}
+                public func Do() -> unit {}
             }
             """;
 
@@ -170,7 +170,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     {
         var source = """
             class Foo {
-                public self(flag: bool) -> Task<Option<int>> {
+                public func self(flag: bool) -> Task<Option<int>> {
                     return Test(flag)
                 }
             }
@@ -189,7 +189,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     {
         var source = """
             class Foo {
-                public M() -> {}
+                public func M() -> {}
             }
             """;
 
@@ -258,11 +258,11 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void SelfIndexer_WithFuncKeyword_ParsesWithoutSyntaxErrors()
+    public void SelfIndexer_WithVarKeyword_ParsesWithoutSyntaxErrors()
     {
         var source = """
             class Foo {
-                public func self[index: int]: string {
+                public var self[index: int]: string {
                     get => "x"
                 }
             }
@@ -272,11 +272,12 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var indexer = tree.GetRoot().DescendantNodes().OfType<IndexerDeclarationSyntax>().Single();
 
         Assert.Equal(SyntaxKind.SelfKeyword, indexer.Identifier.Kind);
+        Assert.Equal(SyntaxKind.VarKeyword, indexer.BindingKeyword.Kind);
         Assert.Empty(tree.GetDiagnostics());
     }
 
     [Fact]
-    public void MethodDeclaration_WithoutFuncKeyword_HasMissingFuncToken()
+    public void MethodDeclaration_WithoutFuncKeyword_ParsesAsIncompleteMember()
     {
         var source = """
             class Calculator {
@@ -285,9 +286,9 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
             """;
 
         var tree = SyntaxTree.ParseText(source);
-        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-
-        Assert.True(method.FuncKeyword.IsMissing);
+        var @class = Assert.Single(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>());
+        Assert.DoesNotContain(@class.Members, m => m is MethodDeclarationSyntax);
+        Assert.Contains(@class.Members, m => m is IncompleteMemberDeclarationSyntax);
     }
 
     [Fact]

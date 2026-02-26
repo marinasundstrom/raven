@@ -162,21 +162,55 @@ public class PropertyBindingTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void ValProperty_WithSetAccessor_ProducesDiagnostic()
+    public void ValProperty_WithPublicSetAccessor_ProducesDiagnostic()
     {
         const string testCode =
             """
             class Counter {
                 val Count: int {
                     get => field
-                    set => field = value
+                    public set => field = value
                 }
             }
             """;
 
         var verifier = CreateVerifier(testCode,
-            [new DiagnosticResult(CompilerDiagnostics.ValPropertyCannotDeclareWritableAccessor.Id).WithSpan(4, 9, 4, 12).WithArguments("Count", "set")]);
+            [new DiagnosticResult(CompilerDiagnostics.ValPropertyCannotDeclareWritableAccessor.Id).WithSpan(4, 16, 4, 19).WithArguments("Count", "set")]);
 
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ValProperty_WithPrivateSetAccessor_DoesNotProduceDiagnostic()
+    {
+        const string testCode =
+            """
+            class Counter {
+                public val Count: int {
+                    get => field
+                    private set => field = value
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ValProperty_WithPublicInitAccessor_DoesNotProduceDiagnostic()
+    {
+        const string testCode =
+            """
+            class Counter {
+                public val Count: int {
+                    get => field
+                    public init => field = value
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
         verifier.Verify();
     }
 

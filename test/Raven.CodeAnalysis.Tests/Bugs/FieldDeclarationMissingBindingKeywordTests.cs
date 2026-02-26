@@ -1,12 +1,12 @@
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
-using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests.Bugs;
 
-public class FieldDeclarationMissingBindingKeywordTests : DiagnosticTestBase
+public class FieldDeclarationMissingBindingKeywordTests : Raven.CodeAnalysis.Semantics.Tests.CompilationTestBase
 {
     [Fact]
-    public void MemberWithoutBindingKeyword_ParsesAsProperty()
+    public void MemberWithoutBindingKeyword_DoesNotProducePropertyBindingDiagnostic()
     {
         const string code = """
         class Foo {
@@ -14,16 +14,17 @@ public class FieldDeclarationMissingBindingKeywordTests : DiagnosticTestBase
         }
         """;
 
-        var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV0914")
-                .WithSpan(2, 5, 2, 9)
-                .WithArguments("name")
-        ]);
-        verifier.Verify();
+        var (compilation, _) = CreateCompilation(
+            code,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        Assert.DoesNotContain(diagnostics, d => d.Id == CompilerDiagnostics.PropertyDeclarationRequiresBindingKeyword.Id);
     }
 
     [Fact]
-    public void MemberWithoutBindingKeyword_ParsesSinglePropertyMember()
+    public void MemberWithoutBindingKeyword_ParsesAsIncompleteMember()
     {
         const string code = """
         class Foo {
@@ -35,8 +36,6 @@ public class FieldDeclarationMissingBindingKeywordTests : DiagnosticTestBase
         var root = tree.GetRoot();
 
         var type = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(root.Members));
-        var property = Assert.IsType<PropertyDeclarationSyntax>(Assert.Single(type.Members));
-
-        Assert.Equal("name", property.Identifier.Text);
+        Assert.IsType<IncompleteMemberDeclarationSyntax>(Assert.Single(type.Members));
     }
 }

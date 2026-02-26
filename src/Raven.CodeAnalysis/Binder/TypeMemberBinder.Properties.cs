@@ -294,20 +294,6 @@ internal partial class TypeMemberBinder : Binder
                 propertyDecl.Identifier.GetLocation());
         }
 
-        if (declaredMutable == false && propertyDecl.AccessorList is { } declaredAccessorList)
-        {
-            foreach (var accessor in declaredAccessorList.Accessors)
-            {
-                if (accessor.Kind is not (SyntaxKind.SetAccessorDeclaration or SyntaxKind.InitAccessorDeclaration))
-                    continue;
-
-                _diagnostics.ReportValPropertyCannotDeclareWritableAccessor(
-                    propertyName,
-                    accessor.Keyword.Text,
-                    accessor.Keyword.GetLocation());
-            }
-        }
-
         if (declaredMutable == true && !hasSetter && !hasStorageInitializer && !isImplicitAutoProperty)
         {
             _diagnostics.ReportVarPropertyRequiresWritableShape(
@@ -439,6 +425,9 @@ internal partial class TypeMemberBinder : Binder
 
         if (propertyDecl.AccessorList is not null)
         {
+            Accessibility? getterAccessibility = null;
+            var writableAccessorInfo = new List<(Accessibility Accessibility, SyntaxToken Keyword)>();
+
             foreach (var accessor in propertyDecl.AccessorList.Accessors)
             {
                 bool isGet = accessor.Kind == SyntaxKind.GetAccessorDeclaration;
@@ -482,6 +471,11 @@ internal partial class TypeMemberBinder : Binder
                 var accessorAccessibility = explicitInterfaceType is not null
                     ? Accessibility.Private
                     : explicitAccessorAccessibility ?? propertyAccessibility;
+
+                if (isGet)
+                    getterAccessibility ??= accessorAccessibility;
+                else if (isSet)
+                    writableAccessorInfo.Add((accessorAccessibility, accessor.Keyword));
 
                 var returnType = Compilation.GetSpecialType(SpecialType.System_Unit);
                 var name = explicitAccessorPrefix + (isGet ? "get_" : "set_") + propertyName;
@@ -644,6 +638,21 @@ internal partial class TypeMemberBinder : Binder
                     getMethod = methodSymbol;
                 else
                     setMethod = methodSymbol;
+            }
+
+            if (declaredMutable == false)
+            {
+                var effectiveGetterAccessibility = getterAccessibility ?? propertyAccessibility;
+                foreach (var writableAccessor in writableAccessorInfo)
+                {
+                    if (IsLessAccessible(writableAccessor.Accessibility, effectiveGetterAccessibility))
+                        continue;
+
+                    _diagnostics.ReportValPropertyCannotDeclareWritableAccessor(
+                        propertyName,
+                        writableAccessor.Keyword.Text,
+                        writableAccessor.Keyword.GetLocation());
+                }
             }
         }
         else if (propertyDecl.ExpressionBody is not null)
@@ -902,6 +911,24 @@ internal partial class TypeMemberBinder : Binder
         }
 
         return binders;
+    }
+
+    private static bool IsLessAccessible(Accessibility candidate, Accessibility baseline)
+    {
+        return GetAccessibilityRank(candidate) < GetAccessibilityRank(baseline);
+    }
+
+    private static int GetAccessibilityRank(Accessibility accessibility)
+    {
+        return accessibility switch
+        {
+            Accessibility.Private => 0,
+            Accessibility.ProtectedAndInternal => 1,
+            Accessibility.ProtectedAndProtected => 2,
+            Accessibility.Internal => 3,
+            Accessibility.ProtectedOrInternal => 4,
+            _ => 5,
+        };
     }
 
     private static bool UsesAutoPropertyFieldKeyword(PropertyDeclarationSyntax propertyDecl)

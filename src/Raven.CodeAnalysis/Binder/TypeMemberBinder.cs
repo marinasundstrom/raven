@@ -2662,7 +2662,23 @@ internal partial class TypeMemberBinder : Binder
         var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
 
         var hasGetter = indexerDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.GetAccessorDeclaration) ?? false;
-        var hasSetter = indexerDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.SetAccessorDeclaration) ?? false;
+        var hasSetter = indexerDecl.AccessorList?.Accessors.Any(a =>
+            a.Kind == SyntaxKind.SetAccessorDeclaration ||
+            a.Kind == SyntaxKind.InitAccessorDeclaration) ?? false;
+
+        bool? declaredMutable = indexerDecl.BindingKeyword.Kind switch
+        {
+            SyntaxKind.VarKeyword => true,
+            SyntaxKind.ValKeyword => false,
+            _ => null,
+        };
+
+        if (declaredMutable == true && !hasSetter)
+        {
+            _diagnostics.ReportVarPropertyRequiresWritableShape(
+                "indexer",
+                indexerDecl.BindingKeyword.GetLocation());
+        }
 
         IMethodSymbol? overriddenGetter = null;
         IMethodSymbol? overriddenSetter = null;
@@ -2747,9 +2763,69 @@ internal partial class TypeMemberBinder : Binder
 
         if (indexerDecl.AccessorList is not null)
         {
+            static Accessibility? GetExplicitAccessorAccessibility(SyntaxTokenList mods)
+            {
+                var hasPublic = mods.Any(m => m.Kind == SyntaxKind.PublicKeyword);
+                var hasPrivate = mods.Any(m => m.Kind == SyntaxKind.PrivateKeyword);
+                var hasProtected = mods.Any(m => m.Kind == SyntaxKind.ProtectedKeyword);
+                var hasInternal = mods.Any(m => m.Kind == SyntaxKind.InternalKeyword);
+
+                if (!hasPublic && !hasPrivate && !hasProtected && !hasInternal)
+                    return null;
+
+                if (hasProtected && hasInternal)
+                    return Accessibility.ProtectedOrInternal;
+
+                if (hasPublic)
+                    return Accessibility.Public;
+                if (hasPrivate)
+                    return Accessibility.Private;
+                if (hasProtected)
+                    return Accessibility.ProtectedAndProtected;
+                if (hasInternal)
+                    return Accessibility.Internal;
+
+                return null;
+            }
+
+            static int GetAccessibilityRank(Accessibility accessibility)
+            {
+                return accessibility switch
+                {
+                    Accessibility.Private => 0,
+                    Accessibility.ProtectedAndInternal => 1,
+                    Accessibility.ProtectedAndProtected => 2,
+                    Accessibility.Internal => 3,
+                    Accessibility.ProtectedOrInternal => 4,
+                    _ => 5,
+                };
+            }
+
+            static bool IsLessAccessible(Accessibility candidate, Accessibility baseline)
+                => GetAccessibilityRank(candidate) < GetAccessibilityRank(baseline);
+
+            Accessibility? getterAccessibility = null;
+            var writableAccessorInfo = new List<(Accessibility Accessibility, SyntaxToken Keyword)>();
+
             foreach (var accessor in indexerDecl.AccessorList.Accessors)
             {
                 bool isGet = accessor.Kind == SyntaxKind.GetAccessorDeclaration;
+                bool isSet = accessor.Kind == SyntaxKind.SetAccessorDeclaration;
+                bool isInit = accessor.Kind == SyntaxKind.InitAccessorDeclaration;
+
+                if (!isGet && !isSet && !isInit)
+                    continue;
+
+                var explicitAccessorAccessibility = GetExplicitAccessorAccessibility(accessor.Modifiers);
+                var accessorAccessibility = explicitInterfaceType is not null
+                    ? Accessibility.Private
+                    : explicitAccessorAccessibility ?? indexerAccessibility;
+
+                if (isGet)
+                    getterAccessibility ??= accessorAccessibility;
+                else if (isSet)
+                    writableAccessorInfo.Add((accessorAccessibility, accessor.Keyword));
+
                 var returnType = isGet ? propertyType : Compilation.GetSpecialType(SpecialType.System_Unit);
                 var name = explicitIndexerAccessorPrefix + (isGet ? "get_" : "set_") + propertySymbol.Name;
 
@@ -2787,13 +2863,13 @@ internal partial class TypeMemberBinder : Binder
                     [accessor.GetLocation()],
                     [accessor.GetReference()],
                     isStatic: isStatic,
-                    methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet,
+                    methodKind: isGet ? MethodKind.PropertyGet : (isInit ? MethodKind.InitOnly : MethodKind.PropertySet),
                     isAsync: isAsync,
                     isVirtual: accessorVirtual,
                     isOverride: accessorOverride,
                     isSealed: accessorSealed,
                     isAbstract: isAbstract,
-                    declaredAccessibility: indexerAccessibility);
+                    declaredAccessibility: accessorAccessibility);
 
                 var parameters = new List<SourceParameterSymbol>();
                 foreach (var param in indexerParameters)
@@ -2863,6 +2939,21 @@ internal partial class TypeMemberBinder : Binder
                     getMethod = methodSymbol;
                 else
                     setMethod = methodSymbol;
+            }
+
+            if (declaredMutable == false)
+            {
+                var effectiveGetterAccessibility = getterAccessibility ?? indexerAccessibility;
+                foreach (var writableAccessor in writableAccessorInfo)
+                {
+                    if (IsLessAccessible(writableAccessor.Accessibility, effectiveGetterAccessibility))
+                        continue;
+
+                    _diagnostics.ReportValPropertyCannotDeclareWritableAccessor(
+                        "indexer",
+                        writableAccessor.Keyword.Text,
+                        writableAccessor.Keyword.GetLocation());
+                }
             }
         }
         else if (indexerDecl.ExpressionBody is not null)
