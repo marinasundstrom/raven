@@ -25,7 +25,13 @@
         "extensions": [
           ".rav"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "debuggers": []
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "raven"
       }
     ],
     "grammars": [

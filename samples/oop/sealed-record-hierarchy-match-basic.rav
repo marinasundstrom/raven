@@ -2,7 +2,7 @@ import System.*
 import System.Console.*
 
 // Feature: sealed record hierarchy evaluated via `match`.
-val expr: Expr = Add(Lit(40), Lit(2))
+val expr: Expr = Add(Lit(40), Sub(Lit(3), Lit(1)))
 
 Evaluate(expr) |> WriteLine
 
@@ -10,9 +10,16 @@ func Evaluate(expr: Expr) -> int {
     match expr {
         Lit(val value) => value
         Add(val left, val right) => Evaluate(left) + Evaluate(right)
+        Sub(val left, val right) => Evaluate(left) - Evaluate(right)
+        Mul(val left, val right) => Evaluate(left) * Evaluate(right)
+        Div(val left, val right) => Evaluate(left) / Evaluate(right)
     }
 }
 
 sealed record Expr
 record Lit(Value: int) : Expr
-record Add(Left: Expr, Right: Expr) : Expr
+sealed record BinaryExpr(Left: Expr, Right: Expr) : Expr
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Mul(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Div(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)

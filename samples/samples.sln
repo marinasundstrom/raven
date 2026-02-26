@@ -1,0 +1,38 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "projects", "projects", "{17245595-230B-9055-A944-863F0DDDA8E8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "raven-msbuild-integration", "raven-msbuild-integration", "{00CEEE59-EFA2-D2DE-49C3-1D8F95CCAED8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{5941B6C3-4CA5-F71E-2570-C9FEDA14EAF1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "csharp", "csharp", "{EE9528D7-5DD1-B2A3-FC89-207E3F7807EE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Host", "projects\raven-msbuild-integration\src\csharp\Host.csproj", "{99F1BEE1-370D-8020-B43D-BC4E47B75DE7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{99F1BEE1-370D-8020-B43D-BC4E47B75DE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99F1BEE1-370D-8020-B43D-BC4E47B75DE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99F1BEE1-370D-8020-B43D-BC4E47B75DE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99F1BEE1-370D-8020-B43D-BC4E47B75DE7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{00CEEE59-EFA2-D2DE-49C3-1D8F95CCAED8} = {17245595-230B-9055-A944-863F0DDDA8E8}
+		{5941B6C3-4CA5-F71E-2570-C9FEDA14EAF1} = {00CEEE59-EFA2-D2DE-49C3-1D8F95CCAED8}
+		{EE9528D7-5DD1-B2A3-FC89-207E3F7807EE} = {5941B6C3-4CA5-F71E-2570-C9FEDA14EAF1}
+		{99F1BEE1-370D-8020-B43D-BC4E47B75DE7} = {EE9528D7-5DD1-B2A3-FC89-207E3F7807EE}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E7D630DF-8278-4869-92B3-883989F7D614}
+	EndGlobalSection
+EndGlobal
