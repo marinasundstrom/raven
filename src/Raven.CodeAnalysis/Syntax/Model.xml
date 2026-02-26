@@ -157,6 +157,7 @@
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Keyword" Type="Token" IsInherited="true" />
+    <Slot Name="ClassOrStructKeyword" Type="Token" IsOptional="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="BaseList" Type="BaseList" IsNullable="true" />

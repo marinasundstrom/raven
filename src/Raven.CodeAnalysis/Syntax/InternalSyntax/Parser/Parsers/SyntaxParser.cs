@@ -41,7 +41,6 @@ internal class SyntaxParser : ParseContext
                      SyntaxKind.FinalKeyword or
                      SyntaxKind.SealedKeyword or
                      SyntaxKind.PartialKeyword or
-                     SyntaxKind.RecordKeyword or
                      SyntaxKind.VirtualKeyword or
                      SyntaxKind.AsyncKeyword or
                      SyntaxKind.ExternKeyword or
@@ -158,6 +157,18 @@ internal class SyntaxParser : ParseContext
         if (!hasConsumedToken)
         {
             token = MissingToken(kind);
+            return false;
+        }
+        return true;
+    }
+
+
+    public bool ConsumeTokenOrNone(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
+    {
+        var hasConsumedToken = ConsumeToken(kind, out token);
+        if (!hasConsumedToken)
+        {
+            token = Token(SyntaxKind.None);
             return false;
         }
         return true;

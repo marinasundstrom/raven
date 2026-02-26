@@ -43,17 +43,17 @@ internal class TypeDeclarationParser : SyntaxParser
         var modifiers = ParseModifiers();
 
         var typeKeyword = ReadToken();
-        var hasRecordModifier = modifiers.GetChildren().Any(x => x.IsKind(SyntaxKind.RecordKeyword));
+
+        SyntaxToken classOrStructKeyword = Token(SyntaxKind.None);
+
+        var isRecordDecl = typeKeyword.IsKind(SyntaxKind.RecordKeyword);
+
+        if (isRecordDecl
+            && (ConsumeTokenOrNone(SyntaxKind.ClassKeyword, out classOrStructKeyword) || ConsumeTokenOrNone(SyntaxKind.StructKeyword, out classOrStructKeyword)))
+        { }
 
         SyntaxToken identifier;
-        if (hasRecordModifier &&
-            !typeKeyword.IsKind(SyntaxKind.ClassKeyword) &&
-            !typeKeyword.IsKind(SyntaxKind.StructKeyword))
-        {
-            identifier = typeKeyword;
-            typeKeyword = MissingToken(SyntaxKind.ClassKeyword);
-        }
-        else if (CanTokenBeIdentifier(PeekToken()))
+        if (CanTokenBeIdentifier(PeekToken()))
         {
             identifier = ReadIdentifierToken();
         }
@@ -63,7 +63,7 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         ParameterListSyntax? parameterList = null;
-        if ((typeKeyword.IsKind(SyntaxKind.ClassKeyword) || typeKeyword.IsKind(SyntaxKind.StructKeyword)) &&
+        if ((typeKeyword.IsKind(SyntaxKind.ClassKeyword) || typeKeyword.IsKind(SyntaxKind.StructKeyword) || typeKeyword.IsKind(SyntaxKind.RecordKeyword)) &&
             PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
             parameterList = ParseParameterList();
@@ -150,9 +150,9 @@ internal class TypeDeclarationParser : SyntaxParser
             return StructDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
-        if (hasRecordModifier && typeKeyword.IsKind(SyntaxKind.ClassKeyword))
+        if (isRecordDecl)
         {
-            return RecordDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return RecordDeclaration(attributeLists, modifiers, typeKeyword, classOrStructKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
         return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
