@@ -113,19 +113,35 @@
                 },
                 {
                     "name": "storage.type.declaration.raven",
-                    "match": "\\b(class|record|enum|interface|struct)\\b"
+                    "match": "\\b(class|record|struct|union|enum|interface|extension)\\b"
                 },
                 {
                     "name": "storage.type.function.raven",
                     "match": "\\b(func)\\b"
                 },
                 {
+                    "name": "storage.type.init.raven",
+                    "match": "\\b(init)\\b"
+                },
+                {
+                    "name": "storage.type.event.raven",
+                    "match": "\\b(event)\\b"
+                },
+                {
+                    "name": "storage.type.delegate.raven",
+                    "match": "\\b(delegate)\\b"
+                },
+                {
                     "name": "storage.modifier.raven",
-                    "match": "\\b(val|var|static|override|sealed|abstract|private|public|internal|protected)\\b"
+                    "match": "\\b(val|var|const|use|static|open|virtual|override|final|sealed|abstract|private|public|internal|protected|readonly|required|async|unsafe)\\b"
                 },
                 {
                     "name": "keyword.control.raven",
-                    "match": "\\b(if|else|match|for|in|while|do|return|break|continue|throw|try|catch|finally)\\b"
+                    "match": "\\b(if|else|match|for|goto|in|while|do|return|break|continue|throw|try|catch|finally)\\b"
+                },
+                {
+                    "name": "keyword.misc.raven",
+                    "match": "\\b(new|with|nameof|typeof|sizeof|is|get|set|init|where|notnull|default|await)\\b"
                 },
                 {
                     "name": "constant.language.raven",
@@ -181,7 +197,7 @@
             "patterns": [
                 {
                     "name": "storage.type.primitive.raven",
-                    "match": "\\b(bool|byte|sbyte|short|ushort|int|uint|long|ulong|nint|nuint|float|double|decimal|char|string|object|void)\\b"
+                    "match": "\\b(bool|byte|sbyte|short|ushort|int|uint|long|ulong|nint|nuint|float|double|decimal|char|string|object|unit)\\b"
                 },
                 {
                     "name": "support.type.builtin.raven",
