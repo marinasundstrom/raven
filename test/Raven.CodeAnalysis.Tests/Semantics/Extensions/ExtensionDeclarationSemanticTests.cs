@@ -106,7 +106,7 @@ import System.Threading.Tasks.*
 val result = await 1.IncrementAsync()
 
 extension IntExtensions for int {
-    public async func IncrementAsync() -> Task<int> {
+    async func IncrementAsync() -> Task<int> {
         return await Task.FromResult(self + 1)
     }
 }
@@ -146,7 +146,10 @@ public extension PublicExt for int {
 }
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithMembersPublicByDefault(false)
+            .WithSpecificDiagnosticOption("RAV0907", ReportDiagnostic.Suppress);
+        var (compilation, tree) = CreateCompilation(source, options: options);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();

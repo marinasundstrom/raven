@@ -10,13 +10,13 @@ public class RedundantAccessorDeclarationCodeFixTests : CodeFixTestBase
     {
         const string code = """
 class C {
-    public val Name: string { get; }
+    val Name: string { get; }
 }
 """;
 
         const string fixedCode = """
 class C {
-    public val Name: string
+    val Name: string
 }
 """;
 
@@ -33,13 +33,13 @@ class C {
     {
         const string code = """
 class C {
-    public var self[index: int]: int { get; set; }
+    var self[index: int]: int { get; set; }
 }
 """;
 
         const string fixedCode = """
 class C {
-    public var self[index: int]: int
+    var self[index: int]: int
 }
 """;
 

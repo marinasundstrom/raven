@@ -73,7 +73,7 @@ public class NamespaceDirectiveTests
 
         class Person
         {
-            public init () {}
+            init () {}
         }
         """;
 
@@ -103,9 +103,9 @@ public class NamespaceDirectiveTests
 
         class Person : Base
         {
-            public init () {}
+            init () {}
 
-            public func AddRole(role: string) -> Person
+            func AddRole(role: string) -> Person
             {
                 self
             }

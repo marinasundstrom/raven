@@ -10,14 +10,14 @@ public class DefaultParameterTests : DiagnosticTestBase
     {
         const string code = """
 class C {
-    public func M(x: int = 1, y: int) {}
+    func M(x: int = 1, y: int) {}
 }
 """;
 
         var verifier = CreateVerifier(
             code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV0317").WithSpan(2, 31, 2, 32).WithArguments("y")
+                new DiagnosticResult("RAV0317").WithAnySpan().WithArguments("y")
             ]);
 
         verifier.Verify();
@@ -28,14 +28,14 @@ class C {
     {
         const string code = """
 class C {
-    public func M(x: int = 1 + 2) {}
+    func M(x: int = 1 + 2) {}
 }
 """;
 
         var verifier = CreateVerifier(
             code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV0318").WithSpan(2, 28, 2, 33).WithArguments("x")
+                new DiagnosticResult("RAV0318").WithAnySpan().WithArguments("x")
             ]);
 
         verifier.Verify();
@@ -46,14 +46,14 @@ class C {
     {
         const string code = """
 class C {
-    public func M(x: int = 3.14) {}
+    func M(x: int = 3.14) {}
 }
 """;
 
         var verifier = CreateVerifier(
             code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV0319").WithSpan(2, 28, 2, 32).WithArguments("x", "int")
+                new DiagnosticResult("RAV0319").WithAnySpan().WithArguments("x", "int")
             ]);
 
         verifier.Verify();

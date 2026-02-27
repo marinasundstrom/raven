@@ -50,7 +50,7 @@ class C {
 class C {
     var Name: string { get; set; }
 
-    public init() {
+    init() {
         Name = "ok"
     }
 }
@@ -69,7 +69,7 @@ class C {
     {
         const string code = """
 class C {
-    public required var Name: string { get; set; }
+    required var Name: string { get; set; }
 }
 """;
 

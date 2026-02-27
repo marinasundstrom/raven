@@ -10,7 +10,7 @@ public class EventDelegateMustBeNullableAnalyzerTests : AnalyzerTestBase
     {
         const string code = """
 class C {
-    public event Clicked: System.Action;
+    event Clicked: System.Action;
 }
 """;
 
@@ -19,7 +19,7 @@ class C {
             expectedDiagnostics:
             [
                 new DiagnosticResult(EventDelegateMustBeNullableAnalyzer.DiagnosticId)
-                    .WithSpan(2, 27, 2, 40)
+                    .WithSpan(2, 20, 2, 33)
                     .WithArguments("Clicked", "() -> ()", "() -> ()?")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -32,7 +32,7 @@ class C {
     {
         const string code = """
 class C {
-    public event Clicked: System.Action?;
+    event Clicked: System.Action?;
 }
 """;
 

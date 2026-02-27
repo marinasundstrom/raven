@@ -3,6 +3,17 @@
 **Project:** Raven is an experimental .NET compiler inspired by Swift/Rust/F#. Key folders: `src/Raven.CodeAnalysis` (compiler core), `src/Raven.Compiler` (CLI), `test/Raven.CodeAnalysis.Tests` (unit tests), `tools/*Generator` (codegen utilities), and `docs/` (spec & design). Ignore `test/Raven.CodeAnalysis.Samples.Tests`.
 
 **Before making changes:** run the test suite once to establish a baseline.
+Use the baseline split to avoid runtime/emission-heavy noise:
+
+```bash
+scripts/test-baseline.sh
+```
+
+Run runtime/emission-heavy tests separately:
+
+```bash
+scripts/test-runtime-isolated.sh
+```
 
 **Before building/tests** run the solution build script only when needed:
 
@@ -25,6 +36,8 @@ in order to build specific projects – unless you need to rebuild the entire sy
 dotnet test <project-file-path> /property:WarningLevel=0
 dotnet test /property:WarningLevel=0
 ```
+
+**Baseline exemption rule:** when establishing baseline for compiler stabilization work, exempt runtime/emission-heavy tests under `Raven.CodeAnalysis.Tests.CodeGen` and `Raven.CodeAnalysis.Tests.Samples` from the baseline pass (covered by `scripts/test-baseline.sh`), then run them in isolation (`scripts/test-runtime-isolated.sh`).
 
 ---
 

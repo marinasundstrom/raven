@@ -64,7 +64,7 @@ class Baz {
 import System.*
 
 open class Animal {
-    public func Speak() -> string {
+    func Speak() -> string {
         "sound"
     }
 }

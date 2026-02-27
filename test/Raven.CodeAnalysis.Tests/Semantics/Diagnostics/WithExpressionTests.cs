@@ -62,7 +62,7 @@ val updated = bob with {
     {
         const string source = """
 class Person {
-    public Name: string { get; set; }
+    var Name: string { get; set; }
 }
 
 val person = Person()
@@ -88,13 +88,13 @@ val updated = person with { Name = "Bob" }
     {
         const string source = """
 class Person {
-    public Name: string { get; init; }
+    val Name: string { get; init; }
 
-    public init(name: string) {
+    init(name: string) {
         Name = name
     }
 
-    public func f() {
+    func f() {
         Name = "Bob"
     }
 }
@@ -116,9 +116,9 @@ class Person {
     {
         const string source = """
 class Person {
-    public Name: string { get; init; }
+    val Name: string { get; init; }
 
-    public init(name: string) {
+    init(name: string) {
         Name = name
     }
 }

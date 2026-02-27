@@ -16,8 +16,8 @@ val c = C()
 c.Used()
 
 class C {
-    public func Used() -> () { }
-    public func Unused() -> () { }
+    func Used() -> () { }
+    func Unused() -> () { }
 }
 """;
 
@@ -26,7 +26,7 @@ class C {
             expectedDiagnostics:
             [
                 new DiagnosticResult(UnusedMethodAnalyzer.DiagnosticId)
-                    .WithLocation(6, 17)
+                    .WithLocation(6, 10)
                     .WithArguments("Unused")
             ],
             disabledDiagnostics:

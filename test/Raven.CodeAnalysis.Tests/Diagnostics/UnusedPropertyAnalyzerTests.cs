@@ -15,7 +15,7 @@ public class UnusedPropertyAnalyzerTests : AnalyzerTestBase
 val x = 0
 
 class C {
-    public val Name: string = "Raven"
+    val Name: string = "Raven"
 }
 """;
 
@@ -24,7 +24,7 @@ class C {
             expectedDiagnostics:
             [
                 new DiagnosticResult(UnusedPropertyAnalyzer.DiagnosticId)
-                    .WithLocation(4, 16)
+                    .WithLocation(4, 9)
                     .WithArguments("Name")
             ],
             disabledDiagnostics:
@@ -43,7 +43,7 @@ val c = C()
 val x = c.Name
 
 class C {
-    public val Name: string = "Raven"
+    val Name: string = "Raven"
 }
 """;
 
@@ -62,7 +62,7 @@ class C {
     {
         const string code = """
 class C {
-    public val Name: string = "Raven"
+    val Name: string = "Raven"
 }
 """;
 

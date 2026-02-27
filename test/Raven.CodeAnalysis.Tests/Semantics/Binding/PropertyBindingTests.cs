@@ -14,7 +14,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         const string testCode =
             """
             class Counter {
-                public var Count: int = 0
+                var Count: int = 0
             }
 
             val counter = Counter()
@@ -34,7 +34,7 @@ public class PropertyBindingTests : DiagnosticTestBase
             class Counter {
                 private field _count: int = 0
 
-                public func Increment() -> unit {
+                func Increment() -> unit {
                     _count = _count + 1
                 }
             }
@@ -50,7 +50,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Foo {
-                public val Bar: int {
+                val Bar: int {
                     get => 0
                 }
             }
@@ -69,7 +69,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Foo {
-                public static val Bar: int {
+                static val Bar: int {
                     get => 0
                 }
             }
@@ -89,7 +89,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Person {
-                public val Name: string { get; }
+                val Name: string { get; }
                 init (name: string) {
                     Name = name;
                 }
@@ -107,8 +107,8 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Person {
-                public val Name: string { get; }
-                public func SetName(name: string) -> unit {
+                val Name: string { get; }
+                func SetName(name: string) -> unit {
                     Name = name;
                 }
             }
@@ -126,7 +126,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Person {
-                public val Name: string {
+                val Name: string {
                     get => ""
                 }
                 init (name: string) {
@@ -147,7 +147,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         string testCode =
             """
             class Box {
-                public var Value: int {
+                var Value: int {
                     get => field
                     set {
                         field = value;
@@ -173,13 +173,13 @@ public class PropertyBindingTests : DiagnosticTestBase
             class Counter {
                 val Count: int {
                     get => field
-                    public set => field = value
+                    set => field = value
                 }
             }
             """;
 
         var verifier = CreateVerifier(testCode,
-            [new DiagnosticResult(CompilerDiagnostics.ValPropertyCannotDeclareWritableAccessor.Id).WithSpan(4, 16, 4, 19).WithArguments("Count", "set")]);
+            [new DiagnosticResult(CompilerDiagnostics.ValPropertyCannotDeclareWritableAccessor.Id).WithSpan(4, 9, 4, 12).WithArguments("Count", "set")]);
 
         verifier.Verify();
     }
@@ -190,7 +190,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         const string testCode =
             """
             class Counter {
-                public val Count: int {
+                val Count: int {
                     get => field
                     private set => field = value
                 }
@@ -207,9 +207,9 @@ public class PropertyBindingTests : DiagnosticTestBase
         const string testCode =
             """
             class Counter {
-                public val Count: int {
+                val Count: int {
                     get => field
-                    public init => field = value
+                    init => field = value
                 }
             }
             """;
@@ -293,9 +293,9 @@ public class PropertyBindingTests : DiagnosticTestBase
         const string testCode =
             """
             class Entity {
-                public var Id: string
-                public var Count: int
-                public init(id: string, count: int) {
+                var Id: string
+                var Count: int
+                init(id: string, count: int) {
                     Id = id
                     Count = count
                 }
@@ -316,9 +316,9 @@ public class PropertyBindingTests : DiagnosticTestBase
         const string testCode =
             """
             class Point {
-                public val X: int
-                public val Y: int
-                public init(x: int, y: int) {
+                val X: int
+                val Y: int
+                init(x: int, y: int) {
                     X = x
                     Y = y
                 }
@@ -339,7 +339,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         const string testCode =
             """
             class Box {
-                public var Value: int
+                var Value: int
             }
             """;
 
@@ -355,9 +355,9 @@ public class PropertyBindingTests : DiagnosticTestBase
         const string testCode =
             """
             class Shipment {
-                public var Id: string
-                public var IsPriority: bool
-                public init(id: string, isPriority: bool) {
+                var Id: string
+                var IsPriority: bool
+                init(id: string, isPriority: bool) {
                     Id = id
                     IsPriority = isPriority
                 }
