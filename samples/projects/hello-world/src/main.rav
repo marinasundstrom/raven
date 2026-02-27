@@ -1,10 +1,18 @@
 import System.*
 
 func Main() {
-    var value: Option<string> = Some("Hell, World!")
+    var value: Option<string> = Some("Hello, World!")
 
     match value {
         Some(val v) => Console.WriteLine(v)
         None => Console.WriteLine("None")
     }
+
+    Test(2, 5)
+}
+
+func Test(a: int, var b: int) {
+    //a = 1
+    b = 3
+    Console.WriteLine(a + b)
 }
