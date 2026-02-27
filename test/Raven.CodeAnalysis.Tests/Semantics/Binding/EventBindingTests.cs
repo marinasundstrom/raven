@@ -9,7 +9,7 @@ public class EventBindingTests : DiagnosticTestBase
     {
         const string code = """
 class Button {
-    public event Clicked: System.Action;
+    event Clicked: System.Action;
 }
 
 func Use(button: Button) -> unit {
@@ -28,9 +28,9 @@ func Use(button: Button) -> unit {
     {
         const string code = """
 class Button {
-    public event Clicked: System.Action;
+    event Clicked: System.Action;
 
-    public func Assign(handler: System.Action) -> unit {
+    func Assign(handler: System.Action) -> unit {
         Clicked = handler;
     }
 }
@@ -47,12 +47,12 @@ class Button {
     {
         const string code = """
 class Button {
-    public event Clicked: System.Action {
+    event Clicked: System.Action {
         add { }
         remove { }
     }
 
-    public func Fire() -> unit {
+    func Fire() -> unit {
         Clicked();
     }
 }

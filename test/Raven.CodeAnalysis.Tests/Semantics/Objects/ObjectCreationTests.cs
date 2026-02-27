@@ -12,7 +12,7 @@ public class ObjectCreationTests : DiagnosticTestBase
             val foo = Foo();
 
             class Foo {
-                public init () {}
+                init () {}
             }
             """;
 
@@ -52,9 +52,9 @@ public class ObjectCreationTests : DiagnosticTestBase
             func Foo() -> unit {}
 
             class Foo {
-                public init () {}
+                init () {}
 
-                public init (x: int) {} 
+                init (x: int) {} 
             }
             """;
 
@@ -74,15 +74,15 @@ public class ObjectCreationTests : DiagnosticTestBase
             class Person {
                 var name: string;
 
-                public static func WithName(name: string) -> Person {
+                static func WithName(name: string) -> Person {
                     return Person(name);
                 }
 
-                public init (name: string) {
+                init (name: string) {
                     self.name = name
                 }
 
-                public func GetName() -> string => name;
+                func GetName() -> string => name;
             }
             """;
 
@@ -102,16 +102,16 @@ public class ObjectCreationTests : DiagnosticTestBase
             class Person {
                 var name: string;
 
-                public static func WithName(name: string) -> Person {
+                static func WithName(name: string) -> Person {
                     val temp = name;
                     return Person(temp);
                 }
 
-                public init (name: string) {
+                init (name: string) {
                     self.name = name;
                 }
 
-                public func GetName() -> string => name;
+                func GetName() -> string => name;
             }
             """;
 
@@ -179,7 +179,7 @@ public class ObjectCreationTests : DiagnosticTestBase
 
             class Person(name: string)
             {
-                public func GetName() -> string => name
+                func GetName() -> string => name
             }
             """;
 

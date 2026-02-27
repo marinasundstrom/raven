@@ -17,7 +17,7 @@ public class ResultExtensionPropertyResolutionTests : DiagnosticTestBase
             }
 
             extension ResultExtensions<T, E> for Result<T, E> {
-                public val HasError: bool => self is Error(_)
+                val HasError: bool => self is Error(_)
             }
 
             val res: Result<int, string> = Error("Bang")
