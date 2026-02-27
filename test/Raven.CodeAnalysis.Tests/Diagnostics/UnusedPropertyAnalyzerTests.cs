@@ -84,9 +84,7 @@ class C {
     [Fact]
     public void PrivateStoredProperty_AccessedViaIdentifier_DoesNotReportDiagnostic()
     {
-        // Regression: private stored properties (omitted accessor list) are lowered to
-        // BoundFieldAccess by the binder, so GetSymbolInfo returns the IFieldSymbol.
-        // The analyzer must chase IFieldSymbol.AssociatedSymbol to find the owning property.
+        // Regression: private stored property syntax should resolve as property usage in symbol info.
         const string code = """
 val x = 0
 
@@ -115,8 +113,7 @@ class Counter {
     [Fact]
     public void PrivateStoredProperty_AccessedViaMemberAccess_DoesNotReportDiagnostic()
     {
-        // Regression: self.age style access lowers to BoundMemberAccessExpression with
-        // IFieldSymbol as Member. AssociatedSymbol must be chased to avoid false positive.
+        // Regression: member access to stored properties should resolve directly as property usage.
         const string code = """
 val x = 0
 

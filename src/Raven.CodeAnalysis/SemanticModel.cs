@@ -168,8 +168,73 @@ public partial class SemanticModel
             info = binder.BindSymbol(node);
         }
 
+        info = ProjectBackingFieldSymbolsToAssociatedProperty(node, info);
         _symbolMappings[node] = info;
         return info;
+    }
+
+    private static SymbolInfo ProjectBackingFieldSymbolsToAssociatedProperty(SyntaxNode node, SymbolInfo info)
+    {
+        if (!TryProjectSymbol(node, info.Symbol, out var projectedSymbol))
+            return info;
+
+        var candidatesChanged = false;
+        ImmutableArray<ISymbol> projectedCandidates;
+
+        if (info.CandidateSymbols.IsDefaultOrEmpty)
+        {
+            projectedCandidates = projectedSymbol is null
+                ? ImmutableArray<ISymbol>.Empty
+                : ImmutableArray.Create(projectedSymbol);
+            candidatesChanged = true;
+        }
+        else
+        {
+            var builder = ImmutableArray.CreateBuilder<ISymbol>(info.CandidateSymbols.Length);
+
+            foreach (var candidate in info.CandidateSymbols)
+            {
+                if (TryProjectSymbol(node, candidate, out var projectedCandidate))
+                {
+                    if (projectedCandidate is not null && !builder.Contains(projectedCandidate, SymbolEqualityComparer.Default))
+                        builder.Add(projectedCandidate);
+                    candidatesChanged = true;
+                }
+                else if (!builder.Contains(candidate, SymbolEqualityComparer.Default))
+                {
+                    builder.Add(candidate);
+                }
+            }
+
+            projectedCandidates = builder.ToImmutable();
+        }
+
+        if (!candidatesChanged && SymbolEqualityComparer.Default.Equals(info.Symbol, projectedSymbol))
+            return info;
+
+        return new SymbolInfo(projectedSymbol, projectedCandidates, info.CandidateReason);
+    }
+
+    private static bool TryProjectSymbol(SyntaxNode node, ISymbol? symbol, out ISymbol? projected)
+    {
+        projected = symbol;
+
+        if (symbol is not IFieldSymbol fieldSymbol)
+            return false;
+
+        if (node is IdentifierNameSyntax identifier &&
+            string.Equals(identifier.Identifier.ValueText, "field", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (fieldSymbol.AssociatedSymbol is IPropertySymbol propertySymbol)
+        {
+            projected = propertySymbol;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>

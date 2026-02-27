@@ -1,4 +1,8 @@
+using System.Linq;
+
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
@@ -362,6 +366,97 @@ public class PropertyBindingTests : DiagnosticTestBase
 
         var verifier = CreateVerifier(testCode);
         verifier.Verify();
+    }
+
+    [Fact]
+    public void PrivateStoredProperty_SymbolInfo_ResolvesToProperty()
+    {
+        const string testCode =
+            """
+            class Counter {
+                private var count: int = 0
+
+                func Increment() -> () {
+                    count = count + 1
+                }
+
+                func IncrementViaSelf() -> () {
+                    self.count = self.count + 1
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var propertySyntax = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single(p => p.Identifier.ValueText == "count");
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertySyntax));
+
+        var countIdentifiers = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(identifier => identifier.Identifier.ValueText == "count")
+            .ToArray();
+
+        Assert.NotEmpty(countIdentifiers);
+        foreach (var identifier in countIdentifiers)
+        {
+            var symbol = model.GetSymbolInfo(identifier).Symbol;
+            var referencedProperty = Assert.IsAssignableFrom<IPropertySymbol>(symbol);
+            Assert.True(SymbolEqualityComparer.Default.Equals(property, referencedProperty));
+        }
+
+        var memberAccesses = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Where(memberAccess => memberAccess.Name.Identifier.ValueText == "count")
+            .ToArray();
+
+        Assert.NotEmpty(memberAccesses);
+        foreach (var memberAccess in memberAccesses)
+        {
+            var symbol = model.GetSymbolInfo(memberAccess).Symbol;
+            var referencedProperty = Assert.IsAssignableFrom<IPropertySymbol>(symbol);
+            Assert.True(SymbolEqualityComparer.Default.Equals(property, referencedProperty));
+        }
+    }
+
+    [Fact]
+    public void FieldKeyword_InAccessor_SymbolInfo_ResolvesToBackingField()
+    {
+        const string testCode =
+            """
+            class Box {
+                private var value: int {
+                    get => field
+                    set => field = value
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var fieldIdentifiers = tree.GetRoot().DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(identifier => identifier.Identifier.ValueText == "field")
+            .ToArray();
+
+        Assert.NotEmpty(fieldIdentifiers);
+        foreach (var fieldIdentifier in fieldIdentifiers)
+        {
+            var symbol = model.GetSymbolInfo(fieldIdentifier).Symbol;
+            Assert.IsAssignableFrom<IFieldSymbol>(symbol);
+        }
     }
 
 }

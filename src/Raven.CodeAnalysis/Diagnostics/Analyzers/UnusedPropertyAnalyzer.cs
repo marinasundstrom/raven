@@ -132,15 +132,6 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
                     referenced.Add(symbol);
                     continue;
                 }
-
-                // Indirect hit: private stored properties are lowered to field access by the binder,
-                // so GetSymbolInfo returns the backing IFieldSymbol. Chase AssociatedSymbol to find
-                // the owning property and mark it as referenced.
-                if (symbol is IFieldSymbol field && field.AssociatedSymbol is { } associated && candidateSymbols.Contains(associated))
-                {
-                    referenced.Add(associated);
-                    continue;
-                }
             }
         }
     }
