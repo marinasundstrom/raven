@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Linq;
+using System.Text;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -24,6 +24,17 @@ public sealed class DocumentationComment
     public string Content { get; }
 
     public bool IsMultiline { get; }
+
+    internal static DocumentationComment Create(
+        DocumentationFormat format,
+        string content,
+        string? rawText = null)
+    {
+        var normalizedContent = content ?? string.Empty;
+        var normalizedRaw = rawText ?? normalizedContent;
+        var isMultiline = normalizedContent.AsSpan().IndexOfAny('\n', '\r') >= 0;
+        return new DocumentationComment(format, normalizedRaw, normalizedContent, isMultiline);
+    }
 
     internal static DocumentationComment Merge(DocumentationFormat format, IReadOnlyList<DocumentationComment> comments)
     {

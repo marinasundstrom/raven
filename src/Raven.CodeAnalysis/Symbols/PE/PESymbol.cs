@@ -1,10 +1,15 @@
 using System.Collections.Immutable;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Documentation;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal abstract class PESymbol : Symbol
 {
+    private DocumentationComment? _lazyDocumentationComment;
+    private bool _documentationInitialized;
+
     protected PESymbol(ISymbol containingSymbol,
         INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
         Location[] locations, bool addAsMember = true) : base(containingSymbol, containingType, containingNamespace, locations, [], addAsMember: addAsMember)
@@ -99,4 +104,14 @@ internal abstract class PESymbol : Symbol
     }
 
     public bool IsCompleted { get; set; }
+
+    public override DocumentationComment? GetDocumentationComment()
+    {
+        if (_documentationInitialized)
+            return _lazyDocumentationComment;
+
+        _lazyDocumentationComment = FrameworkXmlDocumentationProvider.GetDocumentationComment(this);
+        _documentationInitialized = true;
+        return _lazyDocumentationComment;
+    }
 }
