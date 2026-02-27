@@ -229,11 +229,11 @@
                 },
                 {
                     "name": "storage.modifier.raven",
-                    "match": "\\b(val|var|let|const|static|abstract|virtual|override|final|sealed|new|open|partial|readonly|required|async|extern|unsafe|public|internal|protected|private)\\b"
+                    "match": "\\b(val|var|let|use|const|static|abstract|virtual|override|final|sealed|new|open|partial|readonly|required|async|extern|unsafe|public|internal|protected|private)\\b"
                 },
                 {
                     "name": "keyword.control.raven",
-                    "match": "\\b(if|else|match|when|for|each|in|by|while|do|try|catch|finally|with|return|throw|break|continue|await)\\b"
+                    "match": "\\b(if|else|match|when|for|each|in|as|by|while|do|try|catch|finally|with|return|throw|break|continue|await)\\b"
                 },
                 {
                     "name": "keyword.other.expression.raven",
