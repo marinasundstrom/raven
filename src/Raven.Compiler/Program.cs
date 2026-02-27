@@ -749,24 +749,6 @@ string? ResolveAndCopyLocalDependency(string fileName, Func<string, bool>? candi
     return null;
 }
 
-var testDepCandidates = new List<string>
-{
-    Path.Combine(repositoryRoot, "src", "TestDep", "bin", "Debug", preferredCoreTfm, "TestDep.dll"),
-    Path.Combine(repositoryRoot, "src", "TestDep", "bin", "Debug", preferredCoreTfm, preferredCoreTfm, "TestDep.dll"),
-    Path.Combine(AppContext.BaseDirectory, "TestDep.dll"),
-    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "TestDep.dll"),
-};
-foreach (var tfm in fallbackLocalTfms)
-{
-    testDepCandidates.Add(Path.Combine(repositoryRoot, "src", "TestDep", "bin", "Debug", tfm, "TestDep.dll"));
-    testDepCandidates.Add(Path.Combine(repositoryRoot, "src", "TestDep", "bin", "Debug", tfm, tfm, "TestDep.dll"));
-}
-
-var testDepPath = ResolveAndCopyLocalDependency(
-    "TestDep.dll",
-    path => IsAssemblyCompatibleWithTargetFramework(path, version.Moniker),
-    testDepCandidates.ToArray());
-
 var ravenCodeAnalysisCandidates = new List<string>
 {
     Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", preferredCoreTfm, "Raven.CodeAnalysis.dll"),
@@ -853,15 +835,6 @@ else
 if (!string.IsNullOrWhiteSpace(ravenCorePath))
 {
     project = project.AddMetadataReference(MetadataReference.CreateFromFile(ravenCorePath));
-}
-
-if (!string.IsNullOrWhiteSpace(testDepPath))
-{
-    project = project.AddMetadataReference(MetadataReference.CreateFromFile(testDepPath));
-}
-else
-{
-    AnsiConsole.MarkupLine("[yellow]Warning: Could not locate TestDep.dll; compilation may fail unless you pass --refs.[/]");
 }
 
 if (!string.IsNullOrWhiteSpace(ravenCodeAnalysisPath))

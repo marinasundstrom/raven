@@ -35,7 +35,7 @@
     "commands": [
       {
         "command": "raven.debug.compileAndDebug",
-        "title": "Raven: Compile and Debug Active File"
+        "title": "Raven: Compile and Debug"
       },
       {
         "command": "raven.build.activeTarget",

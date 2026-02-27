@@ -8,6 +8,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-lan
 let client: LanguageClient | undefined;
 const execFileAsync = promisify(execFile);
 const output = vscode.window.createOutputChannel('Raven');
+let extensionInstallPath = '';
 
 function resolveServerPath(context: vscode.ExtensionContext, output: vscode.OutputChannel): string {
   const configuration = vscode.workspace.getConfiguration('raven');
@@ -69,19 +70,40 @@ function resolveCompilerProjectPath(): string | undefined {
     return fs.existsSync(absolutePath) ? absolutePath : undefined;
   }
 
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspaceFolder) {
+  const searchRoots = new Set<string>();
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    searchRoots.add(folder.uri.fsPath);
+  }
+  if (extensionInstallPath.length > 0) {
+    searchRoots.add(extensionInstallPath);
+  }
+  searchRoots.add(process.cwd());
+
+  for (const root of searchRoots) {
+    for (const dir of enumerateAncestorDirectories(root)) {
+      const candidate = path.join(dir, 'src', 'Raven.Compiler', 'Raven.Compiler.csproj');
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function resolveTargetFramework(targetPath: string): string | undefined {
+  const configuration = vscode.workspace.getConfiguration('raven');
+  const configuredFramework = configuration.get<string>('targetFramework')?.trim();
+  if (configuredFramework && configuredFramework.length > 0) {
+    return configuredFramework;
+  }
+
+  const projectFilePath = resolveOwningProjectPath(targetPath);
+  if (!projectFilePath) {
     return undefined;
   }
 
-  const defaultPath = path.join(workspaceFolder, 'src', 'Raven.Compiler', 'Raven.Compiler.csproj');
-  return fs.existsSync(defaultPath) ? defaultPath : undefined;
-}
-
-function resolveTargetFramework(): string | undefined {
-  const configuration = vscode.workspace.getConfiguration('raven');
-  const configuredFramework = configuration.get<string>('targetFramework')?.trim();
-  return configuredFramework && configuredFramework.length > 0 ? configuredFramework : undefined;
+  return getProjectTargetFramework(projectFilePath);
 }
 
 function isRavenFile(filePath: string): boolean {
@@ -115,6 +137,104 @@ function getProjectAssemblyName(projectFilePath: string): string {
   return assemblyNameMatch?.[1]?.trim() || outputAttributeMatch?.[1]?.trim() || fallback;
 }
 
+function getProjectTargetFramework(projectFilePath: string): string | undefined {
+  try {
+    const xml = fs.readFileSync(projectFilePath, 'utf8');
+    const attributeMatch = xml.match(/\bTargetFramework\s*=\s*"([^"]+)"/i);
+    if (attributeMatch?.[1]?.trim()) {
+      return attributeMatch[1].trim();
+    }
+
+    const elementMatch = xml.match(/<TargetFramework>\s*([^<]+)\s*<\/TargetFramework>/i);
+    if (elementMatch?.[1]?.trim()) {
+      return elementMatch[1].trim();
+    }
+  } catch {
+    // Ignore read/parse issues and fall back to defaults.
+  }
+
+  return undefined;
+}
+
+function resolveOwningProjectPath(targetPath: string): string | undefined {
+  if (path.extname(targetPath).toLowerCase() === '.ravenproj') {
+    return fs.existsSync(targetPath) ? targetPath : undefined;
+  }
+
+  const workspaceBoundary = resolveWorkspaceBoundary(targetPath);
+  for (const directory of enumerateAncestorDirectories(path.dirname(targetPath), workspaceBoundary)) {
+    const candidates = findRavenProjectsInDirectory(directory);
+    if (candidates.length === 0) {
+      continue;
+    }
+
+    if (candidates.length === 1) {
+      return candidates[0];
+    }
+
+    const directoryName = path.basename(directory).toLowerCase();
+    const preferred = candidates.find(candidate =>
+      path.basename(candidate, path.extname(candidate)).toLowerCase() === directoryName
+    );
+    return preferred ?? candidates[0];
+  }
+
+  return undefined;
+}
+
+function findRavenProjectsInDirectory(directory: string): string[] {
+  try {
+    return fs
+      .readdirSync(directory)
+      .filter(entry => path.extname(entry).toLowerCase() === '.ravenproj')
+      .map(entry => path.join(directory, entry))
+      .sort((left, right) => left.localeCompare(right));
+  } catch {
+    return [];
+  }
+}
+
+function* enumerateAncestorDirectories(startPath: string, stopDirectory?: string): Generator<string> {
+  let current = path.resolve(startPath);
+  const stop = stopDirectory ? path.resolve(stopDirectory) : undefined;
+  while (true) {
+    yield current;
+    if (stop && current.toLowerCase() === stop.toLowerCase()) {
+      break;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+
+    current = parent;
+  }
+}
+
+function resolveWorkspaceBoundary(targetPath: string): string | undefined {
+  const targetDirectory = path.dirname(path.resolve(targetPath));
+  const containingWorkspace = vscode.workspace.workspaceFolders
+    ?.map(folder => folder.uri.fsPath)
+    .find(folderPath => isWithinDirectory(targetDirectory, folderPath));
+
+  return containingWorkspace;
+}
+
+function isWithinDirectory(candidatePath: string, directoryPath: string): boolean {
+  const normalizedCandidate = path.resolve(candidatePath);
+  const normalizedDirectory = path.resolve(directoryPath);
+
+  if (normalizedCandidate.toLowerCase() === normalizedDirectory.toLowerCase()) {
+    return true;
+  }
+
+  const prefix = normalizedDirectory.endsWith(path.sep)
+    ? normalizedDirectory
+    : `${normalizedDirectory}${path.sep}`;
+  return normalizedCandidate.toLowerCase().startsWith(prefix.toLowerCase());
+}
+
 async function compileForDebug(targetPath: string): Promise<{ outputDllPath: string; cwd: string }> {
   const compilerProjectPath = resolveCompilerProjectPath();
   if (!compilerProjectPath) {
@@ -123,18 +243,23 @@ async function compileForDebug(targetPath: string): Promise<{ outputDllPath: str
     );
   }
 
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? path.dirname(targetPath);
+  const effectiveTargetPath = resolveEffectiveTargetPath(targetPath);
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? path.dirname(effectiveTargetPath);
   const debugOutputDirectory = path.join(workspaceFolder, '.raven-debug');
   fs.mkdirSync(debugOutputDirectory, { recursive: true });
-  const targetFramework = resolveTargetFramework();
+  const targetFramework = resolveTargetFramework(effectiveTargetPath);
 
-  const targetIsProject = path.extname(targetPath).toLowerCase() === '.ravenproj';
+  const targetIsProject = path.extname(effectiveTargetPath).toLowerCase() === '.ravenproj';
+  const targetDirectory = path.dirname(effectiveTargetPath);
   const outputArg = targetIsProject
-    ? debugOutputDirectory
+    ? path.join(targetDirectory, 'bin', 'Debug')
     : path.join(
       debugOutputDirectory,
-      `${path.basename(targetPath, path.extname(targetPath))}.dll`
+      `${path.basename(effectiveTargetPath, path.extname(effectiveTargetPath))}.dll`
     );
+  if (targetIsProject) {
+    fs.mkdirSync(outputArg, { recursive: true });
+  }
 
   const dotnetArgs = [
     'run',
@@ -144,7 +269,7 @@ async function compileForDebug(targetPath: string): Promise<{ outputDllPath: str
     '--property',
     'WarningLevel=0',
     '--',
-    targetPath,
+    effectiveTargetPath,
     ...(!targetIsProject ? ['--publish'] : []),
     '-o',
     outputArg,
@@ -173,14 +298,29 @@ async function compileForDebug(targetPath: string): Promise<{ outputDllPath: str
   }
 
   const outputDllPath = targetIsProject
-    ? path.join(debugOutputDirectory, `${getProjectAssemblyName(targetPath)}.dll`)
+    ? path.join(outputArg, `${getProjectAssemblyName(effectiveTargetPath)}.dll`)
     : outputArg;
 
   if (!fs.existsSync(outputDllPath)) {
     throw new Error(`Compiled assembly not found at '${outputDllPath}'.`);
   }
 
-  return { outputDllPath, cwd: path.dirname(targetPath) };
+  return { outputDllPath, cwd: path.dirname(effectiveTargetPath) };
+}
+
+function resolveLaunchProgram(outputDllPath: string): { program: string; args: string[] } {
+  const siblingExecutable = outputDllPath.slice(0, -path.extname(outputDllPath).length);
+  if (fs.existsSync(siblingExecutable)) {
+    return {
+      program: siblingExecutable,
+      args: []
+    };
+  }
+
+  return {
+    program: 'dotnet',
+    args: [outputDllPath]
+  };
 }
 
 async function buildTarget(targetPath: string): Promise<{ outputPath: string; cwd: string }> {
@@ -191,17 +331,19 @@ async function buildTarget(targetPath: string): Promise<{ outputPath: string; cw
     );
   }
 
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? path.dirname(targetPath);
+  const effectiveTargetPath = resolveEffectiveTargetPath(targetPath);
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? path.dirname(effectiveTargetPath);
   const buildOutputDirectory = path.join(workspaceFolder, '.raven-build');
   fs.mkdirSync(buildOutputDirectory, { recursive: true });
-  const targetFramework = resolveTargetFramework();
+  const targetFramework = resolveTargetFramework(effectiveTargetPath);
 
-  const targetIsProject = path.extname(targetPath).toLowerCase() === '.ravenproj';
+  const targetIsProject = path.extname(effectiveTargetPath).toLowerCase() === '.ravenproj';
+  const targetDirectory = path.dirname(effectiveTargetPath);
   const outputArg = targetIsProject
-    ? path.join(buildOutputDirectory, path.basename(targetPath, path.extname(targetPath)))
+    ? path.join(targetDirectory, 'bin', 'Debug')
     : path.join(
       buildOutputDirectory,
-      `${path.basename(targetPath, path.extname(targetPath))}.dll`
+      `${path.basename(effectiveTargetPath, path.extname(effectiveTargetPath))}.dll`
     );
 
   fs.mkdirSync(path.dirname(outputArg), { recursive: true });
@@ -214,7 +356,7 @@ async function buildTarget(targetPath: string): Promise<{ outputPath: string; cw
     '--property',
     'WarningLevel=0',
     '--',
-    targetPath,
+    effectiveTargetPath,
     '-o',
     outputArg,
     ...(targetFramework ? ['--framework', targetFramework] : [])
@@ -242,10 +384,10 @@ async function buildTarget(targetPath: string): Promise<{ outputPath: string; cw
   }
 
   const outputPath = targetIsProject
-    ? path.join(outputArg, `${getProjectAssemblyName(targetPath)}.dll`)
+    ? path.join(outputArg, `${getProjectAssemblyName(effectiveTargetPath)}.dll`)
     : outputArg;
 
-  return { outputPath, cwd: path.dirname(targetPath) };
+  return { outputPath, cwd: path.dirname(effectiveTargetPath) };
 }
 
 function resolveCommandTarget(uri?: vscode.Uri): string | undefined {
@@ -260,6 +402,10 @@ function resolveCommandTarget(uri?: vscode.Uri): string | undefined {
   }
 
   return undefined;
+}
+
+function resolveEffectiveTargetPath(targetPath: string): string {
+  return resolveOwningProjectPath(targetPath) ?? targetPath;
 }
 
 class RavenDebugConfigurationProvider implements vscode.DebugConfigurationProvider {
@@ -287,19 +433,22 @@ class RavenDebugConfigurationProvider implements vscode.DebugConfigurationProvid
     return vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: `Compiling ${path.basename(targetPath)}`
+        title: `Compiling ${path.basename(resolveEffectiveTargetPath(targetPath))}`
       },
       async () => {
         const { outputDllPath, cwd } = await compileForDebug(targetPath);
+        const launch = resolveLaunchProgram(outputDllPath);
         return {
           name: config.name ?? 'Raven: Compile and Debug',
           type: 'coreclr',
           request: 'launch',
-          program: 'dotnet',
-          args: [outputDllPath],
+          program: launch.program,
+          args: launch.args,
           cwd,
           console: 'integratedTerminal',
-          stopAtEntry: false
+          stopAtEntry: false,
+          justMyCode: false,
+          requireExactSource: false
         };
       }
     );
@@ -307,6 +456,7 @@ class RavenDebugConfigurationProvider implements vscode.DebugConfigurationProvid
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  extensionInstallPath = context.extensionPath;
   output.appendLine('Activating Raven VS Code extension...');
 
   let serverPath: string;
@@ -378,12 +528,13 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.window.showErrorMessage('No active Raven file to debug.');
         return;
       }
+      const effectiveTarget = resolveEffectiveTargetPath(target);
 
       await vscode.debug.startDebugging(undefined, {
         type: 'raven',
         request: 'launch',
         name: 'Raven: Compile and Debug',
-        target
+        target: effectiveTarget
       });
     })
   );
