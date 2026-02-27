@@ -1,7 +1,9 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -104,5 +106,36 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
                 SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers);
 
         Assert.Equal("@match.@class.@int", symbol.ToDisplayString(format));
+    }
+
+    [Fact]
+    public void ToDisplayString_WithEscapeKeywordOption_DoesNotEscapeConstructorDisplayName()
+    {
+        var source = """
+            class Person {
+                init(name: string) {}
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+
+        var constructor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
+        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(constructor)!;
+
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat
+            .WithDelegateStyle(SymbolDisplayDelegateStyle.NameAndSignature)
+            .WithMemberOptions(
+                SymbolDisplayMemberOptions.IncludeType |
+                SymbolDisplayMemberOptions.IncludeParameters)
+            .WithParameterOptions(
+                SymbolDisplayParameterOptions.IncludeType |
+                SymbolDisplayParameterOptions.IncludeName)
+            .WithMiscellaneousOptions(
+                SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers);
+
+        Assert.Equal("init(name: string) -> ()", symbol.ToDisplayString(format));
     }
 }

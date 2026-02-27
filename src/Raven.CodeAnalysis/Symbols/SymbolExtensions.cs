@@ -343,8 +343,15 @@ public static partial class SymbolExtensions
 
         // Symbol name
         var symbolName = GetDisplayName(symbol);
+        var shouldEscapeSymbolName = symbol is not IMethodSymbol
+            {
+                IsConstructor: true,
+                MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor
+            };
 
-        result.Append(EscapeIdentifierIfNeeded(symbolName, format));
+        result.Append(shouldEscapeSymbolName
+            ? EscapeIdentifierIfNeeded(symbolName, format)
+            : symbolName);
 
         if (symbol is INamedTypeSymbol typeSymbol2)
         {
