@@ -57,14 +57,26 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         MoveNextMethod = CreateMoveNextMethod(compilation, iteratorMethod);
 
         CurrentProperty = CreateCurrentProperty(compilation, iteratorMethod, elementType);
-        NonGenericCurrentProperty = CreateNonGenericCurrentProperty(compilation, iteratorMethod);
-        DisposeMethod = CreateDisposeMethod(compilation, iteratorMethod);
-        ResetMethod = CreateResetMethod(compilation, iteratorMethod);
+        if (IsAsyncIteratorKind(iteratorKind))
+        {
+            AsyncMoveNextMethod = CreateAsyncMoveNextMethod(compilation, iteratorMethod);
+            AsyncDisposeMethod = CreateAsyncDisposeMethod(compilation, iteratorMethod);
+        }
+        else
+        {
+            NonGenericCurrentProperty = CreateNonGenericCurrentProperty(compilation, iteratorMethod);
+            DisposeMethod = CreateDisposeMethod(compilation, iteratorMethod);
+            ResetMethod = CreateResetMethod(compilation, iteratorMethod);
+        }
 
         if (iteratorKind == IteratorMethodKind.Enumerable)
         {
             GenericGetEnumeratorMethod = CreateGetEnumeratorMethod(compilation, iteratorMethod, elementType);
             NonGenericGetEnumeratorMethod = CreateNonGenericGetEnumeratorMethod(compilation, iteratorMethod);
+        }
+        else if (iteratorKind == IteratorMethodKind.AsyncEnumerable)
+        {
+            AsyncGetEnumeratorMethod = CreateAsyncGetEnumeratorMethod(compilation, iteratorMethod, elementType);
         }
 
         SetInterfaces(CreateInterfaceList(compilation, iteratorKind, elementType));
@@ -102,23 +114,35 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
 
     public BoundBlockStatement? DisposeBody { get; private set; }
 
+    public BoundBlockStatement? AsyncDisposeBody { get; private set; }
+
     public BoundBlockStatement? ResetBody { get; private set; }
 
     public BoundBlockStatement? GenericGetEnumeratorBody { get; private set; }
 
     public BoundBlockStatement? NonGenericGetEnumeratorBody { get; private set; }
 
+    public BoundBlockStatement? AsyncMoveNextBody { get; private set; }
+
+    public BoundBlockStatement? AsyncGetEnumeratorBody { get; private set; }
+
     public SourcePropertySymbol CurrentProperty { get; }
 
-    public SourcePropertySymbol NonGenericCurrentProperty { get; }
+    public SourcePropertySymbol? NonGenericCurrentProperty { get; }
 
-    public SourceMethodSymbol DisposeMethod { get; }
+    public SourceMethodSymbol? DisposeMethod { get; }
 
-    public SourceMethodSymbol ResetMethod { get; }
+    public SourceMethodSymbol? ResetMethod { get; }
 
     public SourceMethodSymbol? GenericGetEnumeratorMethod { get; }
 
     public SourceMethodSymbol? NonGenericGetEnumeratorMethod { get; }
+
+    public SourceMethodSymbol? AsyncMoveNextMethod { get; }
+
+    public SourceMethodSymbol? AsyncDisposeMethod { get; }
+
+    public SourceMethodSymbol? AsyncGetEnumeratorMethod { get; }
 
     public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type)
     {
@@ -176,6 +200,17 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         DisposeBody = body;
     }
 
+    public void SetAsyncDisposeBody(BoundBlockStatement body)
+    {
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        if (AsyncDisposeBody is not null && !ReferenceEquals(AsyncDisposeBody, body))
+            throw new InvalidOperationException("Async dispose body already assigned.");
+
+        AsyncDisposeBody = body;
+    }
+
     public void SetResetBody(BoundBlockStatement body)
     {
         if (body is null)
@@ -207,6 +242,28 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
             throw new InvalidOperationException("Non-generic GetEnumerator body already assigned.");
 
         NonGenericGetEnumeratorBody = body;
+    }
+
+    public void SetAsyncMoveNextBody(BoundBlockStatement body)
+    {
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        if (AsyncMoveNextBody is not null && !ReferenceEquals(AsyncMoveNextBody, body))
+            throw new InvalidOperationException("Async MoveNext body already assigned.");
+
+        AsyncMoveNextBody = body;
+    }
+
+    public void SetAsyncGetEnumeratorBody(BoundBlockStatement body)
+    {
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        if (AsyncGetEnumeratorBody is not null && !ReferenceEquals(AsyncGetEnumeratorBody, body))
+            throw new InvalidOperationException("Async GetAsyncEnumerator body already assigned.");
+
+        AsyncGetEnumeratorBody = body;
     }
 
     private ImmutableArray<SourceFieldSymbol> CreateParameterFields(
@@ -282,6 +339,71 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
             isStatic: false,
             methodKind: MethodKind.Ordinary,
             declaredAccessibility: Accessibility.Public);
+    }
+
+    private SourceMethodSymbol CreateAsyncMoveNextMethod(Compilation compilation, SourceMethodSymbol iteratorMethod)
+    {
+        var valueTaskBool = compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask`1") as INamedTypeSymbol
+            ?? compilation.ErrorTypeSymbol;
+        var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
+        var returnType = valueTaskBool is INamedTypeSymbol valueTaskBoolNamed
+            ? valueTaskBoolNamed.Construct(boolType)
+            : compilation.ErrorTypeSymbol;
+
+        var method = new SourceMethodSymbol(
+            "MoveNextAsync",
+            returnType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            this,
+            this,
+            iteratorMethod.ContainingNamespace,
+            s_emptyLocations,
+            s_emptySyntax,
+            isStatic: false,
+            methodKind: MethodKind.ExplicitInterfaceImplementation,
+            declaredAccessibility: Accessibility.Private);
+
+        var asyncEnumerator = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerator`1") as INamedTypeSymbol;
+        var interfaceMethod = asyncEnumerator?
+            .Construct(ElementType)
+            .GetMembers("MoveNextAsync")
+            .OfType<IMethodSymbol>()
+            .SingleOrDefault(m => !m.IsStatic && m.Parameters.Length == 0);
+
+        if (interfaceMethod is not null)
+            method.SetExplicitInterfaceImplementations(ImmutableArray.Create(interfaceMethod));
+
+        return method;
+    }
+
+    private SourceMethodSymbol CreateAsyncDisposeMethod(Compilation compilation, SourceMethodSymbol iteratorMethod)
+    {
+        var valueTaskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask") as INamedTypeSymbol
+            ?? compilation.ErrorTypeSymbol;
+
+        var method = new SourceMethodSymbol(
+            "DisposeAsync",
+            valueTaskType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            this,
+            this,
+            iteratorMethod.ContainingNamespace,
+            s_emptyLocations,
+            s_emptySyntax,
+            isStatic: false,
+            methodKind: MethodKind.ExplicitInterfaceImplementation,
+            declaredAccessibility: Accessibility.Private);
+
+        var asyncDisposable = compilation.GetTypeByMetadataName("System.IAsyncDisposable") as INamedTypeSymbol;
+        var interfaceMethod = asyncDisposable?
+            .GetMembers("DisposeAsync")
+            .OfType<IMethodSymbol>()
+            .SingleOrDefault(m => !m.IsStatic && m.Parameters.Length == 0);
+
+        if (interfaceMethod is not null)
+            method.SetExplicitInterfaceImplementations(ImmutableArray.Create(interfaceMethod));
+
+        return method;
     }
 
     private SourcePropertySymbol CreateCurrentProperty(
@@ -452,6 +574,43 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         return method;
     }
 
+    private SourceMethodSymbol CreateAsyncGetEnumeratorMethod(
+        Compilation compilation,
+        SourceMethodSymbol iteratorMethod,
+        ITypeSymbol elementType)
+    {
+        var asyncEnumeratorDefinition = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerator`1") as INamedTypeSymbol
+            ?? compilation.ErrorTypeSymbol;
+        var asyncEnumeratorType = asyncEnumeratorDefinition is INamedTypeSymbol asyncEnumeratorNamed
+            ? asyncEnumeratorNamed.Construct(elementType)
+            : compilation.ErrorTypeSymbol;
+
+        var method = new SourceMethodSymbol(
+            "GetAsyncEnumerator",
+            asyncEnumeratorType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            this,
+            this,
+            iteratorMethod.ContainingNamespace,
+            s_emptyLocations,
+            s_emptySyntax,
+            isStatic: false,
+            methodKind: MethodKind.ExplicitInterfaceImplementation,
+            declaredAccessibility: Accessibility.Private);
+
+        var asyncEnumerable = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1") as INamedTypeSymbol;
+        var interfaceMethod = asyncEnumerable?
+            .Construct(elementType)
+            .GetMembers("GetAsyncEnumerator")
+            .OfType<IMethodSymbol>()
+            .SingleOrDefault(m => !m.IsStatic && m.Parameters.Length == 0);
+
+        if (interfaceMethod is not null)
+            method.SetExplicitInterfaceImplementations(ImmutableArray.Create(interfaceMethod));
+
+        return method;
+    }
+
     private static ImmutableArray<INamedTypeSymbol> CreateInterfaceList(
         Compilation compilation,
         IteratorMethodKind iteratorKind,
@@ -459,25 +618,48 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     {
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
 
-        var enumerator = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerator);
-        builder.Add(enumerator);
-
-        var enumeratorGeneric = (INamedTypeSymbol)compilation
-            .GetSpecialType(SpecialType.System_Collections_Generic_IEnumerator_T)
-            .Construct(elementType);
-        builder.Add(enumeratorGeneric);
-
-        if (iteratorKind == IteratorMethodKind.Enumerable)
+        if (iteratorKind is IteratorMethodKind.Enumerable or IteratorMethodKind.Enumerator)
         {
-            var enumerable = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerable);
-            builder.Add(enumerable);
+            var enumerator = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerator);
+            builder.Add(enumerator);
 
-            var enumerableGeneric = (INamedTypeSymbol)compilation
-                .GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T)
+            var enumeratorGeneric = (INamedTypeSymbol)compilation
+                .GetSpecialType(SpecialType.System_Collections_Generic_IEnumerator_T)
                 .Construct(elementType);
-            builder.Add(enumerableGeneric);
+            builder.Add(enumeratorGeneric);
+
+            if (iteratorKind == IteratorMethodKind.Enumerable)
+            {
+                var enumerable = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerable);
+                builder.Add(enumerable);
+
+                var enumerableGeneric = (INamedTypeSymbol)compilation
+                    .GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T)
+                    .Construct(elementType);
+                builder.Add(enumerableGeneric);
+            }
+        }
+        else if (iteratorKind is IteratorMethodKind.AsyncEnumerable or IteratorMethodKind.AsyncEnumerator)
+        {
+            var asyncEnumeratorDefinition = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerator`1") as INamedTypeSymbol;
+            if (asyncEnumeratorDefinition is not null)
+                builder.Add((INamedTypeSymbol)asyncEnumeratorDefinition.Construct(elementType));
+
+            var asyncDisposable = compilation.GetTypeByMetadataName("System.IAsyncDisposable") as INamedTypeSymbol;
+            if (asyncDisposable is not null)
+                builder.Add(asyncDisposable);
+
+            if (iteratorKind == IteratorMethodKind.AsyncEnumerable)
+            {
+                var asyncEnumerableDefinition = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1") as INamedTypeSymbol;
+                if (asyncEnumerableDefinition is not null)
+                    builder.Add((INamedTypeSymbol)asyncEnumerableDefinition.Construct(elementType));
+            }
         }
 
         return builder.ToImmutable();
     }
+
+    private static bool IsAsyncIteratorKind(IteratorMethodKind kind)
+        => kind is IteratorMethodKind.AsyncEnumerable or IteratorMethodKind.AsyncEnumerator;
 }

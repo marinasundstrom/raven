@@ -1138,6 +1138,26 @@ partial class BlockBinder
                IsInNamespace(definition.ContainingNamespace, "System.Collections.Generic");
     }
 
+    private static bool IsGenericIAsyncEnumerableType(INamedTypeSymbol type)
+    {
+        var definition = type.OriginalDefinition as INamedTypeSymbol
+            ?? type.ConstructedFrom as INamedTypeSymbol
+            ?? type;
+
+        return definition.MetadataName == "IAsyncEnumerable`1" &&
+               IsInNamespace(definition.ContainingNamespace, "System.Collections.Generic");
+    }
+
+    private static bool IsGenericIAsyncEnumeratorType(INamedTypeSymbol type)
+    {
+        var definition = type.OriginalDefinition as INamedTypeSymbol
+            ?? type.ConstructedFrom as INamedTypeSymbol
+            ?? type;
+
+        return definition.MetadataName == "IAsyncEnumerator`1" &&
+               IsInNamespace(definition.ContainingNamespace, "System.Collections.Generic");
+    }
+
     private static bool IsInNamespace(INamespaceSymbol? namespaceSymbol, string qualifiedNamespace)
     {
         if (namespaceSymbol is null)
@@ -1762,6 +1782,18 @@ partial class BlockBinder
             {
                 var elementType = named.TypeArguments.Length > 0 ? named.TypeArguments[0] : errorType;
                 return (IteratorMethodKind.Enumerator, elementType);
+            }
+
+            if (IsGenericIAsyncEnumerableType(definition))
+            {
+                var elementType = named.TypeArguments.Length > 0 ? named.TypeArguments[0] : errorType;
+                return (IteratorMethodKind.AsyncEnumerable, elementType);
+            }
+
+            if (IsGenericIAsyncEnumeratorType(definition))
+            {
+                var elementType = named.TypeArguments.Length > 0 ? named.TypeArguments[0] : errorType;
+                return (IteratorMethodKind.AsyncEnumerator, elementType);
             }
         }
 

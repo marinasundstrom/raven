@@ -350,6 +350,21 @@ return ()
     }
 
     [Fact]
+    public void AsyncFunction_WithIAsyncEnumerableReturnType_IsAccepted()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+async func Stream() -> IAsyncEnumerable<int> {
+    yield return 1
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike);
+    }
+
+    [Fact]
     public void AsyncPropertyGetter_WithNonTaskType_ReportsDiagnostic()
     {
         const string source = """

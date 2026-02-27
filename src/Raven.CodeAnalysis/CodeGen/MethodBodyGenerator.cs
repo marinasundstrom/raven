@@ -1353,16 +1353,23 @@ internal class MethodBodyGenerator
         if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.MoveNextMethod))
             return iteratorType.MoveNextBody;
 
-        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.DisposeMethod))
+        if (iteratorType.DisposeMethod is not null &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.DisposeMethod))
             return iteratorType.DisposeBody;
 
-        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.ResetMethod))
+        if (iteratorType.AsyncDisposeMethod is not null &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.AsyncDisposeMethod))
+            return iteratorType.AsyncDisposeBody;
+
+        if (iteratorType.ResetMethod is not null &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.ResetMethod))
             return iteratorType.ResetBody;
 
         if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.CurrentProperty.GetMethod))
             return iteratorType.CurrentGetterBody;
 
-        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.NonGenericCurrentProperty.GetMethod))
+        if (iteratorType.NonGenericCurrentProperty?.GetMethod is not null &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.NonGenericCurrentProperty.GetMethod))
             return iteratorType.NonGenericCurrentGetterBody;
 
         if (iteratorType.GenericGetEnumeratorMethod is not null &&
@@ -1372,6 +1379,14 @@ internal class MethodBodyGenerator
         if (iteratorType.NonGenericGetEnumeratorMethod is not null &&
             SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.NonGenericGetEnumeratorMethod))
             return iteratorType.NonGenericGetEnumeratorBody;
+
+        if (iteratorType.AsyncMoveNextMethod is not null &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.AsyncMoveNextMethod))
+            return iteratorType.AsyncMoveNextBody;
+
+        if (iteratorType.AsyncGetEnumeratorMethod is not null &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.AsyncGetEnumeratorMethod))
+            return iteratorType.AsyncGetEnumeratorBody;
 
         return null;
     }

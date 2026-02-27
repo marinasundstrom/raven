@@ -283,7 +283,7 @@ internal static class AsyncLowerer
         if (block is null)
             return false;
 
-        bool Contains(BoundStatement statement)
+        static bool Contains(BoundStatement statement)
         {
             switch (statement)
             {
@@ -675,7 +675,7 @@ internal static class AsyncLowerer
         if (body is null)
             throw new ArgumentNullException(nameof(body));
 
-        return method.IsAsync;
+        return method.IsAsync && !method.IsIterator;
     }
 
     public static bool ShouldRewrite(SourceLambdaSymbol lambda, BoundBlockStatement body)

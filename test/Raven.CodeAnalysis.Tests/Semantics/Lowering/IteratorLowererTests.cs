@@ -121,6 +121,61 @@ class C {
     }
 
     [Fact]
+    public void Rewrite_AttachesAsyncIteratorStateMachineMetadata()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+class C {
+    async func Iterator(count: int) -> IAsyncEnumerable<int> {
+        yield return count
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var methodSyntax = root
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        _ = IteratorLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedIteratorTypeSymbol>(methodSymbol.IteratorStateMachine);
+        Assert.True(methodSymbol.IsIterator);
+        Assert.Equal(IteratorMethodKind.AsyncEnumerable, methodSymbol.IteratorKind);
+        Assert.NotNull(stateMachine.AsyncMoveNextMethod);
+        Assert.NotNull(stateMachine.AsyncDisposeMethod);
+        Assert.NotNull(stateMachine.AsyncGetEnumeratorMethod);
+        Assert.Null(stateMachine.GenericGetEnumeratorMethod);
+        Assert.Null(stateMachine.NonGenericGetEnumeratorMethod);
+        Assert.Null(stateMachine.DisposeMethod);
+        Assert.Null(stateMachine.ResetMethod);
+
+        var asyncEnumerableDefinition = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1");
+        var asyncEnumeratorDefinition = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerator`1");
+        Assert.NotNull(asyncEnumerableDefinition);
+        Assert.NotNull(asyncEnumeratorDefinition);
+
+        Assert.Contains(
+            (INamedTypeSymbol)asyncEnumerableDefinition.Construct(stateMachine.ElementType),
+            stateMachine.Interfaces,
+            SymbolEqualityComparer.Default);
+        Assert.Contains(
+            (INamedTypeSymbol)asyncEnumeratorDefinition.Construct(stateMachine.ElementType),
+            stateMachine.Interfaces,
+            SymbolEqualityComparer.Default);
+    }
+
+    [Fact]
     public void Rewrite_RewritesMethodBodyToInstantiateStateMachine()
     {
         const string source = """
@@ -621,7 +676,8 @@ class C {
         switch (root)
         {
             case BoundBlockStatement block:
-                foreach (var statement in block.Statements) {
+                foreach (var statement in block.Statements)
+                {
                     foreach (var descendant in FindDescendantStatements(statement))
                     {
                         yield return descendant;
@@ -654,7 +710,8 @@ class C {
                     yield return descendant;
                 }
 
-                foreach (var catchClause in tryStatement.CatchClauses) {
+                foreach (var catchClause in tryStatement.CatchClauses)
+                {
                     foreach (var descendant in FindDescendantStatements(catchClause.Block))
                     {
                         yield return descendant;

@@ -110,6 +110,26 @@ internal static class IteratorLowerer
         return new BoundBlockStatement(statements);
     }
 
+    private static BoundBlockStatement CreateAsyncDisposeBody(SynthesizedIteratorTypeSymbol stateMachine)
+    {
+        var statements = new List<BoundStatement>();
+
+        var literal = new BoundLiteralExpression(
+            BoundLiteralExpressionKind.NumericLiteral,
+            -1,
+            stateMachine.StateField.Type);
+        var assignment = new BoundFieldAssignmentExpression(
+            null,
+            stateMachine.StateField,
+            literal,
+            stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit));
+        statements.Add(new BoundAssignmentStatement(assignment));
+
+        var returnValue = new BoundDefaultValueExpression(stateMachine.AsyncDisposeMethod!.ReturnType);
+        statements.Add(new BoundReturnStatement(returnValue));
+        return new BoundBlockStatement(statements);
+    }
+
     private static BoundBlockStatement CreateResetBody(
         Compilation compilation,
         SynthesizedIteratorTypeSymbol stateMachine)
@@ -178,6 +198,67 @@ internal static class IteratorLowerer
         return new BoundBlockStatement(new[] { returnStatement });
     }
 
+    private static BoundBlockStatement CreateAsyncMoveNextBody(
+        Compilation compilation,
+        SynthesizedIteratorTypeSymbol stateMachine)
+    {
+        var method = stateMachine.AsyncMoveNextMethod!;
+        var moveNextInvocation = new BoundInvocationExpression(
+            stateMachine.MoveNextMethod,
+            Array.Empty<BoundExpression>(),
+            receiver: new BoundSelfExpression(stateMachine));
+
+        BoundExpression result = moveNextInvocation;
+        if (method.ReturnType is INamedTypeSymbol valueTaskOfBoolType)
+        {
+            var constructor = valueTaskOfBoolType.Constructors
+                .FirstOrDefault(candidate =>
+                    !candidate.IsStatic &&
+                    candidate.Parameters.Length == 1 &&
+                    candidate.Parameters[0].Type.SpecialType == SpecialType.System_Boolean);
+
+            if (constructor is not null)
+            {
+                result = new BoundObjectCreationExpression(constructor, new[] { moveNextInvocation });
+            }
+            else
+            {
+                result = ConvertIfNeeded(compilation, result, method.ReturnType);
+            }
+        }
+        else
+        {
+            result = ConvertIfNeeded(compilation, result, method.ReturnType);
+        }
+
+        return new BoundBlockStatement(new[] { new BoundReturnStatement(result) });
+    }
+
+    private static BoundBlockStatement CreateAsyncGetEnumeratorBody(
+        Compilation compilation,
+        SynthesizedIteratorTypeSymbol stateMachine)
+    {
+        var statements = new List<BoundStatement>();
+
+        var literal = new BoundLiteralExpression(
+            BoundLiteralExpressionKind.NumericLiteral,
+            0,
+            stateMachine.StateField.Type);
+        var assignment = new BoundFieldAssignmentExpression(
+            null,
+            stateMachine.StateField,
+            literal,
+            compilation.GetSpecialType(SpecialType.System_Unit));
+        statements.Add(new BoundAssignmentStatement(assignment));
+
+        BoundExpression result = new BoundSelfExpression(stateMachine);
+        var method = stateMachine.AsyncGetEnumeratorMethod!;
+        result = ConvertIfNeeded(compilation, result, method.ReturnType);
+        statements.Add(new BoundReturnStatement(result));
+
+        return new BoundBlockStatement(statements);
+    }
+
     private static void EnsureIteratorHelpers(Compilation compilation, SynthesizedIteratorTypeSymbol stateMachine)
     {
         if (stateMachine.CurrentGetterBody is null)
@@ -192,13 +273,19 @@ internal static class IteratorLowerer
             stateMachine.SetNonGenericCurrentGetterBody(body);
         }
 
-        if (stateMachine.DisposeBody is null)
+        if (stateMachine.DisposeMethod is not null && stateMachine.DisposeBody is null)
         {
             var body = CreateDisposeBody(stateMachine);
             stateMachine.SetDisposeBody(body);
         }
 
-        if (stateMachine.ResetBody is null)
+        if (stateMachine.AsyncDisposeMethod is not null && stateMachine.AsyncDisposeBody is null)
+        {
+            var body = CreateAsyncDisposeBody(stateMachine);
+            stateMachine.SetAsyncDisposeBody(body);
+        }
+
+        if (stateMachine.ResetMethod is not null && stateMachine.ResetBody is null)
         {
             var body = CreateResetBody(compilation, stateMachine);
             stateMachine.SetResetBody(body);
@@ -214,6 +301,18 @@ internal static class IteratorLowerer
         {
             var body = CreateNonGenericGetEnumeratorBody(compilation, stateMachine);
             stateMachine.SetNonGenericGetEnumeratorBody(body);
+        }
+
+        if (stateMachine.AsyncMoveNextMethod is not null && stateMachine.AsyncMoveNextBody is null)
+        {
+            var body = CreateAsyncMoveNextBody(compilation, stateMachine);
+            stateMachine.SetAsyncMoveNextBody(body);
+        }
+
+        if (stateMachine.AsyncGetEnumeratorMethod is not null && stateMachine.AsyncGetEnumeratorBody is null)
+        {
+            var body = CreateAsyncGetEnumeratorBody(compilation, stateMachine);
+            stateMachine.SetAsyncGetEnumeratorBody(body);
         }
     }
 
@@ -312,6 +411,8 @@ internal static class IteratorLowerer
         var enumeratorDefinition = compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerator_T);
         var enumerableType = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerable);
         var enumeratorType = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerator);
+        var asyncEnumerableMetadata = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1");
+        var asyncEnumeratorMetadata = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerator`1");
 
         if (returnType is INamedTypeSymbol named)
         {
@@ -331,6 +432,24 @@ internal static class IteratorLowerer
                     ? named.TypeArguments[0]
                     : compilation.GetSpecialType(SpecialType.System_Object);
                 return new IteratorSignature(IteratorMethodKind.Enumerator, element);
+            }
+
+            if (asyncEnumerableMetadata is INamedTypeSymbol asyncEnumerableDefinition &&
+                MatchesMetadata(definition, asyncEnumerableDefinition))
+            {
+                var element = named.TypeArguments.Length == 1
+                    ? named.TypeArguments[0]
+                    : compilation.GetSpecialType(SpecialType.System_Object);
+                return new IteratorSignature(IteratorMethodKind.AsyncEnumerable, element);
+            }
+
+            if (asyncEnumeratorMetadata is INamedTypeSymbol asyncEnumeratorDefinition &&
+                MatchesMetadata(definition, asyncEnumeratorDefinition))
+            {
+                var element = named.TypeArguments.Length == 1
+                    ? named.TypeArguments[0]
+                    : compilation.GetSpecialType(SpecialType.System_Object);
+                return new IteratorSignature(IteratorMethodKind.AsyncEnumerator, element);
             }
 
             if (MatchesMetadata(definition, enumerableType))

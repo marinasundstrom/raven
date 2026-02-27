@@ -324,7 +324,9 @@ public enum IteratorMethodKind
 {
     None,
     Enumerable,
-    Enumerator
+    Enumerator,
+    AsyncEnumerable,
+    AsyncEnumerator
 }
 
 public interface IParameterSymbol : ISymbol

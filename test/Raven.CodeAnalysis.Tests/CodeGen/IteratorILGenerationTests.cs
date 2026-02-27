@@ -11,6 +11,7 @@ using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests.CodeGen;
@@ -28,6 +29,16 @@ class C {
             yield return i
             i = i + 1
         }
+    }
+}
+""";
+
+    private const string AsyncIteratorCode = """
+import System.Collections.Generic.*
+
+class C {
+    async func Values() -> IAsyncEnumerable<int> {
+        yield return 42
     }
 }
 """;
@@ -205,6 +216,21 @@ class C {
             instruction => Assert.Equal(OpCodes.Ret, instruction.Opcode));
     }
 
+    [Fact]
+    public void AsyncMoveNextAsync_WrapsMoveNextResultInValueTaskOfBool()
+    {
+        var (_, instructions) = CaptureIteratorInstructions(
+            IteratorMethodNamed("MoveNextAsync"),
+            AsyncIteratorCode);
+
+        Assert.Contains(instructions, instruction =>
+            (instruction.Opcode == OpCodes.Call || instruction.Opcode == OpCodes.Callvirt) &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name == "MoveNext");
+        Assert.Contains(instructions, instruction => instruction.Opcode == OpCodes.Newobj && instruction.Operand.Value is ConstructorInfo ctor && ctor.DeclaringType?.Name.StartsWith("ValueTask", StringComparison.Ordinal) == true);
+        Assert.Equal(OpCodes.Ret, instructions[^1].Opcode);
+    }
+
     private static Func<MethodGenerator, bool> IteratorMethodNamed(string name)
     {
         return methodGenerator =>
@@ -212,9 +238,9 @@ class C {
             methodGenerator.MethodSymbol.ContainingType is SynthesizedIteratorTypeSymbol;
     }
 
-    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureIteratorInstructions(Func<MethodGenerator, bool> predicate)
+    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureIteratorInstructions(Func<MethodGenerator, bool> predicate, string source = IteratorCode)
     {
-        var syntaxTree = SyntaxTree.ParseText(IteratorCode);
+        var syntaxTree = SyntaxTree.ParseText(source);
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
 

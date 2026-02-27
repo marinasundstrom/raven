@@ -2045,6 +2045,32 @@ internal abstract partial class Binder
             return true;
         }
 
+        if (type is INamedTypeSymbol namedType)
+        {
+            var definition = namedType.OriginalDefinition as INamedTypeSymbol
+                ?? namedType.ConstructedFrom as INamedTypeSymbol
+                ?? namedType;
+
+            if ((definition.MetadataName == "IAsyncEnumerable`1" ||
+                 definition.MetadataName == "IAsyncEnumerator`1") &&
+                definition.ContainingNamespace is
+                {
+                    Name: "Generic",
+                    ContainingNamespace:
+                    {
+                        Name: "Collections",
+                        ContainingNamespace:
+                        {
+                            Name: "System",
+                            ContainingNamespace.IsGlobalNamespace: true
+                        }
+                    }
+                })
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 }

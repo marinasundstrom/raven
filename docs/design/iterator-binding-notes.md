@@ -4,7 +4,7 @@ This note documents the current state of iterator (`yield`) support in the binde
 
 ## Binder metadata
 
-* `BlockBinder.ResolveIteratorInfoForCurrentMethod` inspects the enclosing method's return type, recognizes the `IEnumerable<T>`, `IEnumerator<T>`, and non-generic iterator shapes, and calls `SourceMethodSymbol.MarkIterator` so the method is flagged as an iterator with a concrete element type. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L569-L618】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L149-L157】
+* `BlockBinder.ResolveIteratorInfoForCurrentMethod` inspects the enclosing method's return type, recognizes `IEnumerable<T>`, `IEnumerator<T>`, `IAsyncEnumerable<T>`, `IAsyncEnumerator<T>`, and non-generic iterator shapes, and calls `SourceMethodSymbol.MarkIterator` so the method is flagged as an iterator with a concrete element type. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L569-L618】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L149-L157】
 * `BindYieldReturnStatement` and `BindYieldBreakStatement` embed the element type and iterator kind into the bound nodes, applying an implicit conversion to the element type when possible. These nodes therefore carry all metadata the lowerer needs. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L331-L360】
 
 ## Lowering entry point and backend integration
@@ -19,7 +19,16 @@ This note documents the current state of iterator (`yield`) support in the binde
 
 ## Synthesized state machine shape
 
-The synthesized iterator type carries the state slot, current element, captured `this`, one field per parameter, and hoisted locals. It also surfaces the expected enumerable/enumerator members—constructor, `Current`, `Dispose`, `Reset`, and `GetEnumerator`—and caches the bound bodies produced during lowering so code generation can emit them. 【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedIteratorTypeSymbol.cs†L17-L199】
+The synthesized iterator type carries the state slot, current element, captured `this`, one field per parameter, and hoisted locals. It also surfaces the expected members for the iterator kind:
+
+* sync iterators: constructor, `Current`, `MoveNext`, `Dispose`, `Reset`, and `GetEnumerator`
+* async iterators: constructor, `Current`, `MoveNextAsync`, `DisposeAsync`, and `GetAsyncEnumerator`
+
+All helper bodies are cached during lowering so code generation can emit them. 【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedIteratorTypeSymbol.cs†L17-L199】
+
+## Current scope
+
+Async iterator **declarations** (`yield` inside methods returning `IAsyncEnumerable<T>`/`IAsyncEnumerator<T>`) are lowered and emitted through the same iterator-lowering pipeline. Consumer-side async loop syntax (`await for`) is still pending and should be implemented as a separate lowering milestone.
 
 `MoveNextBuilder` provides the first pass at state-machine rewriting: it allocates numeric states, injects a dispatch table at the top of `MoveNext`, rewrites each `yield return` into assignments to `_current`/`_state` followed by `return true`, and turns `yield break` into `_state = -1` with `return false`. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L400-L583】
 

@@ -1917,7 +1917,10 @@ Iterator methods produce lazily-evaluated sequences by using `yield` statements.
 expression is converted to the iterator's element type before emission.
 `yield break` terminates the sequence early. Both forms may only appear in
 methods whose return type implements `System.Collections.Generic.IEnumerable<T>`,
-`System.Collections.Generic.IEnumerator<T>`, or their non-generic counterparts.
+`System.Collections.Generic.IEnumerator<T>`,
+`System.Collections.Generic.IAsyncEnumerable<T>`,
+`System.Collections.Generic.IAsyncEnumerator<T>`, or their non-generic
+counterparts.
 When such a method contains `yield`, the compiler rewrites it into a state
 machine that implements the appropriate enumerator pattern. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L489-L527】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L25-L58】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L302-L340】
 
@@ -1937,11 +1940,12 @@ class Counter {
 }
 ```
 
-The generated state machine preserves captured locals and surfaces the same
-metadata shape (`Current`, `MoveNext`, `Dispose`, and `GetEnumerator`) as .NET
-iterators. Each `yield return` resumes exactly where it left off on the next
-`MoveNext` call, allowing Raven iterators to interoperate seamlessly with .NET's
-enumeration APIs. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L46-L128】
+The generated state machine preserves captured locals and surfaces the expected
+metadata shape for the declared iterator kind. Synchronous iterators expose
+`Current`, `MoveNext`, `Dispose`, and `GetEnumerator`; async iterators expose
+`Current`, `MoveNextAsync`, `DisposeAsync`, and `GetAsyncEnumerator`.
+Each `yield return` resumes exactly where it left off on the next move call.
+【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L46-L128】
 
 ## Pattern matching
 
