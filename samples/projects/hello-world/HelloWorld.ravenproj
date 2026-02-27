@@ -1,0 +1,3 @@
+<Project Name="HelloWorld" TargetFramework="net9.0" Output="HelloWorld">
+  <Document Path="src/main.rav" />
+</Project>
