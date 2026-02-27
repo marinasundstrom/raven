@@ -243,21 +243,18 @@ internal sealed class WorkspaceManager
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .ToArray();
 
-        var candidates = new List<string>
-        {
-            Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll")
-        };
+        var candidates = new List<string>();
 
         foreach (var root in roots)
         {
-            candidates.Add(Path.Combine(root, "Raven.Core.dll"));
-
             foreach (var tfm in tfms)
             {
                 candidates.Add(Path.Combine(root, "src", "Raven.Core", "bin", "Debug", tfm, "Raven.Core.dll"));
                 candidates.Add(Path.Combine(root, "src", "Raven.Core", "bin", "Debug", tfm, tfm, "Raven.Core.dll"));
             }
         }
+
+        candidates.Add(Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll"));
 
         return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
     }
