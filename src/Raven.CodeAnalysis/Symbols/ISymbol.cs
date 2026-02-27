@@ -362,7 +362,10 @@ public interface IFieldSymbol : ISymbol
 
     bool IsConst { get; }
 
-    bool IsMutable { get; }
+    bool IsReadOnly { get; }
+
+    [Obsolete("Use IsReadOnly for fields.")]
+    bool IsMutable => !IsReadOnly;
 
     bool IsRequired { get; }
 

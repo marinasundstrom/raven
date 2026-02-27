@@ -172,7 +172,7 @@ public static partial class SymbolExtensions
 
     public static string ToDisplayString(this ISymbol symbol, SymbolDisplayFormat? format = default!)
     {
-        format ??= SymbolDisplayFormat.RavenErrorMessageFormat;
+        format ??= SymbolDisplayFormat.RavenSignatureFormat;
 
         if (symbol is IAliasSymbol { Kind: SymbolKind.Type } alias &&
             format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandAliases))
@@ -183,7 +183,10 @@ public static partial class SymbolExtensions
         // Single entry point for top-level types – we can prepend type keyword here
         if (symbol is ITypeSymbol typeSymbol)
         {
-            var text = FormatType(typeSymbol, format);
+            var text = typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
+                       format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature
+                ? FormatNamedDelegateDeclaration(delegateType, format)
+                : FormatType(typeSymbol, format);
 
             if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword) &&
                             symbol is INamedTypeSymbol namedTypeSymbol)
@@ -408,7 +411,7 @@ public static partial class SymbolExtensions
                     var returnDisplay = FormatType(returnType, format);
                     if (!string.IsNullOrEmpty(returnDisplay))
                     {
-                        result.Append(" → ");
+                        result.Append(" -> ");
                         result.Append(returnDisplay);
                     }
                 }
@@ -859,6 +862,18 @@ public static partial class SymbolExtensions
         return sb.ToString();
     }
 
+    private static string FormatNamedDelegateDeclaration(INamedTypeSymbol delegateType, SymbolDisplayFormat format)
+    {
+        var displayName = FormatNamedType(delegateType, format);
+        var invoke = delegateType.GetDelegateInvokeMethod();
+        if (invoke is null)
+            return displayName;
+
+        var parameters = string.Join(", ", invoke.Parameters.Select(p => FormatParameter(p, format)));
+        var returnType = FormatType(invoke.ReturnType, format);
+        return $"{displayName}({parameters}) -> {returnType}";
+    }
+
     // =========================
     //  Function type helpers
     // =========================
@@ -1287,13 +1302,9 @@ public static partial class SymbolExtensions
                     if (field.IsStatic)
                         parts.Add("static");
 
-                    if (field.IsMutable)
+                    if (field.IsReadOnly)
                     {
-                        parts.Add("var");
-                    }
-                    else
-                    {
-                        parts.Add("val");
+                        parts.Add("readonly");
                     }
                 }
 
@@ -1355,8 +1366,6 @@ public static partial class SymbolExtensions
             case IEventSymbol @event:
                 if (@event.IsStatic)
                     parts.Add("static");
-
-                parts.Add("event");
 
                 /*
                 if (@event.IsAbstract)
@@ -1436,10 +1445,13 @@ public static partial class SymbolExtensions
     {
         return symbol switch
         {
-            // IFieldSymbol => "field",
-            // IPropertySymbol => "property",
-            // IMethodSymbol => "method",
-            // IEventSymbol => "event",
+            IFieldSymbol => "field",
+            IPropertySymbol property => property.IsMutable ? "var" : "val",
+            IEventSymbol => "event",
+            IMethodSymbol { IsConstructor: true } => null,
+            IMethodSymbol { MethodKind: MethodKind.StaticConstructor } => null,
+            IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.EventRaise } => null,
+            IMethodSymbol => "func",
             _ => null
         };
     }

@@ -30,7 +30,7 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
 
     public bool IsConst { get; }
 
-    public bool IsMutable => _isMutable;
+    public bool IsReadOnly => !_isMutable;
 
     public bool IsRequired => _isRequired;
 

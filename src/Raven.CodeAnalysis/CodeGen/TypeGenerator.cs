@@ -547,7 +547,7 @@ internal class TypeGenerator
         if (fieldSymbol.IsConst)
             attributes |= FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault;
 
-        if (!fieldSymbol.IsMutable && !fieldSymbol.IsConst)
+        if (fieldSymbol.IsReadOnly && !fieldSymbol.IsConst)
             attributes |= FieldAttributes.InitOnly;
 
         if (fieldSymbol.IsStatic)
@@ -677,7 +677,7 @@ internal class TypeGenerator
                     if (fieldSymbol.IsConst)
                         attributes |= FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault;
 
-                    if (!fieldSymbol.IsMutable && !fieldSymbol.IsConst)
+                    if (fieldSymbol.IsReadOnly && !fieldSymbol.IsConst)
                         attributes |= FieldAttributes.InitOnly;
 
                     if (fieldSymbol.IsStatic)

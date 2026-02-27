@@ -343,7 +343,7 @@ internal sealed class AliasFieldSymbol : AliasSymbol, IFieldSymbol
 
     public bool IsConst => _field.IsConst;
 
-    public bool IsMutable => _field.IsMutable;
+    public bool IsReadOnly => _field.IsReadOnly;
 
     public bool IsRequired => _field.IsRequired;
 

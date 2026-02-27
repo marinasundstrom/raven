@@ -8160,7 +8160,7 @@ partial class BlockBinder : Binder
 
     private bool CanAssignToField(IFieldSymbol fieldSymbol, BoundExpression? receiver, SyntaxNode syntax)
     {
-        if (fieldSymbol.IsMutable)
+        if (!fieldSymbol.IsReadOnly)
             return true;
 
         if (_containingSymbol is IMethodSymbol methodSymbol)
@@ -10264,7 +10264,7 @@ partial class BlockBinder : Binder
 
             var inWithInitializer = _withInitializerDepth > 0;
 
-            if (field.IsConst || (!inWithInitializer && !field.IsMutable))
+            if (field.IsConst || (!inWithInitializer && field.IsReadOnly))
             {
                 _diagnostics.ReportReadOnlyFieldCannotBeAssignedTo(assignment.Name.GetLocation());
                 _ = BindExpression(assignment.Expression, allowReturn: false);
@@ -10599,7 +10599,7 @@ partial class BlockBinder : Binder
             if (!EnsureMemberAccessible(field, assignment.Name.GetLocation(), "field"))
                 return null;
 
-            if (field.IsConst || !field.IsMutable)
+            if (field.IsConst || field.IsReadOnly)
                 return null;
 
             var value = BindExpressionWithTargetType(assignment.Expression, field.Type, allowReturn: false);

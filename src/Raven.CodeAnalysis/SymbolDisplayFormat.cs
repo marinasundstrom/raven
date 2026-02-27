@@ -2,20 +2,33 @@ namespace Raven.CodeAnalysis;
 
 public class SymbolDisplayFormat
 {
-    public static SymbolDisplayFormat RavenTooltipFormat { get; } = new SymbolDisplayFormat
+    public static SymbolDisplayFormat RavenSignatureFormat { get; } = new SymbolDisplayFormat
     {
         DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
         ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.InstanceMethod,
-        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters | SymbolDisplayGenericsOptions.IncludeTypeConstraints,
-        MemberOptions = SymbolDisplayMemberOptions.IncludeAccessibility |
-                    SymbolDisplayMemberOptions.IncludeType |
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
+        KindOptions = SymbolDisplayKindOptions.IncludeTypeKeyword | SymbolDisplayKindOptions.IncludeMemberKeyword,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeType |
                     SymbolDisplayMemberOptions.IncludeParameters |
                     SymbolDisplayMemberOptions.IncludeModifiers,
         ParameterOptions = SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName,
-        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
                            SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
                            SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers
+    };
+
+    public static SymbolDisplayFormat RavenTooltipFormat { get; } = new SymbolDisplayFormat
+    {
+        DelegateStyle = RavenSignatureFormat.DelegateStyle,
+        ExtensionMethodStyle = RavenSignatureFormat.ExtensionMethodStyle,
+        GenericsOptions = RavenSignatureFormat.GenericsOptions,
+        KindOptions = RavenSignatureFormat.KindOptions,
+        MemberOptions = RavenSignatureFormat.MemberOptions,
+        ParameterOptions = RavenSignatureFormat.ParameterOptions,
+        TypeQualificationStyle = RavenSignatureFormat.TypeQualificationStyle,
+        MiscellaneousOptions = RavenSignatureFormat.MiscellaneousOptions,
+        PropertyStyle = RavenSignatureFormat.PropertyStyle
     };
 
     public static SymbolDisplayFormat RavenDebuggerFormat { get; } = new SymbolDisplayFormat

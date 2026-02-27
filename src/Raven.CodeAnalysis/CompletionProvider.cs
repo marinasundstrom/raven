@@ -28,7 +28,7 @@ public static class CompletionProvider
         {
             try
             {
-                return symbol.ToDisplayString();
+                return symbol.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat);
             }
             catch
             {

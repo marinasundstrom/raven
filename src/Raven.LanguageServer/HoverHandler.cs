@@ -51,7 +51,8 @@ internal sealed class HoverHandler : IHoverHandler
 
         var symbol = resolution.Value.Symbol;
         var signature = symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
-        var containing = symbol.ContainingSymbol?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var containing = symbol.ContainingSymbol?.ToDisplayString(
+            SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
         var documentation = symbol.GetDocumentationComment();
         var hoverText = BuildHoverText(signature, symbol.Kind.ToString(), containing, documentation);
 

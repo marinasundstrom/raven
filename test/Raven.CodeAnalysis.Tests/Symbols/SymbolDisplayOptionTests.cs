@@ -257,4 +257,48 @@ class Sample {
         Assert.Contains("Task<int>", fullyQualified);
         Assert.DoesNotContain("Task<TResult>", fullyQualified);
     }
+
+    [Fact]
+    public void DefaultDisplay_Method_UsesDeclarationKeyword()
+    {
+        const string source = """
+class Program {
+    static func Main(args: string[]) -> () { }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+
+        Assert.Equal("static func Main(args: string[]) -> ()", method.ToDisplayString());
+    }
+
+    [Fact]
+    public void DefaultDisplay_FieldAndProperty_UseDeclarationKeywords()
+    {
+        const string source = """
+class Person {
+    readonly field id: int = 1
+    var Name: string { get; set; }
+    val Age: int { get; }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var fieldDeclarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "id");
+        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(fieldDeclarator));
+        var namePropertySyntax = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single(p => p.Identifier.Text == "Name");
+        var nameProperty = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(namePropertySyntax));
+        var agePropertySyntax = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single(p => p.Identifier.Text == "Age");
+        var ageProperty = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(agePropertySyntax));
+
+        Assert.Equal("readonly field id: int", field.ToDisplayString());
+        Assert.Equal("var Name: string", nameProperty.ToDisplayString());
+        Assert.Equal("val Age: int", ageProperty.ToDisplayString());
+    }
 }

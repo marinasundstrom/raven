@@ -1803,7 +1803,7 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
 
     public bool IsConst => _original.IsConst;
     public bool IsRequired => _original.IsRequired;
-    public bool IsMutable => _original.IsMutable;
+    public bool IsReadOnly => _original.IsReadOnly;
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
