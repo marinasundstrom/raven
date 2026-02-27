@@ -29,7 +29,7 @@ internal class NameSyntaxParser : SyntaxParser
 
     public TypeSyntax ParseTypeName()
     {
-        // Type union syntax (`A | B`) is intentionally disabled.
+        // Type union syntax (`A | B`) and literal type syntax (`"x"`, `42`, `true`) are intentionally disabled.
         return ParseTypeNameElement();
     }
 
@@ -45,12 +45,6 @@ internal class NameSyntaxParser : SyntaxParser
         {
             var elementType = ParseTypeName();
             return PointerType(starToken, elementType);
-        }
-
-        var signedLiteral = TryParseSignedNumericLiteralType();
-        if (signedLiteral is not null)
-        {
-            return signedLiteral;
         }
 
         TypeSyntax name;
@@ -142,58 +136,6 @@ internal class NameSyntaxParser : SyntaxParser
         return FunctionType(null, parameterList, arrowToken, returnType);
     }
 
-    private TypeSyntax? TryParseSignedNumericLiteralType()
-    {
-        var signToken = PeekToken();
-
-        if (!signToken.IsKind(SyntaxKind.PlusToken) && !signToken.IsKind(SyntaxKind.MinusToken))
-        {
-            return null;
-        }
-
-        var checkpoint = CreateCheckpoint("signed-numeric-literal-type");
-        signToken = ReadToken();
-
-        var numericToken = PeekToken();
-
-        if (!numericToken.IsKind(SyntaxKind.NumericLiteralToken) ||
-            signToken.TrailingTrivia.Count > 0 ||
-            numericToken.LeadingTrivia.Count > 0)
-        {
-            checkpoint.Rewind();
-            return null;
-        }
-
-        numericToken = ReadToken();
-
-        var combinedToken = CreateSignedNumericLiteralToken(signToken, numericToken);
-        return LiteralType(SyntaxKind.NumericLiteralType, combinedToken);
-    }
-
-    private static InternalSyntax.SyntaxToken CreateSignedNumericLiteralToken(InternalSyntax.SyntaxToken signToken, InternalSyntax.SyntaxToken numericToken)
-    {
-        var sign = signToken.Kind == SyntaxKind.MinusToken ? -1 : 1;
-        var tokenText = string.Concat(signToken.Text, numericToken.Text);
-        object? signedValue = numericToken.GetValue() switch
-        {
-            int value => sign * value,
-            long value => sign * value,
-            float value => sign * value,
-            double value => sign * value,
-            _ => numericToken.GetValue(),
-        };
-
-        return new InternalSyntax.SyntaxToken(
-            SyntaxKind.NumericLiteralToken,
-            tokenText,
-            signedValue,
-            tokenText.Length,
-            signToken.LeadingTrivia,
-            numericToken.TrailingTrivia,
-            diagnostics: null,
-            annotations: null);
-    }
-
     private TypeSyntax ParseNameCore()
     {
         var peek = PeekToken();
@@ -201,24 +143,6 @@ internal class NameSyntaxParser : SyntaxParser
         {
             ReadToken();
             return NullType(peek);
-        }
-
-        if (peek.Kind is SyntaxKind.TrueKeyword or SyntaxKind.FalseKeyword or
-            SyntaxKind.NumericLiteralToken or SyntaxKind.StringLiteralToken or
-            SyntaxKind.CharacterLiteralToken)
-        {
-            ReadToken();
-            var kind = peek.Kind switch
-            {
-                SyntaxKind.TrueKeyword => SyntaxKind.TrueLiteralType,
-                SyntaxKind.FalseKeyword => SyntaxKind.FalseLiteralType,
-                SyntaxKind.NumericLiteralToken => SyntaxKind.NumericLiteralType,
-                SyntaxKind.StringLiteralToken => SyntaxKind.StringLiteralType,
-                SyntaxKind.CharacterLiteralToken => SyntaxKind.CharacterLiteralType,
-                _ => SyntaxKind.LiteralType,
-            };
-
-            return LiteralType(kind, peek);
         }
 
         if (IsPredefinedTypeKeyword(peek))

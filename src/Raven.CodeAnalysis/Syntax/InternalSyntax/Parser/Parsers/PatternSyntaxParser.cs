@@ -102,9 +102,8 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (PeekToken().Kind == SyntaxKind.NullKeyword)
         {
-            var type2 = new NameSyntaxParser(this).ParseTypeName();
-
-            return ConstantPattern(type2);
+            var nullToken = ReadToken();
+            return ConstantPattern(LiteralExpression(SyntaxKind.NullLiteralExpression, nullToken));
         }
 
         if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
@@ -142,11 +141,6 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         var type = new NameSyntaxParser(this).ParseTypeName();
-
-        if (type is LiteralTypeSyntax)
-        {
-            return ConstantPattern(type);
-        }
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
@@ -593,9 +587,17 @@ internal class PatternSyntaxParser : SyntaxParser
     // Helper for constant pattern expressions (identifiers, member access, etc.)
     private bool CanStartConstantPatternExpression(SyntaxToken token)
     {
-        // We only attempt this for identifiers (locals/fields/params/constants) and member-access roots.
-        // Other literals are handled elsewhere (e.g. relational patterns and existing literal handling).
-        return CanTokenBeIdentifier(token);
+        return token.Kind switch
+        {
+            SyntaxKind.IdentifierToken => true,
+            SyntaxKind.TrueKeyword => true,
+            SyntaxKind.FalseKeyword => true,
+            SyntaxKind.NumericLiteralToken => true,
+            SyntaxKind.StringLiteralToken => true,
+            SyntaxKind.CharacterLiteralToken => true,
+            SyntaxKind.MinusToken => true,
+            _ => false
+        };
     }
 
     private bool TryParseConstantPattern(out PatternSyntax constantPattern)
@@ -604,6 +606,9 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (LooksLikeTypePatternStart())
             return false;
+
+        if (TryParseLiteralConstantPattern(out constantPattern))
+            return true;
 
         // Speculative parse to avoid stealing input from other pattern forms.
         var checkpoint = CreateCheckpoint("constant-pattern");
@@ -645,6 +650,32 @@ internal class PatternSyntaxParser : SyntaxParser
         return true;
     }
 
+    private bool TryParseLiteralConstantPattern(out PatternSyntax constantPattern)
+    {
+        constantPattern = null!;
+
+        var current = PeekToken();
+        if (!IsLiteralConstantStart(current))
+            return false;
+
+        var checkpoint = CreateCheckpoint("literal-constant-pattern");
+        var expression = ParseLiteralConstantExpression();
+        if (expression is null)
+        {
+            checkpoint.Rewind();
+            return false;
+        }
+
+        if (!IsPatternTerminator(PeekToken()))
+        {
+            checkpoint.Rewind();
+            return false;
+        }
+
+        constantPattern = ConstantPattern(expression);
+        return true;
+    }
+
     private bool LooksLikeTypePatternStart()
     {
         var next = PeekToken(1);
@@ -658,8 +689,55 @@ internal class PatternSyntaxParser : SyntaxParser
         {
             IdentifierNameSyntax => true,
             MemberAccessExpressionSyntax => true,
+            LiteralExpressionSyntax => true,
+            UnaryExpressionSyntax unary
+                when unary.OperatorToken.Kind == SyntaxKind.MinusToken &&
+                     unary.Expression is LiteralExpressionSyntax => true,
             _ => false
         };
+    }
+
+    private static bool IsLiteralConstantStart(SyntaxToken token)
+    {
+        return token.Kind is
+            SyntaxKind.NullKeyword or
+            SyntaxKind.TrueKeyword or
+            SyntaxKind.FalseKeyword or
+            SyntaxKind.NumericLiteralToken or
+            SyntaxKind.StringLiteralToken or
+            SyntaxKind.CharacterLiteralToken or
+            SyntaxKind.MinusToken;
+    }
+
+    private ExpressionSyntax? ParseLiteralConstantExpression()
+    {
+        if (PeekToken().Kind == SyntaxKind.MinusToken)
+        {
+            var minusToken = ReadToken();
+            if (!PeekToken().IsKind(SyntaxKind.NumericLiteralToken))
+                return null;
+
+            var numericToken = ReadToken();
+            var numeric = LiteralExpression(SyntaxKind.NumericLiteralExpression, numericToken);
+            return UnaryExpression(SyntaxKind.UnaryMinusExpression, minusToken, numeric);
+        }
+
+        if (!IsLiteralConstantStart(PeekToken()))
+            return null;
+
+        var token = ReadToken();
+        var kind = token.Kind switch
+        {
+            SyntaxKind.NullKeyword => SyntaxKind.NullLiteralExpression,
+            SyntaxKind.TrueKeyword => SyntaxKind.TrueLiteralExpression,
+            SyntaxKind.FalseKeyword => SyntaxKind.FalseLiteralExpression,
+            SyntaxKind.NumericLiteralToken => SyntaxKind.NumericLiteralExpression,
+            SyntaxKind.StringLiteralToken => SyntaxKind.StringLiteralExpression,
+            SyntaxKind.CharacterLiteralToken => SyntaxKind.CharacterLiteralExpression,
+            _ => SyntaxKind.None
+        };
+
+        return kind == SyntaxKind.None ? null : LiteralExpression(kind, token);
     }
 
     private bool IsPatternTerminator(SyntaxToken token)
@@ -669,6 +747,8 @@ internal class PatternSyntaxParser : SyntaxParser
             SyntaxKind.CommaToken or
             SyntaxKind.CloseParenToken or
             SyntaxKind.CloseBraceToken or
+            SyntaxKind.FatArrowToken or
+            SyntaxKind.WhenKeyword or
             SyntaxKind.AndToken or
             SyntaxKind.OrToken or
             SyntaxKind.BarToken;

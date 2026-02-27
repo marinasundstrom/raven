@@ -87,7 +87,7 @@ internal static class SymbolResolver
         var operation = semanticModel.GetOperation(node);
         var operationSymbol = operation switch
         {
-            ILiteralOperation literal => literal.Type,
+            ILiteralOperation literal => literal.Type?.UnwrapLiteralType(),
             IParameterReferenceOperation parameterReference => (ISymbol?)parameterReference.Parameter,
             ILocalReferenceOperation localReference => localReference.Local,
             IVariableReferenceOperation variableReference => variableReference.Variable,
