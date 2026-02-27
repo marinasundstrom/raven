@@ -36,6 +36,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         Assert.NotNull(ageProperty.SetMethod);
         Assert.Equal(MethodKind.InitOnly, nameProperty.SetMethod!.MethodKind);
         Assert.Equal(MethodKind.InitOnly, ageProperty.SetMethod!.MethodKind);
+        Assert.False(nameProperty.IsMutable);
+        Assert.False(ageProperty.IsMutable);
+        Assert.Equal("val Name: string { init; }", nameProperty.ToDisplayString());
+        Assert.Equal("val Age: int { init; }", ageProperty.ToDisplayString());
 
         Assert.Contains(
             person.GetMembers("Equals").OfType<IMethodSymbol>(),

@@ -39,7 +39,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 
     public IMethodSymbol? SetMethod { get; private set; }
 
-    public bool IsMutable => _isMutable ?? SetMethod is not null;
+    public bool IsMutable => _isMutable ?? SetMethod is { MethodKind: MethodKind.PropertySet };
 
     public bool IsIndexer { get; }
 

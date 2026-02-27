@@ -450,6 +450,10 @@ public static partial class SymbolExtensions
                     result.Append(accessorDisplay);
                 }
             }
+            else if (propertySymbol.SetMethod is { MethodKind: MethodKind.InitOnly })
+            {
+                result.Append(" { init; }");
+            }
         }
         else if (symbol is IFieldSymbol fieldSymbol)
         {
@@ -1114,7 +1118,8 @@ public static partial class SymbolExtensions
         if (getter is not null)
             accessors.Add(getter);
 
-        var setter = FormatPropertyAccessor(propertySymbol.SetMethod, propertySymbol, format, "set");
+        var setterKeyword = propertySymbol.SetMethod?.MethodKind == MethodKind.InitOnly ? "init" : "set";
+        var setter = FormatPropertyAccessor(propertySymbol.SetMethod, propertySymbol, format, setterKeyword);
         if (setter is not null)
             accessors.Add(setter);
 

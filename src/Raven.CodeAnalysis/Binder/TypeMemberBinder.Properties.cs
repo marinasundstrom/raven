@@ -904,7 +904,7 @@ internal partial class TypeMemberBinder : Binder
         if (sourcePropertySymbol is not null)
         {
             sourcePropertySymbol.SetAccessors(getMethod, setMethod);
-            sourcePropertySymbol.SetMutability(declaredMutable ?? setMethod is not null);
+            sourcePropertySymbol.SetMutability(declaredMutable ?? setMethod is { MethodKind: MethodKind.PropertySet });
         }
         else if (propertySymbol is SynthesizedExtensionPropertySymbol synthesized)
         {
