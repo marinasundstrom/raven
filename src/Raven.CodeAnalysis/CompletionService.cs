@@ -35,6 +35,12 @@ public class CompletionService
         // results in the token to the right being returned.  Adjust the search
         // position to ensure the token to the left of the caret is used.
         var searchPosition = Math.Max(0, position - 1);
+        var sourceText = syntaxTree.GetText();
+        var content = sourceText.ToString();
+        while (searchPosition > 0 &&
+               searchPosition < content.Length &&
+               char.IsWhiteSpace(content[searchPosition]))
+            searchPosition--;
         var token = syntaxTree.GetRoot().FindToken(searchPosition);
         try
         {

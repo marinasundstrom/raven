@@ -143,6 +143,34 @@ Console.Out.
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_InInvocationArgument_DoesNotFallbackToUnrelatedSymbols()
+    {
+        var code = """
+class Person {
+    func Rename(first: string) -> unit { }
+}
+
+func WriteLine(value: Person) -> unit { }
+
+val bob = new Person()
+WriteLine(bob.)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.DoesNotContain(items, i => i.DisplayText == "Abs");
+        Assert.DoesNotContain(items, i => i.DisplayText == "AddRange");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_IncludesExtensionMethods()
     {
         var code = """

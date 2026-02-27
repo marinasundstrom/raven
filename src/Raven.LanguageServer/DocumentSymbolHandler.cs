@@ -1,6 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -172,7 +173,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             case FieldDeclarationSyntax fieldDeclaration:
                 {
                     var fieldName = string.Join(", ", fieldDeclaration.Declaration.Declarators.Select(x => x.Identifier.Text));
-                    var selectionSpan = fieldDeclaration.Declaration.Declarators.FirstOrDefault().Identifier.Span;
+                    var selectionSpan = fieldDeclaration.Declaration.Declarators.FirstOrDefault()!.Identifier.Span;
                     if (selectionSpan.Length == 0)
                         selectionSpan = fieldDeclaration.Span;
 

@@ -65,6 +65,7 @@ internal sealed class CompletionHandler : ICompletionHandler
             Label = item.DisplayText,
             Detail = item.Description,
             Kind = MapCompletionItemKind(item),
+            SortText = GetSortText(item),
             InsertText = item.InsertionText,
             TextEdit = new TextEditOrInsertReplaceEdit(new TextEdit
             {
@@ -107,5 +108,25 @@ internal sealed class CompletionHandler : ICompletionHandler
             return CompletionItemKind.Keyword;
 
         return CompletionItemKind.Text;
+    }
+
+    private static string GetSortText(RavenCompletionItem item)
+    {
+        var rank = item.Symbol switch
+        {
+            IFieldSymbol => 10,
+            IPropertySymbol => 10,
+            IEventSymbol => 10,
+            ILocalSymbol => 15,
+            IParameterSymbol => 15,
+            IMethodSymbol { IsExtensionMethod: false } => 20,
+            IMethodSymbol { IsExtensionMethod: true } => 40,
+            ITypeSymbol => 50,
+            INamespaceSymbol => 60,
+            null when SyntaxFacts.TryParseKeyword(item.DisplayText, out _) => 70,
+            _ => 80
+        };
+
+        return $"{rank:D2}_{item.DisplayText}";
     }
 }
