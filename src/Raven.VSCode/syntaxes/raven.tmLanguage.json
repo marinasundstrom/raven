@@ -204,6 +204,21 @@
         "keywords": {
             "patterns": [
                 {
+                    "name": "meta.attribute.target.raven",
+                    "match": "(\\[\\s*)(assembly|module|field|event|method|param(?:eter)?|property|return|type)(\\s*:)",
+                    "captures": {
+                        "1": {
+                            "name": "punctuation.section.brackets.begin.raven"
+                        },
+                        "2": {
+                            "name": "keyword.other.attribute-target.raven"
+                        },
+                        "3": {
+                            "name": "keyword.operator.raven"
+                        }
+                    }
+                },
+                {
                     "name": "keyword.other.import.raven",
                     "match": "\\b(import|namespace|alias)\\b"
                 },
@@ -233,7 +248,7 @@
                 },
                 {
                     "name": "keyword.control.raven",
-                    "match": "\\b(if|else|match|when|for|each|in|as|by|while|do|try|catch|finally|with|return|throw|break|continue|await)\\b"
+                    "match": "\\b(if|else|match|when|for|each|in|as|is|by|while|do|try|catch|finally|with|return|throw|break|continue|await)\\b"
                 },
                 {
                     "name": "keyword.other.expression.raven",
@@ -241,7 +256,7 @@
                 },
                 {
                     "name": "keyword.operator.word.raven",
-                    "match": "\\b(and|or|not|as|is|default|notnull|unmanaged|where|permits|ref|out|in)\\b"
+                    "match": "\\b(and|or|not|default|notnull|unmanaged|where|permits|ref|out|in)\\b"
                 },
                 {
                     "name": "constant.language.raven",
