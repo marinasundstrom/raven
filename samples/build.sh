@@ -140,7 +140,7 @@ load_exclusions "build"
 rav_files=()
 while IFS= read -r file; do
   rav_files+=("${file#./}")
-done < <(find . -type f -name "*.rav" ! -path "./output/*" | sort)
+done < <(find . -type f -name "*.rav" ! -path "./output/*" ! -path "./projects/*" | sort)
 
 if (( ${#rav_files[@]} == 0 )); then
   echo "No .rav files found under samples/."
