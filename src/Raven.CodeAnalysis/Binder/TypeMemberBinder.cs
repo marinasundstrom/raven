@@ -1935,7 +1935,7 @@ internal partial class TypeMemberBinder : Binder
         return type;
     }
 
-    public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindEventDeclaration(EventDeclarationSyntax eventDecl)
+    public Dictionary<AccessorDeclarationSyntax, Binder> BindEventDeclaration(EventDeclarationSyntax eventDecl)
     {
         ReportPartialModifierNotSupported(eventDecl.Modifiers, "event", eventDecl.Identifier.ValueText);
         var eventType = ResolveTypeSyntaxForSignature(this, eventDecl.Type.Type, RefKind.None);
@@ -2193,7 +2193,7 @@ internal partial class TypeMemberBinder : Binder
             ReportMemberHidingIfNeeded(hiddenMember, eventName, hasNewModifier, identifierToken.GetLocation());
         }
 
-        var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
+        var binders = new Dictionary<AccessorDeclarationSyntax, Binder>();
         SourceMethodSymbol? addMethod = null;
         SourceMethodSymbol? removeMethod = null;
         var explicitAccessorPrefix = explicitInterfaceMetadataName is not null
@@ -2309,7 +2309,8 @@ internal partial class TypeMemberBinder : Binder
                 }
 
                 binder ??= new MethodBinder(methodSymbol, this);
-                binders[accessor] = binder;
+                var bodyBinder = new MethodBodyBinder(methodSymbol, binder);
+                binders[accessor] = bodyBinder;
 
                 if (isAdd)
                     addMethod = methodSymbol;
@@ -2441,7 +2442,7 @@ internal partial class TypeMemberBinder : Binder
         return binders;
     }
 
-    public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindIndexerDeclaration(IndexerDeclarationSyntax indexerDecl)
+    public Dictionary<AccessorDeclarationSyntax, Binder> BindIndexerDeclaration(IndexerDeclarationSyntax indexerDecl)
     {
         ReportPartialModifierNotSupported(indexerDecl.Modifiers, "indexer", "Item");
         var propertyType = ResolveTypeSyntaxForSignature(this, indexerDecl.Type.Type, RefKind.None);
@@ -2659,7 +2660,7 @@ internal partial class TypeMemberBinder : Binder
             metadataName: metadataName,
             declaredAccessibility: indexerAccessibility);
 
-        var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
+        var binders = new Dictionary<AccessorDeclarationSyntax, Binder>();
 
         var hasGetter = indexerDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.GetAccessorDeclaration) ?? false;
         var hasSetter = indexerDecl.AccessorList?.Accessors.Any(a =>
@@ -2927,11 +2928,12 @@ internal partial class TypeMemberBinder : Binder
                 }
 
                 var binder = new MethodBinder(methodSymbol, this);
-                binders[accessor] = binder;
+                var bodyBinder = new MethodBodyBinder(methodSymbol, binder);
+                binders[accessor] = bodyBinder;
                 if (accessor.ExpressionBody is not null)
                 {
-                    _ = binder.GetOrBind(accessor.ExpressionBody.Expression);
-                    foreach (var diagnostic in binder.Diagnostics.AsEnumerable())
+                    _ = bodyBinder.GetOrBind(accessor.ExpressionBody.Expression);
+                    foreach (var diagnostic in bodyBinder.Diagnostics.AsEnumerable())
                         _diagnostics.Report(diagnostic);
                 }
 

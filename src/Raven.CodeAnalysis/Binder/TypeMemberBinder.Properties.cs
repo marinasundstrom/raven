@@ -571,6 +571,7 @@ internal partial class TypeMemberBinder : Binder
 
                 // Binder is still needed for the accessor body.
                 MethodBinder binder = new MethodBinder(methodSymbol, this);
+                var bodyBinder = new MethodBodyBinder(methodSymbol, binder);
 
                 var parameters = new List<SourceParameterSymbol>();
                 if (isExtensionMember && receiverTypeForAccessor is not null && _extensionReceiverTypeSyntax is not null)
@@ -626,11 +627,11 @@ internal partial class TypeMemberBinder : Binder
                         methodSymbol.SetOverriddenMethod(overriddenMethod);
                 }
 
-                binders[accessor] = binder;
+                binders[accessor] = bodyBinder;
                 if (accessor.ExpressionBody is not null)
                 {
-                    _ = binder.GetOrBind(accessor.ExpressionBody.Expression);
-                    foreach (var diagnostic in binder.Diagnostics.AsEnumerable())
+                    _ = bodyBinder.GetOrBind(accessor.ExpressionBody.Expression);
+                    foreach (var diagnostic in bodyBinder.Diagnostics.AsEnumerable())
                         _diagnostics.Report(diagnostic);
                 }
 
