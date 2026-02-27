@@ -209,9 +209,7 @@ public static class TypeSymbolExtensionsForCodeGen
 
             if (typeSymbol is NullTypeSymbol)
             {
-                if (codeGen.NullType is null)
-                    throw new InvalidOperationException("Null type was not emitted.");
-                return codeGen.NullType;
+                return GetSpecialClrType(SpecialType.System_Object, compilation);
             }
 
             if (typeSymbol.SpecialType == SpecialType.System_Unit)

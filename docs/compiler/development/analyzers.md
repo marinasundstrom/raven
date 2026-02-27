@@ -25,13 +25,6 @@ Raven currently provides analyzers for two different contexts:
   methods that are never invoked. In console applications, all ordinary methods are
   considered (entry points are excluded); in library-style outputs, only non-public methods
   are considered.
-- **TypeUnionAnalyzer** (C#) – enforces the semantics of `[TypeUnion]` attributes in C#
-  code. Members annotated with `TypeUnionAttribute` must use a CLR type that is assignable
-  from all declared union members (e.g., `object`, `dynamic`, or a suitable base type), and
-  any value assigned, returned, or matched against them must implicitly convert to at least
-  one of the declared union members. The analyzer also validates pattern and switch cases
-  and only permits `null` when `null` is included in the union.
-
 The `Raven.Compiler` CLI uses `RavenWorkspace` to attach analyzers during compilation. Any
 analyzer diagnostics appear alongside regular compilation errors and warnings.
 

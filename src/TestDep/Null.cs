@@ -1,1 +1,0 @@
-public readonly struct Null { }

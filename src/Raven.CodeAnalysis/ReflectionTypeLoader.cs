@@ -20,18 +20,11 @@ internal class ReflectionTypeLoader(Compilation compilation)
         var methodContext = parameterInfo.Member as MethodBase;
         var parameterType = parameterInfo.ParameterType;
 
-        var attributes = parameterInfo.GetCustomAttributesData();
-        var unionAttribute = attributes
-            .FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
-
         if (parameterType.IsByRef)
         {
             var elementType = ResolveType(parameterType.GetElementType()!, methodContext);
             if (elementType is null)
                 return null;
-
-            if (unionAttribute is not null)
-                return CreateTypeUnionSymbol(unionAttribute, elementType);
 
             var nullInfo = _nullabilityContext.Create(parameterInfo);
             if (nullInfo.ElementType is not null)
@@ -41,11 +34,6 @@ internal class ReflectionTypeLoader(Compilation compilation)
         }
 
         var declaredType = ResolveType(parameterType, methodContext);
-
-        if (unionAttribute is not null)
-        {
-            return CreateTypeUnionSymbol(unionAttribute, declaredType);
-        }
 
         var type = declaredType;
 
@@ -58,11 +46,6 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
     public ITypeSymbol? ResolveType(FieldInfo fieldInfo)
     {
-        if (TryGetUnion(fieldInfo, out var unionType))
-        {
-            return unionType;
-        }
-
         var type = ResolveType(fieldInfo.FieldType);
 
         if (type is ITypeParameterSymbol typeParameterSymbol)
@@ -74,11 +57,6 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
     public ITypeSymbol? ResolveType(PropertyInfo propertyInfo)
     {
-        if (TryGetUnion(propertyInfo, out var unionType))
-        {
-            return unionType;
-        }
-
         var type = ResolveType(propertyInfo.PropertyType);
 
         if (type is ITypeParameterSymbol typeParameterSymbol)
@@ -122,76 +100,6 @@ internal class ReflectionTypeLoader(Compilation compilation)
         return runtimeType.GetField(fieldInfo.Name, bindingFlags);
     }
 
-    private bool TryGetUnion(MemberInfo memberInfo, out ITypeUnionSymbol? unionType)
-    {
-        unionType = null;
-        var unionAttribute = memberInfo.GetCustomAttributesData()
-            .FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
-
-        if (unionAttribute is not null)
-        {
-            ITypeSymbol? declaredType = memberInfo switch
-            {
-                PropertyInfo propertyInfo => ResolveType(propertyInfo.PropertyType),
-                FieldInfo fieldInfo => ResolveType(fieldInfo.FieldType),
-                EventInfo eventInfo => ResolveType(eventInfo.EventHandlerType!),
-                MethodInfo methodInfo => ResolveType(methodInfo.ReturnType, methodInfo),
-                _ => null
-            };
-
-            unionType = CreateTypeUnionSymbol(unionAttribute, declaredType);
-        }
-        return unionType is not null;
-    }
-
-    private ITypeUnionSymbol CreateTypeUnionSymbol(CustomAttributeData unionAttribute, ITypeSymbol? declaredUnderlyingType)
-    {
-        IEnumerable<CustomAttributeTypedArgument> args;
-        try
-        {
-            var firstArgument = unionAttribute.ConstructorArguments.FirstOrDefault();
-            if (firstArgument.Value is IEnumerable<CustomAttributeTypedArgument> typedArguments)
-            {
-                args = typedArguments;
-            }
-            else
-            {
-                return CreateFallbackTypeUnion(declaredUnderlyingType);
-            }
-        }
-        catch (Exception)
-        {
-            // MetadataLoadContext can throw while decoding malformed or unsupported custom
-            // attribute payloads. Keep binding resilient and degrade to a safe fallback.
-            return CreateFallbackTypeUnion(declaredUnderlyingType);
-        }
-
-        var types = new List<ITypeSymbol>();
-        foreach (var arg in args)
-        {
-            if (arg.Value is Type t)
-            {
-                types.Add(ResolveType(t)!);
-            }
-            else
-            {
-                var underlying = ResolveType(arg.ArgumentType)!;
-                types.Add(new LiteralTypeSymbol(underlying, arg.Value!, compilation));
-            }
-        }
-
-        if (types.Count == 0)
-            return CreateFallbackTypeUnion(declaredUnderlyingType);
-
-        return new TypeUnionSymbol(types.ToArray(), null, null, null, [], declaredUnderlyingType);
-    }
-
-    private ITypeUnionSymbol CreateFallbackTypeUnion(ITypeSymbol? declaredUnderlyingType)
-    {
-        var fallbackType = declaredUnderlyingType ?? compilation.ErrorTypeSymbol;
-        return new TypeUnionSymbol([fallbackType], null, null, null, [], declaredUnderlyingType);
-    }
-
     public void RegisterMethodSymbol(MethodBase method, PEMethodSymbol symbol)
     {
         _methodSymbols[method] = symbol;
@@ -218,9 +126,6 @@ internal class ReflectionTypeLoader(Compilation compilation)
             CacheResolvedType(type, metadataCacheKey, unit);
             return unit;
         }
-
-        if (type.Name == "Null")
-            return compilation.NullTypeSymbol;
 
         if (type.IsNullableValueType())
         {

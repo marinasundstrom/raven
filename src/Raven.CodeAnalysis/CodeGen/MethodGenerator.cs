@@ -245,13 +245,6 @@ internal class MethodGenerator
             ? methodBuilderInstance.DefineParameter(0, ParameterAttributes.Retval, null)
             : ((ConstructorBuilder)MethodBase).DefineParameter(0, ParameterAttributes.Retval, null);
 
-        if (MethodSymbol.ReturnType.IsTypeUnion)
-        {
-            var type = MethodSymbol.ReturnType;
-            CustomAttributeBuilder customAttributeBuilder = CreateUnionTypeAttribute(type);
-            returnParamBuilder.SetCustomAttribute(customAttributeBuilder);
-        }
-
         var nullableReturnAttr = TypeGenerator.CodeGen.CreateNullableAttribute(MethodSymbol.ReturnType);
         if (nullableReturnAttr is not null)
             returnParamBuilder.SetCustomAttribute(nullableReturnAttr);
@@ -279,13 +272,6 @@ internal class MethodGenerator
                 parameterBuilder = mb.DefineParameter(i, attrs, parameterSymbol.Name);
             else
                 parameterBuilder = ((ConstructorBuilder)MethodBase).DefineParameter(i, attrs, parameterSymbol.Name);
-
-            if (parameterSymbol.Type.IsTypeUnion)
-            {
-                var type = parameterSymbol.Type;
-                CustomAttributeBuilder customAttributeBuilder = CreateUnionTypeAttribute(type);
-                parameterBuilder.SetCustomAttribute(customAttributeBuilder);
-            }
 
             var nullableAttr = TypeGenerator.CodeGen.CreateNullableAttribute(parameterSymbol.Type);
             if (nullableAttr is not null)
@@ -621,24 +607,6 @@ internal class MethodGenerator
             Accessibility.ProtectedAndInternal => MethodAttributes.FamANDAssem,
             _ => MethodAttributes.Private
         };
-    }
-
-    private CustomAttributeBuilder CreateUnionTypeAttribute(ITypeSymbol type)
-    {
-        var types = (type as ITypeUnionSymbol).Types
-            .Select(x => x is LiteralTypeSymbol lit ? lit.ConstantValue : (object)ResolveClrType(x))
-            .ToArray();
-
-        foreach (var value in types)
-        {
-            if (value is TypeBuilder builder && !builder.IsCreated())
-                PrintDebug($"TypeUnionAttribute references uncreated type: {builder.FullName ?? builder.Name}");
-        }
-
-        var constructor = TypeGenerator.CodeGen.TypeUnionAttributeType!.
-            GetConstructor(new[] { typeof(object[]) });
-        CustomAttributeBuilder customAttributeBuilder = new CustomAttributeBuilder(constructor!, [types]);
-        return customAttributeBuilder;
     }
 
     public IEnumerable<ParameterBuilder> GetParameterBuilders()

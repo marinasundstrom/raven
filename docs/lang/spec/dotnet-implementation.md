@@ -100,44 +100,9 @@ val value = if flag { 0 } else { "hi" } // int | string | null
 
 Emits `object?` since `int` and `string` share no base class other than `object`, and `null` is included.
 
-This narrowing makes unions friendlier to inheritance-based languages such as C#, and it gives the runtime a smaller set of types to resolve. The `TypeUnionsAnalyzer` provides additional hints about possible targets so that consumers can work with the projected type more effectively.
+This narrowing makes unions friendlier to inheritance-based languages such as C#, and it gives the runtime a smaller set of types to resolve.
 
-To preserve the original union members, the compiler also attaches a `TypeUnionAttribute` to the parameter or return type in metadata. Its constructor accepts `object[]` so that each argument can be either a `System.Type` for a type branch or the literal value itself for a literal branch. The method signature still uses the narrowed base type (or `object`) as described above.
-
-For example:
-
-```raven
-func f(x: string | unit | null) -> unit { }
-```
-
-Emits a parameter of type `object?` with:
-
-```csharp
-[TypeUnionAttribute(typeof(string), typeof(Unit), typeof(Null))]
-```
-
-attached, indicating the full set of possible values.
-
-Literal unions are represented in the same way. A parameter constrained to the string literals `"yes"` or `"no"` is emitted as a `string` with:
-
-```csharp
-[TypeUnionAttribute("yes", "no")]
-```
-
-where each literal value is encoded directly in the attribute.
-
-Literal types can also be combined with other types. A parameter typed as `"yes" | "no" | null` is emitted as `string?` with:
-
-```csharp
-[TypeUnionAttribute("yes", "no", typeof(Null))]
-```
-
-mixing literal values and `System.Type` references in the attribute.
-
-Raven emits shim types so that every union member has a concrete `Type`:
-
-* `Unit` represents the Raven `unit` value and is emitted into every assembly.
-* `Null` represents the `null` literal and is emitted only when a union includes `null`.
+The compiler does not emit supplemental CLR metadata that preserves every branch of a source union. Consumers observe the projected CLR signature (`Animal`, `object`, `string?`, etc.) and should treat it as the interop contract.
 
 ## Discriminated union interop (C#)
 Discriminated unions compile into a nested-struct hierarchy that C# can consume

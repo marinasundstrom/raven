@@ -229,9 +229,7 @@ internal class CodeGenerator
 
     private MethodBase? EntryPoint { get; set; }
 
-    public Type? TypeUnionAttributeType { get; private set; }
     public Type? ExtensionMarkerNameAttributeType { get; private set; }
-    public Type? NullType { get; private set; }
     public Type? NullableAttributeType { get; private set; }
     public Type? TupleElementNamesAttributeType { get; private set; }
     public Type? DiscriminatedUnionAttributeType { get; private set; }
@@ -247,8 +245,6 @@ internal class CodeGenerator
     ConstructorInfo? _extensionAttributeCtor;
     ConstructorInfo? _closedHierarchyCtor;
 
-    readonly bool _emitTypeUnionAttribute = true;
-    readonly bool _emitNullType = true;
     bool _emitExtensionMarkerNameAttribute = true;
 
     internal void ApplyCustomAttributes(ImmutableArray<AttributeData> attributes, Action<CustomAttributeBuilder> apply)
@@ -805,12 +801,8 @@ internal class CodeGenerator
             if (!_compilation.Options.EmbedCoreTypes)
                 TryBindRuntimeCoreTypes();
 
-            if (_emitTypeUnionAttribute && (TypeUnionAttributeType is null || _compilation.Options.EmbedCoreTypes))
-                CreateTypeUnionAttribute();
             if (_emitExtensionMarkerNameAttribute && (ExtensionMarkerNameAttributeType is null || _compilation.Options.EmbedCoreTypes))
                 CreateExtensionMarkerNameAttributeType();
-            if (_emitNullType && (NullType is null || _compilation.Options.EmbedCoreTypes))
-                CreateNullStruct();
             if (UnitType is null || _compilation.Options.EmbedCoreTypes)
                 CreateUnitStruct();
 
@@ -965,13 +957,10 @@ internal class CodeGenerator
 
     private void TryBindRuntimeCoreTypes()
     {
-        TypeUnionAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.TypeUnionAttribute")
-            ?? Compilation.ResolveRuntimeType("TypeUnionAttribute");
         ExtensionMarkerNameAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionMarkerNameAttribute");
         _extensionMarkerNameCtor ??= ExtensionMarkerNameAttributeType?.GetConstructor(new[] { typeof(string) });
         ExtensionAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionAttribute");
         _extensionAttributeCtor ??= ExtensionAttributeType?.GetConstructor(Type.EmptyTypes);
-        NullType ??= Compilation.ResolveRuntimeType("Null");
         UnitType ??= Compilation.ResolveRuntimeType("System.Unit");
 
         if (DiscriminatedUnionAttributeType is null)
@@ -993,80 +982,6 @@ internal class CodeGenerator
 
             _discriminatedUnionCaseCtor = UnionCaseAttributeType?.GetConstructor(new[] { typeType });
         }
-    }
-
-    private void CreateTypeUnionAttribute()
-    {
-        if (TypeUnionAttributeType is not null)
-            return;
-
-        // Define the attribute class
-        var attrBuilder = ModuleBuilder.DefineType(
-            "System.Runtime.CompilerServices.TypeUnionAttribute",
-            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
-            typeof(Attribute));
-
-        // Mark as AttributeUsage (optional)
-        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor([typeof(AttributeTargets)]);
-        var attrUsageBuilder = new CustomAttributeBuilder(attrUsageCtor, [AttributeTargets.Parameter | AttributeTargets.Field | AttributeTargets.ReturnValue | AttributeTargets.Property]);
-        attrBuilder.SetCustomAttribute(attrUsageBuilder);
-
-        // Define a private readonly field: private readonly object[] _types;
-        var typesField = attrBuilder.DefineField(
-            "_types",
-            typeof(object[]),
-            FieldAttributes.Private | FieldAttributes.InitOnly);
-
-        // Define the public property: public object[] Types { get; }
-        var propBuilder = attrBuilder.DefineProperty(
-            "Types",
-            PropertyAttributes.None,
-            typeof(object[]),
-            null);
-
-        var getterMethod = attrBuilder.DefineMethod(
-            "get_Types",
-            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
-            typeof(object[]),
-            Type.EmptyTypes);
-
-        var ilGet = getterMethod.GetILGenerator();
-        ilGet.Emit(OpCodes.Ldarg_0); // this
-        ilGet.Emit(OpCodes.Ldfld, typesField); // _types
-        ilGet.Emit(OpCodes.Ret);
-
-        // Attach the getter to the property
-        propBuilder.SetGetMethod(getterMethod);
-
-        // Define the constructor: public TypeUnionAttribute(params object[] types)
-        var ctorBuilder = attrBuilder.DefineConstructor(
-            MethodAttributes.Public,
-            CallingConventions.Standard,
-            new[] { typeof(object[]) });
-
-        // Add [ParamArray] attribute to the parameter
-        var paramArrayAttrCtor = typeof(ParamArrayAttribute).GetConstructor(Type.EmptyTypes);
-        var paramBuilder = ctorBuilder.DefineParameter(1, ParameterAttributes.None, "types");
-        var paramArrayAttr = new CustomAttributeBuilder(paramArrayAttrCtor, Array.Empty<object>());
-        paramBuilder.SetCustomAttribute(paramArrayAttr);
-
-        // Emit constructor body
-        var ilCtor = ctorBuilder.GetILGenerator();
-        var attributeCtor = typeof(Attribute).GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
-        if (attributeCtor is null)
-            throw new InvalidOperationException("Missing Attribute base constructor.");
-
-        ilCtor.Emit(OpCodes.Ldarg_0);
-        ilCtor.Emit(OpCodes.Call, attributeCtor);
-
-        ilCtor.Emit(OpCodes.Ldarg_0); // this
-        ilCtor.Emit(OpCodes.Ldarg_1); // types (argument)
-        ilCtor.Emit(OpCodes.Stfld, typesField); // this._types = types
-
-        ilCtor.Emit(OpCodes.Ret);
-
-        // Create the type
-        TypeUnionAttributeType = attrBuilder.CreateType();
     }
 
     private void CreateExtensionMarkerNameAttributeType()
@@ -1157,19 +1072,6 @@ internal class CodeGenerator
             return null;
 
         return new CustomAttributeBuilder(_extensionAttributeCtor, Array.Empty<object>());
-    }
-
-    private void CreateNullStruct()
-    {
-        if (NullType is not null)
-            return;
-
-        var nullBuilder = ModuleBuilder.DefineType(
-            "Null",
-            TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout,
-            typeof(ValueType));
-
-        NullType = nullBuilder.CreateType();
     }
 
     private void CreateUnitStruct()

@@ -72,7 +72,7 @@ Core purpose of samples (all three at once):
 ## Distinctness criteria for keeping extra files
 Keep a second file for the same concept only if it adds at least one of:
 - Different syntax form (statement vs expression).
-- Different type-system behavior (literal union vs nominal type vs nullable).
+- Different type-system behavior (nominal type vs nullable).
 - Different lowering/codegen path (sync vs async, iterator, exception path, runtime-async).
 - Different interop boundary (.NET APIs, project file restore, target framework).
 - Previously observed regression signature (linked issue/bug repro).

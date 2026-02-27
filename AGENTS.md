@@ -104,4 +104,4 @@ If you change any flags, **rebuild the compiler** before running again.
 - unit tests can request an `ITestOutputHelper` parameter to write diagnostics via `WriteLine`.
 
 **External components:**  
-`TypeUnionAnalyzer` lives in a separate project; ignore it unless explicitly instructed.
+No external type-union analyzer project is part of this repository.

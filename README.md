@@ -216,7 +216,6 @@ src/
   Raven.CodeAnalysis/         # Compiler core: syntax, binder, semantic model, code gen
   Raven.Compiler/             # Command-line compiler
   Raven.CodeAnalysis.Testing/ # Diagnostic test helpers
-  TypeUnionAnalyzer/          # Analyzer for C# type unions
   TestDep/                    # Auxiliary test project
 
 test/                         # Unit tests
