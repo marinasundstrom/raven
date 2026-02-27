@@ -216,6 +216,10 @@
                     "match": "\\b(func)\\b"
                 },
                 {
+                    "name": "storage.type.field.raven",
+                    "match": "\\b(field)\\b"
+                },
+                {
                     "name": "storage.type.init.raven",
                     "match": "\\b(init|finally|self|event|operator)\\b"
                 },
