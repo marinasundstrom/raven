@@ -224,7 +224,39 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
             """;
 
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
-        var (compilation, tree) = CreateCompilation(source, options: options);
+        var (compilation, _) = CreateCompilation(source, options: options);
         Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void RecordClass_SynthesizedMembers_DoNotBindToUnionCasesWithSameName()
+    {
+        // Regression: when unqualified DU cases (Left/Right) are in scope, synthesized
+        // record members must still bind Left/Right to the record's own data members.
+        var source = """
+            func Inspect(pair: Pair) -> int {
+                val text = pair.ToString()
+                val hash = pair.GetHashCode()
+                val (left, right) = pair
+                return left + right + text.Length + hash
+            }
+
+            record class Pair(Left: int, Right: int)
+
+            union Either<L, R> {
+                Left(value: L)
+                Right(value: R)
+            }
+            """;
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var (compilation, _) = CreateCompilation(source, options: options);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var pair = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SourceGlobalNamespace.LookupType("Pair"));
+        Assert.Contains(pair.GetMembers("ToString").OfType<IMethodSymbol>(), static m => m.Parameters.Length == 0);
+        Assert.Contains(pair.GetMembers("GetHashCode").OfType<IMethodSymbol>(), static m => m.Parameters.Length == 0);
+        Assert.Contains(pair.GetMembers("Deconstruct").OfType<IMethodSymbol>(), static m => m.Parameters.Length == 2);
     }
 }

@@ -3761,6 +3761,9 @@ Binding model:
 * `.Case(...)` resolves `Case` from the target type’s union case set.
 * Unqualified `Case(...)` is allowed when case resolution is unambiguous in
   scope; otherwise a qualified form (`Union.Case(...)`) or alias is required.
+* For an unqualified identifier in expression position, ordinary lexical lookup
+  wins before union-case lookup: locals and parameters first, then visible
+  instance/static members and imported symbols, then unqualified union cases.
 * If a union value is required, case-to-union conversion applies implicitly.
 * For member-qualified construction (`Union.Case(...)` / `.Case(...)`), lowering
   emits an explicit factory call:

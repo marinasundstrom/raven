@@ -5305,11 +5305,6 @@ partial class BlockBinder : Binder
 
         if (symbol is null)
         {
-            // Prefer implicit instance members over union cases with the same name.
-            // This is intentionally placed *after* local/parameter binding.
-            if (TryBindImplicitInstanceMember(name, syntax, out memberExpr))
-                return memberExpr;
-
             var type = LookupType(name);
             if (type is not null)
             {
