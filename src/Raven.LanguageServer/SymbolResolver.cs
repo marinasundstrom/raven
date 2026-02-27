@@ -1,5 +1,6 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Operations;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.LanguageServer;
@@ -8,17 +9,20 @@ internal static class SymbolResolver
 {
     public static SymbolResolutionResult? ResolveSymbolAtPosition(SemanticModel semanticModel, SyntaxNode root, int offset)
     {
-        foreach (var candidateNode in GetCandidateNodes(root, offset))
+        foreach (var candidate in GetCandidateNodes(root, offset))
         {
-            var symbol = ResolveSymbolFromNode(semanticModel, candidateNode);
+            if (ShouldSkipCandidateNode(candidate.Node, candidate.Token))
+                continue;
+
+            var symbol = ResolveSymbolFromNode(semanticModel, candidate.Node, candidate.Token);
             if (symbol is not null)
-                return new SymbolResolutionResult(symbol.UnderlyingSymbol, candidateNode);
+                return new SymbolResolutionResult(symbol.UnderlyingSymbol, candidate.Node);
         }
 
         return null;
     }
 
-    private static IEnumerable<SyntaxNode> GetCandidateNodes(SyntaxNode root, int offset)
+    private static IEnumerable<CandidateNode> GetCandidateNodes(SyntaxNode root, int offset)
     {
         foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
@@ -35,7 +39,7 @@ internal static class SymbolResolver
             var current = token.Parent;
             while (current is not null)
             {
-                yield return current;
+                yield return new CandidateNode(current, token);
                 current = current.Parent;
             }
         }
@@ -53,9 +57,15 @@ internal static class SymbolResolver
             yield return clamped - 1;
     }
 
-    private static ISymbol? ResolveSymbolFromNode(SemanticModel semanticModel, SyntaxNode node)
+    private static ISymbol? ResolveSymbolFromNode(SemanticModel semanticModel, SyntaxNode node, SyntaxToken token)
     {
-        if (TryResolvePatternDeclaredSymbol(semanticModel, node, out var patternSymbol))
+        if (TryResolveInvocationTargetSymbol(semanticModel, node, out var invocationSymbol))
+            return invocationSymbol;
+
+        if (TryResolveRecordPatternCaseSymbol(semanticModel, node, token, out var recordPatternCaseSymbol))
+            return recordPatternCaseSymbol;
+
+        if (TryResolvePatternDeclaredSymbol(semanticModel, node, token, out var patternSymbol))
             return patternSymbol;
 
         if (node is ParameterSyntax parameterDeclaration)
@@ -74,6 +84,7 @@ internal static class SymbolResolver
         var operation = semanticModel.GetOperation(node);
         var operationSymbol = operation switch
         {
+            ILiteralOperation literal => literal.Type,
             IParameterReferenceOperation parameterReference => (ISymbol?)parameterReference.Parameter,
             ILocalReferenceOperation localReference => localReference.Local,
             IVariableReferenceOperation variableReference => variableReference.Variable,
@@ -85,19 +96,174 @@ internal static class SymbolResolver
             _ => null
         };
 
-        if (operationSymbol is not null)
-            return operationSymbol;
-
-        return semanticModel.GetDeclaredSymbol(node);
+        return operationSymbol;
     }
 
-    private static bool TryResolvePatternDeclaredSymbol(SemanticModel semanticModel, SyntaxNode node, out ISymbol? symbol)
+    private static bool TryResolveInvocationTargetSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        var invocation = node switch
+        {
+            InvocationExpressionSyntax direct => direct,
+            IdentifierNameSyntax { Parent: InvocationExpressionSyntax direct } => direct,
+            MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax parent } => parent,
+            IdentifierNameSyntax identifier
+                when identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
+                     memberAccess.Name == identifier &&
+                     memberAccess.Parent is InvocationExpressionSyntax parent => parent,
+            _ => null
+        };
+
+        if (invocation is null)
+            return false;
+
+        var symbolInfo = semanticModel.GetSymbolInfo(invocation);
+        if (symbolInfo.Symbol is not null)
+        {
+            symbol = symbolInfo.Symbol;
+            return true;
+        }
+
+        if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+        {
+            symbol = symbolInfo.CandidateSymbols[0];
+            return true;
+        }
+
+        if (semanticModel.GetOperation(invocation) is IInvocationOperation operation &&
+            operation.TargetMethod is not null)
+        {
+            symbol = operation.TargetMethod;
+            return true;
+        }
+
+        if (TryResolveUnionCaseFromInvocationContext(semanticModel, invocation, out var unionCaseSymbol))
+        {
+            symbol = unionCaseSymbol;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveUnionCaseFromInvocationContext(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        var invokedName = invocation.Expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax identifier } => identifier.Identifier.ValueText,
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(invokedName))
+            return false;
+
+        var typeInfo = semanticModel.GetTypeInfo(invocation);
+        var targetType = typeInfo.ConvertedType ?? typeInfo.Type;
+        if (targetType is null)
+            return false;
+
+        if (targetType is IDiscriminatedUnionSymbol union && targetType.IsDiscriminatedUnion)
+        {
+            var unionCase = union.Cases.FirstOrDefault(c => string.Equals(c.Name, invokedName, StringComparison.Ordinal));
+            if (unionCase is not null)
+            {
+                symbol = unionCase;
+                return true;
+            }
+        }
+
+        if (targetType is IDiscriminatedUnionCaseSymbol caseType &&
+            targetType.IsDiscriminatedUnionCase &&
+            string.Equals(caseType.Name, invokedName, StringComparison.Ordinal))
+        {
+            symbol = caseType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveRecordPatternCaseSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        if (node is not IdentifierNameSyntax identifier ||
+            token != identifier.Identifier ||
+            identifier.Parent is not RecordPatternSyntax recordPattern ||
+            recordPattern.Type != identifier)
+        {
+            return false;
+        }
+
+        var caseName = identifier.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(caseName))
+            return false;
+
+        ITypeSymbol? scrutineeType = null;
+
+        if (recordPattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+            scrutineeType = semanticModel.GetTypeInfo(matchExpression.Expression).Type;
+        else if (recordPattern.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+            scrutineeType = semanticModel.GetTypeInfo(matchStatement.Expression).Type;
+
+        if (scrutineeType is null)
+            return false;
+
+        IDiscriminatedUnionSymbol? union = null;
+        if (scrutineeType is IDiscriminatedUnionSymbol unionType && scrutineeType.IsDiscriminatedUnion)
+            union = unionType;
+        else if (scrutineeType is IDiscriminatedUnionCaseSymbol caseType && scrutineeType.IsDiscriminatedUnionCase)
+            union = caseType.Union;
+
+        if (union is null)
+            return false;
+
+        var caseSymbol = union.Cases.FirstOrDefault(c => string.Equals(c.Name, caseName, StringComparison.Ordinal));
+        if (caseSymbol is null)
+            return false;
+
+        symbol = caseSymbol;
+        return true;
+    }
+
+    private static bool ShouldSkipCandidateNode(SyntaxNode node, SyntaxToken token)
+    {
+        return node switch
+        {
+            CompilationUnitSyntax => true,
+            GlobalStatementSyntax => true,
+            LocalDeclarationStatementSyntax => true,
+            VariableDeclarationSyntax => true,
+            VariableDeclaratorSyntax declarator => token != declarator.Identifier,
+            FunctionStatementSyntax functionStatement => token != functionStatement.Identifier,
+            MethodDeclarationSyntax methodDeclaration => token != methodDeclaration.Identifier,
+            BaseTypeDeclarationSyntax typeDeclaration => token != typeDeclaration.Identifier,
+            UnionCaseClauseSyntax unionCaseClause => token != unionCaseClause.Identifier,
+            _ => false
+        };
+    }
+
+    private static bool TryResolvePatternDeclaredSymbol(SemanticModel semanticModel, SyntaxNode node, SyntaxToken token, out ISymbol? symbol)
     {
         symbol = node switch
         {
-            SingleVariableDesignationSyntax single => semanticModel.GetDeclaredSymbol(single),
-            VariablePatternSyntax { Designation: SingleVariableDesignationSyntax single } => semanticModel.GetDeclaredSymbol(single),
-            TypedVariableDesignationSyntax { Designation: SingleVariableDesignationSyntax single } => semanticModel.GetDeclaredSymbol(single),
+            SingleVariableDesignationSyntax single when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
+            VariablePatternSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
+            TypedVariableDesignationSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
             _ => null
         };
 
@@ -106,9 +272,9 @@ internal static class SymbolResolver
 
         symbol = node.Parent switch
         {
-            SingleVariableDesignationSyntax single => semanticModel.GetDeclaredSymbol(single),
-            VariablePatternSyntax { Designation: SingleVariableDesignationSyntax single } => semanticModel.GetDeclaredSymbol(single),
-            TypedVariableDesignationSyntax { Designation: SingleVariableDesignationSyntax single } => semanticModel.GetDeclaredSymbol(single),
+            SingleVariableDesignationSyntax single when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
+            VariablePatternSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
+            TypedVariableDesignationSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
             _ => null
         };
 
@@ -117,3 +283,4 @@ internal static class SymbolResolver
 }
 
 internal readonly record struct SymbolResolutionResult(ISymbol Symbol, SyntaxNode Node);
+internal readonly record struct CandidateNode(SyntaxNode Node, SyntaxToken Token);
