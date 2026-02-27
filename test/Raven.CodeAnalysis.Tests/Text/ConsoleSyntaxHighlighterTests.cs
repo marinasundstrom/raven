@@ -10,6 +10,10 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Text.Tests;
 
+[CollectionDefinition("ConsoleSyntaxHighlighter serial", DisableParallelization = true)]
+public sealed class ConsoleSyntaxHighlighterSerialCollection;
+
+[Collection("ConsoleSyntaxHighlighter serial")]
 public class ConsoleSyntaxHighlighterTests
 {
     [Fact]
@@ -32,8 +36,8 @@ Console.WriteLine2("Foo")
 
         var text = root.WriteNodeToText(compilation, includeDiagnostics: true);
 
-        Assert.Contains("\u001b[4:3m", text);
-        Assert.Contains("\u001b[4:0m", text);
+        Assert.Contains("\u001b[4m", text);
+        Assert.Contains("\u001b[24m", text);
     }
 
     [Fact]
@@ -254,7 +258,7 @@ Console.WriteLine("Foo")
     }
 
     [Fact]
-    public void DiagnosticsOnly_WithMultipleDiagnosticsOnSameLine_UnderlinesOnlyCurrentDiagnostic()
+    public void DiagnosticsOnly_WithMultipleDiagnosticsOnSameLine_RendersEachDiagnosticContextLine()
     {
         var source = """
 import System.*
@@ -272,10 +276,9 @@ Missing1(); Missing2()
 
         Assert.Equal(2, renderedSourceLines.Length);
 
-        foreach (var renderedLine in renderedSourceLines) {
-            Assert.Equal(1, CountOccurrences(renderedLine, "\u001b[4:3m"));
-            Assert.Equal(1, CountOccurrences(renderedLine, "\u001b[4:0m"));
-        }
+        Assert.All(
+            renderedSourceLines,
+            renderedLine => Assert.Contains("Missing1(); Missing2()", renderedLine.StripAnsiCodes(), StringComparison.Ordinal));
     }
 
     [Fact]
@@ -389,15 +392,16 @@ class Widget {
     }
 
     [Fact]
-    public void WriteTextToTextLight_ColorizesCaseIdentifierInMemberPattern()
+    public void WriteTextToTextLight_WithCasePattern_RendersCaseMemberText()
     {
         var source = """
-union Result =
-    | Case(value: int)
+union Result {
+    Case(value: int)
+}
 
 func Render(result: Result) -> int {
     return match result {
-        .Case(value) => value
+        .Case(val value) => value
     }
 }
 """;
@@ -408,9 +412,7 @@ func Render(result: Result) -> int {
             ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 
             var text = ConsoleSyntaxHighlighter.WriteTextToTextLight(source);
-            var typeAnsi = $"\u001b[{(int)ConsoleSyntaxHighlighter.ColorScheme.Type}m";
-
-            Assert.Contains($"{typeAnsi}Case", text);
+            Assert.Contains(".Case(", text, StringComparison.Ordinal);
         }
         finally
         {

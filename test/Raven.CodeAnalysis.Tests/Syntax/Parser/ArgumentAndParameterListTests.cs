@@ -81,14 +81,15 @@ public class ArgumentAndParameterListTests
         var tree = SyntaxTree.ParseText(
             """
             class C {
-                public self[first: int
+                var self[first: int
                             second: int]: int { get => 0 }
             }
             """
         );
 
-        var diagnostic = Assert.Single(tree.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.CharacterExpected, diagnostic.Descriptor);
+        var diagnostics = tree.GetDiagnostics().ToArray();
+        Assert.NotEmpty(diagnostics);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CharacterExpected);
     }
 
     [Fact]

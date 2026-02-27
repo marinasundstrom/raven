@@ -503,8 +503,10 @@ import System.Threading.Tasks.*
 class C {
     private val backing: Int32
 
-    public Value: Task<Int32> {
-        async get => await Task.FromResult(backing)
+    val Value: Task<Int32> {
+        async get {
+            return await Task.FromResult(backing)
+        }
     }
 }
 """;
@@ -513,10 +515,12 @@ class C {
         compilation.EnsureSetup();
 
         var model = compilation.GetSemanticModel(tree);
-        var accessorSyntax = tree.GetRoot()
+        var propertySyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<AccessorDeclarationSyntax>()
-            .Single();
+            .OfType<PropertyDeclarationSyntax>()
+            .Single(property => property.Identifier.ValueText == "Value");
+        var accessorSyntax = propertySyntax.AccessorList!.Accessors
+            .Single(accessor => accessor.Keyword.Kind == SyntaxKind.GetKeyword);
 
         var accessorSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(accessorSyntax));
         var bound = accessorSyntax.Body is not null
@@ -733,7 +737,7 @@ import System.Threading.Tasks.*
 class C {
     private var backing: Int32
 
-    public Value: Task {
+    val Value: Task {
         async get {
             await Task.CompletedTask
             backing = backing + 1
@@ -746,10 +750,12 @@ class C {
         compilation.EnsureSetup();
 
         var model = compilation.GetSemanticModel(tree);
-        var accessorSyntax = tree.GetRoot()
+        var propertySyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<AccessorDeclarationSyntax>()
-            .Single();
+            .OfType<PropertyDeclarationSyntax>()
+            .Single(property => property.Identifier.ValueText == "Value");
+        var accessorSyntax = propertySyntax.AccessorList!.Accessors
+            .Single(accessor => accessor.Keyword.Kind == SyntaxKind.GetKeyword);
 
         var accessorSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(accessorSyntax));
         var bound = accessorSyntax.Body is not null
