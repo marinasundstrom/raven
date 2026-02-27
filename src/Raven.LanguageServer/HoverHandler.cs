@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -12,10 +14,12 @@ namespace Raven.LanguageServer;
 internal sealed class HoverHandler : IHoverHandler
 {
     private readonly DocumentStore _documents;
+    private readonly ILogger<HoverHandler> _logger;
 
-    public HoverHandler(DocumentStore documents)
+    public HoverHandler(DocumentStore documents, ILogger<HoverHandler> logger)
     {
         _documents = documents;
+        _logger = logger;
     }
 
     public HoverRegistrationOptions GetRegistrationOptions(HoverCapability capability, ClientCapabilities clientCapabilities)
@@ -30,41 +34,58 @@ internal sealed class HoverHandler : IHoverHandler
 
     public async Task<Hover?> Handle(HoverParams request, CancellationToken cancellationToken)
     {
-        if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
-            return null;
-
-        var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-        if (syntaxTree is null)
-            return null;
-
-        if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
-            return null;
-
-        var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        var root = syntaxTree.GetRoot(cancellationToken);
-        var offset = PositionHelper.ToOffset(sourceText, request.Position);
-
-        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
-        if (resolution is null)
-            return null;
-
-        var symbol = resolution.Value.Symbol;
-        var signature = symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
-        var containing = symbol.ContainingSymbol?.ToDisplayString(
-            SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
-        var documentation = symbol.GetDocumentationComment();
-        var hoverText = BuildHoverText(signature, symbol.Kind.ToString(), containing, documentation);
-
-        return new Hover
+        try
         {
-            Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+            if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+                return null;
+
+            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+            if (syntaxTree is null)
+                return null;
+
+            if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
+                return null;
+
+            var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var root = syntaxTree.GetRoot(cancellationToken);
+            var offset = PositionHelper.ToOffset(sourceText, request.Position);
+
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
+            if (resolution is null)
+                return null;
+
+            var symbol = resolution.Value.Symbol;
+            var signature = symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
+            var containing = symbol.ContainingSymbol?.ToDisplayString(
+                SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
+            var documentation = symbol.GetDocumentationComment();
+            var hoverText = BuildHoverText(signature, symbol.Kind.ToString(), containing, documentation);
+
+            return new Hover
             {
-                Kind = MarkupKind.Markdown,
-                Value = hoverText
-            }),
-            Range = PositionHelper.ToRange(sourceText, resolution.Value.Node.Span)
-        };
+                Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+                {
+                    Kind = MarkupKind.Markdown,
+                    Value = hoverText
+                }),
+                Range = PositionHelper.ToRange(sourceText, resolution.Value.Node.Span)
+            };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Hover request failed for {Uri} at {Line}:{Character}.",
+                request.TextDocument.Uri,
+                request.Position.Line,
+                request.Position.Character);
+            return null;
+        }
     }
 
     private static string BuildHoverText(

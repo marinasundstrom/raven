@@ -1,8 +1,13 @@
 using System.Diagnostics.CodeAnalysis;
+
+using Microsoft.Extensions.Logging;
+
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
 using CodeDiagnosticSeverity = Raven.CodeAnalysis.DiagnosticSeverity;
 using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
@@ -15,10 +20,12 @@ namespace Raven.LanguageServer;
 internal sealed class DocumentStore
 {
     private readonly WorkspaceManager _workspaceManager;
+    private readonly ILogger<DocumentStore> _logger;
 
-    public DocumentStore(WorkspaceManager workspaceManager)
+    public DocumentStore(WorkspaceManager workspaceManager, ILogger<DocumentStore> logger)
     {
         _workspaceManager = workspaceManager;
+        _logger = logger;
     }
 
     public Document UpsertDocument(DocumentUri uri, string text)
@@ -35,22 +42,34 @@ internal sealed class DocumentStore
 
     public async Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
-        if (!TryGetDocument(uri, out var document))
+        try
+        {
+            if (!TryGetDocument(uri, out var document))
+                return Array.Empty<LspDiagnostic>();
+
+            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+            if (syntaxTree is null)
+                return Array.Empty<LspDiagnostic>();
+
+            if (!TryGetCompilation(uri, out var compilation) || compilation is null)
+                return Array.Empty<LspDiagnostic>();
+
+            var diagnostics = compilation.GetDiagnostics(cancellationToken: cancellationToken)
+                .Where(d => ShouldReport(d, syntaxTree))
+                .Select(MapDiagnostic)
+                .ToArray();
+
+            return diagnostics;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
             return Array.Empty<LspDiagnostic>();
-
-        var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-        if (syntaxTree is null)
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Diagnostic computation failed for {Uri}.", uri);
             return Array.Empty<LspDiagnostic>();
-
-        if (!TryGetCompilation(uri, out var compilation) || compilation is null)
-            return Array.Empty<LspDiagnostic>();
-
-        var diagnostics = compilation.GetDiagnostics(cancellationToken: cancellationToken)
-            .Where(d => ShouldReport(d, syntaxTree))
-            .Select(MapDiagnostic)
-            .ToArray();
-
-        return diagnostics;
+        }
     }
 
     private static bool ShouldReport(CodeDiagnostic diagnostic, SyntaxTree syntaxTree)

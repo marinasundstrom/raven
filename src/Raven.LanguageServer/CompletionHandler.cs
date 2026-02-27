@@ -1,5 +1,7 @@
 using System.Linq;
 
+using Microsoft.Extensions.Logging;
+
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
@@ -19,10 +21,12 @@ internal sealed class CompletionHandler : ICompletionHandler
 {
     private readonly DocumentStore _documents;
     private readonly CompletionService _completionService = new();
+    private readonly ILogger<CompletionHandler> _logger;
 
-    public CompletionHandler(DocumentStore documents)
+    public CompletionHandler(DocumentStore documents, ILogger<CompletionHandler> logger)
     {
         _documents = documents;
+        _logger = logger;
     }
 
     public CompletionRegistrationOptions GetRegistrationOptions(CompletionCapability capability, ClientCapabilities clientCapabilities)
@@ -34,23 +38,40 @@ internal sealed class CompletionHandler : ICompletionHandler
 
     public async Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
     {
-        if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+        try
+        {
+            if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+                return new CompletionList();
+
+            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+            if (syntaxTree is null)
+                return new CompletionList();
+
+            var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            var position = PositionHelper.ToOffset(text, request.Position);
+            if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
+                return new CompletionList();
+
+            var items = (await _completionService.GetCompletionsAsync(compilation, syntaxTree, position, cancellationToken).ConfigureAwait(false))
+                .Select(item => ToLspCompletion(item, text))
+                .ToList();
+
+            return new CompletionList(items, isIncomplete: false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
             return new CompletionList();
-
-        var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-        if (syntaxTree is null)
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Completion request failed for {Uri} at {Line}:{Character}.",
+                request.TextDocument.Uri,
+                request.Position.Line,
+                request.Position.Character);
             return new CompletionList();
-
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var position = PositionHelper.ToOffset(text, request.Position);
-        if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
-            return new CompletionList();
-
-        var items = (await _completionService.GetCompletionsAsync(compilation, syntaxTree, position, cancellationToken).ConfigureAwait(false))
-            .Select(item => ToLspCompletion(item, text))
-            .ToList();
-
-        return new CompletionList(items, isIncomplete: false);
+        }
     }
 
     public void SetCapability(CompletionCapability capability)

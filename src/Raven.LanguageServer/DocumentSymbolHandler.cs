@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -12,10 +14,12 @@ namespace Raven.LanguageServer;
 internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 {
     private readonly DocumentStore _documents;
+    private readonly ILogger<DocumentSymbolHandler> _logger;
 
-    public DocumentSymbolHandler(DocumentStore documents)
+    public DocumentSymbolHandler(DocumentStore documents, ILogger<DocumentSymbolHandler> logger)
     {
         _documents = documents;
+        _logger = logger;
     }
 
     public DocumentSymbolRegistrationOptions GetRegistrationOptions(DocumentSymbolCapability capability, ClientCapabilities clientCapabilities)
@@ -30,21 +34,33 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
     public async Task<SymbolInformationOrDocumentSymbolContainer?> Handle(DocumentSymbolParams request, CancellationToken cancellationToken)
     {
-        if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+        try
+        {
+            if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+                return new SymbolInformationOrDocumentSymbolContainer();
+
+            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+            if (syntaxTree is null)
+                return new SymbolInformationOrDocumentSymbolContainer();
+
+            var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            var root = syntaxTree.GetRoot(cancellationToken);
+
+            var symbols = BuildMemberSymbols(root.Members, text)
+                .Select(symbol => (SymbolInformationOrDocumentSymbol)symbol)
+                .ToArray();
+
+            return new SymbolInformationOrDocumentSymbolContainer(symbols);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
             return new SymbolInformationOrDocumentSymbolContainer();
-
-        var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-        if (syntaxTree is null)
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Document symbols request failed for {Uri}.", request.TextDocument.Uri);
             return new SymbolInformationOrDocumentSymbolContainer();
-
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var root = syntaxTree.GetRoot(cancellationToken);
-
-        var symbols = BuildMemberSymbols(root.Members, text)
-            .Select(symbol => (SymbolInformationOrDocumentSymbol)symbol)
-            .ToArray();
-
-        return new SymbolInformationOrDocumentSymbolContainer(symbols);
+        }
     }
 
     private static IEnumerable<DocumentSymbol> BuildMemberSymbols(SyntaxList<MemberDeclarationSyntax> members, SourceText text)

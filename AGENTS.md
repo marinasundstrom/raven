@@ -112,6 +112,7 @@ If you change any flags, **rebuild the compiler** before running again.
 - focus on incremental, additive changes  
 - review `docs/` before altering syntax/semantics  
 - ask Codex to collapse large diffs  
+- for language server troubleshooting, capture logs to `logs/raven-lsp.log` (create `logs/` if missing) and include the relevant excerpt when reporting hover/completion/definition failures
 - inspect `ravc` outputs with `ilspycmd`  
   (install via `dotnet tool install --global ilspycmd`)  
 - prefer implementing new features via lowering where possible  

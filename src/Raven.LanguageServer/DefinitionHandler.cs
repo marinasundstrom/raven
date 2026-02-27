@@ -1,7 +1,10 @@
+using Microsoft.Extensions.Logging;
+
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -14,10 +17,12 @@ namespace Raven.LanguageServer;
 internal sealed class DefinitionHandler : IDefinitionHandler
 {
     private readonly DocumentStore _documents;
+    private readonly ILogger<DefinitionHandler> _logger;
 
-    public DefinitionHandler(DocumentStore documents)
+    public DefinitionHandler(DocumentStore documents, ILogger<DefinitionHandler> logger)
     {
         _documents = documents;
+        _logger = logger;
     }
 
     public DefinitionRegistrationOptions GetRegistrationOptions(DefinitionCapability capability, ClientCapabilities clientCapabilities)
@@ -32,30 +37,47 @@ internal sealed class DefinitionHandler : IDefinitionHandler
 
     public async Task<LocationOrLocationLinks?> Handle(DefinitionParams request, CancellationToken cancellationToken)
     {
-        if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+        try
+        {
+            if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+                return new LocationOrLocationLinks();
+
+            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+            if (syntaxTree is null)
+                return new LocationOrLocationLinks();
+
+            if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
+                return new LocationOrLocationLinks();
+
+            var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var root = syntaxTree.GetRoot(cancellationToken);
+            var offset = PositionHelper.ToOffset(sourceText, request.Position);
+
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
+            if (resolution is null)
+                return new LocationOrLocationLinks();
+
+            var locations = BuildLocations(resolution.Value.Symbol)
+                .Select(location => (LocationOrLocationLink)location)
+                .ToArray();
+
+            return new LocationOrLocationLinks(locations);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
             return new LocationOrLocationLinks();
-
-        var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-        if (syntaxTree is null)
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Definition request failed for {Uri} at {Line}:{Character}.",
+                request.TextDocument.Uri,
+                request.Position.Line,
+                request.Position.Character);
             return new LocationOrLocationLinks();
-
-        if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
-            return new LocationOrLocationLinks();
-
-        var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        var root = syntaxTree.GetRoot(cancellationToken);
-        var offset = PositionHelper.ToOffset(sourceText, request.Position);
-
-        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
-        if (resolution is null)
-            return new LocationOrLocationLinks();
-
-        var locations = BuildLocations(resolution.Value.Symbol)
-            .Select(location => (LocationOrLocationLink)location)
-            .ToArray();
-
-        return new LocationOrLocationLinks(locations);
+        }
     }
 
     private static IEnumerable<LspLocation> BuildLocations(ISymbol symbol)
