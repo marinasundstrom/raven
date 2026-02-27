@@ -232,8 +232,12 @@
                     "match": "\\b(if|else|match|when|for|each|in|by|while|do|try|catch|finally|with|return|throw|break|continue|await)\\b"
                 },
                 {
+                    "name": "keyword.other.expression.raven",
+                    "match": "\\b(typeof|nameof|sizeof)\\b"
+                },
+                {
                     "name": "keyword.operator.word.raven",
-                    "match": "\\b(and|or|not|as|is|default|typeof|nameof|sizeof|notnull|unmanaged|where|permits|ref|out|in)\\b"
+                    "match": "\\b(and|or|not|as|is|default|notnull|unmanaged|where|permits|ref|out|in)\\b"
                 },
                 {
                     "name": "constant.language.raven",
