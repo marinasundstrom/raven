@@ -1133,4 +1133,45 @@ val result = value match {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void MatchExpression_CasePatternDeclaredSymbols_UseCaseParameterTypes()
+    {
+        const string code = """
+abstract class Expr
+
+record Lit(Value: int) : Expr
+record Add(Left: Expr, Right: Expr) : Expr
+
+func Evaluate(expr: Expr) -> int {
+    return expr match {
+        Add(val left, val right) => 0
+        _ => 0
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var designators = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Where(d => d.Identifier.ValueText is "left" or "right")
+            .ToArray();
+
+        Assert.Equal(2, designators.Length);
+
+        var exprType = Assert.IsAssignableFrom<INamedTypeSymbol>(result.Compilation.GetTypeByMetadataName("Expr"));
+        foreach (var designator in designators)
+        {
+            var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designator));
+            Assert.True(SymbolEqualityComparer.Default.Equals(exprType, symbol.Type));
+        }
+    }
 }

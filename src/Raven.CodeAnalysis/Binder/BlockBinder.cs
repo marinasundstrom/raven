@@ -64,11 +64,29 @@ partial class BlockBinder : Binder
             } => null,
             VariableDeclaratorSyntax v => BindLocalDeclaration(v).Symbol,
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
-            SingleVariableDesignationSyntax singleVariableDesignation => BindSingleVariableDesignation(singleVariableDesignation)?.Local,
+            SingleVariableDesignationSyntax singleVariableDesignation => BindDeclaredPatternLocal(singleVariableDesignation),
             FunctionStatementSyntax functionStatement => BindFunction(functionStatement).Method,
             LabeledStatementSyntax labeledStatement => DeclareLabelSymbol(labeledStatement),
             _ => base.BindDeclaredSymbol(node)
         };
+    }
+
+    private ILocalSymbol? BindDeclaredPatternLocal(SingleVariableDesignationSyntax singleVariableDesignation)
+    {
+        if (TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator cachedDesignator)
+            return cachedDesignator.Local;
+
+        if (singleVariableDesignation.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+            _ = BindExpression(matchExpression);
+        else if (singleVariableDesignation.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+            _ = BindStatement(matchStatement);
+        else if (singleVariableDesignation.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
+            _ = BindExpression(isPatternExpression);
+
+        if (TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator reboundDesignator)
+            return reboundDesignator.Local;
+
+        return BindSingleVariableDesignation(singleVariableDesignation)?.Local;
     }
 
     public override SymbolInfo BindReferencedSymbol(SyntaxNode node)

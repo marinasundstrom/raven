@@ -1108,6 +1108,7 @@ internal partial class BlockBinder
 
         var local = DeclarePatternLocal(single, single.Identifier.ValueText, isMutable, type);
         var designator = new BoundSingleVariableDesignator(local);
+        CacheBoundNode(single, designator);
 
         return new BoundDeclarationPattern(type, designator);
     }

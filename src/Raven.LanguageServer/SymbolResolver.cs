@@ -55,6 +55,9 @@ internal static class SymbolResolver
 
     private static ISymbol? ResolveSymbolFromNode(SemanticModel semanticModel, SyntaxNode node)
     {
+        if (TryResolvePatternDeclaredSymbol(semanticModel, node, out var patternSymbol))
+            return patternSymbol;
+
         if (node is ParameterSyntax parameterDeclaration)
             return semanticModel.GetDeclaredSymbol(parameterDeclaration);
 
@@ -86,6 +89,30 @@ internal static class SymbolResolver
             return operationSymbol;
 
         return semanticModel.GetDeclaredSymbol(node);
+    }
+
+    private static bool TryResolvePatternDeclaredSymbol(SemanticModel semanticModel, SyntaxNode node, out ISymbol? symbol)
+    {
+        symbol = node switch
+        {
+            SingleVariableDesignationSyntax single => semanticModel.GetDeclaredSymbol(single),
+            VariablePatternSyntax { Designation: SingleVariableDesignationSyntax single } => semanticModel.GetDeclaredSymbol(single),
+            TypedVariableDesignationSyntax { Designation: SingleVariableDesignationSyntax single } => semanticModel.GetDeclaredSymbol(single),
+            _ => null
+        };
+
+        if (symbol is not null)
+            return true;
+
+        symbol = node.Parent switch
+        {
+            SingleVariableDesignationSyntax single => semanticModel.GetDeclaredSymbol(single),
+            VariablePatternSyntax { Designation: SingleVariableDesignationSyntax single } => semanticModel.GetDeclaredSymbol(single),
+            TypedVariableDesignationSyntax { Designation: SingleVariableDesignationSyntax single } => semanticModel.GetDeclaredSymbol(single),
+            _ => null
+        };
+
+        return symbol is not null;
     }
 }
 
