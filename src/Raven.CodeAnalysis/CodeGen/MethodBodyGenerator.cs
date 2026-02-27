@@ -190,7 +190,7 @@ internal class MethodBodyGenerator
         if (direct is not null)
             return direct;
 
-        return statement switch
+        var fallback = statement switch
         {
             BoundExpressionStatement expressionStatement => TryGetSyntax(expressionStatement.Expression),
             BoundAssignmentStatement assignmentStatement => TryGetSyntax(assignmentStatement.Expression),
@@ -209,6 +209,84 @@ internal class MethodBodyGenerator
                 .FirstOrDefault(s => s is not null),
             _ => null
         };
+
+        return fallback ?? TryFindSequencePointSyntax(statement);
+    }
+
+    private SyntaxNode? TryFindSequencePointSyntax(BoundStatement statement)
+    {
+        var finder = new SequencePointSyntaxFinder(this);
+        finder.VisitStatement(statement);
+        return finder.Result;
+    }
+
+    private sealed class SequencePointSyntaxFinder : BoundTreeWalker
+    {
+        private readonly MethodBodyGenerator _owner;
+
+        public SequencePointSyntaxFinder(MethodBodyGenerator owner)
+        {
+            _owner = owner;
+        }
+
+        public SyntaxNode? Result { get; private set; }
+
+        public override void VisitStatement(BoundStatement statement)
+        {
+            if (TryCapture(statement))
+                return;
+
+            base.VisitStatement(statement);
+        }
+
+        public override void VisitExpression(BoundExpression node)
+        {
+            if (TryCapture(node))
+                return;
+
+            base.VisitExpression(node);
+        }
+
+        public override void VisitPattern(BoundPattern node)
+        {
+            if (TryCapture(node))
+                return;
+
+            base.VisitPattern(node);
+        }
+
+        public override void VisitVariableDeclarator(BoundVariableDeclarator node)
+        {
+            if (TryCapture(node))
+                return;
+
+            base.VisitVariableDeclarator(node);
+        }
+
+        public override void VisitCatchClause(BoundCatchClause node)
+        {
+            if (TryCapture(node))
+                return;
+
+            base.VisitCatchClause(node);
+        }
+
+        private bool TryCapture(BoundNode node)
+        {
+            if (Result is not null)
+                return true;
+
+            var syntax = _owner.TryGetSyntax(node);
+            if (syntax is null || syntax.Span.Length == 0)
+                return false;
+
+            var location = syntax.GetLocation();
+            if (!location.IsInSource)
+                return false;
+
+            Result = syntax;
+            return true;
+        }
     }
 
     internal void EmitLoadClosure()
@@ -430,6 +508,10 @@ internal class MethodBodyGenerator
             FunctionStatementSyntax l when l.ExpressionBody is not null => l.ExpressionBody.Expression,
             _ => null
         };
+
+        // Emit an initial visible point for all source-backed members so debugger
+        // step-in can consistently land inside the member body.
+        EmitMethodEntrySequencePointOnce();
 
         if (boundBody != null)
             DeclareLocals(boundBody);

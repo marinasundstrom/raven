@@ -1,7 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Collections.Generic;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
@@ -159,6 +159,83 @@ class C {
         peReader.Dispose();
     }
 
+    [Fact]
+    public void ForLoopMethod_HasSequencePointsInsideLoopBody()
+    {
+        var code = """
+class C {
+    func Sum() -> int {
+        var total = 0
+        for value in 1..3 {
+            total = total + value
+        }
+
+        return total
+    }
+}
+""";
+
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code);
+        var method = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "C" && methodName == "Sum");
+
+        AssertMethodHasVisibleSequencePoint(pdbReader, method);
+        AssertMethodHasVisibleSequencePointOnLine(pdbReader, method, line: 5);
+
+        peReader.Dispose();
+    }
+
+    [Fact]
+    public void GotoMethod_HasSequencePointOnGotoStatement()
+    {
+        var code = """
+class C {
+    func Retry() -> int {
+        var retries = 0
+retry:
+        retries += 1
+        if retries < 3 {
+            goto retry
+        }
+
+        return retries
+    }
+}
+""";
+
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code);
+        var method = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "C" && methodName == "Retry");
+
+        AssertMethodHasVisibleSequencePoint(pdbReader, method);
+        AssertMethodHasVisibleSequencePointOnLine(pdbReader, method, line: 7);
+
+        peReader.Dispose();
+    }
+
+    [Fact]
+    public void FunctionMethod_HasSequencePointsInsideBody_ForStepIn()
+    {
+        var code = """
+class C {
+    func Compute(x: int) -> int {
+        val adjusted = x + 1
+        return adjusted
+    }
+}
+""";
+
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code);
+        var method = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "C" && methodName == "Compute");
+
+        AssertMethodHasVisibleSequencePoint(pdbReader, method);
+        AssertMethodHasVisibleSequencePointOnLine(pdbReader, method, line: 3);
+        AssertMethodHasVisibleSequencePointOnLine(pdbReader, method, line: 4);
+
+        peReader.Dispose();
+    }
+
     private static (PEReader PeReader, MetadataReader MetadataReader, MetadataReader PdbReader) EmitWithPortablePdb(
         string source,
         CompilationOptions? options = null)
@@ -190,7 +267,8 @@ class C {
         MetadataReader metadataReader,
         Func<string, string, bool> predicate)
     {
-        foreach (var typeHandle in metadataReader.TypeDefinitions) {
+        foreach (var typeHandle in metadataReader.TypeDefinitions)
+        {
             var type = metadataReader.GetTypeDefinition(typeHandle);
             var typeName = metadataReader.GetString(type.Name);
 
@@ -234,9 +312,19 @@ class C {
         return debugInfo.GetSequencePoints().Where(static p => !p.IsHidden);
     }
 
+    private static void AssertMethodHasVisibleSequencePointOnLine(
+        MetadataReader pdbReader,
+        MethodDefinitionHandle methodHandle,
+        int line)
+    {
+        var points = GetVisibleSequencePoints(pdbReader, methodHandle).ToArray();
+        Assert.Contains(points, p => p.StartLine == line);
+    }
+
     private static void AssertNoMethod(MetadataReader metadataReader, Func<string, string, bool> predicate)
     {
-        foreach (var typeHandle in metadataReader.TypeDefinitions) {
+        foreach (var typeHandle in metadataReader.TypeDefinitions)
+        {
             var type = metadataReader.GetTypeDefinition(typeHandle);
             var typeName = metadataReader.GetString(type.Name);
 
