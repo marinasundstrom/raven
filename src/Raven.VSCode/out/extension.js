@@ -100,6 +100,11 @@ function resolveCompilerProjectPath() {
     const defaultPath = path.join(workspaceFolder, 'src', 'Raven.Compiler', 'Raven.Compiler.csproj');
     return fs.existsSync(defaultPath) ? defaultPath : undefined;
 }
+function resolveTargetFramework() {
+    const configuration = vscode.workspace.getConfiguration('raven');
+    const configuredFramework = configuration.get('targetFramework')?.trim();
+    return configuredFramework && configuredFramework.length > 0 ? configuredFramework : undefined;
+}
 function isRavenFile(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     return ext === '.rav' || ext === '.ravenproj';
@@ -132,20 +137,24 @@ async function compileForDebug(targetPath) {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? path.dirname(targetPath);
     const debugOutputDirectory = path.join(workspaceFolder, '.raven-debug');
     fs.mkdirSync(debugOutputDirectory, { recursive: true });
+    const targetFramework = resolveTargetFramework();
     const targetIsProject = path.extname(targetPath).toLowerCase() === '.ravenproj';
     const outputArg = targetIsProject
         ? debugOutputDirectory
         : path.join(debugOutputDirectory, `${path.basename(targetPath, path.extname(targetPath))}.dll`);
     const dotnetArgs = [
         'run',
+        ...(targetFramework ? ['--framework', targetFramework] : []),
         '--project',
         compilerProjectPath,
         '--property',
         'WarningLevel=0',
         '--',
         targetPath,
+        ...(!targetIsProject ? ['--publish'] : []),
         '-o',
-        outputArg
+        outputArg,
+        ...(targetFramework ? ['--framework', targetFramework] : [])
     ];
     output.appendLine(`Compiling for debug: dotnet ${dotnetArgs.join(' ')}`);
     try {

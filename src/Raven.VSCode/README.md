@@ -31,6 +31,7 @@ npm run compile
 ## Configuration
 - `raven.languageServerPath`: override the resolved server assembly path when the defaults do not apply.
 - `raven.compilerProjectPath`: optional override for the `Raven.Compiler.csproj` path used by Raven debug launch.
+- `raven.targetFramework`: optional target framework (for example, `net9.0`) passed to Raven debug compilation.
 
 ## Debugging Raven code (F5)
 1. Open a `.rav` file or `.ravenproj` file.

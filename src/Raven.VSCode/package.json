@@ -101,6 +101,11 @@
           "type": "string",
           "default": "",
           "description": "Full path to Raven.Compiler.csproj used by Raven debug launch. Leave empty to auto-discover '<workspace>/src/Raven.Compiler/Raven.Compiler.csproj'."
+        },
+        "raven.targetFramework": {
+          "type": "string",
+          "default": "",
+          "description": "Target framework to pass to Raven debug compile (for both dotnet run and Raven.Compiler --framework), for example 'net9.0'. Leave empty to use defaults."
         }
       }
     }

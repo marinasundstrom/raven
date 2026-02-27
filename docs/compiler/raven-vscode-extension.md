@@ -26,9 +26,10 @@ The compiled JavaScript emits to `out/` and is referenced by the extension manif
 5. Open or create a `.rav` file to trigger activation and view diagnostics.
 
 ## Configuration
-The extension exposes a single setting to control how the server is launched:
+The extension exposes settings to control language-server resolution and debug compilation:
 - `raven.languageServerPath` (string): Override the resolved `Raven.LanguageServer.dll` path. Use this when working with custom build outputs or packaged bits.
 - `raven.compilerProjectPath` (string): Override the `Raven.Compiler.csproj` path used for Raven debug launches. Defaults to `<workspace>/src/Raven.Compiler/Raven.Compiler.csproj`.
+- `raven.targetFramework` (string): Optional target framework (for example, `net9.0`) passed to debug compile invocations (`dotnet run --framework` and `Raven.Compiler --framework`).
 
 ## F5 compile + debug
 The extension contributes a `Raven` debug type:

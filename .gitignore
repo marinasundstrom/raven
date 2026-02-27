@@ -420,3 +420,4 @@ api
 *.g.cs
 *.stamp
 samples/test.docs
+samples/.raven-debug
