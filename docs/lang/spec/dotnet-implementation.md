@@ -83,27 +83,6 @@ Raven lifecycle declarations map to CLR methods:
 * `init(...)` remains constructor-shape syntax and maps to `.ctor` overloads.
 * `finally { ... }` lowers as a `Finalize` override.
 
-## Union types
-When emitted to .NET metadata, a union is projected as the narrowest common denominator of its members. If every member shares a base class, that base type becomes the metadata type; otherwise, `object` is used. Including `null` in the union marks the emitted type as nullable.
-
-For example:
-
-```raven
-val pet = if flag { Dog() } else { Cat() } // Dog | Cat
-```
-
-Emits `Animal` because both `Dog` and `Cat` derive from it. In contrast:
-
-```raven
-val value = if flag { 0 } else { "hi" } // int | string | null
-```
-
-Emits `object?` since `int` and `string` share no base class other than `object`, and `null` is included.
-
-This narrowing makes unions friendlier to inheritance-based languages such as C#, and it gives the runtime a smaller set of types to resolve.
-
-The compiler does not emit supplemental CLR metadata that preserves every branch of a source union. Consumers observe the projected CLR signature (`Animal`, `object`, `string?`, etc.) and should treat it as the interop contract.
-
 ## Discriminated union interop (C#)
 Discriminated unions compile into a nested-struct hierarchy that C# can consume
 directly. Each case becomes a public nested `struct` with a constructor that

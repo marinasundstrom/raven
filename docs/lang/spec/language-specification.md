@@ -12,7 +12,6 @@ An overview of available types, literal semantics, and conversions can be found 
 * Notes and tips highlight rationale, examples, or implementation remarks. They are informative rather than normative.
 * Code snippets use the `.rav` file extension and omit surrounding boilerplate unless it is essential to the rule being described.
 * When behaviour is intentionally unspecified or still under design, this specification calls it out explicitly and, where possible, links to suggested follow-up work.
-* ⚠️ **Open Question:** type unions written with `|` and literal types are currently under active design review and may be removed in a future language revision to align Raven more closely with a C#-style type system.
 * Callout boxes use a small, consistent emoji set:
   * `ℹ️` **Info** for factual clarification and context.
   * `⚠️` **Warning** for pitfalls or behavior likely to surprise.
@@ -182,18 +181,16 @@ as outlined in this specification.
 Raven has no `void` type. The absence of a meaningful value is represented by the
 `unit` type, which has exactly one value written `()`. The type itself may be
 spelled `unit` or `()`. Functions without an explicit return type implicitly
-return `unit`. In .NET, `unit` corresponds to `void` (see [implementation notes](dotnet-implementation.md#unit-type)). The `unit` type participates in generics, tuples, and unions like any other type.
+return `unit`. In .NET, `unit` corresponds to `void` (see [implementation notes](dotnet-implementation.md#unit-type)). The `unit` type participates in generics and tuples like any other type.
 
 ## Null and absence
 
 Raven distinguishes "nullable value" from "no meaningful result":
 
 * `T?` is the canonical way to represent nullable values.
-* `T | null` is an equivalent union spelling and canonicalizes to `T?` when
-  there is exactly one non-nullable `T`.
 * `unit` (`()`) represents no meaningful result (`void`-like), not nullability.
 * `Option<T>` is the recommended way to model absence in APIs and business
-  logic. Nullable forms (`T?` / `T | null`) are primarily for nullability and
+  logic. Nullable forms (`T?`) are primarily for nullability and
   .NET interop boundaries.
 * `Option<T>` supports implicit interop conversions with nullable forms
   (`Option<T> <-> T?`) so domain models can stay option-based while external
@@ -287,25 +284,20 @@ This mirrors the existing pattern-matching rule where a bare case such as `.Ok` 
 
 When an expression or declaration omits an explicit type, Raven infers one from
 the expression. If multiple different types can flow to a location—through
-conditional branches or early `return` statements—the inferred result becomes a
-**union** of those types. The compiler does not collapse distinct types to their
-nearest common base; returning `Dog` and `Cat` infers `Dog | Cat`, not `Animal`.
-This specification refers to such results as **inferred union types**.
-Inferred union types (`A | B`) are distinct from declared discriminated/tagged
-unions introduced with the `union` keyword.
+conditional branches or early `return` statements—the inferred result is the
+nearest compatible type for the flow.
 
 ```raven
 val pet = if flag { Dog() } else { Cat() }
-// pet has type: Dog | Cat
+// pet has an inferred compatible type
 ```
 
 Literal expressions infer the underlying primitive type when used to initialize
 `val` or `var` bindings. Literal types are subset types of their underlying
 primitive, so a literal like `1` can be used wherever an `int` is expected.
 When inference gathers multiple results—such as the branches of an `if`
-expression—it normalizes the union before exposing it. Literal members collapse
-to their underlying type when a non-literal of the same type also flows to the
-branch, so the union reflects only the distinct possibilities that can escape.
+expression—it keeps literal precision only when required by explicit
+annotations; otherwise literals widen to their underlying primitive types.
 To retain a literal's singleton type for a single value, an explicit annotation
 is required.
 
@@ -316,34 +308,24 @@ var k: 1 = 1    // k : 1
 ```
 
 Control-flow expressions participate in the same inference. An `if` expression
-whose branches produce different types infers a union of those results. The
-union is normalized so redundant members collapse away while distinct literal
-branches remain precise:
+whose branches produce different types infers the nearest compatible type for
+those results. Literal branches remain precise only when explicitly annotated.
+By default, literal branches widen to their underlying primitive types:
 
-#### Collapsing branch unions
+#### Branch type inference
 
 ```raven
 val x: int = 3
 val value = if x > 2 { 42 } else { x }
-// value : int          (literal 42 collapses into the `int` branch)
-
-val digits = if x > 2 { 1 } else { 2 }
-// digits : 1 | 2       (distinct literal branches remain literal)
+// value : int
 
 val other: long = 0
-val ambiguous = if x > 2 { other } else { 42 }
-// ambiguous : int | long
-// val target: int = ambiguous  // error: not every branch converts to int
+val widened = if x > 2 { other } else { 42 }
+// widened has an inferred compatible numeric type
 ```
 
-Each branch contributes its inferred type to the union. Because the `else`
-branch in the first example is the literal `42`, and the other branch produces
-an `int`, the literal collapses into the `int` branch. When all branches are
-distinct literals, the union records them individually so downstream pattern
-matching can reason about the precise set of constants. When inference observes
-multiple primitive types, the union retains each one. Assigning that union to a
-single numeric type triggers a diagnostic because not every branch converts to
-the target.
+Each branch contributes its inferred type. Literal branches widen as needed to
+produce a compatible inferred result type.
 
 Numeric literals choose an underlying primitive type according to their form
 and optional suffix. The default rules are designed to be predictable while
@@ -424,7 +406,7 @@ val example = (x: int) -> {
     if x > 0 { return x }
     "neg"
 }
-// inferred return type: int | string
+// inferred return type is context-dependent
 ```
 
 When a lambda expression is assigned to a binding without an explicit type, Raven
@@ -455,33 +437,14 @@ Annotating an async lambda with a non-`Task` return type is an error.
 The following clarifications extend the type inference model:
 
 * **Contextual inference**: Raven computes a contextual type based on both expression shape and target type. Inference is bidirectional.
-* **Union growth**: To prevent type explosion, implementations may limit union width. Public APIs that infer wide unions should prefer explicit annotations.
 * **Literal arithmetic**: Non-constant operations widen literals to their base type unless constant-folded.
-* **Overload resolution with unions**: A candidate overload is viable only if every alternative in a union converts to its parameter type. Ambiguities require explicit casts.
-* **Generic inference**: Type argument inference from union arguments requires a single consistent set of type arguments that satisfy all alternatives. Constraints must hold for each alternative.
-* **Nullability**: `T | null` with a single `T` is equivalent to `T?`. `T? | U` is invalid. Safe navigation over unions yields nullable results.
-* **Pattern narrowing**: See [Pattern matching](#pattern-matching) for how `is` and `match` refine variables; inferred result types for `match` are the union of arm results.
-* **Tuples**: Tuple element names do not affect type identity. Conditional tuples union element-wise.
+* **Generic inference**: Type argument inference requires a single consistent set of type arguments that satisfies all constraints.
+* **Nullability**: Nullable flow follows `T?` rules and safe-navigation propagation.
+* **Pattern narrowing**: See [Pattern matching](#pattern-matching) for how `is` and `match` refine variables.
+* **Tuples**: Tuple element names do not affect type identity.
 * **Ref/out parameters**: `ref` requires exact type match; `out` contributes to inference of the parameter type.
 * **Flow stability**: Variable declarations have a fixed declared type. Narrowings are ephemeral and do not change declared type. Captured variables use the join of all flows.
-* **Diagnostics**: When conversion fails, diagnostics must identify which union member(s) failed and why. For overloads, diagnostics must explain alternative selections.
-
-### Union conversions
-
-Assigning or returning a union to an explicitly typed target succeeds only when
-**every** member of the source union can convert to the target type. The compiler
-checks each constituent individually.
-
-```raven
-val maybe = if flag { 0 } else { 1.0 } // int | float
-
-val n: int = maybe    // error: float not assignable to int
-val o: object = maybe // ok: both int and float convert to object
-
-val pet = if flag { Dog() } else { Cat() } // Dog | Cat
-val a: Animal = pet   // ok: Dog and Cat derive from Animal
-val s: string = pet   // error: neither member converts to string
-```
+* **Diagnostics**: When conversion fails, diagnostics should identify the conflicting conversions and why. For overloads, diagnostics should explain alternative selections.
 
 ### Await expressions
 
@@ -2026,7 +1989,6 @@ Exhaustiveness analysis applies in particular to:
   otherwise participating in a closed inheritance set). Closed branches
   contribute concrete leaves; open intermediate branches must be covered by
   matching the intermediate type.
-* **Type unions** — all constituent types must be covered.
 
 For discriminated unions, exhaustiveness is computed from the union's declared
 case set (equivalent to sealed-hierarchy reasoning over a closed subtype set).
@@ -2417,15 +2379,13 @@ import directive after an alias or member is a compile-time error (`RAV1005`).
 ### Alias directive
 
 The `alias` directive assigns an alternative name to a fully qualified
-**namespace**, type, static member, or to any type expression such as tuples
-and type unions.
+**namespace**, type, static member, or to type expressions such as tuples.
 
 ```raven
 alias IO = System.IO
 alias SB = System.Text.StringBuilder
 alias PrintLine = System.Console.WriteLine
 alias Pair = (x: int, y: int)
-alias Number = int | string
 alias Flag = bool
 alias Text = string
 alias Five = 5
@@ -2439,7 +2399,7 @@ Aliasing a method binds a specific overload. Multiple directives using the
 same alias name may appear to alias additional overloads, forming an overload
 set.
 
-Predefined and literal types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `long`, `float`, `double`, `string`, and `unit` (spelled `unit` or `()`), and any literal value. Raven has no `void`; the `unit` type is used instead (see [implementation notes](dotnet-implementation.md#unit-type)). If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, these predefined types, and literal values.
+Predefined and literal types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `long`, `float`, `double`, `string`, and `unit` (spelled `unit` or `()`), and any literal value. Raven has no `void`; the `unit` type is used instead (see [implementation notes](dotnet-implementation.md#unit-type)). If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, tuples, these predefined types, and literal values.
 
 Aliases require fully qualified names for namespaces, types, and members to
 avoid ambiguity; type expressions are written directly. Alias directives may
@@ -3405,9 +3365,7 @@ Single-parameter functions may omit the surrounding parentheses:
 val increment: int -> int
 ```
 
-The return portion may itself be any Raven type, including unions. For example
-`string -> int | null` represents a delegate that returns either an `int` or
-`null`. Nested arrows associate to the right, so `int -> string -> bool` is
+The return portion may itself be any Raven type. Nested arrows associate to the right, so `int -> string -> bool` is
 parsed as `int -> (string -> bool)`.
 
 Function annotations are sugar over delegates. When the parameter and return
@@ -3418,284 +3376,16 @@ transparent. Parameter modifiers and names are not permitted inside a function
 type; specify only the types that flow into and out of the delegate. A `unit`
 return represents an action with no meaningful result.
 
-### Union types
-
-Unions express multiple possible types (e.g., `int | string`). A union’s members are **normalized**: nested unions flatten, duplicates are removed, and order is irrelevant. For example, `int | (string | int)` simplifies to `int | string`.
-These are type-level unions, separate from `union Name { ... }` declarations.
-
-Core model:
-- A union contains two or more type elements, literal elements, or both.
-- The compiler computes an **underlying nominal type** (the nearest common nominal supertype after normalization).
-- Each union element is implicitly convertible to that underlying nominal type.
-- Once converted to the underlying type, normal nominal conversions (including base/interface conversions) apply as usual.
-- Literal precision is preserved for flow analysis and exhaustiveness as long as it is not intentionally widened by context.
-
-#### When to use type unions
-
-Use a type union when a value is intentionally one of several concrete types and
-you want that set to remain explicit in the type system. This is especially
-useful when alternatives have no meaningful shared base type beyond `object`.
-Without a union annotation or inference context, those values would otherwise
-often collapse to `object` and lose branch-specific intent.
-
-```raven
-val a: int | string
-val b = if flag { 1 } else { "one" }  // b : int | string
-```
-
-#### Literal types in unions
-
-A **literal type** represents a single constant value of a primitive, string, bool, or enum type. Literal types may appear anywhere a type is expected and compose naturally with unions.
-
-```raven
-val n: 1 | 2 | 3
-val s: "on" | "off" | "auto"
-val e: Grades.A | Grades.B
-```
-
-**Normalization with literals**:
-
-* A literal type `L(c : B)` is a subtype of its base `B`. If a union contains both `B` and any of its literals, the literal members **collapse into** `B` *unless* the union has only literals of that base (a finite domain).
-
-  * `int | 42` → `int`
-  * `1 | 2` stays as `1 | 2`
-* Literal types of **different bases** remain distinct: `3 | 2L` (assuming `long`) stays as `int | long`.
-
-#### Nullability and `null`
+### Nullability and `null`
 
 Nullability is **explicit** in Raven. Reference types are non-nullable by
-default, and `null` can only flow through nullable annotations (`T?`) or unions
-that include `null`. The same rules apply uniformly to reference and value
-types; the distinction only affects runtime representation, not the surface
-type rules.
-
-`null` may appear as a union member:
-
-```raven
-val maybe = if flag { 1 } else { null }  // int | null
-```
-
-If a union contains `null` and exactly one non-nullable type `T`, it implicitly converts to `T?` (both in inference and explicit annotations):
-
-```raven
-val x: int? = maybe         // ok
-val y: string? | int        // error: explicit nullable types must not be unioned
-```
-
-To model absence explicitly, Raven recommends the **Option union** defined in
-`src/Raven.Core/Option.rav` (`System.Option<T>`). It behaves like a
-`T | null` union for both reference and value types and includes an implicit
-conversion to the nullable form (`T?` / `Nullable<T>`) when interacting with
-existing .NET APIs that expect nullable types.
-
-#### Assignability and conversions
-
-val `U = T1 | … | Tn` be a source union.
-
-* **Value → union**: An expression of type `S` may be assigned to `U` if `S` is assignable to **at least one** member `Ti`.
-* **Union → value**: `U` may be assigned to `S` only if **every** member `Ti` is assignable to `S`.
-* **Literal checking**: Assigning to a **finite literal union** requires the value to be a compile-time constant equal to one of the listed literals.
-* **Variant interfaces**: When `Ti` or `S` is a generic interface or delegate, assignability follows the CLR's variance annotations. Covariant parameters permit `T<Derived>` to flow to `T<Base>`, and contravariant parameters accept `T<Base>` where `T<Derived>` is expected. Raven interface declarations expose the same behaviour with `out` and `in` modifiers on their type parameters, so source and metadata symbols participate in the same set of conversions.
-
-```raven
-val a: "true" | 1 = 1      // ok
-val b: "true" | 1 = 2      // error: 2 not permitted by '"true" | 1'
-val c: "yes" | "no" = "yes"  // ok
-```
-
-When a union value is assigned or returned to an explicit target type, the compiler checks each constituent individually:
-
-```raven
-val u = if flag { 0 } else { 1.0 }  // int | float
-
-val i: int = u       // error: float not assignable to int
-val o: object = u    // ok: both convert to object
-```
-
-#### Type inference with control flow
-
-Control-flow expressions that produce different types infer a union of those results. The union is normalized; literal branches collapse into their base if a non-literal of that base also flows.
-
-```raven
-val x = if flag { 42 } else { 3 }        // x : 42 | 3
-val y = if flag { 42 } else { parseInt() } // y : int   (42 collapses into int)
-```
-
-#### Pattern matching and flow-sensitive narrowing
-
-See [Pattern matching](#pattern-matching) for the full set of pattern forms and
-for how `is` and `match` narrow union members. Literal unions stay precise so
-long as every literal appears in a branch, and open-ended unions require a
-catch-all arm or type pattern to remain exhaustive. Guards participate only in
-the arm that defines them and do not relax the exhaustiveness checks on the
-outer pattern. When an arm targets a specific subtype/case but constrains only
-part of it (for example via value-constrained deconstruction), Raven reports
-`RAV2110` on that arm pattern unless a catch-all arm is present.
-
-#### Member access on unions (nominal CLR members only)
-
-A member access `u.M(...)` on `u : T1 | … | Tn` is permitted **only** when all element types share the **same CLR member origin** via a common base class or interface (same original definition/slot). The intersection remains purely **nominal**: only members declared on the hierarchy can satisfy the rule. Extension methods may still be invoked when in scope, but they do not cause a member to be considered common to the union.
-
-* **What counts as common**: a method/property/indexer/event declared on the nearest common base class or on an interface implemented by **all** `Ti`, where each `Ti` inherits/overrides/implements that same original member.
-* **Overloads**: intersect overload sets by original definition; only the common overloads remain available.
-* **Properties**: a setter is available only if all elements have a setter; a getter only if all have a getter.
-
-Typing and lowering:
-
-```raven
-val msg = u.ToString()   // treat receiver as the ancestor that declares ToString
-// lower: ((Ancestor)u).ToString()
-```
-
-If any element **hides** the base member with `new` (different original), or an overload isn’t present on some element, the access is rejected with a diagnostic suggesting a cast or pattern match.
-
-Examples:
-
-```raven
-open class Animal { virtual Speak() -> string }
-class Dog : Animal { override Speak() -> "woof" }
-class Cat : Animal { override Speak() -> "meow" }
-
-val a: Dog | Cat
-val sound = a.Speak()    // ok via Animal.Speak
-```
-
-```raven
-open class Base { virtual P: int { get; set; } }
-class D1 : Base { override P : int { get; set; } }
-class D2 : Base { override P : int { get; } }
-
-val u: D1 | D2 = D1()
-val x = u.P      // ok (getter common)
-u.P = 3          // error (setter not common)
-```
-
-#### Operations on literal types
-
-Operations generally **widen** literals to their base types unless constant-folding applies:
-
-```raven
-val k: 2 | 42 = 2
-val z = k + 1       // z : int
-```
-
-Enum literals retain the enum type identity; matching respects the enum, not just underlying integral values.
-
-#### Summary of rules (normative)
-
-* Union normalization:
-
-  * Flatten, deduplicate; literal collapse into base only in the presence of that base.
-  * `null | T` with a single `T` converts to `T?`; explicit `T? | U` is invalid.
-* Assignability:
-
-  * `S → (T1 | … | Tn)` if `S → Ti` for some `i`.
-  * `(T1 | … | Tn) → S` if `Ti → S` for **all** `i`.
-  * Finite literal unions accept only matching constants.
-* Flow narrowing:
-
-  * `is`/`==` with literals narrows to the accept set in the then-branch and subtracts it in the else-branch; `match` arms behave analogously.
-* Member access:
-
-  * Allowed iff a single base/interface original member is common to **all** elements; overloads intersect by original definition; lower via an ancestor cast and virtual/interface call.
-  * Extension methods are discovered separately. They may be invoked when in scope and applicable to the receiver, but they do not satisfy the nominal intersection requirement above.
-
-For .NET representation and lowering strategies (switches, interface dispatch), see [implementation notes](dotnet-implementation.md#union-types).
-
-### Nullable types
-
-Appending `?` to a type denotes that it may also be `null`. This works for
-both reference and value types.
-
-```raven
-val s: string? = null
-val i: int? = null
-```
-
-Nullable types participate in the type system and overload resolution.
-
-### Null-conditional access
-
-The null-conditional operators `?.` and `?` safely access members, elements, or
-invoke nullable values. The expression `expr?.Member` evaluates `expr`; if the
-result is `null`, the overall expression evaluates to `null` instead of
-throwing. When the receiver is not `null`, the member access proceeds normally.
-These operators work for both nullable reference types and nullable value types.
-
-```raven
-var str = x?.ToString()
-
-val number: int? = 42
-val digits = number?.ToString() // "42"
-```
-
-Here `str` is `string?`, and the call to `ToString` only occurs when `x` is not
-`null`. When the receiver is a nullable value type, the compiler unwraps the
-`System.Nullable<T>` storage, invokes the member on the underlying value, and
-wraps the result back into a nullable type.
-
-Null-conditional access also supports direct invocations and element access.
-Use `?(...)` to invoke a nullable delegate or callable value, and `?[...]` to
-index into a nullable collection or array.
-
-```raven
-val f: Func<int, int>? = null
-val result = f?(2)
-
-val values: int[]? = null
-val first = values?[0]
-```
-
-Invoking or indexing a nullable value without a null-conditional operator
-produces a diagnostic, since the receiver may be `null`.
-
-The compiler also performs local flow analysis to recognize when a nullable
-receiver is proven non-null. In the `true` branch of checks like `if value != null`
-or `if value is not null`, or after guard statements like `if value == null { return }`,
-member access and invocation on `value` are allowed without `?.` or `?`.
-
-```raven
-val f: Func<int, int>? = null
-
-if f != null {
-    val result = f(2)
-}
-
-if f == null {
-    return
-}
-
-val result2 = f(2)
-```
-
-### Enums
-
-An enum declaration introduces a distinct type whose instances are one of a
-fixed set of named constants. Each member is implicitly static and has an
-underlying integer value starting at `0` and increasing by one. Explicit numeric
-values are not yet supported.
-
-```raven
-enum Grades { A, B, C }
-```
-
-Enum members can be referenced with the type name or, when the target type is
-known, with a **leading dot**:
-
-```raven
-var grade: Grades = .B
-grade = Grades.C
-```
-
-Line-continuation details for leading-dot forms are defined in
-[Control flow: Line continuations](control-flow.md#line-continuations).
-
-Importing the members of an enum brings them into scope:
-
-```raven
-import Grades.*
-val best = A
-```
+default, and `null` can only flow through nullable annotations (`T?`). The same
+rules apply uniformly to reference and value types; the distinction only
+affects runtime representation, not the surface type rules.
+
+To model absence explicitly in domain logic, Raven recommends the **Option
+union** defined in `src/Raven.Core/Option.rav` (`System.Option<T>`). Use
+nullable types primarily for .NET interop surfaces.
 
 ### Discriminated unions
 
@@ -3709,8 +3399,7 @@ payload described by a parameter list. Unions use the `union` keyword:
 > the .NET 11 wave), while preserving Raven's own language semantics.
 
 > ❗ **Important:** Declared `union` types are nominal **tagged unions** (also
-> called **discriminated unions**). They are separate from inferred/annotated
-> type unions written with `|`.
+> called **discriminated unions**).
 
 ```raven
 union Token {

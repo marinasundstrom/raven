@@ -1,13 +1,12 @@
 # Raven type system
 
-Raven is a statically typed language whose types correspond directly to CLR types. The compiler uses .NET type symbols so that every Raven type has a concrete runtime representation. Conceptually, every CLR type (including structs and other value types) behaves as an object in Raven: value types keep their value semantics, but they participate uniformly in member lookup, generics, and unions through boxing when necessary. Nullability is explicit for both reference and value types, so `?` and `null` are treated consistently regardless of runtime representation.
+Raven is a statically typed language whose types correspond directly to CLR types. The compiler uses .NET type symbols so that every Raven type has a concrete runtime representation. Conceptually, every CLR type (including structs and other value types) behaves as an object in Raven: value types keep their value semantics, but they participate uniformly in member lookup and generics through boxing when necessary. Nullability is explicit for both reference and value types, so `?` and `null` are treated consistently regardless of runtime representation.
 
-> ❗ **Important:** `T?` is the canonical nullable form in Raven. `T | null` is
-> an equivalent union spelling that canonicalizes to `T?` when exactly one
-> non-nullable `T` is present. `unit` (`()`) is separate: it means "no
-> meaningful result" (void-like), not nullable absence. For domain-level
-> absence, prefer `Option<T>` instead of nullable types. `Option<T>` supports
-> implicit interop conversions with nullable forms (`Option<T> <-> T?`).
+> ❗ **Important:** `T?` is the canonical nullable form in Raven. `unit` (`()`)
+> is separate: it means "no meaningful result" (void-like), not nullable
+> absence. For domain-level absence, prefer `Option<T>` instead of nullable
+> types. `Option<T>` supports implicit interop conversions with nullable forms
+> (`Option<T> <-> T?`).
 
 ## Primitive types
 
@@ -92,15 +91,8 @@ Numeric primitive keywords map directly to CLR numeric types, including `sbyte`,
 
 When a literal is assigned to a target whose type is inferred—such as a
 variable declaration without an explicit type annotation—the literal widens to
-its underlying primitive type. When inference gathers multiple results into a
-union (for example, via conditional branches), it normalizes the members so the
-union only reports distinct possibilities. Literal members collapse into their
-underlying type when a non-literal of that type also flows to the location,
-while disjoint literal values remain literal to preserve the precise set of
-constants.
-These inference-produced unions are referred to as **inferred union types**.
-Inferred union types (`A | B`) are separate from nominal discriminated/tagged
-unions declared with the `union` keyword.
+its underlying primitive type. Literal members collapse into their underlying
+type when a non-literal of that type also flows to the location.
 
 ```raven
 val yes: "yes" = "yes"
@@ -173,8 +165,7 @@ value types lift member access through the underlying `Nullable<T>` API; nullabl
 reference types retain the same runtime representation as their non-nullable
 form but influence static flow analysis and conversion rules.
 
-In nullable modeling, `T?` is canonical. The union form `T | null` is allowed
-and expresses the same nullable shape when there is a single non-nullable `T`.
+In nullable modeling, `T?` is canonical.
 
 #### Strict null checks and flow narrowing
 
@@ -192,82 +183,6 @@ Warning message:
 > ⚠️ This comparison may call a custom equality operator, so nullability isn’t
 > narrowed. Use `is null` or `is not null` for a strict check.
 
-### Union types
-
-`A | B` represents a value that may be either type. Each branch retains its own
-CLR representation; the union records the set of possibilities and supplies a
-shared view when one is needed. Raven determines that common view using these
-rules:
-
-Core model:
-1. A union has two or more type elements, literal elements, or both.
-2. The compiler computes an underlying nominal type (the nearest common nominal
-   supertype after normalization).
-3. Each union element is implicitly convertible to that underlying type.
-4. From the underlying type, normal base/interface conversions apply.
-5. Literal precision is preserved for narrowing/exhaustiveness until widening is
-   required by context.
-
-This section covers type unions written with `|`, not `union Name { ... }`
-declarations.
-The `union` keyword declares nominal tagged unions (discriminated unions), a
-separate language feature.
-
-Use type unions when a value is deliberately allowed to be one of multiple
-concrete types and you want that set to stay explicit. This is most useful when
-the alternatives do not share a meaningful common base class; otherwise the type
-would typically degrade to `object` and lose precision.
-
-1. Flatten nested unions and unwrap aliases or literal types to their underlying
-   CLR types.
-2. Ignore branches whose type kind is `null` while searching for a base type.
-3. Walk each remaining branch's inheritance chain (including nullable wrappers)
-   and intersect the results to find the most-derived shared base class.
-4. Fall back to `System.Object` when no stricter relationship exists. When the
-   union also contains `null`, the resulting base behaves as nullable (for
-   example, `object?`).
-
-Member lookup on a union delegates to this computed base type, so members defined
-on a shared base class remain available. Value-type branches are boxed when the
-common denominator is a reference type.
-
-```raven
-val union: int | string = "foo"
-Console.WriteLine(union.ToString()) // members from the common base type are available
-```
-
-Common use cases include mixing unrelated primitives, representing interop null
-shapes, or constraining a value to specific literals:
-
-```raven
-val a: int | string = "2"   // either an int or a string
-val b: string | null = null // optional string (converts to `string?` when required)
-val c: "yes" | "no" = "yes" // constrained to specific constants
-```
-
-Pattern matching is the primary way to consume union-typed values safely.
-`match` and `is` patterns narrow each arm/branch to the matched union member.
-
-To model absence explicitly, Raven recommends the **Option union** defined in
-`src/Raven.Core/Option.rav` (`System.Option<T>`). It behaves like a `T | null`
-union for both reference and value types and implicitly converts to nullable
-forms (`T?` or `Nullable<T>`) when interacting with existing .NET APIs that
-expect nullable types. In other words: use nullable forms for interoperability
-and use `Option<T>` for domain modeling.
-
-A value is assignable to a union when it can convert to at least one member.
-Literal branches are matched by value rather than by type:
-
-```raven
-val d: "true" | 1 = 1   // ok
-val e: "true" | 1 = 2   // error: Cannot assign '2' to '"true" | 1'
-val f: "true" | int = 1 // ok: 1 matches int
-```
-
-When a union contains `null` and exactly one non-nullable type `T`, the
-canonical form is `T?`. Attempting to write `string? | int` still produces
-diagnostic `RAV0400` because nullable wrappers may not appear explicitly inside
-unions.
 ### Generics
 
 Types and functions declare type parameters by appending `<...>` to their
@@ -489,30 +404,11 @@ candidate is strictly better, the call is reported as ambiguous.
 val parsed = int.Parse("42") // string literal selects the overload taking string
 ```
 
-Arguments with union types participate using the union's base type. The compiler
-does not test each branch individually; instead, it ranks conversions from the
-union's common denominator. This matches IL emission and ensures a union selects
-the overload that best matches its shared base type:
-
-```raven
-func print(x: object) -> () {}
-func print(x: int) -> () {}
-
-val u: int | string = "hi"
-print(u) // calls print(object)
-```
+Overload ranking follows the normal conversion ladder for the argument and
+parameter types in each candidate signature.
 
 ## Open issues and suggested follow-ups
 
-- **Interface-aware union joins.** The current base-type computation inspects
-  only the class hierarchy. As a result, `IFoo | IBar` exposes no shared members
-  even when both interfaces derive from a common parent. Consider intersecting
-  implemented interfaces and exposing those members when no class-based join
-  exists.
-- **`T | null` diagnostic presentation.** `T | null` canonicalizes to `T?` for a
-  single non-nullable `T`. Consider whether diagnostics should always print
-  canonical `T?` or preserve author-written `T | null` in selected messages for
-  clarity.
 - **Distribution of `System.Unit`.** Each compiled assembly currently defines its
   own `System.Unit` type. To simplify interop, consider shipping a shared
   reference assembly or mapping `unit` directly onto `System.Void` where the
