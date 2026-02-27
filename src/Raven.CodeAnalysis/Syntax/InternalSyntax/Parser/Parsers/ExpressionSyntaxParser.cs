@@ -1243,12 +1243,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     }
                     else
                     {
+                        argumentList.Add(MissingToken(SyntaxKind.CommaToken));
                         // Newlines are trivia here, so if we see *anything* other than a comma
                         // we complain about a missing ',' but still try to parse the next arg.
                         AddDiagnostic(
                             DiagnosticInfo.Create(
                                 CompilerDiagnostics.CharacterExpected,
-                                GetSpanOfLastToken(),
+                                GetSpanOfPeekedToken(),
                                 ","));
                     }
                 }

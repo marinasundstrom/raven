@@ -253,10 +253,11 @@ internal class TypeDeclarationParser : SyntaxParser
                     }
                     else
                     {
+                        parameters.Add(MissingToken(SyntaxKind.CommaToken));
                         AddDiagnostic(
                             DiagnosticInfo.Create(
                                 CompilerDiagnostics.CharacterExpected,
-                                GetSpanOfLastToken(),
+                                GetSpanOfPeekedToken(),
                                 ","));
                     }
                 }
@@ -1069,10 +1070,11 @@ internal class TypeDeclarationParser : SyntaxParser
                     }
                     else
                     {
+                        parameterList.Add(MissingToken(SyntaxKind.CommaToken));
                         AddDiagnostic(
                             DiagnosticInfo.Create(
                                 CompilerDiagnostics.CharacterExpected,
-                                GetSpanOfLastToken(),
+                                GetSpanOfPeekedToken(),
                                 ","));
                     }
                 }
@@ -1361,10 +1363,11 @@ internal class TypeDeclarationParser : SyntaxParser
                     }
                     else
                     {
+                        parameterList.Add(MissingToken(SyntaxKind.CommaToken));
                         AddDiagnostic(
                             DiagnosticInfo.Create(
                                 CompilerDiagnostics.CharacterExpected,
-                                GetSpanOfLastToken(),
+                                GetSpanOfPeekedToken(),
                                 ","));
                     }
                 }

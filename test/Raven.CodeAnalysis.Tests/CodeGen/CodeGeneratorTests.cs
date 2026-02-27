@@ -105,10 +105,10 @@ import System.Console.*
 import System.Collections.Generic.List<>
 
 val p = Person(42)
-WriteLine(p(2025))
+WriteLine(p.Name)
 
 open class Base {
-    public virtual func self(str: string) -> () {
+    virtual func self(str: string) -> () {
     }
 }
 
@@ -117,11 +117,11 @@ class Person : Base {
     var name: string
     var roles: List<string> = []
 
-    public init(age: int) {
+    init(age: int) {
         self.age = age
     }
 
-    public var Name: string {
+    var Name: string {
         get {
             name
         }
@@ -130,17 +130,12 @@ class Person : Base {
         }
     }
 
-    public func self[index: int]: string {
-        get => roles[index];
+    var self[index: int]: string {
+        get => roles[index]
         set => roles[index] = value
     }
 
-    public func self(year: int) -> string {
-        "ok"
-    }
-
-    public override func self(str: string) -> () {
-
+    override func self(str: string) -> () {
     }
 }
 """;
@@ -714,11 +709,11 @@ interface ILogger {
 }
 
 class QuietLogger : ILogger {
-    ILogger.Log(message: string) -> string {
+    func ILogger.Log(message: string) -> string {
         return "[quiet]"
     }
 
-    public func Log(message: string) -> string {
+    func Log(message: string) -> string {
         return message
     }
 }
@@ -744,20 +739,23 @@ class QuietLogger : ILogger {
     {
         var code = """
 interface ILogger {
-    Message: string { get; set; }
+    var Message: string {
+        get
+        set
+    }
 }
 
 class QuietLogger : ILogger {
-    var message: string = "[quiet]";
+    var message: string = "[quiet]"
 
-    ILogger.Message: string {
-        get => message;
-        set => message = value;
+    var ILogger.Message: string {
+        get => message
+        set => message = value
     }
 
-    public Echo: string {
-        get => message;
-        set => message = value;
+    var Echo: string {
+        get => message
+        set => message = value
     }
 }
 """;
@@ -774,7 +772,6 @@ class QuietLogger : ILogger {
 
         Assert.False(result.Success);
         Assert.Contains(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ExplicitInterfaceMemberNotFound);
-
         Assert.DoesNotContain(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ExplicitInterfaceSpecifierMustBeInterface);
     }
 

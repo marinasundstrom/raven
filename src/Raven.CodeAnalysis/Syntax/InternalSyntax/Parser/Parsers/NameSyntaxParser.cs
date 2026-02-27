@@ -411,10 +411,11 @@ internal class NameSyntaxParser : SyntaxParser
                     }
                     else
                     {
+                        argumentList.Add(MissingToken(SyntaxKind.CommaToken));
                         AddDiagnostic(
                             DiagnosticInfo.Create(
                                 CompilerDiagnostics.CharacterExpected,
-                                GetSpanOfLastToken(),
+                                GetSpanOfPeekedToken(),
                                 ","));
                     }
                 }

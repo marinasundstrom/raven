@@ -674,10 +674,11 @@ internal class StatementSyntaxParser : SyntaxParser
                     }
                     else
                     {
+                        parameterList.Add(MissingToken(SyntaxKind.CommaToken));
                         AddDiagnostic(
                             DiagnosticInfo.Create(
                                 CompilerDiagnostics.CharacterExpected,
-                                GetSpanOfLastToken(),
+                                GetSpanOfPeekedToken(),
                                 ","));
                     }
                 }
