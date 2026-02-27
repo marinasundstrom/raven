@@ -30,7 +30,7 @@ public class AnalyzerVerifier<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer, n
         var compilation = workspace.GetCompilation(projectId);
         var actualDiagnostics = workspace.GetDiagnostics(projectId);
         var expectedDiagnostics = Test.ExpectedDiagnostics;
-        var disabledDiagnostics = Test.DisabledDiagnostics.ToHashSet();
+        var disabledDiagnostics = DiagnosticMatching.BuildDisabledDiagnostics(Test.DisabledDiagnostics);
 
         var unexpectedDiagnostics = new List<Diagnostic>();
         var missingDiagnostics = new List<DiagnosticResult>();
@@ -45,7 +45,7 @@ public class AnalyzerVerifier<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer, n
 
             var isExpected = expectedDiagnostics.Any(expected =>
                 expected.Id == diagnostic.Descriptor.Id &&
-                expected.Arguments.Select(x => x.ToString()).SequenceEqual(diagnostic.GetMessageArgs().Select(x => x.ToString())) &&
+                DiagnosticMatching.MessageArgumentsMatch(expected.Arguments, diagnostic.GetMessageArgs()) &&
                 expected.Location.Span.StartLinePosition == lineSpan.StartLinePosition);
 
             if (isExpected)
@@ -60,7 +60,7 @@ public class AnalyzerVerifier<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer, n
             {
                 var expectedSpan = expected.Location.Span;
                 return actual.Descriptor.Id == expected.Id &&
-                       actual.GetMessageArgs().Select(x => x.ToString()).SequenceEqual(expected.Arguments.Select(x => x.ToString())) &&
+                       DiagnosticMatching.MessageArgumentsMatch(expected.Arguments, actual.GetMessageArgs()) &&
                        actual.Location.GetLineSpan().StartLinePosition == expectedSpan.StartLinePosition;
             });
 

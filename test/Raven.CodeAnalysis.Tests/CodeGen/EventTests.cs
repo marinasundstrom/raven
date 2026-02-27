@@ -12,17 +12,17 @@ public class EventTests
     {
         var code = """
 class Clicker {
-    public event Clicked: System.Action;
+    event Clicked: System.Action;
 
-    public func Add(handler: System.Action) -> unit {
+    func Add(handler: System.Action) -> unit {
         Clicked += handler;
     }
 
-    public func Remove(handler: System.Action) -> unit {
+    func Remove(handler: System.Action) -> unit {
         Clicked -= handler;
     }
 
-    public func Raise() -> unit {
+    func Raise() -> unit {
         Clicked();
     }
 }
@@ -66,27 +66,27 @@ class Clicker {
     {
         var code = """
 interface Logger {
-    Log(message: string)
+    func Log(message: string) -> unit
 }
 
 class ConsoleLogger : Logger {
-    public event Logged: System.Action<string>?
+    event Logged: System.Action<string>?
 
-    public func Log(message: string) -> unit {
+    func Log(message: string) -> unit {
         Logged?.Invoke(message)
     }
 }
 
 class Counter {
-    public static Hits: int { get; set; }
+    static var Hits: int = 0
 
-    public static func Increment() -> unit {
+    static func Increment() -> unit {
         Hits += 1
     }
 }
 
 class Program {
-    public static func Run() -> int {
+    static func Run() -> int {
         Counter.Hits = 0
         val logger = ConsoleLogger()
 

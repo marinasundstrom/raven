@@ -33,10 +33,10 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
         var source = """
             class Container
             {
-                static @int(@return: int) -> int
+                static func @int(@return: int) -> int
                 {
-                    val @class = @return;
-                    return @class;
+                    val @class = @return
+                    return @class
                 }
             }
             """;

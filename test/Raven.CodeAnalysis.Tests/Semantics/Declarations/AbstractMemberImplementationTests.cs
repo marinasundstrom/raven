@@ -12,7 +12,7 @@ public class AbstractMemberImplementationTests : DiagnosticTestBase
     {
         const string source = """
 abstract class Base {
-    public abstract Bar()
+    abstract func Bar() -> unit
 }
 
 class Derived : Base {

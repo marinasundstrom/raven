@@ -87,7 +87,7 @@ func Foo() {}
         var firstStatement = parser.ParseStatement().CreateRed();
         var secondStatement = parser.ParseStatement().CreateRed();
 
-        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.CloseBraceToken);
+        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
 
         var nextFirstToken = secondStatement.GetFirstToken(includeZeroWidth: true);
         nextFirstToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
@@ -123,7 +123,7 @@ func Foo() {}
         var firstStatement = parser.ParseStatement().CreateRed();
         var secondStatement = parser.ParseStatement().CreateRed();
 
-        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.CloseBraceToken);
+        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
 
         var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);

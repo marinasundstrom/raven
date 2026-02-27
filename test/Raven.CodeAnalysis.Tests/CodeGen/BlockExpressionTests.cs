@@ -13,7 +13,7 @@ public class BlockExpressionTests
         var code = """
 class Foo {
     func Run(flag: bool, w: int) -> object {
-        val y = if flag { 40 + w; } else { true }
+        val y = if flag { 40 + w } else { 10 }
         return y
     }
 }
@@ -36,6 +36,6 @@ class Foo {
         var instance = Activator.CreateInstance(type)!;
         var method = type.GetMethod("Run")!;
         var value = method.Invoke(instance, new object[] { false, 0 });
-        Assert.Equal(true, value);
+        Assert.Equal(10, value);
     }
 }

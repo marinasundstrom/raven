@@ -14,12 +14,14 @@ public class BaseConstructorTests
         var code = """
 open class Base {
     var initialized: bool = false
-    public init() { initialized = true }
-    public IsInitialized: bool { get => initialized }
+    init() { initialized = true }
+    val IsInitialized: bool {
+        get { return initialized }
+    }
 }
 
 class Derived : Base {
-    public init() {}
+    init() {}
 }
 """;
 
@@ -54,7 +56,7 @@ class Derived : Base {
 open class Base {}
 
 class Derived : Base {
-    public init() {}
+    init() {}
 }
 """;
 
@@ -87,12 +89,14 @@ class Derived : Base {
         var code = """
 open class Base {
     var stored: int = 0
-    public init(value: int) { stored = value }
-    public Value: int { get => stored }
+    init(value: int) { stored = value }
+    val Value: int {
+        get { return stored }
+    }
 }
 
 class Derived : Base {
-    public init(value: int): base(value) {}
+    init(value: int): base(value) {}
 }
 """;
 

@@ -15,8 +15,12 @@ public class FieldInitializationTests
 class Foo {
     var x: int = 42
     static var y: int = 100
-    public X: int { get => x; }
-    public static Y: int { get => y; }
+    val X: int {
+        get => x
+    }
+    static val Y: int {
+        get => y
+    }
 }
 """;
 
@@ -28,13 +32,16 @@ class Foo {
                 .Select(path => MetadataReference.CreateFromFile(path))
         ];
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
-        Assert.True(result.Success);
+        var diagnostics = string.Join(
+            Environment.NewLine,
+            result.Diagnostics.Select(static d => d.ToString()));
+        Assert.True(result.Success, diagnostics);
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;

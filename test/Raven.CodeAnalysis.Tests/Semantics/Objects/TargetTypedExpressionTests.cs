@@ -12,8 +12,8 @@ public class TargetTypedExpressionTests : DiagnosticTestBase
         string testCode = """
 class Bar {
     init() {}
-    public static Instance: Bar {
-        get => Bar()
+    static val Instance: Bar {
+        get { return Bar() }
     }
 }
 
@@ -102,7 +102,7 @@ class Program {
 enum Value { A, B }
 
 class Item {
-    public init(value: Value) {}
+    init(value: Value) {}
 }
 
 class Program {

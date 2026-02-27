@@ -44,7 +44,7 @@ func outer() {
     }
 
     [Fact]
-    public void AsyncFunction_WithoutReturnType_WithReturnExpression_InfersTaskOfResult()
+    public void AsyncFunction_WithoutReturnType_WithReturnExpression_DefaultsToTask()
     {
         var source = """
 func outer() {
@@ -62,7 +62,7 @@ func outer() {
 
         Assert.True(symbol.IsAsync);
         Assert.Equal(
-            "class System.Threading.Tasks.Task<int>",
+            "class System.Threading.Tasks.Task",
             symbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
         Assert.Contains(compilation.GetDiagnostics(), d => d.Id == CompilerDiagnostics.AsyncLacksAwait.Id);
     }

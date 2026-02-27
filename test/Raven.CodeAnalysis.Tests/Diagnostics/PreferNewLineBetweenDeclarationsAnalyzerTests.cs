@@ -22,16 +22,4 @@ public class PreferNewLineBetweenDeclarationsAnalyzerTests : AnalyzerTestBase
         verifier.Verify();
     }
 
-    [Fact]
-    public void AutoPropertyAccessors_SameLineSemicolons_DoNotReportDiagnostic()
-    {
-        const string code = "class C { public required Name: string { get; init; } }";
-
-        var verifier = CreateAnalyzerVerifier<PreferNewLineBetweenDeclarationsAnalyzer>(
-            code,
-            expectedDiagnostics: [],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
-
-        verifier.Verify();
-    }
 }

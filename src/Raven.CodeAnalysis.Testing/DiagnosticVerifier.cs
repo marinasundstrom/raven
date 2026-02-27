@@ -38,7 +38,7 @@ public class DiagnosticVerifier
 
         var actualDiagnostics = compilation.GetDiagnostics().AsEnumerable();
         var expectedDiagnostics = Test.ExpectedDiagnostics;
-        var disabledDiagnostics = Test.DisabledDiagnostics.ToHashSet();
+        var disabledDiagnostics = DiagnosticMatching.BuildDisabledDiagnostics(Test.DisabledDiagnostics);
 
         var unexpectedDiagnostics = new List<Diagnostic>();
         var missingDiagnostics = new List<DiagnosticResult>();
@@ -55,7 +55,7 @@ public class DiagnosticVerifier
             // Check if the diagnostic matches any expected result
             var isExpected = expectedDiagnostics.Any(expected =>
                 expected.Id == diagnostic.Descriptor.Id &&
-                expected.Arguments.Select(x => x.ToString()).SequenceEqual(diagnostic.GetMessageArgs().Select(x => x.ToString())) &&
+                DiagnosticMatching.MessageArgumentsMatch(expected.Arguments, diagnostic.GetMessageArgs()) &&
                 LocationMatches(expected.Location, lineSpan));
 
             if (isExpected)
@@ -76,7 +76,7 @@ public class DiagnosticVerifier
                 var span = actual.Location.GetLineSpan();
 
                 return actual.Descriptor.Id == expected.Id &&
-                    actual.GetMessageArgs().Select(x => x.ToString()).SequenceEqual(expected.Arguments.Select(x => x.ToString())) &&
+                    DiagnosticMatching.MessageArgumentsMatch(expected.Arguments, actual.GetMessageArgs()) &&
                     LocationMatches(expected.Location, span);
             });
 

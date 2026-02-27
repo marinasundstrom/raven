@@ -26,7 +26,7 @@ class C {
 
         var display = field.ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat);
 
-        Assert.Equal("public const MaxValue: char = 'z'", display);
+        Assert.Equal("const MaxValue: char = 'z'", display);
         Assert.True(field.IsStatic);
         Assert.True(field.IsConst);
     }
@@ -36,7 +36,7 @@ class C {
     {
         const string source = """
 class C {
-    public Value: int { get; private set; }
+    val Value: int { get; private set; }
 }
 """;
 
@@ -49,6 +49,6 @@ class C {
             .WithPropertyStyle(SymbolDisplayPropertyStyle.ShowReadWriteDescriptor);
         var display = symbol.ToDisplayString(format);
 
-        Assert.Equal("public Value: int { get; private set; }", display);
+        Assert.Equal("Value: int { get; private set; }", display);
     }
 }

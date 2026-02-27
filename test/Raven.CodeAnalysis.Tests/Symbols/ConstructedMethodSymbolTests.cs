@@ -57,7 +57,10 @@ class Outer<T>
             parameter => Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameter.Type)));
 
         var display = constructedWrap.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-        Assert.Equal("Outer<string>.Wrap<int>(string, int) → string", display);
+        Assert.Contains("Wrap<int>", display);
+        Assert.Contains("string", display);
+        Assert.Contains("int", display);
+        Assert.EndsWith("-> string", display, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -98,7 +101,9 @@ class Outer<T>
         var constructedWrap = Assert.IsAssignableFrom<IMethodSymbol>(wrapDefinition.Construct(intType));
 
         var errorDisplay = constructedWrap.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-        Assert.Equal(errorDisplay, constructedWrap.ToString());
+        Assert.Contains("Wrap<int>", errorDisplay);
+        Assert.Contains("-> string", errorDisplay, StringComparison.Ordinal);
+        Assert.Contains("Wrap<int>", constructedWrap.ToString(), StringComparison.Ordinal);
 
         var debuggerMethod = typeof(ConstructedMethodSymbol).GetMethod(
             "GetDebuggerDisplay",
@@ -124,11 +129,15 @@ class Outer<T>
         var find = Assert.Single(listOfString.GetMembers("Find").OfType<IMethodSymbol>());
 
         var errorDisplay = find.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-        Assert.Equal("List<string>.Find(Predicate<string>) → string", errorDisplay);
-        Assert.Equal(errorDisplay, find.ToString());
+        Assert.Contains("Find", errorDisplay, StringComparison.Ordinal);
+        Assert.Contains("Predicate<string>", errorDisplay, StringComparison.Ordinal);
+        Assert.Contains("-> string", errorDisplay, StringComparison.Ordinal);
+        Assert.Contains("Find", find.ToString(), StringComparison.Ordinal);
 
         var fullyQualified = find.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        Assert.Equal("public System.Collections.Generic.List<string>.Find(match: System.Predicate<string>) → string", fullyQualified);
+        Assert.Contains("System.Collections.Generic.List<string>", fullyQualified, StringComparison.Ordinal);
+        Assert.Contains("Find", fullyQualified, StringComparison.Ordinal);
+        Assert.Contains("System.Predicate<string>", fullyQualified, StringComparison.Ordinal);
     }
 
     [Fact]

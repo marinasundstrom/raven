@@ -14,7 +14,7 @@ public sealed class ExtensionInferenceInstrumentationTests : CompilationTestBase
         const string source = """
 namespace System
 
-public union Result<T, E> {
+union Result<T, E> {
     Ok(value: T)
     Error(data: E)
 }
@@ -25,16 +25,16 @@ import System.*
 import System.Linq.*
 import System.Collections.Generic.*
 
-public extension EnumerableExt<T> for IEnumerable<T> {
-    public func ToArrayOrException() -> Result<T[], Exception> {
+extension EnumerableExt<T> for IEnumerable<T> {
+    func ToArrayOrException() -> Result<T[], Exception> {
         try self.ToArray()
     }
 
-    public func Step1() -> Result<T[], Exception> {
+    func Step1() -> Result<T[], Exception> {
         self.ToArrayOrException()
     }
 
-    public func Step2() -> Result<T[], Exception> {
+    func Step2() -> Result<T[], Exception> {
         self.Step1()
     }
 }
@@ -62,13 +62,13 @@ public extension EnumerableExt<T> for IEnumerable<T> {
         const string source = """
 namespace System
 
-public union Result<T, E> {
+union Result<T, E> {
     Ok(value: T)
     Error(data: E)
 }
 
-public extension ResultExtensions<T, E> for Result<T, E> {
-    public func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
+extension ResultExtensions<T, E> for Result<T, E> {
+    func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
             .Ok(val value) => .Ok(value)
             .Error(val error) => .Error(mapper(error))
@@ -82,16 +82,16 @@ import System.*
 import System.Linq.*
 import System.Collections.Generic.*
 
-public extension EnumerableExt<T> for IEnumerable<T> {
-    public func ToArrayOrException() -> Result<T[], Exception> {
+extension EnumerableExt<T> for IEnumerable<T> {
+    func ToArrayOrException() -> Result<T[], Exception> {
         try self.ToArray()
     }
 
-    public func Step1() -> Result<T[], Exception> {
+    func Step1() -> Result<T[], Exception> {
         self.ToArrayOrException()
     }
 
-    public func Step2<E>(errorFactory: Exception -> E) -> Result<T[], E> {
+    func Step2<E>(errorFactory: Exception -> E) -> Result<T[], E> {
         self.Step1().MapError(errorFactory)
     }
 }
@@ -122,13 +122,13 @@ public extension EnumerableExt<T> for IEnumerable<T> {
         const string source = """
 namespace System
 
-public union Result<T, E> {
+union Result<T, E> {
     Ok(value: T)
     Error(data: E)
 }
 
-public extension ResultExtensions<T, E> for Result<T, E> {
-    public func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
+extension ResultExtensions<T, E> for Result<T, E> {
+    func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
             .Ok(val value) => .Ok(value)
             .Error(val error) => .Error(mapper(error))
@@ -142,20 +142,20 @@ import System.*
 import System.Linq.*
 import System.Collections.Generic.*
 
-public extension EnumerableExt<T> for IEnumerable<T> {
-    public func ToListOrException() -> Result<List<T>, Exception> {
+extension EnumerableExt<T> for IEnumerable<T> {
+    func ToListOrException() -> Result<List<T>, Exception> {
         try List<T>()
     }
 
-    public func ToDictionaryOrException() -> Result<Dictionary<string, T>, Exception> {
+    func ToDictionaryOrException() -> Result<Dictionary<string, T>, Exception> {
         try Dictionary<string, T>()
     }
 
-    public func ListStep<E>(errorFactory: Exception -> E) -> Result<List<T>, E> {
+    func ListStep<E>(errorFactory: Exception -> E) -> Result<List<T>, E> {
         self.ToListOrException().MapError(errorFactory)
     }
 
-    public func DictionaryStep<E>(errorFactory: Exception -> E) -> Result<Dictionary<string, T>, E> {
+    func DictionaryStep<E>(errorFactory: Exception -> E) -> Result<Dictionary<string, T>, E> {
         self.ToDictionaryOrException().MapError(errorFactory)
     }
 }

@@ -114,17 +114,17 @@ val middle = values[1..3]
         const string source = """
 import System.*
 
-val buffer = Buffer()
+val buffer = LocalBuffer()
 val tail = buffer[1..]
 val i = ^1
 val last = buffer[i]
 
-class Buffer {
-    public self[i: Index]: int {
+class LocalBuffer {
+    val self[i: Index]: int {
         get => 1;
     }
 
-    public self[r: Range]: int[] {
+    val self[r: Range]: int[] {
         get => [2, 3];
     }
 }

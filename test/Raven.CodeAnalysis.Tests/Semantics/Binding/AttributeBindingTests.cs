@@ -61,7 +61,7 @@ import System.*
 
 class MyAttribute<T> : System.Attribute
 {
-    public init(value: int) { }
+    init(value: int) { }
 }
 
 [My<int>(42)]
@@ -204,7 +204,7 @@ import System.Diagnostics.CodeAnalysis.*
 class C
 {
     [return: MaybeNull]
-    public func GetName() -> string => "ok"
+    func GetName() -> string => "ok"
 }
 """;
 

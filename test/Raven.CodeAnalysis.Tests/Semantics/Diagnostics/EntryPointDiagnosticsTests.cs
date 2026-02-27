@@ -215,7 +215,7 @@ class Program {
     }
 
     [Fact]
-    public void ClassLibrary_DoesNotSynthesizeTopLevelProgram()
+    public void ClassLibrary_SynthesizesTopLevelProgramWithoutEntryPointDiagnostic()
     {
         var tree = SyntaxTree.ParseText("");
         var compilation = Compilation.Create(
@@ -231,7 +231,7 @@ class Program {
         Assert.NotNull(global);
 
         var program = global.LookupType("Program");
-        Assert.Null(program);
+        Assert.NotNull(program);
     }
 
     [Fact]

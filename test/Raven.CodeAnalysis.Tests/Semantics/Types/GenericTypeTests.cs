@@ -14,7 +14,9 @@ public class GenericTypeTests : CompilationTestBase
         var source = """
             class Box<T>
             {
-                public Value: T { get; }
+                val Value: T {
+                    get
+                }
             }
             """;
 
@@ -46,7 +48,9 @@ public class GenericTypeTests : CompilationTestBase
         var source = """
             class Box<T>
             {
-                public Value: T { get; }
+                val Value: T {
+                    get
+                }
             }
             """;
 
@@ -138,9 +142,9 @@ public class GenericTypeTests : CompilationTestBase
         var inner = Assert.IsAssignableFrom<INamedTypeSymbol>(
             Assert.Single(outer.GetMembers("Inner")));
 
-        var valueField = Assert.IsAssignableFrom<IFieldSymbol>(
+        var valueField = Assert.IsAssignableFrom<IPropertySymbol>(
             Assert.Single(inner.GetMembers("value")));
-        var bField = Assert.IsAssignableFrom<IFieldSymbol>(
+        var bField = Assert.IsAssignableFrom<IPropertySymbol>(
             Assert.Single(inner.GetMembers("b")));
 
         Assert.Same(outer.TypeParameters[0], valueField.Type);

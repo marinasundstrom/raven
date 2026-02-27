@@ -119,7 +119,7 @@ class MissingIsCompletedAwaiter
     }
 
     [Fact]
-    public void AwaitExpression_MissingGetResult_ReportsDiagnostic()
+    public void AwaitExpression_MissingGetResult_DoesNotReportLegacyDiagnostic()
     {
         const string source = """
 async func outer() {
@@ -141,7 +141,8 @@ class MissingGetResultAwaiter
 }
 """;
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AwaiterMissingGetResult));
-        Assert.Equal(CompilerDiagnostics.AwaiterMissingGetResult, diagnostic.Descriptor);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.AwaiterMissingGetResult);
     }
 }

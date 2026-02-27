@@ -15,15 +15,21 @@ public class CollectionExpressionTests
         var code = """
 class MyList {
     var count: int = 0
-    public func Add(item: int) -> unit { count = count + 1 }
-    public Count: int { get => count }
+    func Add(item: int) -> unit { count = count + 1 }
+    val Count: int {
+        get => count
+    }
 }
 
 class Foo {
     var items: MyList = [1, 2, 3]
     var empty: MyList = []
-    public ItemsCount: int { get => items.Count }
-    public EmptyCount: int { get => empty.Count }
+    val ItemsCount: int {
+        get => items.Count
+    }
+    val EmptyCount: int {
+        get => empty.Count
+    }
 }
 """;
 
@@ -54,7 +60,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    public static func GetCount() -> int {
+    static func GetCount() -> int {
         val marvel = ["Tony Stark", "Spiderman", "Thor"]
         val dc = ["Superman", "Batman", "Flash"]
         val characters = [..marvel, "Black Widow", ..dc]
@@ -90,7 +96,7 @@ class Foo {
 class Item() { }
 
 class Foo {
-    public static func GetCount() -> int {
+    static func GetCount() -> int {
         val items: Item[] = [Item()]
         val more: Item[] = [..items]
         return more.Length
@@ -123,7 +129,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    public static func GetCount() -> int {
+    static func GetCount() -> int {
         val left: int[] = [1, 2]
         val right: int[] = [3, 4]
         val values: int[] = [..left, 9, ..right]
@@ -163,7 +169,7 @@ class Foo {
 import System.Collections.Generic.*
 
 class Foo {
-    public static func GetCount() -> int {
+    static func GetCount() -> int {
         val left: int[] = [1, 2]
         val right: int[] = [3]
         val values: IEnumerable<int> = [..left, 9, ..right]
@@ -203,7 +209,7 @@ class Foo {
 import System.Collections.Generic.*
 
 class Foo {
-    public static func GetCount() -> int {
+    static func GetCount() -> int {
         val merged: char[] = ['x', .."ab", 'y']
         return merged.Length
     }

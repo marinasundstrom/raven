@@ -28,10 +28,8 @@ val value = if flag 1 else 2
             .Single();
 
         var boundIf = Assert.IsType<BoundIfExpression>(model.GetBoundNode(ifExpression));
-        var thenBranch = Assert.IsType<BoundConversionExpression>(boundIf.ThenBranch);
-        var elseBranch = Assert.IsType<BoundConversionExpression>(boundIf.ElseBranch);
-        Assert.IsType<BoundLiteralExpression>(thenBranch.Expression);
-        Assert.IsType<BoundLiteralExpression>(elseBranch.Expression);
+        Assert.IsType<BoundLiteralExpression>(boundIf.ThenBranch);
+        Assert.IsType<BoundLiteralExpression>(boundIf.ElseBranch);
     }
 
     [Fact]

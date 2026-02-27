@@ -15,8 +15,8 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         string testCode =
             """
             class Foo {
-                public static val Value: int {
-                    get => 0
+                static val Value: int {
+                    get { return 0 }
                 }
             }
             """;
@@ -31,8 +31,8 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         const string code =
             """
             class Foo {
-                IFoo.Value: int {
-                    get => 0
+                val IFoo.Value: int {
+                    get { return 0 }
                 }
             }
             """;
@@ -57,9 +57,9 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         string testCode =
             """
             class Foo {
-                public val Value: int {
+                val Value: int {
                     [Getter]
-                    get => 0
+                    get { return 0 }
                 }
             }
             """;
@@ -84,8 +84,8 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         const string code =
             """
             class Foo {
-                public val Value {
-                    get => 0
+                val Value {
+                    get { return 0 }
                 }
             }
             """;
@@ -107,7 +107,7 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         const string code =
             """
             struct Token {
-                public val Kind: SyntaxKind { get } = kind
+                val Kind: SyntaxKind { get } = kind
             }
             """;
 

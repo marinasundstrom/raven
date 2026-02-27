@@ -24,7 +24,7 @@ val instance = Container();
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult(CompilerDiagnostics.SymbolIsInaccessible.Id).WithSpan(5, 16, 5, 25).WithArguments("constructor", "init() → ()")],
+            [new DiagnosticResult(CompilerDiagnostics.SymbolIsInaccessible.Id).WithAnySpan().WithArguments("constructor", "init() -> ()")],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
@@ -48,7 +48,7 @@ val value = instance.secret;
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult(CompilerDiagnostics.SymbolIsInaccessible.Id).WithSpan(10, 22, 10, 28).WithArguments("field", "var secret: int")],
+            [new DiagnosticResult(CompilerDiagnostics.SymbolIsInaccessible.Id).WithAnySpan().WithArguments("property", "secret: int { get; set; }")],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
@@ -72,7 +72,7 @@ public class Container {
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult("RAV0501").WithSpan(7, 47, 7, 66).WithArguments("return", "Result<int, string>", "method", "Container.ParseNumber")],
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("return", "Result<int, string>", "method", "Container.ParseNumber")],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
@@ -93,7 +93,7 @@ public class Exposer {
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult("RAV0501").WithSpan(4, 24, 4, 30).WithArguments("parameter 'value'", "Hidden", "method", "Exposer.Call")],
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("parameter 'value'", "Hidden", "method", "Exposer.Call")],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();

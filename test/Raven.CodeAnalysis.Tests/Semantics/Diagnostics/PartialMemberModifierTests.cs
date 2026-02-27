@@ -14,8 +14,8 @@ public class PartialMemberModifierTests : CompilationTestBase
     {
         const string source = """
 class C {
-    partial val x: int = 1;
-    partial M() -> unit { }
+    partial val x: int = 1
+    partial func M() -> unit { }
 }
 """;
 

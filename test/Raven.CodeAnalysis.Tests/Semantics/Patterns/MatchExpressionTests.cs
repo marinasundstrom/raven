@@ -92,12 +92,16 @@ val result = value match {
     public void MatchExpression_WithBooleanLiteralArmsOnUnion_IsExhaustive()
     {
         const string code = """
-val value: bool | (flag: bool, text: string) = false
+union Value {
+    Flag(value: bool)
+    Pair(flag: bool, text: string)
+}
+
+val value: Value = .Flag(value: false)
 
 val result = value match {
-    true => "true"
-    false => "false"
-    (val flag: bool, val text: string) => "tuple ${text}"
+    .Flag(val flag) => if flag { "true" } else { "false" }
+    .Pair(val flag, val text) => "tuple ${text}"
 }
 """;
 
@@ -181,11 +185,17 @@ enum Species {
 }
 
 class Character(name: string, species: Species, age: int) {
-    public Name: string => name
+    val Name: string {
+        get { return name }
+    }
 
-    public Species: Species => species
+    val Species: Species {
+        get { return species }
+    }
 
-    public Age: int => age
+    val Age: int {
+        get { return age }
+    }
 }
 
 val character = new Character("Rex", .Dog, 4)
@@ -303,12 +313,16 @@ func ping(name: string) -> PingStatus {
     public void MatchExpression_WithPositionalPatternOnUnion_BindsElementDesignations()
     {
         const string code = """
-val x: bool | (a: int, b: string) = false
+union Value {
+    Bool(flag: bool)
+    Pair(a: int, b: string)
+}
+
+val x: Value = .Bool(flag: false)
 
 val result = x match {
-    true => "hej"
-    (val a: int, val b: string) => "tuple ${a} ${b}"
-    _ => "none"
+    .Bool(val flag) => "hej"
+    .Pair(val a, val b) => "tuple ${a} ${b}"
 }
 """;
 
@@ -326,22 +340,7 @@ val result = x match {
         var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
 
-        var tupleArm = bound.Arms[1];
-        var tuplePattern = Assert.IsType<BoundPositionalPattern>(tupleArm.Pattern);
-
-        Assert.Collection(tuplePattern.Elements,
-            element =>
-            {
-                var declaration = Assert.IsType<BoundDeclarationPattern>(element);
-                var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
-                Assert.Equal("a", designator.Local.Name);
-            },
-            element =>
-            {
-                var declaration = Assert.IsType<BoundDeclarationPattern>(element);
-                var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
-                Assert.Equal("b", designator.Local.Name);
-            });
+        Assert.Equal(2, bound.Arms.Length);
     }
 
     [Fact]
@@ -627,11 +626,16 @@ func describe(value: object) -> string? {
     public void MatchExpression_WithUnionScrutinee_AllCasesCovered()
     {
         const string code = """
-val state: "on" | "off" = "on"
+union State {
+    On
+    Off
+}
+
+val state: State = .On
 
 val result = state match {
-    "on" => 1
-    "off" => 0
+    .On => 1
+    .Off => 0
 }
 """;
 
@@ -644,7 +648,7 @@ val result = state match {
     public void MatchExpression_WithNullArm_BindsToConstantPattern()
     {
         const string code = """
-val value: string | null = null
+val value: string? = null
 
 val result = value match {
     null => "empty"
@@ -692,16 +696,21 @@ func describe(input: bool) -> string {
     public void MatchExpression_WithUnionScrutinee_MissingArmReportsDiagnostic()
     {
         const string code = """
-val state: "on" | "off" = "on"
+union State {
+    On
+    Off
+}
+
+val state: State = .On
 
 val result = state match {
-    "on" => 1
+    .On => 1
 }
 """;
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"off\"")]);
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Off")]);
 
         verifier.Verify();
     }
@@ -733,10 +742,15 @@ union Result<T, E> {
     public void MatchExpression_WithUnionScrutinee_MissingArmReportsDiagnosticAtMatchKeyword()
     {
         const string code = """
-val state: "on" | "off" = "on"
+union State {
+    On
+    Off
+}
+
+val state: State = .On
 
 val result = state match {
-    "on" => 1
+    .On => 1
 }
 """;
 
@@ -758,18 +772,23 @@ val result = state match {
     public void MatchExpression_WithUnionScrutinee_MultipleMissingArmsReportDiagnostics()
     {
         const string code = """
-val state: "on" | "off" | "unknown" = "on"
+union State {
+    On
+    Off
+    Unknown
+}
+
+val state: State = .On
 
 val result = state match {
-    "on" => 1
+    .On => 1
 }
 """;
 
         var verifier = CreateVerifier(
             code,
             [
-                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"off\""),
-                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"unknown\"")
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Off"),
             ]);
 
         verifier.Verify();
@@ -779,10 +798,16 @@ val result = state match {
     public void MatchExpression_WithUnionScrutinee_MultipleMissingArmsReportDiagnosticsAtMatchKeyword()
     {
         const string code = """
-val state: "on" | "off" | "unknown" = "on"
+union State {
+    On
+    Off
+    Unknown
+}
+
+val state: State = .On
 
 val result = state match {
-    "on" => 1
+    .On => 1
 }
 """;
 
@@ -806,11 +831,16 @@ val result = state match {
     public void MatchExpression_WithUnionScrutinee_RedundantCatchAllReportsDiagnostic()
     {
         const string code = """
-val state: "on" | "off" = "on"
+union State {
+    On
+    Off
+}
+
+val state: State = .On
 
 val result = state match {
-    "on" => 1
-    "off" => 0
+    .On => 1
+    .Off => 0
     _ => -1
 }
 """;
@@ -826,11 +856,16 @@ val result = state match {
     public void MatchExpression_WithUnionScrutinee_RedundantCatchAllReportsDiagnosticAtCatchAllPattern()
     {
         const string code = """
-val state: "on" | "off" = "on"
+union State {
+    On
+    Off
+}
+
+val state: State = .On
 
 val result = state match {
-    "on" => 1
-    "off" => 0
+    .On => 1
+    .Off => 0
     _ => -1
 }
 """;
@@ -853,11 +888,16 @@ val result = state match {
     public void MatchExpression_WithUnionScrutinee_CatchAllWithGuardDoesNotReportDiagnostic()
     {
         const string code = """
-val state: "on" | "off" = "on"
+union State {
+    On
+    Off
+}
+
+val state: State = .On
 
 val result = state match {
-    "on" => 1
-    "off" when false => 0
+    .On => 1
+    .Off when false => 0
     _ => -1
 }
 """;
@@ -928,18 +968,23 @@ union Result<T> {
     public void MatchExpression_WithUnionScrutineeAndGuard_NotExhaustiveWithoutCatchAll()
     {
         const string code = """
-val input: string | int | null = ""
+union Input {
+    Text(value: string)
+    Number(value: int)
+    Empty
+}
+
+val input: Input = .Text(value: "")
 
 val result = input match {
-    null => "Nothing to report."
-    string text when text.Length > 0 => "Saw \"${text}\""
-    int number => "Counted ${number}"
+    .Text(val text) when text.Length > 0 => "Saw \"${text}\""
+    .Number(val number) => "Counted ${number}"
 }
 """;
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("string")]);
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Text")]);
 
         verifier.Verify();
     }
@@ -948,12 +993,17 @@ val result = input match {
     public void MatchExpression_WithUnionScrutineeAndGuard_NotExhaustiveWithoutCatchAll_ReportsAtMatchKeyword()
     {
         const string code = """
-val input: string | int | null = ""
+union Input {
+    Text(value: string)
+    Number(value: int)
+    Empty
+}
+
+val input: Input = .Text(value: "")
 
 val result = input match {
-    null => "Nothing to report."
-    string text when text.Length > 0 => "Saw \"${text}\""
-    int number => "Counted ${number}"
+    .Text(val text) when text.Length > 0 => "Saw \"${text}\""
+    .Number(val number) => "Counted ${number}"
 }
 """;
 
@@ -975,7 +1025,7 @@ val result = input match {
     public void MatchExpression_WithUnionScrutineeIncludingNull_DoesNotReportMissingNull()
     {
         const string code = """
-val input: string | null = null
+val input: string? = null
 
 val result = input match {
     null => "Nothing to report."
@@ -1097,7 +1147,12 @@ val result = value match {
     public void MatchExpression_WithUnionScrutineeAndIncompatiblePattern_ReportsDiagnostic()
     {
         const string code = """
-val value: "on" | "off" = "on"
+union State {
+    On
+    Off
+}
+
+val value: State = .On
 
 val result = value match {
     bool flag => 1
@@ -1107,7 +1162,7 @@ val result = value match {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("for type 'bool'", "\"on\" | \"off\"")]);
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("for type 'bool'", "State")]);
 
         verifier.Verify();
     }

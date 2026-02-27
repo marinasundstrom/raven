@@ -30,7 +30,7 @@ let result = true match {
     }
 
     [Fact]
-    public void MatchExpression_DiscardArmCanBeSpecific_ReportsDiagnostic()
+    public void MatchExpression_DiscardArmCanBeSpecific_DoesNotReportDiagnostic()
     {
         const string code = """
 val value: State = .Idle
@@ -50,11 +50,7 @@ enum State {
 
         var verifier = CreateAnalyzerVerifier<MatchExhaustivenessAnalyzer>(
             code,
-            [
-                new DiagnosticResult(MatchExhaustivenessAnalyzer.DiscardCaseDiagnosticId)
-                    .WithLocation(12, 5)
-                    .WithArguments("Done")
-            ]);
+            []);
 
         verifier.Verify();
     }

@@ -10,7 +10,7 @@ public class StringConcatenationErrorTests : DiagnosticTestBase
         const string code = """
         class Foo {
             func Test() -> unit {
-                val value = $"Value: {missing}"
+                val value = "Value: ${missing}"
             }
         }
         """;

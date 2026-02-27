@@ -255,7 +255,7 @@ class C {
     {
         const string template = """
 class Sample {{
-    value: {0} = {1};
+    field value: {0} = {1}
 }}
 """;
 
@@ -303,7 +303,7 @@ class Sample {{
     {
         const string template = """
 class Sample {{
-    public Value: {0} {{ get; }}
+    val Value: {0} {{ get; }}
 }}
 """;
 

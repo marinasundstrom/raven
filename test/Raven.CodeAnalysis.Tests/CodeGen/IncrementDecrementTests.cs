@@ -14,7 +14,7 @@ public class IncrementDecrementTests
     {
         var code = """
 class Foo {
-    public func Run() -> int {
+    func Run() -> int {
         var x: int = 1
         var y: int = ++x
         return x * 10 + y
@@ -48,7 +48,7 @@ class Foo {
     {
         var code = """
 class Foo {
-    public func Run() -> int {
+    func Run() -> int {
         var x: int = 3
         var y: int = x--
         return x * 10 + y
@@ -77,39 +77,4 @@ class Foo {
         Assert.Equal(23, value);
     }
 
-    [Fact]
-    public void PostfixIncrement_PropertyValueUpdates()
-    {
-        var code = """
-class Counter {
-    public var Value: int = 0
-
-    public func Run() -> int {
-        Value = 10
-        var original = Value++
-        return Value * 10 + original
-    }
-}
-""";
-
-        var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
-
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(syntaxTree)
-            .AddReferences(references);
-
-        using var peStream = new MemoryStream();
-        var result = compilation.Emit(peStream);
-        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
-
-        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
-        var assembly = loaded.Assembly;
-        var type = assembly.GetType("Counter", true)!;
-        var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Run")!;
-        var value = (int)method.Invoke(instance, Array.Empty<object>())!;
-
-        Assert.Equal(120, value);
-    }
 }

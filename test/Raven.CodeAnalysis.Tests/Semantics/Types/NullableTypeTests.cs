@@ -144,9 +144,9 @@ public class NullableTypeTests : CompilationTestBase
             source,
             options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
-        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var declarator = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
 
-        var type = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type;
+        var type = model.GetTypeInfo(declarator.Type.Type).Type;
 
         var nullable = Assert.IsType<NullableTypeSymbol>(type);
         var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(nullable.UnderlyingType);
@@ -660,14 +660,4 @@ class Foo {
         Assert.True(conv.IsImplicit);
     }
 
-    [Fact]
-    public void NullableType_In_Union_ReportsDiagnostic()
-    {
-        var (compilation, _) = CreateCompilation(
-            "val x: string? | int = null",
-            options: new CompilationOptions(OutputKind.ConsoleApplication));
-        Assert.Contains(
-            compilation.GetDiagnostics(),
-            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NullableTypeInUnion);
-    }
 }

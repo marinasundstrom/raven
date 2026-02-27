@@ -101,7 +101,7 @@ public class AttributeParsingTests : DiagnosticTestBase
         const string code = """
             class Widget {
                 [Data]
-                public Value: int { get => 0 }
+                val Value: int { get => 0 }
             }
             """;
 
@@ -126,7 +126,7 @@ public class AttributeParsingTests : DiagnosticTestBase
             class Widget {
                 var data: int;
                 [Indexed]
-                public self[index: int]: int { get => data }
+                var self[index: int]: int { get => data }
             }
             """;
 

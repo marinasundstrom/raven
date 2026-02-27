@@ -12,7 +12,7 @@ public class VirtualMemberTests : CompilationTestBase
     {
         const string source = """
 class C {
-    public virtual func M() -> unit {
+    virtual func M() -> unit {
         return
     }
 }
@@ -30,7 +30,7 @@ class C {
     {
         const string source = """
 class C {
-    public sealed func M() -> unit {
+    sealed func M() -> unit {
         return
     }
 }
@@ -48,19 +48,19 @@ class C {
     {
         const string source = """
 open class Animal {
-    public virtual func Speak() -> unit {
+    virtual func Speak() -> unit {
         return
     }
 }
 
 open class Dog : Animal {
-    public sealed override func Speak() -> unit {
+    sealed override func Speak() -> unit {
         return
     }
 }
 
 class Puppy : Dog {
-    public override func Speak() -> unit {
+    override func Speak() -> unit {
         return
     }
 }
@@ -77,13 +77,13 @@ class Puppy : Dog {
     {
         const string source = """
 open class Animal {
-    public virtual func Speak() -> unit {
+    virtual func Speak() -> unit {
         return
     }
 }
 
 class Dog : Animal {
-    public static override func Speak() -> unit {
+    static override func Speak() -> unit {
         return
     }
 }
@@ -101,7 +101,7 @@ class Dog : Animal {
     {
         const string source = """
 class C {
-    public static virtual func M() -> unit {
+    static virtual func M() -> unit {
         return
     }
 }
@@ -119,15 +119,21 @@ class C {
     {
         const string source = """
 open class Animal {
-    public virtual Name: string { get => "animal" }
+    virtual val Name: string {
+        get { return "animal" }
+    }
 }
 
 open class Dog : Animal {
-    public sealed override Name: string { get => "dog" }
+    sealed override val Name: string {
+        get { return "dog" }
+    }
 }
 
 class Puppy : Dog {
-    public override Name: string { get => "puppy" }
+    override val Name: string {
+        get { return "puppy" }
+    }
 }
 """;
 
@@ -142,7 +148,9 @@ class Puppy : Dog {
     {
         const string source = """
 class C {
-    public sealed Value: int { get => 0 }
+    sealed val Value: int {
+        get { return 0 }
+    }
 }
 """;
 

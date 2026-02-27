@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 public class PreferTargetTypedUnionCaseAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
-    public void QualifiedUnionCaseConstruction_ReportsConcreteRewrite()
+    public void QualifiedUnionCaseConstruction_DoesNotReportDiagnostic()
     {
         const string code = """
 func Test() {
@@ -21,14 +21,7 @@ union Option<T> {
 
         var verifier = CreateAnalyzerVerifier<PreferTargetTypedUnionCaseAnalyzer>(
             code,
-            expectedDiagnostics:
-            [
-                new DiagnosticResult(PreferTargetTypedUnionCaseAnalyzer.DiagnosticId)
-                    .WithSpan(2, 13, 2, 24)
-                    .WithArguments(
-                        "Some",
-                        "Option<int>")
-            ],
+            expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
             enableSuggestions: true);
 
@@ -36,7 +29,7 @@ union Option<T> {
     }
 
     [Fact]
-    public void VarQualifiedUnionCaseConstruction_WarnsCaseTypeInference()
+    public void VarQualifiedUnionCaseConstruction_DoesNotReportDiagnostic()
     {
         const string code = """
 func Test() {
@@ -51,14 +44,7 @@ union Shape {
 
         var verifier = CreateAnalyzerVerifier<PreferTargetTypedUnionCaseAnalyzer>(
             code,
-            expectedDiagnostics:
-            [
-                new DiagnosticResult(PreferTargetTypedUnionCaseAnalyzer.DiagnosticId)
-                    .WithSpan(2, 13, 2, 18)
-                    .WithArguments(
-                        "Circle",
-                        "Shape")
-            ],
+            expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
             enableSuggestions: true);
 

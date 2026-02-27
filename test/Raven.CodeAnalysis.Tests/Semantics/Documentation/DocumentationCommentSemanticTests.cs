@@ -11,24 +11,28 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class DocumentationCommentSemanticTests : CompilationTestBase
 {
     [Fact]
-    public void FieldDocumentationComment_AttachesToFieldSymbol()
+    public void PropertyDocumentationComment_AttachesToPropertySymbol()
     {
         const string source = """
 class C {
-    /// Field docs
-    public val species = "Homo sapiens"
+    /// Property docs
+    val Species: string {
+        get {
+            return "Homo sapiens"
+        }
+    }
 }
 """;
 
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
-        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
+        var propertyDeclaration = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
 
-        var comment = field.GetDocumentationComment();
+        var comment = property.GetDocumentationComment();
 
         Assert.NotNull(comment);
         Assert.Equal(DocumentationFormat.Markdown, comment!.Format);
-        Assert.Equal("Field docs", comment.Content);
+        Assert.Equal("Property docs", comment.Content);
     }
 }

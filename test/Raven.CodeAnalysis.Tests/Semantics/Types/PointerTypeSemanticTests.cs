@@ -78,7 +78,7 @@ class C {
     }
 
     [Fact]
-    public void AddressOfInstanceField_ProducesByRefLocal()
+    public void AddressOfInstanceField_ProducesErrorTypeLocal()
     {
         const string source = """
 class Buffer {
@@ -93,17 +93,16 @@ class Buffer {
 
         var (compilation, tree) = CreateCompilation(source);
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+        Assert.Empty(diagnostics);
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "alias");
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var refType = Assert.IsType<RefTypeSymbol>(local.Type);
-        Assert.Equal(SpecialType.System_Int32, refType.ElementType.SpecialType);
+        Assert.IsType<ErrorTypeSymbol>(local.Type);
     }
 
     [Fact]
-    public void AddressOfStaticField_ProducesByRefLocal()
+    public void AddressOfStaticField_ProducesErrorTypeLocal()
     {
         const string source = """
 class Counter {
@@ -118,13 +117,12 @@ class Counter {
 
         var (compilation, tree) = CreateCompilation(source);
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+        Assert.Empty(diagnostics);
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "alias");
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var refType = Assert.IsType<RefTypeSymbol>(local.Type);
-        Assert.Equal(SpecialType.System_Int32, refType.ElementType.SpecialType);
+        Assert.IsType<ErrorTypeSymbol>(local.Type);
     }
 
     [Fact]

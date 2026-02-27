@@ -120,8 +120,9 @@ enum PingStatus {
 
 func ping(name: string) -> PingStatus {
     match name {
-        "Bob" | "bob" => .Ok
-        _ => .Error
+        "Bob" => PingStatus.Ok
+        "bob" => PingStatus.Ok
+        _ => PingStatus.Error
     }
 
     return PingStatus.Error

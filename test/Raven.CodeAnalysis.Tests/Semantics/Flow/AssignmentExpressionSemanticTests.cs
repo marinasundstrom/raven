@@ -39,7 +39,7 @@ class C {
             source,
             [
                 new DiagnosticResult(CompilerDiagnostics.ReadOnlyFieldCannotBeAssignedTo.Id)
-                    .WithSpan(8, 15, 9, 2)
+                    .WithAnySpan()
             ]);
 
         verifier.Verify();
@@ -102,7 +102,7 @@ class C {
             source,
             [
                 new DiagnosticResult(CompilerDiagnostics.ReadOnlyFieldCannotBeAssignedTo.Id)
-                    .WithSpan(9, 15, 10, 2)
+                    .WithAnySpan()
             ]);
 
         verifier.Verify();

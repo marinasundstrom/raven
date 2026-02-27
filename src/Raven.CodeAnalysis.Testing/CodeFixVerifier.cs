@@ -74,7 +74,7 @@ public class CodeFixVerifier<TAnalyzer, TCodeFixProvider>
         var compilation = workspace.GetCompilation(projectId);
         var actualDiagnostics = workspace.GetDiagnostics(projectId);
         var expectedDiagnostics = Test.ExpectedDiagnostics;
-        var disabledDiagnostics = Test.DisabledDiagnostics.ToHashSet();
+        var disabledDiagnostics = DiagnosticMatching.BuildDisabledDiagnostics(Test.DisabledDiagnostics);
 
         var unexpectedDiagnostics = new List<Diagnostic>();
         var missingDiagnostics = new List<DiagnosticResult>();
@@ -90,7 +90,7 @@ public class CodeFixVerifier<TAnalyzer, TCodeFixProvider>
             var isExpected = expectedDiagnostics.Any(expected =>
                 expected.Id == diagnostic.Descriptor.Id &&
                 (expected.Arguments.Length == 0 ||
-                 expected.Arguments.Select(x => x.ToString()).SequenceEqual(diagnostic.GetMessageArgs().Select(x => x.ToString()))) &&
+                 DiagnosticMatching.MessageArgumentsMatch(expected.Arguments, diagnostic.GetMessageArgs())) &&
                 LocationMatches(expected.Location, lineSpan));
 
             if (isExpected)
@@ -107,7 +107,7 @@ public class CodeFixVerifier<TAnalyzer, TCodeFixProvider>
 
                 return actual.Descriptor.Id == expected.Id &&
                        (expected.Arguments.Length == 0 ||
-                        actual.GetMessageArgs().Select(x => x.ToString()).SequenceEqual(expected.Arguments.Select(x => x.ToString()))) &&
+                        DiagnosticMatching.MessageArgumentsMatch(expected.Arguments, actual.GetMessageArgs())) &&
                        LocationMatches(expected.Location, span);
             });
 

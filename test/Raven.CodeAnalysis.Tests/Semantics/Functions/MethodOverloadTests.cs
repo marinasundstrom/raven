@@ -61,7 +61,8 @@ public class MethodOverloadTests : CompilationTestBase
         class C {
             static func m(x: Base) -> int { 0 }
             static func m(x: object) -> int { 1 }
-            func test(u: D1 | D2) -> int {
+            func test(flag: bool) -> int {
+                val u = if flag { D1() } else { D2() }
                 return m(u);
             }
         }
@@ -70,7 +71,10 @@ public class MethodOverloadTests : CompilationTestBase
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
-        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(i => i.Expression is IdentifierNameSyntax { Identifier.Text: "m" });
         var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
 
         Assert.Equal("Base", symbol.Parameters[0].Type.Name);

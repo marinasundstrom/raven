@@ -238,7 +238,7 @@ factory.Create().Len
     {
         var code = """
 class Counter {
-    public @if: int;
+    val @if: int = 0
 }
 
 val counter = new Counter();

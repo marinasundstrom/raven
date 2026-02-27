@@ -205,6 +205,7 @@ class C {
             expectedDiagnostics: [],
             disabledDiagnostics: [
                 "RAV1503",
+                "RAV0200",
                 CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id,
                 CompilerDiagnostics.ReadOnlyFieldCannotBeAssignedTo.Id
             ]);

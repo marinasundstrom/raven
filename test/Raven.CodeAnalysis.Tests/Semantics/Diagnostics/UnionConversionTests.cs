@@ -1,7 +1,6 @@
 using System.Linq;
 
 using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -114,17 +113,6 @@ class Baz {
     }
 
     [Fact]
-    public void BooleanLiteral_UsesKeywordInDiagnostic()
-    {
-        var code = "val x: \"true\" | 1 = true";
-        var verifier = CreateVerifier(code, [
-            new DiagnosticResult(CompilerDiagnostics.LocalVariableMustBeInitialized.Id).WithSpan(1, 5, 1, 6).WithArguments("x"),
-            new DiagnosticResult(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id).WithSpan(1, 14, 1, 15)
-        ]);
-        verifier.Verify();
-    }
-
-    [Fact]
     public void UnitType_UsesKeywordInDiagnostic()
     {
         var code = """
@@ -141,44 +129,6 @@ func test(flag: bool) {
             new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithSpan(2, 22, 6, 6).WithArguments("'ValueType'", "'int'"),
             new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(2, 30, 4, 6).WithArguments("()", "ValueType"),
             new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(4, 12, 6, 6).WithArguments("int", "ValueType")
-        ]);
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void NumericLiteralNotInUnion_ProducesDiagnostic()
-    {
-        var code = "val x: \"true\" | 1 = 2";
-        var verifier = CreateVerifier(code, [
-            new DiagnosticResult(CompilerDiagnostics.LocalVariableMustBeInitialized.Id).WithSpan(1, 5, 1, 6).WithArguments("x"),
-            new DiagnosticResult(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id).WithSpan(1, 14, 1, 15)
-        ]);
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void NullLiteral_AssignableToUnionParameter()
-    {
-        var code = """
-func describe(input: string | int | null) {}
-
-describe(null)
-""";
-
-        var verifier = CreateVerifier(code, [
-            new DiagnosticResult(CompilerDiagnostics.CharacterExpected.Id).WithSpan(1, 22, 1, 28).WithArguments(","),
-            new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id).WithSpan(1, 29, 1, 30),
-            new DiagnosticResult(CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax.Id).WithSpan(1, 29, 1, 30).WithArguments("|"),
-            new DiagnosticResult(CompilerDiagnostics.CharacterExpected.Id).WithSpan(1, 29, 1, 30).WithArguments(","),
-            new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id).WithSpan(1, 31, 1, 34),
-            new DiagnosticResult(CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax.Id).WithSpan(1, 31, 1, 34).WithArguments("int"),
-            new DiagnosticResult(CompilerDiagnostics.CharacterExpected.Id).WithSpan(1, 31, 1, 34).WithArguments(","),
-            new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id).WithSpan(1, 35, 1, 36),
-            new DiagnosticResult(CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax.Id).WithSpan(1, 35, 1, 36).WithArguments("|"),
-            new DiagnosticResult(CompilerDiagnostics.CharacterExpected.Id).WithSpan(1, 35, 1, 36).WithArguments(","),
-            new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id).WithSpan(1, 37, 1, 41),
-            new DiagnosticResult(CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax.Id).WithSpan(1, 37, 1, 41).WithArguments("null"),
-            new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(1, 44, 3, 2).WithArguments("null", "string")
         ]);
         verifier.Verify();
     }
@@ -310,28 +260,5 @@ func build() -> Result<string, InvalidOperationException> {
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
-    }
-}
-
-public class UnionConversionClassificationTests : CompilationTestBase
-{
-    [Fact]
-    public void NullLiteral_ClassifyConversionForUnionParameter_IsImplicit()
-    {
-        var source = """
-func describe(input: string | int | null) -> string { "" }
-
-describe(null)
-""";
-
-        var (compilation, tree) = CreateCompilation(source);
-        var model = compilation.GetSemanticModel(tree);
-        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
-        var parameterType = symbol.Parameters[0].Type;
-        var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, parameterType);
-
-        Assert.True(conversion.Exists);
-        Assert.True(conversion.IsImplicit);
     }
 }

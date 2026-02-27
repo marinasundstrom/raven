@@ -86,11 +86,11 @@ class LocalBuffer {
         data
     }
 
-    public self[i: Index]: int {
+    public var self[i: Index]: int {
         get => 1;
     }
 
-    public self[r: Range]: int[] {
+    public var self[r: Range]: int[] {
         get => [2, 3];
     }
 }

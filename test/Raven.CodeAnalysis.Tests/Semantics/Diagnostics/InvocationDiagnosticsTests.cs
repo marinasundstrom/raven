@@ -106,7 +106,9 @@ func Main() {
 }
 
 class Box {
-    public Value: int { get => 1 }
+    val Value: int {
+        get { return 1 }
+    }
 }
 """;
 
@@ -130,7 +132,9 @@ func Main() {
 }
 
 class Box {
-    public Value: int { get => 1 }
+    val Value: int {
+        get { return 1 }
+    }
 }
 """;
 
@@ -153,7 +157,9 @@ func Main() {
 }
 
 class Box {
-    public Value: int { get => 1 }
+    val Value: int {
+        get { return 1 }
+    }
 }
 """;
 

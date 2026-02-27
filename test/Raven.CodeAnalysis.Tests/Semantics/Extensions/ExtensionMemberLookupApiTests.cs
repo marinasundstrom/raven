@@ -26,11 +26,11 @@ extension CounterExtensions for Counter {
         get { return 42; }
     }
 
-    public static func Create() -> Counter {
+    static func Create() -> Counter {
         return Counter()
     }
 
-    public static val Name: string {
+    static val Name: string {
         get { return "Counter"; }
     }
 }
@@ -61,9 +61,9 @@ extension CounterExtensions for Counter {
 import System.Runtime.CompilerServices.*
 
 namespace Sample.Extensions {
-    public static class NumberExtensions {
+    static class NumberExtensions {
         [ExtensionAttribute]
-        public static func Double(x: int) -> int {
+        static func Double(x: int) -> int {
             return x + x
         }
     }

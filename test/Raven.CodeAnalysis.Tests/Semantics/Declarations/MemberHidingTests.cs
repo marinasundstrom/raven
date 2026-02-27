@@ -72,7 +72,7 @@ open class Base {
 }
 
 class Derived : Base {
-    public new Speak() -> unit {
+    new func Speak() -> unit {
         return
     }
 }

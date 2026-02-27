@@ -361,8 +361,8 @@ class Box<T> {
             options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         var model = compilation.GetSemanticModel(tree);
-        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var typeSyntax = declarator.TypeAnnotation!.Type;
+        var declarator = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var typeSyntax = declarator.Type.Type;
         var binder = model.GetBinder(typeSyntax);
 
         var result = binder.BindType(typeSyntax);

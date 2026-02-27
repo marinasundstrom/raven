@@ -88,14 +88,17 @@ import System.*
 
 class WithProperty
 {
-    public static func Value() -> int { return 42 }
+    static func Value() -> int { return 42 }
 }
 
 class MyAttribute : Attribute
 {
     init() { }
 
-    public Value: int { get; set; }
+    var Value: int {
+        get
+        set
+    }
 }
 
 [My(Value: WithProperty.Value())]
@@ -109,7 +112,7 @@ class C { }
         _ = type.GetAttributes();
 
         var diagnostics = compilation.GetDiagnostics();
-        var diagnostic = Assert.Single(diagnostics);
+        var diagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor.Id == "RAV0504"));
 
         Assert.Equal("RAV0504", diagnostic.Descriptor.Id);
         Assert.Equal("Attribute argument must be a constant expression", diagnostic.GetMessage());

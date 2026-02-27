@@ -91,8 +91,11 @@ class Widget {}
         const string source = """
 class NamedAttribute : System.Attribute
 {
-    public init(id: int) {}
-    public Label: string { get; set; }
+    init(id: int) {}
+    var Label: string {
+        get
+        set
+    }
 }
 
 [Named(42, Label: "demo")]

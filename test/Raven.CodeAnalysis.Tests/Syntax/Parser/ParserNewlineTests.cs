@@ -839,20 +839,20 @@ public class ParserNewlineTests
     [Fact]
     public void TypeMemberLoop_BadTokenBetweenMembers_ProducesIncompleteMemberAndContinues()
     {
-        var syntaxTree = SyntaxTree.ParseText("class C { let x = 1; ) let y = 2; }");
+        var syntaxTree = SyntaxTree.ParseText("class C { val x: int = 1; ) val y: int = 2; }");
         var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
 
         var classDeclaration = Assert.IsType<ClassDeclarationSyntax>(root.Members.Single());
         classDeclaration.Members.Count.ShouldBe(3);
 
-        Assert.IsType<FieldDeclarationSyntax>(classDeclaration.Members[0]);
+        Assert.IsType<PropertyDeclarationSyntax>(classDeclaration.Members[0]);
 
         var incompleteMember = Assert.IsType<IncompleteMemberDeclarationSyntax>(classDeclaration.Members[1]);
         var skippedTrivia = incompleteMember.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
         var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
         skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
 
-        Assert.IsType<FieldDeclarationSyntax>(classDeclaration.Members[2]);
+        Assert.IsType<PropertyDeclarationSyntax>(classDeclaration.Members[2]);
     }
 
     [Fact]
