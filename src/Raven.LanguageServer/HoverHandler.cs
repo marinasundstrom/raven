@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
 
@@ -51,7 +52,8 @@ internal sealed class HoverHandler : IHoverHandler
         var symbol = resolution.Value.Symbol;
         var signature = symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
         var containing = symbol.ContainingSymbol?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-        var hoverText = BuildHoverText(signature, symbol.Kind.ToString(), containing);
+        var documentation = symbol.GetDocumentationComment();
+        var hoverText = BuildHoverText(signature, symbol.Kind.ToString(), containing, documentation);
 
         return new Hover
         {
@@ -64,11 +66,40 @@ internal sealed class HoverHandler : IHoverHandler
         };
     }
 
-    private static string BuildHoverText(string signature, string kind, string? containing)
+    private static string BuildHoverText(
+        string signature,
+        string kind,
+        string? containing,
+        DocumentationComment? documentation)
     {
-        if (!string.IsNullOrWhiteSpace(containing))
-            return $"```raven\n{signature}\n```\n\n{kind} in `{containing}`";
+        var docsText = FormatDocumentation(documentation);
+        var contextText = !string.IsNullOrWhiteSpace(containing)
+            ? $"{kind} in `{containing}`"
+            : kind;
 
-        return $"```raven\n{signature}\n```\n\n{kind}";
+        if (!string.IsNullOrWhiteSpace(containing))
+            return string.IsNullOrWhiteSpace(docsText)
+                ? $"```raven\n{signature}\n```\n\n{contextText}"
+                : $"```raven\n{signature}\n```\n\n{contextText}\n\n---\n\n{docsText}";
+
+        return string.IsNullOrWhiteSpace(docsText)
+            ? $"```raven\n{signature}\n```\n\n{contextText}"
+            : $"```raven\n{signature}\n```\n\n{contextText}\n\n---\n\n{docsText}";
+    }
+
+    private static string? FormatDocumentation(DocumentationComment? documentation)
+    {
+        if (documentation is null)
+            return null;
+
+        if (string.IsNullOrWhiteSpace(documentation.Content))
+            return null;
+
+        return documentation.Format switch
+        {
+            DocumentationFormat.Markdown => documentation.Content.Trim(),
+            DocumentationFormat.Xml => $"```xml\n{documentation.Content.Trim()}\n```",
+            _ => documentation.Content.Trim()
+        };
     }
 }

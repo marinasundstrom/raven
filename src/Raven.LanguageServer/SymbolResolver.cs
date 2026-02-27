@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.LanguageServer;
@@ -54,12 +55,35 @@ internal static class SymbolResolver
 
     private static ISymbol? ResolveSymbolFromNode(SemanticModel semanticModel, SyntaxNode node)
     {
+        if (node is ParameterSyntax parameterDeclaration)
+            return semanticModel.GetDeclaredSymbol(parameterDeclaration);
+
+        if (node.Parent is ParameterSyntax parentParameterDeclaration)
+            return semanticModel.GetDeclaredSymbol(parentParameterDeclaration);
+
         var symbolInfo = semanticModel.GetSymbolInfo(node);
         if (symbolInfo.Symbol is not null)
             return symbolInfo.Symbol;
 
         if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
             return symbolInfo.CandidateSymbols[0];
+
+        var operation = semanticModel.GetOperation(node);
+        var operationSymbol = operation switch
+        {
+            IParameterReferenceOperation parameterReference => (ISymbol?)parameterReference.Parameter,
+            ILocalReferenceOperation localReference => localReference.Local,
+            IVariableReferenceOperation variableReference => variableReference.Variable,
+            IFieldReferenceOperation fieldReference => fieldReference.Field,
+            IPropertyReferenceOperation propertyReference => propertyReference.Property,
+            IMethodReferenceOperation methodReference => methodReference.Method,
+            IMemberReferenceOperation memberReference => memberReference.Symbol,
+            IInvocationOperation invocation => invocation.TargetMethod,
+            _ => null
+        };
+
+        if (operationSymbol is not null)
+            return operationSymbol;
 
         return semanticModel.GetDeclaredSymbol(node);
     }
