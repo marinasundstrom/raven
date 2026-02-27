@@ -2023,8 +2023,9 @@ Exhaustiveness analysis applies in particular to:
 * **Enums**.
 * **`bool`** (`true` and `false`).
 * **Sealed hierarchies** — a `sealed` class with a `permits` clause (or
-  otherwise participating in a closed inheritance set). The permitted
-  concrete subtypes are treated as the complete set of runtime cases.
+  otherwise participating in a closed inheritance set). Closed branches
+  contribute concrete leaves; open intermediate branches must be covered by
+  matching the intermediate type.
 * **Type unions** — all constituent types must be covered.
 
 For discriminated unions, exhaustiveness is computed from the union's declared
@@ -2040,6 +2041,13 @@ explicit finite-case construct is involved. For example:
 * Using **type patterns** (for example, `string`, `MyBaseType`, or other
   concrete runtime types) such that all possible runtime types implied by the
   scrutinee are handled.
+
+For sealed hierarchies with sub-hierarchies:
+
+* If an intermediate subtype is `sealed`, exhaustiveness can be satisfied by
+  covering its concrete descendants.
+* If an intermediate subtype is not `sealed`, exhaustiveness for that branch
+  requires a pattern that targets the intermediate type itself.
 
 If every possible runtime value implied by the scrutinee type is handled by
 explicit pattern arms, a discard arm is redundant.

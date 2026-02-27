@@ -478,12 +478,30 @@ record class Branch : Node {}
 ```
 
 **Match exhaustiveness.** The compiler uses the sealed hierarchy's permitted subtypes for exhaustiveness analysis of
-`match` expressions. When all concrete leaf types are covered, the match is considered exhaustive:
+`match` expressions. Closed branches (sealed intermediates) are checked by concrete leaf type. Open intermediates
+(non-sealed sub-hierarchies) must be covered by matching the intermediate type itself.
+
+When all required coverage types are handled, the match is considered exhaustive:
 
 ```raven
 val result = expr match {
     Lit lit => lit.value
     Add add => eval(add.left) + eval(add.right)
+}
+```
+
+Example with an open intermediate:
+
+```raven
+sealed record Expr
+record Lit(Value: int) : Expr
+abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+
+val result = expr match {
+    Lit(val value) => value
+    BinaryExpr(val left, val right) => eval(left) + eval(right)
 }
 ```
 

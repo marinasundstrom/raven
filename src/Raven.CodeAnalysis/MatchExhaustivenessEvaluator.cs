@@ -268,7 +268,7 @@ internal sealed class MatchExhaustivenessEvaluator
         INamedTypeSymbol sealedRoot,
         MatchExhaustivenessOptions options)
     {
-        var leafTypes = TypeCoverageHelper.GetSealedHierarchyLeafTypes(sealedRoot);
+        var leafTypes = TypeCoverageHelper.GetSealedHierarchyCoverageTypes(sealedRoot);
 
         if (leafTypes.IsEmpty)
             return ImmutableArray<string>.Empty;
@@ -1014,95 +1014,95 @@ internal sealed class MatchExhaustivenessEvaluator
                 return true;
 
             case BoundRangePattern range:
-            {
-                var low = range.LowerBound is not null
-                    ? TryExtractNumericValue(range.LowerBound, out var lo) ? lo : domain.Low
-                    : domain.Low;
-                var high = range.UpperBound is not null
-                    ? TryExtractNumericValue(range.UpperBound, out var hi) ? hi : domain.High
-                    : domain.High;
-                intervals = new[] { new NumericInterval(Math.Max(low, domain.Low), Math.Min(high, domain.High)) };
-                return true;
-            }
+                {
+                    var low = range.LowerBound is not null
+                        ? TryExtractNumericValue(range.LowerBound, out var lo) ? lo : domain.Low
+                        : domain.Low;
+                    var high = range.UpperBound is not null
+                        ? TryExtractNumericValue(range.UpperBound, out var hi) ? hi : domain.High
+                        : domain.High;
+                    intervals = new[] { new NumericInterval(Math.Max(low, domain.Low), Math.Min(high, domain.High)) };
+                    return true;
+                }
 
             case BoundRelationalPattern relational:
-            {
-                if (!TryExtractNumericValue(relational.Value, out var v))
-                    return false;
-
-                var interval = relational.Operator switch
                 {
-                    BoundRelationalPatternOperator.GreaterThan => new NumericInterval(v + 1, domain.High),
-                    BoundRelationalPatternOperator.GreaterThanOrEqual => new NumericInterval(v, domain.High),
-                    BoundRelationalPatternOperator.LessThan => new NumericInterval(domain.Low, v - 1),
-                    BoundRelationalPatternOperator.LessThanOrEqual => new NumericInterval(domain.Low, v),
-                    _ => default
-                };
-                // Clamp to domain
-                if (interval.Low > interval.High || interval.Low > domain.High || interval.High < domain.Low)
-                    return true; // empty interval (valid but covers nothing)
-                intervals = new[] { new NumericInterval(Math.Max(interval.Low, domain.Low), Math.Min(interval.High, domain.High)) };
-                return true;
-            }
+                    if (!TryExtractNumericValue(relational.Value, out var v))
+                        return false;
+
+                    var interval = relational.Operator switch
+                    {
+                        BoundRelationalPatternOperator.GreaterThan => new NumericInterval(v + 1, domain.High),
+                        BoundRelationalPatternOperator.GreaterThanOrEqual => new NumericInterval(v, domain.High),
+                        BoundRelationalPatternOperator.LessThan => new NumericInterval(domain.Low, v - 1),
+                        BoundRelationalPatternOperator.LessThanOrEqual => new NumericInterval(domain.Low, v),
+                        _ => default
+                    };
+                    // Clamp to domain
+                    if (interval.Low > interval.High || interval.Low > domain.High || interval.High < domain.Low)
+                        return true; // empty interval (valid but covers nothing)
+                    intervals = new[] { new NumericInterval(Math.Max(interval.Low, domain.Low), Math.Min(interval.High, domain.High)) };
+                    return true;
+                }
 
             case BoundConstantPattern constant:
-            {
-                if (!TryExtractNumericValueFromConstantPattern(constant, out var v))
-                    return false;
-                if (v < domain.Low || v > domain.High)
-                    return true; // out of domain, covers nothing
-                intervals = new[] { new NumericInterval(v, v) };
-                return true;
-            }
+                {
+                    if (!TryExtractNumericValueFromConstantPattern(constant, out var v))
+                        return false;
+                    if (v < domain.Low || v > domain.High)
+                        return true; // out of domain, covers nothing
+                    intervals = new[] { new NumericInterval(v, v) };
+                    return true;
+                }
 
             case BoundOrPattern or:
-            {
-                if (!TryGetPatternIntervals(or.Left, domain, out var leftIntervals))
-                    return false;
-                if (!TryGetPatternIntervals(or.Right, domain, out var rightIntervals))
-                    return false;
-                var combined = new List<NumericInterval>(leftIntervals);
-                combined.AddRange(rightIntervals);
-                intervals = combined;
-                return true;
-            }
+                {
+                    if (!TryGetPatternIntervals(or.Left, domain, out var leftIntervals))
+                        return false;
+                    if (!TryGetPatternIntervals(or.Right, domain, out var rightIntervals))
+                        return false;
+                    var combined = new List<NumericInterval>(leftIntervals);
+                    combined.AddRange(rightIntervals);
+                    intervals = combined;
+                    return true;
+                }
 
             case BoundAndPattern and:
-            {
-                if (!TryGetPatternIntervals(and.Left, domain, out var leftIntervals))
-                    return false;
-                if (!TryGetPatternIntervals(and.Right, domain, out var rightIntervals))
-                    return false;
-                // Intersection of left and right interval sets
-                var intersection = new List<NumericInterval>();
-                foreach (var l in leftIntervals)
-                    foreach (var r in rightIntervals)
-                    {
-                        var lo = Math.Max(l.Low, r.Low);
-                        var hi = Math.Min(l.High, r.High);
-                        if (lo <= hi)
-                            intersection.Add(new NumericInterval(lo, hi));
-                    }
-                intervals = intersection;
-                return true;
-            }
+                {
+                    if (!TryGetPatternIntervals(and.Left, domain, out var leftIntervals))
+                        return false;
+                    if (!TryGetPatternIntervals(and.Right, domain, out var rightIntervals))
+                        return false;
+                    // Intersection of left and right interval sets
+                    var intersection = new List<NumericInterval>();
+                    foreach (var l in leftIntervals)
+                        foreach (var r in rightIntervals)
+                        {
+                            var lo = Math.Max(l.Low, r.Low);
+                            var hi = Math.Min(l.High, r.High);
+                            if (lo <= hi)
+                                intersection.Add(new NumericInterval(lo, hi));
+                        }
+                    intervals = intersection;
+                    return true;
+                }
 
             case BoundNotPattern not:
-            {
-                if (!TryGetPatternIntervals(not.Pattern, domain, out var inner))
-                    return false;
-                // Complement: start from domain and subtract each inner interval
-                var complement = new List<NumericInterval> { domain };
-                foreach (var i in inner)
                 {
-                    var next = new List<NumericInterval>();
-                    foreach (var c in complement)
-                        next.AddRange(c.Subtract(i));
-                    complement = next;
+                    if (!TryGetPatternIntervals(not.Pattern, domain, out var inner))
+                        return false;
+                    // Complement: start from domain and subtract each inner interval
+                    var complement = new List<NumericInterval> { domain };
+                    foreach (var i in inner)
+                    {
+                        var next = new List<NumericInterval>();
+                        foreach (var c in complement)
+                            next.AddRange(c.Subtract(i));
+                        complement = next;
+                    }
+                    intervals = complement;
+                    return true;
                 }
-                intervals = complement;
-                return true;
-            }
 
             default:
                 return false;

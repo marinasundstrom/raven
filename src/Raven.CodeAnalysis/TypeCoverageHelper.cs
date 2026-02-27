@@ -30,13 +30,13 @@ internal static class TypeCoverageHelper
     }
 
     /// <summary>
-    /// Returns the set of concrete (non-abstract) leaf types that must be covered to achieve exhaustiveness
-    /// for a sealed hierarchy rooted at <paramref name="sealedRoot"/>.
+    /// Returns the set of types that must be covered to achieve exhaustiveness for a sealed hierarchy.
+    /// Closed branches contribute concrete leaf types. Open intermediate branches contribute the branch type itself.
     /// </summary>
-    public static ImmutableArray<INamedTypeSymbol> GetSealedHierarchyLeafTypes(INamedTypeSymbol sealedRoot)
+    public static ImmutableArray<INamedTypeSymbol> GetSealedHierarchyCoverageTypes(INamedTypeSymbol sealedRoot)
     {
         var results = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-        CollectConcreteLeafSubtypes(sealedRoot, results);
+        CollectCoverageSubtypes(sealedRoot, results);
 
         // If the root itself is concrete (non-abstract), it is also a possible runtime type.
         if (!sealedRoot.IsAbstract)
@@ -46,32 +46,31 @@ internal static class TypeCoverageHelper
     }
 
     /// <summary>
-    /// Recursively collects concrete (non-abstract) leaf subtypes from a sealed hierarchy.
-    /// Traverses nested sealed hierarchies to find all terminal concrete types.
+    /// Recursively collects required coverage types from a sealed hierarchy.
+    /// Traverses only through sealed intermediate nodes; open intermediates become required coverage nodes.
     /// </summary>
-    public static void CollectConcreteLeafSubtypes(
+    public static void CollectCoverageSubtypes(
         INamedTypeSymbol sealedType,
         HashSet<INamedTypeSymbol> results)
     {
         foreach (var subtype in sealedType.PermittedDirectSubtypes)
         {
-            if (subtype is INamedTypeSymbol namedSubtype &&
-                (namedSubtype.IsSealedHierarchy || !namedSubtype.PermittedDirectSubtypes.IsDefaultOrEmpty && namedSubtype.PermittedDirectSubtypes.Length > 0))
+            if (subtype is not INamedTypeSymbol namedSubtype)
+                continue;
+
+            if (namedSubtype.IsSealedHierarchy)
             {
                 // Recurse into nested sealed hierarchies.
-                CollectConcreteLeafSubtypes(namedSubtype, results);
+                CollectCoverageSubtypes(namedSubtype, results);
 
                 // Only add concrete runtime types.
                 if (!namedSubtype.IsAbstract)
                     results.Add(namedSubtype);
             }
-            else if (subtype.IsAbstract)
+            else
             {
-                // Abstract non-sealed-hierarchy: not a leaf, skip
-            }
-            else if (subtype is INamedTypeSymbol concreteSubtype)
-            {
-                results.Add(concreteSubtype);
+                // Open hierarchy branch: require covering the branch node itself.
+                results.Add(namedSubtype);
             }
         }
     }

@@ -10660,17 +10660,11 @@ partial class BlockBinder : Binder
         SourceNamedTypeSymbol sealedType,
         int catchAllIndex)
     {
-        var leafTypes = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-        CollectConcreteLeafSubtypes(sealedType, leafTypes);
-
-        // If the sealed root is non-abstract, it is itself a possible runtime type and must be covered.
-        if (!sealedType.IsAbstract)
-            leafTypes.Add(sealedType);
-
-        if (leafTypes.Count == 0)
+        var coverageTypes = TypeCoverageHelper.GetSealedHierarchyCoverageTypes(sealedType);
+        if (coverageTypes.IsDefaultOrEmpty)
             return;
 
-        var remaining = new HashSet<ITypeSymbol>(leafTypes.Cast<ITypeSymbol>(), TypeSymbolReferenceComparer.Instance);
+        var remaining = new HashSet<ITypeSymbol>(coverageTypes.Cast<ITypeSymbol>(), TypeSymbolReferenceComparer.Instance);
         HashSet<ITypeSymbol>? guaranteedRemaining = null;
         if (catchAllIndex >= 0)
             guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, TypeSymbolReferenceComparer.Instance);
@@ -10800,33 +10794,6 @@ partial class BlockBinder : Binder
     {
         Debug.Fail($"Unexpected match syntax node kind for exhaustiveness diagnostics: {matchSyntax.Kind}");
         return Location.None;
-    }
-
-    private static void CollectConcreteLeafSubtypes(
-        SourceNamedTypeSymbol sealedType,
-        HashSet<INamedTypeSymbol> results)
-    {
-        foreach (var subtype in sealedType.PermittedDirectSubtypes)
-        {
-            if (subtype is SourceNamedTypeSymbol sourceSubtype &&
-                (sourceSubtype.IsSealedHierarchy || sourceSubtype.PermittedDirectSubtypes.Any()))
-            {
-                // Recurse into nested sealed hierarchies.
-                CollectConcreteLeafSubtypes(sourceSubtype, results);
-
-                // If the subtype itself is non-abstract, it is also a possible runtime type and must be covered.
-                if (!sourceSubtype.IsAbstract)
-                    results.Add(sourceSubtype);
-            }
-            else if (subtype.IsAbstract)
-            {
-                // Abstract non-sealed-hierarchy: not a leaf, skip
-            }
-            else
-            {
-                results.Add(subtype);
-            }
-        }
     }
 
     private static (string First, string Second) GetAmbiguousCaseDisplayNames(

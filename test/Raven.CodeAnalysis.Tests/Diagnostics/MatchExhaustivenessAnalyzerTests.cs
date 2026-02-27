@@ -86,4 +86,37 @@ union Result<T, E> {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void MatchExpression_SealedHierarchyWithOpenIntermediate_SuggestsIntermediateCase()
+    {
+        const string code = """
+import System.*
+
+val expr: Expr = Add(Lit(1), Lit(2))
+
+val result = expr match {
+    Lit(val value) => value
+    Add(val left, val right) => 0
+    Sub(val left, val right) => 0
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+""";
+
+        var verifier = CreateAnalyzerVerifier<MatchExhaustivenessAnalyzer>(
+            code,
+            [
+                new DiagnosticResult(MatchExhaustivenessAnalyzer.MissingCaseDiagnosticId)
+                    .WithLocation(5, 19)
+                    .WithArguments("BinaryExpr")
+            ],
+            [CompilerDiagnostics.MatchExpressionNotExhaustive.Id]);
+
+        verifier.Verify();
+    }
 }

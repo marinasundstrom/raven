@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -683,6 +684,113 @@ record Add(Left: Expr, Right: Expr) : Expr
         Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
     }
 
+    [Fact]
+    public void SealedHierarchy_Match_OpenIntermediate_LeafCasesAreNotExhaustive()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Add(Lit(1), Lit(2))
+
+val result = expr match {
+    Lit(val value) => value
+    Add(val left, val right) => 0
+    Sub(val left, val right) => 0
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2100" && d.GetMessage().Contains("BinaryExpr", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SealedHierarchy_Match_OpenIntermediate_ParentCaseIsExhaustive()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Add(Lit(1), Lit(2))
+
+val result = expr match {
+    Lit(val value) => value
+    BinaryExpr(val left, val right) => 0
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
+    }
+
+    [Fact]
+    public void SealedHierarchy_Match_SealedIntermediate_LeafCasesAreExhaustive()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Add(Lit(1), Lit(2))
+
+val result = expr match {
+    Lit(val value) => value
+    Add(val left, val right) => 0
+    Sub(val left, val right) => 0
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+sealed abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
+    }
+
+    [Fact]
+    public void SealedHierarchy_Match_OpenIntermediate_SemanticModelReportsParentCaseMissing()
+    {
+        var source = """
+import System.*
+
+val expr: Expr = Add(Lit(1), Lit(2))
+
+val result = expr match {
+    Lit(val value) => value
+    Add(val left, val right) => 0
+    Sub(val left, val right) => 0
+}
+
+sealed record Expr
+record Lit(Value: int) : Expr
+abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
+record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var matchExpr = root.DescendantNodes().OfType<MatchExpressionSyntax>().First();
+        var info = model.GetMatchExhaustiveness(matchExpr);
+        Assert.False(info.IsExhaustive);
+        Assert.Contains("BinaryExpr", info.MissingCases);
+    }
+
     // ── Record inheritance with primary constructor forwarding ──
 
     [Fact]
@@ -712,6 +820,7 @@ val result = expr match {
     Lit(val v) => v
     Add(val left, val right) => 0
     Sub(val left, val right) => 0
+    BinaryExpr(val left, val right) => 0
 }
 
 sealed record Expr
