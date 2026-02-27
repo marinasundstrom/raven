@@ -23,11 +23,27 @@ internal static class Program
             {
                 Section = "raven"
             })
+            .WithServices(services =>
+            {
+                services.AddSingleton(_ => RavenWorkspace.Create());
+                services.AddSingleton<WorkspaceManager>();
+                services.AddSingleton<DocumentStore>();
+            })
+            .OnInitialize((server, request, _) =>
+            {
+                var workspaceManager = server.Services.GetRequiredService<WorkspaceManager>();
+                workspaceManager.Initialize(request);
+                return Task.CompletedTask;
+            })
+            .WithHandler<RavenTextDocumentSyncHandler>()
+            .WithHandler<CompletionHandler>()
+            .WithHandler<DefinitionHandler>()
+            .WithHandler<HoverHandler>()
+            .WithHandler<DocumentSymbolHandler>()
             .ConfigureLogging(logging =>
             {
                 logging.AddLanguageProtocolLogging()
                     .SetMinimumLevel(LogLevel.Debug);
-
             });
         }).ConfigureAwait(false);
 

@@ -102,7 +102,7 @@ public class CompilationOptions
 
     private readonly bool? _membersPublicByDefault;
 
-    public bool MembersPublicByDefault => _membersPublicByDefault ?? false;
+    public bool MembersPublicByDefault => _membersPublicByDefault ?? true;
 
     public bool MembersPublicByDefaultConfigured => _membersPublicByDefault.HasValue;
 

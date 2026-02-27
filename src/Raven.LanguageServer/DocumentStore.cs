@@ -1,12 +1,8 @@
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
-using Raven.CodeAnalysis.Text;
 using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
 using CodeDiagnosticSeverity = Raven.CodeAnalysis.DiagnosticSeverity;
 using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
@@ -18,55 +14,24 @@ namespace Raven.LanguageServer;
 
 internal sealed class DocumentStore
 {
-    private readonly RavenWorkspace _workspace;
-    private readonly ProjectId _projectId;
-    private readonly ILogger<DocumentStore> _logger;
-    private readonly ConcurrentDictionary<DocumentUri, DocumentId> _documents = new();
+    private readonly WorkspaceManager _workspaceManager;
 
-    public DocumentStore(RavenWorkspace workspace, ILogger<DocumentStore> logger)
+    public DocumentStore(WorkspaceManager workspaceManager)
     {
-        _workspace = workspace;
-        _logger = logger;
-
-        var options = new CompilationOptions(OutputKind.ConsoleApplication);
-        _projectId = _workspace.AddProject("RavenLanguageServer", compilationOptions: options);
-        AddFrameworkReferences();
+        _workspaceManager = workspaceManager;
     }
-
-    public Compilation GetCompilation() => _workspace.GetCompilation(_projectId);
 
     public Document UpsertDocument(DocumentUri uri, string text)
-    {
-        var sourceText = SourceText.From(text);
-        var name = Path.GetFileName(uri.GetFileSystemPath()) ?? uri.GetFileSystemPath() ?? "document.rav";
-        var solution = _workspace.CurrentSolution;
-
-        if (_documents.TryGetValue(uri, out var documentId))
-        {
-            solution = solution.WithDocumentText(documentId, sourceText);
-        }
-        else
-        {
-            documentId = DocumentId.CreateNew(_projectId);
-            solution = solution.AddDocument(documentId, name, sourceText, uri.GetFileSystemPath());
-            _documents[uri] = documentId;
-        }
-
-        _workspace.TryApplyChanges(solution);
-        return _workspace.CurrentSolution.GetDocument(documentId)!;
-    }
+        => _workspaceManager.UpsertDocument(uri, text);
 
     public bool TryGetDocument(DocumentUri uri, [NotNullWhen(true)] out Document? document)
-    {
-        if (_documents.TryGetValue(uri, out var documentId))
-        {
-            document = _workspace.CurrentSolution.GetDocument(documentId);
-            return document is not null;
-        }
+        => _workspaceManager.TryGetDocument(uri, out document);
 
-        document = null;
-        return false;
-    }
+    public bool TryGetCompilation(DocumentUri uri, [NotNullWhen(true)] out Compilation? compilation)
+        => _workspaceManager.TryGetCompilation(uri, out compilation);
+
+    public bool RemoveDocument(DocumentUri uri)
+        => _workspaceManager.RemoveDocument(uri);
 
     public async Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
@@ -77,37 +42,15 @@ internal sealed class DocumentStore
         if (syntaxTree is null)
             return Array.Empty<LspDiagnostic>();
 
-        var compilation = GetCompilation();
+        if (!TryGetCompilation(uri, out var compilation) || compilation is null)
+            return Array.Empty<LspDiagnostic>();
+
         var diagnostics = compilation.GetDiagnostics(cancellationToken: cancellationToken)
             .Where(d => ShouldReport(d, syntaxTree))
             .Select(MapDiagnostic)
             .ToArray();
 
         return diagnostics;
-    }
-
-    private void AddFrameworkReferences()
-    {
-        try
-        {
-            var solution = _workspace.CurrentSolution;
-            var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-
-            foreach (var referencePath in TargetFrameworkResolver.GetReferenceAssemblies(version))
-            {
-                if (!File.Exists(referencePath))
-                    continue;
-
-                var reference = MetadataReference.CreateFromFile(referencePath);
-                solution = solution.AddMetadataReference(_projectId, reference);
-            }
-
-            _workspace.TryApplyChanges(solution);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load reference assemblies for the workspace.");
-        }
     }
 
     private static bool ShouldReport(CodeDiagnostic diagnostic, SyntaxTree syntaxTree)

@@ -42,7 +42,8 @@ internal sealed class CompletionHandler : ICompletionHandler
 
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var position = PositionHelper.ToOffset(text, request.Position);
-        var compilation = _documents.GetCompilation();
+        if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
+            return new CompletionList();
 
         var items = (await _completionService.GetCompletionsAsync(compilation, syntaxTree, position, cancellationToken).ConfigureAwait(false))
             .Select(item => ToLspCompletion(item, text))

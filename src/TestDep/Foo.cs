@@ -1,4 +1,4 @@
-﻿namespace TestDep;
+namespace TestDep;
 
 using System;
 

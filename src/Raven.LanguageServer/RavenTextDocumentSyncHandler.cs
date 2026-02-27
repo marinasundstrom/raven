@@ -44,6 +44,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     public override Task<Unit> Handle(DidCloseTextDocumentParams notification, CancellationToken cancellationToken)
     {
+        _documents.RemoveDocument(notification.TextDocument.Uri);
         _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
         {
             Uri = notification.TextDocument.Uri,
