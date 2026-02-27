@@ -138,4 +138,39 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
 
         Assert.Equal("init(name: string) -> ()", symbol.ToDisplayString(format));
     }
+
+    [Fact]
+    public void ToDisplayString_WithEscapeKeywordOption_DoesNotEscapeExtensionSelfParameter()
+    {
+        var source = """
+            extension IntExtensions for int {
+                func Increment() -> int {
+                    return self + 1
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat
+            .WithDelegateStyle(SymbolDisplayDelegateStyle.NameAndSignature)
+            .WithMemberOptions(
+                SymbolDisplayMemberOptions.IncludeType |
+                SymbolDisplayMemberOptions.IncludeParameters)
+            .WithParameterOptions(
+                SymbolDisplayParameterOptions.IncludeType |
+                SymbolDisplayParameterOptions.IncludeName)
+            .WithMiscellaneousOptions(
+                SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers);
+
+        var display = symbol.ToDisplayString(format);
+        Assert.Contains("self: int", display);
+        Assert.DoesNotContain("@self", display);
+    }
 }

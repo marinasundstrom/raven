@@ -343,10 +343,16 @@ public static partial class SymbolExtensions
 
         // Symbol name
         var symbolName = GetDisplayName(symbol);
-        var shouldEscapeSymbolName = symbol is not IMethodSymbol
+        var shouldEscapeSymbolName = symbol switch
         {
-            IsConstructor: true,
-            MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor
+            IMethodSymbol
+            {
+                IsConstructor: true,
+                MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor
+            } => false,
+            IPropertySymbol { IsIndexer: true } => false,
+            IMethodSymbol { Name: "Invoke" } => false,
+            _ => true
         };
 
         result.Append(shouldEscapeSymbolName
@@ -1043,7 +1049,13 @@ public static partial class SymbolExtensions
         }
 
         // Core "name: type" (or just type / just name depending on options)
-        var core = FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName);
+        var core = FormatNamedSymbol(
+            parameter.Name,
+            parameter.Type,
+            includeType,
+            format,
+            includeName,
+            escapeName: !IsSelfReceiverParameter(parameter));
 
         if (parameter.IsParams)
         {
@@ -1186,13 +1198,14 @@ public static partial class SymbolExtensions
         ITypeSymbol type,
         bool includeType,
         SymbolDisplayFormat format,
-        bool useNameOption)
+        bool useNameOption,
+        bool escapeName = true)
     {
         var sb = new StringBuilder();
 
         if (useNameOption)
         {
-            sb.Append(EscapeIdentifierIfNeeded(name, format));
+            sb.Append(escapeName ? EscapeIdentifierIfNeeded(name, format) : name);
 
             if (includeType)
             {
@@ -1213,6 +1226,12 @@ public static partial class SymbolExtensions
         }
 
         return sb.ToString();
+    }
+
+    private static bool IsSelfReceiverParameter(IParameterSymbol parameter)
+    {
+        return string.Equals(parameter.Name, "self", StringComparison.Ordinal) &&
+               parameter.ContainingSymbol is IMethodSymbol { IsExtensionMethod: true };
     }
 
     private static string GetFullNamespace(ISymbol symbol, SymbolDisplayFormat format)
