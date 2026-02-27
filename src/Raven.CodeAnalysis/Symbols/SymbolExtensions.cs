@@ -481,7 +481,9 @@ public static partial class SymbolExtensions
         if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeAccessibility) &&
             symbol.DeclaredAccessibility is not Accessibility.NotApplicable)
         {
-            accessibilityPrefix = symbol.DeclaredAccessibility.ToString().ToLower();
+            accessibilityPrefix = ShouldDisplayAccessibility(symbol)
+                ? symbol.DeclaredAccessibility.ToString().ToLower()
+                : null;
         }
 
         string? modifiersPrefix = null;
@@ -1136,7 +1138,8 @@ public static partial class SymbolExtensions
         var includeAccessibility = format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeAccessibility);
         if (includeAccessibility &&
             accessor.DeclaredAccessibility != Accessibility.NotApplicable &&
-            accessor.DeclaredAccessibility != propertySymbol.DeclaredAccessibility)
+            accessor.DeclaredAccessibility != propertySymbol.DeclaredAccessibility &&
+            ShouldDisplayAccessibility(accessor))
         {
             parts.Add(accessor.DeclaredAccessibility.ToString().ToLower());
         }
@@ -1149,6 +1152,21 @@ public static partial class SymbolExtensions
     {
         // Could HTML-escape here if needed
         return identifier;
+    }
+
+    private static bool ShouldDisplayAccessibility(ISymbol symbol)
+    {
+        if (symbol.DeclaredAccessibility is not Accessibility.Public)
+            return true;
+
+        return symbol switch
+        {
+            IMethodSymbol => false,
+            IPropertySymbol => false,
+            IFieldSymbol => false,
+            IEventSymbol => false,
+            _ => true
+        };
     }
 
     private static string FormatNamedSymbol(

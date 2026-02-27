@@ -8,6 +8,7 @@ public class SymbolDisplayFormat
         ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.InstanceMethod,
         GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
         KindOptions = SymbolDisplayKindOptions.IncludeTypeKeyword | SymbolDisplayKindOptions.IncludeMemberKeyword,
+        LocalOptions = SymbolDisplayLocalOptions.IncludeType | SymbolDisplayLocalOptions.IncludeBinding,
         MemberOptions = SymbolDisplayMemberOptions.IncludeType |
                     SymbolDisplayMemberOptions.IncludeParameters |
                     SymbolDisplayMemberOptions.IncludeModifiers,
@@ -24,6 +25,7 @@ public class SymbolDisplayFormat
         ExtensionMethodStyle = RavenSignatureFormat.ExtensionMethodStyle,
         GenericsOptions = RavenSignatureFormat.GenericsOptions,
         KindOptions = RavenSignatureFormat.KindOptions,
+        LocalOptions = RavenSignatureFormat.LocalOptions,
         MemberOptions = RavenSignatureFormat.MemberOptions,
         ParameterOptions = RavenSignatureFormat.ParameterOptions,
         TypeQualificationStyle = RavenSignatureFormat.TypeQualificationStyle,
