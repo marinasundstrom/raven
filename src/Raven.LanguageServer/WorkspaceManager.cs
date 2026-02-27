@@ -1,9 +1,12 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
+
 using Microsoft.Extensions.Logging;
+
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Text;
 
@@ -197,8 +200,104 @@ internal sealed class WorkspaceManager
             solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(referencePath));
         }
 
+        var ravenCoreReferencePath = ResolveRavenCoreReferencePath(version.Moniker.ToTfm());
+        if (ravenCoreReferencePath is not null)
+        {
+            solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(ravenCoreReferencePath));
+            _logger.LogDebug("Added Raven.Core metadata reference '{ReferencePath}' for project '{ProjectName}'.", ravenCoreReferencePath, name);
+        }
+        else
+        {
+            _logger.LogWarning("Unable to locate a valid Raven.Core metadata reference for project '{ProjectName}'.", name);
+        }
+
         _workspace.TryApplyChanges(solution);
         return projectId;
+    }
+
+    private string? ResolveRavenCoreReferencePath(string preferredTfm)
+    {
+        foreach (var candidate in EnumerateRavenCoreCandidates(preferredTfm))
+        {
+            if (IsValidMetadataReferencePath(candidate))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    private IEnumerable<string> EnumerateRavenCoreCandidates(string preferredTfm)
+    {
+        var tfms = new[] { preferredTfm, "net11.0", "net9.0" }
+            .Where(tfm => !string.IsNullOrWhiteSpace(tfm))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var roots = new[]
+        {
+            TryFindRepositoryRoot(Directory.GetCurrentDirectory()),
+            TryFindRepositoryRoot(AppContext.BaseDirectory),
+        }
+        .Where(path => !string.IsNullOrWhiteSpace(path))
+        .Cast<string>()
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+        var candidates = new List<string>
+        {
+            Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll")
+        };
+
+        foreach (var root in roots)
+        {
+            candidates.Add(Path.Combine(root, "Raven.Core.dll"));
+
+            foreach (var tfm in tfms)
+            {
+                candidates.Add(Path.Combine(root, "src", "Raven.Core", "bin", "Debug", tfm, "Raven.Core.dll"));
+                candidates.Add(Path.Combine(root, "src", "Raven.Core", "bin", "Debug", tfm, tfm, "Raven.Core.dll"));
+            }
+        }
+
+        return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string? TryFindRepositoryRoot(string startPath)
+    {
+        if (string.IsNullOrWhiteSpace(startPath))
+            return null;
+
+        var current = Directory.Exists(startPath)
+            ? new DirectoryInfo(startPath)
+            : new DirectoryInfo(Path.GetDirectoryName(startPath)!);
+
+        while (current is not null)
+        {
+            var solutionPath = Path.Combine(current.FullName, "Raven.sln");
+            if (File.Exists(solutionPath))
+                return current.FullName;
+
+            current = current.Parent;
+        }
+
+        return null;
+    }
+
+    private static bool IsValidMetadataReferencePath(string path)
+    {
+        try
+        {
+            var fileInfo = new FileInfo(path);
+            if (!fileInfo.Exists || fileInfo.Length == 0)
+                return false;
+
+            _ = MetadataReference.CreateFromFile(path);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static string NormalizePath(string path)
