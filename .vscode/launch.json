@@ -5,6 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Raven: Compile and Debug (active file)",
+            "type": "raven",
+            "request": "launch",
+            "target": "${file}"
+        },
+        {
+            "name": "Raven: Compile and Debug (project)",
+            "type": "raven",
+            "request": "launch",
+            "project": "${workspaceFolder}/samples/projects/analyzer-editorconfig/AnalyzerEditorConfig.ravenproj"
+        },
+        {
             "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",

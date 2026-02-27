@@ -11,7 +11,9 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:raven"
+    "onLanguage:raven",
+    "onDebug:raven",
+    "onCommand:raven.debug.compileAndDebug"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -25,8 +27,54 @@
         "extensions": [
           ".rav"
         ],
-        "configuration": "./language-configuration.json",
-        "debuggers": []
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "raven.debug.compileAndDebug",
+        "title": "Raven: Compile and Debug Active File"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "raven.debug.compileAndDebug",
+          "when": "resourceExtname == .rav || resourceExtname == .ravenproj",
+          "group": "navigation"
+        }
+      ]
+    },
+    "debuggers": [
+      {
+        "type": "raven",
+        "label": "Raven",
+        "languages": [
+          "raven"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [],
+            "properties": {
+              "target": {
+                "type": "string",
+                "description": "Path to a .rav or .ravenproj file. Defaults to the active editor file."
+              },
+              "project": {
+                "type": "string",
+                "description": "Alias for target when launching a .ravenproj file."
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "raven",
+            "request": "launch",
+            "name": "Raven: Compile and Debug",
+            "target": "${file}"
+          }
+        ]
       }
     ],
     "breakpoints": [
@@ -48,6 +96,11 @@
           "type": "string",
           "default": "",
           "description": "Full path to Raven.LanguageServer.dll. Leave empty to auto-discover a sibling 'server/Raven.LanguageServer.dll' next to the extension or a workspace copy under src/Raven.LanguageServer/bin/Debug/net9.0."
+        },
+        "raven.compilerProjectPath": {
+          "type": "string",
+          "default": "",
+          "description": "Full path to Raven.Compiler.csproj used by Raven debug launch. Leave empty to auto-discover '<workspace>/src/Raven.Compiler/Raven.Compiler.csproj'."
         }
       }
     }

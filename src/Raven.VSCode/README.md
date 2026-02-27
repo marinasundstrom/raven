@@ -2,6 +2,8 @@
 
 This extension wires VS Code to the `Raven.LanguageServer` project via the Language Server Protocol (LSP). It provides document synchronization and diagnostics for `.rav` files and is designed to run alongside the Raven workspace.
 
+It also adds Raven debug integration: F5 can compile and launch either a single `.rav` file or a `.ravenproj` project by invoking `Raven.Compiler` and then debugging the emitted DLL with the C# debugger.
+
 ## Prerequisites
 - .NET 9 SDK installed and on your `PATH`.
 - A built Raven language server (`Raven.LanguageServer.dll`). The extension auto-discovers common locations:
@@ -21,9 +23,16 @@ npm run compile
 ## Running in VS Code
 1. Build the language server (`dotnet build src/Raven.LanguageServer/Raven.LanguageServer.csproj`).
 2. Open the repository in VS Code.
-3. Launch the "Run Extension" target from the debug view. The client starts the server with `dotnet <path-to-Raven.LanguageServer.dll>`.
+3. In Run and Debug, launch `Raven: LSP + Extension` (recommended) to start both the extension host and the language server.
+4. If you only need the extension host process, launch `Raven VS Code Extension Host`.
 
 `code --extensionDevelopmentPath=_my_extension_folder.`
 
 ## Configuration
 - `raven.languageServerPath`: override the resolved server assembly path when the defaults do not apply.
+- `raven.compilerProjectPath`: optional override for the `Raven.Compiler.csproj` path used by Raven debug launch.
+
+## Debugging Raven code (F5)
+1. Open a `.rav` file or `.ravenproj` file.
+2. Press F5 and choose `Raven: Compile and Debug` (or run `Raven: Compile and Debug Active File` from the command palette).
+3. The extension compiles into `${workspaceFolder}/.raven-debug` and launches `dotnet <output.dll>` under the debugger.

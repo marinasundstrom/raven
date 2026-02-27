@@ -37,9 +37,13 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const child_process_1 = require("child_process");
+const util_1 = require("util");
 const vscode = __importStar(require("vscode"));
 const node_1 = require("vscode-languageclient/node");
 let client;
+const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
+const output = vscode.window.createOutputChannel('Raven');
 function resolveServerPath(context, output) {
     const configuration = vscode.workspace.getConfiguration('raven');
     const configuredPath = configuration.get('languageServerPath')?.trim();
@@ -80,9 +84,133 @@ function resolveServerPath(context, output) {
         output.appendLine(`- ${p}`);
     throw new Error('Unable to locate Raven.LanguageServer.dll. Build the language server or set "raven.languageServerPath" to the compiled DLL.');
 }
+function resolveCompilerProjectPath() {
+    const configuration = vscode.workspace.getConfiguration('raven');
+    const configuredPath = configuration.get('compilerProjectPath')?.trim();
+    if (configuredPath) {
+        const absolutePath = path.isAbsolute(configuredPath)
+            ? configuredPath
+            : path.resolve(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '', configuredPath);
+        return fs.existsSync(absolutePath) ? absolutePath : undefined;
+    }
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceFolder) {
+        return undefined;
+    }
+    const defaultPath = path.join(workspaceFolder, 'src', 'Raven.Compiler', 'Raven.Compiler.csproj');
+    return fs.existsSync(defaultPath) ? defaultPath : undefined;
+}
+function isRavenFile(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    return ext === '.rav' || ext === '.ravenproj';
+}
+function resolveDebugTarget(config) {
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const configuredTarget = typeof config.target === 'string' ? config.target.trim() : '';
+    const configuredProject = typeof config.project === 'string' ? config.project.trim() : '';
+    const candidate = configuredProject || configuredTarget;
+    if (candidate.length > 0) {
+        return path.isAbsolute(candidate) ? candidate : path.resolve(folder ?? '', candidate);
+    }
+    const activeDocument = vscode.window.activeTextEditor?.document;
+    if (activeDocument && activeDocument.uri.scheme === 'file' && isRavenFile(activeDocument.fileName)) {
+        return activeDocument.fileName;
+    }
+    return undefined;
+}
+function getProjectAssemblyName(projectFilePath) {
+    const fallback = path.basename(projectFilePath, path.extname(projectFilePath));
+    const xml = fs.readFileSync(projectFilePath, 'utf8');
+    const match = xml.match(/<AssemblyName>\s*([^<]+)\s*<\/AssemblyName>/i);
+    return match?.[1]?.trim() || fallback;
+}
+async function compileForDebug(targetPath) {
+    const compilerProjectPath = resolveCompilerProjectPath();
+    if (!compilerProjectPath) {
+        throw new Error('Unable to locate Raven.Compiler.csproj. Set "raven.compilerProjectPath" to continue.');
+    }
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? path.dirname(targetPath);
+    const debugOutputDirectory = path.join(workspaceFolder, '.raven-debug');
+    fs.mkdirSync(debugOutputDirectory, { recursive: true });
+    const targetIsProject = path.extname(targetPath).toLowerCase() === '.ravenproj';
+    const outputArg = targetIsProject
+        ? debugOutputDirectory
+        : path.join(debugOutputDirectory, `${path.basename(targetPath, path.extname(targetPath))}.dll`);
+    const dotnetArgs = [
+        'run',
+        '--project',
+        compilerProjectPath,
+        '--property',
+        'WarningLevel=0',
+        '--',
+        targetPath,
+        '-o',
+        outputArg
+    ];
+    output.appendLine(`Compiling for debug: dotnet ${dotnetArgs.join(' ')}`);
+    try {
+        const { stdout, stderr } = await execFileAsync('dotnet', dotnetArgs, {
+            cwd: workspaceFolder,
+            maxBuffer: 10 * 1024 * 1024
+        });
+        if (stdout.trim().length > 0) {
+            output.appendLine(stdout);
+        }
+        if (stderr.trim().length > 0) {
+            output.appendLine(stderr);
+        }
+    }
+    catch (error) {
+        const e = error;
+        if (e.stdout)
+            output.appendLine(e.stdout);
+        if (e.stderr)
+            output.appendLine(e.stderr);
+        throw new Error(`Raven compile failed. See the Raven output channel for details. ${e.message}`);
+    }
+    const outputDllPath = targetIsProject
+        ? path.join(debugOutputDirectory, `${getProjectAssemblyName(targetPath)}.dll`)
+        : outputArg;
+    if (!fs.existsSync(outputDllPath)) {
+        throw new Error(`Compiled assembly not found at '${outputDllPath}'.`);
+    }
+    return { outputDllPath, cwd: path.dirname(targetPath) };
+}
+class RavenDebugConfigurationProvider {
+    provideDebugConfigurations() {
+        return [{
+                type: 'raven',
+                request: 'launch',
+                name: 'Raven: Compile and Debug',
+                target: '${file}'
+            }];
+    }
+    async resolveDebugConfiguration(_folder, config) {
+        const targetPath = resolveDebugTarget(config);
+        if (!targetPath || !isRavenFile(targetPath)) {
+            void vscode.window.showErrorMessage('Select a .rav or .ravenproj file, or set "target"/"project" in launch.json.');
+            return undefined;
+        }
+        return vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Compiling ${path.basename(targetPath)}`
+        }, async () => {
+            const { outputDllPath, cwd } = await compileForDebug(targetPath);
+            return {
+                name: config.name ?? 'Raven: Compile and Debug',
+                type: 'coreclr',
+                request: 'launch',
+                program: 'dotnet',
+                args: [outputDllPath],
+                cwd,
+                console: 'integratedTerminal',
+                stopAtEntry: false
+            };
+        });
+    }
+}
 function activate(context) {
-    const output = vscode.window.createOutputChannel('Raven Language Server');
-    output.appendLine('Activating Raven VS Code extension…');
+    output.appendLine('Activating Raven VS Code extension...');
     let serverPath;
     try {
         serverPath = resolveServerPath(context, output);
@@ -124,6 +252,21 @@ function activate(context) {
     });
     // Start the language client.
     void client.start();
+    const debugConfigurationProvider = new RavenDebugConfigurationProvider();
+    context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('raven', debugConfigurationProvider, vscode.DebugConfigurationProviderTriggerKind.Dynamic));
+    context.subscriptions.push(vscode.commands.registerCommand('raven.debug.compileAndDebug', async (uri) => {
+        const target = uri?.scheme === 'file' ? uri.fsPath : vscode.window.activeTextEditor?.document.fileName;
+        if (!target) {
+            void vscode.window.showErrorMessage('No active Raven file to debug.');
+            return;
+        }
+        await vscode.debug.startDebugging(undefined, {
+            type: 'raven',
+            request: 'launch',
+            name: 'Raven: Compile and Debug',
+            target
+        });
+    }));
 }
 function deactivate() {
     return client?.stop();

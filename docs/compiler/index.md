@@ -10,5 +10,6 @@ For deeper dives into the implementation see:
 
 - [Architecture](architecture/index.md) for the high-level pipeline and major subsystems.
 - [Project system](project-system.md) for `.ravenproj` structure, implicit source inclusion, and NuGet integration.
+- [Raven VS Code extension](raven-vscode-extension.md) for editor setup, language server wiring, and F5 compile-and-debug.
 - [Diagnostics](diagnostics.md) for how errors and warnings are produced.
 - [Compiler API](api/README.md) for using syntax, symbols, and the new [operations surface](api/operations.md).

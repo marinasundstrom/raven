@@ -344,10 +344,10 @@ public static partial class SymbolExtensions
         // Symbol name
         var symbolName = GetDisplayName(symbol);
         var shouldEscapeSymbolName = symbol is not IMethodSymbol
-            {
-                IsConstructor: true,
-                MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor
-            };
+        {
+            IsConstructor: true,
+            MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor
+        };
 
         result.Append(shouldEscapeSymbolName
             ? EscapeIdentifierIfNeeded(symbolName, format)

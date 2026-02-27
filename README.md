@@ -207,6 +207,21 @@ dotnet run --project src/Raven.Editor -- <path-to-file>
 
 When a file path is supplied, the editor opens the file and displays its name in the window title.
 
+### VS Code F5 (compile + debug)
+
+The Raven VS Code extension now supports F5 compile-and-debug for both single files and project files:
+
+- `.rav` active file
+- `.ravenproj` project
+
+Repository launch presets are included in [`.vscode/launch.json`](.vscode/launch.json):
+
+- `Raven: Compile and Debug (active file)`
+- `Raven: Compile and Debug (project)`
+
+The debug flow compiles with `Raven.Compiler` into `${workspaceFolder}/.raven-debug`, then launches `dotnet <output.dll>` under the debugger.
+For details and configuration options (`raven.compilerProjectPath`, `raven.languageServerPath`), see [docs/compiler/raven-vscode-extension.md](docs/compiler/raven-vscode-extension.md).
+
 ---
 
 ## 📂 Repository Structure
