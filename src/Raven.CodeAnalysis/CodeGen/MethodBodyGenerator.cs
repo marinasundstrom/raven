@@ -35,6 +35,7 @@ internal class MethodBodyGenerator
     private static readonly Guid DocumentTypeId = new("5a869d0b-6611-11d3-bd2a-0000f80849bd");
     private static readonly Guid DocumentVendorId = new("994b45c4-e6e9-11d2-903f-00c04fa302a1");
     private static readonly Guid Sha256AlgorithmId = new("8829d00f-11b8-4213-878b-770e8597ac16");
+    private const int HiddenSequencePointLine = 0xFEEFEE;
     private static readonly MethodInfo ConsoleErrorGetter =
         typeof(Console).GetProperty(nameof(Console.Error))?.GetMethod
         ?? throw new InvalidOperationException("System.Console.Error getter was not found.");
@@ -320,6 +321,18 @@ internal class MethodBodyGenerator
     {
         if (syntax is null)
             return null;
+
+        // For expression statements, prefer statement-level mapping so debugger
+        // highlighting covers the full executable line.
+        var invocation = syntax.AncestorsAndSelf().OfType<InvocationExpressionSyntax>().FirstOrDefault();
+        if (invocation?.Parent is ExpressionStatementSyntax invocationStatement)
+            return invocationStatement;
+
+        // Otherwise, when syntax mapping lands on a nested node inside an invocation
+        // (for example the receiver identifier `Console`), lift to the invocation
+        // expression to avoid token-only highlighting.
+        if (invocation is not null && !ReferenceEquals(invocation, syntax))
+            return invocation;
 
         return syntax switch
         {
@@ -3277,7 +3290,18 @@ internal class MethodBodyGenerator
             return;
 
         _emittedMethodEntrySequencePoint = true;
-        EmitSequencePoint(syntax);
+        EmitHiddenEntrySequencePoint(syntax);
+    }
+
+    private void EmitHiddenEntrySequencePoint(SyntaxNode syntax)
+    {
+        if (syntax.SyntaxTree is null)
+            return;
+
+        var document = GetOrAddDocument(syntax.SyntaxTree);
+
+        ILGenerator.Emit(OpCodes.Nop);
+        ILGenerator.MarkSequencePoint(document, HiddenSequencePointLine, 0, HiddenSequencePointLine, 0);
     }
 
     private SyntaxNode? GetMethodEntrySequencePointSyntax()

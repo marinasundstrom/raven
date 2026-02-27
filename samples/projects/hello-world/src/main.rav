@@ -1,3 +1,7 @@
 import System.*
 
-Console.WriteLine("Hello, World!")
+func Main() {
+    val msg = "Hello, World!"
+
+    Console.WriteLine(msg)
+}

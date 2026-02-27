@@ -259,6 +259,38 @@ class C {
         peReader.Dispose();
     }
 
+    [Fact]
+    public void TopLevelMain_VisibleSequencePointsStayOnExecutableStatements()
+    {
+        var code = """
+import System.*
+
+func Main() {
+    Console.WriteLine("Hello, World!")
+
+    val x = "Foo"
+
+    Console.WriteLine("Hello, World!")
+}
+""";
+
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, new CompilationOptions(OutputKind.ConsoleApplication));
+        var method = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "Program" && methodName == "Main");
+
+        var points = GetVisibleSequencePoints(pdbReader, method).ToArray();
+        var lines = points.Select(static p => p.StartLine).Distinct().ToArray();
+
+        Assert.Contains(4, lines);
+        Assert.Contains(6, lines);
+        Assert.Contains(8, lines);
+        Assert.DoesNotContain(3, lines);
+        Assert.Contains(points, static p => p.StartLine == 4 && p.StartColumn == 5);
+        Assert.Contains(points, static p => p.StartLine == 8 && p.StartColumn == 5);
+
+        peReader.Dispose();
+    }
+
     private static (PEReader PeReader, MetadataReader MetadataReader, MetadataReader PdbReader) EmitWithPortablePdb(
         string source,
         CompilationOptions? options = null)

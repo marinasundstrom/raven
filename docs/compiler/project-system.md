@@ -21,6 +21,7 @@ Supported attributes on `<Project>`:
 - `AllowUnsafe`: `true`/`false`.
 - `AllowGlobalStatements`: `true`/`false` (`true` by default).
 - `MembersPublicByDefault`: `true`/`false` (when set, controls whether class/struct members default to `public`).
+- `EnableDefaultRavItems`: `true`/`false` (`true` by default). Controls implicit `**/*.rav` inclusion when no `<Document>` elements are present.
 - `Configuration`: Build configuration name used for generated intermediate files (`Debug` default).
 
 Supported child elements:
@@ -64,6 +65,8 @@ dotnet_diagnostic.RAV9014.severity = none
 
 If no `<Document>` entries are present, Raven implicitly includes all Raven source files under the project directory recursively (`**/*.rav`).
 Files under `bin/` and `obj/` are excluded from implicit inclusion.
+
+Set `EnableDefaultRavItems="false"` to disable this implicit inclusion and require explicit `<Document>` entries.
 
 This enables minimal project files like:
 

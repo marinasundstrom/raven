@@ -422,6 +422,7 @@ class RavenDebugConfigurationProvider {
             title: `Compiling ${path.basename(resolveEffectiveTargetPath(targetPath))}`
         }, async () => {
             const { outputDllPath, cwd } = await compileForDebug(targetPath);
+            const stopAtEntry = vscode.workspace.getConfiguration('raven').get('debugStopAtEntry', false);
             return {
                 name: config.name ?? 'Raven: Compile and Debug',
                 type: 'coreclr',
@@ -430,7 +431,7 @@ class RavenDebugConfigurationProvider {
                 args: [outputDllPath],
                 cwd,
                 console: 'integratedTerminal',
-                stopAtEntry: false,
+                stopAtEntry,
                 justMyCode: false,
                 requireExactSource: false
             };

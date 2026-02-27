@@ -126,6 +126,11 @@
           "type": "string",
           "default": "",
           "description": "Target framework to pass to Raven debug compile (for both dotnet run and Raven.Compiler --framework), for example 'net9.0'. Leave empty to use defaults."
+        },
+        "raven.debugStopAtEntry": {
+          "type": "boolean",
+          "default": false,
+          "description": "Pause at program entry before user code runs when launching Raven debug sessions."
         }
       }
     }

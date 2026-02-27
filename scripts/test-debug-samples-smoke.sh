@@ -63,3 +63,7 @@ assert_file_exists "$efcore_output_dir/Microsoft.EntityFrameworkCore.dll"
 assert_file_exists "$efcore_output_dir/Microsoft.EntityFrameworkCore.InMemory.dll"
 
 echo "Debug sample smoke checks passed."
+
+echo
+echo "Running debug breakpoint binding checks..."
+bash "$ROOT_DIR/scripts/test-debug-breakpoint-bindings.sh"

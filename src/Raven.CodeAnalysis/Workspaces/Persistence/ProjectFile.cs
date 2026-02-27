@@ -77,6 +77,10 @@ internal static class ProjectFile
         var name = (string?)root.Attribute("Name") ?? Path.GetFileNameWithoutExtension(filePath);
         var targetFramework = (string?)root.Attribute("TargetFramework");
         var output = (string?)root.Attribute("Output");
+        var enableDefaultRavItemsAttr = (string?)root.Attribute("EnableDefaultRavItems");
+        var enableDefaultRavItems = true;
+        if (enableDefaultRavItemsAttr is string enabledText && bool.TryParse(enabledText, out var parsedEnableDefaultRavItems))
+            enableDefaultRavItems = parsedEnableDefaultRavItems;
         var configuration = (string?)root.Attribute("Configuration");
         configuration = RavenProjectConventions.Default.NormalizeConfiguration(configuration);
         var outputKindAttr = (string?)root.Attribute("OutputKind");
@@ -113,13 +117,17 @@ internal static class ProjectFile
                 return Path.IsPathRooted(attr) ? attr : Path.Combine(projectDir, attr);
             });
         }
-        else
+        else if (enableDefaultRavItems)
         {
             var conventions = RavenProjectConventions.Default;
             paths = RavenFileExtensions.All.SelectMany(ext =>
                     Directory.EnumerateFiles(projectDir, $"*{ext}", SearchOption.AllDirectories))
                 .Where(p => conventions.IsImplicitSourceFile(projectDir, p))
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
+        }
+        else
+        {
+            paths = Array.Empty<string>();
         }
 
         var documents = paths.Select(p =>
