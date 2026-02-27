@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 using LspCompletionItem = OmniSharp.Extensions.LanguageServer.Protocol.Models.CompletionItem;
@@ -63,6 +64,7 @@ internal sealed class CompletionHandler : ICompletionHandler
         {
             Label = item.DisplayText,
             Detail = item.Description,
+            Kind = MapCompletionItemKind(item),
             InsertText = item.InsertionText,
             TextEdit = new TextEditOrInsertReplaceEdit(new TextEdit
             {
@@ -71,5 +73,39 @@ internal sealed class CompletionHandler : ICompletionHandler
             }),
             InsertTextFormat = InsertTextFormat.PlainText
         };
+    }
+
+    private static CompletionItemKind MapCompletionItemKind(RavenCompletionItem item)
+    {
+        if (item.Symbol is { } symbol)
+        {
+            return symbol switch
+            {
+                IMethodSymbol method when method.MethodKind == MethodKind.Constructor => CompletionItemKind.Constructor,
+                IMethodSymbol => CompletionItemKind.Method,
+                IPropertySymbol => CompletionItemKind.Property,
+                IFieldSymbol => CompletionItemKind.Field,
+                IParameterSymbol => CompletionItemKind.Variable,
+                ILocalSymbol => CompletionItemKind.Variable,
+                IEventSymbol => CompletionItemKind.Event,
+                INamespaceSymbol => CompletionItemKind.Module,
+                ITypeParameterSymbol => CompletionItemKind.TypeParameter,
+                INamedTypeSymbol namedType => namedType.TypeKind switch
+                {
+                    TypeKind.Class => CompletionItemKind.Class,
+                    TypeKind.Interface => CompletionItemKind.Interface,
+                    TypeKind.Struct => CompletionItemKind.Struct,
+                    TypeKind.Enum => CompletionItemKind.Enum,
+                    TypeKind.Delegate => CompletionItemKind.Function,
+                    _ => CompletionItemKind.Class
+                },
+                _ => CompletionItemKind.Text
+            };
+        }
+
+        if (SyntaxFacts.TryParseKeyword(item.DisplayText, out _))
+            return CompletionItemKind.Keyword;
+
+        return CompletionItemKind.Text;
     }
 }
