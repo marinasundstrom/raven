@@ -58,6 +58,14 @@ internal class StatementGenerator : Generator
                 EmitForStatement(forStatement);
                 break;
 
+            case BoundBreakStatement:
+                EmitBreakStatement();
+                break;
+
+            case BoundContinueStatement:
+                EmitContinueStatement();
+                break;
+
             case BoundTryStatement tryStatement:
                 EmitTryStatement(tryStatement);
                 break;
@@ -114,6 +122,42 @@ internal class StatementGenerator : Generator
 
         ILGenerator.MarkLabel(endLabel);
         ILGenerator.Emit(OpCodes.Nop);
+    }
+
+    private void EmitBreakStatement()
+    {
+        if (TryGetLoopBreakLabel(this, out var breakLabel))
+            ILGenerator.Emit(OpCodes.Br, breakLabel);
+    }
+
+    private void EmitContinueStatement()
+    {
+        if (TryGetLoopContinueLabel(this, out var continueLabel))
+            ILGenerator.Emit(OpCodes.Br, continueLabel);
+    }
+
+    private static bool TryGetLoopBreakLabel(Generator generator, out ILLabel label)
+    {
+        for (Generator? current = generator; current is not null; current = current.Parent)
+        {
+            if (current is Scope scope && scope.TryGetBreakLabel(out label))
+                return true;
+        }
+
+        label = default;
+        return false;
+    }
+
+    private static bool TryGetLoopContinueLabel(Generator generator, out ILLabel label)
+    {
+        for (Generator? current = generator; current is not null; current = current.Parent)
+        {
+            if (current is Scope scope && scope.TryGetContinueLabel(out label))
+                return true;
+        }
+
+        label = default;
+        return false;
     }
 
     private static bool IsTerminatingStatement(BoundStatement statement)

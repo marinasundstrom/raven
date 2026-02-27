@@ -1785,10 +1785,10 @@ for item in items {
 ```
 
 `for` evaluates the collection once, then executes the body for every element.
-When iterating over arrays, the element type comes from the array's element
-type. Other collections are currently treated as `System.Collections.IEnumerable`
-and default the iteration variable to `object`. If the element value is unused, the
-iteration variable may be written as `_` or omitted entirely:
+The loop variable type is resolved from arrays, `IEnumerable<T>`, and
+enumerator-pattern `Current` members; non-generic fallbacks use `object`.
+If the element value is unused, the iteration variable may be written as `_`
+or omitted entirely:
 
 ```raven
 for each _ in items {
@@ -1802,6 +1802,23 @@ for each in items {
 
 Both forms still enumerate the collection but do not introduce a new binding.
 Like other looping constructs, a `for` expression evaluates to `()`.
+
+Async enumeration uses `await for`:
+
+```raven
+async func Process(values: IAsyncEnumerable<int>) -> Task {
+    await for value in values {
+        Console.WriteLine(value)
+    }
+}
+```
+
+`await for` requires an async context and an async-enumerator pattern
+(`GetAsyncEnumerator`, `MoveNextAsync`, and `Current`). The loop is lowered
+before async state-machine rewriting so it works in both classic async lowering
+and runtime-async mode.
+`await for each` is still accepted for legacy compatibility, but `await for`
+is the canonical form.
 
 When the collection is a range with explicit, from-start bounds, the loop
 iterates over integral, floating-point, `char`, or `decimal` values beginning
@@ -3588,8 +3605,7 @@ items capture those gaps and outline the preferred direction for addressing them
   when the result is consumed or implicitly supply `()` for the missing branch.
   Both options should be accompanied by diagnostics that guide authors toward
   the intended usage.
-- **Element type discovery for `for` loops.** Non-array collections default the
-  iteration variable to `object`, losing type information. Extend binding to
-  inspect `IEnumerable<T>`/`IAsyncEnumerable<T>` or the enumerator pattern so the
-  loop variable reflects the element type instead of falling back to `object`.
+- **`await for` cancellation-token flow.** `GetAsyncEnumerator` optional
+  parameters are currently filled with default values during lowering. Add
+  first-class source syntax for cancellation propagation and pass-through.
  

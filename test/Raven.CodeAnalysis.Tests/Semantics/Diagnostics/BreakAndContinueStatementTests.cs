@@ -112,6 +112,52 @@ func Main() {
         var bound = model.GetBoundNode(breakSyntax);
         Assert.IsType<BoundBreakStatement>(bound);
     }
+
+    [Fact]
+    public void BreakInForLoop_BindsToBoundBreakStatement()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+func Main() {
+    val values = List<int>()
+    for each value in values {
+        break;
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var breakSyntax = tree.GetRoot().DescendantNodes().OfType<BreakStatementSyntax>().Single();
+
+        var bound = model.GetBoundNode(breakSyntax);
+        Assert.IsType<BoundBreakStatement>(bound);
+    }
+
+    [Fact]
+    public void BreakInAwaitForLoop_BindsToBoundBreakStatement()
+    {
+        var code = """
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+class C {
+    async func Main(values: IAsyncEnumerable<int>) -> Task {
+        await for value in values {
+            break;
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var breakSyntax = tree.GetRoot().DescendantNodes().OfType<BreakStatementSyntax>().Single();
+
+        var bound = model.GetBoundNode(breakSyntax);
+        Assert.IsType<BoundBreakStatement>(bound);
+    }
 }
 
 public class ContinueStatementSemanticTests : CompilationTestBase
@@ -123,6 +169,52 @@ public class ContinueStatementSemanticTests : CompilationTestBase
 func Main() {
     while true {
         continue;
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var continueSyntax = tree.GetRoot().DescendantNodes().OfType<ContinueStatementSyntax>().Single();
+
+        var bound = model.GetBoundNode(continueSyntax);
+        Assert.IsType<BoundContinueStatement>(bound);
+    }
+
+    [Fact]
+    public void ContinueInForLoop_BindsToBoundContinueStatement()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+func Main() {
+    val values = List<int>()
+    for each value in values {
+        continue;
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var continueSyntax = tree.GetRoot().DescendantNodes().OfType<ContinueStatementSyntax>().Single();
+
+        var bound = model.GetBoundNode(continueSyntax);
+        Assert.IsType<BoundContinueStatement>(bound);
+    }
+
+    [Fact]
+    public void ContinueInAwaitForLoop_BindsToBoundContinueStatement()
+    {
+        var code = """
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+class C {
+    async func Main(values: IAsyncEnumerable<int>) -> Task {
+        await for value in values {
+            continue;
+        }
     }
 }
 """;

@@ -250,6 +250,39 @@ for each x in items by 2 {
     }
 
     [Fact]
+    public void AwaitFor_BindsAsyncIteration()
+    {
+        const string source = """
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+class C {
+    async func Run(values: IAsyncEnumerable<int>) -> Task {
+        await for item in values {
+            _ = item
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+        boundFor.Iteration.Kind.ShouldBe(ForIterationKind.Async);
+        boundFor.Iteration.MoveNextAsyncMethod.ShouldNotBeNull();
+        boundFor.Iteration.GetEnumeratorMethod.ShouldNotBeNull();
+        boundFor.Iteration.CurrentGetter.ShouldNotBeNull();
+        boundFor.Iteration.ElementType.SpecialType.ShouldBe(SpecialType.System_Int32);
+    }
+
+    [Fact]
     public void ForEach_PrefersInstanceGetEnumeratorPattern()
     {
         const string source = """
@@ -258,11 +291,11 @@ import System.Collections.Generic.*
 class Counter {
     private var _values = List<int>()
 
-    public func Add(value: int) {
+    func Add(value: int) {
         _values.Add(value)
     }
 
-    public func GetEnumerator() -> List<int>.Enumerator {
+    func GetEnumerator() -> List<int>.Enumerator {
         return _values.GetEnumerator()
     }
 }
@@ -305,17 +338,17 @@ import System.Collections.Generic.*
 class Counter {
     private var _values = List<int>()
 
-    public func Add(value: int) {
+    func Add(value: int) {
         _values.Add(value)
     }
 
-    public func Values() -> List<int> {
+    func Values() -> List<int> {
         return _values
     }
 }
 
 extension CounterExt for Counter {
-    public func GetEnumerator() -> List<int>.Enumerator {
+    func GetEnumerator() -> List<int>.Enumerator {
         return self.Values().GetEnumerator()
     }
 }

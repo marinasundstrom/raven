@@ -275,6 +275,7 @@
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
   <Node Name="ForStatement" Inherits="Statement">
+    <Slot Name="AwaitKeyword" Type="Token" DefaultToken="AwaitKeyword" IsOptionalToken="true" />
     <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword" />
     <Slot Name="EachKeyword" Type="Token" DefaultToken="EachKeyword" IsOptionalToken="true" />
     <Slot Name="Identifier" Type="Token" IsOptionalToken="true" />

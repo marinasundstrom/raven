@@ -469,8 +469,12 @@ partial class BlockBinder
         var loopBinder = (BlockBinder)SemanticModel.GetBinder(forStmt, this)!;
         BoundExpression collection;
         ForIterationInfo iteration;
+        var isAwaitFor = forStmt.AwaitKeyword.Kind == SyntaxKind.AwaitKeyword;
 
-        if (forStmt.Expression is RangeExpressionSyntax rangeSyntax)
+        if (isAwaitFor && !IsAwaitExpressionAllowed())
+            _diagnostics.ReportAwaitExpressionRequiresAsyncContext(forStmt.AwaitKeyword.GetLocation());
+
+        if (!isAwaitFor && forStmt.Expression is RangeExpressionSyntax rangeSyntax)
         {
             (collection, iteration) = loopBinder.BindForRangeIteration(forStmt, rangeSyntax);
             CacheBoundNode(forStmt.Expression, collection);
@@ -478,7 +482,9 @@ partial class BlockBinder
         else
         {
             collection = BindExpression(forStmt.Expression);
-            iteration = ClassifyForIteration(collection, forStmt.Expression);
+            iteration = isAwaitFor
+                ? ClassifyAwaitForIteration(collection, forStmt.Expression)
+                : ClassifyForIteration(collection, forStmt.Expression);
 
             if (forStmt.ByKeyword.Kind == SyntaxKind.ByKeyword)
                 _diagnostics.ReportRangeForLoopByClauseRequiresRange(forStmt.ByKeyword.GetLocation());
@@ -629,6 +635,207 @@ partial class BlockBinder
             iterationSyntax.GetLocation());
 
         return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+    }
+
+    private ForIterationInfo ClassifyAwaitForIteration(BoundExpression collection, ExpressionSyntax iterationSyntax)
+    {
+        var collectionType = collection.Type;
+        if (collectionType?.ContainsErrorType() == true)
+            return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+
+        if (collectionType is not null &&
+            TryClassifyAwaitForEnumerator(collectionType, out var iteration))
+        {
+            return iteration;
+        }
+
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+        var asyncEnumerableDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1") as INamedTypeSymbol;
+        var asyncEnumerableType = asyncEnumerableDefinition is not null
+            ? (ITypeSymbol)asyncEnumerableDefinition.Construct(objectType)
+            : Compilation.ErrorTypeSymbol;
+
+        _diagnostics.ReportCannotConvertFromTypeToType(
+            collectionType ?? Compilation.ErrorTypeSymbol,
+            asyncEnumerableType,
+            iterationSyntax.GetLocation());
+
+        return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+    }
+
+    private bool TryClassifyAwaitForEnumerator(ITypeSymbol collectionType, out ForIterationInfo iteration)
+    {
+        if (collectionType is INamedTypeSymbol namedType)
+        {
+            if (TryClassifyAsyncPatternGetEnumerator(namedType, out iteration))
+                return true;
+
+            if (TryClassifyAsyncEnumerableInterface(namedType, out iteration))
+                return true;
+        }
+
+        if (collectionType is ITypeParameterSymbol typeParameter)
+        {
+            foreach (var constraintType in typeParameter.ConstraintTypes)
+            {
+                if (TryClassifyAwaitForEnumerator(constraintType, out iteration))
+                    return true;
+            }
+        }
+
+        iteration = ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+        return false;
+    }
+
+    private bool TryClassifyAsyncPatternGetEnumerator(
+        INamedTypeSymbol receiverType,
+        out ForIterationInfo iteration)
+    {
+        foreach (var getAsyncEnumerator in receiverType
+                     .GetMembers("GetAsyncEnumerator")
+                     .OfType<IMethodSymbol>()
+                     .Where(static method => !method.IsStatic))
+        {
+            if (!IsSymbolAccessible(getAsyncEnumerator))
+                continue;
+
+            if (!CanInvokeAsyncEnumeratorFactoryWithoutArguments(getAsyncEnumerator))
+                continue;
+
+            if (!TryResolveAsyncEnumeratorMembers(getAsyncEnumerator.ReturnType, out var moveNextAsyncMethod, out var currentGetter, out var disposeAsyncMethod))
+                continue;
+
+            iteration = ForIterationInfo.ForAsync(
+                currentGetter.ReturnType,
+                getAsyncEnumerator,
+                moveNextAsyncMethod,
+                currentGetter,
+                disposeAsyncMethod);
+            return true;
+        }
+
+        iteration = ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+        return false;
+    }
+
+    private bool TryClassifyAsyncEnumerableInterface(INamedTypeSymbol collectionType, out ForIterationInfo iteration)
+    {
+        if (!TryGetGenericAsyncEnumerableInterface(collectionType, out var asyncEnumerableInterface))
+        {
+            iteration = ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+            return false;
+        }
+
+        foreach (var getAsyncEnumeratorMethod in asyncEnumerableInterface
+                     .GetMembers("GetAsyncEnumerator")
+                     .OfType<IMethodSymbol>()
+                     .Where(static method => !method.IsStatic))
+        {
+            if (!CanInvokeAsyncEnumeratorFactoryWithoutArguments(getAsyncEnumeratorMethod))
+                continue;
+
+            if (!TryResolveAsyncEnumeratorMembers(getAsyncEnumeratorMethod.ReturnType, out var moveNextAsyncMethod, out var currentGetter, out var disposeAsyncMethod))
+                continue;
+
+            var elementType = asyncEnumerableInterface.TypeArguments.Length == 1
+                ? asyncEnumerableInterface.TypeArguments[0]
+                : currentGetter.ReturnType;
+
+            iteration = ForIterationInfo.ForAsync(
+                elementType,
+                getAsyncEnumeratorMethod,
+                moveNextAsyncMethod,
+                currentGetter,
+                disposeAsyncMethod);
+            return true;
+        }
+
+        iteration = ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+        return false;
+    }
+
+    private bool TryResolveAsyncEnumeratorMembers(
+        ITypeSymbol enumeratorType,
+        out IMethodSymbol moveNextAsyncMethod,
+        out IMethodSymbol currentGetter,
+        out IMethodSymbol? disposeAsyncMethod)
+    {
+        moveNextAsyncMethod = null!;
+        currentGetter = null!;
+        disposeAsyncMethod = null;
+
+        if (enumeratorType is not INamedTypeSymbol namedEnumerator)
+            return false;
+
+        foreach (var method in namedEnumerator.GetMembers("MoveNextAsync").OfType<IMethodSymbol>())
+        {
+            if (method.IsStatic || method.Parameters.Length != 0)
+                continue;
+
+            if (!IsAsyncMoveNextReturnType(method.ReturnType))
+                continue;
+
+            if (TryResolveEnumeratorCurrentGetter(namedEnumerator, out currentGetter))
+            {
+                moveNextAsyncMethod = method;
+                disposeAsyncMethod = TryResolveAsyncDisposeMethod(namedEnumerator);
+                return true;
+            }
+        }
+
+        foreach (var interfaceType in namedEnumerator.AllInterfaces.OfType<INamedTypeSymbol>())
+        {
+            foreach (var method in interfaceType.GetMembers("MoveNextAsync").OfType<IMethodSymbol>())
+            {
+                if (method.IsStatic || method.Parameters.Length != 0)
+                    continue;
+
+                if (!IsAsyncMoveNextReturnType(method.ReturnType))
+                    continue;
+
+                if (TryResolveEnumeratorCurrentGetter(interfaceType, out currentGetter))
+                {
+                    moveNextAsyncMethod = method;
+                    disposeAsyncMethod = TryResolveAsyncDisposeMethod(interfaceType) ?? TryResolveAsyncDisposeMethod(namedEnumerator);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsAsyncMoveNextReturnType(ITypeSymbol returnType)
+    {
+        if (!AwaitablePattern.TryFind(returnType, IsSymbolAccessible, out var awaitable, out _, out _))
+            return false;
+
+        return awaitable.GetResultMethod.ReturnType.SpecialType == SpecialType.System_Boolean;
+    }
+
+    private static bool CanInvokeAsyncEnumeratorFactoryWithoutArguments(IMethodSymbol method)
+    {
+        if (method.Parameters.Length == 0)
+            return true;
+
+        return method.Parameters.All(static p => p.IsOptional);
+    }
+
+    private IMethodSymbol? TryResolveAsyncDisposeMethod(INamedTypeSymbol enumeratorType)
+    {
+        foreach (var method in enumeratorType.GetMembers("DisposeAsync").OfType<IMethodSymbol>())
+        {
+            if (method.IsStatic || method.Parameters.Length != 0)
+                continue;
+
+            if (!IsSymbolAccessible(method))
+                continue;
+
+            if (AwaitablePattern.TryFind(method.ReturnType, IsSymbolAccessible, out _, out _, out _))
+                return method;
+        }
+
+        return null;
     }
 
     private ForIterationInfo? ClassifyRangeIteration(BoundRangeExpression range, ExpressionSyntax iterationSyntax)
@@ -1100,6 +1307,29 @@ partial class BlockBinder
         foreach (var interfaceType in type.AllInterfaces.OfType<INamedTypeSymbol>())
         {
             if (IsGenericIEnumerableType(interfaceType) &&
+                interfaceType.TypeArguments.Length == 1)
+            {
+                enumerableInterface = interfaceType;
+                return true;
+            }
+        }
+
+        enumerableInterface = null!;
+        return false;
+    }
+
+    private bool TryGetGenericAsyncEnumerableInterface(INamedTypeSymbol type, out INamedTypeSymbol enumerableInterface)
+    {
+        if (IsGenericIAsyncEnumerableType(type) &&
+            type.TypeArguments.Length == 1)
+        {
+            enumerableInterface = type;
+            return true;
+        }
+
+        foreach (var interfaceType in type.AllInterfaces.OfType<INamedTypeSymbol>())
+        {
+            if (IsGenericIAsyncEnumerableType(interfaceType) &&
                 interfaceType.TypeArguments.Length == 1)
             {
                 enumerableInterface = interfaceType;

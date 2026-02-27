@@ -87,6 +87,10 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseForStatementSyntax();
                     break;
 
+                case SyntaxKind.AwaitKeyword when PeekToken(1).Kind == SyntaxKind.ForKeyword:
+                    statement = ParseForStatementSyntax(awaitKeyword: ReadToken());
+                    break;
+
                 case SyntaxKind.OpenBraceToken:
                     statement = ParseBlockStatementSyntax();
                     break;
@@ -455,8 +459,9 @@ internal class StatementSyntaxParser : SyntaxParser
         return FinallyClause(finallyKeyword, block);
     }
 
-    private ForStatementSyntax ParseForStatementSyntax()
+    private ForStatementSyntax ParseForStatementSyntax(SyntaxToken? awaitKeyword = null)
     {
+        awaitKeyword ??= Token(SyntaxKind.None);
         var forKeyword = ReadToken();
 
         SyntaxToken eachKeyword;
@@ -505,7 +510,7 @@ internal class StatementSyntaxParser : SyntaxParser
         SetTreatNewlinesAsTokens(true);
         TryConsumeTerminator(out var terminatorToken);
 
-        return ForStatement(forKeyword, eachKeyword, identifier, inKeyword, expression!, byKeyword, stepExpression, body!, terminatorToken);
+        return ForStatement(awaitKeyword, forKeyword, eachKeyword, identifier, inKeyword, expression!, byKeyword, stepExpression, body!, terminatorToken);
     }
 
     private StatementSyntax? ParseFunctionSyntax(SyntaxList attributeLists, SyntaxList modifiers)

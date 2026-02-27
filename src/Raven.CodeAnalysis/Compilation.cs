@@ -502,6 +502,12 @@ public partial class Compilation
             if (current.Kind == SyntaxKind.AwaitExpression)
                 return true;
 
+            if (current is ForStatementSyntax forStatement &&
+                forStatement.AwaitKeyword.Kind == SyntaxKind.AwaitKeyword)
+            {
+                return true;
+            }
+
             foreach (var child in current.ChildNodes())
             {
                 if (child is FunctionStatementSyntax or LambdaExpressionSyntax)

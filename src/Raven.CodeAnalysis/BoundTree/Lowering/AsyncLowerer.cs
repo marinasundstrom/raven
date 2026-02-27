@@ -146,6 +146,8 @@ internal static class AsyncLowerer
         if (body is null)
             throw new ArgumentNullException(nameof(body));
 
+        body = AwaitForLowerer.Rewrite(method, body);
+
         var analysis = Analyze(method, body);
         if (analysis.ContainsAwait)
             body = LowerBeforeAsyncRewrite(method, body);
@@ -164,6 +166,8 @@ internal static class AsyncLowerer
             throw new ArgumentNullException(nameof(lambda));
         if (body is null)
             throw new ArgumentNullException(nameof(body));
+
+        body = AwaitForLowerer.Rewrite(lambda, body);
 
         var analysis = Analyze(lambda, body);
         if (analysis.ContainsAwait)

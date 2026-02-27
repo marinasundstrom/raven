@@ -168,4 +168,49 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         forStmt!.ByKeyword.Kind.ShouldBe(SyntaxKind.ByKeyword);
         forStmt.StepExpression.ShouldNotBeNull();
     }
+
+    [Fact]
+    public void ParseAwaitForInExpression()
+    {
+        var code = """
+                   async func Run(values: System.Collections.Generic.IAsyncEnumerable<int>) {
+                       await for x in values {
+                           x
+                       }
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.AwaitKeyword.Kind.ShouldBe(SyntaxKind.AwaitKeyword);
+        forStmt.ForKeyword.Kind.ShouldBe(SyntaxKind.ForKeyword);
+        forStmt.EachKeyword.Kind.ShouldBe(SyntaxKind.None);
+        forStmt.Identifier.Text.ShouldBe("x");
+    }
+
+    [Fact]
+    public void ParseAwaitForEachInExpression_Legacy()
+    {
+        var code = """
+                   async func Run(values: System.Collections.Generic.IAsyncEnumerable<int>) {
+                       await for each x in values {
+                           x
+                       }
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+
+        forStmt.ShouldNotBeNull();
+        forStmt!.AwaitKeyword.Kind.ShouldBe(SyntaxKind.AwaitKeyword);
+        forStmt.ForKeyword.Kind.ShouldBe(SyntaxKind.ForKeyword);
+        forStmt.EachKeyword.Kind.ShouldBe(SyntaxKind.EachKeyword);
+        forStmt.Identifier.Text.ShouldBe("x");
+    }
 }

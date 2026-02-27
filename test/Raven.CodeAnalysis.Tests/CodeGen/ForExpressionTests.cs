@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -126,6 +128,102 @@ for x in 0..1.0 by 0.5 {
         var output = CompileAndRun(code);
         var normalized = output.Select(static value => value.Replace(',', '.')).ToArray();
         Assert.Equal(["0", "0.5", "1"], normalized);
+    }
+
+    [Fact]
+    public void ForEach_BreakAndContinue_Work()
+    {
+        var code = """
+class C {
+    static func Sum() -> int {
+        var values = [1, 2, 3, 4, 5]
+        var total: int = 0
+        for each value in values {
+            if value == 2 {
+                continue
+            }
+
+            if value == 5 {
+                break
+            }
+
+            total = total + value
+        }
+
+        return total
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("for-break-continue-sync", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("C", true)!;
+        var method = type.GetMethod("Sum", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var value = (int)method!.Invoke(null, Array.Empty<object>())!;
+        Assert.Equal(8, value);
+    }
+
+    [Fact]
+    public void AwaitFor_BreakAndContinue_Emits()
+    {
+        var code = """
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+class C {
+    static async func Values() -> IAsyncEnumerable<int> {
+        yield return 1
+        yield return 2
+        yield return 3
+        yield return 4
+        yield return 5
+    }
+
+    static async func Sum() -> Task<int> {
+        var total: int = 0
+
+        await for value in Values() {
+            if value == 2 {
+                continue
+            }
+
+            if value == 5 {
+                break
+            }
+
+            total = total + value
+        }
+
+        return total
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("for-break-continue-async", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        Assert.NotNull(loaded.Assembly.GetType("C", throwOnError: false));
     }
 
     private static string[] CompileAndRun(string code)
