@@ -1,7 +1,10 @@
 import System.*
 
 func Main() {
-    val msg = "Hello, World!"
+    var value: Option<string> = Some("Hell, World!")
 
-    Console.WriteLine(msg)
+    match value {
+        Some(val v) => Console.WriteLine(v)
+        None => Console.WriteLine("None")
+    }
 }
