@@ -25,53 +25,6 @@ public class ConversionsTests : CompilationTestBase
     }
 
     [Fact]
-    public void LiteralString_To_String_IsIdentity()
-    {
-        var compilation = CreateCompilation();
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var literal = new LiteralTypeSymbol(stringType, "Foo", compilation);
-
-        var conversion = compilation.ClassifyConversion(literal, stringType);
-
-        Assert.True(conversion.Exists);
-        Assert.True(conversion.IsImplicit);
-        Assert.True(conversion.IsIdentity);
-        Assert.False(conversion.IsAlias);
-    }
-
-    [Fact]
-    public void LiteralChar_To_Char_IsIdentity()
-    {
-        var compilation = CreateCompilation();
-        var charType = compilation.GetSpecialType(SpecialType.System_Char);
-        var literal = new LiteralTypeSymbol(charType, 'a', compilation);
-
-        var conversion = compilation.ClassifyConversion(literal, charType);
-
-        Assert.True(conversion.Exists);
-        Assert.True(conversion.IsImplicit);
-        Assert.True(conversion.IsIdentity);
-        Assert.False(conversion.IsAlias);
-    }
-
-    [Fact]
-    public void LiteralInt_To_Long_IsImplicitNumeric()
-    {
-        var compilation = CreateCompilation();
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var longType = compilation.GetSpecialType(SpecialType.System_Int64);
-        var literal = new LiteralTypeSymbol(intType, 42, compilation);
-
-        var conversion = compilation.ClassifyConversion(literal, longType);
-
-        Assert.True(conversion.Exists);
-        Assert.True(conversion.IsImplicit);
-        Assert.True(conversion.IsNumeric);
-        Assert.False(conversion.IsIdentity);
-        Assert.False(conversion.IsAlias);
-    }
-
-    [Fact]
     public void AliasType_To_UnderlyingType_FlagsAlias()
     {
         var source = """
@@ -93,7 +46,7 @@ public class ConversionsTests : CompilationTestBase
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsIdentity);
-        Assert.False(conversion.IsAlias);
+        Assert.True(conversion.IsAlias);
     }
 
     [Fact]
@@ -118,7 +71,7 @@ public class ConversionsTests : CompilationTestBase
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsIdentity);
-        Assert.False(conversion.IsAlias);
+        Assert.True(conversion.IsAlias);
     }
 
     [Fact]

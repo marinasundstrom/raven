@@ -45,61 +45,25 @@ singleton-valued and participates in equality, generics, tuples, and unions like
 any other value type. The `null` literal is not a separate type; it flows only to
 nullable locations and never satisfies non-nullable parameters or bindings.
 
-## Literal types
+## Literal expressions
 
-Numeric, string, character, and boolean literals may appear as their own types.
-A literal type represents exactly that value and carries an underlying
-primitive type—`1` has underlying type `int` while `"hi"` has underlying type
-`string`. Literal types are considered subset types of their underlying primitive,
-so every value of a literal type is also a value of that primitive type. Literal
-expressions are given these singleton types. These singleton types act as
-value-level constraints, most often used as branches in union
-types or other constructs that restrict a value to specific constants.
-
-```raven
-val value: "yes" | "no" = "yes"
-
-alias Switch = "yes" | "no"
-val value: Switch = "yes"
-
-val literalInt: int = 2      // literal widens to its underlying type
-```
-
-Supported literal types are:
-
-| Literal example        | Underlying type | Notes                     |
-|------------------------|-----------------|---------------------------|
-| `true`, `false`        | `bool`          | boolean constants         |
-| `'a'`                  | `char`          | single UTF-16 code unit   |
-| `"hi"`                | `string`        | sequence of characters    |
-| `1`                    | `int`           | 32-bit signed integer     |
-| `0b1010`               | `int`           | binary integer literal    |
-| `0xFF`                 | `int`           | hexadecimal integer literal |
-| `255b`                 | `byte`          | `b`/`B` suffix selects `byte` |
-| `4_000_000_000`        | `long`          | promoted when `int` overflows |
-| `42L`                  | `long`          | `l`/`L` suffix selects `long` |
-| `3.14`                 | `double`        | default floating literal  |
-| `3.14f`                | `float`         | `f` or `F` suffix selects `float` |
-
-Literal types implicitly convert to their underlying type and then follow the
-normal conversion rules of that type. This allows `1` to widen to `double` or
-`"hi"` to be used wherever a `string` is expected.
+Numeric, string, character, and boolean literals are expressions whose types
+follow normal Raven/.NET typing rules (`1` is `int`, `"hi"` is `string`,
+`true` is `bool`, and so on). Raven no longer supports literal values in type
+position.
 
 Numeric primitive keywords map directly to CLR numeric types, including `sbyte`,
 `byte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `nint`, `nuint`,
 `float`, `double`, and `decimal`.
 
-When a literal is assigned to a target whose type is inferred—such as a
-variable declaration without an explicit type annotation—the literal widens to
-its underlying primitive type. Literal members collapse into their underlying
-type when a non-literal of that type also flows to the location.
+When a literal is assigned to a target whose type is inferred, the inferred type
+is its standard primitive type.
 
 ```raven
-val yes: "yes" = "yes"
-val one: 1 = 1
-val two: int = one      // implicit conversion to int
-val d: double = one     // underlying int widens to double
-val inferred = 1        // inferred int, literal type is widened
+val one = 1
+val two: int = one
+val d: double = one
+val inferred = 1
 ```
 
 ## Composite and derived types
@@ -355,9 +319,7 @@ Console.WriteLine(ids[0])
 ## Conversions
 
 Values may convert to other types according to .NET rules. Implicit conversions
-include identity, literal types to their underlying primitive type (which also
-inherit the underlying type's widening behaviour—`"Foo"` is assignable to
-`string`, and `42` may widen to `long`), `null` to any nullable type, lifting
+include identity, `null` to any nullable type, lifting
 value types to their nullable counterpart, widening numeric conversions,
 reference conversions to base types or interfaces, boxing of value types, and
 conversions to a matching branch of a union. Narrowing or otherwise unsafe
@@ -395,10 +357,8 @@ val s = obj as string
 When multiple function overloads are available, Raven selects the candidate whose
 parameters require the best implicit conversions. Identity matches are preferred
 over numeric widening, which outrank reference or boxing conversions.
-User-defined conversions are considered last. An argument of a literal type is an
-exact match for a parameter of the same literal type; otherwise the literal is
-converted to its underlying primitive type before the ranking is applied. If no
-candidate is strictly better, the call is reported as ambiguous.
+User-defined conversions are considered last. If no candidate is strictly better,
+the call is reported as ambiguous.
 
 ```raven
 val parsed = int.Parse("42") // string literal selects the overload taking string

@@ -272,7 +272,17 @@ internal sealed class BoundConstantPattern : BoundPattern
     /// </summary>
     public BoundExpression? Expression { get; }
 
-    public object? ConstantValue => LiteralType?.ConstantValue;
+    public object? ConstantValue => LiteralType?.ConstantValue ?? TryGetExpressionConstantValue(Expression);
+
+    private static object? TryGetExpressionConstantValue(BoundExpression? expression)
+    {
+        return expression switch
+        {
+            BoundLiteralExpression literal => literal.Value,
+            BoundConversionExpression conversion => TryGetExpressionConstantValue(conversion.Expression),
+            _ => null
+        };
+    }
 
     public override void Accept(BoundTreeVisitor visitor)
     {
@@ -639,26 +649,8 @@ internal partial class BlockBinder
         if (expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral }
             or BoundTypeExpression { Type: NullTypeSymbol })
         {
-            var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
-            var nullLiteralType = new LiteralTypeSymbol(objectType, constantValue: null!, Compilation);
-            return new BoundConstantPattern(nullLiteralType);
-        }
-
-        // Literal constant pattern fast path (validate against the input type).
-        if (expression.Type is LiteralTypeSymbol literalType)
-        {
-            var literalConversion = Compilation.ClassifyConversion(literalType, inputType);
-            if (!literalConversion.Exists)
-            {
-                _diagnostics.ReportMatchExpressionArmPatternInvalid(
-                    literalType.Name,
-                    inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    expressionSyntax.GetLocation());
-
-                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
-            }
-
-            return new BoundConstantPattern(literalType);
+            var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol);
+            return new BoundConstantPattern(nullLiteral);
         }
 
         // Runtime "value pattern" (identifier/member access/etc.)
@@ -709,57 +701,11 @@ internal partial class BlockBinder
             _ => new BoundDiscardDesignator(type.Type)
         };
 
-        // If the parser produced a declaration pattern whose "type" is actually a union of literal types
-        // (e.g. "yes" | "y"), treat it as an OR-pattern of constant patterns.
-        //
-        // This happens because `|` is overloaded in Raven for both type unions and pattern OR.
-        // In pattern position, a union of *only* literal types should behave as a disjunction.
-        if (designator is BoundDiscardDesignator && type.Type is not null && type.Type.IsTypeUnion)
-        {
-            // Best effort: only rewrite when *all* union constituents are literal types.
-            var unionTypes = ((TypeUnionSymbol)type.Type).Types;
-            if (unionTypes.Count() > 0 && unionTypes.All(t => t is LiteralTypeSymbol))
-            {
-                BoundPattern? combined = null;
-
-                foreach (var t in unionTypes)
-                {
-                    var literal = (LiteralTypeSymbol)t;
-                    var constant = new BoundConstantPattern(literal);
-
-                    combined = combined is null
-                        ? constant
-                        : new BoundOrPattern(combined, constant);
-                }
-
-                // `combined` cannot be null here because unionTypes.Length > 0.
-                return combined!;
-            }
-        }
-
-        if (type is BoundTypeExpression { TypeSymbol: LiteralTypeSymbol literalType } &&
-            designator is BoundDiscardDesignator)
-        {
-            var literalConversion = Compilation.ClassifyConversion(literalType, inputType);
-            if (!literalConversion.Exists)
-            {
-                _diagnostics.ReportMatchExpressionArmPatternInvalid(
-                    literalType.Name,
-                    inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    syntax.Type.GetLocation());
-
-                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
-            }
-
-            return new BoundConstantPattern(literalType);
-        }
-
         if (type is BoundTypeExpression { TypeSymbol: NullTypeSymbol } &&
             designator is BoundDiscardDesignator)
         {
-            var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
-            var nullLiteralType = new LiteralTypeSymbol(objectType, constantValue: null!, Compilation);
-            return new BoundConstantPattern(nullLiteralType);
+            var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol);
+            return new BoundConstantPattern(nullLiteral);
         }
 
         return new BoundDeclarationPattern(type.Type, designator);

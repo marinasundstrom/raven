@@ -161,56 +161,11 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => _type.Construct(typeArguments);
 }
 
-internal sealed class AliasTypeUnionSymbol : AliasSymbol, ITypeUnionSymbol
+internal sealed class AliasTypeSymbol : AliasSymbol, ITypeSymbol
 {
-    private readonly ITypeUnionSymbol _type;
+    private readonly ITypeSymbol _type;
 
-    public AliasTypeUnionSymbol(string name, ITypeUnionSymbol underlying)
-        : base(name, underlying)
-    {
-        _type = underlying;
-    }
-
-    public bool IsNamespace => _type.IsNamespace;
-
-    public bool IsType => _type.IsType;
-
-    public ImmutableArray<ISymbol> GetMembers() => _type.GetMembers();
-
-    public ImmutableArray<ISymbol> GetMembers(string name) => _type.GetMembers(name);
-
-    public ITypeSymbol? LookupType(string name) => _type.LookupType(name);
-
-    public bool IsMemberDefined(string name, out ISymbol? symbol) => _type.IsMemberDefined(name, out symbol);
-
-    public INamedTypeSymbol? BaseType => _type.BaseType;
-
-    public ITypeSymbol? OriginalDefinition => _type.OriginalDefinition;
-
-    public SpecialType SpecialType => _type.SpecialType;
-
-    public TypeKind TypeKind => _type.TypeKind;
-
-    public bool IsReferenceType => _type.IsReferenceType;
-
-    public bool IsValueType => _type.IsValueType;
-
-    public ImmutableArray<ITypeSymbol> Types => _type.Types;
-
-    public ITypeSymbol UnderlyingType => _type.UnderlyingType;
-
-    public ITypeSymbol? DeclaredUnderlyingType => _type.DeclaredUnderlyingType;
-
-    public ImmutableArray<INamedTypeSymbol> Interfaces => _type.Interfaces;
-
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => _type.AllInterfaces;
-}
-
-internal sealed class AliasLiteralTypeSymbol : AliasSymbol, ITypeSymbol
-{
-    private readonly LiteralTypeSymbol _type;
-
-    public AliasLiteralTypeSymbol(string name, LiteralTypeSymbol underlying)
+    public AliasTypeSymbol(string name, ITypeSymbol underlying)
         : base(name, underlying)
     {
         _type = underlying;
@@ -355,9 +310,8 @@ internal static class AliasSymbolFactory
     public static IAliasSymbol Create(string name, ISymbol underlying) => underlying switch
     {
         INamespaceSymbol n => new AliasNamespaceSymbol(name, n),
-        ITypeUnionSymbol u => new AliasTypeUnionSymbol(name, u),
         INamedTypeSymbol t => new AliasNamedTypeSymbol(name, t),
-        LiteralTypeSymbol l => new AliasLiteralTypeSymbol(name, l),
+        ITypeSymbol t => new AliasTypeSymbol(name, t),
         IMethodSymbol m => new AliasMethodSymbol(name, m),
         IPropertySymbol p => new AliasPropertySymbol(name, p),
         IFieldSymbol f => new AliasFieldSymbol(name, f),

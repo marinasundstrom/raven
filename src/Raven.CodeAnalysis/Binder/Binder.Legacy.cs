@@ -14,25 +14,6 @@ internal abstract partial class Binder
         if (typeSyntax is NullTypeSyntax)
             return ApplyRefKindHint(Compilation.NullTypeSymbol, refKindHint);
 
-        if (typeSyntax is LiteralTypeSyntax literalType)
-        {
-            var token = literalType.Token;
-            var value = token.Value ?? token.Text!;
-            ITypeSymbol underlying = value switch
-            {
-                int => Compilation.GetSpecialType(SpecialType.System_Int32),
-                long => Compilation.GetSpecialType(SpecialType.System_Int64),
-                float => Compilation.GetSpecialType(SpecialType.System_Single),
-                double => Compilation.GetSpecialType(SpecialType.System_Double),
-                bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
-                char => Compilation.GetSpecialType(SpecialType.System_Char),
-                string => Compilation.GetSpecialType(SpecialType.System_String),
-                _ => Compilation.ErrorTypeSymbol
-            };
-
-            return ApplyRefKindHint(new LiteralTypeSymbol(underlying, value, Compilation), refKindHint);
-        }
-
         if (typeSyntax is ByRefTypeSyntax refType)
         {
             var elementType = ResolveTypeInternalLegacy(refType.ElementType, refKindHint: null);
@@ -63,28 +44,6 @@ internal abstract partial class Binder
             }
 
             return ApplyRefKindHint(elementType.MakeNullable(), refKindHint);
-        }
-
-        if (typeSyntax is UnionTypeSyntax ut)
-        {
-            var types = new List<ITypeSymbol>();
-            foreach (var t in ut.Types)
-            {
-                if (t is NullableTypeSyntax nt)
-                {
-                    _diagnostics.ReportNullableTypeInUnion(nt.GetLocation());
-                    return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
-                }
-
-                types.Add(ResolveTypeInternalLegacy(t, refKindHint: null));
-            }
-
-            var normalized = TypeSymbolNormalization.NormalizeUnion(
-                types,
-                _diagnostics,
-                ut.GetLocation(),
-                Compilation.ErrorTypeSymbol);
-            return ApplyRefKindHint(normalized, refKindHint);
         }
 
         if (typeSyntax is ArrayTypeSyntax arrayTypeSyntax)

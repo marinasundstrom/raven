@@ -80,9 +80,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var compilation = CreateInitializedCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var doubleType = compilation.GetSpecialType(SpecialType.System_Double);
-        var literalType = new LiteralTypeSymbol(intType, 1, compilation);
-
-        var literalArgument = new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 1, literalType);
+        var literalArgument = new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 1, intType);
         var identity = CreateMethod(compilation, "Identity", intType);
         var numeric = CreateMethod(compilation, "Numeric", doubleType);
 

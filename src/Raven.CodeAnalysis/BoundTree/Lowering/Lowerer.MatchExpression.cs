@@ -152,9 +152,8 @@ internal sealed partial class Lowerer
                 Designator: BoundDiscardDesignator
             } declarationPattern)
         {
-            var objectType = compilation.GetSpecialType(SpecialType.System_Object);
-            var literalType = new LiteralTypeSymbol(objectType, constantValue: null!, compilation);
-            return new BoundConstantPattern(literalType, declarationPattern.Reason);
+            var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, compilation.NullTypeSymbol);
+            return new BoundConstantPattern(nullLiteral, declarationPattern.Reason);
         }
 
         return pattern;

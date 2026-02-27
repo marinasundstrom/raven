@@ -2152,8 +2152,7 @@ Patterns compose from the following primitives.
 #### Constant patterns
 
 * `literal` — **constant pattern**. Matches when the scrutinee equals the literal
-  value (`true`, `"on"`, `42`, or `null`). Literal patterns piggyback on Raven’s
-  literal types and participate precisely in union narrowing.
+  value (`true`, `"on"`, `42`, or `null`).
 
 * `identifier` — **value pattern**. When a bare identifier appears in pattern
   position and resolves to an in-scope value (local, parameter, field, or property),
@@ -2409,7 +2408,6 @@ alias PrintLine = System.Console.WriteLine
 alias Pair = (x: int, y: int)
 alias Flag = bool
 alias Text = string
-alias Five = 5
 
 val sb = SB()
 PrintLine("Hi")
@@ -2420,7 +2418,11 @@ Aliasing a method binds a specific overload. Multiple directives using the
 same alias name may appear to alias additional overloads, forming an overload
 set.
 
-Predefined and literal types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `long`, `float`, `double`, `string`, and `unit` (spelled `unit` or `()`), and any literal value. Raven has no `void`; the `unit` type is used instead (see [implementation notes](dotnet-implementation.md#unit-type)). If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, tuples, these predefined types, and literal values.
+Predefined types may be aliased directly. The supported built-in alias targets
+are `bool`, `char`, `int`, `long`, `float`, `double`, `string`, and `unit`
+(spelled `unit` or `()`). Raven has no `void`; the `unit` type is used instead
+(see [implementation notes](dotnet-implementation.md#unit-type)). If the alias
+target is invalid, the compiler emits diagnostic `RAV2020`.
 
 Aliases require fully qualified names for namespaces, types, and members to
 avoid ambiguity; type expressions are written directly. Alias directives may

@@ -582,7 +582,6 @@ public static class ConsoleSyntaxHighlighter
             || HasAncestorKind(token.Parent, SyntaxKind.FunctionType)
             || HasAncestorKind(token.Parent, SyntaxKind.TupleType)
             || HasAncestorKind(token.Parent, SyntaxKind.ByRefType)
-            || HasAncestorKind(token.Parent, SyntaxKind.UnionType)
             || HasAncestorKind(token.Parent, SyntaxKind.BaseList))
             return true;
 

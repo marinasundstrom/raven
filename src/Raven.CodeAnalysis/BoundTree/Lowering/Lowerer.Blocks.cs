@@ -210,8 +210,8 @@ internal sealed partial class Lowerer
             if (booleanType.TypeKind == TypeKind.Error || objectType.TypeKind == TypeKind.Error)
                 return disposeCall;
 
-            var nullLiteralType = new LiteralTypeSymbol(objectType, constantValue: null!, compilation);
-            var nullPattern = new BoundConstantPattern(nullLiteralType);
+            var nullPatternLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, compilation.NullTypeSymbol);
+            var nullPattern = new BoundConstantPattern(nullPatternLiteral);
             var notNullPattern = new BoundNotPattern(nullPattern);
             var condition = new BoundIsPatternExpression(new BoundLocalAccess(local), notNullPattern, booleanType);
             return new BoundIfStatement(condition, new BoundBlockStatement(new[] { disposeCall }));

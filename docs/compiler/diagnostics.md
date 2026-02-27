@@ -189,7 +189,7 @@ Return/throw context note:
 | `RAV2003` | Error | Invalid escape sequence | Invalid escape sequence in character literal | — |
 | `RAV2010` | Error | Target-typed member access requires a known type | Cannot resolve member '.{memberName}' without a known target type | — |
 | `RAV2011` | Error | 'default' requires a target type | The 'default' literal can only be used when a target type is known | — |
-| `RAV2020` | Error | Invalid alias target | Invalid alias target. Supported targets are types, namespaces, unions, tuples, and predefined types like bool, char, int, long, float, double, string, and unit. | — |
+| `RAV2020` | Error | Invalid alias target | Invalid alias target. Supported targets are types, namespaces, tuples, and predefined types like bool, char, int, long, float, double, string, and unit. | — |
 | `RAV2021` | Error | Invalid use target | You can only import namespaces and types. | — |
 | `RAV2022` | Error | Spread source must be enumerable | Cannot spread expression of type '{typeName}' because it is not enumerable | — |
 | `RAV2023` | Error | Single-element tuple type is not allowed | Single-element tuple types are not supported; use parenthesized type syntax only for grouping | — |

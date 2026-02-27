@@ -1350,8 +1350,7 @@ partial class BlockBinder : Binder
     private BoundLiteralExpression CreateStepLiteral()
     {
         var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
-        var literalType = new LiteralTypeSymbol(intType, 1, Compilation);
-        return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 1, literalType);
+        return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 1, intType);
     }
 
     private BoundExpression BindAwaitExpression(UnaryExpressionSyntax awaitExpression)
@@ -3521,19 +3520,31 @@ partial class BlockBinder : Binder
         if (pattern is not BoundConstantPattern constant)
             return false;
 
-        // Expression-backed constant patterns may depend on runtime values and must not
-        // participate in compile-time exhaustiveness reasoning.
-        if (constant.Expression is not null)
-            return false;
+        if (TryGetExpressionBoolConstant(constant.Expression, out value))
+            return true;
 
-        if (constant.LiteralType is not LiteralTypeSymbol literal)
-            return false;
+        if (constant.ConstantValue is bool b)
+        {
+            value = b;
+            return true;
+        }
 
-        if (literal.ConstantValue is not bool b)
-            return false;
+        return false;
+    }
 
-        value = b;
-        return true;
+    private static bool TryGetExpressionBoolConstant(BoundExpression? expression, out bool value)
+    {
+        switch (expression)
+        {
+            case BoundLiteralExpression { Value: bool b }:
+                value = b;
+                return true;
+            case BoundConversionExpression conversion:
+                return TryGetExpressionBoolConstant(conversion.Expression, out value);
+            default:
+                value = default;
+                return false;
+        }
     }
 
     private void RemoveCoveredUnionMembers(
@@ -4272,43 +4283,6 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(Compilation.NullTypeSymbol);
         }
 
-        if (syntax is LiteralTypeSyntax literalType)
-        {
-            var token = literalType.Token;
-            var value = token.Value ?? token.ValueText!;
-
-            if (value is string stringValue)
-            {
-                if (literalType.Kind == SyntaxKind.TrueLiteralType)
-                {
-                    value = true;
-                }
-                else if (literalType.Kind == SyntaxKind.FalseLiteralType)
-                {
-                    value = false;
-                }
-                else
-                {
-                    value = stringValue;
-                }
-            }
-
-            ITypeSymbol underlying = value switch
-            {
-                int => Compilation.GetSpecialType(SpecialType.System_Int32),
-                long => Compilation.GetSpecialType(SpecialType.System_Int64),
-                float => Compilation.GetSpecialType(SpecialType.System_Single),
-                double => Compilation.GetSpecialType(SpecialType.System_Double),
-                bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
-                char => Compilation.GetSpecialType(SpecialType.System_Char),
-                string => Compilation.GetSpecialType(SpecialType.System_String),
-                _ => Compilation.ErrorTypeSymbol
-            };
-
-            var litSymbol = new LiteralTypeSymbol(underlying, value, Compilation);
-            return new BoundTypeExpression(litSymbol);
-        }
-
         if (syntax is IdentifierNameSyntax id)
         {
             return BindTypeName(id.Identifier.ValueText, id.GetLocation(), []);
@@ -4386,23 +4360,6 @@ partial class BlockBinder : Binder
             var tupleType = Compilation.CreateTupleTypeSymbol(boundElements);
 
             return new BoundTypeExpression(tupleType);
-        }
-
-        if (syntax is UnionTypeSyntax unionSyntax)
-        {
-            var types = new List<ITypeSymbol>();
-
-            foreach (var type in unionSyntax.Types)
-            {
-                if (BindTypeSyntaxAsExpression(type) is not BoundTypeExpression bt)
-                    return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
-
-                types.Add(bt.Type);
-            }
-
-            var unionType = new TypeUnionSymbol(types, null!, null, null, [], null);
-
-            return new BoundTypeExpression(unionType);
         }
 
         if (syntax is GenericNameSyntax generic)
@@ -4952,10 +4909,7 @@ partial class BlockBinder : Binder
             _ => throw new Exception("Unsupported literal type")
         };
 
-        var preserveLiteralPrecision = ShouldPreserveLiteralPrecision(contextualTargetType);
-        ITypeSymbol type = preserveLiteralPrecision
-            ? new LiteralTypeSymbol(underlying, value, Compilation)
-            : underlying;
+        ITypeSymbol type = underlying;
 
         BoundLiteralExpressionKind kind = syntax.Kind switch
         {
@@ -8219,16 +8173,6 @@ partial class BlockBinder : Binder
     protected bool IsAssignable(ITypeSymbol targetType, BoundExpression sourceExpression, out Conversion conversion)
     {
         var sourceType = sourceExpression.Type!;
-
-        // For literal expressions, temporarily wrap the source type as a LiteralTypeSymbol
-        // so that ClassifyConversion can perform implicit constant narrowing checks
-        // (e.g. int literal 2 -> byte). The LiteralTypeSymbol never escapes to the bound tree.
-        if (sourceExpression is BoundLiteralExpression literal &&
-            sourceType is not LiteralTypeSymbol)
-        {
-            var literalType = new LiteralTypeSymbol(sourceType, literal.Value, Compilation);
-            return IsAssignable(targetType, literalType, out conversion);
-        }
 
         return IsAssignable(targetType, sourceType, out conversion);
     }

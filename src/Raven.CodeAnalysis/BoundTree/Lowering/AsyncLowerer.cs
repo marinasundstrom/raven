@@ -600,8 +600,8 @@ internal static class AsyncLowerer
                 if (booleanType.TypeKind == TypeKind.Error || objectType.TypeKind == TypeKind.Error)
                     return disposeCall;
 
-                var nullLiteralType = new LiteralTypeSymbol(objectType, constantValue: null!, _compilation);
-                var nullPattern = new BoundConstantPattern(nullLiteralType);
+                var nullPatternLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, _compilation.NullTypeSymbol);
+                var nullPattern = new BoundConstantPattern(nullPatternLiteral);
                 var notNullPattern = new BoundNotPattern(nullPattern);
                 var condition = new BoundIsPatternExpression(new BoundLocalAccess(local), notNullPattern, booleanType);
                 return new BoundIfStatement(condition, new BoundBlockStatement(new[] { disposeCall }));

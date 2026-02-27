@@ -434,17 +434,29 @@ internal sealed class MatchExhaustivenessEvaluator
         if (pattern is not BoundConstantPattern constant)
             return false;
 
-        if (constant.Expression is not null)
-            return false;
+        if (TryGetExpressionBoolConstant(constant.Expression, out value))
+            return true;
 
-        if (constant.LiteralType is not LiteralTypeSymbol literal)
-            return false;
-
-        if (literal.ConstantValue is not bool b)
+        if (constant.ConstantValue is not bool b)
             return false;
 
         value = b;
         return true;
+    }
+
+    private static bool TryGetExpressionBoolConstant(BoundExpression? expression, out bool value)
+    {
+        switch (expression)
+        {
+            case BoundLiteralExpression { Value: bool b }:
+                value = b;
+                return true;
+            case BoundConversionExpression conversion:
+                return TryGetExpressionBoolConstant(conversion.Expression, out value);
+            default:
+                value = default;
+                return false;
+        }
     }
 
     private void RemoveCoveredUnionMembers(
@@ -1136,7 +1148,7 @@ internal sealed class MatchExhaustivenessEvaluator
     {
         value = 0;
 
-        if (constant.LiteralType?.ConstantValue is { } cv)
+        if (constant.ConstantValue is { } cv)
         {
             try
             {

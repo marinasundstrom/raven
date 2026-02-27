@@ -678,6 +678,9 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private bool LooksLikeTypePatternStart()
     {
+        if (!CanTokenBeIdentifier(PeekToken()))
+            return false;
+
         var next = PeekToken(1);
         return next.IsKind(SyntaxKind.OpenParenToken) ||
             next.IsKind(SyntaxKind.OpenBraceToken);
@@ -746,6 +749,7 @@ internal class PatternSyntaxParser : SyntaxParser
         return token.Kind is
             SyntaxKind.CommaToken or
             SyntaxKind.CloseParenToken or
+            SyntaxKind.OpenBraceToken or
             SyntaxKind.CloseBraceToken or
             SyntaxKind.FatArrowToken or
             SyntaxKind.WhenKeyword or

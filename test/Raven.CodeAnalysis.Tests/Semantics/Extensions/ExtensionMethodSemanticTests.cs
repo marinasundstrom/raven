@@ -460,9 +460,7 @@ static class Extensions
 
         var arguments = boundInvocation.Arguments.ToArray();
         Assert.Single(arguments);
-        var argumentType = arguments[0].Type is LiteralTypeSymbol literal
-            ? literal.UnderlyingType
-            : arguments[0].Type;
+        var argumentType = arguments[0].Type;
 
         Assert.True(SymbolEqualityComparer.Default.Equals(
             boundInvocation.Method.Parameters[1].Type,
