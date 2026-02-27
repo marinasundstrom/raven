@@ -126,8 +126,9 @@ function resolveDebugTarget(config) {
 function getProjectAssemblyName(projectFilePath) {
     const fallback = path.basename(projectFilePath, path.extname(projectFilePath));
     const xml = fs.readFileSync(projectFilePath, 'utf8');
-    const match = xml.match(/<AssemblyName>\s*([^<]+)\s*<\/AssemblyName>/i);
-    return match?.[1]?.trim() || fallback;
+    const assemblyNameMatch = xml.match(/<AssemblyName>\s*([^<]+)\s*<\/AssemblyName>/i);
+    const outputAttributeMatch = xml.match(/\bOutput\s*=\s*"([^"]+)"/i);
+    return assemblyNameMatch?.[1]?.trim() || outputAttributeMatch?.[1]?.trim() || fallback;
 }
 async function compileForDebug(targetPath) {
     const compilerProjectPath = resolveCompilerProjectPath();
@@ -184,6 +185,70 @@ async function compileForDebug(targetPath) {
         throw new Error(`Compiled assembly not found at '${outputDllPath}'.`);
     }
     return { outputDllPath, cwd: path.dirname(targetPath) };
+}
+async function buildTarget(targetPath) {
+    const compilerProjectPath = resolveCompilerProjectPath();
+    if (!compilerProjectPath) {
+        throw new Error('Unable to locate Raven.Compiler.csproj. Set "raven.compilerProjectPath" to continue.');
+    }
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? path.dirname(targetPath);
+    const buildOutputDirectory = path.join(workspaceFolder, '.raven-build');
+    fs.mkdirSync(buildOutputDirectory, { recursive: true });
+    const targetFramework = resolveTargetFramework();
+    const targetIsProject = path.extname(targetPath).toLowerCase() === '.ravenproj';
+    const outputArg = targetIsProject
+        ? path.join(buildOutputDirectory, path.basename(targetPath, path.extname(targetPath)))
+        : path.join(buildOutputDirectory, `${path.basename(targetPath, path.extname(targetPath))}.dll`);
+    fs.mkdirSync(path.dirname(outputArg), { recursive: true });
+    const dotnetArgs = [
+        'run',
+        ...(targetFramework ? ['--framework', targetFramework] : []),
+        '--project',
+        compilerProjectPath,
+        '--property',
+        'WarningLevel=0',
+        '--',
+        targetPath,
+        '-o',
+        outputArg,
+        ...(targetFramework ? ['--framework', targetFramework] : [])
+    ];
+    output.appendLine(`Building Raven target: dotnet ${dotnetArgs.join(' ')}`);
+    try {
+        const { stdout, stderr } = await execFileAsync('dotnet', dotnetArgs, {
+            cwd: workspaceFolder,
+            maxBuffer: 10 * 1024 * 1024
+        });
+        if (stdout.trim().length > 0) {
+            output.appendLine(stdout);
+        }
+        if (stderr.trim().length > 0) {
+            output.appendLine(stderr);
+        }
+    }
+    catch (error) {
+        const e = error;
+        if (e.stdout)
+            output.appendLine(e.stdout);
+        if (e.stderr)
+            output.appendLine(e.stderr);
+        throw new Error(`Raven build failed. See the Raven output channel for details. ${e.message}`);
+    }
+    const outputPath = targetIsProject
+        ? path.join(outputArg, `${getProjectAssemblyName(targetPath)}.dll`)
+        : outputArg;
+    return { outputPath, cwd: path.dirname(targetPath) };
+}
+function resolveCommandTarget(uri) {
+    const directTarget = uri?.scheme === 'file' ? uri.fsPath : undefined;
+    if (directTarget && isRavenFile(directTarget)) {
+        return directTarget;
+    }
+    const activeTarget = vscode.window.activeTextEditor?.document.fileName;
+    if (activeTarget && isRavenFile(activeTarget)) {
+        return activeTarget;
+    }
+    return undefined;
 }
 class RavenDebugConfigurationProvider {
     provideDebugConfigurations() {
@@ -264,7 +329,7 @@ function activate(context) {
     const debugConfigurationProvider = new RavenDebugConfigurationProvider();
     context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('raven', debugConfigurationProvider, vscode.DebugConfigurationProviderTriggerKind.Dynamic));
     context.subscriptions.push(vscode.commands.registerCommand('raven.debug.compileAndDebug', async (uri) => {
-        const target = uri?.scheme === 'file' ? uri.fsPath : vscode.window.activeTextEditor?.document.fileName;
+        const target = resolveCommandTarget(uri);
         if (!target) {
             void vscode.window.showErrorMessage('No active Raven file to debug.');
             return;
@@ -275,6 +340,41 @@ function activate(context) {
             name: 'Raven: Compile and Debug',
             target
         });
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('raven.build.activeTarget', async (uri) => {
+        const target = resolveCommandTarget(uri);
+        if (!target) {
+            void vscode.window.showErrorMessage('No active Raven file or project to build.');
+            return;
+        }
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Building ${path.basename(target)}`
+        }, async () => {
+            const { outputPath } = await buildTarget(target);
+            output.appendLine(`Build output: ${outputPath}`);
+            void vscode.window.showInformationMessage(`Raven build succeeded: ${path.basename(outputPath)}`);
+        });
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('raven.build.clean', async (_uri) => {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const baseDirectory = workspaceFolder ?? process.cwd();
+        const buildDirectory = path.join(baseDirectory, '.raven-build');
+        const debugDirectory = path.join(baseDirectory, '.raven-debug');
+        const removedPaths = [];
+        for (const candidate of [buildDirectory, debugDirectory]) {
+            if (!fs.existsSync(candidate)) {
+                continue;
+            }
+            fs.rmSync(candidate, { recursive: true, force: true });
+            removedPaths.push(candidate);
+        }
+        if (removedPaths.length === 0) {
+            void vscode.window.showInformationMessage('Raven clean completed. No build artifacts were found.');
+            return;
+        }
+        output.appendLine(`Cleaned Raven artifacts:\n- ${removedPaths.join('\n- ')}`);
+        void vscode.window.showInformationMessage('Raven clean completed.');
     }));
 }
 function deactivate() {

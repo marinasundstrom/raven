@@ -56,11 +56,10 @@ internal sealed class HoverHandler : IHoverHandler
                 return null;
 
             var symbol = resolution.Value.Symbol;
-            var signature = symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
-            var containing = symbol.ContainingSymbol?.ToDisplayString(
-                SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
+            var signature = BuildSignature(symbol);
+            var containing = BuildContainingDisplay(symbol);
             var documentation = symbol.GetDocumentationComment();
-            var hoverText = BuildHoverText(signature, symbol.Kind.ToString(), containing, documentation);
+            var hoverText = BuildHoverText(signature, BuildKindDisplay(symbol), containing, documentation);
 
             return new Hover
             {
@@ -107,6 +106,68 @@ internal sealed class HoverHandler : IHoverHandler
         return string.IsNullOrWhiteSpace(docsText)
             ? $"```raven\n{signature}\n```\n\n{contextText}"
             : $"```raven\n{signature}\n```\n\n{contextText}\n\n---\n\n{docsText}";
+    }
+
+    private static string BuildSignature(ISymbol symbol)
+    {
+        var plainTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
+            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+            .WithKindOptions(SymbolDisplayKindOptions.None);
+
+        if (symbol is IMethodSymbol { MethodKind: MethodKind.LambdaMethod } lambda)
+        {
+            var parameters = string.Join(
+                ", ",
+                lambda.Parameters.Select(parameter =>
+                {
+                    var parameterType = parameter.Type.ToDisplayString(plainTypeFormat);
+                    return $"{parameter.Name}: {parameterType}";
+                }));
+            var returnType = lambda.ReturnType.ToDisplayString(plainTypeFormat);
+            return $"({parameters}) -> {returnType}";
+        }
+
+        if (symbol is IParameterSymbol parameter)
+        {
+            var binding = parameter.IsMutable ? "var" : "val";
+            var parameterType = parameter.Type.ToDisplayString(plainTypeFormat);
+            return $"{binding} {parameter.Name}: {parameterType}";
+        }
+
+        if (symbol is ILocalSymbol local)
+        {
+            var binding = local.IsMutable ? "var" : "val";
+            var localType = local.Type.ToDisplayString(plainTypeFormat);
+            return $"{binding} {local.Name}: {localType}";
+        }
+
+        if (symbol is ITypeSymbol typeSymbol)
+            return typeSymbol.ToDisplayString(plainTypeFormat);
+
+        return symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
+    }
+
+    private static string? BuildContainingDisplay(ISymbol symbol)
+    {
+        var containing = GetUserFacingContainingSymbol(symbol);
+        return containing?.ToDisplayString(
+            SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
+    }
+
+    private static ISymbol? GetUserFacingContainingSymbol(ISymbol symbol)
+    {
+        var containing = symbol.ContainingSymbol;
+        while (containing is IMethodSymbol { MethodKind: MethodKind.LambdaMethod } lambdaContainer)
+            containing = lambdaContainer.ContainingSymbol;
+        return containing;
+    }
+
+    private static string BuildKindDisplay(ISymbol symbol)
+    {
+        if (symbol is IMethodSymbol { MethodKind: MethodKind.LambdaMethod })
+            return "Lambda";
+
+        return symbol.Kind.ToString();
     }
 
     private static string? FormatDocumentation(DocumentationComment? documentation)

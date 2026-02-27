@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
@@ -59,7 +61,7 @@ internal static class SymbolResolver
 
     private static ISymbol? ResolveSymbolFromNode(SemanticModel semanticModel, SyntaxNode node, SyntaxToken token)
     {
-        if (TryResolveInvocationTargetSymbol(semanticModel, node, out var invocationSymbol))
+        if (TryResolveInvocationTargetSymbol(semanticModel, node, token, out var invocationSymbol))
             return invocationSymbol;
 
         if (TryResolveRecordPatternCaseSymbol(semanticModel, node, token, out var recordPatternCaseSymbol))
@@ -68,18 +70,19 @@ internal static class SymbolResolver
         if (TryResolvePatternDeclaredSymbol(semanticModel, node, token, out var patternSymbol))
             return patternSymbol;
 
-        if (node is ParameterSyntax parameterDeclaration)
+        if (TryResolveTypePositionSymbol(semanticModel, node, token, out var typePositionSymbol))
+            return typePositionSymbol;
+
+        if (node is ParameterSyntax parameterDeclaration && token == parameterDeclaration.Identifier)
             return semanticModel.GetDeclaredSymbol(parameterDeclaration);
 
-        if (node.Parent is ParameterSyntax parentParameterDeclaration)
+        if (node.Parent is ParameterSyntax parentParameterDeclaration &&
+            token == parentParameterDeclaration.Identifier)
             return semanticModel.GetDeclaredSymbol(parentParameterDeclaration);
 
         var symbolInfo = semanticModel.GetSymbolInfo(node);
-        if (symbolInfo.Symbol is not null)
-            return symbolInfo.Symbol;
-
-        if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
-            return symbolInfo.CandidateSymbols[0];
+        if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+            return ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, node);
 
         var operation = semanticModel.GetOperation(node);
         var operationSymbol = operation switch
@@ -99,9 +102,82 @@ internal static class SymbolResolver
         return operationSymbol;
     }
 
+    private static bool TryResolveTypePositionSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        var typeSyntax = node.AncestorsAndSelf().OfType<TypeSyntax>().FirstOrDefault();
+        if (typeSyntax is null || !typeSyntax.Span.Contains(token.Span))
+            return false;
+
+        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
+        var resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (resolvedType is null || resolvedType.TypeKind == TypeKind.Error)
+            return false;
+
+        symbol = resolvedType;
+        return true;
+    }
+
+    private static ISymbol? ChoosePreferredSymbol(
+        ISymbol? primarySymbol,
+        ImmutableArray<ISymbol> candidates,
+        SyntaxNode node)
+    {
+        var all = new List<ISymbol>(capacity: 1 + (candidates.IsDefaultOrEmpty ? 0 : candidates.Length));
+        if (primarySymbol is not null)
+            all.Add(primarySymbol);
+
+        if (!candidates.IsDefaultOrEmpty)
+            all.AddRange(candidates.Where(static c => c is not null));
+
+        if (all.Count == 0)
+            return null;
+
+        return all
+            .Distinct(SymbolEqualityComparer.Default)
+            .OrderByDescending(symbol => ScoreSymbol(symbol, node))
+            .FirstOrDefault();
+    }
+
+    private static int ScoreSymbol(ISymbol symbol, SyntaxNode node)
+    {
+        var score = 0;
+
+        // In type-position, namespace fallback should lose against an actual type.
+        var inTypePosition = node.AncestorsAndSelf().OfType<TypeSyntax>().Any();
+        if (inTypePosition)
+            score += symbol.Kind == SymbolKind.Type ? 300 : symbol.Kind == SymbolKind.Namespace ? -300 : 0;
+
+        if (symbol.DeclaringSyntaxReferences.Length > 0)
+            score += 200;
+
+        var docs = symbol.GetDocumentationComment();
+        if (docs is not null)
+        {
+            if (docs.Format == DocumentationFormat.Markdown)
+                score += 120;
+            else if (docs.Format == DocumentationFormat.Xml)
+                score += 40;
+        }
+
+        if (symbol.Kind == SymbolKind.Method)
+            score += 20;
+
+        if (symbol.Kind == SymbolKind.Namespace)
+            score -= 20;
+
+        return score;
+    }
+
     private static bool TryResolveInvocationTargetSymbol(
         SemanticModel semanticModel,
         SyntaxNode node,
+        SyntaxToken token,
         out ISymbol? symbol)
     {
         symbol = null;
@@ -119,6 +195,11 @@ internal static class SymbolResolver
         };
 
         if (invocation is null)
+            return false;
+
+        // Only resolve invocation targets when hovering the call target itself,
+        // not arguments/parameter lists/lambda bodies.
+        if (!invocation.Expression.Span.Contains(token.Span))
             return false;
 
         var symbolInfo = semanticModel.GetSymbolInfo(invocation);

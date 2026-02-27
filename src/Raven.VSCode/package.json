@@ -13,7 +13,9 @@
   "activationEvents": [
     "onLanguage:raven",
     "onDebug:raven",
-    "onCommand:raven.debug.compileAndDebug"
+    "onCommand:raven.debug.compileAndDebug",
+    "onCommand:raven.build.activeTarget",
+    "onCommand:raven.build.clean"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -34,6 +36,14 @@
       {
         "command": "raven.debug.compileAndDebug",
         "title": "Raven: Compile and Debug Active File"
+      },
+      {
+        "command": "raven.build.activeTarget",
+        "title": "Raven: Build Active File/Project"
+      },
+      {
+        "command": "raven.build.clean",
+        "title": "Raven: Clean Build Artifacts"
       }
     ],
     "menus": {
@@ -42,6 +52,16 @@
           "command": "raven.debug.compileAndDebug",
           "when": "resourceExtname == .rav || resourceExtname == .ravenproj",
           "group": "navigation"
+        },
+        {
+          "command": "raven.build.activeTarget",
+          "when": "resourceExtname == .rav || resourceExtname == .ravenproj",
+          "group": "navigation@1"
+        },
+        {
+          "command": "raven.build.clean",
+          "when": "resourceExtname == .rav || resourceExtname == .ravenproj",
+          "group": "navigation@2"
         }
       ]
     },

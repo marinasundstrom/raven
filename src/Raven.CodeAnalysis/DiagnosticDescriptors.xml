@@ -595,7 +595,7 @@
     Message="Invalid alias target. Supported targets are types, namespaces, unions, tuples, and predefined types like bool, char, int, long, float, double, string, and unit."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2021" Identifier="InvalidImportTarget" Title="Invalid use target"
-    Message="You can only 'use' namespaces and types." Category="compiler" Severity="Error"
+    Message="You can only import namespaces and types." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2022" Identifier="SpreadSourceMustBeEnumerable"
     Title="Spread source must be enumerable"

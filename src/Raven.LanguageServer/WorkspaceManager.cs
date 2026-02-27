@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 
 using Microsoft.Extensions.Logging;
 
@@ -34,10 +35,12 @@ internal sealed class WorkspaceManager
         {
             _projectsByRoot.Clear();
             _fallbackProjectId = null;
+            _documents.Clear();
+            var loadedProjects = new Dictionary<string, ProjectId>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var root in roots)
             {
-                var projectId = CreateProjectForRoot(root);
+                var projectId = TryOpenRootProject(root, loadedProjects) ?? CreateProjectForRoot(root);
                 _projectsByRoot[root] = projectId;
             }
 
@@ -46,6 +49,161 @@ internal sealed class WorkspaceManager
         }
 
         _logger.LogInformation("Workspace initialized with {RootCount} root(s).", roots.Count);
+    }
+
+    private ProjectId? TryOpenRootProject(string root, Dictionary<string, ProjectId> loadedProjects)
+    {
+        var projectFilePath = TryFindRootProjectFile(root);
+        if (projectFilePath is null)
+            return null;
+
+        var projectSystem = _workspace.Services.ProjectSystemService;
+        if (projectSystem is null)
+        {
+            _logger.LogWarning("No project system service is available. Falling back to inferred workspace for root '{Root}'.", root);
+            return null;
+        }
+
+        var stack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var projectId = OpenProjectWithReferences(projectFilePath, projectSystem, loadedProjects, stack);
+            _logger.LogInformation(
+                "Opened Raven project '{ProjectFilePath}' for root '{Root}' with {ProjectCount} loaded project(s).",
+                projectFilePath,
+                root,
+                loadedProjects.Count);
+            return projectId;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to open Raven project '{ProjectFilePath}' for root '{Root}'. Falling back to inferred workspace.", projectFilePath, root);
+            return null;
+        }
+    }
+
+    private ProjectId OpenProjectWithReferences(
+        string projectFilePath,
+        IProjectSystemService projectSystem,
+        Dictionary<string, ProjectId> loadedProjects,
+        HashSet<string> stack)
+    {
+        var normalizedProjectPath = NormalizePath(projectFilePath);
+        if (loadedProjects.TryGetValue(normalizedProjectPath, out var existing))
+            return existing;
+
+        if (!stack.Add(normalizedProjectPath))
+            throw new InvalidOperationException($"Detected cyclic project references involving '{normalizedProjectPath}'.");
+
+        foreach (var referencedProjectPath in EnumerateProjectReferences(normalizedProjectPath))
+            _ = OpenProjectWithReferences(referencedProjectPath, projectSystem, loadedProjects, stack);
+
+        var projectId = projectSystem.OpenProject(_workspace, normalizedProjectPath);
+        EnsureRavenCoreReference(projectId);
+        loadedProjects[normalizedProjectPath] = projectId;
+        stack.Remove(normalizedProjectPath);
+        return projectId;
+    }
+
+    private void EnsureRavenCoreReference(ProjectId projectId)
+    {
+        var project = _workspace.CurrentSolution.GetProject(projectId);
+        if (project is null)
+            return;
+
+        var hasRavenCoreReference = project.MetadataReferences
+            .OfType<PortableExecutableReference>()
+            .Any(static reference =>
+                string.Equals(Path.GetFileName(reference.FilePath), "Raven.Core.dll", StringComparison.OrdinalIgnoreCase));
+
+        if (hasRavenCoreReference)
+            return;
+
+        var preferredTfm = project.TargetFramework ?? TargetFrameworkResolver.ResolveLatestInstalledVersion().Moniker.ToTfm();
+        var ravenCoreReferencePath = ResolveRavenCoreReferencePath(preferredTfm);
+        if (string.IsNullOrWhiteSpace(ravenCoreReferencePath))
+        {
+            _logger.LogWarning(
+                "Unable to locate a valid Raven.Core metadata reference for project '{ProjectName}'.",
+                project.Name);
+            return;
+        }
+
+        var solution = _workspace.CurrentSolution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(ravenCoreReferencePath));
+        _workspace.TryApplyChanges(solution);
+        _logger.LogDebug(
+            "Added Raven.Core metadata reference '{ReferencePath}' for opened project '{ProjectName}'.",
+            ravenCoreReferencePath,
+            project.Name);
+    }
+
+    private static IEnumerable<string> EnumerateProjectReferences(string projectFilePath)
+    {
+        var projectDirectory = Path.GetDirectoryName(projectFilePath);
+        if (string.IsNullOrWhiteSpace(projectDirectory))
+            yield break;
+
+        XDocument document;
+        try
+        {
+            document = XDocument.Load(projectFilePath);
+        }
+        catch
+        {
+            yield break;
+        }
+
+        var root = document.Root;
+        if (root is null)
+            yield break;
+
+        foreach (var element in root.Elements("ProjectReference"))
+        {
+            var relativePath = (string?)element.Attribute("Path");
+            if (string.IsNullOrWhiteSpace(relativePath))
+                continue;
+
+            var fullPath = Path.IsPathRooted(relativePath)
+                ? relativePath
+                : Path.GetFullPath(Path.Combine(projectDirectory, relativePath));
+
+            if (!File.Exists(fullPath))
+                continue;
+
+            yield return fullPath;
+        }
+    }
+
+    private string? TryFindRootProjectFile(string root)
+    {
+        if (!Directory.Exists(root))
+            return null;
+
+        var candidates = Directory
+            .EnumerateFiles(root, "*.ravenproj", SearchOption.TopDirectoryOnly)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (candidates.Length == 0)
+            return null;
+
+        if (candidates.Length == 1)
+            return candidates[0];
+
+        var directoryName = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (!string.IsNullOrWhiteSpace(directoryName))
+        {
+            var preferred = candidates.FirstOrDefault(path =>
+                string.Equals(Path.GetFileNameWithoutExtension(path), directoryName, StringComparison.OrdinalIgnoreCase));
+            if (preferred is not null)
+                return preferred;
+        }
+
+        _logger.LogWarning(
+            "Multiple Raven projects found in root '{Root}'. Using '{SelectedProject}'.",
+            root,
+            candidates[0]);
+        return candidates[0];
     }
 
     public Document UpsertDocument(DocumentUri uri, string text)
@@ -58,6 +216,8 @@ internal sealed class WorkspaceManager
         {
             var ownerProject = ResolveProjectForUri(uri);
             var solution = _workspace.CurrentSolution;
+            var normalizedFilePath = !string.IsNullOrWhiteSpace(filePath) ? NormalizePath(filePath) : null;
+            OwnedDocument? staleOwnedDocument = null;
 
             if (_documents.TryGetValue(uri, out var existing))
             {
@@ -68,8 +228,29 @@ internal sealed class WorkspaceManager
                     return _workspace.CurrentSolution.GetDocument(existing.DocumentId)!;
                 }
 
-                solution = solution.RemoveDocument(existing.DocumentId);
+                staleOwnedDocument = existing;
                 _documents.TryRemove(uri, out _);
+            }
+
+            if (normalizedFilePath is not null &&
+                TryFindExistingDocument(solution, ownerProject, normalizedFilePath, out var existingDocument, out var existingOwnerProject))
+            {
+                solution = solution.WithDocumentText(existingDocument.Id, sourceText);
+                if (staleOwnedDocument is { } stale
+                    && stale.DocumentId != existingDocument.Id
+                    && solution.GetDocument(stale.DocumentId) is not null)
+                {
+                    solution = solution.RemoveDocument(stale.DocumentId);
+                }
+                _workspace.TryApplyChanges(solution);
+                _documents[uri] = new OwnedDocument(existingDocument.Id, existingOwnerProject);
+                return _workspace.CurrentSolution.GetDocument(existingDocument.Id)!;
+            }
+
+            if (staleOwnedDocument is { } staleDocument
+                && solution.GetDocument(staleDocument.DocumentId) is not null)
+            {
+                solution = solution.RemoveDocument(staleDocument.DocumentId);
             }
 
             var documentId = DocumentId.CreateNew(ownerProject);
@@ -79,6 +260,46 @@ internal sealed class WorkspaceManager
 
             return _workspace.CurrentSolution.GetDocument(documentId)!;
         }
+    }
+
+    private static bool TryFindExistingDocument(
+        Solution solution,
+        ProjectId preferredProjectId,
+        string normalizedFilePath,
+        out Document document,
+        out ProjectId ownerProjectId)
+    {
+        // Prefer a document that is already part of the resolved owner project.
+        var preferredProject = solution.GetProject(preferredProjectId);
+        if (preferredProject is not null)
+        {
+            var preferredMatch = preferredProject.Documents.FirstOrDefault(doc =>
+                !string.IsNullOrWhiteSpace(doc.FilePath) &&
+                string.Equals(NormalizePath(doc.FilePath), normalizedFilePath, StringComparison.OrdinalIgnoreCase));
+            if (preferredMatch is not null)
+            {
+                document = preferredMatch;
+                ownerProjectId = preferredProjectId;
+                return true;
+            }
+        }
+
+        foreach (var project in solution.Projects)
+        {
+            var match = project.Documents.FirstOrDefault(doc =>
+                !string.IsNullOrWhiteSpace(doc.FilePath) &&
+                string.Equals(NormalizePath(doc.FilePath), normalizedFilePath, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+            {
+                document = match;
+                ownerProjectId = project.Id;
+                return true;
+            }
+        }
+
+        document = null!;
+        ownerProjectId = default;
+        return false;
     }
 
     public bool TryGetDocument(DocumentUri uri, out Document? document)

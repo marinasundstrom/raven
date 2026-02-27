@@ -53,6 +53,7 @@ app.MapPost("/submit-async", async (content: string) => {
 
 app.Run()
 
+/// Test
 record class Data(Value: string)
 
 record class PingResult(Message: string)
