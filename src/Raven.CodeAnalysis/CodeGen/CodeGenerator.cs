@@ -792,7 +792,7 @@ internal class CodeGenerator
             };
 
             AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.EmitCoreAssembly);
-            ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
+            ModuleBuilder = DefineDynamicModuleWithSymbols(AssemblyBuilder, _compilation.AssemblyName);
             ApplyCustomAttributes(_compilation.Assembly.GetAttributes(), attribute => AssemblyBuilder.SetCustomAttribute(attribute));
 
             DetermineShimTypeRequirements();
@@ -1548,6 +1548,24 @@ internal class CodeGenerator
         // In case embedded in PE:
         // debugDirectoryBuilder.AddEmbeddedPortablePdbEntry(portablePdbBlob, portablePdbBuilder.FormatVersion);
         return debugDirectoryBuilder;
+    }
+
+    private static ModuleBuilder DefineDynamicModuleWithSymbols(PersistedAssemblyBuilder assemblyBuilder, string moduleName)
+    {
+        var overload = typeof(PersistedAssemblyBuilder).GetMethod(
+            "DefineDynamicModule",
+            BindingFlags.Instance | BindingFlags.Public,
+            binder: null,
+            types: new[] { typeof(string), typeof(bool) },
+            modifiers: null);
+
+        if (overload is not null &&
+            overload.Invoke(assemblyBuilder, new object[] { moduleName, true }) is ModuleBuilder withSymbols)
+        {
+            return withSymbols;
+        }
+
+        return assemblyBuilder.DefineDynamicModule(moduleName);
     }
 
     public bool TryGetRuntimeTypeForSymbol(INamedTypeSymbol symbol, out Type type)

@@ -602,11 +602,16 @@ string assemblyName;
 string outputDirectory;
 if (projectFileInput is not null)
 {
-    if (explicitOutputPath && Path.HasExtension(outputPath))
+    if (explicitOutputPath)
     {
-        AnsiConsole.MarkupLine("[red]For project-file inputs, -o/--output must be a directory path, not a file path.[/]");
-        Environment.ExitCode = 1;
-        return;
+        var outputExtension = Path.GetExtension(outputPath!);
+        if (string.Equals(outputExtension, ".dll", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(outputExtension, ".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            AnsiConsole.MarkupLine("[red]For project-file inputs, -o/--output must be a directory path, not a file path.[/]");
+            Environment.ExitCode = 1;
+            return;
+        }
     }
 
     var projectDirectory = Path.GetDirectoryName(projectFileInput)!;

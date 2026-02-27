@@ -35,7 +35,7 @@ func Main() -> () {
 record class User(Id: int, Name: string, Age: int, IsActive: bool)
 
 class AppDbContext : DbContext {
-    Users: DbSet<User> { get; set; }
+    var Users: DbSet<User> { get; set; }
 
     protected override func OnConfiguring(optionsBuilder: DbContextOptionsBuilder) -> () {
         optionsBuilder.UseInMemoryDatabase("Raven.ExpressionTrees.Stage1")

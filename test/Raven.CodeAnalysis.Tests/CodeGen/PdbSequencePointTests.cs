@@ -236,6 +236,29 @@ class C {
         peReader.Dispose();
     }
 
+    [Fact]
+    public void FunctionMethod_DoesNotEmitWideBlockSequencePoints()
+    {
+        var code = """
+class C {
+    func Compute() -> () {
+        val x = 1
+        val y = x + 2
+        val z = y + 3
+    }
+}
+""";
+
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code);
+        var method = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "C" && methodName == "Compute");
+
+        AssertMethodHasVisibleSequencePoint(pdbReader, method);
+        AssertMethodHasNoWideVisibleSequencePoint(pdbReader, method, maximumLineSpan: 2);
+
+        peReader.Dispose();
+    }
+
     private static (PEReader PeReader, MetadataReader MetadataReader, MetadataReader PdbReader) EmitWithPortablePdb(
         string source,
         CompilationOptions? options = null)
@@ -319,6 +342,21 @@ class C {
     {
         var points = GetVisibleSequencePoints(pdbReader, methodHandle).ToArray();
         Assert.Contains(points, p => p.StartLine == line);
+    }
+
+    private static void AssertMethodHasNoWideVisibleSequencePoint(
+        MetadataReader pdbReader,
+        MethodDefinitionHandle methodHandle,
+        int maximumLineSpan)
+    {
+        var points = GetVisibleSequencePoints(pdbReader, methodHandle).ToArray();
+        var widePoint = points.FirstOrDefault(point => point.EndLine - point.StartLine > maximumLineSpan);
+        if (!widePoint.Equals(default(SequencePoint)))
+        {
+            Assert.True(
+                false,
+                $"Unexpected wide sequence point found: {widePoint.StartLine}:{widePoint.StartColumn}-{widePoint.EndLine}:{widePoint.EndColumn}");
+        }
     }
 
     private static void AssertNoMethod(MetadataReader metadataReader, Func<string, string, bool> predicate)

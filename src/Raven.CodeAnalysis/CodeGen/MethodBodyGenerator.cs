@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 using Raven.CodeAnalysis;
@@ -26,7 +27,9 @@ internal class MethodBodyGenerator
     private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(ReferenceEqualityComparer.Instance);
     private ILLabel? _returnLabel;
     private IILocal? _returnValueLocal;
-    private readonly Dictionary<SyntaxTree, ISymbolDocumentWriter> _symbolDocuments = new();
+    private static readonly ConditionalWeakTable<ModuleBuilder, Dictionary<string, ISymbolDocumentWriter>> s_documentsByModule = new();
+    private SemanticModel[]? _allSemanticModels;
+    private SequencePointSignature? _lastSequencePoint;
     private bool _emittedMethodEntrySequencePoint;
     private static readonly Guid CSharpLanguageId = new("3f5162f8-07c6-11d3-9053-00c04fa302a1");
     private static readonly Guid DocumentTypeId = new("5a869d0b-6611-11d3-bd2a-0000f80849bd");
@@ -131,18 +134,36 @@ internal class MethodBodyGenerator
 
     private ISymbolDocumentWriter GetOrAddDocument(SyntaxTree syntaxTree)
     {
-        if (_symbolDocuments.TryGetValue(syntaxTree, out var document))
-            return document;
-
+        var key = GetDocumentKey(syntaxTree);
         var moduleBuilder = MethodGenerator.TypeGenerator.CodeGen.ModuleBuilder;
-        document = moduleBuilder.DefineDocument(syntaxTree.FilePath, CSharpLanguageId, DocumentVendorId, DocumentTypeId);
+        var documentMap = s_documentsByModule.GetValue(
+            moduleBuilder,
+            static _ => new Dictionary<string, ISymbolDocumentWriter>(StringComparer.OrdinalIgnoreCase));
 
-        var checksum = syntaxTree.GetText().GetChecksum();
-        if (!checksum.IsDefaultOrEmpty)
-            document.SetCheckSum(Sha256AlgorithmId, checksum.ToArray());
+        lock (documentMap)
+        {
+            if (documentMap.TryGetValue(key, out var cachedDocument))
+                return cachedDocument;
 
-        _symbolDocuments[syntaxTree] = document;
-        return document;
+            var document = moduleBuilder.DefineDocument(syntaxTree.FilePath, CSharpLanguageId, DocumentVendorId, DocumentTypeId);
+
+            var checksum = syntaxTree.GetText().GetChecksum();
+            if (!checksum.IsDefaultOrEmpty)
+                document.SetCheckSum(Sha256AlgorithmId, checksum.ToArray());
+
+            documentMap[key] = document;
+            return document;
+        }
+    }
+
+    private static string GetDocumentKey(SyntaxTree syntaxTree)
+    {
+        var filePath = syntaxTree.FilePath;
+        if (!string.IsNullOrWhiteSpace(filePath))
+            return Path.GetFullPath(filePath);
+
+        // Fallback for synthetic trees without a stable file path.
+        return $"<tree:{RuntimeHelpers.GetHashCode(syntaxTree)}>";
     }
 
     internal void EmitSequencePoint(BoundStatement statement)
@@ -156,6 +177,12 @@ internal class MethodBodyGenerator
 
     internal void EmitSequencePoint(SyntaxNode syntax)
     {
+        if (syntax is BlockStatementSyntax or BlockSyntax)
+            return;
+
+        syntax = NormalizeSequencePointSyntaxForEmission(syntax);
+        if (syntax is BlockStatementSyntax or BlockSyntax)
+            return;
         if (syntax.SyntaxTree is null)
             return;
 
@@ -169,24 +196,93 @@ internal class MethodBodyGenerator
         var document = GetOrAddDocument(syntax.SyntaxTree);
 
         var lineSpan = location.GetLineSpan();
+        var signature = new SequencePointSignature(
+            syntax.SyntaxTree.FilePath ?? string.Empty,
+            lineSpan.StartLinePosition.Line + 1,
+            lineSpan.StartLinePosition.Character + 1,
+            lineSpan.EndLinePosition.Line + 1,
+            lineSpan.EndLinePosition.Character + 1);
+        if (_lastSequencePoint is SequencePointSignature last && last == signature)
+            return;
+
+        if (string.Equals(Environment.GetEnvironmentVariable("RAVEN_SEQ_LOG"), "1", StringComparison.Ordinal))
+        {
+            var spanLines = lineSpan.EndLinePosition.Line - lineSpan.StartLinePosition.Line;
+            if (spanLines >= 8)
+            {
+                Console.Error.WriteLine(
+                    $"[SEQ-WIDE] method={MethodSymbol.Name} syntax={syntax.GetType().Name} span={lineSpan.StartLinePosition.Line + 1}:{lineSpan.StartLinePosition.Character + 1}-{lineSpan.EndLinePosition.Line + 1}:{lineSpan.EndLinePosition.Character + 1} file={syntax.SyntaxTree.FilePath}");
+            }
+        }
 
         ILGenerator.Emit(OpCodes.Nop);
         ILGenerator.MarkSequencePoint(document, lineSpan.StartLinePosition.Line + 1, lineSpan.StartLinePosition.Character + 1, lineSpan.EndLinePosition.Line + 1, lineSpan.EndLinePosition.Character + 1);
+        _lastSequencePoint = signature;
+    }
+
+    private readonly record struct SequencePointSignature(
+        string FilePath,
+        int StartLine,
+        int StartColumn,
+        int EndLine,
+        int EndColumn);
+
+    private static SyntaxNode NormalizeSequencePointSyntaxForEmission(SyntaxNode syntax)
+    {
+        return syntax switch
+        {
+            MethodDeclarationSyntax method => method.Body is { } methodBody && methodBody.Statements.Count > 0
+                ? methodBody.Statements[0]
+                : (SyntaxNode?)method.ExpressionBody?.Expression ?? method,
+            FunctionStatementSyntax function => function.Body is { } functionBody && functionBody.Statements.Count > 0
+                ? functionBody.Statements[0]
+                : (SyntaxNode?)function.ExpressionBody?.Expression ?? function,
+            CompilationUnitSyntax compilationUnit => (SyntaxNode?)GetTopLevelStatements(compilationUnit).FirstOrDefault() ?? compilationUnit,
+            ArrowExpressionClauseSyntax arrow => arrow.Expression,
+            LambdaExpressionSyntax lambda => lambda.ExpressionBody,
+            BlockSyntax block => block.Statements.Count > 0 ? block.Statements[0] : block,
+            _ => syntax
+        };
     }
 
     private SyntaxNode? TryGetSyntax(BoundNode node)
     {
         var syntaxRef = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
-        if (syntaxRef is null)
-            return null;
+        if (syntaxRef is not null)
+        {
+            var semanticModel = Compilation.GetSemanticModel(syntaxRef.SyntaxTree);
+            var syntax = semanticModel.GetSyntax(node);
+            if (syntax is not null)
+                return syntax;
+        }
 
-        var semanticModel = Compilation.GetSemanticModel(syntaxRef.SyntaxTree);
-        return semanticModel.GetSyntax(node);
+        // Synthesized entry points/top-level methods can be bound through a different
+        // semantic model than the method-declaring syntax reference. Search all source
+        // semantic models to recover source-mapped syntax for sequence points.
+        foreach (var semanticModel in GetAllSemanticModels())
+        {
+            var syntax = semanticModel.GetSyntax(node);
+            if (syntax is not null)
+                return syntax;
+        }
+
+        return null;
+    }
+
+    private SemanticModel[] GetAllSemanticModels()
+    {
+        if (_allSemanticModels is not null)
+            return _allSemanticModels;
+
+        _allSemanticModels = Compilation.SyntaxTrees
+            .Select(Compilation.GetSemanticModel)
+            .ToArray();
+        return _allSemanticModels;
     }
 
     private SyntaxNode? TryGetSequencePointSyntax(BoundStatement statement)
     {
-        var direct = TryGetSyntax(statement);
+        var direct = NormalizeSequencePointSyntax(TryGetSyntax(statement));
         if (direct is not null)
             return direct;
 
@@ -210,7 +306,7 @@ internal class MethodBodyGenerator
             _ => null
         };
 
-        return fallback ?? TryFindSequencePointSyntax(statement);
+        return NormalizeSequencePointSyntax(fallback ?? TryFindSequencePointSyntax(statement));
     }
 
     private SyntaxNode? TryFindSequencePointSyntax(BoundStatement statement)
@@ -218,6 +314,25 @@ internal class MethodBodyGenerator
         var finder = new SequencePointSyntaxFinder(this);
         finder.VisitStatement(statement);
         return finder.Result;
+    }
+
+    private static SyntaxNode? NormalizeSequencePointSyntax(SyntaxNode? syntax)
+    {
+        if (syntax is null)
+            return null;
+
+        return syntax switch
+        {
+            MethodDeclarationSyntax method => method.Body is { } methodBody
+                ? methodBody.Statements.FirstOrDefault()
+                : (SyntaxNode?)method.ExpressionBody?.Expression ?? method,
+            FunctionStatementSyntax function => function.Body is { } functionBody
+                ? functionBody.Statements.FirstOrDefault()
+                : (SyntaxNode?)function.ExpressionBody?.Expression ?? function,
+            CompilationUnitSyntax compilationUnit => (SyntaxNode?)GetTopLevelStatements(compilationUnit).FirstOrDefault() ?? compilationUnit,
+            BlockStatementSyntax => null,
+            _ => syntax
+        };
     }
 
     private sealed class SequencePointSyntaxFinder : BoundTreeWalker
@@ -3169,16 +3284,26 @@ internal class MethodBodyGenerator
     {
         static SyntaxNode? SelectBodySyntax(SyntaxNode? syntax)
         {
+            static SyntaxNode SelectFirstStatementOr(SyntaxNode fallback, SyntaxList<StatementSyntax> statements)
+                => statements.Count > 0 ? statements[0] : fallback;
+
             return syntax switch
             {
-                MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? (SyntaxNode?)method.ExpressionBody?.Expression ?? method,
-                FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? (SyntaxNode?)function.ExpressionBody?.Expression ?? function,
+                MethodDeclarationSyntax method => method.Body is { } methodBody
+                    ? SelectFirstStatementOr(methodBody, methodBody.Statements)
+                    : (SyntaxNode?)method.ExpressionBody?.Expression ?? method,
+                FunctionStatementSyntax function => function.Body is { } functionBody
+                    ? SelectFirstStatementOr(functionBody, functionBody.Statements)
+                    : (SyntaxNode?)function.ExpressionBody?.Expression ?? function,
                 AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? (SyntaxNode?)accessor.ExpressionBody?.Expression ?? accessor,
                 BaseConstructorDeclarationSyntax ctor => (SyntaxNode?)ctor.Body ?? (SyntaxNode?)ctor.ExpressionBody?.Expression ?? ctor,
                 ParameterlessConstructorDeclarationSyntax initDecl => (SyntaxNode?)initDecl.Body ?? (SyntaxNode?)initDecl.ExpressionBody?.Expression ?? initDecl,
                 FinallyDeclarationSyntax finalDecl => finalDecl.Body,
                 ArrowExpressionClauseSyntax arrow => arrow.Expression,
                 LambdaExpressionSyntax lambda => lambda.ExpressionBody,
+                CompilationUnitSyntax compilationUnit => GetTopLevelStatements(compilationUnit).FirstOrDefault() is { } topLevelStatement
+                    ? topLevelStatement
+                    : compilationUnit,
                 _ => syntax
             };
         }

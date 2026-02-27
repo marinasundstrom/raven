@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
@@ -235,6 +236,84 @@ function isWithinDirectory(candidatePath: string, directoryPath: string): boolea
   return normalizedCandidate.toLowerCase().startsWith(prefix.toLowerCase());
 }
 
+type OutputLayout = {
+  effectiveTargetPath: string;
+  targetIsProject: boolean;
+  outputDirectory: string;
+  outputDllPath: string;
+  workspaceFolder: string;
+  cwd: string;
+  targetFramework?: string;
+};
+
+function getContainingWorkspaceFolderPath(targetPath: string): string {
+  const targetDirectory = path.dirname(path.resolve(targetPath));
+  const containingWorkspace = vscode.workspace.workspaceFolders
+    ?.map(folder => folder.uri.fsPath)
+    .find(folderPath => isWithinDirectory(targetDirectory, folderPath));
+  return containingWorkspace ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? targetDirectory;
+}
+
+function hashPathForOutput(targetPath: string): string {
+  return crypto.createHash('sha256').update(path.resolve(targetPath)).digest('hex').slice(0, 12);
+}
+
+function normalizePathSegment(value: string): string {
+  const normalized = value.trim().replace(/[^A-Za-z0-9_-]/g, '_');
+  return normalized.length > 0 ? normalized : 'unknown';
+}
+
+function resolveOutputLayout(targetPath: string, configuration: 'Debug' | 'Release'): OutputLayout {
+  const effectiveTargetPath = resolveEffectiveTargetPath(targetPath);
+  const targetFramework = resolveTargetFramework(effectiveTargetPath);
+  const targetIsProject = path.extname(effectiveTargetPath).toLowerCase() === '.ravenproj';
+  const workspaceFolder = getContainingWorkspaceFolderPath(effectiveTargetPath);
+
+  if (targetIsProject) {
+    const projectDirectory = path.dirname(effectiveTargetPath);
+    const tfmSegment = normalizePathSegment(targetFramework ?? 'unknown-tfm');
+    const outputDirectory = path.join(projectDirectory, 'bin', configuration, tfmSegment);
+    return {
+      effectiveTargetPath,
+      targetIsProject,
+      outputDirectory,
+      outputDllPath: path.join(outputDirectory, `${getProjectAssemblyName(effectiveTargetPath)}.dll`),
+      workspaceFolder,
+      cwd: projectDirectory,
+      targetFramework
+    };
+  }
+
+  const fileBaseName = path.basename(effectiveTargetPath, path.extname(effectiveTargetPath));
+  const tfmSegment = normalizePathSegment(targetFramework ?? 'no-tfm');
+  const deterministicDirectory = `${fileBaseName}-${hashPathForOutput(effectiveTargetPath)}`;
+  const outputDirectory = path.join(workspaceFolder, '.raven-build', configuration, tfmSegment, deterministicDirectory);
+  return {
+    effectiveTargetPath,
+    targetIsProject,
+    outputDirectory,
+    outputDllPath: path.join(outputDirectory, `${fileBaseName}.dll`),
+    workspaceFolder,
+    cwd: path.dirname(effectiveTargetPath),
+    targetFramework
+  };
+}
+
+function writeBuildManifest(layout: OutputLayout, mode: 'build' | 'debug'): void {
+  const manifestPath = path.join(layout.outputDirectory, '.raven-build-manifest.json');
+  const manifest = {
+    mode,
+    targetPath: layout.effectiveTargetPath,
+    targetKind: layout.targetIsProject ? 'project' : 'file',
+    targetFramework: layout.targetFramework ?? null,
+    outputDirectory: layout.outputDirectory,
+    outputDllPath: layout.outputDllPath,
+    cwd: layout.cwd,
+    generatedAtUtc: new Date().toISOString()
+  };
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+}
+
 async function compileForDebug(targetPath: string): Promise<{ outputDllPath: string; cwd: string }> {
   const compilerProjectPath = resolveCompilerProjectPath();
   if (!compilerProjectPath) {
@@ -243,44 +322,32 @@ async function compileForDebug(targetPath: string): Promise<{ outputDllPath: str
     );
   }
 
-  const effectiveTargetPath = resolveEffectiveTargetPath(targetPath);
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? path.dirname(effectiveTargetPath);
-  const debugOutputDirectory = path.join(workspaceFolder, '.raven-debug');
-  fs.mkdirSync(debugOutputDirectory, { recursive: true });
-  const targetFramework = resolveTargetFramework(effectiveTargetPath);
-
-  const targetIsProject = path.extname(effectiveTargetPath).toLowerCase() === '.ravenproj';
-  const targetDirectory = path.dirname(effectiveTargetPath);
-  const outputArg = targetIsProject
-    ? path.join(targetDirectory, 'bin', 'Debug')
-    : path.join(
-      debugOutputDirectory,
-      `${path.basename(effectiveTargetPath, path.extname(effectiveTargetPath))}.dll`
-    );
-  if (targetIsProject) {
-    fs.mkdirSync(outputArg, { recursive: true });
+  const layout = resolveOutputLayout(targetPath, 'Debug');
+  if (fs.existsSync(layout.outputDirectory)) {
+    fs.rmSync(layout.outputDirectory, { recursive: true, force: true });
   }
+  fs.mkdirSync(layout.outputDirectory, { recursive: true });
 
   const dotnetArgs = [
     'run',
-    ...(targetFramework ? ['--framework', targetFramework] : []),
+    ...(layout.targetFramework ? ['--framework', layout.targetFramework] : []),
     '--project',
     compilerProjectPath,
     '--property',
     'WarningLevel=0',
     '--',
-    effectiveTargetPath,
-    ...(!targetIsProject ? ['--publish'] : []),
+    layout.effectiveTargetPath,
+    '--publish',
     '-o',
-    outputArg,
-    ...(targetFramework ? ['--framework', targetFramework] : [])
+    layout.outputDirectory,
+    ...(layout.targetFramework ? ['--framework', layout.targetFramework] : [])
   ];
 
   output.appendLine(`Compiling for debug: dotnet ${dotnetArgs.join(' ')}`);
 
   try {
     const { stdout, stderr } = await execFileAsync('dotnet', dotnetArgs, {
-      cwd: workspaceFolder,
+      cwd: layout.workspaceFolder,
       maxBuffer: 10 * 1024 * 1024
     });
 
@@ -297,30 +364,12 @@ async function compileForDebug(targetPath: string): Promise<{ outputDllPath: str
     throw new Error(`Raven compile failed. See the Raven output channel for details. ${e.message}`);
   }
 
-  const outputDllPath = targetIsProject
-    ? path.join(outputArg, `${getProjectAssemblyName(effectiveTargetPath)}.dll`)
-    : outputArg;
-
-  if (!fs.existsSync(outputDllPath)) {
-    throw new Error(`Compiled assembly not found at '${outputDllPath}'.`);
+  if (!fs.existsSync(layout.outputDllPath)) {
+    throw new Error(`Compiled assembly not found at '${layout.outputDllPath}'.`);
   }
 
-  return { outputDllPath, cwd: path.dirname(effectiveTargetPath) };
-}
-
-function resolveLaunchProgram(outputDllPath: string): { program: string; args: string[] } {
-  const siblingExecutable = outputDllPath.slice(0, -path.extname(outputDllPath).length);
-  if (fs.existsSync(siblingExecutable)) {
-    return {
-      program: siblingExecutable,
-      args: []
-    };
-  }
-
-  return {
-    program: 'dotnet',
-    args: [outputDllPath]
-  };
+  writeBuildManifest(layout, 'debug');
+  return { outputDllPath: layout.outputDllPath, cwd: layout.cwd };
 }
 
 async function buildTarget(targetPath: string): Promise<{ outputPath: string; cwd: string }> {
@@ -331,42 +380,29 @@ async function buildTarget(targetPath: string): Promise<{ outputPath: string; cw
     );
   }
 
-  const effectiveTargetPath = resolveEffectiveTargetPath(targetPath);
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? path.dirname(effectiveTargetPath);
-  const buildOutputDirectory = path.join(workspaceFolder, '.raven-build');
-  fs.mkdirSync(buildOutputDirectory, { recursive: true });
-  const targetFramework = resolveTargetFramework(effectiveTargetPath);
-
-  const targetIsProject = path.extname(effectiveTargetPath).toLowerCase() === '.ravenproj';
-  const targetDirectory = path.dirname(effectiveTargetPath);
-  const outputArg = targetIsProject
-    ? path.join(targetDirectory, 'bin', 'Debug')
-    : path.join(
-      buildOutputDirectory,
-      `${path.basename(effectiveTargetPath, path.extname(effectiveTargetPath))}.dll`
-    );
-
-  fs.mkdirSync(path.dirname(outputArg), { recursive: true });
+  const layout = resolveOutputLayout(targetPath, 'Debug');
+  fs.mkdirSync(layout.outputDirectory, { recursive: true });
+  const outputArg = layout.targetIsProject ? layout.outputDirectory : layout.outputDllPath;
 
   const dotnetArgs = [
     'run',
-    ...(targetFramework ? ['--framework', targetFramework] : []),
+    ...(layout.targetFramework ? ['--framework', layout.targetFramework] : []),
     '--project',
     compilerProjectPath,
     '--property',
     'WarningLevel=0',
     '--',
-    effectiveTargetPath,
+    layout.effectiveTargetPath,
     '-o',
     outputArg,
-    ...(targetFramework ? ['--framework', targetFramework] : [])
+    ...(layout.targetFramework ? ['--framework', layout.targetFramework] : [])
   ];
 
   output.appendLine(`Building Raven target: dotnet ${dotnetArgs.join(' ')}`);
 
   try {
     const { stdout, stderr } = await execFileAsync('dotnet', dotnetArgs, {
-      cwd: workspaceFolder,
+      cwd: layout.workspaceFolder,
       maxBuffer: 10 * 1024 * 1024
     });
 
@@ -383,11 +419,8 @@ async function buildTarget(targetPath: string): Promise<{ outputPath: string; cw
     throw new Error(`Raven build failed. See the Raven output channel for details. ${e.message}`);
   }
 
-  const outputPath = targetIsProject
-    ? path.join(outputArg, `${getProjectAssemblyName(effectiveTargetPath)}.dll`)
-    : outputArg;
-
-  return { outputPath, cwd: path.dirname(effectiveTargetPath) };
+  writeBuildManifest(layout, 'build');
+  return { outputPath: layout.outputDllPath, cwd: layout.cwd };
 }
 
 function resolveCommandTarget(uri?: vscode.Uri): string | undefined {
@@ -437,13 +470,12 @@ class RavenDebugConfigurationProvider implements vscode.DebugConfigurationProvid
       },
       async () => {
         const { outputDllPath, cwd } = await compileForDebug(targetPath);
-        const launch = resolveLaunchProgram(outputDllPath);
         return {
           name: config.name ?? 'Raven: Compile and Debug',
           type: 'coreclr',
           request: 'launch',
-          program: launch.program,
-          args: launch.args,
+          program: 'dotnet',
+          args: [outputDllPath],
           cwd,
           console: 'integratedTerminal',
           stopAtEntry: false,
@@ -563,13 +595,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('raven.build.clean', async (_uri?: vscode.Uri) => {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      const baseDirectory = workspaceFolder ?? process.cwd();
-      const buildDirectory = path.join(baseDirectory, '.raven-build');
-      const debugDirectory = path.join(baseDirectory, '.raven-debug');
       const removedPaths: string[] = [];
+      const workspaceFolders = vscode.workspace.workspaceFolders?.map(folder => folder.uri.fsPath)
+        ?? [process.cwd()];
 
-      for (const candidate of [buildDirectory, debugDirectory]) {
+      for (const workspaceFolder of workspaceFolders) {
+        const candidate = path.join(workspaceFolder, '.raven-build');
         if (!fs.existsSync(candidate)) {
           continue;
         }
