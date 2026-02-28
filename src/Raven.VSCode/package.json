@@ -131,6 +131,26 @@
           "type": "boolean",
           "default": false,
           "description": "Pause at program entry before user code runs when launching Raven debug sessions."
+        },
+        "raven.debugJustMyCode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use Just My Code when launching Raven debug sessions. Some Raven builds may be classified as non-user code by vsdbg when this is enabled."
+        },
+        "raven.debugModuleLoadMessages": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show module-load messages in the Debug Console for Raven debug sessions."
+        },
+        "raven.debugEngineLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose debugger engine logging for Raven debug sessions."
+        },
+        "raven.debugExcludeFrameworkModules": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exclude System.* and Microsoft.* modules from symbol loading to reduce framework symbol noise in Raven debug sessions."
         }
       }
     }

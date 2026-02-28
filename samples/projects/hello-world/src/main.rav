@@ -1,18 +1,38 @@
 import System.*
+import System.Console.*
 
 func Main() {
-    var value: Option<string> = Some("Hello, World!")
+    var value: Option<string> = GetMessage()
 
     match value {
-        Some(val v) => Console.WriteLine(v)
-        None => Console.WriteLine("None")
+        Some(val v) => WriteLine(v)
+        None => WriteLine("None")
     }
 
-    Test(2, 5)
+    Test2(2, 5)
+
+    val f = Foo()
+    f.Boo()
 }
 
-func Test(a: int, var b: int) {
+func GetMessage() -> Option<string> { Some("Hello, World!") }
+
+//func GetMessage() -> Option<string> => Some("Hello, World!")
+
+func Test2(a: int, var b: int) {
     //a = 1
     b = 3
-    Console.WriteLine(a + b)
+    WriteLine(a + b)
+}
+
+class Foo {
+    init() {
+        WriteLine("Hello")
+    }
+
+    val x: string = "string"
+
+    func Boo() {
+        WriteLine(x)
+    }
 }

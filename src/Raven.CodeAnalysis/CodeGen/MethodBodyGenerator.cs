@@ -30,6 +30,7 @@ internal class MethodBodyGenerator
     private static readonly ConditionalWeakTable<ModuleBuilder, Dictionary<string, ISymbolDocumentWriter>> s_documentsByModule = new();
     private SemanticModel[]? _allSemanticModels;
     private SequencePointSignature? _lastSequencePoint;
+    private readonly HashSet<SequencePointSignature> _emittedSequencePoints = new();
     private bool _emittedMethodEntrySequencePoint;
     private static readonly Guid CSharpLanguageId = new("3f5162f8-07c6-11d3-9053-00c04fa302a1");
     private static readonly Guid DocumentTypeId = new("5a869d0b-6611-11d3-bd2a-0000f80849bd");
@@ -203,8 +204,16 @@ internal class MethodBodyGenerator
             lineSpan.StartLinePosition.Character + 1,
             lineSpan.EndLinePosition.Line + 1,
             lineSpan.EndLinePosition.Character + 1);
+        if (_emittedSequencePoints.Contains(signature))
+            return;
+
         if (_lastSequencePoint is SequencePointSignature last && last == signature)
             return;
+        if (_lastSequencePoint is SequencePointSignature previous &&
+            IsWiderBackwardOverlap(previous, signature))
+        {
+            return;
+        }
 
         if (string.Equals(Environment.GetEnvironmentVariable("RAVEN_SEQ_LOG"), "1", StringComparison.Ordinal))
         {
@@ -219,6 +228,7 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Nop);
         ILGenerator.MarkSequencePoint(document, lineSpan.StartLinePosition.Line + 1, lineSpan.StartLinePosition.Character + 1, lineSpan.EndLinePosition.Line + 1, lineSpan.EndLinePosition.Character + 1);
         _lastSequencePoint = signature;
+        _emittedSequencePoints.Add(signature);
     }
 
     private readonly record struct SequencePointSignature(
@@ -227,6 +237,27 @@ internal class MethodBodyGenerator
         int StartColumn,
         int EndLine,
         int EndColumn);
+
+    private static bool IsWiderBackwardOverlap(SequencePointSignature previous, SequencePointSignature current)
+    {
+        if (!string.Equals(previous.FilePath, current.FilePath, StringComparison.Ordinal))
+            return false;
+
+        // Suppress broad spans emitted after narrower spans in the same method.
+        // This reduces debugger confusion where async/match lowering introduces overlaps.
+        return ComparePosition(current.StartLine, current.StartColumn, previous.StartLine, previous.StartColumn) <= 0 &&
+               ComparePosition(current.EndLine, current.EndColumn, previous.EndLine, previous.EndColumn) >= 0 &&
+               ComparePosition(current.StartLine, current.StartColumn, previous.EndLine, previous.EndColumn) < 0 &&
+               !current.Equals(previous);
+    }
+
+    private static int ComparePosition(int leftLine, int leftColumn, int rightLine, int rightColumn)
+    {
+        if (leftLine != rightLine)
+            return leftLine.CompareTo(rightLine);
+
+        return leftColumn.CompareTo(rightColumn);
+    }
 
     private static SyntaxNode NormalizeSequencePointSyntaxForEmission(SyntaxNode syntax)
     {
@@ -289,18 +320,21 @@ internal class MethodBodyGenerator
 
         var fallback = statement switch
         {
-            BoundExpressionStatement expressionStatement => TryGetSyntax(expressionStatement.Expression),
-            BoundAssignmentStatement assignmentStatement => TryGetSyntax(assignmentStatement.Expression),
+            BoundExpressionStatement expressionStatement => TryGetSyntax(expressionStatement)
+                ?? TryGetSyntax(expressionStatement.Expression),
+            BoundAssignmentStatement assignmentStatement => TryGetSyntax(assignmentStatement)
+                ?? TryGetSyntax(assignmentStatement.Expression),
             BoundReturnStatement { Expression: not null } returnStatement => TryGetSyntax(returnStatement.Expression),
             BoundThrowStatement { Expression: not null } throwStatement => TryGetSyntax(throwStatement.Expression),
             BoundIfStatement ifStatement => TryGetSyntax(ifStatement.Condition)
                 ?? TryGetSequencePointSyntax(ifStatement.ThenNode)
                 ?? (ifStatement.ElseNode is null ? null : TryGetSequencePointSyntax(ifStatement.ElseNode)),
-            BoundLocalDeclarationStatement localDeclaration => localDeclaration.Declarators
-                .Select(static d => d.Initializer)
-                .Where(static i => i is not null)
-                .Select(i => TryGetSyntax(i!))
-                .FirstOrDefault(s => s is not null),
+            BoundLocalDeclarationStatement localDeclaration => TryGetSyntax(localDeclaration)
+                ?? localDeclaration.Declarators
+                    .Select(static d => d.Initializer)
+                    .Where(static i => i is not null)
+                    .Select(i => TryGetSyntax(i!))
+                    .FirstOrDefault(s => s is not null),
             BoundBlockStatement block => block.Statements
                 .Select(TryGetSequencePointSyntax)
                 .FirstOrDefault(s => s is not null),
@@ -317,21 +351,36 @@ internal class MethodBodyGenerator
         return finder.Result;
     }
 
-    private static SyntaxNode? NormalizeSequencePointSyntax(SyntaxNode? syntax)
+    private SyntaxNode? NormalizeSequencePointSyntax(SyntaxNode? syntax)
     {
         if (syntax is null)
             return null;
 
+        var statementSyntax = syntax.AncestorsAndSelf()
+            .OfType<StatementSyntax>()
+            .FirstOrDefault(static statement => statement is
+                ExpressionStatementSyntax or
+                LocalDeclarationStatementSyntax or
+                AssignmentStatementSyntax or
+                ReturnStatementSyntax or
+                ThrowStatementSyntax or
+                UseDeclarationStatementSyntax);
+        if (statementSyntax is not null && CanLiftToStatement(statementSyntax))
+            return statementSyntax;
+
         // For expression statements, prefer statement-level mapping so debugger
         // highlighting covers the full executable line.
         var invocation = syntax.AncestorsAndSelf().OfType<InvocationExpressionSyntax>().FirstOrDefault();
-        if (invocation?.Parent is ExpressionStatementSyntax invocationStatement)
+        if (invocation?.Parent is ExpressionStatementSyntax invocationStatement &&
+            CanLiftToInvocationStatement(invocationStatement))
             return invocationStatement;
 
         // Otherwise, when syntax mapping lands on a nested node inside an invocation
         // (for example the receiver identifier `Console`), lift to the invocation
         // expression to avoid token-only highlighting.
-        if (invocation is not null && !ReferenceEquals(invocation, syntax))
+        if (invocation is not null &&
+            !ReferenceEquals(invocation, syntax) &&
+            CanLiftToInvocationExpression(invocation))
             return invocation;
 
         return syntax switch
@@ -342,10 +391,68 @@ internal class MethodBodyGenerator
             FunctionStatementSyntax function => function.Body is { } functionBody
                 ? functionBody.Statements.FirstOrDefault()
                 : (SyntaxNode?)function.ExpressionBody?.Expression ?? function,
+            LambdaExpressionSyntax lambda => lambda.ExpressionBody switch
+            {
+                BlockSyntax block when block.Statements.Count > 0 => block.Statements[0],
+                _ => lambda.ExpressionBody
+            },
             CompilationUnitSyntax compilationUnit => (SyntaxNode?)GetTopLevelStatements(compilationUnit).FirstOrDefault() ?? compilationUnit,
             BlockStatementSyntax => null,
             _ => syntax
         };
+    }
+
+    private bool CanLiftToInvocationStatement(ExpressionStatementSyntax invocationStatement)
+    {
+        if (!CanLiftToStatement(invocationStatement))
+            return false;
+
+        if (MethodSymbol.MethodKind != MethodKind.LambdaMethod)
+            return true;
+
+        if (!TryGetCurrentLambdaSyntax(out var lambdaSyntax))
+            return true;
+
+        return lambdaSyntax.Span.Contains(invocationStatement.Span);
+    }
+
+    private bool CanLiftToInvocationExpression(InvocationExpressionSyntax invocation)
+    {
+        if (MethodSymbol.MethodKind == MethodKind.LambdaMethod &&
+            TryGetCurrentLambdaSyntax(out var lambdaSyntax) &&
+            !lambdaSyntax.Span.Contains(invocation.Span))
+        {
+            return false;
+        }
+
+        if (MethodSymbol.MethodKind != MethodKind.LambdaMethod)
+            return true;
+
+        if (!TryGetCurrentLambdaSyntax(out lambdaSyntax))
+            return true;
+
+        return lambdaSyntax.Span.Contains(invocation.Span);
+    }
+
+    private bool CanLiftToStatement(StatementSyntax statementSyntax)
+    {
+        if (MethodSymbol.MethodKind != MethodKind.LambdaMethod)
+            return true;
+
+        if (!TryGetCurrentLambdaSyntax(out var lambdaSyntax))
+            return true;
+
+        return lambdaSyntax.Span.Contains(statementSyntax.Span);
+    }
+
+    private bool TryGetCurrentLambdaSyntax(out LambdaExpressionSyntax lambdaSyntax)
+    {
+        lambdaSyntax = MethodSymbol.DeclaringSyntaxReferences
+            .Select(static r => r.GetSyntax())
+            .OfType<LambdaExpressionSyntax>()
+            .FirstOrDefault()!;
+
+        return lambdaSyntax is not null;
     }
 
     private sealed class SequencePointSyntaxFinder : BoundTreeWalker

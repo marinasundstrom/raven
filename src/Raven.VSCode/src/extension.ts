@@ -470,7 +470,35 @@ class RavenDebugConfigurationProvider implements vscode.DebugConfigurationProvid
       },
       async () => {
         const { outputDllPath, cwd } = await compileForDebug(targetPath);
-        const stopAtEntry = vscode.workspace.getConfiguration('raven').get<boolean>('debugStopAtEntry', false);
+        const ravenConfiguration = vscode.workspace.getConfiguration('raven');
+        const stopAtEntry = ravenConfiguration.get<boolean>('debugStopAtEntry', false);
+        const justMyCode = ravenConfiguration.get<boolean>('debugJustMyCode', false);
+        const moduleLoadMessages = ravenConfiguration.get<boolean>('debugModuleLoadMessages', false);
+        const engineLogging = ravenConfiguration.get<boolean>('debugEngineLogging', false);
+        const excludeFrameworkModules = ravenConfiguration.get<boolean>('debugExcludeFrameworkModules', true);
+
+        const symbolOptions: {
+          searchMicrosoftSymbolServer: boolean;
+          searchNuGetOrgSymbolServer: boolean;
+          moduleFilter?: {
+            mode: string;
+            excludedModules: string[];
+          };
+        } = {
+          searchMicrosoftSymbolServer: false,
+          searchNuGetOrgSymbolServer: false
+        };
+
+        if (excludeFrameworkModules) {
+          symbolOptions.moduleFilter = {
+            mode: 'loadAllButExcluded',
+            excludedModules: [
+              'System.*',
+              'Microsoft.*'
+            ]
+          };
+        }
+
         return {
           name: config.name ?? 'Raven: Compile and Debug',
           type: 'coreclr',
@@ -480,8 +508,13 @@ class RavenDebugConfigurationProvider implements vscode.DebugConfigurationProvid
           cwd,
           console: 'integratedTerminal',
           stopAtEntry,
-          justMyCode: false,
-          requireExactSource: false
+          justMyCode,
+          requireExactSource: false,
+          logging: {
+            moduleLoad: moduleLoadMessages,
+            engineLogging
+          },
+          symbolOptions
         };
       }
     );

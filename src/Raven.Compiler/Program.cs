@@ -1496,7 +1496,21 @@ static void CopyNuGetReferencesToOutput(Project project, string targetFramework,
 
         if (!string.Equals(runtimePath, destination, StringComparison.OrdinalIgnoreCase))
             File.Copy(runtimePath, destination, overwrite: true);
+
+        CopyDependencySidecarFile(runtimePath, outputDirectory, ".pdb");
+        CopyDependencySidecarFile(runtimePath, outputDirectory, ".xml");
     }
+}
+
+static void CopyDependencySidecarFile(string assemblyPath, string outputDirectory, string extension)
+{
+    var sidecarPath = Path.ChangeExtension(assemblyPath, extension);
+    if (!File.Exists(sidecarPath))
+        return;
+
+    var destinationPath = Path.Combine(outputDirectory, Path.GetFileName(sidecarPath));
+    if (!string.Equals(sidecarPath, destinationPath, StringComparison.OrdinalIgnoreCase))
+        File.Copy(sidecarPath, destinationPath, overwrite: true);
 }
 
 static string ResolveNuGetRuntimeAssemblyPath(string referencePath, string targetFramework)

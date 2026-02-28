@@ -422,7 +422,25 @@ class RavenDebugConfigurationProvider {
             title: `Compiling ${path.basename(resolveEffectiveTargetPath(targetPath))}`
         }, async () => {
             const { outputDllPath, cwd } = await compileForDebug(targetPath);
-            const stopAtEntry = vscode.workspace.getConfiguration('raven').get('debugStopAtEntry', false);
+            const ravenConfiguration = vscode.workspace.getConfiguration('raven');
+            const stopAtEntry = ravenConfiguration.get('debugStopAtEntry', false);
+            const justMyCode = ravenConfiguration.get('debugJustMyCode', false);
+            const moduleLoadMessages = ravenConfiguration.get('debugModuleLoadMessages', false);
+            const engineLogging = ravenConfiguration.get('debugEngineLogging', false);
+            const excludeFrameworkModules = ravenConfiguration.get('debugExcludeFrameworkModules', true);
+            const symbolOptions = {
+                searchMicrosoftSymbolServer: false,
+                searchNuGetOrgSymbolServer: false
+            };
+            if (excludeFrameworkModules) {
+                symbolOptions.moduleFilter = {
+                    mode: 'loadAllButExcluded',
+                    excludedModules: [
+                        'System.*',
+                        'Microsoft.*'
+                    ]
+                };
+            }
             return {
                 name: config.name ?? 'Raven: Compile and Debug',
                 type: 'coreclr',
@@ -432,8 +450,13 @@ class RavenDebugConfigurationProvider {
                 cwd,
                 console: 'integratedTerminal',
                 stopAtEntry,
-                justMyCode: false,
-                requireExactSource: false
+                justMyCode,
+                requireExactSource: false,
+                logging: {
+                    moduleLoad: moduleLoadMessages,
+                    engineLogging
+                },
+                symbolOptions
             };
         });
     }
