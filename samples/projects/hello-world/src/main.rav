@@ -12,6 +12,7 @@ func Main() {
     Test2(2, 5)
 
     val f = Foo()
+    f.Bar += (s, args) => WriteLine("Hey")
     f.Boo()
 }
 
@@ -26,7 +27,7 @@ func Test2(a: int, var b: int) {
 }
 
 class Foo {
-    init() {
+    init {
         WriteLine("Hello")
     }
 
@@ -34,5 +35,8 @@ class Foo {
 
     func Boo() {
         WriteLine(x)
+        Bar?(self, EventArgs.Empty)
     }
+
+    event Bar: EventHandler?
 }
