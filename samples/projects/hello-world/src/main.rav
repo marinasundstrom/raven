@@ -2,7 +2,7 @@ import System.*
 import System.Console.*
 
 func Main() {
-    var value: Option<string> = GetMessage()
+    val value = GetMessage()
 
     match value {
         Some(val v) => WriteLine(v)
@@ -11,7 +11,9 @@ func Main() {
 
     Test2(2, 5)
 
-    val f = Foo()
+    val f = Foo("Alice")
+    WriteLine(f.Name)
+
     f.Bar += (s, args) => WriteLine("Hey")
     f.Boo()
 }
@@ -25,16 +27,18 @@ func Test2(a: int, var b: int) {
     b = 3
     WriteLine(a + b)
 }
-
-class Foo {
-    init {
+class Foo(name: string) {
+    {
         WriteLine("Hello")
+        Name = name
     }
 
-    val x: string = "string"
+    private val foo: int = 2
+
+    val Name: string = "string"
 
     func Boo() {
-        WriteLine(x)
+        WriteLine(Name)
         Bar?(self, EventArgs.Empty)
     }
 
