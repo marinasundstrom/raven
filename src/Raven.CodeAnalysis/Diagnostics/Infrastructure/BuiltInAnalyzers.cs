@@ -1,3 +1,5 @@
+using System.Linq;
+
 using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Diagnostics;
@@ -6,28 +8,38 @@ public static class BuiltInAnalyzers
 {
     public static Project AddBuiltInAnalyzers(this Project project, bool enableSuggestions = false)
     {
-        project = project
-            .AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new NonNullDeclarationsAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new MatchExhaustivenessAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new AutoPropertyInitializationAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new PreferNewLineBetweenDeclarationsAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new ThrowStatementUseResultAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new MemberCanBePrivateAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new MemberCanBeStaticAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new UnusedPropertyAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new UnusedMethodAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new RedundantAccessorDeclarationAnalyzer()));
+        project = AddAnalyzerIfMissing<MissingReturnTypeAnnotationAnalyzer>(project);
+        project = AddAnalyzerIfMissing<EventDelegateMustBeNullableAnalyzer>(project);
+        project = AddAnalyzerIfMissing<NonNullDeclarationsAnalyzer>(project);
+        project = AddAnalyzerIfMissing<VarCanBeValAnalyzer>(project);
+        project = AddAnalyzerIfMissing<MatchExhaustivenessAnalyzer>(project);
+        project = AddAnalyzerIfMissing<PreferValInsteadOfLetAnalyzer>(project);
+        project = AddAnalyzerIfMissing<AutoPropertyInitializationAnalyzer>(project);
+        project = AddAnalyzerIfMissing<PreferNewLineBetweenDeclarationsAnalyzer>(project);
+        project = AddAnalyzerIfMissing<ThrowStatementUseResultAnalyzer>(project);
+        project = AddAnalyzerIfMissing<MemberCanBePrivateAnalyzer>(project);
+        project = AddAnalyzerIfMissing<MemberCanBeStaticAnalyzer>(project);
+        project = AddAnalyzerIfMissing<UnusedPropertyAnalyzer>(project);
+        project = AddAnalyzerIfMissing<UnusedMethodAnalyzer>(project);
+        project = AddAnalyzerIfMissing<PreferDuLinqExtensionsAnalyzer>(project);
+        project = AddAnalyzerIfMissing<RedundantAccessorDeclarationAnalyzer>(project);
 
         if (!enableSuggestions)
             return project;
 
-        return project
-            .AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseAnalyzer()))
-            .AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer()));
+        project = AddAnalyzerIfMissing<PreferTargetTypedUnionCaseAnalyzer>(project);
+        return AddAnalyzerIfMissing<PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer>(project);
+    }
+
+    private static Project AddAnalyzerIfMissing<TAnalyzer>(Project project)
+        where TAnalyzer : DiagnosticAnalyzer, new()
+    {
+        var exists = project.AnalyzerReferences
+            .SelectMany(static reference => reference.GetAnalyzers())
+            .Any(analyzer => analyzer is TAnalyzer);
+
+        return exists
+            ? project
+            : project.AddAnalyzerReference(new AnalyzerReference(new TAnalyzer()));
     }
 }

@@ -151,4 +151,25 @@ func F() -> unit { }
 
         diagnostics.Count.ShouldBe(1);
     }
+
+    [Fact]
+    public void AddBuiltInAnalyzers_WhenCalledMultipleTimes_DoesNotDuplicateReferences()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddBuiltInAnalyzers(enableSuggestions: true);
+        workspace.TryApplyChanges(project.Solution);
+        var countAfterFirstCall = workspace.CurrentSolution.GetProject(projectId)!.AnalyzerReferences.Count;
+
+        project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddBuiltInAnalyzers(enableSuggestions: true);
+        workspace.TryApplyChanges(project.Solution);
+        var countAfterSecondCall = workspace.CurrentSolution.GetProject(projectId)!.AnalyzerReferences.Count;
+
+        Assert.Equal(countAfterFirstCall, countAfterSecondCall);
+    }
 }

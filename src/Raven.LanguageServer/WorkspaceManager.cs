@@ -9,6 +9,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.LanguageServer;
@@ -100,6 +101,7 @@ internal sealed class WorkspaceManager
 
         var projectId = projectSystem.OpenProject(_workspace, normalizedProjectPath);
         EnsureRavenCoreReference(projectId);
+        EnsureBuiltInAnalyzers(projectId);
         loadedProjects[normalizedProjectPath] = projectId;
         stack.Remove(normalizedProjectPath);
         return projectId;
@@ -135,6 +137,21 @@ internal sealed class WorkspaceManager
             "Added Raven.Core metadata reference '{ReferencePath}' for opened project '{ProjectName}'.",
             ravenCoreReferencePath,
             project.Name);
+    }
+
+    private void EnsureBuiltInAnalyzers(ProjectId projectId)
+    {
+        var project = _workspace.CurrentSolution.GetProject(projectId);
+        if (project is null)
+            return;
+
+        var updatedProject = project.AddBuiltInAnalyzers(enableSuggestions: true);
+        if (_workspace.TryApplyChanges(updatedProject.Solution))
+        {
+            _logger.LogDebug(
+                "Registered built-in analyzers for project '{ProjectName}'.",
+                project.Name);
+        }
     }
 
     private static IEnumerable<string> EnumerateProjectReferences(string projectFilePath)
@@ -433,6 +450,7 @@ internal sealed class WorkspaceManager
         }
 
         _workspace.TryApplyChanges(solution);
+        EnsureBuiltInAnalyzers(projectId);
         return projectId;
     }
 
