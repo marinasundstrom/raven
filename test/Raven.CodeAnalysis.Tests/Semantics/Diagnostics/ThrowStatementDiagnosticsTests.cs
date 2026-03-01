@@ -18,7 +18,7 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.ThrowExpressionMustBeException.Id).WithSpan(2, 11, 2, 13).WithArguments("42")
+                new DiagnosticResult(CompilerDiagnostics.ThrowExpressionMustBeException.Id).WithSpan(2, 11, 2, 13).WithArguments("int")
             ]);
 
         verifier.Verify();
@@ -36,7 +36,7 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.ThrowExpressionMustBeException.Id).WithSpan(2, 33, 2, 35).WithArguments("42")
+                new DiagnosticResult(CompilerDiagnostics.ThrowExpressionMustBeException.Id).WithSpan(2, 33, 2, 35).WithArguments("int")
             ]);
 
         verifier.Verify();

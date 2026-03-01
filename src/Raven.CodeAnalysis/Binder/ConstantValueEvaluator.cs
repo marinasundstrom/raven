@@ -98,6 +98,13 @@ internal static class ConstantValueEvaluator
             case SpecialType.System_Char when value is char charValue:
                 converted = charValue;
                 return true;
+            case SpecialType.System_Char:
+                if (TryConvertUnsignedIntegral(value, char.MaxValue, out var unsignedChar))
+                {
+                    converted = (char)unsignedChar;
+                    return true;
+                }
+                break;
             case SpecialType.System_SByte:
                 if (TryConvertSignedIntegral(value, sbyte.MinValue, sbyte.MaxValue, out var signedSByte))
                 {

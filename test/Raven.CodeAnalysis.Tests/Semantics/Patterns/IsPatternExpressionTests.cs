@@ -19,7 +19,7 @@ func Test(x: object?) {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("true", "(int, int)")]);
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("bool", "(int, int)")]);
 
         verifier.Verify();
     }

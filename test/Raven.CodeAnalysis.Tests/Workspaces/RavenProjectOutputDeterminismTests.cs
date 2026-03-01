@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace Raven.CodeAnalysis.Tests.Workspaces;
 
@@ -84,8 +85,21 @@ public sealed class RavenProjectOutputDeterminismTests
         };
 
         using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start dotnet process.");
-        var stdoutTask = process.StandardOutput.ReadToEndAsync();
-        var stderrTask = process.StandardError.ReadToEndAsync();
+        var stdoutBuilder = new StringBuilder();
+        var stderrBuilder = new StringBuilder();
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data is not null)
+                stdoutBuilder.AppendLine(e.Data);
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data is not null)
+                stderrBuilder.AppendLine(e.Data);
+        };
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
         const int timeoutMilliseconds = 120_000;
         if (!process.WaitForExit(timeoutMilliseconds))
         {
@@ -98,13 +112,15 @@ public sealed class RavenProjectOutputDeterminismTests
                 // Ignore kill failures in test teardown paths.
             }
 
-            var timedOutStdOut = stdoutTask.GetAwaiter().GetResult();
-            var timedOutStdErr = stderrTask.GetAwaiter().GetResult();
+            _ = process.WaitForExit(5_000);
+            var timedOutStdOut = stdoutBuilder.ToString();
+            var timedOutStdErr = stderrBuilder.ToString();
             return (-1, timedOutStdOut, $"{timedOutStdErr}{Environment.NewLine}Timed out after {timeoutMilliseconds}ms.");
         }
 
-        var stdout = stdoutTask.GetAwaiter().GetResult();
-        var stderr = stderrTask.GetAwaiter().GetResult();
+        _ = process.WaitForExit(5_000);
+        var stdout = stdoutBuilder.ToString();
+        var stderr = stderrBuilder.ToString();
         return (process.ExitCode, stdout, stderr);
     }
 

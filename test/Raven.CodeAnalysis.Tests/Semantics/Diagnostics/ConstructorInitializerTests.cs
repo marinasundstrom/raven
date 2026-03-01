@@ -66,7 +66,7 @@ class Derived : Base {
         var verifier = CreateVerifier(
             code,
             expectedDiagnostics: [
-                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(6, 25, 6, 31).WithArguments("\"text\"", "int")
+                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(6, 25, 6, 31).WithArguments("string", "int")
             ]);
 
         verifier.Verify();

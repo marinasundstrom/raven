@@ -84,7 +84,7 @@ text.
         var code = """
 import System.*;
 
-val literal: "foo" = "foo";
+val literal = "foo";
 literal.
 """;
 

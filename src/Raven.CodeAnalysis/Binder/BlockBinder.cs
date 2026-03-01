@@ -272,8 +272,7 @@ partial class BlockBinder : Binder
             boundInitializer = BindLambdaToDelegateIfNeeded(boundInitializer, type);
             if (!IsAssignable(type, boundInitializer, out var conversion))
             {
-                if (isConst &&
-                    initializer is not null &&
+                if (initializer is not null &&
                     ConstantValueEvaluator.TryEvaluate(initializer.Value, out var evaluated) &&
                     ConstantValueEvaluator.TryConvert(type, evaluated, out var converted))
                 {
@@ -3262,7 +3261,27 @@ partial class BlockBinder : Binder
             if (pattern is BoundConstantPattern { Expression: null, ConstantValue: null })
                 return true;
 
-            // Defensive: treat expression-backed `NullType` as null too
+            // Expression-backed null literals are also exhaustive for null.
+            if (pattern is BoundConstantPattern
+                {
+                    Expression: BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral }
+                })
+            {
+                return true;
+            }
+
+            if (pattern is BoundConstantPattern
+                {
+                    Expression: BoundConversionExpression
+                    {
+                        Expression: BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral }
+                    }
+                })
+            {
+                return true;
+            }
+
+            // Defensive: treat expression-backed `NullType` as null too.
             if (pattern is BoundConstantPattern { Expression: BoundTypeExpression { Type: NullTypeSymbol } })
                 return true;
 
@@ -3591,9 +3610,25 @@ partial class BlockBinder : Binder
             case BoundConstantPattern constant:
                 {
                     // Expression-backed value patterns may depend on runtime values and must not
-                    // participate in compile-time coverage reasoning.
+                    // participate in compile-time coverage reasoning. Null constants are still
+                    // compile-time exhaustive for the null member in nullable unions.
                     if (constant.Expression is not null)
+                    {
+                        if (IsNullLiteralPatternExpression(constant.Expression))
+                        {
+                            foreach (var candidate in remaining.ToArray())
+                            {
+                                var candidateType = UnwrapAlias(candidate);
+                                if (candidateType.TypeKind == TypeKind.Null)
+                                {
+                                    remaining.Remove(candidate);
+                                    literalCoverage?.Remove(candidate);
+                                }
+                            }
+                        }
+
                         break;
+                    }
 
                     // Defensive: literal-backed patterns should always have a literal type.
                     if (constant.LiteralType is null)
@@ -3651,6 +3686,14 @@ partial class BlockBinder : Binder
                     break;
                 }
         }
+
+        static bool IsNullLiteralPatternExpression(BoundExpression expression)
+            => expression switch
+            {
+                BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral } => true,
+                BoundConversionExpression conversion => IsNullLiteralPatternExpression(conversion.Expression),
+                _ => false
+            };
     }
 
     private void RemoveCoveredCases(
