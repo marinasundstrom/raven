@@ -23,6 +23,7 @@ public static class BuiltInAnalyzers
         project = AddAnalyzerIfMissing<UnusedMethodAnalyzer>(project);
         project = AddAnalyzerIfMissing<PreferDuLinqExtensionsAnalyzer>(project);
         project = AddAnalyzerIfMissing<RedundantAccessorDeclarationAnalyzer>(project);
+        project = AddAnalyzerIfMissing<StringConcatenationAnalyzer>(project);
 
         if (!enableSuggestions)
             return project;

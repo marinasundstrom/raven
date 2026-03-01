@@ -21,6 +21,7 @@ public static class BuiltInCodeFixProviders
             new PreferDuLinqExtensionsCodeFixProvider(),
             new PreferIsNullOverEqualityCodeFixProvider(),
             new RedundantAccessorDeclarationCodeFixProvider(),
+            new StringConcatenationToInterpolatedStringCodeFixProvider(),
         ];
     }
 }
