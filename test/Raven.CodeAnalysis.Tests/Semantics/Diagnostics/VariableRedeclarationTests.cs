@@ -90,7 +90,7 @@ func Main() {
         var code = """
 func Main() {
     val b = 0
-    if true {
+    {
         b
         val b = 1
     }

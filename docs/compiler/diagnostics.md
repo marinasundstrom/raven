@@ -54,6 +54,7 @@ Return/throw context note:
 | `RAV0171` | Error | Const field requires a constant initializer | '{name}' must be initialized with a compile-time constant. | — |
 | `RAV0172` | Error | Const field initializer cannot be converted | The value for '{name}' cannot be converted to '{typeName}'. | — |
 | `RAV0173` | Error | Const field requires an initializer | '{name}' must have an initializer. | — |
+| `RAV0174` | Error | Use before declaration | '{name}' is used before it is declared. | — |
 | `RAV0191` | Error | A readonly field cannot be assigned to (except in a constructor or a variable initializer) | A readonly field cannot be assigned to (except in a constructor or a variable initializer) | — |
 | `RAV0200` | Error | '{name}' is read-only and cannot be assigned to. | '{name}' is read-only and cannot be assigned to. | — |
 | `RAV0201` | Error | Event can only be used with '+=' or '-=' | The event '{name}' can only appear on the left hand side of '+=' or '-=' | `samples/oop/event-basic.rav` |

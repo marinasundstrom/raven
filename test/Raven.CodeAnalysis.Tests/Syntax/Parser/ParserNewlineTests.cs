@@ -637,6 +637,29 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void ExpressionFollowedByNewlineBlock_ParsesAsSeparateBlockStatement()
+    {
+        var syntaxTree = SyntaxTree.ParseText(
+            """
+            func Main() {
+                val b = 0
+                {
+                    val c = b
+                }
+            }
+            """);
+
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+        var global = Assert.IsType<GlobalStatementSyntax>(root.Members.Single());
+        var function = Assert.IsType<FunctionStatementSyntax>(global.Statement);
+        var body = Assert.IsType<BlockStatementSyntax>(function.Body);
+
+        body.Statements.Count.ShouldBe(2);
+        Assert.IsType<LocalDeclarationStatementSyntax>(body.Statements[0]);
+        Assert.IsType<BlockStatementSyntax>(body.Statements[1]);
+    }
+
+    [Fact]
     public void SkipUntil_AtEndOfFile_ReturnsNoneToken()
     {
         var source = string.Empty;

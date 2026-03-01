@@ -1081,6 +1081,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
             else if (token.IsKind(SyntaxKind.OpenBraceToken)) // Object initializer trailer (SwiftUI/Flutter-style)
             {
+                // A newline before '{' starts a new statement-level block scope.
+                // Keep object-initializer trailers as same-line syntax.
+                if (HasLeadingNewLine(token))
+                    return expr;
+
                 // Treat `<expr> { ... }` as an invocation with a missing argument list plus an initializer.
                 // This enables: `Window { ... }` where `Window` is parsed as an IdentifierName.
 

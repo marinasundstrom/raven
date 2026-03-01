@@ -290,12 +290,15 @@ Statement                ::= LocalDeclaration
                            | BreakStatement
                            | ContinueStatement
                            | FunctionStatement
+                           | BlockStatement
                            | IfStatement
                            | WhileStatement
                            | ForStatement
                            | TryStatement
                            | AssignmentStatement
                            | ExpressionStatement ;
+
+BlockStatement           ::= Block ;
 
 LocalDeclaration         ::= ('let' | 'val' | 'var' | 'const') LocalVariableDeclarators ;
 LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarator} ;
@@ -318,7 +321,8 @@ ExpressionStatement      ::= Expression ;
 
 IfStatement              ::= 'if' Expression Statement ['else' Statement] ;
 
-(* NOTE: In statement headers, the following '{' begins the statement body and is not parsed as an ObjectInitializer trailer.
+(* NOTE: In statement contexts, '{' that starts a new statement (for example after a newline,
+   or after headers such as if/while/for) begins a block statement/body and is not parsed as an ObjectInitializer trailer.
    This disambiguation is performed by the parser (context-sensitive), not by this EBNF. *)
 WhileStatement           ::= 'while' Expression Statement ;
 ForStatement             ::= 'await'? 'for' 'each'? ForIterationVariable? 'in' Expression ForStepClause? Statement ;

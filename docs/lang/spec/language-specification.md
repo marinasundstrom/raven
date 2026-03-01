@@ -1209,7 +1209,7 @@ Content entries use one of the following binding rules:
 If more than one content entry is provided for a type that uses the Content property convention, the compiler reports `RAV1505`.
 
 
-> 🧭 **Disambiguation:** The grammar permits an initializer trailer after any invocation, but in statement headers such as `if`, `while`, and `for`, the `{` token begins the statement body and is not parsed as an object initializer trailer. This is a context-sensitive parsing rule.
+> 🧭 **Disambiguation:** The grammar permits an initializer trailer after any invocation, but a `{` that starts a new statement (for example in statement headers such as `if`/`while`/`for`, or after a newline) begins a block statement/body and is not parsed as an object initializer trailer. This is a context-sensitive parsing rule.
 
 > ℹ️ **Info:** The Content property convention is intended to support DSL-style UI composition (for example SwiftUI/Flutter-like syntax). Container types that accept multiple children should expose a collection-like API (for example `Add(TChild)` or a `Children` collection) instead of `Content`.
 
@@ -1757,8 +1757,8 @@ A block is an expression; its value is the value of its last expression
 ```
 
 When the same brace form appears in statement position (for example, as the body
-of an `if` statement or loop), it is bound as a block statement and its expression
-results are discarded.
+of an `if` statement or loop, or as a standalone scoped `{ ... }` statement), it is
+bound as a block statement and its expression results are discarded.
 
 ### `if` expression
 
