@@ -5238,6 +5238,144 @@ partial class BlockBinder : Binder
         return expression.Type is null || expression.Type.TypeKind == TypeKind.Error;
     }
 
+    private static bool IsSameSyntaxNode(SyntaxNode left, SyntaxNode right)
+    {
+        return left.Kind == right.Kind &&
+               left.Span == right.Span &&
+               ReferenceEquals(left.SyntaxTree, right.SyntaxTree);
+    }
+
+    private bool TryGetLaterLocalDeclaration(IdentifierNameSyntax usage, string name, out VariableDeclaratorSyntax declaration)
+    {
+        declaration = null!;
+
+        for (SyntaxNode? current = usage; current is not null; current = current.Parent)
+        {
+            if (current is VariableDeclaratorSyntax currentDeclarator &&
+                currentDeclarator.Parent is VariableDeclarationSyntax variableDeclaration &&
+                TryFindLaterDeclarator(variableDeclaration.Declarators, currentDeclarator, name, out declaration))
+            {
+                return true;
+            }
+
+            if (current is StatementSyntax currentStatement)
+            {
+                if (currentStatement.Parent is BlockStatementSyntax blockStatement &&
+                    TryFindLaterDeclarator(blockStatement.Statements, currentStatement, name, out declaration))
+                {
+                    return true;
+                }
+
+                if (currentStatement.Parent is BlockSyntax blockExpression &&
+                    TryFindLaterDeclarator(blockExpression.Statements, currentStatement, name, out declaration))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryFindLaterDeclarator(
+        SeparatedSyntaxList<VariableDeclaratorSyntax> declarators,
+        VariableDeclaratorSyntax currentDeclarator,
+        string name,
+        out VariableDeclaratorSyntax declaration)
+    {
+        declaration = null!;
+
+        var currentIndex = -1;
+        for (var i = 0; i < declarators.Count; i++)
+        {
+            if (IsSameSyntaxNode(declarators[i], currentDeclarator))
+            {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        if (currentIndex < 0)
+            return false;
+
+        for (var i = currentIndex + 1; i < declarators.Count; i++)
+        {
+            var candidate = declarators[i];
+            if (candidate.Identifier.IsMissing || IsDiscardDeclarator(candidate))
+                continue;
+
+            if (string.Equals(candidate.Identifier.ValueText, name, StringComparison.Ordinal))
+            {
+                declaration = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryFindLaterDeclarator(
+        SyntaxList<StatementSyntax> statements,
+        StatementSyntax currentStatement,
+        string name,
+        out VariableDeclaratorSyntax declaration)
+    {
+        declaration = null!;
+
+        var currentIndex = -1;
+        for (var i = 0; i < statements.Count; i++)
+        {
+            if (IsSameSyntaxNode(statements[i], currentStatement))
+            {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        if (currentIndex < 0)
+            return false;
+
+        for (var i = currentIndex + 1; i < statements.Count; i++)
+        {
+            if (TryFindDeclaratorInStatement(statements[i], name, out declaration))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryFindDeclaratorInStatement(
+        StatementSyntax statement,
+        string name,
+        out VariableDeclaratorSyntax declaration)
+    {
+        declaration = null!;
+
+        VariableDeclarationSyntax? variableDeclaration = statement switch
+        {
+            LocalDeclarationStatementSyntax local => local.Declaration,
+            UseDeclarationStatementSyntax use => use.Declaration,
+            _ => null
+        };
+
+        if (variableDeclaration is null)
+            return false;
+
+        foreach (var declarator in variableDeclaration.Declarators)
+        {
+            if (declarator.Identifier.IsMissing || IsDiscardDeclarator(declarator))
+                continue;
+
+            if (string.Equals(declarator.Identifier.ValueText, name, StringComparison.Ordinal))
+            {
+                declaration = declarator;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax, bool allowEventAccess = false)
     {
         var name = syntax.Identifier.ValueText;
@@ -5253,6 +5391,14 @@ partial class BlockBinder : Binder
                 CacheBoundNode(syntax, error);
                 return error;
             }
+        }
+
+        if (TryGetLaterLocalDeclaration(syntax, name, out _))
+        {
+            _diagnostics.ReportVariableUsedBeforeDeclaration(name, syntax.Identifier.GetLocation());
+            var error = ErrorExpression(reason: BoundExpressionReason.NotFound);
+            CacheBoundNode(syntax, error);
+            return error;
         }
 
         var symbol = LookupSymbol(name);

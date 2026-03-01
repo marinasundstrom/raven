@@ -67,4 +67,43 @@ func demo(x: int) {
             ]);
         verifier.Verify();
     }
+
+    [Fact]
+    public void VariableUseBeforeDeclaration_ReportsError()
+    {
+        var code = """
+func Main() {
+    x
+    val x = 1
+}
+""";
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics: [
+                new DiagnosticResult(CompilerDiagnostics.VariableUsedBeforeDeclaration.Id).WithSpan(2, 5, 2, 6).WithArguments("x")
+            ]);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void VariableUseBeforeDeclarationShadowsOuterVariable_ReportsError()
+    {
+        var code = """
+func Main() {
+    val b = 0
+    if true {
+        b
+        val b = 1
+    }
+}
+""";
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics: [
+                new DiagnosticResult(CompilerDiagnostics.VariableUsedBeforeDeclaration.Id).WithSpan(4, 9, 4, 10).WithArguments("b"),
+                new DiagnosticResult(CompilerDiagnostics.VariableShadowsPreviousDeclaration.Id)
+                    .WithSpan(5, 13, 5, 14)
+                    .WithArguments("b")
+                    .WithSeverity(DiagnosticSeverity.Warning)
+            ]);
+        verifier.Verify();
+    }
 }
