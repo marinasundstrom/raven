@@ -2932,7 +2932,7 @@ internal partial class TypeMemberBinder : Binder
                 binders[accessor] = bodyBinder;
                 if (accessor.ExpressionBody is not null)
                 {
-                    _ = bodyBinder.GetOrBind(accessor.ExpressionBody.Expression);
+                    _ = bodyBinder.GetOrBind(accessor.ExpressionBody);
                     foreach (var diagnostic in bodyBinder.Diagnostics.AsEnumerable())
                         _diagnostics.Report(diagnostic);
                 }

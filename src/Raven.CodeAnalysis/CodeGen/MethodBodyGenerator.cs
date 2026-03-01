@@ -702,11 +702,14 @@ internal class MethodBodyGenerator
             OperatorDeclarationSyntax o when o.Body != null => semanticModel.GetBoundNode(o.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             ConversionOperatorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            FunctionStatementSyntax l when l.ExpressionBody is not null => GetLoweredArrowExpressionBody(semanticModel, l.ExpressionBody),
             BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             ParameterlessConstructorDeclarationSyntax i when i.Body != null => semanticModel.GetBoundNode(i.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             InitializerBlockDeclarationSyntax i when i.Body != null => semanticModel.GetBoundNode(i.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             FinallyDeclarationSyntax f when f.Body != null => semanticModel.GetBoundNode(f.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            AccessorDeclarationSyntax a when a.ExpressionBody is not null => GetLoweredArrowExpressionBody(semanticModel, a.ExpressionBody),
+            PropertyDeclarationSyntax p when p.ExpressionBody is not null => GetLoweredArrowExpressionBody(semanticModel, p.ExpressionBody),
             _ => null
         };
 
@@ -977,7 +980,7 @@ internal class MethodBodyGenerator
 
                         if (MethodSymbol.MethodKind == MethodKind.PropertyGet)
                         {
-                            new ExpressionGenerator(baseGenerator, expressionBody).Emit();
+                            EmitExpressionBody(expressionBody, includeReturn: false);
                         }
                         else
                         {
@@ -1013,13 +1016,16 @@ internal class MethodBodyGenerator
                 }
 
             case PropertyDeclarationSyntax propertyDeclaration:
-                if (expressionBody is not null)
+                if (boundBody != null)
+                {
+                    EmitMethodBlock(boundBody);
+                }
+                else if (expressionBody is not null)
                 {
                     if (expressionBodySyntax is not null)
                         EmitSequencePoint(expressionBodySyntax);
 
-                    new ExpressionGenerator(baseGenerator, expressionBody).Emit();
-                    ILGenerator.Emit(OpCodes.Ret);
+                    EmitExpressionBody(expressionBody);
                 }
                 else
                 {
@@ -3307,6 +3313,20 @@ internal class MethodBodyGenerator
 
         if (includeReturn)
             ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private BoundBlockStatement? GetLoweredArrowExpressionBody(SemanticModel semanticModel, ArrowExpressionClauseSyntax expressionBody)
+    {
+        if (semanticModel.GetBoundNode(expressionBody, BoundTreeView.Original) is not BoundBlockStatement originalBody)
+            return null;
+
+        if (MethodSymbol is SourceMethodSymbol sourceMethod &&
+            AsyncLowerer.ShouldRewrite(sourceMethod, originalBody))
+        {
+            return AsyncLowerer.Rewrite(sourceMethod, originalBody);
+        }
+
+        return Lowerer.LowerBlock(MethodSymbol, originalBody);
     }
 
     private void EmitExpressionStatement(BoundExpression expression)

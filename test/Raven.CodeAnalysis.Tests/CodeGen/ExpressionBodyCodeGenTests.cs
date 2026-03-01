@@ -64,4 +64,147 @@ class Foo : IDisposable {
         Assert.Equal(new[] { "Init", "Dispose" }, output);
     }
 
+    [Fact]
+    public void FunctionStatementExpressionBody_ReturnsExpectedValue()
+    {
+        const string code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+class Program {
+    public static func Run() -> string {
+        func GetMessage() -> Option<string> => Some("Hello, World!")
+
+        val message = GetMessage()
+        return message match {
+            Some(val value) => value
+            None => "<none>"
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create(
+                "function-statement-expression-body",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var runMethod = programType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(runMethod);
+
+        var output = runMethod!.Invoke(null, Array.Empty<object?>());
+        Assert.Equal("Hello, World!", output);
+    }
+
+    [Fact]
+    public void PropertyGetterAccessorExpressionBody_ReturnsExpectedValue()
+    {
+        const string code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+class Holder {
+    public val Message: Option<string> {
+        get => Some("Hello, World!")
+    }
+}
+
+class Program {
+    public static func Run() -> string {
+        val holder = Holder()
+        val message = holder.Message
+        return message match {
+            Some(val value) => value
+            None => "<none>"
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create(
+                "property-get-expression-body",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var runMethod = programType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(runMethod);
+
+        var output = runMethod!.Invoke(null, Array.Empty<object?>());
+        Assert.Equal("Hello, World!", output);
+    }
+
+    [Fact]
+    public void PropertyExpressionBody_ReturnsExpectedValue()
+    {
+        const string code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+class Holder {
+    public val Message: Option<string> => Some("Hello, World!")
+}
+
+class Program {
+    public static func Run() -> string {
+        val holder = Holder()
+        val message = holder.Message
+        return message match {
+            Some(val value) => value
+            None => "<none>"
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create(
+                "property-expression-body",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var runMethod = programType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(runMethod);
+
+        var output = runMethod!.Invoke(null, Array.Empty<object?>());
+        Assert.Equal("Hello, World!", output);
+    }
+
 }
