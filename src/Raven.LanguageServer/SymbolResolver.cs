@@ -73,6 +73,9 @@ internal static class SymbolResolver
         if (TryResolveTypePositionSymbol(semanticModel, node, token, out var typePositionSymbol))
             return typePositionSymbol;
 
+        if (TryResolveMemberSegmentSymbol(semanticModel, node, token, out var memberSegmentSymbol))
+            return memberSegmentSymbol;
+
         if (node is ParameterSyntax parameterDeclaration && token == parameterDeclaration.Identifier)
             return semanticModel.GetDeclaredSymbol(parameterDeclaration);
 
@@ -100,6 +103,65 @@ internal static class SymbolResolver
         };
 
         return ProjectSymbolForDisplay(operationSymbol);
+    }
+
+    private static bool TryResolveMemberSegmentSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        SyntaxNode? targetNode = node switch
+        {
+            MemberBindingExpressionSyntax memberBinding
+                when memberBinding.Name.Span.Contains(token.Span) || memberBinding.OperatorToken == token => memberBinding,
+            IdentifierNameSyntax identifier
+                when identifier.Parent is MemberBindingExpressionSyntax memberBinding &&
+                     memberBinding.Name == identifier => memberBinding,
+            MemberAccessExpressionSyntax memberAccess
+                when memberAccess.Name.Span.Contains(token.Span) || memberAccess.OperatorToken == token => memberAccess,
+            IdentifierNameSyntax identifier
+                when identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
+                     memberAccess.Name == identifier => memberAccess,
+            _ => null
+        };
+
+        if (targetNode is null)
+            return false;
+
+        var directInfo = semanticModel.GetSymbolInfo(targetNode);
+        if (directInfo.Symbol is not null || !directInfo.CandidateSymbols.IsDefaultOrEmpty)
+        {
+            symbol = ChoosePreferredSymbol(directInfo.Symbol, directInfo.CandidateSymbols, targetNode);
+            symbol = ProjectSymbolForDisplay(symbol);
+            return symbol is not null;
+        }
+
+        foreach (var conditionalAccess in targetNode.AncestorsAndSelf().OfType<ConditionalAccessExpressionSyntax>())
+        {
+            if (!conditionalAccess.WhenNotNull.Span.Contains(token.Span))
+                continue;
+
+            var operation = semanticModel.GetOperation(conditionalAccess);
+            var referenced = FindReferencedSymbolAtToken(operation, token.Span);
+            if (referenced is not null)
+            {
+                symbol = ProjectSymbolForDisplay(referenced);
+                return true;
+            }
+        }
+
+        var fallbackOperation = semanticModel.GetOperation(targetNode);
+        var fallbackSymbol = FindReferencedSymbolAtToken(fallbackOperation, token.Span);
+        if (fallbackSymbol is not null)
+        {
+            symbol = ProjectSymbolForDisplay(fallbackSymbol);
+            return true;
+        }
+
+        return false;
     }
 
     private static bool TryResolveTypePositionSymbol(
@@ -191,6 +253,34 @@ internal static class SymbolResolver
         }
 
         return symbol;
+    }
+
+    private static ISymbol? FindReferencedSymbolAtToken(IOperation? operation, TextSpan tokenSpan)
+    {
+        if (operation is null || !operation.Syntax.Span.Contains(tokenSpan))
+            return null;
+
+        ISymbol? current = operation switch
+        {
+            IFieldReferenceOperation fieldReference => fieldReference.Field,
+            IPropertyReferenceOperation propertyReference => propertyReference.Property,
+            IMethodReferenceOperation methodReference => methodReference.Method,
+            IMemberReferenceOperation memberReference => memberReference.Symbol,
+            IInvocationOperation invocation => invocation.TargetMethod,
+            _ => null
+        };
+
+        foreach (var child in operation.ChildOperations)
+        {
+            if (!child.Syntax.Span.Contains(tokenSpan))
+                continue;
+
+            var childSymbol = FindReferencedSymbolAtToken(child, tokenSpan);
+            if (childSymbol is not null)
+                return childSymbol;
+        }
+
+        return current;
     }
 
     private static bool TryResolveInvocationTargetSymbol(
