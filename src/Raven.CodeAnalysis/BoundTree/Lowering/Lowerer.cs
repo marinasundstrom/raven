@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -364,24 +365,79 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         // First lower/visit the RHS so nested initializers are lowered too.
         var loweredValue = (BoundExpression)VisitExpression(entry.Value)!;
 
-        var value = ApplyConversionIfNeeded(loweredValue, GetMemberType(entry.Member, compilation), compilation);
-
         switch (entry.Member)
         {
             case IPropertySymbol property:
                 {
+                    var value = LowerObjectInitializerAssignedValue(receiver, property, entry.OperatorTokenKind, loweredValue, compilation);
                     var assignment = compilation.BoundNodeFactory.CreatePropertyAssignmentExpression(receiver, property, value);
                     return new BoundExpressionStatement(assignment);
                 }
             case IFieldSymbol field:
                 {
+                    var value = LowerObjectInitializerAssignedValue(receiver, field, entry.OperatorTokenKind, loweredValue, compilation);
                     var assignment = compilation.BoundNodeFactory.CreateFieldAssignmentExpression(receiver, field, value);
                     return new BoundExpressionStatement(assignment);
                 }
+            case IEventSymbol eventSymbol:
+                {
+                    var accessor = entry.OperatorTokenKind == SyntaxKind.PlusEqualsToken
+                        ? eventSymbol.AddMethod
+                        : eventSymbol.RemoveMethod;
+
+                    if (accessor is null)
+                        return new BoundExpressionStatement(loweredValue);
+
+                    var arg = ApplyConversionIfNeeded(loweredValue, eventSymbol.Type, compilation);
+                    var invocation = compilation.BoundNodeFactory.CreateInvocationExpression(accessor, [arg], receiver);
+                    return new BoundExpressionStatement(invocation);
+                }
             default:
-                // Should not happen; binder only produces property/field assignments.
-                return new BoundExpressionStatement(value);
+                // Should not happen; binder only produces property/field/event entries.
+                return new BoundExpressionStatement(loweredValue);
         }
+    }
+
+    private static BoundExpression LowerObjectInitializerAssignedValue(
+        BoundExpression receiver,
+        ISymbol member,
+        SyntaxKind operatorTokenKind,
+        BoundExpression loweredRight,
+        Compilation compilation)
+    {
+        var targetType = GetMemberType(member, compilation);
+
+        if (operatorTokenKind == SyntaxKind.EqualsToken)
+            return ApplyConversionIfNeeded(loweredRight, targetType, compilation);
+
+        var binaryOperatorKind = GetBinaryOperatorFromAssignment(operatorTokenKind);
+        if (binaryOperatorKind is null)
+            return ApplyConversionIfNeeded(loweredRight, targetType, compilation);
+
+        var left = new BoundMemberAccessExpression(receiver, member);
+        var preparedRight = ApplyConversionIfNeeded(loweredRight, targetType, compilation);
+
+        if (!BoundBinaryOperator.TryLookup(compilation, binaryOperatorKind.Value, left.Type!, preparedRight.Type!, out var binaryOperator))
+            return ApplyConversionIfNeeded(loweredRight, targetType, compilation);
+
+        var binary = compilation.BoundNodeFactory.CreateBinaryExpression(left, binaryOperator, preparedRight);
+        return ApplyConversionIfNeeded(binary, targetType, compilation);
+    }
+
+    private static SyntaxKind? GetBinaryOperatorFromAssignment(SyntaxKind assignmentOperatorKind)
+    {
+        return assignmentOperatorKind switch
+        {
+            SyntaxKind.PlusEqualsToken => SyntaxKind.PlusToken,
+            SyntaxKind.MinusEqualsToken => SyntaxKind.MinusToken,
+            SyntaxKind.StarEqualsToken => SyntaxKind.StarToken,
+            SyntaxKind.SlashEqualsToken => SyntaxKind.SlashToken,
+            SyntaxKind.AmpersandEqualsToken => SyntaxKind.AmpersandToken,
+            SyntaxKind.BarEqualsToken => SyntaxKind.BarToken,
+            SyntaxKind.CaretEqualsToken => SyntaxKind.CaretToken,
+            SyntaxKind.QuestionQuestionEqualsToken => SyntaxKind.QuestionQuestionToken,
+            _ => null
+        };
     }
 
     private BoundStatement LowerObjectInitializerContentEntry(

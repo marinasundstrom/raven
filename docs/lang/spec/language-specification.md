@@ -1183,7 +1183,10 @@ val settings = Settings {
 
 Initializer bodies consist of a sequence of **entries**. Entries may be mixed freely and appear in source order:
 
-* **Property entries** assign to a writable property or field using `Name = Expression`.
+* **Member entries** assign to a writable property, field, or event using `Name <assignment-operator> Expression`.
+  * `=` is valid for writable fields/properties.
+  * Compound assignment operators (for example `+=`) are supported and are evaluated as member compound assignment on the initialized instance.
+  * Events use `+=` / `-=` in initializer context, matching statement assignment rules.
 * **Content entries** are standalone expressions, typically nested object constructions such as `Button { ... }`.
 
 ```raven
@@ -1196,6 +1199,14 @@ val window = Window {
     Height = 600
 
     Button { Text = "Cancel" }
+}
+```
+
+Event subscription is valid in object initializers:
+
+```raven
+val button = Button {
+    Clicked += () => WriteLine("clicked")
 }
 ```
 

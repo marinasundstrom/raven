@@ -2517,8 +2517,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private ObjectInitializerEntrySyntax ParseObjectInitializerEntry()
     {
-        // Entry kind is decided by lookahead: <identifier> '=' ...
-        if (CanTokenBeIdentifier(PeekToken()) && PeekToken(1).IsKind(SyntaxKind.EqualsToken))
+        // Entry kind is decided by lookahead: <identifier> assignment-operator ...
+        if (CanTokenBeIdentifier(PeekToken()) && IsAssignmentOperator(PeekToken(1).Kind))
         {
             var nameToken = ReadToken();
             if (nameToken.Kind != SyntaxKind.IdentifierToken)
@@ -2528,7 +2528,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
 
             var name = IdentifierName(nameToken);
-            var equalsToken = ReadToken();
+            var operatorToken = ReadToken();
 
             var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
@@ -2540,7 +2540,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 TryConsumeTerminator(out terminatorToken);
             }
 
-            return ObjectInitializerAssignmentEntry(name, equalsToken, expression, terminatorToken);
+            return ObjectInitializerAssignmentEntry(name, operatorToken, expression, terminatorToken);
         }
         else
         {

@@ -538,7 +538,7 @@ ObjectInitializerEntry    ::= ObjectInitializerAssignmentEntry
                             | ObjectInitializerExpressionEntry ;
 
 ObjectInitializerAssignmentEntry
-                           ::= Identifier '=' Expression ObjectInitializerTerminator? ;
+                           ::= Identifier AssignmentOperator Expression ObjectInitializerTerminator? ;
 
 ObjectInitializerExpressionEntry
                            ::= Expression ObjectInitializerTerminator? ;

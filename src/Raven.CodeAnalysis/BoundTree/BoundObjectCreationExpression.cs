@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+
+using Raven.CodeAnalysis.Syntax;
 namespace Raven.CodeAnalysis;
 
 internal partial class BoundObjectCreationExpression : BoundExpression
@@ -46,17 +48,24 @@ internal abstract partial class BoundObjectInitializerEntry : BoundNode
 }
 
 /// <summary>
-/// A property/field assignment entry: <c>Name = Expression</c>
+/// A member assignment entry: <c>Name = Expression</c> or <c>Name op= Expression</c>.
 /// </summary>
 internal sealed partial class BoundObjectInitializerAssignmentEntry : BoundObjectInitializerEntry
 {
     public ISymbol Member { get; }
+    public SyntaxKind OperatorTokenKind { get; }
     public BoundExpression Value { get; }
 
-    public BoundObjectInitializerAssignmentEntry(ISymbol member, BoundExpression value)
+    public BoundObjectInitializerAssignmentEntry(ISymbol member, SyntaxKind operatorTokenKind, BoundExpression value)
     {
         Member = member;
+        OperatorTokenKind = operatorTokenKind;
         Value = value;
+    }
+
+    public BoundObjectInitializerAssignmentEntry(ISymbol member, BoundExpression value)
+        : this(member, SyntaxKind.EqualsToken, value)
+    {
     }
 }
 

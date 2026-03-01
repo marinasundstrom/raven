@@ -1,5 +1,5 @@
-using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -134,5 +134,45 @@ class Button {
         var symbol = model.GetSymbolInfo(identifier).Symbol;
         var referencedEvent = Assert.IsAssignableFrom<IEventSymbol>(symbol);
         Assert.True(SymbolEqualityComparer.Default.Equals(declaredEvent, referencedEvent));
+    }
+
+    [Fact]
+    public void ObjectInitializer_EventSubscription_WithPlusEquals_BindsWithoutDiagnostics()
+    {
+        const string code = """
+class Button {
+    event Clicked: System.Action;
+}
+
+func Build(handler: System.Action) -> Button {
+    return Button() {
+        Clicked += handler
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ObjectInitializer_EventAssignment_WithEquals_ReportsDiagnostic()
+    {
+        const string code = """
+class Button {
+    event Clicked: System.Action;
+}
+
+func Build(handler: System.Action) -> Button {
+    return Button() {
+        Clicked = handler
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            [new DiagnosticResult("RAV0201").WithAnySpan().WithArguments("Clicked")]);
+
+        verifier.Verify();
     }
 }

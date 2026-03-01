@@ -1,46 +1,50 @@
 import System.*
 import System.Console.*
 
-func Main() {
-    val value = GetMessage()
+func Main() -> Result<int, Err> {
+    val userOrError = GetUser()
 
-    match value {
-        Some(val v) => WriteLine(v)
-        None => WriteLine("None")
-    }
+    val text =
+    userOrError
+        |> EnsureActive
+        |> x => x match {
+            Ok(val u) => u.Name
+            Error(val e) => "ERR: " + e.ToString()
+        }
+        |> Normalize
 
-    Test2(2, 5)
+    Ok(0)
 
-    val f = Foo("Alice")
-    WriteLine(f.Name)
-
-    f.Bar += (s, args) => WriteLine("Hey")
-    f.Boo()
+    //val len = GetUser()?.Name?.Length?
+    //return Ok(len + 1)
 }
 
-func GetMessage() -> Option<string> { Some("Hello, World!") }
-
-//func GetMessage() -> Option<string> => Some("Hello, World!")
-
-func Test2(a: int, var b: int) {
-    //a = 1
-    b = 3
-    WriteLine(a + b)
+func f(x: Option<int>) {
+    
 }
-class Foo(name: string) {
-    {
-        WriteLine("Hello")
-        Name = name
+
+func EnsureActive(user: Result<User, Err>) -> Result<User, Err> => 
+    user match {
+        Ok(val v) when v.IsActive => Ok(v)
+        Ok(val v2) => Error(Err.InactiveUser)
+        Error(val e) => Error(e)
     }
 
-    private val foo: int = 2
 
-    val Name: string = "string"
+func Normalize(userName: string) -> string => userName
 
-    func Boo() {
-        WriteLine(Name)
-        Bar?(self, EventArgs.Empty)
-    }
 
-    event Bar: EventHandler?
+func GetUser() -> Result<User, Err> {
+    Ok(User("Foo", IsActive: true))
+    return Error(Err.MissingUser)
+}
+
+record class User(Name: string, IsActive: bool) {
+    event Foo: EventHandler?
+}
+
+union Err {
+    MissingUser
+    MissingName
+    InactiveUser
 }

@@ -170,4 +170,97 @@ class Program {
 
         Assert.Equal(1, resultValue);
     }
+
+    [Fact]
+    public void ObjectInitializer_EventAdd_WiresHandler()
+    {
+        var code = """
+class Button {
+    event Clicked: System.Action;
+
+    func Raise() -> unit {
+        Clicked()
+    }
+}
+
+class Counter {
+    static var Hits: int = 0
+
+    static func Inc() -> unit {
+        Hits += 1
+    }
+}
+
+class Program {
+    static func Run() -> int {
+        Counter.Hits = 0
+        val button = Button() {
+            Clicked += () => Counter.Inc()
+        }
+
+        button.Raise()
+        return Counter.Hits
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Program", throwOnError: true)!;
+        var runMethod = type.GetMethod("Run")!;
+        var resultValue = runMethod.Invoke(null, Array.Empty<object>())!;
+
+        Assert.Equal(1, resultValue);
+    }
+
+    [Fact]
+    public void ObjectInitializer_CompoundAssignment_OnProperty_EmitsAndRuns()
+    {
+        var code = """
+class Counter {
+    var Value: int { get; set; }
+}
+
+class Program {
+    static func Run() -> int {
+        val counter = Counter() {
+            Value += 2
+            Value *= 3
+        }
+
+        return counter.Value
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Program", throwOnError: true)!;
+        var runMethod = type.GetMethod("Run")!;
+        var resultValue = runMethod.Invoke(null, Array.Empty<object>())!;
+
+        Assert.Equal(6, resultValue);
+    }
 }
