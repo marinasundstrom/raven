@@ -1,46 +1,36 @@
 import System.*
 import System.Console.*
 
-func Main() -> Result<int, Err> {
+func Main() -> Result<(), Err> {
     val userOrError = GetUser()
-
-    val text =
-    userOrError
-        |> EnsureActive
-        |> x => x match {
-            Ok(val u) => u.Name
-            Error(val e) => "ERR: " + e.ToString()
-        }
-        |> Normalize
-
-    Ok(0)
-
-    //val len = GetUser()?.Name?.Length?
-    //return Ok(len + 1)
-}
-
-func f(x: Option<int>) {
     
-}
-
-func EnsureActive(user: Result<User, Err>) -> Result<User, Err> => 
-    user match {
-        Ok(val v) when v.IsActive => Ok(v)
-        Ok(val v2) => Error(Err.InactiveUser)
-        Error(val e) => Error(e)
+    match userOrError {
+        Ok(val user) => {
+            user.Foo += (s, args) => WriteLine(args.Arg)
+            user.RaiseEvent("Test")
+        }
+        Error(var error) => WriteLine(error)
     }
 
-
-func Normalize(userName: string) -> string => userName
-
+    return Ok
+}
 
 func GetUser() -> Result<User, Err> {
     Ok(User("Foo", IsActive: true))
-    return Error(Err.MissingUser)
+    //return Error(Err.MissingUser)
 }
 
 record class User(Name: string, IsActive: bool) {
-    event Foo: EventHandler?
+    event Foo: EventHandler<CustomEventArgs>?
+
+    func RaiseEvent(arg: string) -> () 
+        => Foo?(self, new CustomEventArgs(arg))
+
+    override func ToString() -> string => Name
+}
+
+class CustomEventArgs(arg: string) : EventArgs {
+    val Arg: string => arg
 }
 
 union Err {
