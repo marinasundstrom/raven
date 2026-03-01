@@ -1,3 +1,7 @@
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+
 using Microsoft.Extensions.Logging;
 
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -59,7 +63,15 @@ internal sealed class HoverHandler : IHoverHandler
             var signature = BuildSignature(symbol);
             var containing = BuildContainingDisplay(symbol);
             var documentation = symbol.GetDocumentationComment();
-            var hoverText = BuildHoverText(signature, BuildKindDisplay(symbol), containing, documentation);
+            var functionCaptures = semanticModel.GetCapturedVariables(symbol);
+            var isCapturedVariable = semanticModel.IsCapturedVariable(symbol);
+            var hoverText = BuildHoverText(
+                signature,
+                BuildKindDisplay(symbol),
+                containing,
+                documentation,
+                functionCaptures,
+                isCapturedVariable);
 
             return new Hover
             {
@@ -91,21 +103,29 @@ internal sealed class HoverHandler : IHoverHandler
         string signature,
         string kind,
         string? containing,
-        DocumentationComment? documentation)
+        DocumentationComment? documentation,
+        ImmutableArray<ISymbol> capturedVariables,
+        bool isCapturedVariable)
     {
         var docsText = FormatDocumentation(documentation);
+        var captureText = FormatCaptureText(capturedVariables, isCapturedVariable);
         var contextText = !string.IsNullOrWhiteSpace(containing)
             ? $"{kind} in `{containing}`"
             : kind;
 
-        if (!string.IsNullOrWhiteSpace(containing))
-            return string.IsNullOrWhiteSpace(docsText)
-                ? $"```raven\n{signature}\n```\n\n{contextText}"
-                : $"```raven\n{signature}\n```\n\n{contextText}\n\n---\n\n{docsText}";
+        var parts = new List<string>
+        {
+            $"```raven\n{signature}\n```",
+            contextText
+        };
 
-        return string.IsNullOrWhiteSpace(docsText)
-            ? $"```raven\n{signature}\n```\n\n{contextText}"
-            : $"```raven\n{signature}\n```\n\n{contextText}\n\n---\n\n{docsText}";
+        if (!string.IsNullOrWhiteSpace(captureText))
+            parts.Add(captureText);
+
+        if (!string.IsNullOrWhiteSpace(docsText))
+            parts.Add($"---\n\n{docsText}");
+
+        return string.Join("\n\n", parts);
     }
 
     private static string BuildSignature(ISymbol symbol)
@@ -184,5 +204,25 @@ internal sealed class HoverHandler : IHoverHandler
             DocumentationFormat.Xml => $"```xml\n{documentation.Content.Trim()}\n```",
             _ => documentation.Content.Trim()
         };
+    }
+
+    private static string? FormatCaptureText(
+        ImmutableArray<ISymbol> capturedVariables,
+        bool isCapturedVariable)
+    {
+        if (capturedVariables.IsDefaultOrEmpty)
+            return isCapturedVariable ? "Captured variable" : null;
+
+        var captures = string.Join(
+            ", ",
+            capturedVariables
+                .Select(static symbol => symbol.Name)
+                .Where(static name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.Ordinal));
+
+        if (string.IsNullOrWhiteSpace(captures))
+            return isCapturedVariable ? "Captured variable" : null;
+
+        return $"Captures: `{captures}`";
     }
 }

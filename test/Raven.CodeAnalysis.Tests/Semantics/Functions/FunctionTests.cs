@@ -146,4 +146,78 @@ func test() {}
 
         Assert.Contains(attributes, static a => a.AttributeClass?.Name is "ObsoleteAttribute");
     }
+
+    [Fact]
+    public void FunctionStatement_CapturesOuterLocal_ByDefault()
+    {
+        const string source = """
+func Main() {
+    val x: int = 2
+
+    func Foo() {
+        val v = x
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.ValueText == "Foo");
+
+        var captures = model.GetCapturedVariables(function);
+        Assert.Contains(captures, static s => s is ILocalSymbol { Name: "x" });
+    }
+
+    [Fact]
+    public void StaticFunctionStatement_DoesNotCaptureOuterLocal()
+    {
+        const string source = """
+func Main() {
+    val x: int = 2
+
+    static func Foo() {
+        val v = x
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext &&
+                        d.GetMessage().Contains("'x' is not in scope."));
+    }
+
+    [Fact]
+    public void SemanticModel_ReportsCapturedVariable_ForIdentifier()
+    {
+        const string source = """
+func Main() {
+    val x: int = 2
+
+    func Foo() {
+        val v = x
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+
+        var xIdentifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(id => id.Identifier.ValueText == "x");
+
+        var symbol = model.GetSymbolInfo(xIdentifier).Symbol;
+        Assert.NotNull(symbol);
+        Assert.True(model.IsCapturedVariable(symbol!));
+    }
 }

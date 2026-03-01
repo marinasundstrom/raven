@@ -195,8 +195,9 @@ Raven distinguishes between:
 
 Behind the scenes, function values map to .NET delegates.
 
-> ℹ️ **Note:** A `func` declaration never captures locals (not a closure).  
-> A lambda **can** capture values from the surrounding scope.
+> ℹ️ **Note:** Function statements (`func` inside another body) can capture locals,
+> parameters, and `self` from enclosing scopes.
+> Use `static func` to explicitly opt out of capture.
 
 ### Function declarations
 

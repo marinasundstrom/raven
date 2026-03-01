@@ -50,6 +50,16 @@ keys from the declaration table and uses the symbol factory to return the
 canonical symbol. `GetTypeInfo` has overloads for expressions and type syntax,
 returning both the inferred and converted types when available.【F:src/Raven.CodeAnalysis/SemanticModel.cs†L47-L143】
 
+Closure-aware tooling can query capture data directly from `SemanticModel`:
+
+- `GetCapturedVariables(ISymbol)` and `GetCapturedVariables(SyntaxNode)` return
+  the symbols captured by local functions and lambdas.
+- `IsCapturedVariable(ISymbol)` reports whether a local/parameter is captured by
+  any closure in the current syntax tree.
+
+These APIs are used by the language server hover experience to annotate closure
+information for function declarations and variable references.
+
 These APIs cooperate with the binder hierarchy described in the semantic binding
 architecture notes. Binders chain by scope so lookups naturally fall back to
 parent contexts while preserving local information.【F:docs/compiler/architecture/semantic-binding.md†L1-L64】

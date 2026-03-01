@@ -13,8 +13,10 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 {
     private IEnumerable<SourceParameterSymbol> _parameters;
     private ITypeSymbol _returnType;
+    private bool _isStatic;
     private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
     private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
+    private ImmutableArray<ISymbol> _capturedVariables = ImmutableArray<ISymbol>.Empty;
     private bool _isOverride;
     private bool _isVirtual;
     private bool _isSealed;
@@ -62,7 +64,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _returnType = returnType;
         _parameters = parameters;
 
-        IsStatic = isStatic;
+        _isStatic = isStatic;
         IsAsync = isAsync;
 
         MethodKind = methodKind;
@@ -113,7 +115,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public bool IsConstructor => MethodKind is MethodKind.Constructor;
 
-    public override bool IsStatic { get; }
+    public override bool IsStatic => _isStatic;
 
     public MethodKind MethodKind { get; }
 
@@ -161,6 +163,10 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
 
+    public ImmutableArray<ISymbol> CapturedVariables => _capturedVariables;
+
+    public bool HasCaptures => !_capturedVariables.IsDefaultOrEmpty && _capturedVariables.Length > 0;
+
     public IMethodSymbol? ConstructedFrom => this;
 
     public bool IsIterator => _isIterator;
@@ -194,6 +200,16 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _typeArguments = _typeParameters.IsDefaultOrEmpty
             ? ImmutableArray<ITypeSymbol>.Empty
             : _typeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+    }
+
+    internal void SetIsStatic(bool isStatic)
+    {
+        _isStatic = isStatic;
+    }
+
+    internal void SetCapturedVariables(IEnumerable<ISymbol> capturedVariables)
+    {
+        _capturedVariables = capturedVariables.ToImmutableArray();
     }
 
     internal void SetReturnType(ITypeSymbol returnType) => _returnType = returnType;

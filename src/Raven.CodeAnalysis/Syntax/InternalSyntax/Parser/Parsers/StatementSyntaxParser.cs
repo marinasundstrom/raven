@@ -34,22 +34,14 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             statement = attributedFunction;
         }
+        else if (IsFunctionDeclarationStart())
+        {
+            statement = ParseFunctionSyntax(SyntaxList.Empty, SyntaxList.Empty);
+        }
         else
         {
             switch (token.Kind)
             {
-                case SyntaxKind.FuncKeyword:
-                case SyntaxKind.AsyncKeyword when PeekToken(1).Kind == SyntaxKind.FuncKeyword:
-                case SyntaxKind.ExternKeyword when PeekToken(1).Kind == SyntaxKind.FuncKeyword:
-                case SyntaxKind.ExternKeyword when PeekToken(1).Kind == SyntaxKind.AsyncKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword:
-                case SyntaxKind.ExternKeyword when PeekToken(1).Kind == SyntaxKind.UnsafeKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword:
-                case SyntaxKind.ExternKeyword when PeekToken(1).Kind == SyntaxKind.UnsafeKeyword && PeekToken(2).Kind == SyntaxKind.AsyncKeyword && PeekToken(3).Kind == SyntaxKind.FuncKeyword:
-                case SyntaxKind.AsyncKeyword when PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword:
-                case SyntaxKind.UnsafeKeyword when PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword:
-                case SyntaxKind.UnsafeKeyword when PeekToken(1).Kind == SyntaxKind.AsyncKeyword && PeekToken(2).Kind == SyntaxKind.ExternKeyword && PeekToken(3).Kind == SyntaxKind.FuncKeyword:
-                    statement = ParseFunctionSyntax(SyntaxList.Empty, SyntaxList.Empty);
-                    break;
-
                 case SyntaxKind.YieldKeyword:
                     statement = ParseYieldStatementSyntax();
                     break;
@@ -96,17 +88,7 @@ internal class StatementSyntaxParser : SyntaxParser
                     break;
 
                 case SyntaxKind.UnsafeKeyword:
-                    if (PeekToken(1).Kind == SyntaxKind.FuncKeyword ||
-                        (PeekToken(1).Kind == SyntaxKind.AsyncKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword) ||
-                        (PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword) ||
-                        (PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.AsyncKeyword && PeekToken(3).Kind == SyntaxKind.FuncKeyword))
-                    {
-                        statement = ParseFunctionSyntax(SyntaxList.Empty, SyntaxList.Empty);
-                    }
-                    else
-                    {
-                        statement = ParseUnsafeStatementSyntax();
-                    }
+                    statement = ParseUnsafeStatementSyntax();
                     break;
 
                 case SyntaxKind.GotoKeyword:
@@ -137,6 +119,23 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return statement;
+    }
+
+    private bool IsFunctionDeclarationStart()
+    {
+        var offset = 0;
+        if (PeekToken(offset).Kind == SyntaxKind.FuncKeyword)
+            return true;
+
+        while (IsFunctionModifier(PeekToken(offset).Kind))
+            offset++;
+
+        return PeekToken(offset).Kind == SyntaxKind.FuncKeyword;
+    }
+
+    private static bool IsFunctionModifier(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.AsyncKeyword or SyntaxKind.UnsafeKeyword or SyntaxKind.ExternKeyword or SyntaxKind.StaticKeyword;
     }
 
     private bool TryParseAttributedFunctionSyntax(out StatementSyntax? functionStatement)
@@ -582,7 +581,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             var kind = PeekToken().Kind;
 
-            if (kind is SyntaxKind.AsyncKeyword or SyntaxKind.UnsafeKeyword or SyntaxKind.ExternKeyword)
+            if (kind is SyntaxKind.AsyncKeyword or SyntaxKind.UnsafeKeyword or SyntaxKind.ExternKeyword or SyntaxKind.StaticKeyword)
             {
                 modifiers = modifiers.Add(ReadToken());
             }

@@ -9450,21 +9450,20 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private bool IsNonClosureFunctionBody
+    private bool IsStaticFunctionBody
     {
         get
         {
             if (_containingSymbol is not IMethodSymbol method)
                 return false;
 
-            // Lambdas have their own closure semantics; this rule is for function statements.
             if (method.DeclaringSyntaxReferences.IsDefaultOrEmpty)
                 return false;
 
             return method.DeclaringSyntaxReferences
                 .Select(r => r.GetSyntax())
                 .OfType<FunctionStatementSyntax>()
-                .Any();
+                .Any(static f => f.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword));
         }
     }
 
@@ -9473,9 +9472,8 @@ partial class BlockBinder : Binder
         var seen = new HashSet<ISymbol>();
         Binder? current = this;
 
-        // If we're inside a function statement body (non-closure), we must NOT see locals/params
-        // from enclosing blocks/top-level/methods. We still want types/imports/members.
-        var restrict = IsNonClosureFunctionBody;
+        // static func bodies do not close over enclosing locals/parameters.
+        var restrict = IsStaticFunctionBody;
         var boundarySymbol = restrict ? _containingSymbol : null;
         var pastBoundary = false;
 
@@ -9651,10 +9649,12 @@ partial class BlockBinder : Binder
 
         var methodBinder = functionBinder.GetMethodBodyBinder();
 
+        BoundBlockStatement? functionBody = null;
+
         if (function.Body is not null)
         {
             var blockBinder = (BlockBinder)SemanticModel.GetBinder(function.Body, methodBinder);
-            blockBinder.BindBlockStatement(function.Body);
+            functionBody = blockBinder.BindBlockStatement(function.Body);
         }
         else if (function.ExpressionBody is not null)
         {
@@ -9733,6 +9733,7 @@ partial class BlockBinder : Binder
             }
 
             var boundBlock = new BoundBlockStatement(statements);
+            functionBody = boundBlock;
 
             if (symbol is SourceMethodSymbol { IsAsync: true } asyncMethod)
             {
@@ -9751,7 +9752,86 @@ partial class BlockBinder : Binder
             SemanticModel.CacheBoundNode(function.ExpressionBody, boundBlock, this);
         }
 
+        if (symbol is SourceMethodSymbol functionSourceMethod &&
+            functionBody is not null)
+        {
+            var capturedVariables = AnalyzeFunctionCapturedVariables(functionBody, symbol);
+            functionSourceMethod.SetCapturedVariables(capturedVariables);
+        }
+
         return new BoundFunctionStatement(symbol); // Possibly include body here if needed
+    }
+
+    private static ImmutableArray<ISymbol> AnalyzeFunctionCapturedVariables(BoundBlockStatement body, IMethodSymbol functionSymbol)
+    {
+        var walker = new FunctionCapturedVariableWalker(functionSymbol);
+        walker.VisitStatement(body);
+        return walker.GetCapturedVariables();
+    }
+
+    private sealed class FunctionCapturedVariableWalker : BoundTreeWalker
+    {
+        private readonly IMethodSymbol _functionSymbol;
+        private readonly HashSet<ISymbol> _captured = new(SymbolEqualityComparer.Default);
+
+        public FunctionCapturedVariableWalker(IMethodSymbol functionSymbol)
+        {
+            _functionSymbol = functionSymbol;
+        }
+
+        public ImmutableArray<ISymbol> GetCapturedVariables()
+        {
+            if (_captured.Count == 0)
+                return ImmutableArray<ISymbol>.Empty;
+
+            return _captured.ToImmutableArray();
+        }
+
+        public override void VisitLocalAccess(BoundLocalAccess node)
+        {
+            AddIfCaptured(node.Symbol);
+            base.VisitLocalAccess(node);
+        }
+
+        public override void VisitParameterAccess(BoundParameterAccess node)
+        {
+            AddIfCaptured(node.Symbol);
+            base.VisitParameterAccess(node);
+        }
+
+        public override void VisitVariableExpression(BoundVariableExpression node)
+        {
+            AddIfCaptured(node.Symbol);
+            base.VisitVariableExpression(node);
+        }
+
+        public override void VisitSelfExpression(BoundSelfExpression node)
+        {
+            AddIfCaptured(node.Symbol ?? node.Type);
+            base.VisitSelfExpression(node);
+        }
+
+        private void AddIfCaptured(ISymbol? symbol)
+        {
+            if (symbol is null)
+                return;
+
+            if (symbol is ILocalSymbol or IParameterSymbol)
+            {
+                if (SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, _functionSymbol))
+                    return;
+
+                _captured.Add(symbol);
+                return;
+            }
+
+            if (symbol is ITypeSymbol typeSymbol &&
+                _functionSymbol.ContainingType is { } containingType &&
+                SymbolEqualityComparer.Default.Equals(typeSymbol, containingType))
+            {
+                _captured.Add(typeSymbol);
+            }
+        }
     }
 
     private BoundExpression BindWithExpression(WithExpressionSyntax syntax)
