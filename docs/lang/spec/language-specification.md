@@ -74,8 +74,7 @@ behaviour and ensuring metadata and semantic lookups use the identifier's logica
 ```raven
 class @int {}
 
-static @match(@return: int) -> int
-{
+static func @match(@return: int) -> int {
     val @and = @return;
     return @and;
 }
@@ -272,9 +271,11 @@ When a discriminated union case carries exactly one payload of type `unit`, Rave
 
 ```raven
 func Save() -> Result<(), Error> {
-    return .Ok       // sugar for `.Ok(())`
+    return Ok       // sugar for `Ok(())`
 }
 ```
+
+Also works for member-binding: `.Ok`
 
 This rule applies uniformly to **all** discriminated unions, not only `Result` or `Option`. The case must declare exactly one constructor parameter whose type is `unit`; cases with additional parameters or non-`unit` payloads still require an explicit argument list.
 
@@ -458,7 +459,7 @@ statements synthesize a synchronous `Program.Main` plus an async
 `Program.MainAsync`, so top-level awaits run inside the async method while the
 bridge awaits `MainAsync(args)` before returning to the host. The awaited
 expression must expose an instance method `GetAwaiter()` whose return type
-provides an accessible `bool IsCompleted { get; }` property and a parameterless
+provides an accessible `IsCompleted: bool` property and a parameterless
 `GetResult()` method. If the awaiter’s `GetResult` produces no value, the await
 expression’s type is `unit`; otherwise it matches the `GetResult` return type.
 
@@ -467,10 +468,10 @@ the missing member. The compiler also reports an error when `await` appears
 outside an async context.
 
 Evaluation first computes the operand value and calls `GetAwaiter()` to obtain
-the awaiter. If `IsCompleted` is `true`, `GetResult()` is invoked immediately
+the awaiter. If `val IsCompleted` is `true`, `GetResult()` is invoked immediately
 and the await expression yields its value. Otherwise execution is suspended and
 later resumed when the awaiter signals completion; resumption continues after
-the `await` with the result of `GetResult()`.
+the `await` with the result of ` GetResult()`.
 
 ### Try expressions
 
@@ -490,12 +491,12 @@ reports `RAV1908` if a `match` suffix follows a `try?` expression.
 
 Execution enters a `try`/`catch` block that stores the operand’s value in a
 temporary. If evaluation completes without throwing, the temporary value is
-wrapped in `.Ok(...)` and becomes the expression’s final value. If evaluation
+wrapped in `Ok(...)` and becomes the expression’s final value. If evaluation
 throws an exception, the runtime catches the `System.Exception` instance and
-wraps it in `.Error(...)` instead. When the operand’s value type is `unit`, the
-success case is still `.Ok(())`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1565-L1595】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3672-L3759】
+wraps it in `Error(...)` instead. When the operand’s value type is `unit`, the
+success case is still `Ok(())`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1565-L1595】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3672-L3759】
 
-When matching, a bare case like `.Ok` is sugar for `.Ok(())` if the case carries
+When matching, a bare case like `Ok` is sugar for `Ok(())` if the case carries
 a single payload. This makes unit-typed results concise to handle.
 
 `await` may appear inside a `try` expression when used in an async method or
@@ -515,9 +516,9 @@ import System.Console.*
 
 func ParseInt(text: string) -> string {
     return try int.Parse(text) match {
-        .Ok(val value) => "Parsed: $value"
-        .Error(FormatException ex) => "Invalid format: ${ex.Message}"
-        .Error(_) => "Unknown error"
+        Ok(val value) => "Parsed: $value"
+        Error(FormatException ex) => "Invalid format: ${ex.Message}"
+        Error(_) => "Unknown error"
     }
 }
 
@@ -530,14 +531,14 @@ WriteLine(ParseInt("foo"))
 ```raven
 func ParseInt(text: string) -> Result<int, string> {
     val value = try? int.Parse(text)
-    return .Ok(value)
+    return Ok(value)
 }
 ```
 
 ##### `try` expression returning `unit`
 
-When the operand produces no value, the success case is `.Ok(())`. A bare `.Ok`
-arm is sugar for `.Ok(())`.
+When the operand produces no value, the success case is `Ok(())`. A bare `Ok`
+arm is sugar for `Ok(())`. Also works for member binding `.Ok`
 
 ```raven
 import System.*
@@ -545,10 +546,10 @@ import System.Console.*
 
 func SaveFile(path: string, text: string) -> string {
     return try System.IO.File.WriteAllText(path, text) match {
-        .Ok => "Saved!"
-        .Error(UnauthorizedAccessException ex) => "Access denied: ${ex.Message}"
-        .Error(IOException ex) => "I/O error: ${ex.Message}"
-        .Error(_) => "Unknown error"
+        Ok => "Saved!"
+        Error(UnauthorizedAccessException ex) => "Access denied: ${ex.Message}"
+        Error(IOException ex) => "I/O error: ${ex.Message}"
+        Error(_) => "Unknown error"
     }
 }
 
@@ -566,9 +567,9 @@ func Download(url: string) -> string {
     val http = HttpClient()
 
     return try await http.GetStringAsync(url) match {
-        .Ok(val text) => text
-        .Error(HttpRequestException ex) => "Network error: ${ex.Message}"
-        .Error(_) => "Unknown error"
+        Ok(val text) => text
+        Error(HttpRequestException ex) => "Network error: ${ex.Message}"
+        Error(_) => "Unknown error"
     }
 }
 ```
@@ -598,7 +599,7 @@ Propagation is context-sensitive with conditional access. In postfix position:
 ```raven
 func ReadValue() -> Result<int, Exception> {
     val value = ParseInt("123")?
-    return .Ok(value)
+    return Ok(value)
 }
 ```
 
@@ -608,7 +609,7 @@ func ReadValue() -> Result<int, Exception> {
 func LoadAndParse(path: string) -> Result<int, Exception> {
     val text = ReadAllText(path)?
     val value = ParseInt(text)?
-    return .Ok(value)
+    return Ok(value)
 }
 ```
 
@@ -630,7 +631,7 @@ func Parse(text: string) -> Result<int, ParserError> {
 
 func Execute(text: string) -> Result<int, DomainError> {
     val value = Parse(text)?
-    return .Ok(value)
+    return Ok(value)
 }
 ```
 
@@ -643,7 +644,7 @@ direct-return carrier conditional access).
 ```raven
 func GetEven(values: int[]) -> Option<int> {
     val value = FindFirstEven(values)?
-    return .Some(value)
+    return Some(value)
 }
 ```
 
@@ -653,7 +654,7 @@ Propagation may appear inside larger expressions. The compiler evaluates the ope
 
 ```raven
 func Describe(text: string) -> Result<string, Exception> {
-    return .Ok("Value: ${ParseInt(text)?}")
+    return Ok("Value: ${ParseInt(text)?}")
 }
 ```
 
@@ -664,11 +665,11 @@ import System.Console.*
 func Describe(text: string) -> string {
     val result = try int.Parse(text)
 
-    if result is .Ok(val value) {
+    if result is Ok(val value) {
         return "Ok: $value"
     }
 
-    if result is .Error(FormatException ex) {
+    if result is Error(FormatException ex) {
         return "Format invalid: ${ex.Message}"
     }
 
@@ -722,11 +723,11 @@ func f() -> Result<int, Err> {
     // trailing ? unwraps Result<int, Err> -> int and propagates Error
     val len = GetUser()?.Name?.Length?
 
-    return .Ok(len + 1)
+    return Ok(len + 1)
 }
 
 func GetUser() -> Result<User, Err> {
-    return .Error(Err.MissingUser)
+    return Error(Err.MissingUser)
 }
 
 record class User(Name: string)
@@ -748,8 +749,8 @@ func GetItem() -> Result<string, Err> {
     val maybeItem = GetUser()?.Item?
 
     return maybeItem match {
-        .Some(val item) => .Ok(item.Name)
-        .None           => .Error(Err.MissingName)
+        Some(val item) => Ok(item.Name)
+        None           => Error(Err.MissingName)
     }
 }
 
@@ -1139,9 +1140,8 @@ arguments, but they use the same `name: expression` form only; the legacy
 `name = expression` C# style is not valid Raven syntax.
 
 ```raven
-func makePoint(x: int, y: int, label: string = "origin") -> string
-{
-    return $"{label}: ({x}, {y})";
+func makePoint(x: int, y: int, label: string = "origin") -> string {
+    return "$label: ($x, $y)";
 }
 
 val swapped = makePoint(y: 2, x: 1);
@@ -1512,7 +1512,7 @@ with bodies or expression clauses.
 ```raven
 extension ListExt for List<int>
 {
-    CountPlusOne: int
+    var CountPlusOne: int
     {
         get => self.Count + 1
         set => self.Add(value)
@@ -2730,7 +2730,7 @@ for that position and all following parameters must also declare defaults.
 ```raven
 func greet(name: string, punctuation: string = "!")
 {
-    Console.WriteLine($"Hello, ${name}${punctuation}")
+    Console.WriteLine("Hello, ${name}${punctuation}")
 }
 
 greet("Raven")          // prints "Hello, Raven!"
@@ -2974,7 +2974,7 @@ Lambda parameters may also declare default values using the same trailing
 optional-parameter rules as functions and methods.
 
 ```raven
-val format = (name: string, age: int = 1) => $"{name}:${age}"
+val format = (name: string, age: int = 1) => "$name:$age"
 ```
 
 Lambda parameter types are optional when the expression is converted to a known
@@ -3511,7 +3511,7 @@ automatically produces the union instance. In lowered form, member-qualified
 case construction wraps via `Create`:
 
 ```raven
-val ok: Result<int, string> = .Ok(99)          // implicit Case -> Result<int, string> conversion
+val ok: Result<int, string> = Ok(99)          // implicit Case -> Result<int, string> conversion
 val err = Result<int, string>.Error("boom")
 Console.WriteLine(ok)
 ```
