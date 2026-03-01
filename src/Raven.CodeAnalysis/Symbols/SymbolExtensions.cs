@@ -1480,6 +1480,7 @@ public static partial class SymbolExtensions
     {
         return typeSymbol.TypeKind switch
         {
+            TypeKind.Struct when typeSymbol.IsDiscriminatedUnion => "union",
             TypeKind.Class => "class",
             TypeKind.Struct => "struct",
             TypeKind.Interface => "interface",
