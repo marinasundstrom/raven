@@ -521,6 +521,23 @@ function activate(context) {
             target: effectiveTarget
         });
     }));
+    context.subscriptions.push(vscode.commands.registerCommand('raven.run.compileAndRun', async (uri) => {
+        const target = resolveCommandTarget(uri);
+        if (!target) {
+            void vscode.window.showErrorMessage('No active Raven file to run.');
+            return;
+        }
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Compiling ${path.basename(resolveEffectiveTargetPath(target))}`
+        }, async () => {
+            const { outputPath, cwd } = await buildTarget(target);
+            const terminal = vscode.window.createTerminal({ name: 'Raven: Run', cwd });
+            terminal.show(true);
+            // Quote the path to handle spaces.
+            terminal.sendText(`dotnet "${outputPath}"`);
+        });
+    }));
     context.subscriptions.push(vscode.commands.registerCommand('raven.build.activeTarget', async (uri) => {
         const target = resolveCommandTarget(uri);
         if (!target) {

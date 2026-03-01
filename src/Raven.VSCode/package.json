@@ -13,6 +13,7 @@
   "activationEvents": [
     "onLanguage:raven",
     "onDebug:raven",
+    "onCommand:raven.run.compileAndRun",
     "onCommand:raven.debug.compileAndDebug",
     "onCommand:raven.build.activeTarget",
     "onCommand:raven.build.clean"
@@ -34,6 +35,10 @@
     ],
     "commands": [
       {
+        "command": "raven.run.compileAndRun",
+        "title": "Raven: Compile and Run"
+      },
+      {
         "command": "raven.debug.compileAndDebug",
         "title": "Raven: Compile and Debug"
       },
@@ -48,6 +53,11 @@
     ],
     "menus": {
       "editor/title": [
+        {
+          "command": "raven.run.compileAndRun",
+          "when": "resourceExtname == .rav || resourceExtname == .ravenproj",
+          "group": "navigation"
+        },
         {
           "command": "raven.debug.compileAndDebug",
           "when": "resourceExtname == .rav || resourceExtname == .ravenproj",
