@@ -85,7 +85,16 @@ internal static class SymbolResolver
 
         var symbolInfo = semanticModel.GetSymbolInfo(node);
         if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
-            return ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, node);
+        {
+            var chosen = ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, node);
+            if (chosen is null)
+                return null;
+
+            if (IsTypeContext(node))
+                chosen = ProjectTypeContextSymbol(chosen);
+
+            return chosen;
+        }
 
         var operation = semanticModel.GetOperation(node);
         var operationSymbol = operation switch
@@ -103,6 +112,17 @@ internal static class SymbolResolver
         };
 
         return ProjectSymbolForDisplay(operationSymbol);
+    }
+
+    private static bool IsTypeContext(SyntaxNode node)
+        => node.AncestorsAndSelf().OfType<TypeSyntax>().Any();
+
+    private static ISymbol ProjectTypeContextSymbol(ISymbol symbol)
+    {
+        if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
+            return constructor.ContainingType;
+
+        return symbol;
     }
 
     private static bool TryResolveMemberSegmentSymbol(
@@ -314,20 +334,20 @@ internal static class SymbolResolver
         var symbolInfo = semanticModel.GetSymbolInfo(invocation);
         if (symbolInfo.Symbol is not null)
         {
-            symbol = symbolInfo.Symbol;
+            symbol = ProjectInvocationSymbolForDisplay(symbolInfo.Symbol);
             return true;
         }
 
         if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
         {
-            symbol = symbolInfo.CandidateSymbols[0];
+            symbol = ProjectInvocationSymbolForDisplay(symbolInfo.CandidateSymbols[0]);
             return true;
         }
 
         if (semanticModel.GetOperation(invocation) is IInvocationOperation operation &&
             operation.TargetMethod is not null)
         {
-            symbol = operation.TargetMethod;
+            symbol = ProjectInvocationSymbolForDisplay(operation.TargetMethod);
             return true;
         }
 
@@ -338,6 +358,14 @@ internal static class SymbolResolver
         }
 
         return false;
+    }
+
+    private static ISymbol ProjectInvocationSymbolForDisplay(ISymbol symbol)
+    {
+        if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
+            return constructor.ContainingType;
+
+        return symbol;
     }
 
     private static bool TryResolveUnionCaseFromInvocationContext(

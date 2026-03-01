@@ -10,6 +10,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
 
@@ -54,6 +56,10 @@ internal sealed class HoverHandler : IHoverHandler
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = PositionHelper.ToOffset(sourceText, request.Position);
+
+            var literalHover = TryBuildLiteralHover(sourceText, semanticModel, root, offset);
+            if (literalHover is not null)
+                return literalHover;
 
             var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
             if (resolution is null)
@@ -126,6 +132,57 @@ internal sealed class HoverHandler : IHoverHandler
             parts.Add($"---\n\n{docsText}");
 
         return string.Join("\n\n", parts);
+    }
+
+    private static Hover? TryBuildLiteralHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (!LiteralHoverPreviewFormatter.TryCreatePreview(semanticModel, token, out var preview, out var span))
+                continue;
+
+            var hoverText = BuildHoverText(
+                preview,
+                kind: "Literal",
+                containing: null,
+                documentation: null,
+                capturedVariables: ImmutableArray<ISymbol>.Empty,
+                isCapturedVariable: false);
+
+            return new Hover
+            {
+                Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+                {
+                    Kind = MarkupKind.Markdown,
+                    Value = hoverText
+                }),
+                Range = PositionHelper.ToRange(sourceText, span)
+            };
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<int> NormalizeOffsets(int offset, int maxOffset)
+    {
+        if (maxOffset < 0)
+            yield break;
+
+        var clamped = Math.Clamp(offset, 0, maxOffset);
+        yield return clamped;
+
+        if (clamped > 0)
+            yield return clamped - 1;
     }
 
     private static string BuildSignature(ISymbol symbol)
