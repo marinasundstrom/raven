@@ -136,15 +136,16 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is IMethodSymbol { MethodKind: MethodKind.LambdaMethod } lambda)
         {
-            var parameters = string.Join(
-                ", ",
-                lambda.Parameters.Select(parameter =>
-                {
-                    var parameterType = parameter.Type.ToDisplayString(plainTypeFormat);
-                    return $"{parameter.Name}: {parameterType}";
-                }));
+            var parameters = FormatParameters(lambda.Parameters, plainTypeFormat);
             var returnType = lambda.ReturnType.ToDisplayString(plainTypeFormat);
             return $"({parameters}) -> {returnType}";
+        }
+
+        if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
+        {
+            var constructorName = constructor.ContainingType?.Name ?? constructor.Name;
+            var parameters = FormatParameters(constructor.Parameters, plainTypeFormat);
+            return $"{constructorName}({parameters})";
         }
 
         if (symbol is IParameterSymbol parameter)
@@ -159,6 +160,12 @@ internal sealed class HoverHandler : IHoverHandler
             var binding = local.IsMutable ? "var" : "val";
             var localType = local.Type.ToDisplayString(plainTypeFormat);
             return $"{binding} {local.Name}: {localType}";
+        }
+
+        if (symbol is IDiscriminatedUnionCaseSymbol unionCase)
+        {
+            var parameters = FormatParameters(unionCase.ConstructorParameters, plainTypeFormat);
+            return $"{unionCase.Name}({parameters})";
         }
 
         if (symbol is ITypeSymbol typeSymbol)
@@ -187,7 +194,21 @@ internal sealed class HoverHandler : IHoverHandler
         if (symbol is IMethodSymbol { MethodKind: MethodKind.LambdaMethod })
             return "Lambda";
 
+        if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor })
+            return "Constructor";
+
         return symbol.Kind.ToString();
+    }
+
+    private static string FormatParameters(IEnumerable<IParameterSymbol> parameters, SymbolDisplayFormat format)
+    {
+        return string.Join(
+            ", ",
+            parameters.Select(parameter =>
+            {
+                var parameterType = parameter.Type.ToDisplayString(format);
+                return $"{parameter.Name}: {parameterType}";
+            }));
     }
 
     private static string? FormatDocumentation(DocumentationComment? documentation)
