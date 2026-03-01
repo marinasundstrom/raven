@@ -1,0 +1,9 @@
+import System.Console.*
+
+// Feature: pipe operator with inline lambda targets.
+val text =
+    5
+        |> (x => "User-" + x.ToString())
+        |> (value => value.ToUpper())
+
+WriteLine(text)

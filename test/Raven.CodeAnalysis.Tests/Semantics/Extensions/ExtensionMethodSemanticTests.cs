@@ -932,7 +932,8 @@ static class RavenPipelineExtensions {
                 entry.Method.ContainingType?.Name == "Enumerable" &&
                 entry.ReceiverCameFromInvocation);
 
-        foreach (var entry in runEntries) {
+        foreach (var entry in runEntries)
+        {
             Assert.Equal(entry.Method.Parameters.Length, entry.ArgumentTypes.Length);
             Assert.True(SymbolEqualityComparer.Default.Equals(entry.Method.Parameters[0].Type, entry.ArgumentTypes[0]));
         }
@@ -1043,7 +1044,8 @@ static class IntExtensions {
                 entry.Method.ContainingType?.Name == "Enumerable" &&
                 entry.ReceiverCameFromInvocation);
 
-        foreach (var entry in runEntries) {
+        foreach (var entry in runEntries)
+        {
             Assert.Equal(entry.Method.Parameters.Length, entry.ArgumentTypes.Length);
         }
 
@@ -1061,7 +1063,8 @@ static class IntExtensions {
             entry => entry.Method.Name == "Where" &&
                 entry.Method.ContainingType?.Name == "Enumerable");
 
-        foreach (var entry in projectEntries) {
+        foreach (var entry in projectEntries)
+        {
             Assert.Equal(entry.Method.Parameters.Length, entry.ArgumentTypes.Length);
         }
 
@@ -1715,6 +1718,136 @@ val result = 5 |> increment(2)
         Assert.Equal(2, arguments.Length);
         Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
         Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithInlineLambda_ImplicitInvocation_InfersLambdaParameterFromPipelineValue()
+    {
+        const string source = """
+val result = 5 |> x => x.ToString()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => ReferenceEquals(
+                diagnostic.Descriptor,
+                CompilerDiagnostics.LambdaParameterTypeCannotBeInferred));
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(boundLambda.Parameters).Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, boundLambda.ReturnType.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithParenthesizedInlineLambda_ImplicitInvocation_InfersLambdaParameterFromPipelineValue()
+    {
+        const string source = """
+val result = 5 |> (x => x.ToString())
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => ReferenceEquals(
+                diagnostic.Descriptor,
+                CompilerDiagnostics.LambdaParameterTypeCannotBeInferred));
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(boundLambda.Parameters).Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, boundLambda.ReturnType.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithNestedInlineLambdaPipeline_InfersInnerLambdaParameterFromPipedBodyValue()
+    {
+        const string source = """
+val result =
+    5
+        |> x => x.ToString()
+            |> y => y.Length
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => ReferenceEquals(
+                diagnostic.Descriptor,
+                CompilerDiagnostics.LambdaParameterTypeCannotBeInferred));
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdas = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .ToDictionary(lambda => lambda.Parameter.Identifier.ValueText);
+
+        var outerLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["x"]));
+        var innerLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["y"]));
+
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(outerLambda.Parameters).Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, outerLambda.ReturnType.SpecialType);
+        Assert.Equal(SpecialType.System_String, Assert.Single(innerLambda.Parameters).Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, innerLambda.ReturnType.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithChainedParenthesizedInlineLambdas_InfersEachStageParameterType()
+    {
+        const string source = """
+val result =
+    5
+        |> (x => x.ToString())
+        |> (y => y.Length)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => ReferenceEquals(
+                diagnostic.Descriptor,
+                CompilerDiagnostics.LambdaParameterTypeCannotBeInferred));
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdas = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .ToDictionary(lambda => lambda.Parameter.Identifier.ValueText);
+
+        var firstStage = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["x"]));
+        var secondStage = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["y"]));
+
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(firstStage.Parameters).Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, firstStage.ReturnType.SpecialType);
+        Assert.Equal(SpecialType.System_String, Assert.Single(secondStage.Parameters).Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, secondStage.ReturnType.SpecialType);
     }
 
     [Fact]

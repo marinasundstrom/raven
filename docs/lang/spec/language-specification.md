@@ -1575,6 +1575,37 @@ val c = 5 |> Inc(2)
 All three bindings above call `Inc`; `a` and `b` use the default value for `n`,
 while `c` supplies `n` explicitly.
 
+Inline lambda targets also support implicit invocation. In `value |> x => ...`,
+the compiler infers `x` from the piped value type and invokes the lambda with
+the left-hand result:
+
+```raven
+val length =
+    5
+        |> x => x.ToString()
+        |> text => text.Length
+```
+
+Parenthesized inline lambdas are also valid pipeline targets:
+
+```raven
+val name = user |> (u => u.Name)
+```
+
+When combining lambda targets with additional pipeline stages, parentheses make
+the stage boundaries explicit:
+
+```raven
+val normalized =
+    userOrError
+        |> EnsureActive()
+        |> (x => x match {
+            Ok(val u) => u.Name
+            Error(val e) => "ERR: " + e.ToString()
+        })
+        |> Normalize()
+```
+
 The pipe operator accepts an invocation target (explicit or implicit) or a
 property access with a setter on the right-hand side. If the syntax does not
 form either shape, diagnostic `RAV2800` is issued.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2690-L2766】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L19-L23】

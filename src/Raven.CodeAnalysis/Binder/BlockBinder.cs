@@ -5734,6 +5734,7 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
+        RecordPipelineLambdaDelegateTarget(syntax.Right, left);
         var propertyTarget = BindPipelineInvocationTargetExpression(syntax.Right, left);
 
         if (propertyTarget is BoundErrorExpression propertyError)
@@ -5747,6 +5748,34 @@ partial class BlockBinder : Binder
 
         _diagnostics.ReportPipeRequiresInvocation(syntax.OperatorToken.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private void RecordPipelineLambdaDelegateTarget(ExpressionSyntax expression, BoundExpression pipelineValue)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+            expression = parenthesized.Expression;
+
+        if (expression is not LambdaExpressionSyntax lambda)
+            return;
+
+        var pipelineType = pipelineValue.Type?.UnwrapLiteralType() ?? pipelineValue.Type;
+        if (pipelineType is null || pipelineType.TypeKind == TypeKind.Error)
+            return;
+
+        var parameters = lambda switch
+        {
+            SimpleLambdaExpressionSyntax simple => new[] { simple.Parameter },
+            ParenthesizedLambdaExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.ToArray(),
+            _ => Array.Empty<ParameterSyntax>(),
+        };
+
+        if (parameters.Length == 0 || parameters[0].TypeAnnotation?.Type is not null)
+            return;
+
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var candidateDelegate = Compilation.CreateFunctionTypeSymbol([pipelineType], unitType);
+        if (candidateDelegate is INamedTypeSymbol namedDelegate)
+            _lambdaDelegateTargets[lambda] = ImmutableArray.Create(namedDelegate);
     }
 
     private BoundExpression BindPipelineInvocationTargetExpression(ExpressionSyntax expression, BoundExpression pipelineValue)
