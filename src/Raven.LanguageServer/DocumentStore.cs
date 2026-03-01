@@ -90,6 +90,7 @@ internal sealed class DocumentStore
         return new LspDiagnostic
         {
             Message = diagnostic.GetMessage(),
+            Code = diagnostic.Id,
             Severity = MapSeverity(diagnostic.Severity),
             Source = "raven",
             Range = range

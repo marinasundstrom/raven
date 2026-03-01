@@ -21,6 +21,7 @@ internal sealed class WorkspaceManager
     private readonly RavenWorkspace _workspace;
     private readonly ILogger<WorkspaceManager> _logger;
     private readonly object _gate = new();
+    private readonly ImmutableArray<CodeFixProvider> _builtInCodeFixProviders = BuiltInCodeFixProviders.CreateDefault();
     private readonly Dictionary<string, ProjectId> _projectsByRoot = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
     private ProjectId? _fallbackProjectId;
@@ -358,6 +359,25 @@ internal sealed class WorkspaceManager
         }
 
         diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+        return false;
+    }
+
+    public bool TryGetCodeFixes(
+        DocumentUri uri,
+        out ImmutableArray<CodeFix> codeFixes,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_documents.TryGetValue(uri, out var ownedDocument))
+        {
+            codeFixes = _workspace
+                .GetCodeFixes(ownedDocument.ProjectId, _builtInCodeFixProviders, analyzerOptions, cancellationToken)
+                .Where(fix => fix.DocumentId == ownedDocument.DocumentId)
+                .ToImmutableArray();
+            return true;
+        }
+
+        codeFixes = ImmutableArray<CodeFix>.Empty;
         return false;
     }
 

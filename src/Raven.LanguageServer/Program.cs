@@ -40,6 +40,7 @@ internal static class Program
             .WithHandler<DefinitionHandler>()
             .WithHandler<HoverHandler>()
             .WithHandler<DocumentSymbolHandler>()
+            .WithHandler<CodeActionHandler>()
             .ConfigureLogging(logging =>
             {
                 logging.AddLanguageProtocolLogging()
