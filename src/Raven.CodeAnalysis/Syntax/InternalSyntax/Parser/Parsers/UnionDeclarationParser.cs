@@ -50,8 +50,21 @@ internal class UnionDeclarationParser : SyntaxParser
                 break;
             }
 
+            if (next.IsKind(SyntaxKind.CommaToken))
+            {
+                ReadToken();
+                continue;
+            }
+
+            var caseStart = Position;
             var unionCase = ParseCase();
             cases.Add(unionCase);
+
+            // Ensure parser progress when recovery produced only missing tokens.
+            if (Position == caseStart && !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+            {
+                ReadToken();
+            }
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
@@ -89,7 +102,9 @@ internal class UnionDeclarationParser : SyntaxParser
             parameterList = new TypeDeclarationParser(this).ParseParameterList();
         }
 
-        return UnionCaseClause(identifier, parameterList);
+        var terminatorToken = ConsumeOptionalCaseTerminator();
+
+        return UnionCaseClause(identifier, parameterList, terminatorToken);
     }
 
     private SyntaxList ParseModifiers()
@@ -143,6 +158,28 @@ internal class UnionDeclarationParser : SyntaxParser
             if (current.Kind is SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken)
             {
                 return Token(SyntaxKind.None);
+            }
+
+            return Token(SyntaxKind.None);
+        }
+        finally
+        {
+            SetTreatNewlinesAsTokens(previous);
+        }
+    }
+
+    private SyntaxToken ConsumeOptionalCaseTerminator()
+    {
+        var previous = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(true);
+
+        try
+        {
+            var current = PeekToken();
+
+            if (current.Kind is SyntaxKind.CommaToken or SyntaxKind.SemicolonToken || IsNewLineLike(current))
+            {
+                return ReadToken();
             }
 
             return Token(SyntaxKind.None);

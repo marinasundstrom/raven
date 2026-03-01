@@ -131,8 +131,9 @@ DelegateDeclaration      ::= TypeModifiers? 'delegate' Identifier TypeParameterL
                              WhereClauseList?
                              TypeTerminator? ;
 
-UnionCaseList            ::= UnionCaseClause {UnionCaseClause} ;
-UnionCaseClause          ::= Identifier ParameterList? ;
+UnionCaseList            ::= {UnionCaseClause} ;
+UnionCaseClause          ::= Identifier ParameterList? UnionCaseTerminator? ;
+UnionCaseTerminator      ::= ',' | TypeTerminator ;
 (* Case-construction surface forms are semantically equivalent:
      Ok(2)
      Ok<int>(2)
@@ -141,7 +142,8 @@ UnionCaseClause          ::= Identifier ParameterList? ;
    Unqualified `Ok` forms are valid only when case resolution is unambiguous;
    otherwise qualification (or an alias) is required.
    Resolution of `.Ok` / `Result.Ok` is performed by the binder against the
-   union's declared case set. *)
+   union's declared case set.
+   Commas are optional between cases; newline separators remain valid. *)
 
 BaseList                 ::= ':' Type {',' Type} ;
 

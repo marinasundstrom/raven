@@ -3463,6 +3463,10 @@ union Token {
 }
 ```
 
+Union cases are newline-friendly by default. A comma (or semicolon) after a
+case is optional, and when present it is treated as that case's terminator
+token in syntax.
+
 Unions may declare type parameters (`union Result<T, E> { ... }`). Cases are
 first-class types with their own type-parameter shape (derived from the case
 payload), and can be referenced either via the union-member surface or with the

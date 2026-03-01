@@ -206,6 +206,52 @@ public class ParserRecoveryTests
     }
 
     [Fact]
+    public void UnionDeclaration_CommaSeparatedCases_ParsesWithoutHanging()
+    {
+        var source = """
+            union Err {
+                MissingUser,
+                MissingName,
+                InactiveUser
+            }
+            func Main() -> int {
+                return 0
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        Assert.Equal(2, root.Members.Count);
+        var union = Assert.IsType<UnionDeclarationSyntax>(root.Members[0]);
+        Assert.Equal(3, union.Cases.Count);
+        Assert.Equal(SyntaxKind.CommaToken, union.Cases[0].TerminatorToken.Kind);
+        Assert.Equal(SyntaxKind.CommaToken, union.Cases[1].TerminatorToken.Kind);
+        var trailingGlobal = Assert.IsType<GlobalStatementSyntax>(root.Members[1]);
+        Assert.IsType<FunctionStatementSyntax>(trailingGlobal.Statement);
+    }
+
+    [Fact]
+    public void UnionDeclaration_NewLineSeparatedCases_StoresNewLineTerminators()
+    {
+        var source = """
+            union Err {
+                MissingUser
+                MissingName
+                InactiveUser
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var union = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
+        Assert.Equal(3, union.Cases.Count);
+        Assert.True(IsUnionCaseSeparator(union.Cases[0].TerminatorToken.Kind));
+        Assert.True(IsUnionCaseSeparator(union.Cases[1].TerminatorToken.Kind));
+    }
+
+    [Fact]
     public void TypeMembers_OnSameLine_AreReportedAsMissingTerminator()
     {
         var source = """
@@ -222,6 +268,14 @@ public class ParserRecoveryTests
         Assert.Contains(
             tree.GetDiagnostics(),
             d => d.Descriptor == CompilerDiagnostics.ExpectedNewLineBetweenDeclarations);
+    }
+
+    private static bool IsUnionCaseSeparator(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.NewLineToken or
+            SyntaxKind.LineFeedToken or
+            SyntaxKind.CarriageReturnToken or
+            SyntaxKind.CarriageReturnLineFeedToken;
     }
 
     [Fact]
