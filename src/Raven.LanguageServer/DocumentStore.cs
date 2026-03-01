@@ -51,10 +51,10 @@ internal sealed class DocumentStore
             if (syntaxTree is null)
                 return Array.Empty<LspDiagnostic>();
 
-            if (!TryGetCompilation(uri, out var compilation) || compilation is null)
+            if (!_workspaceManager.TryGetDiagnostics(uri, out var diagnosticsForProject, cancellationToken: cancellationToken))
                 return Array.Empty<LspDiagnostic>();
 
-            var diagnostics = compilation.GetDiagnostics(cancellationToken: cancellationToken)
+            var diagnostics = diagnosticsForProject
                 .Where(d => ShouldReport(d, syntaxTree))
                 .Select(MapDiagnostic)
                 .ToArray();

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -11,6 +12,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Text;
+using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
 
 namespace Raven.LanguageServer;
 
@@ -340,6 +342,22 @@ internal sealed class WorkspaceManager
         }
 
         compilation = null;
+        return false;
+    }
+
+    public bool TryGetDiagnostics(
+        DocumentUri uri,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_documents.TryGetValue(uri, out var ownedDocument))
+        {
+            diagnostics = _workspace.GetDiagnostics(ownedDocument.ProjectId, analyzerOptions, cancellationToken);
+            return true;
+        }
+
+        diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
         return false;
     }
 
