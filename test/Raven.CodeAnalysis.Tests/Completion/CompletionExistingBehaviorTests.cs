@@ -347,4 +347,189 @@ WriteLine(x.)
         var updated = ApplyCompletion(code, toString);
         Assert.EndsWith("WriteLine(x.ToString())", updated, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void GetCompletions_AfterConditionalAccessWithoutPrefix_UsesEmptyReplacementSpanAfterDot()
+    {
+        var code = """
+val text = ""
+text?.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("?.", StringComparison.Ordinal) + 2;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var length = Assert.Single(items.Where(i => i.DisplayText == "Length"));
+
+        Assert.Equal(new TextSpan(position, 0), length.ReplacementSpan);
+
+        var updated = ApplyCompletion(code, length);
+        Assert.EndsWith("text?.Length", updated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetCompletions_OnConditionalAccessPrefix_UsesMemberNameSpanAsReplacement()
+    {
+        var code = """
+val text = ""
+text?.Len
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var length = Assert.Single(items.Where(i => i.DisplayText == "Length"));
+
+        var expectedSpanStart = code.LastIndexOf("Len", StringComparison.Ordinal);
+        Assert.Equal(new TextSpan(expectedSpanStart, 3), length.ReplacementSpan);
+
+        var updated = ApplyCompletion(code, length);
+        Assert.EndsWith("text?.Length", updated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetCompletions_AfterInvocationStart_InsertsAtCaret()
+    {
+        var code = """
+func consume(value: int) -> unit { }
+
+val x = 1
+consume(
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('(') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var x = Assert.Single(items.Where(i => i.DisplayText == "x"));
+
+        Assert.Equal(new TextSpan(position, 0), x.ReplacementSpan);
+
+        var updated = ApplyCompletion(code, x);
+        Assert.EndsWith("consume(x", updated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetCompletions_AfterInvocationStart_OnLambdaVariable_InsertsAtCaret()
+    {
+        var code = """
+val foo = (x: int) => x
+val text = 1
+foo(
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('(') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var foo = Assert.Single(items.Where(i => i.DisplayText == "foo"));
+        var text = Assert.Single(items.Where(i => i.DisplayText == "text"));
+
+        Assert.Equal(new TextSpan(position, 0), text.ReplacementSpan);
+        Assert.False(string.IsNullOrWhiteSpace(foo.Description));
+        Assert.Contains("int", foo.Description!, StringComparison.OrdinalIgnoreCase);
+
+        var updated = ApplyCompletion(code, text);
+        Assert.EndsWith("foo(text", updated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetCompletions_AfterElementAccessStart_InsertsAtCaret()
+    {
+        var code = """
+val obj = "abc"
+val x = 1
+obj[
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('[') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var x = Assert.Single(items.Where(i => i.DisplayText == "x"));
+
+        Assert.Equal(new TextSpan(position, 0), x.ReplacementSpan);
+
+        var updated = ApplyCompletion(code, x);
+        Assert.EndsWith("obj[x", updated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetCompletions_AfterConditionalInvocationStart_InsertsAtCaret()
+    {
+        var code = """
+val x = 1
+val text = ""
+text?(
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("?(", StringComparison.Ordinal) + 2;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var x = Assert.Single(items.Where(i => i.DisplayText == "x"));
+
+        Assert.Equal(new TextSpan(position, 0), x.ReplacementSpan);
+
+        var updated = ApplyCompletion(code, x);
+        Assert.EndsWith("text?(x", updated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetCompletions_AfterConditionalElementAccessStart_InsertsAtCaret()
+    {
+        var code = """
+val x = 1
+val text = ""
+text?[
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("?[", StringComparison.Ordinal) + 2;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var x = Assert.Single(items.Where(i => i.DisplayText == "x"));
+
+        Assert.Equal(new TextSpan(position, 0), x.ReplacementSpan);
+
+        var updated = ApplyCompletion(code, x);
+        Assert.EndsWith("text?[x", updated, StringComparison.Ordinal);
+    }
 }

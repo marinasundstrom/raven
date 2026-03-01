@@ -56,6 +56,18 @@ public static class CompletionProvider
         var tokenValueText = token.ValueText;
         var replacementSpan = new TextSpan(token.Position, tokenText.Length);
         var literalReplacementSpan = new TextSpan(position, 0);
+        var isInvocationArgumentStartToken =
+            token.Parent is ArgumentListSyntax argumentList &&
+            argumentList.OpenParenToken == token &&
+            argumentList.Parent is InvocationExpressionSyntax;
+        var isElementArgumentStartToken =
+            token.Parent is BracketedArgumentListSyntax bracketedArgumentList &&
+            bracketedArgumentList.OpenBracketToken == token &&
+            bracketedArgumentList.Parent is ElementAccessExpressionSyntax or ElementBindingExpressionSyntax;
+        var isArgumentStartToken = isInvocationArgumentStartToken || isElementArgumentStartToken;
+        var argumentStartReplacementSpan = isArgumentStartToken
+            ? new TextSpan(position, 0)
+            : replacementSpan;
 
         bool ShouldOfferSelfCompletion()
         {
@@ -832,6 +844,143 @@ public static class CompletionProvider
         }
         */
 
+        // Conditional member access: value?.Member
+        var memberBinding = token.GetAncestor<MemberBindingExpressionSyntax>();
+        if (memberBinding is not null &&
+            memberBinding.Parent is ConditionalAccessExpressionSyntax conditionalAccess)
+        {
+            var operatorToken = memberBinding.OperatorToken;
+
+            if (position >= operatorToken.End)
+            {
+                var symbolInfo = model.GetSymbolInfo(conditionalAccess.Expression);
+                var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
+                var typeInfo = model.GetTypeInfo(conditionalAccess.Expression).Type;
+                var type = typeInfo?.UnderlyingSymbol as ITypeSymbol;
+                IEnumerable<ISymbol>? members = null;
+                INamedTypeSymbol? instanceTypeForExtensions = null;
+
+                if (symbol is null && conditionalAccess.Expression is IdentifierNameSyntax receiverIdentifier)
+                {
+                    symbol = binder.LookupSymbol(receiverIdentifier.Identifier.ValueText);
+                    type ??= GetTypeFromSymbol(symbol);
+                }
+
+                // For invocation expressions, prefer the invoked method return type.
+                // This avoids leaking argument/literal types into completion and
+                // correctly suppresses member access on unit/void returns.
+                if (conditionalAccess.Expression is InvocationExpressionSyntax &&
+                    symbol is IMethodSymbol invokedMethod)
+                {
+                    type = invokedMethod.ReturnType;
+                    if (type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+                        return completions;
+                }
+
+                if (symbol is INamespaceSymbol ns)
+                {
+                    members = ns.GetMembers().Where(IsAccessible);
+                }
+                else if (symbol is INamedTypeSymbol typeSymbol && SymbolEqualityComparer.Default.Equals(symbol, type))
+                {
+                    var staticMembers = typeSymbol.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
+                    members = typeSymbol is IDiscriminatedUnionSymbol union
+                        ? staticMembers.Concat(union.Cases.Where(IsAccessible))
+                        : staticMembers;
+                }
+                else if (type is ITypeSymbol instanceType)
+                {
+                    var completionType = instanceType.GetPlainType();
+                    members = completionType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
+                    instanceTypeForExtensions = completionType switch
+                    {
+                        INamedTypeSymbol named => named,
+                        LiteralTypeSymbol literal => literal.UnderlyingType as INamedTypeSymbol,
+                        _ => null
+                    };
+                }
+                else if (conditionalAccess.Expression is SelfExpressionSyntax && GetSelfType() is { } currentSelfType)
+                {
+                    members = currentSelfType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
+                    instanceTypeForExtensions = currentSelfType;
+                }
+
+                if (members is not null)
+                {
+                    var hasNameAtCaret = !memberBinding.Name.Identifier.IsMissing &&
+                        position > memberBinding.Name.Identifier.Span.Start;
+                    var prefix = hasNameAtCaret
+                        ? memberBinding.Name.Identifier.ValueText
+                        : string.Empty;
+                    var nameSpan = hasNameAtCaret
+                        ? memberBinding.Name.Identifier.Span
+                        : new TextSpan(position, 0);
+
+                    foreach (var member in members.Where(m => NameMatchesPrefix(m.Name, prefix)))
+                    {
+                        if (member is IMethodSymbol method && IsSuppressedCompletionMethod(method))
+                            continue;
+
+                        var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
+                        var cursorOffset = GetDefaultCursorOffset(member, insertText);
+
+                        if (seen.Add(dedupKey))
+                        {
+                            completions.Add(new CompletionItem(
+                                DisplayText: displayText,
+                                InsertionText: insertText,
+                                ReplacementSpan: nameSpan,
+                                CursorOffset: cursorOffset,
+                                Description: SafeToDisplayString(member),
+                                Symbol: member
+                            ));
+                        }
+                    }
+
+                    if (instanceTypeForExtensions is not null)
+                    {
+                        var extensionMembers = ExtensionMemberLookup.Lookup(
+                            binder,
+                            instanceTypeForExtensions,
+                            includePartialMatches: false,
+                            kinds: ExtensionMemberKinds.InstanceMethods);
+
+                        foreach (var method in extensionMembers.InstanceMethods)
+                        {
+                            if (!IsAccessible(method) ||
+                                IsSuppressedCompletionMethod(method) ||
+                                !ShouldIncludeExtensionMethod(method, prefix))
+                                continue;
+
+                            if (!NameMatchesPrefix(method.Name, prefix))
+                                continue;
+
+                            var (displayText, insertText, dedupKey) = CreateCompletionParts(method);
+                            var cursorOffset = GetDefaultCursorOffset(method, insertText);
+
+                            if (seen.Add(dedupKey))
+                            {
+                                completions.Add(new CompletionItem(
+                                    DisplayText: displayText,
+                                    InsertionText: insertText,
+                                    ReplacementSpan: nameSpan,
+                                    CursorOffset: cursorOffset,
+                                    Description: SafeToDisplayString(method),
+                                    Symbol: method
+                                ));
+                            }
+                        }
+                    }
+
+                    return completions;
+                }
+
+                // In conditional member-access context, avoid broad/global
+                // completions when the receiver cannot be resolved.
+                return completions;
+            }
+        }
+
         // Member access: Console.Wri
         var memberAccess = token.GetAncestor<MemberAccessExpressionSyntax>();
         if (memberAccess is not null)
@@ -1099,11 +1248,13 @@ public static class CompletionProvider
         // Visible symbols (locals, globals, etc.)
         var offerValueCompletions = token.Parent is IdentifierNameSyntax { Parent: BlockStatementSyntax or ExpressionStatementSyntax }
             || token.IsKind(SyntaxKind.IdentifierToken)
-            || token.IsKind(SyntaxKind.EndOfFileToken);
+            || token.IsKind(SyntaxKind.EndOfFileToken)
+            || isArgumentStartToken;
 
         if (offerValueCompletions)
         {
-            var prefixWithoutEscape = tokenValueText.TrimStart('@');
+            var valuePrefix = isArgumentStartToken ? string.Empty : tokenValueText;
+            var prefixWithoutEscape = valuePrefix.TrimStart('@');
             var allowTypesInValuePosition = prefixWithoutEscape.Length > 0 && char.IsUpper(prefixWithoutEscape[0]);
 
             foreach (var symbol in binder.LookupAvailableSymbols())
@@ -1117,8 +1268,8 @@ public static class CompletionProvider
                 if (symbol is IMethodSymbol method && IsSuppressedCompletionMethod(method))
                     continue;
 
-                if (!string.IsNullOrEmpty(tokenValueText) &&
-                    !NameMatchesPrefix(symbol.Name, tokenValueText))
+                if (!string.IsNullOrEmpty(valuePrefix) &&
+                    !NameMatchesPrefix(symbol.Name, valuePrefix))
                     continue;
 
                 var (displayText, insertText, dedupKey) = CreateCompletionParts(symbol);
@@ -1129,7 +1280,7 @@ public static class CompletionProvider
                     completions.Add(new CompletionItem(
                         DisplayText: displayText,
                         InsertionText: insertText,
-                        ReplacementSpan: replacementSpan,
+                        ReplacementSpan: argumentStartReplacementSpan,
                         CursorOffset: cursorOffset,
                         Description: SafeToDisplayString(symbol),
                         Symbol: symbol
@@ -1146,14 +1297,15 @@ public static class CompletionProvider
 
         if (shouldOfferKeywords)
         {
-            foreach (var keyword in CompletionService.BasicKeywords.Where(k => string.IsNullOrEmpty(tokenValueText) || k.StartsWith(tokenValueText, StringComparison.OrdinalIgnoreCase)))
+            var keywordPrefix = isArgumentStartToken ? string.Empty : tokenValueText;
+            foreach (var keyword in CompletionService.BasicKeywords.Where(k => string.IsNullOrEmpty(keywordPrefix) || k.StartsWith(keywordPrefix, StringComparison.OrdinalIgnoreCase)))
             {
                 if (seen.Add(keyword))
                 {
                     completions.Add(new CompletionItem(
                         DisplayText: keyword,
                         InsertionText: keyword,
-                        ReplacementSpan: replacementSpan
+                        ReplacementSpan: argumentStartReplacementSpan
                     ));
                 }
             }
