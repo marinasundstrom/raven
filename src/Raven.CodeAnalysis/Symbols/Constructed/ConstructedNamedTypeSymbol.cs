@@ -703,6 +703,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         IMethodSymbol m => new SubstitutedMethodSymbol(m, this),
         IFieldSymbol f => new SubstitutedFieldSymbol(f, this),
         IPropertySymbol p => new SubstitutedPropertySymbol(p, this),
+        IEventSymbol e => new SubstitutedEventSymbol(e, this),
         INamedTypeSymbol t => SubstituteNamedType(t),
         _ => member
     };
@@ -2063,6 +2064,96 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitProperty(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitProperty(this);
+    public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
+    public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
+}
+
+internal sealed class SubstitutedEventSymbol : IEventSymbol
+{
+    private readonly IEventSymbol _original;
+    private readonly ConstructedNamedTypeSymbol _constructed;
+    private ImmutableArray<IEventSymbol>? _explicitInterfaceImplementations;
+
+    public SubstitutedEventSymbol(IEventSymbol original, ConstructedNamedTypeSymbol constructed)
+    {
+        _original = original;
+        _constructed = constructed;
+    }
+
+    public string Name => _original.Name;
+    public ITypeSymbol Type => _constructed.Substitute(_original.Type);
+    public ISymbol ContainingSymbol => _constructed;
+    public IMethodSymbol? AddMethod => _original.AddMethod is null ? null : new SubstitutedMethodSymbol(_original.AddMethod, _constructed);
+    public IMethodSymbol? RemoveMethod => _original.RemoveMethod is null ? null : new SubstitutedMethodSymbol(_original.RemoveMethod, _constructed);
+    public SymbolKind Kind => _original.Kind;
+    public string MetadataName => _original.MetadataName;
+    public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
+    public IModuleSymbol? ContainingModule => _original.ContainingModule;
+    public INamedTypeSymbol? ContainingType => _constructed;
+    public INamespaceSymbol? ContainingNamespace => _original.ContainingNamespace;
+    public ImmutableArray<Location> Locations => _original.Locations;
+    public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
+    public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+    public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
+    public bool IsStatic => _original.IsStatic;
+    public ISymbol UnderlyingSymbol => this;
+    public bool IsAlias => false;
+    public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+
+    public ImmutableArray<IEventSymbol> ExplicitInterfaceImplementations
+    {
+        get
+        {
+            if (_explicitInterfaceImplementations.HasValue)
+                return _explicitInterfaceImplementations.Value;
+
+            var originals = _original.ExplicitInterfaceImplementations;
+
+            if (originals.IsDefaultOrEmpty || originals.Length == 0)
+            {
+                _explicitInterfaceImplementations = originals;
+                return originals;
+            }
+
+            var builder = ImmutableArray.CreateBuilder<IEventSymbol>(originals.Length);
+
+            foreach (var originalImplementation in originals)
+            {
+                var originalInterfaceType = originalImplementation.ContainingType;
+                if (originalInterfaceType is null)
+                {
+                    builder.Add(originalImplementation);
+                    continue;
+                }
+
+                var substitutedInterfaceType = _constructed.Substitute(originalInterfaceType) as INamedTypeSymbol;
+                if (substitutedInterfaceType is null ||
+                    SymbolEqualityComparer.Default.Equals(originalInterfaceType, substitutedInterfaceType))
+                {
+                    builder.Add(originalImplementation);
+                    continue;
+                }
+
+                IEventSymbol? substitutedEvent = null;
+                foreach (var candidate in substitutedInterfaceType.GetMembers(originalImplementation.Name).OfType<IEventSymbol>())
+                {
+                    if (!SymbolEqualityComparer.Default.Equals(candidate.Type, originalImplementation.Type))
+                        continue;
+
+                    substitutedEvent = candidate;
+                    break;
+                }
+
+                builder.Add(substitutedEvent ?? originalImplementation);
+            }
+
+            _explicitInterfaceImplementations = builder.ToImmutable();
+            return _explicitInterfaceImplementations.Value;
+        }
+    }
+
+    public void Accept(SymbolVisitor visitor) => visitor.VisitEvent(this);
+    public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitEvent(this);
     public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
     public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
 }

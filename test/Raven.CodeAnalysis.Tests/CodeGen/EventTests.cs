@@ -119,4 +119,55 @@ class Program {
 
         Assert.Equal(1, resultValue);
     }
+
+    [Fact]
+    public void GenericType_EventAddAndInvoke_WiresHandlers()
+    {
+        var code = """
+import System.*
+
+class Foo<T> {
+    event Bar: EventHandler?
+
+    func Raise() -> unit {
+        Bar?(self, EventArgs.Empty)
+    }
+}
+
+class Program {
+    static var Hits: int = 0
+
+    static func Inc() -> unit {
+        Hits += 1
+    }
+
+    static func Run() -> int {
+        Hits = 0
+        val f = Foo<int>()
+        f.Bar += (s, args) => Inc()
+        f.Raise()
+        return Hits
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Program", throwOnError: true)!;
+        var runMethod = type.GetMethod("Run")!;
+        var resultValue = runMethod.Invoke(null, Array.Empty<object>())!;
+
+        Assert.Equal(1, resultValue);
+    }
 }
