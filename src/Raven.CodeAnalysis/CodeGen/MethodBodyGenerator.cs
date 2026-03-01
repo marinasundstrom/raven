@@ -188,9 +188,13 @@ internal class MethodBodyGenerator
         if (syntax.SyntaxTree is null)
             return;
 
-        var span = syntax.Span;
-
-        var location = syntax.GetLocation();
+        var location = syntax switch
+        {
+            MatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
+            MatchStatementSyntax matchStatement => matchStatement.MatchKeyword.GetLocation(),
+            _ => syntax.GetLocation()
+        };
+        var span = location.SourceSpan;
 
         if (span.Length == 0 || !location.IsInSource)
             return;
@@ -279,11 +283,27 @@ internal class MethodBodyGenerator
 
     private SyntaxNode? TryGetSyntax(BoundNode node)
     {
+        // Prefer syntax mapped from the original (unlowered) bound tree. Lowered
+        // syntax propagation can pick sibling arm spans for synthesized control-flow
+        // nodes and produce debugger hops across match arms.
+        var syntax = TryGetOriginalSyntax(node);
+        if (syntax is not null)
+            return syntax;
+
+        // Fallback for synthesized lowered-only nodes when no original mapping exists.
+        return TryGetSyntaxCore(node, static (model, n) => model.GetSyntax(n));
+    }
+
+    private SyntaxNode? TryGetOriginalSyntax(BoundNode node)
+        => TryGetSyntaxCore(node, static (model, n) => model.GetOriginalSyntax(n));
+
+    private SyntaxNode? TryGetSyntaxCore(BoundNode node, Func<SemanticModel, BoundNode, SyntaxNode?> resolve)
+    {
         var syntaxRef = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxRef is not null)
         {
             var semanticModel = Compilation.GetSemanticModel(syntaxRef.SyntaxTree);
-            var syntax = semanticModel.GetSyntax(node);
+            var syntax = resolve(semanticModel, node);
             if (syntax is not null)
                 return syntax;
         }
@@ -293,7 +313,7 @@ internal class MethodBodyGenerator
         // semantic models to recover source-mapped syntax for sequence points.
         foreach (var semanticModel in GetAllSemanticModels())
         {
-            var syntax = semanticModel.GetSyntax(node);
+            var syntax = resolve(semanticModel, node);
             if (syntax is not null)
                 return syntax;
         }
@@ -314,6 +334,10 @@ internal class MethodBodyGenerator
 
     private SyntaxNode? TryGetSequencePointSyntax(BoundStatement statement)
     {
+        var matchSpecific = TryGetMatchSequencePointSyntax(statement);
+        if (matchSpecific is not null)
+            return NormalizeMatchSequencePointSyntax(matchSpecific);
+
         var direct = NormalizeSequencePointSyntax(TryGetSyntax(statement));
         if (direct is not null)
             return direct;
@@ -344,6 +368,205 @@ internal class MethodBodyGenerator
         return NormalizeSequencePointSyntax(fallback ?? TryFindSequencePointSyntax(statement));
     }
 
+    private SyntaxNode? NormalizeMatchSequencePointSyntax(SyntaxNode? syntax)
+    {
+        if (syntax is null)
+            return null;
+
+        if (syntax is MatchArmSyntax armSyntax)
+            return GetMatchArmEntrySyntax(armSyntax);
+
+        if (syntax is WhenClauseSyntax whenClause)
+            return whenClause.Condition;
+
+        if (syntax.GetAncestor<MatchArmSyntax>() is not null)
+            return syntax;
+
+        if (syntax is MatchExpressionSyntax or MatchStatementSyntax)
+            return syntax;
+
+        return NormalizeSequencePointSyntax(syntax);
+    }
+
+    private SyntaxNode? TryGetMatchSequencePointSyntax(BoundStatement statement)
+    {
+        if (statement is BoundBlockStatement block &&
+            TryGetEnclosingMatchSyntax(block) is { } firstMatchSyntax)
+        {
+            return firstMatchSyntax;
+        }
+
+        if (statement is BoundIfStatement guardIf &&
+            TryGetMatchArmSyntax(guardIf.ThenNode) is { } guardArmSyntax &&
+            guardArmSyntax.WhenClause is { } whenClauseSyntax)
+        {
+            return whenClauseSyntax.Condition;
+        }
+
+        if (statement is BoundAssignmentStatement
+            {
+                Expression: BoundLocalAssignmentExpression { Right: var rightExpression }
+            } &&
+            TryGetOriginalSyntax(rightExpression)?.GetAncestor<MatchArmSyntax>() is { } assignmentArm)
+        {
+            return GetMatchArmEntrySyntax(assignmentArm);
+        }
+
+        if (statement is BoundLocalDeclarationStatement localDeclaration &&
+            IsMatchScrutineeLocalDeclaration(localDeclaration) &&
+            TryGetMatchSyntaxFromDeclarators(localDeclaration) is { } matchSyntax)
+        {
+            return matchSyntax;
+        }
+
+        if (statement is BoundIfStatement { Condition: BoundIsPatternExpression patternCondition } &&
+            TryGetMatchArmSyntax(patternCondition) is { } armSyntax)
+        {
+            var enclosingMatchSyntax = GetMatchSyntax(armSyntax);
+            if (enclosingMatchSyntax is not null)
+                return enclosingMatchSyntax;
+        }
+        else if (statement is BoundIfStatement candidateIf &&
+            TryGetMatchArmSyntax(candidateIf.ThenNode) is { } thenArmSyntax &&
+            GetMatchSyntax(thenArmSyntax) is { } thenMatchSyntax)
+        {
+            return thenMatchSyntax;
+        }
+
+        return null;
+    }
+
+    private static bool IsMatchScrutineeLocalDeclaration(BoundLocalDeclarationStatement localDeclaration)
+    {
+        foreach (var declarator in localDeclaration.Declarators)
+        {
+            if (declarator.Local.Name.StartsWith("<match_scrutinee>", StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
+    private SyntaxNode? TryGetMatchSyntaxFromDeclarators(BoundLocalDeclarationStatement localDeclaration)
+    {
+        foreach (var declarator in localDeclaration.Declarators)
+        {
+            if (declarator.Initializer is null)
+                continue;
+
+            var initializerSyntax = TryGetOriginalSyntax(declarator.Initializer);
+            if (initializerSyntax is null)
+                continue;
+
+            if (initializerSyntax.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+                return matchStatement;
+
+            if (initializerSyntax.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+                return matchExpression;
+        }
+
+        return null;
+    }
+
+    private static SyntaxNode GetMatchArmEntrySyntax(MatchArmSyntax armSyntax)
+    {
+        if (armSyntax.Expression is BlockSyntax block && block.Statements.Count > 0)
+            return block.Statements[0];
+
+        return armSyntax.Expression;
+    }
+
+    private static SyntaxNode? GetMatchSyntax(MatchArmSyntax armSyntax)
+    {
+        return armSyntax.GetAncestor<MatchStatementSyntax>()
+            ?? (SyntaxNode?)armSyntax.GetAncestor<MatchExpressionSyntax>();
+    }
+
+    private MatchArmSyntax? TryGetMatchArmSyntax(BoundIsPatternExpression patternCondition)
+    {
+        static MatchArmSyntax? FromSyntaxNode(SyntaxNode? syntax)
+        {
+            if (syntax is null)
+                return null;
+
+            return syntax as MatchArmSyntax
+                ?? syntax.GetAncestor<MatchArmSyntax>();
+        }
+
+        return FromSyntaxNode(TryGetOriginalSyntax(patternCondition.Pattern))
+            ?? FromSyntaxNode(TryGetOriginalSyntax(patternCondition))
+            ?? FromSyntaxNode(TryGetOriginalSyntax(patternCondition.Expression));
+    }
+
+    private MatchArmSyntax? TryGetMatchArmSyntax(BoundStatement statement)
+    {
+        switch (statement)
+        {
+            case BoundAssignmentStatement { Expression: BoundLocalAssignmentExpression localAssignment }:
+                return TryGetMatchArmSyntax(localAssignment.Right);
+
+            case BoundExpressionStatement expressionStatement:
+                return TryGetMatchArmSyntax(expressionStatement.Expression);
+
+            case BoundReturnStatement { Expression: not null } returnStatement:
+                return TryGetMatchArmSyntax(returnStatement.Expression);
+
+            case BoundThrowStatement { Expression: not null } throwStatement:
+                return TryGetMatchArmSyntax(throwStatement.Expression);
+
+            case BoundBlockStatement blockStatement:
+                foreach (var child in blockStatement.Statements)
+                {
+                    if (TryGetMatchArmSyntax(child) is { } nestedArm)
+                        return nestedArm;
+                }
+
+                return null;
+
+            default:
+                return null;
+        }
+    }
+
+    private MatchArmSyntax? TryGetMatchArmSyntax(BoundExpression expression)
+    {
+        static MatchArmSyntax? FromSyntaxNode(SyntaxNode? syntax)
+        {
+            if (syntax is null)
+                return null;
+
+            return syntax as MatchArmSyntax
+                ?? syntax.GetAncestor<MatchArmSyntax>();
+        }
+
+        return FromSyntaxNode(TryGetOriginalSyntax(expression));
+    }
+
+    private SyntaxNode? TryGetEnclosingMatchSyntax(BoundBlockStatement block)
+    {
+        foreach (var childStatement in block.Statements)
+        {
+            if (childStatement is BoundIfStatement { Condition: BoundIsPatternExpression patternCondition } &&
+                TryGetMatchArmSyntax(patternCondition) is { } armSyntax &&
+                GetMatchSyntax(armSyntax) is { } matchSyntax)
+            {
+                return matchSyntax;
+            }
+
+            var statementSyntax = TryGetOriginalSyntax(childStatement);
+            if (statementSyntax is null)
+                continue;
+
+            if (statementSyntax.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+                return matchStatement;
+
+            if (statementSyntax.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+                return matchExpression;
+        }
+
+        return null;
+    }
+
     private SyntaxNode? TryFindSequencePointSyntax(BoundStatement statement)
     {
         var finder = new SequencePointSyntaxFinder(this);
@@ -356,6 +579,13 @@ internal class MethodBodyGenerator
         if (syntax is null)
             return null;
 
+        var isMatchRelatedSyntax =
+            syntax is MatchExpressionSyntax or MatchStatementSyntax
+            || syntax.GetAncestor<MatchExpressionSyntax>() is not null
+            || syntax.GetAncestor<MatchStatementSyntax>() is not null
+            || syntax.GetAncestor<MatchArmSyntax>() is not null
+            || syntax.GetAncestor<WhenClauseSyntax>() is not null;
+
         var statementSyntax = syntax.AncestorsAndSelf()
             .OfType<StatementSyntax>()
             .FirstOrDefault(static statement => statement is
@@ -365,7 +595,9 @@ internal class MethodBodyGenerator
                 ReturnStatementSyntax or
                 ThrowStatementSyntax or
                 UseDeclarationStatementSyntax);
-        if (statementSyntax is not null && CanLiftToStatement(statementSyntax))
+        if (!isMatchRelatedSyntax &&
+            statementSyntax is not null &&
+            CanLiftToStatement(statementSyntax))
             return statementSyntax;
 
         // For expression statements, prefer statement-level mapping so debugger
@@ -3391,9 +3623,18 @@ internal class MethodBodyGenerator
             }
 
             var builder = ILGenerator.DeclareLocal(clrType);
-            builder.SetLocalSymInfo(localSymbol.Name);
+            if (ShouldEmitDebugLocalName(localSymbol))
+                builder.SetLocalSymInfo(localSymbol.Name);
             targetScope.AddLocal(localSymbol, builder);
         }
+    }
+
+    private static bool ShouldEmitDebugLocalName(ILocalSymbol localSymbol)
+    {
+        if (localSymbol.Name.StartsWith("<", StringComparison.Ordinal))
+            return false;
+
+        return localSymbol.Locations.Any(static location => location.IsInSource);
     }
 
     private void EmitMethodBlock(BoundBlockStatement block, bool includeImplicitReturn = true)

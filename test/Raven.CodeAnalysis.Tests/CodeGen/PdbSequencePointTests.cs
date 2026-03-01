@@ -134,6 +134,41 @@ class C {
     }
 
     [Fact]
+    public void MatchStatement_SequencePoints_StartAtMatchThenArmBodies()
+    {
+        var code = """
+class C {
+    func Evaluate(x: int) -> int {
+        var result = 0
+        match x {
+            1 => {
+                result = 10
+            }
+            _ => result = 20
+        }
+
+        return result
+    }
+}
+""";
+
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code);
+        var method = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "C" && methodName == "Evaluate");
+
+        var lines = GetVisibleSequencePointStartLines(pdbReader, method);
+        Assert.Contains(4, lines);
+        Assert.Contains(6, lines);
+        Assert.Contains(8, lines);
+        Assert.Contains(11, lines);
+        Assert.DoesNotContain(5, lines);
+
+        AssertMethodHasNoVisibleLocalContaining(pdbReader, method, "match_scrutinee");
+
+        peReader.Dispose();
+    }
+
+    [Fact]
     public void TryCatchFinallyMethod_HasMultipleVisibleSequencePoints()
     {
         var code = """
@@ -437,6 +472,73 @@ func Main() {
         Assert.Contains(5, lines);
         Assert.Contains(10, lines);
         Assert.DoesNotContain(3, lines);
+
+        peReader.Dispose();
+    }
+
+    [Fact]
+    public void MatchExpression_SequencePoints_StartAtMatchThenArmBodies()
+    {
+        var code = """
+import System.*
+
+func Main() {
+    val value = 2
+    val label = value match {
+        1 => {
+            "one"
+        }
+        _ => "other"
+    }
+
+    Console.WriteLine(label)
+}
+""";
+
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, new CompilationOptions(OutputKind.ConsoleApplication));
+        var mainMethod = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "Program" && methodName == "Main");
+
+        var lines = GetVisibleSequencePointStartLines(pdbReader, mainMethod);
+        Assert.Contains(5, lines);
+        Assert.Contains(7, lines);
+        Assert.Contains(12, lines);
+        Assert.DoesNotContain(6, lines);
+
+        AssertMethodHasNoVisibleLocalContaining(pdbReader, mainMethod, "match_scrutinee");
+        AssertMethodHasNoVisibleLocalContaining(pdbReader, mainMethod, "match_result");
+
+        peReader.Dispose();
+    }
+
+    [Fact]
+    public void MatchExpression_WithWhen_GuardAndArmLinesAreSteppingPoints()
+    {
+        var code = """
+func Main() {
+    val value = GetValue()
+    val text = value match {
+        1 when value > 0 => "ok"
+        _ => "no"
+    }
+}
+
+func GetValue() -> int => 1
+""";
+
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, new CompilationOptions(OutputKind.ConsoleApplication));
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var matchExpression = syntaxTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var guardLine = matchExpression.Arms[0].WhenClause!.Condition.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+        var firstArmLine = matchExpression.Arms[0].Expression.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+        var secondArmLine = matchExpression.Arms[1].Expression.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+        var mainMethod = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "Program" && methodName == "Main");
+
+        var lines = GetVisibleSequencePointStartLines(pdbReader, mainMethod);
+        Assert.Contains(guardLine, lines);
+        Assert.Contains(firstArmLine, lines);
+        Assert.Contains(secondArmLine, lines);
 
         peReader.Dispose();
     }
@@ -796,6 +898,39 @@ class C {
 
     private static bool StartsBefore(int firstLine, int firstColumn, int secondLine, int secondColumn)
         => firstLine < secondLine || (firstLine == secondLine && firstColumn < secondColumn);
+
+    private static void AssertMethodHasNoVisibleLocalContaining(
+        MetadataReader pdbReader,
+        MethodDefinitionHandle methodHandle,
+        string valueFragment)
+    {
+        var names = GetMethodLocalNames(pdbReader, methodHandle);
+        Assert.DoesNotContain(names, name => name.Contains(valueFragment, StringComparison.Ordinal));
+    }
+
+    private static IReadOnlyList<string> GetMethodLocalNames(
+        MetadataReader pdbReader,
+        MethodDefinitionHandle methodHandle)
+    {
+        var names = new List<string>();
+
+        foreach (var localScopeHandle in pdbReader.LocalScopes)
+        {
+            var scope = pdbReader.GetLocalScope(localScopeHandle);
+            if (scope.Method != methodHandle)
+                continue;
+
+            foreach (var localHandle in scope.GetLocalVariables())
+            {
+                var local = pdbReader.GetLocalVariable(localHandle);
+                var localName = pdbReader.GetString(local.Name);
+                if (!string.IsNullOrEmpty(localName))
+                    names.Add(localName);
+            }
+        }
+
+        return names;
+    }
 
     private static void AssertPdbHasNoOverlappingVisibleSequencePointsForDocument(
         string assemblyPath,

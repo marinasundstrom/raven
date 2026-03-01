@@ -4050,6 +4050,11 @@ public partial class SemanticModel
                 ? loweredSyntax
                 : null;
 
+    internal SyntaxNode? GetOriginalSyntax(BoundNode node)
+        => _syntaxCache.TryGetValue(node, out var syntax)
+            ? syntax
+            : null;
+
     private readonly Dictionary<SyntaxNodeMapKey, SourceNamedTypeSymbol> _declaredTypeSymbols = new();
 
     private void RegisterDeclaredTypeSymbol(SyntaxNode node, SourceNamedTypeSymbol symbol)
