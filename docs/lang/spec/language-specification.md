@@ -1171,8 +1171,8 @@ Init-only accessors are treated as initializer-only members, so they may be assi
 ```raven
 class Settings
 {
-    Theme: string { get; init; }
-    FontSize: int { get; init; }
+    val Theme: string { init; }
+    val FontSize: int { init; }
 }
 
 val settings = Settings {
@@ -1221,8 +1221,8 @@ Members marked as **required** must be definitely assigned during object constru
 ```raven
 class Person
 {
-    public required Name: string { get; init; }
-    public required Age: int { get; init; }
+    public required val Name: string { init; }
+    public required val Age: int { init; }
 }
 
 val p = Person { Name = "Ada", Age = 36 }   // ok
