@@ -123,6 +123,7 @@ Return/throw context note:
 | `RAV0912` | Error | field keyword is only valid in property accessors | 'field' is only valid inside property 'get', 'set', or 'init' accessor bodies. | — |
 | `RAV0913` | Error | field keyword requires property backing storage | Property '{propertyName}' does not have backing storage, so 'field' cannot be used here. | — |
 | `RAV0914` | Error | Property declaration requires a binding keyword | Property '{propertyName}' requires an explicit binding keyword ('val' or 'var'). | — |
+| `RAV0918` | Error | Property type annotation required | Property '{propertyName}' requires an explicit type annotation unless it has a storage initializer. | — |
 | `RAV1000` | Error | Expression expected | Expression expected | — |
 | `RAV1001` | Error | Identifier expected | Identifier expected | — |
 | `RAV1002` | Error | Semicolon expected | ';' expected | — |

@@ -268,6 +268,17 @@ val Name: string
 var Count: int = 0
 ```
 
+For storage properties, Raven can infer the property type from an initializer
+when the annotation is omitted:
+
+```raven
+class Foo {
+    val x = 2 // inferred as int
+}
+```
+
+Without an initializer, a type annotation is required.
+
 The compiler synthesizes backing storage. You can still provide accessors to
 refine behavior:
 

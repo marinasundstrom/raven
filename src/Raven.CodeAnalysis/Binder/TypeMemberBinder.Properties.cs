@@ -19,9 +19,40 @@ internal partial class TypeMemberBinder : Binder
         // accessor methods as *method-owned* type parameters. We must bind the declared property type (e.g. Option<T>)
         // against that lowered identity, otherwise the property type will leak Option<T> at use sites.
         var propertyTypeSyntax = propertyDecl.Type.Type;
+        var hasExplicitTypeAnnotation = HasExplicitPropertyTypeAnnotation(propertyDecl);
+        var canInferTypeFromInitializer =
+            !hasExplicitTypeAnnotation &&
+            propertyDecl.Initializer is not null &&
+            IsStoragePropertyForTypeInference(propertyDecl);
+
+        BoundExpression? initializer = null;
+
+        if (canInferTypeFromInitializer)
+        {
+            var inferenceBinder = new BlockBinder(_containingType, this);
+            initializer = inferenceBinder.BindExpression(propertyDecl.Initializer!.Value);
+
+            foreach (var diag in inferenceBinder.Diagnostics.AsEnumerable())
+                _diagnostics.Report(diag);
+        }
 
         // The real declared type (used for accessor signatures / binding)
-        var declaredPropertyType = ResolveTypeSyntaxForSignature(this, propertyTypeSyntax, RefKind.None);
+        ITypeSymbol declaredPropertyType;
+        if (hasExplicitTypeAnnotation)
+        {
+            declaredPropertyType = ResolveTypeSyntaxForSignature(this, propertyTypeSyntax, RefKind.None);
+        }
+        else if (canInferTypeFromInitializer && initializer?.Type is { } inferredType)
+        {
+            declaredPropertyType = TypeSymbolNormalization.NormalizeForInference(inferredType);
+        }
+        else
+        {
+            declaredPropertyType = Compilation.ErrorTypeSymbol;
+            _diagnostics.ReportPropertyTypeAnnotationRequired(
+                propertyDecl.Identifier.ValueText,
+                propertyDecl.Identifier.GetLocation());
+        }
 
         // The property symbol itself is a marker for extension containers.
         // It must be codegen-safe because the extension container type is not emitted as generic.
@@ -205,18 +236,21 @@ internal partial class TypeMemberBinder : Binder
             sourcePropertySymbol.MarkAsRequired();
 
         // Bind property initializer (if any) with the property's declared type as target type.
-        BoundExpression? initializer = null;
         if (propertyDecl.Initializer is not null)
         {
-            var exprBinder = new BlockBinder(_containingType, this);
-            var targetType = exprBinder.PushTargetType(propertyType);
+            if (initializer is null)
+            {
+                var exprBinder = new BlockBinder(_containingType, this);
+                var targetType = exprBinder.PushTargetType(propertyType);
 
-            initializer = exprBinder.BindExpression(propertyDecl.Initializer.Value);
+                initializer = exprBinder.BindExpression(propertyDecl.Initializer.Value);
 
-            targetType.Dispose();
+                targetType.Dispose();
 
-            foreach (var diag in exprBinder.Diagnostics.AsEnumerable())
-                _diagnostics.Report(diag);
+                foreach (var diag in exprBinder.Diagnostics.AsEnumerable())
+                    _diagnostics.Report(diag);
+            }
+
         }
 
         bool? declaredMutable = propertyDecl.BindingKeyword.Kind switch
@@ -953,5 +987,30 @@ internal partial class TypeMemberBinder : Binder
         }
 
         return false;
+    }
+
+    private static bool HasExplicitPropertyTypeAnnotation(PropertyDeclarationSyntax propertyDecl)
+    {
+        if (propertyDecl.Type.ColonToken.IsMissing)
+            return false;
+
+        return propertyDecl.Type.Type switch
+        {
+            IdentifierNameSyntax { Identifier.IsMissing: true } => false,
+            _ => true
+        };
+    }
+
+    private static bool IsStoragePropertyForTypeInference(PropertyDeclarationSyntax propertyDecl)
+    {
+        if (propertyDecl.ExpressionBody is not null)
+            return false;
+
+        if (propertyDecl.AccessorList is null || propertyDecl.AccessorList.IsMissing)
+            return true;
+
+        return propertyDecl.AccessorList.Accessors.All(static accessor =>
+            accessor.Body is null &&
+            accessor.ExpressionBody is null);
     }
 }

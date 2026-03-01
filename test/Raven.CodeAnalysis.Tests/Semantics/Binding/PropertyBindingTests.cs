@@ -459,4 +459,49 @@ public class PropertyBindingTests : DiagnosticTestBase
         }
     }
 
+    [Fact]
+    public void StorageProperty_WithoutType_WithInitializer_InfersInitializerType()
+    {
+        const string testCode =
+            """
+            class Foo {
+                val x = 2
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var propertySyntax = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertySyntax));
+
+        Assert.Equal(SpecialType.System_Int32, propertySymbol.Type.SpecialType);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.PropertyTypeAnnotationRequired);
+    }
+
+    [Fact]
+    public void StorageProperty_WithoutType_WithoutInitializer_ReportsTypeAnnotationRequired()
+    {
+        const string testCode =
+            """
+            class Foo {
+                val x
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.PropertyTypeAnnotationRequired);
+    }
+
 }

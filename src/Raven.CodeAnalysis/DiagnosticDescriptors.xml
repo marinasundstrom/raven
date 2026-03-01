@@ -814,4 +814,8 @@
     Title="Only one primary initializer is allowed"
     Message="A type can declare at most one primary initializer block."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0918" Identifier="PropertyTypeAnnotationRequired"
+    Title="Property type annotation required"
+    Message="Property '{propertyName}' requires an explicit type annotation unless it has a storage initializer."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>
