@@ -175,6 +175,9 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
             _inner.Emit(opcode, type);
         }
 
+        public void BeginScope() => _inner.BeginScope();
+        public void EndScope() => _inner.EndScope();
+
         public void BeginExceptionBlock() => _inner.BeginExceptionBlock();
         public void BeginCatchBlock(Type exceptionType) => _inner.BeginCatchBlock(exceptionType);
         public void BeginFinallyBlock() => _inner.BeginFinallyBlock();

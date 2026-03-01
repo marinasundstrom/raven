@@ -28,6 +28,9 @@ internal interface IILBuilder
 
     void MarkSequencePoint(ISymbolDocumentWriter document, int startLine, int startColumn, int endLine, int endColumn);
 
+    void BeginScope();
+    void EndScope();
+
     void BeginExceptionBlock();
     void BeginCatchBlock(Type exceptionType);
     void BeginFinallyBlock();

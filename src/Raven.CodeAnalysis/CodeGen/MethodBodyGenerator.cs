@@ -3484,75 +3484,87 @@ internal class MethodBodyGenerator
     {
         var statements = block.Statements as IReadOnlyList<BoundStatement> ?? block.Statements.ToArray();
         var blockScope = new Scope(scope, block.LocalsToDispose);
+        var emitExplicitIlScope = !treatAsMethodBody;
 
-        // Locals synthesized during lowering (e.g., iterator state machines) won't
-        // be present in the original bound body we used for the initial declaration
-        // pass. Ensure we register builders for any newly introduced locals so
-        // downstream emitters can load and store them.
-        DeclareLocals(blockScope, block);
+        if (emitExplicitIlScope)
+            ILGenerator.BeginScope();
 
-        var effectiveReturnType = GetEffectiveReturnTypeForEmission();
-        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
-
-        for (var i = 0; i < statements.Count; i++)
+        try
         {
-            var statement = statements[i];
+            // Locals synthesized during lowering (e.g., iterator state machines) won't
+            // be present in the original bound body we used for the initial declaration
+            // pass. Ensure we register builders for any newly introduced locals so
+            // downstream emitters can load and store them.
+            DeclareLocals(blockScope, block);
 
-            // If this is the last statement in the block and the method expects a
-            // value, treat a bare expression statement as an implicit return. This
-            // allows functions to omit an explicit `return` for the final
-            // expression, while still emitting any required boxing.
-            if (treatAsMethodBody && includeImplicitReturn &&
-                i == statements.Count - 1 &&
-                ImplicitReturnRewriter.IsImplicitReturnCandidate(effectiveReturnType, unitType, block, out var implicitReturnStmt))
+            var effectiveReturnType = GetEffectiveReturnTypeForEmission();
+            var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
+            for (var i = 0; i < statements.Count; i++)
             {
-                var returnStatement = new BoundReturnStatement(implicitReturnStmt.Expression);
-                new StatementGenerator(blockScope, returnStatement).Emit();
-                return;
+                var statement = statements[i];
+
+                // If this is the last statement in the block and the method expects a
+                // value, treat a bare expression statement as an implicit return. This
+                // allows functions to omit an explicit `return` for the final
+                // expression, while still emitting any required boxing.
+                if (treatAsMethodBody && includeImplicitReturn &&
+                    i == statements.Count - 1 &&
+                    ImplicitReturnRewriter.IsImplicitReturnCandidate(effectiveReturnType, unitType, block, out var implicitReturnStmt))
+                {
+                    var returnStatement = new BoundReturnStatement(implicitReturnStmt.Expression);
+                    new StatementGenerator(blockScope, returnStatement).Emit();
+                    return;
+                }
+
+                new StatementGenerator(blockScope, statement).Emit();
             }
 
-            new StatementGenerator(blockScope, statement).Emit();
-        }
+            blockScope.EmitDispose(block.LocalsToDispose);
 
-        blockScope.EmitDispose(block.LocalsToDispose);
-
-        if (_returnLabel is ILLabel exitLabel)
-        {
-            ILGenerator.MarkLabel(exitLabel);
-
-            if (treatAsMethodBody && includeImplicitReturn)
+            if (_returnLabel is ILLabel exitLabel)
             {
-                if (TryGetReturnValueLocal(out var returnValueLocal) && returnValueLocal is not null)
-                    ILGenerator.Emit(OpCodes.Ldloc, returnValueLocal);
+                ILGenerator.MarkLabel(exitLabel);
 
+                if (treatAsMethodBody && includeImplicitReturn)
+                {
+                    if (TryGetReturnValueLocal(out var returnValueLocal) && returnValueLocal is not null)
+                        ILGenerator.Emit(OpCodes.Ldloc, returnValueLocal);
+
+                    ILGenerator.Emit(OpCodes.Ret);
+                    return;
+                }
+            }
+
+            if (!treatAsMethodBody || !includeImplicitReturn)
+                return;
+
+            var endsWithTerminator = statements.Count > 0 &&
+                IsTerminatingStatement(statements[^1]);
+
+            if (!endsWithTerminator && ShouldEmitImplicitReturn())
+            {
+                ILGenerator.Emit(OpCodes.Nop);
                 ILGenerator.Emit(OpCodes.Ret);
                 return;
             }
+
+            if (!endsWithTerminator &&
+                GetEffectiveReturnTypeForEmission().SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit)
+            {
+                // Defensive fallback: keep emitted IL verifiable even when branch-shape analysis
+                // cannot prove all paths in a non-void method return.
+                var invalidOperationCtor = typeof(InvalidOperationException)
+                    .GetConstructor(new[] { typeof(string) })!;
+                ILGenerator.Emit(OpCodes.Ldstr, "Control reached end of non-void member without returning a value.");
+                ILGenerator.Emit(OpCodes.Newobj, invalidOperationCtor);
+                ILGenerator.Emit(OpCodes.Throw);
+            }
         }
-
-        if (!treatAsMethodBody || !includeImplicitReturn)
-            return;
-
-        var endsWithTerminator = statements.Count > 0 &&
-            IsTerminatingStatement(statements[^1]);
-
-        if (!endsWithTerminator && ShouldEmitImplicitReturn())
+        finally
         {
-            ILGenerator.Emit(OpCodes.Nop);
-            ILGenerator.Emit(OpCodes.Ret);
-            return;
-        }
-
-        if (!endsWithTerminator &&
-            GetEffectiveReturnTypeForEmission().SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit)
-        {
-            // Defensive fallback: keep emitted IL verifiable even when branch-shape analysis
-            // cannot prove all paths in a non-void method return.
-            var invalidOperationCtor = typeof(InvalidOperationException)
-                .GetConstructor(new[] { typeof(string) })!;
-            ILGenerator.Emit(OpCodes.Ldstr, "Control reached end of non-void member without returning a value.");
-            ILGenerator.Emit(OpCodes.Newobj, invalidOperationCtor);
-            ILGenerator.Emit(OpCodes.Throw);
+            if (emitExplicitIlScope)
+                ILGenerator.EndScope();
         }
     }
 

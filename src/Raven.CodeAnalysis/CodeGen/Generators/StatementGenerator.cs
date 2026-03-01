@@ -987,10 +987,19 @@ internal class StatementGenerator : Generator
     private void EmitBlockStatement(BoundBlockStatement blockStatement)
     {
         var scope = new Scope(this, blockStatement.LocalsToDispose);
-        foreach (var s in blockStatement.Statements)
-            new StatementGenerator(scope, s).Emit();
 
-        EmitDispose(blockStatement.LocalsToDispose);
+        ILGenerator.BeginScope();
+        try
+        {
+            foreach (var s in blockStatement.Statements)
+                new StatementGenerator(scope, s).Emit();
+
+            EmitDispose(blockStatement.LocalsToDispose);
+        }
+        finally
+        {
+            ILGenerator.EndScope();
+        }
     }
 
     private void EmitLabeledStatement(BoundLabeledStatement labeledStatement)

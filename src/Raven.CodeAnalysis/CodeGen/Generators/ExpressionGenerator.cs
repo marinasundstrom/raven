@@ -5634,56 +5634,64 @@ internal partial class ExpressionGenerator : Generator
         var scope = new Scope(this, block.LocalsToDispose);
         var statements = block.Statements.ToArray();
 
-        if (statements.Length > 0)
-            MethodBodyGenerator.DeclareLocals(scope, statements);
-
-        BoundExpression? resultExpression = null;
-        var count = statements.Length;
-
-        if (count > 0 &&
-            statements[^1] is BoundExpressionStatement exprStmt &&
-            exprStmt.Expression.Type?.SpecialType is not SpecialType.System_Void)
+        ILGenerator.BeginScope();
+        try
         {
-            resultExpression = exprStmt.Expression;
-            count--;
-        }
+            if (statements.Length > 0)
+                MethodBodyGenerator.DeclareLocals(scope, statements);
 
-        for (int i = 0; i < count; i++)
-        {
-            var statement = statements[i];
-            EmitStatement(statement, scope);
-        }
+            BoundExpression? resultExpression = null;
+            var count = statements.Length;
 
-        IILocal? resultTemp = null;
-        IILocal? resultLocal = null;
-        if (resultExpression is not null)
-        {
-            if (resultExpression is BoundLocalAccess localAccess &&
-                !block.LocalsToDispose.Any(local => SymbolEqualityComparer.Default.Equals(local, localAccess.Local)) &&
-                scope.GetLocal(localAccess.Local) is { } existingLocal)
+            if (count > 0 &&
+                statements[^1] is BoundExpressionStatement exprStmt &&
+                exprStmt.Expression.Type?.SpecialType is not SpecialType.System_Void)
             {
-                resultLocal = existingLocal;
+                resultExpression = exprStmt.Expression;
+                count--;
             }
-            else
-            {
-                new ExpressionGenerator(scope, resultExpression).Emit();
 
-                var resultType = resultExpression.Type;
-                if (resultType is not null)
+            for (int i = 0; i < count; i++)
+            {
+                var statement = statements[i];
+                EmitStatement(statement, scope);
+            }
+
+            IILocal? resultTemp = null;
+            IILocal? resultLocal = null;
+            if (resultExpression is not null)
+            {
+                if (resultExpression is BoundLocalAccess localAccess &&
+                    !block.LocalsToDispose.Any(local => SymbolEqualityComparer.Default.Equals(local, localAccess.Local)) &&
+                    scope.GetLocal(localAccess.Local) is { } existingLocal)
                 {
-                    var clrType = ResolveClrType(resultType);
-                    resultTemp = ILGenerator.DeclareLocal(clrType);
-                    ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+                    resultLocal = existingLocal;
+                }
+                else
+                {
+                    new ExpressionGenerator(scope, resultExpression).Emit();
+
+                    var resultType = resultExpression.Type;
+                    if (resultType is not null)
+                    {
+                        var clrType = ResolveClrType(resultType);
+                        resultTemp = ILGenerator.DeclareLocal(clrType);
+                        ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+                    }
                 }
             }
+
+            EmitDispose(block.LocalsToDispose);
+
+            if (resultTemp is not null)
+                ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+            else if (resultLocal is not null)
+                ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
         }
-
-        EmitDispose(block.LocalsToDispose);
-
-        if (resultTemp is not null)
-            ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
-        else if (resultLocal is not null)
-            ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+        finally
+        {
+            ILGenerator.EndScope();
+        }
     }
 
     private void EmitTryExpression(BoundTryExpression tryExpression)

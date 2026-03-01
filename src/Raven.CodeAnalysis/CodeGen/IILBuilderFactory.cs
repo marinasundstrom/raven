@@ -100,6 +100,10 @@ internal sealed class ReflectionEmitILBuilderFactory : IILBuilderFactory
         public void MarkSequencePoint(ISymbolDocumentWriter document, int startLine, int startColumn, int endLine, int endColumn)
             => _inner.MarkSequencePoint(document, startLine, startColumn, endLine, endColumn);
 
+        public void BeginScope() => _inner.BeginScope();
+
+        public void EndScope() => _inner.EndScope();
+
         public void MarkAllLabels()
         {
             foreach (var label in _definedLabels)
