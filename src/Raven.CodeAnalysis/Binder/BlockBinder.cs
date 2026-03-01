@@ -101,7 +101,7 @@ partial class BlockBinder : Binder
 
     internal override SymbolInfo BindIdentifierReference(IdentifierNameSyntax node)
     {
-        return BindIdentifierName(node).GetSymbolInfo();
+        return BindIdentifierName(node, allowEventAccess: IsEventAssignmentLeftHandSide(node)).GetSymbolInfo();
     }
 
     internal override SymbolInfo BindInvocationReference(InvocationExpressionSyntax node)
@@ -111,12 +111,39 @@ partial class BlockBinder : Binder
 
     internal override SymbolInfo BindMemberAccessReference(MemberAccessExpressionSyntax node)
     {
-        return BindMemberAccessExpression(node).GetSymbolInfo();
+        return BindMemberAccessExpression(node, allowEventAccess: IsEventAssignmentLeftHandSide(node)).GetSymbolInfo();
     }
 
     internal override SymbolInfo BindMemberBindingReference(MemberBindingExpressionSyntax node)
     {
-        return BindMemberBindingExpression(node).GetSymbolInfo();
+        return BindMemberBindingExpression(node, allowEventAccess: IsEventAssignmentLeftHandSide(node)).GetSymbolInfo();
+    }
+
+    private static bool IsEventAssignmentLeftHandSide(SyntaxNode node)
+    {
+        for (SyntaxNode? current = node; current is not null; current = current.Parent)
+        {
+            if (current.Parent is AssignmentStatementSyntax assignmentStatement &&
+                IsSameSyntaxNode(assignmentStatement.Left, current) &&
+                IsEventAssignmentOperator(assignmentStatement.OperatorToken.Kind))
+            {
+                return true;
+            }
+
+            if (current.Parent is AssignmentExpressionSyntax assignmentExpression &&
+                IsSameSyntaxNode(assignmentExpression.Left, current) &&
+                IsEventAssignmentOperator(assignmentExpression.OperatorToken.Kind))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsEventAssignmentOperator(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.PlusEqualsToken or SyntaxKind.MinusEqualsToken;
     }
 
     public override ISymbol? LookupSymbol(string name)
@@ -8250,13 +8277,18 @@ partial class BlockBinder : Binder
     }
 
     private BoundExpression BindExpressionAllowingEvent(ExpressionSyntax syntax)
-        => syntax switch
+    {
+        var bound = syntax switch
         {
             IdentifierNameSyntax identifier => BindIdentifierName(identifier, allowEventAccess: true),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess, allowEventAccess: true),
             MemberBindingExpressionSyntax memberBinding => BindMemberBindingExpression(memberBinding, allowEventAccess: true),
             _ => BindExpression(syntax)
         };
+
+        CacheBoundNode(syntax, bound);
+        return bound;
+    }
 
     private bool IsWithinEventContainingType(IEventSymbol eventSymbol)
     {

@@ -219,6 +219,14 @@ public partial class SemanticModel
     {
         projected = symbol;
 
+        if (symbol is IMethodSymbol methodSymbol &&
+            methodSymbol.AssociatedSymbol is { } associatedMemberSymbol &&
+            associatedMemberSymbol is IPropertySymbol or IEventSymbol)
+        {
+            projected = associatedMemberSymbol;
+            return true;
+        }
+
         if (symbol is not IFieldSymbol fieldSymbol)
             return false;
 
@@ -228,9 +236,10 @@ public partial class SemanticModel
             return false;
         }
 
-        if (fieldSymbol.AssociatedSymbol is IPropertySymbol propertySymbol)
+        if (fieldSymbol.AssociatedSymbol is { } associatedSymbol &&
+            associatedSymbol is IPropertySymbol or IEventSymbol)
         {
-            projected = propertySymbol;
+            projected = associatedSymbol;
             return true;
         }
 

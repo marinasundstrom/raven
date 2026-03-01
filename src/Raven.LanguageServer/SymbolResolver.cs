@@ -99,7 +99,7 @@ internal static class SymbolResolver
             _ => null
         };
 
-        return operationSymbol;
+        return ProjectSymbolForDisplay(operationSymbol);
     }
 
     private static bool TryResolveTypePositionSymbol(
@@ -172,6 +172,25 @@ internal static class SymbolResolver
             score -= 20;
 
         return score;
+    }
+
+    private static ISymbol? ProjectSymbolForDisplay(ISymbol? symbol)
+    {
+        if (symbol is IMethodSymbol methodSymbol &&
+            methodSymbol.AssociatedSymbol is { } associatedMember &&
+            associatedMember is IPropertySymbol or IEventSymbol)
+        {
+            return associatedMember;
+        }
+
+        if (symbol is IFieldSymbol fieldSymbol &&
+            fieldSymbol.AssociatedSymbol is { } associatedFieldMember &&
+            associatedFieldMember is IPropertySymbol or IEventSymbol)
+        {
+            return associatedFieldMember;
+        }
+
+        return symbol;
     }
 
     private static bool TryResolveInvocationTargetSymbol(
