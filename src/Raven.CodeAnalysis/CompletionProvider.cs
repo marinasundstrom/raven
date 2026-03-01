@@ -208,6 +208,57 @@ public static class CompletionProvider
             return type;
         }
 
+        static bool TryGetOptionPayloadType(ITypeSymbol? type, out ITypeSymbol payload)
+        {
+            payload = null!;
+            if (type is null)
+                return false;
+
+            type = type.UnwrapLiteralType() ?? type;
+            if (type is INamedTypeSymbol named &&
+                named.Arity == 1 &&
+                string.Equals(named.Name, "Option", StringComparison.Ordinal))
+            {
+                payload = named.TypeArguments[0];
+                return true;
+            }
+
+            return false;
+        }
+
+        static bool TryGetResultPayloadType(ITypeSymbol? type, out ITypeSymbol payload)
+        {
+            payload = null!;
+            if (type is null)
+                return false;
+
+            type = type.UnwrapLiteralType() ?? type;
+            if (type is INamedTypeSymbol named &&
+                named.Arity == 2 &&
+                string.Equals(named.Name, "Result", StringComparison.Ordinal))
+            {
+                payload = named.TypeArguments[0];
+                return true;
+            }
+
+            return false;
+        }
+
+        static ITypeSymbol? GetCarrierConditionalAccessLookupType(ITypeSymbol? type)
+        {
+            if (type is null)
+                return null;
+
+            type = type.UnwrapLiteralType() ?? type;
+            if (TryGetOptionPayloadType(type, out var optionPayload))
+                return optionPayload.GetPlainType();
+
+            if (TryGetResultPayloadType(type, out var resultPayload))
+                return resultPayload.GetPlainType();
+
+            return type.GetPlainType();
+        }
+
         static ITypeSymbol? GetTypeFromSymbol(ISymbol? symbol)
             => symbol switch
             {
@@ -890,7 +941,7 @@ public static class CompletionProvider
                 }
                 else if (type is ITypeSymbol instanceType)
                 {
-                    var completionType = instanceType.GetPlainType();
+                    var completionType = GetCarrierConditionalAccessLookupType(instanceType) ?? instanceType.GetPlainType();
                     members = completionType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
                     instanceTypeForExtensions = completionType switch
                     {

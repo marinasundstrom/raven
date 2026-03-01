@@ -400,6 +400,60 @@ text?.Len
     }
 
     [Fact]
+    public void GetCompletions_AfterConditionalAccess_OnResultCarrier_UsesOkPayloadMembers()
+    {
+        var code = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(data: E)
+}
+
+val result: Result<string, string> = .Ok("hello")
+result?.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("?.", StringComparison.Ordinal) + 2;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Length");
+        Assert.DoesNotContain(items, i => i.DisplayText == "TryGetValue");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterConditionalAccess_OnOptionCarrier_UsesSomePayloadMembers()
+    {
+        var code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+val option: Option<string> = .Some("hello")
+option?.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("?.", StringComparison.Ordinal) + 2;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Length");
+        Assert.DoesNotContain(items, i => i.DisplayText == "TryGetValue");
+    }
+
+    [Fact]
     public void GetCompletions_AfterInvocationStart_InsertsAtCaret()
     {
         var code = """
