@@ -37,6 +37,7 @@ internal static class Program
             })
             .WithHandler<RavenTextDocumentSyncHandler>()
             .WithHandler<CompletionHandler>()
+            .WithHandler<SignatureHelpHandler>()
             .WithHandler<DefinitionHandler>()
             .WithHandler<HoverHandler>()
             .WithHandler<DocumentSymbolHandler>()
