@@ -104,14 +104,20 @@ public static class CompletionProvider
                 : identifier;
         }
 
-        static (string displayText, string insertionText) CreateCompletionParts(ISymbol symbol)
+        static (string displayText, string insertionText, string dedupKey) CreateCompletionParts(ISymbol symbol)
         {
             var escapedName = EscapeIdentifierForInsertion(symbol.Name);
             var insertionText = symbol is IMethodSymbol
                 ? escapedName + "()"
                 : escapedName;
+            var displayText = symbol is IDiscriminatedUnionCaseSymbol unionCase
+                ? ((INamedTypeSymbol)unionCase).FormatUnionCaseForDiagnostic()
+                : escapedName;
+            var dedupKey = symbol is IDiscriminatedUnionCaseSymbol
+                ? displayText
+                : symbol.Name;
 
-            return (escapedName, insertionText);
+            return (displayText, insertionText, dedupKey);
         }
 
         static bool NameMatchesPrefix(string symbolName, string prefix)
@@ -569,10 +575,10 @@ public static class CompletionProvider
                             .OfType<INamespaceOrTypeSymbol>()
                             .Where(m => NameMatchesPrefix(m.Name, prefix)))
                         {
-                            var (displayText, insertText) = CreateCompletionParts(member);
+                            var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
                             var cursorOffset = member is ITypeSymbol ? insertText.Length : (int?)null;
 
-                            if (seen.Add(member.Name))
+                            if (seen.Add(dedupKey))
                             {
                                 completions.Add(new CompletionItem(
                                     DisplayText: displayText,
@@ -596,10 +602,10 @@ public static class CompletionProvider
                     if (symbol is INamespaceOrTypeSymbol nsOrType &&
                         NameMatchesPrefix(nsOrType.Name, tokenValueText))
                     {
-                        var (displayText, insertText) = CreateCompletionParts(nsOrType);
+                        var (displayText, insertText, dedupKey) = CreateCompletionParts(nsOrType);
                         var cursorOffset = nsOrType is ITypeSymbol ? insertText.Length : (int?)null;
 
-                        if (seen.Add(nsOrType.Name))
+                        if (seen.Add(dedupKey))
                         {
                             completions.Add(new CompletionItem(
                                 DisplayText: displayText,
@@ -634,10 +640,10 @@ public static class CompletionProvider
                         foreach (var member in nsOrType.GetMembers()
                             .Where(m => NameMatchesPrefix(m.Name, prefix)))
                         {
-                            var (displayText, insertText) = CreateCompletionParts(member);
+                            var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
                             var cursorOffset = member is ITypeSymbol ? insertText.Length : GetDefaultCursorOffset(member, insertText);
 
-                            if (seen.Add(member.Name))
+                            if (seen.Add(dedupKey))
                             {
                                 completions.Add(new CompletionItem(
                                     DisplayText: displayText,
@@ -661,7 +667,7 @@ public static class CompletionProvider
                     if (!NameMatchesPrefix(symbol.Name, tokenValueText))
                         continue;
 
-                    var (displayText, insertText) = CreateCompletionParts(symbol);
+                    var (displayText, insertText, dedupKey) = CreateCompletionParts(symbol);
                     var cursorOffset = GetDefaultCursorOffset(symbol, insertText);
 
                     if (seen.Add(symbol.Name))
@@ -684,10 +690,10 @@ public static class CompletionProvider
                 var span = new TextSpan(position, 0);
                 foreach (var symbol in binder.LookupAvailableSymbols())
                 {
-                    var (displayText, insertText) = CreateCompletionParts(symbol);
+                    var (displayText, insertText, dedupKey) = CreateCompletionParts(symbol);
                     var cursorOffset = GetDefaultCursorOffset(symbol, insertText);
 
-                    if (seen.Add(symbol.Name))
+                    if (seen.Add(dedupKey))
                     {
                         completions.Add(new CompletionItem(
                             DisplayText: displayText,
@@ -712,9 +718,9 @@ public static class CompletionProvider
                     IsAccessible(type) &&
                     type.Constructors.Any(IsAccessible))
                 {
-                    if (seen.Add(type.Name))
+                    var (displayText, insertText, dedupKey) = CreateCompletionParts(type);
+                    if (seen.Add(dedupKey))
                     {
-                        var (displayText, insertText) = CreateCompletionParts(type);
                         var cursorOffset = insertText.Length;
 
                         completions.Add(new CompletionItem(
@@ -752,9 +758,9 @@ public static class CompletionProvider
                     continue;
                 }
 
-                if (seen.Add(label.Name))
+                var (displayText, insertText, dedupKey) = CreateCompletionParts(label);
+                if (seen.Add(dedupKey))
                 {
-                    var (displayText, insertText) = CreateCompletionParts(label);
 
                     completions.Add(new CompletionItem(
                         DisplayText: displayText,
@@ -780,7 +786,7 @@ public static class CompletionProvider
                     .OfType<IPropertySymbol>()
                     .Where(p => p.SetMethod is not null && p.SetMethod.DeclaredAccessibility == Accessibility.Public))
                 {
-                    if (seen.Add(member.Name))
+                    if (seen.Add(dedupKey))
                     {
                         completions.Add(new CompletionItem(
                             DisplayText: member.Name,
@@ -866,7 +872,10 @@ public static class CompletionProvider
                 else if (symbol is INamedTypeSymbol typeSymbol && SymbolEqualityComparer.Default.Equals(symbol, type))
                 {
                     // Accessing a type name: show static members
-                    members = typeSymbol.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
+                    var staticMembers = typeSymbol.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
+                    members = typeSymbol is IDiscriminatedUnionSymbol union
+                        ? staticMembers.Concat(union.Cases.Where(IsAccessible))
+                        : staticMembers;
                 }
                 else if (type is ITypeSymbol instanceType)
                 {
@@ -901,10 +910,10 @@ public static class CompletionProvider
                         if (member is IMethodSymbol method && IsSuppressedCompletionMethod(method))
                             continue;
 
-                        var (displayText, insertText) = CreateCompletionParts(member);
+                        var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
                         var cursorOffset = GetDefaultCursorOffset(member, insertText);
 
-                        if (seen.Add(member.Name))
+                        if (seen.Add(dedupKey))
                         {
                             completions.Add(new CompletionItem(
                                 DisplayText: displayText,
@@ -935,10 +944,10 @@ public static class CompletionProvider
                             if (!NameMatchesPrefix(method.Name, prefix))
                                 continue;
 
-                            var (displayText, insertText) = CreateCompletionParts(method);
+                            var (displayText, insertText, dedupKey) = CreateCompletionParts(method);
                             var cursorOffset = GetDefaultCursorOffset(method, insertText);
 
-                            if (seen.Add(method.Name))
+                            if (seen.Add(dedupKey))
                             {
                                 completions.Add(new CompletionItem(
                                     DisplayText: displayText,
@@ -978,10 +987,10 @@ public static class CompletionProvider
                     || NameMatchesPrefix(m.Name, prefix))
                     .Where(IsAccessible))
                 {
-                    var (displayText, insertText) = CreateCompletionParts(member);
+                    var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
                     var cursorOffset = member is ITypeSymbol ? insertText.Length : GetDefaultCursorOffset(member, insertText);
 
-                    if (seen.Add(member.Name))
+                    if (seen.Add(dedupKey))
                     {
                         completions.Add(new CompletionItem(
                             DisplayText: displayText,
@@ -1012,10 +1021,10 @@ public static class CompletionProvider
                         continue;
                     }
 
-                    var (displayText, insertText) = CreateCompletionParts(member);
+                    var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
                     var cursorOffset = GetDefaultCursorOffset(member, insertText);
 
-                    if (seen.Add(member.Name))
+                    if (seen.Add(dedupKey))
                     {
                         completions.Add(new CompletionItem(
                             DisplayText: displayText,
@@ -1044,9 +1053,9 @@ public static class CompletionProvider
                             !NameMatchesPrefix(method.Name, prefix))
                             continue;
 
-                        var (displayText, insertText) = CreateCompletionParts(method);
+                        var (displayText, insertText, dedupKey) = CreateCompletionParts(method);
                         var cursorOffset = GetDefaultCursorOffset(method, insertText);
-                        if (seen.Add(method.Name))
+                        if (seen.Add(dedupKey))
                         {
                             completions.Add(new CompletionItem(
                                 DisplayText: displayText,
@@ -1112,10 +1121,10 @@ public static class CompletionProvider
                     !NameMatchesPrefix(symbol.Name, tokenValueText))
                     continue;
 
-                var (displayText, insertText) = CreateCompletionParts(symbol);
+                var (displayText, insertText, dedupKey) = CreateCompletionParts(symbol);
                 var cursorOffset = GetDefaultCursorOffset(symbol, insertText);
 
-                if (seen.Add(symbol.Name))
+                if (seen.Add(dedupKey))
                 {
                     completions.Add(new CompletionItem(
                         DisplayText: displayText,
