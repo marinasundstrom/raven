@@ -189,6 +189,24 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             var tokenAfterModifiers = PeekToken();
 
+            if (nextToken.IsKind(SyntaxKind.OpenBracketToken) &&
+                attributeLists.GetChildren()
+                    .OfType<AttributeListSyntax>()
+                    .Any(attributeList => attributeList.CloseBracketToken.IsMissing))
+            {
+                // Malformed attribute prelude (for example collection expressions like
+                // `[1, 2] |> ...`) should be reparsed as a normal statement.
+                checkpoint.Rewind();
+
+                var bracketStatement = new StatementSyntaxParser(this).ParseStatement();
+                if (bracketStatement is not null)
+                {
+                    AddGlobalMember(memberDeclarations, SyntaxList.Empty, SyntaxList.Empty, bracketStatement);
+                    order = MemberOrder.Members;
+                    return;
+                }
+            }
+
             if (tokenAfterModifiers.IsKind(SyntaxKind.NamespaceKeyword))
             {
                 checkpoint.Rewind();
@@ -260,6 +278,21 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             if (!statementStartAfterModifiers)
             {
+                // If this started with '[', we may have parsed a collection expression as
+                // attributes. Rewind and parse it as a normal statement.
+                if (nextToken.IsKind(SyntaxKind.OpenBracketToken))
+                {
+                    checkpoint.Rewind();
+
+                    var bracketStatement = new StatementSyntaxParser(this).ParseStatement();
+                    if (bracketStatement is not null)
+                    {
+                        AddGlobalMember(memberDeclarations, SyntaxList.Empty, SyntaxList.Empty, bracketStatement);
+                        order = MemberOrder.Members;
+                        return;
+                    }
+                }
+
                 var skippedToken = ParseIncompleteMemberTokens();
                 TryConsumeTerminator(out var terminatorToken);
                 var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken);

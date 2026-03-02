@@ -123,16 +123,31 @@ public partial class SemanticModel
                 {
                     // Bind the contained statement so locals are registered
                     childBinder.GetOrBind(global.Statement);
+                    BindStatementAttributeSyntaxes(global, childBinder);
                     continue;
                 }
 
                 if (child is ExpressionSyntax || child is StatementSyntax)
                 {
                     childBinder.GetOrBind(child);
+                    BindStatementAttributeSyntaxes(child, childBinder);
                     continue;
                 }
 
                 Traverse(child, childBinder);
+            }
+        }
+
+        void BindStatementAttributeSyntaxes(SyntaxNode statementNode, Binder parentBinder)
+        {
+            foreach (var attributeSyntax in statementNode.DescendantNodes().OfType<AttributeSyntax>())
+            {
+                var attributeParent = (SyntaxNode?)attributeSyntax.Parent ?? statementNode;
+                var binderForAttribute = GetBinder(attributeParent, parentBinder);
+                var attributeBinder = binderForAttribute as AttributeBinder
+                    ?? new AttributeBinder(binderForAttribute.ContainingSymbol, binderForAttribute);
+
+                _ = attributeBinder.BindAttribute(attributeSyntax);
             }
         }
     }

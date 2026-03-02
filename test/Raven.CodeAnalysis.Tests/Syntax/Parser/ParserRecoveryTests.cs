@@ -136,6 +136,40 @@ public class ParserRecoveryTests
     }
 
     [Fact]
+    public void CompilationUnit_CollectionExpressionPipeBeforeDeclaration_RemainsGlobalStatement()
+    {
+        var source = """
+            [1, 2] |> Where(x => x > 2)
+            class Foo {}
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        Assert.Equal(2, root.Members.Count);
+        var global = Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
+        Assert.IsType<ExpressionStatementSyntax>(global.Statement);
+        Assert.IsType<ClassDeclarationSyntax>(root.Members[1]);
+        Assert.DoesNotContain(root.Members, member => member is IncompleteMemberDeclarationSyntax);
+    }
+
+    [Fact]
+    public void CompilationUnit_CollectionExpressionPipe_ParsesAsGlobalStatement()
+    {
+        var source = """
+            [1, 2] |> Where(x => x > 2)
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var global = Assert.IsType<GlobalStatementSyntax>(Assert.Single(root.Members));
+        Assert.IsType<ExpressionStatementSyntax>(global.Statement);
+        Assert.DoesNotContain(root.Members, member => member is IncompleteMemberDeclarationSyntax);
+        Assert.Empty(tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
     public void FileScopedNamespace_GlobalStatementBeforeDeclaration_RemainsGlobalStatement()
     {
         var source = """
@@ -151,6 +185,26 @@ public class ParserRecoveryTests
         Assert.Equal(2, fileScopedNamespace.Members.Count);
         Assert.IsType<GlobalStatementSyntax>(fileScopedNamespace.Members[0]);
         Assert.IsType<ClassDeclarationSyntax>(fileScopedNamespace.Members[1]);
+    }
+
+    [Fact]
+    public void FileScopedNamespace_CollectionExpressionPipeBeforeDeclaration_RemainsGlobalStatement()
+    {
+        var source = """
+            namespace N;
+            [1, 2] |> Where(x => x > 2)
+            class Foo {}
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var fileScopedNamespace = Assert.IsType<FileScopedNamespaceDeclarationSyntax>(Assert.Single(root.Members));
+
+        Assert.Equal(2, fileScopedNamespace.Members.Count);
+        var global = Assert.IsType<GlobalStatementSyntax>(fileScopedNamespace.Members[0]);
+        Assert.IsType<ExpressionStatementSyntax>(global.Statement);
+        Assert.IsType<ClassDeclarationSyntax>(fileScopedNamespace.Members[1]);
+        Assert.DoesNotContain(fileScopedNamespace.Members, member => member is IncompleteMemberDeclarationSyntax);
     }
 
     [Fact]

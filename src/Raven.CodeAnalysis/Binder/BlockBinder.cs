@@ -5466,7 +5466,8 @@ partial class BlockBinder : Binder
             }
         }
 
-        if (TryGetLaterLocalDeclaration(syntax, name, out _))
+        if (TryGetLaterLocalDeclaration(syntax, name, out _) &&
+            !IsIdentifierBoundByEnclosingLambdaParameter(syntax, name))
         {
             _diagnostics.ReportVariableUsedBeforeDeclaration(name, syntax.Identifier.GetLocation());
             var error = ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -5693,6 +5694,30 @@ partial class BlockBinder : Binder
             {
                 expr = new BoundPropertyAccess(/* new BoundSelfExpression(containingType), */ property);
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsIdentifierBoundByEnclosingLambdaParameter(IdentifierNameSyntax syntax, string name)
+    {
+        for (var current = syntax.Parent; current is not null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case SimpleLambdaExpressionSyntax simpleLambda:
+                    if (string.Equals(simpleLambda.Parameter.Identifier.ValueText, name, StringComparison.Ordinal))
+                        return true;
+                    break;
+
+                case ParenthesizedLambdaExpressionSyntax parenthesizedLambda:
+                    foreach (var parameter in parenthesizedLambda.ParameterList.Parameters)
+                    {
+                        if (string.Equals(parameter.Identifier.ValueText, name, StringComparison.Ordinal))
+                            return true;
+                    }
+                    break;
             }
         }
 
@@ -5931,22 +5956,92 @@ partial class BlockBinder : Binder
 
         if (syntax.Right is InvocationExpressionSyntax invocation)
         {
-            var boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out var hasErrors);
-            if (hasErrors)
-                return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
-
             var target = BindPipelineInvocationTargetExpression(invocation.Expression, left);
 
             if (target is BoundErrorExpression error)
                 return error;
 
             if (target is BoundMethodGroupExpression methodGroup)
+            {
+                var extensionCandidates = FilterInvocationCandidatesForArgumentBinding(
+                    methodGroup.Methods.Where(static method => method.IsExtensionMethod).ToImmutableArray(),
+                    invocation.ArgumentList.Arguments);
+
+                if (!extensionCandidates.IsDefaultOrEmpty)
+                {
+                    var extensionCandidatesForBinding = extensionCandidates;
+                    for (var argumentIndex = 0; argumentIndex < invocation.ArgumentList.Arguments.Count; argumentIndex++)
+                    {
+                        var argumentExpression = invocation.ArgumentList.Arguments[argumentIndex].Expression;
+                        extensionCandidatesForBinding = FilterMethodsForLambda(
+                            extensionCandidatesForBinding,
+                            argumentIndex,
+                            argumentExpression,
+                            extensionReceiverImplicit: true,
+                            callSiteArgumentCount: invocation.ArgumentList.Arguments.Count);
+
+                        RecordLambdaTargets(
+                            argumentExpression,
+                            extensionCandidatesForBinding,
+                            argumentIndex,
+                            extensionReceiverImplicit: true,
+                            receiverType: left.Type);
+                    }
+
+                    var boundExtensionArguments = BindInvocationArgumentsWithCandidateTargetTypes(
+                        extensionCandidatesForBinding,
+                        invocation.ArgumentList.Arguments,
+                        out var hasExtensionErrors,
+                        left);
+
+                    if (!hasExtensionErrors)
+                        return BindPipelineInvocationOnMethodGroup(methodGroup, invocation, syntax.Left, left, boundExtensionArguments);
+                }
+
+                var boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out var hasErrors);
+
+                if (hasErrors)
+                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+
                 return BindPipelineInvocationOnMethodGroup(methodGroup, invocation, syntax.Left, left, boundArguments);
+            }
 
-            if (target is BoundMemberAccessExpression { Member: IMethodSymbol } memberExpr)
+            if (target is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
+            {
+                BoundArgument[] boundArguments;
+                bool hasErrors;
+
+                if (method.IsExtensionMethod)
+                {
+                    for (var argumentIndex = 0; argumentIndex < invocation.ArgumentList.Arguments.Count; argumentIndex++)
+                    {
+                        var argumentExpression = invocation.ArgumentList.Arguments[argumentIndex].Expression;
+                        RecordLambdaTargets(
+                            argumentExpression,
+                            ImmutableArray.Create(method),
+                            argumentIndex,
+                            extensionReceiverImplicit: true,
+                            receiverType: left.Type);
+                    }
+
+                    boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, method, left, out hasErrors);
+                }
+                else
+                {
+                    boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out hasErrors);
+                }
+
+                if (hasErrors)
+                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+
                 return BindPipelineInvocationOnBoundMethod(memberExpr, invocation, syntax.Left, left, boundArguments);
+            }
 
-            if (BindPipelineInvocationOnDelegate(target, invocation, syntax.Left, left, boundArguments) is { } delegateInvocation)
+            var delegateArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out var delegateArgumentErrors);
+            if (delegateArgumentErrors)
+                return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+
+            if (BindPipelineInvocationOnDelegate(target, invocation, syntax.Left, left, delegateArguments) is { } delegateInvocation)
                 return delegateInvocation;
 
             _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
@@ -8950,6 +9045,14 @@ partial class BlockBinder : Binder
     private BoundExpression BindCollectionExpression(CollectionExpressionSyntax syntax)
     {
         var targetType = GetTargetType(syntax);
+
+        // Expression-statement contexts can flow Unit as a target type.
+        // Collection literals should still infer a concrete collection type.
+        if (targetType is not null &&
+            (targetType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void))
+        {
+            targetType = null;
+        }
 
         // Empty collection: defer to target type if available
         if (syntax.Elements.Count == 0)

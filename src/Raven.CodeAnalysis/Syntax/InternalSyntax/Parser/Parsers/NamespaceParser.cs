@@ -299,6 +299,25 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             var tokenAfterModifiers = PeekToken();
 
+            if (nextToken.IsKind(SyntaxKind.OpenBracketToken) &&
+                attributeLists.GetChildren()
+                    .OfType<AttributeListSyntax>()
+                    .Any(attributeList => attributeList.CloseBracketToken.IsMissing))
+            {
+                // Malformed attribute prelude (for example collection expressions like
+                // `[1, 2] |> ...`) should be reparsed as a normal statement.
+                checkpoint.Rewind();
+
+                var bracketStatement = new StatementSyntaxParser(this).ParseStatement();
+                if (bracketStatement is not null)
+                {
+                    var recoveredGlobalStatement = CreateGlobalStatement(SyntaxList.Empty, SyntaxList.Empty, bracketStatement);
+                    AddMemberDeclarationWithSeparatorValidation(recoveredGlobalStatement);
+                    order = MemberOrder.Members;
+                    return;
+                }
+            }
+
             if (tokenAfterModifiers.IsKind(SyntaxKind.NamespaceKeyword))
             {
                 checkpoint.Rewind();
@@ -364,6 +383,24 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 AddMemberDeclarationWithSeparatorValidation(typeDeclaration);
                 order = MemberOrder.Members;
                 return;
+            }
+
+            var statementStartAfterModifiers = StatementSyntaxParser.IsTokenPotentialStatementStart(tokenAfterModifiers);
+
+            if (!statementStartAfterModifiers && nextToken.IsKind(SyntaxKind.OpenBracketToken))
+            {
+                // If this started with '[', we may have parsed a collection expression as
+                // attributes. Rewind and parse it as a normal statement.
+                checkpoint.Rewind();
+
+                var bracketStatement = new StatementSyntaxParser(this).ParseStatement();
+                if (bracketStatement is not null)
+                {
+                    var recoveredGlobalStatement = CreateGlobalStatement(SyntaxList.Empty, SyntaxList.Empty, bracketStatement);
+                    AddMemberDeclarationWithSeparatorValidation(recoveredGlobalStatement);
+                    order = MemberOrder.Members;
+                    return;
+                }
             }
 
             var statement = new StatementSyntaxParser(this).ParseStatement();

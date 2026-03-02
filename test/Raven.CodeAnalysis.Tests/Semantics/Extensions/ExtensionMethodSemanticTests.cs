@@ -1397,6 +1397,72 @@ static class NumberExtensions {
     }
 
     [Fact]
+    public void PipeOperator_WithSystemLinqWhereOnCollectionLiteral_InfersLambdaParameter()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+
+val filtered = [1, 2] |> Where(x => x > 2)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => ReferenceEquals(
+                diagnostic.Descriptor,
+                CompilerDiagnostics.LambdaParameterTypeCannotBeInferred));
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.True(boundPipeline.Method.IsExtensionMethod);
+        Assert.Equal("Where", boundPipeline.Method.Name);
+        Assert.NotNull(boundPipeline.ExtensionReceiver);
+        Assert.Single(boundPipeline.Arguments);
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(boundLambda.Parameters).Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithSystemLinqWhere_LambdaParameterDoesNotTriggerUseBeforeDeclarationFromLaterLocal()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+
+func Main() {
+    [1, 2] |> Where(x => x > 2)
+    val x = [1, 2] |> Where(x => x > 2)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => ReferenceEquals(
+                diagnostic.Descriptor,
+                CompilerDiagnostics.VariableUsedBeforeDeclaration));
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void PipeOperator_WithSourceExtensionDeclaration_UnqualifiedCall_BindsInvocation()
     {
         const string source = """

@@ -139,4 +139,36 @@ class OnlyEnumAttribute : Attribute
         Assert.Equal("RAV1003", diagnostic.Descriptor.Id);
         Assert.Contains(":", diagnostic.GetMessage());
     }
+
+    [Fact]
+    public void TopLevelFunction_WithUnknownAttribute_ReportsDiagnostic()
+    {
+        const string source = """
+[Foo] func Main() {}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        var diagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id));
+        Assert.Equal("RAV0103", diagnostic.Descriptor.Id);
+        Assert.Equal("'Foo' is not in scope.", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void LocalFunction_WithUnknownAttribute_ReportsDiagnostic()
+    {
+        const string source = """
+func Main() {
+    [Foo] func Inner() {}
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        var diagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id));
+        Assert.Equal("RAV0103", diagnostic.Descriptor.Id);
+        Assert.Equal("'Foo' is not in scope.", diagnostic.GetMessage());
+    }
 }
