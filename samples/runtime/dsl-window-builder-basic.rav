@@ -48,13 +48,13 @@ if window.Content is StackPanel stackPanel {
 }
 
 class Window {
-    var Title: string { get; set; } = ""
+    var Title: string = ""
 
-    var Width: int { get; set; } = 250
+    var Width: int = 250
 
-    var Height: int { get; set; } = 250
+    var Height: int = 250
 
-    var Content: Control? { get; set; } = null
+    var Content: Control? = null
 
     var IsVisible: bool { get; private set; } = false
 
@@ -85,7 +85,7 @@ enum DialogResult {
 abstract class Control {}
 
 interface IHasChildren {
-    val Children: IEnumerable<Control> { get; }
+    val Children: IEnumerable<Control>
 
     func Add(control: Control) -> ();
 }
@@ -100,7 +100,7 @@ class StackPanel : Control, IHasChildren {
         Orientation = orientation
     }
 
-    var Orientation: Orientation { get; set; } = .Vertical
+    var Orientation: Orientation = .Vertical
 
     val Children: IEnumerable<Control> => children
 
@@ -110,9 +110,9 @@ class StackPanel : Control, IHasChildren {
 }
 
 class Button(text: string) : Control {
-    var Text: string { get; set; } = text
+    var Text: string = text
 
-    var HorizontalAlignment: HorizontalAlignment { get; set; } = .Fill
+    var HorizontalAlignment: HorizontalAlignment = .Fill
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<Orientation>))]
