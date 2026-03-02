@@ -67,7 +67,7 @@ internal sealed class HoverHandler : IHoverHandler
 
             var symbol = resolution.Value.Symbol;
             var signature = BuildSignature(symbol);
-            var containing = BuildContainingDisplay(symbol);
+            var containing = BuildContainingDisplay(symbol, semanticModel);
             var documentation = symbol.GetDocumentationComment();
             var functionCaptures = semanticModel.GetCapturedVariables(symbol);
             if (functionCaptures.IsDefaultOrEmpty)
@@ -244,8 +244,14 @@ internal sealed class HoverHandler : IHoverHandler
         return symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
     }
 
-    private static string? BuildContainingDisplay(ISymbol symbol)
+    private static string? BuildContainingDisplay(ISymbol symbol, SemanticModel semanticModel)
     {
+        if (symbol is IMethodSymbol method &&
+            TryGetEnclosingCallableDisplayForLocalFunction(method, semanticModel, out var localContaining))
+        {
+            return localContaining;
+        }
+
         var containing = GetUserFacingContainingSymbol(symbol);
         return containing?.ToDisplayString(
             SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
@@ -261,6 +267,9 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static string BuildKindDisplay(ISymbol symbol)
     {
+        if (symbol is IMethodSymbol method && IsFunctionStatementSymbol(method))
+            return "Function";
+
         if (symbol is IMethodSymbol { MethodKind: MethodKind.LambdaMethod })
             return "Lambda";
 
@@ -268,6 +277,49 @@ internal sealed class HoverHandler : IHoverHandler
             return "Constructor";
 
         return symbol.Kind.ToString();
+    }
+
+    private static bool TryGetEnclosingCallableDisplayForLocalFunction(
+        IMethodSymbol method,
+        SemanticModel semanticModel,
+        out string containingDisplay)
+    {
+        containingDisplay = string.Empty;
+        if (!IsFunctionStatementSymbol(method))
+            return false;
+
+        var functionSyntax = method.DeclaringSyntaxReferences
+            .Select(static r => r.GetSyntax())
+            .OfType<FunctionStatementSyntax>()
+            .FirstOrDefault();
+        if (functionSyntax is null)
+            return false;
+
+        var containingSyntax = functionSyntax.Ancestors().FirstOrDefault(static node =>
+            node is FunctionStatementSyntax
+                or MethodDeclarationSyntax
+                or ConstructorDeclarationSyntax
+                or ParameterlessConstructorDeclarationSyntax
+                or InitializerBlockDeclarationSyntax
+                or AccessorDeclarationSyntax);
+        if (containingSyntax is null)
+            return false;
+
+        var containingSymbol = semanticModel.GetDeclaredSymbol(containingSyntax);
+        if (containingSymbol is null)
+            return false;
+
+        containingDisplay = containingSymbol.ToDisplayString(
+            SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
+        return !string.IsNullOrWhiteSpace(containingDisplay);
+    }
+
+    private static bool IsFunctionStatementSymbol(IMethodSymbol method)
+    {
+        if (method.MethodKind != MethodKind.Function)
+            return false;
+
+        return method.DeclaringSyntaxReferences.Any(static r => r.GetSyntax() is FunctionStatementSyntax);
     }
 
     private static string FormatParameters(IEnumerable<IParameterSymbol> parameters, SymbolDisplayFormat format)
