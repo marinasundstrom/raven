@@ -3592,7 +3592,8 @@ internal class MethodBodyGenerator
                 capturedVariables = Compilation.GetSemanticModel(localFunctionStmt.SyntaxTree).GetCapturedVariables(localFunctionStmt);
 
             if (!capturedVariables.IsDefaultOrEmpty &&
-                !Compilation.IsEntryPointCandidate(sourceMethod))
+                !Compilation.IsEntryPointCandidate(sourceMethod) &&
+                !sourceMethod.IsImplicitlyDeclared)
             {
                 var closure = MethodGenerator.TypeGenerator.EnsureMethodClosure(sourceMethod, capturedVariables);
                 methodGenerator.SetLambdaClosure(closure);

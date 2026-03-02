@@ -746,7 +746,8 @@ internal class TypeGenerator
                         {
                             var capturedVariables = GetCapturedVariablesForMethod(sourceMethod);
                             if (!capturedVariables.IsDefaultOrEmpty &&
-                                !Compilation.IsEntryPointCandidate(sourceMethod))
+                                !Compilation.IsEntryPointCandidate(sourceMethod) &&
+                                !sourceMethod.IsImplicitlyDeclared)
                             {
                                 var closure = EnsureMethodClosure(sourceMethod, capturedVariables);
                                 methodGenerator.SetLambdaClosure(closure);

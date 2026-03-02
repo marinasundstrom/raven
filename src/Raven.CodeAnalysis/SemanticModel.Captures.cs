@@ -173,6 +173,11 @@ public partial class SemanticModel
                 if (SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, _functionSymbol))
                     return;
 
+                // Skip variables declared in nested lambdas/functions — they are not
+                // captures from the outer scope of _functionSymbol.
+                if (IsNestedWithin(symbol.ContainingSymbol, _functionSymbol))
+                    return;
+
                 _captured.Add(symbol);
                 return;
             }
@@ -183,6 +188,18 @@ public partial class SemanticModel
             {
                 _captured.Add(typeSymbol);
             }
+        }
+
+        private static bool IsNestedWithin(ISymbol? scope, ISymbol parent)
+        {
+            var current = scope;
+            while (current is not null)
+            {
+                if (SymbolEqualityComparer.Default.Equals(current, parent))
+                    return true;
+                current = current.ContainingSymbol;
+            }
+            return false;
         }
     }
 }
