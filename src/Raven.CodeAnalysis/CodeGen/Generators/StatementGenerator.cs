@@ -917,6 +917,7 @@ internal class StatementGenerator : Generator
 
         var tryScope = new Scope(this);
         tryScope.SetExceptionExitLabel(exitLabel);
+        tryScope.MarkAsInsideExceptionHandler();
         new StatementGenerator(tryScope, tryStatement.TryBlock).Emit();
 
         foreach (var catchClause in tryStatement.CatchClauses)
@@ -933,6 +934,7 @@ internal class StatementGenerator : Generator
 
             var catchScope = new Scope(this);
             catchScope.SetExceptionExitLabel(exitLabel);
+            catchScope.MarkAsInsideExceptionHandler();
 
             if (!IsExceptionLike(requestedCatchType, exceptionBaseType))
             {
@@ -978,6 +980,7 @@ internal class StatementGenerator : Generator
             ILGenerator.BeginFinallyBlock();
             var finallyScope = new Scope(this);
             finallyScope.SetExceptionExitLabel(exitLabel);
+            finallyScope.MarkAsInsideExceptionHandler();
             new StatementGenerator(finallyScope, finallyBlock).Emit();
         }
 
@@ -987,8 +990,10 @@ internal class StatementGenerator : Generator
     private void EmitBlockStatement(BoundBlockStatement blockStatement)
     {
         var scope = new Scope(this, blockStatement.LocalsToDispose);
+        var emitILScope = !IsInsideExceptionHandler;
 
-        ILGenerator.BeginScope();
+        if (emitILScope)
+            ILGenerator.BeginScope();
         try
         {
             foreach (var s in blockStatement.Statements)
@@ -998,7 +1003,8 @@ internal class StatementGenerator : Generator
         }
         finally
         {
-            ILGenerator.EndScope();
+            if (emitILScope)
+                ILGenerator.EndScope();
         }
     }
 

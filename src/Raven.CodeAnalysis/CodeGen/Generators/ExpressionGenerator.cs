@@ -5633,8 +5633,10 @@ internal partial class ExpressionGenerator : Generator
     {
         var scope = new Scope(this, block.LocalsToDispose);
         var statements = block.Statements.ToArray();
+        var emitILScope = !IsInsideExceptionHandler;
 
-        ILGenerator.BeginScope();
+        if (emitILScope)
+            ILGenerator.BeginScope();
         try
         {
             if (statements.Length > 0)
@@ -5690,7 +5692,8 @@ internal partial class ExpressionGenerator : Generator
         }
         finally
         {
-            ILGenerator.EndScope();
+            if (emitILScope)
+                ILGenerator.EndScope();
         }
     }
 
@@ -5730,6 +5733,7 @@ internal partial class ExpressionGenerator : Generator
 
         var tryScope = new Scope(this);
         tryScope.SetExceptionExitLabel(exitLabel);
+        tryScope.MarkAsInsideExceptionHandler();
 
         if (tryExpression.Expression is BoundBlockExpression blockExpression)
         {

@@ -51,6 +51,8 @@ internal abstract class Generator
         return Parent?.EnumerateLocalsToDispose() ?? Enumerable.Empty<ILocalSymbol>();
     }
 
+    public virtual bool IsInsideExceptionHandler => Parent?.IsInsideExceptionHandler ?? false;
+
     public virtual bool TryGetExceptionExitLabel(out ILLabel label)
     {
         if (Parent is not null)

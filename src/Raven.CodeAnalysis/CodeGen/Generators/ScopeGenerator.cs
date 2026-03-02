@@ -14,6 +14,7 @@ class Scope : Generator
     private ILLabel _continueLabel;
     private bool _hasExceptionExitLabel;
     private ILLabel _exceptionExitLabel;
+    private bool _isInsideExceptionHandler;
 
     public Scope(Generator parent) : this(parent, ImmutableArray<ILocalSymbol>.Empty)
     {
@@ -85,6 +86,14 @@ class Scope : Generator
         label = default;
         return false;
     }
+
+    public void MarkAsInsideExceptionHandler()
+    {
+        _isInsideExceptionHandler = true;
+    }
+
+    public override bool IsInsideExceptionHandler =>
+        _isInsideExceptionHandler || base.IsInsideExceptionHandler;
 
     public void SetExceptionExitLabel(ILLabel label)
     {
