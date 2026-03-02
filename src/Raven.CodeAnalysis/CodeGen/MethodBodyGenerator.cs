@@ -3725,7 +3725,7 @@ internal class MethodBodyGenerator
     {
         var statements = block.Statements as IReadOnlyList<BoundStatement> ?? block.Statements.ToArray();
         var blockScope = new Scope(scope, block.LocalsToDispose);
-        var emitExplicitIlScope = !treatAsMethodBody;
+        var emitExplicitIlScope = !treatAsMethodBody && block.IntroduceILScope;
 
         if (emitExplicitIlScope)
             ILGenerator.BeginScope();

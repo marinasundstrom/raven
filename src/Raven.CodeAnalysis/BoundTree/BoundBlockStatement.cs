@@ -10,8 +10,12 @@ internal partial class BoundBlockStatement : BoundStatement
 {
     public IEnumerable<BoundStatement> Statements { get; }
     public ImmutableArray<ILocalSymbol> LocalsToDispose { get; }
+    public bool IntroduceILScope { get; }
 
-    public BoundBlockStatement(IEnumerable<BoundStatement> statements, ImmutableArray<ILocalSymbol> localsToDispose = default)
+    public BoundBlockStatement(
+        IEnumerable<BoundStatement> statements,
+        ImmutableArray<ILocalSymbol> localsToDispose = default,
+        bool introduceILScope = true)
     {
         Statements = statements switch
         {
@@ -21,5 +25,6 @@ internal partial class BoundBlockStatement : BoundStatement
             _ => statements.ToImmutableArray()
         };
         LocalsToDispose = localsToDispose.IsDefault ? ImmutableArray<ILocalSymbol>.Empty : localsToDispose;
+        IntroduceILScope = introduceILScope;
     }
 }

@@ -5633,7 +5633,7 @@ internal partial class ExpressionGenerator : Generator
     {
         var scope = new Scope(this, block.LocalsToDispose);
         var statements = block.Statements.ToArray();
-        var emitILScope = !IsInsideExceptionHandler;
+        var emitILScope = block.IntroduceILScope && !IsInsideExceptionHandler;
 
         if (emitILScope)
             ILGenerator.BeginScope();

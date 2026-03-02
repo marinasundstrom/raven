@@ -990,7 +990,7 @@ internal class StatementGenerator : Generator
     private void EmitBlockStatement(BoundBlockStatement blockStatement)
     {
         var scope = new Scope(this, blockStatement.LocalsToDispose);
-        var emitILScope = !IsInsideExceptionHandler;
+        var emitILScope = blockStatement.IntroduceILScope && !IsInsideExceptionHandler;
 
         if (emitILScope)
             ILGenerator.BeginScope();
