@@ -88,6 +88,14 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                         children);
                     return true;
                 }
+            case GlobalStatementSyntax { Statement: FunctionStatementSyntax functionStatement }:
+                symbol = CreateSymbol(
+                    functionStatement.Identifier.Text,
+                    SymbolKind.Function,
+                    functionStatement.Span,
+                    functionStatement.Identifier.Span,
+                    text);
+                return true;
             case ClassDeclarationSyntax classDeclaration:
                 symbol = CreateTypeSymbol(classDeclaration, SymbolKind.Class, text);
                 return true;
