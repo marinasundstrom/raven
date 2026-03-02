@@ -29,7 +29,7 @@ func Main() -> () {
         .Select(user => user.Name)
 
     val names = query.ToList()
-    Console.WriteLine("Matched users count: " + names.Count.ToString())
+    Console.WriteLine("Matched users count: ${names.Count.ToString()}")
 }
 
 record class User(Id: int, Name: string, Age: int, IsActive: bool)
