@@ -217,7 +217,9 @@ internal static class SymbolResolver
         if (resolvedType is null || resolvedType.TypeKind == TypeKind.Error)
             return false;
 
-        symbol = resolvedType;
+        // In type positions we always prefer the union carrier type over a case type,
+        // otherwise hover displays the case as "Name(...)".
+        symbol = resolvedType.UnderlyingDiscriminatedUnion ?? resolvedType;
         return true;
     }
 
@@ -350,20 +352,20 @@ internal static class SymbolResolver
         var symbolInfo = semanticModel.GetSymbolInfo(invocation);
         if (symbolInfo.Symbol is not null)
         {
-            symbol = ProjectInvocationSymbolForDisplay(symbolInfo.Symbol);
+            symbol = ProjectInvocationSymbolForDisplay(symbolInfo.Symbol, semanticModel, invocation);
             return true;
         }
 
         if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
         {
-            symbol = ProjectInvocationSymbolForDisplay(symbolInfo.CandidateSymbols[0]);
+            symbol = ProjectInvocationSymbolForDisplay(symbolInfo.CandidateSymbols[0], semanticModel, invocation);
             return true;
         }
 
         if (semanticModel.GetOperation(invocation) is IInvocationOperation operation &&
             operation.TargetMethod is not null)
         {
-            symbol = ProjectInvocationSymbolForDisplay(operation.TargetMethod);
+            symbol = ProjectInvocationSymbolForDisplay(operation.TargetMethod, semanticModel, invocation);
             return true;
         }
 
@@ -376,12 +378,43 @@ internal static class SymbolResolver
         return false;
     }
 
-    private static ISymbol ProjectInvocationSymbolForDisplay(ISymbol symbol)
+    private static ISymbol ProjectInvocationSymbolForDisplay(
+        ISymbol symbol,
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation)
     {
         if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
+        {
+            // Prefer the instantiated type at this call site (for example Option<int>)
+            // instead of the constructor's containing generic definition.
+            if (TryGetInstantiatedInvocationType(semanticModel, invocation) is { } instantiated)
+                return instantiated;
+
             return constructor.ContainingType;
+        }
 
         return symbol;
+    }
+
+    private static INamedTypeSymbol? TryGetInstantiatedInvocationType(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation)
+    {
+        if (semanticModel.GetOperation(invocation) is IInvocationOperation { TargetMethod: { MethodKind: MethodKind.Constructor } method } &&
+            method.ContainingType is INamedTypeSymbol methodContainingType)
+        {
+            return methodContainingType;
+        }
+
+        var invocationTypeInfo = semanticModel.GetTypeInfo(invocation);
+        if ((invocationTypeInfo.ConvertedType ?? invocationTypeInfo.Type) is INamedTypeSymbol invocationType)
+            return invocationType;
+
+        var expressionTypeInfo = semanticModel.GetTypeInfo(invocation.Expression);
+        if ((expressionTypeInfo.ConvertedType ?? expressionTypeInfo.Type) is INamedTypeSymbol expressionType)
+            return expressionType;
+
+        return null;
     }
 
     private static bool TryResolveUnionCaseFromInvocationContext(
