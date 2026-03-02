@@ -84,9 +84,7 @@ internal static class SymbolResolver
             return semanticModel.GetDeclaredSymbol(parentParameterDeclaration);
 
         if (node is FunctionStatementSyntax functionStatement &&
-            token.Span.IntersectsWith(functionStatement.Span) &&
-            (functionStatement.Body is null || !functionStatement.Body.Span.Contains(token.Span)) &&
-            (functionStatement.ExpressionBody is null || !functionStatement.ExpressionBody.Span.Contains(token.Span)))
+            IsFunctionDeclarationToken(functionStatement, token))
         {
             return semanticModel.GetDeclaredSymbol(functionStatement);
         }
@@ -516,12 +514,34 @@ internal static class SymbolResolver
             LocalDeclarationStatementSyntax => true,
             VariableDeclarationSyntax => true,
             VariableDeclaratorSyntax declarator => token != declarator.Identifier,
-            FunctionStatementSyntax functionStatement => token != functionStatement.Identifier,
+            FunctionStatementSyntax functionStatement => !IsFunctionDeclarationToken(functionStatement, token),
             MethodDeclarationSyntax methodDeclaration => token != methodDeclaration.Identifier,
             BaseTypeDeclarationSyntax typeDeclaration => token != typeDeclaration.Identifier,
             UnionCaseClauseSyntax unionCaseClause => token != unionCaseClause.Identifier,
             _ => false
         };
+    }
+
+    private static bool IsFunctionDeclarationToken(FunctionStatementSyntax functionStatement, SyntaxToken token)
+    {
+        if (!token.Span.IntersectsWith(functionStatement.Span))
+            return false;
+
+        if (token == functionStatement.Identifier)
+            return true;
+
+        if (functionStatement.Body is { } body)
+        {
+            if (token == body.OpenBraceToken || token == body.CloseBraceToken)
+                return true;
+
+            return token.SpanStart < body.Span.Start;
+        }
+
+        if (functionStatement.ExpressionBody is { } expressionBody)
+            return token.SpanStart < expressionBody.Span.Start;
+
+        return true;
     }
 
     private static bool TryResolvePatternDeclaredSymbol(SemanticModel semanticModel, SyntaxNode node, SyntaxToken token, out ISymbol? symbol)

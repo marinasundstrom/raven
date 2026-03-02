@@ -214,7 +214,9 @@ internal sealed class HoverHandler : IHoverHandler
             var typeParameters = method.TypeParameters.IsDefaultOrEmpty
                 ? string.Empty
                 : $"<{string.Join(", ", method.TypeParameters.Select(static tp => tp.Name))}>";
-            var staticPrefix = method.IsStatic ? "static " : string.Empty;
+            var staticPrefix = IsLocalFunctionDeclaredStatic(method) || (!IsFunctionStatementSymbol(method) && method.IsStatic)
+                ? "static "
+                : string.Empty;
             return $"{staticPrefix}{method.Name}{typeParameters}({parameters}) -> {returnType}";
         }
 
@@ -309,17 +311,64 @@ internal sealed class HoverHandler : IHoverHandler
         if (containingSymbol is null)
             return false;
 
-        containingDisplay = containingSymbol.ToDisplayString(
-            SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
+        containingDisplay = FormatEnclosingCallableDisplay(containingSymbol);
         return !string.IsNullOrWhiteSpace(containingDisplay);
     }
 
     private static bool IsFunctionStatementSymbol(IMethodSymbol method)
     {
-        if (method.MethodKind != MethodKind.Function)
+        return method.DeclaringSyntaxReferences.Any(static r => r.GetSyntax() is FunctionStatementSyntax);
+    }
+
+    private static bool IsLocalFunctionDeclaredStatic(IMethodSymbol method)
+    {
+        var functionStatement = method.DeclaringSyntaxReferences
+            .Select(static r => r.GetSyntax())
+            .OfType<FunctionStatementSyntax>()
+            .FirstOrDefault();
+        if (functionStatement is null)
             return false;
 
-        return method.DeclaringSyntaxReferences.Any(static r => r.GetSyntax() is FunctionStatementSyntax);
+        return functionStatement.Modifiers.Any(static m => m.Kind == SyntaxKind.StaticKeyword);
+    }
+
+    private static string FormatEnclosingCallableDisplay(ISymbol symbol)
+    {
+        if (symbol is not IMethodSymbol method)
+        {
+            return symbol.ToDisplayString(
+                SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
+        }
+
+        var plainTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
+            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+            .WithKindOptions(SymbolDisplayKindOptions.None);
+        var parameters = FormatParameters(method.Parameters, plainTypeFormat);
+        var returnType = method.ReturnType.ToDisplayString(plainTypeFormat);
+        var staticPrefix = IsMethodDeclaredStaticForDisplay(method) ? "static " : string.Empty;
+        return $"{staticPrefix}func {method.Name}({parameters}) -> {returnType}";
+    }
+
+    private static bool IsMethodDeclaredStaticForDisplay(IMethodSymbol method)
+    {
+        foreach (var syntax in method.DeclaringSyntaxReferences.Select(static r => r.GetSyntax()))
+        {
+            switch (syntax)
+            {
+                case FunctionStatementSyntax function:
+                    return function.Modifiers.Any(static m => m.Kind == SyntaxKind.StaticKeyword);
+                case MethodDeclarationSyntax declaration:
+                    return declaration.Modifiers.Any(static m => m.Kind == SyntaxKind.StaticKeyword);
+                case ConstructorDeclarationSyntax declaration:
+                    return declaration.Modifiers.Any(static m => m.Kind == SyntaxKind.StaticKeyword);
+                case ParameterlessConstructorDeclarationSyntax declaration:
+                    return declaration.Modifiers.Any(static m => m.Kind == SyntaxKind.StaticKeyword);
+                case InitializerBlockDeclarationSyntax declaration:
+                    return declaration.Modifiers.Any(static m => m.Kind == SyntaxKind.StaticKeyword);
+            }
+        }
+
+        return method.IsStatic;
     }
 
     private static string FormatParameters(IEnumerable<IParameterSymbol> parameters, SymbolDisplayFormat format)
