@@ -33,18 +33,25 @@ internal sealed class ReflectionEmitILBuilderFactory : IILBuilderFactory
             _ => throw new InvalidOperationException($"Unsupported method base type: {methodBase?.GetType()}")
         };
 
-        return new ReflectionEmitILBuilder(ilGenerator);
+        return new ReflectionEmitILBuilder(ilGenerator, methodBase);
     }
 
     private sealed class ReflectionEmitILBuilder : IILBuilder, ILabelTrackingILBuilder
     {
         private readonly ILGenerator _inner;
+        private readonly bool _emitScopes;
         private readonly List<LabelAdapter> _definedLabels = new();
         private readonly HashSet<LabelAdapter> _markedLabels = new();
 
-        public ReflectionEmitILBuilder(ILGenerator inner)
+        public ReflectionEmitILBuilder(ILGenerator inner, MethodBase methodBase)
         {
             _inner = inner;
+            var scopesRequested = string.Equals(
+                Environment.GetEnvironmentVariable("RAVEN_EMIT_IL_SCOPES"),
+                "1",
+                StringComparison.Ordinal);
+            var isGenericMethod = methodBase is MethodInfo methodInfo && methodInfo.IsGenericMethodDefinition;
+            _emitScopes = scopesRequested && !isGenericMethod;
         }
 
         public ILLabel DefineLabel()
@@ -100,9 +107,17 @@ internal sealed class ReflectionEmitILBuilderFactory : IILBuilderFactory
         public void MarkSequencePoint(ISymbolDocumentWriter document, int startLine, int startColumn, int endLine, int endColumn)
             => _inner.MarkSequencePoint(document, startLine, startColumn, endLine, endColumn);
 
-        public void BeginScope() => _inner.BeginScope();
+        public void BeginScope()
+        {
+            if (_emitScopes)
+                _inner.BeginScope();
+        }
 
-        public void EndScope() => _inner.EndScope();
+        public void EndScope()
+        {
+            if (_emitScopes)
+                _inner.EndScope();
+        }
 
         public void MarkAllLabels()
         {
