@@ -22,6 +22,7 @@ public static class BuiltInCodeFixProviders
             new PreferIsNullOverEqualityCodeFixProvider(),
             new RedundantAccessorDeclarationCodeFixProvider(),
             new StringConcatenationToInterpolatedStringCodeFixProvider(),
+            new MergeStringLiteralConcatenationCodeFixProvider(),
         ];
     }
 }

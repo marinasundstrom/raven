@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Diagnostics;
 /// </summary>
 public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
 {
-    public const string DiagnosticId = "RAV9010";
+    public const string DiagnosticId = "RAV9021";
 
     private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
