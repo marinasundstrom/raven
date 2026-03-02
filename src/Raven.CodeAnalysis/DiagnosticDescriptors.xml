@@ -19,6 +19,10 @@
   <Descriptor Id="RAV2800" Identifier="PipeRequiresInvocation" Title="Pipe target must be invocable"
     Message="The pipe operator requires an invocation or settable property access on the right-hand side"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2801" Identifier="SelfNotAvailableInStaticContext"
+    Title="'self' is not available in static context"
+    Message="'self' is not available in a static context." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0103" Identifier="TheNameDoesNotExistInTheCurrentContext"
     Title="Name not found" Message="'{name}' is not in scope." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />

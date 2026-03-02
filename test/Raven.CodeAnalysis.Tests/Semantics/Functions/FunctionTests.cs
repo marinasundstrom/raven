@@ -195,6 +195,56 @@ func Main() {
     }
 
     [Fact]
+    public void StaticMember_SelfExpression_ProducesDiagnostic()
+    {
+        const string source = """
+class Program {
+    static func Main() -> int {
+        return self.value
+    }
+
+    val value: int {
+        get => 1
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.SelfNotAvailableInStaticContext);
+    }
+
+    [Fact]
+    public void StaticFunctionStatement_SelfExpression_ProducesDiagnostic()
+    {
+        const string source = """
+class Program {
+    func Main() -> int {
+        static func Inner() -> int {
+            return self.value
+        }
+
+        return Inner()
+    }
+
+    val value: int {
+        get => 1
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.SelfNotAvailableInStaticContext);
+    }
+
+    [Fact]
     public void FunctionStatement_InMethodBody_CapturesOuterLocal()
     {
         const string source = """

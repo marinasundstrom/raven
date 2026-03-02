@@ -227,6 +227,7 @@ Return/throw context note:
 | `RAV2705` | Error | Async Task return cannot include a value | Since '{methodName}' is an async method that returns 'Task', a return keyword cannot include a value | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
 | `RAV2706` | Warning | Async body lacks await | This async {memberDescription} has no 'await' and will run synchronously. | `samples/async/async-await.rav`, `samples/async/async-task-return.rav`, `samples/entrypoints/main-function-async-task-basic.rav` |
 | `RAV2800` | Error | Pipe target must be invocable | The pipe operator requires an invocation or settable property access on the right-hand side | `samples/operators/pipe-operator-method-call-basic.rav`, `samples/operators/pipe-operator-lambda-basic.rav`, `samples/operators/pipe-operator-terminal-call-basic.rav` |
+| `RAV2801` | Error | 'self' is not available in static context | 'self' is not available in a static context. | — |
 | `RAV3600` | Error | Unexpected token | Unexpected token '{token}' | — |
 | `RAV3601` | Error | Unmatched character | Unmatched '{character}' | — |
 | `RAV4000` | Warning | Documentation comment is not attached | Documentation comments must appear immediately before a declaration | `samples/runtime/documentation-comment-basic.rav` |

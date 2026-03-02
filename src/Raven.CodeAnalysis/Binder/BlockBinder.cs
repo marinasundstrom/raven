@@ -853,9 +853,12 @@ partial class BlockBinder : Binder
                 var receiver = method.Parameters[0];
                 return new BoundParameterAccess(receiver);
             }
+
+            _diagnostics.ReportSelfNotAvailableInStaticContext(selfExpression.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
-        //_diagnostics.ReportSelfNotAllowed(selfExpression.GetLocation());
+        _diagnostics.ReportSelfNotAvailableInStaticContext(selfExpression.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 

@@ -2938,6 +2938,8 @@ scoped to its containing body and can capture local variables, parameters, and
 support the same generic syntax and constraints as file-scoped functions: place
 an optional type parameter list after the function name and declare constraints
 using the `:` syntax when needed.
+When no instance receiver is available (for example inside `static` members or
+`static func` local functions), using `self` reports `RAV2801`.
 
 ```raven
 func outer() {
@@ -3003,7 +3005,8 @@ creating a lambda immediately affects all delegates that captured it. Capturing
 preserves the argument value from the invoking scope. Nested lambdas reuse the
 closure instances produced by their enclosing scopes so that captures shared
 across multiple lambda layers continue to reference the same storage locations.
-`static func` declarations do not capture enclosing state.
+`static func` declarations do not capture enclosing state, and `self` is not
+available in static contexts (`RAV2801`).
 
 Parenthesized lambdas may place attribute lists immediately before the
 parameter list as shorthand. Leading lists are applied contextually:
