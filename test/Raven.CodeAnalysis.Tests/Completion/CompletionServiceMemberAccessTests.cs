@@ -79,6 +79,95 @@ text.
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_BeforeAddAssignment_ReturnsInstanceMembers()
+    {
+        var code = """
+import System.*;
+
+class User {
+    public event Changed: System.Action?;
+    public val Name: string = ""
+}
+
+func Main() -> unit {
+    val user = new User()
+    user. += () => ()
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.IndexOf("user.", StringComparison.Ordinal) + "user.".Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Changed");
+        Assert.Contains(items, i => i.DisplayText == "Name");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_BeforeSimpleAssignment_ReturnsInstanceMembers()
+    {
+        var code = """
+import System.*;
+
+class User {
+    public val Name: string = ""
+}
+
+func Main() -> unit {
+    val user = new User()
+    user. = 2
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.IndexOf("user.", StringComparison.Ordinal) + "user.".Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Name");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterConditionalAccessBeforeSimpleAssignment_ReturnsInstanceMembers()
+    {
+        var code = """
+import System.*;
+
+class User {
+    public val Name: string = ""
+}
+
+func Main() -> unit {
+    val user = new User()
+    user?. = 2
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.IndexOf("user?.", StringComparison.Ordinal) + "user?.".Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Name");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnLiteralType_ReturnsInstanceMembers()
     {
         var code = """

@@ -52,6 +52,58 @@ public static class CompletionProvider
             return null;
         }
 
+        ISymbol? TryLookupValueSymbolByName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return null;
+
+            var candidates = binder.LookupAvailableSymbols()
+                .Where(symbol => string.Equals(symbol.Name, name, StringComparison.Ordinal))
+                .ToArray();
+
+            return candidates.FirstOrDefault(static symbol =>
+                       symbol is ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol or IEventSymbol)
+                   ?? candidates.FirstOrDefault();
+        }
+
+        ISymbol? TryResolveReceiverSymbol(ExpressionSyntax receiverExpression)
+        {
+            if (receiverExpression is not IdentifierNameSyntax receiverIdentifier)
+                return null;
+
+            var name = receiverIdentifier.Identifier.ValueText;
+            if (string.IsNullOrWhiteSpace(name))
+                return null;
+
+            var symbol = binder.LookupSymbol(name)
+                ?? TryLookupValueSymbolByName(name);
+            if (symbol is not null)
+                return symbol;
+
+            var receiverBinder = model.GetBinder(receiverExpression);
+            symbol = receiverBinder.LookupSymbol(name)
+                ?? receiverBinder.LookupSymbols(name).FirstOrDefault();
+            if (symbol is not null)
+                return symbol;
+
+            var containingBlock = receiverExpression.GetAncestor<BlockStatementSyntax>();
+            if (containingBlock is null)
+                return null;
+
+            var localDeclarator = containingBlock
+                .DescendantNodes()
+                .OfType<VariableDeclaratorSyntax>()
+                .Where(declarator =>
+                    declarator.Identifier.ValueText == name &&
+                    declarator.Span.Start <= receiverExpression.Span.Start)
+                .OrderByDescending(static declarator => declarator.Span.Start)
+                .FirstOrDefault();
+
+            return localDeclarator is not null
+                ? model.GetDeclaredSymbol(localDeclarator)
+                : null;
+        }
+
         var tokenText = token.Text;
         var tokenValueText = token.ValueText;
         var replacementSpan = new TextSpan(token.Position, tokenText.Length);
@@ -200,6 +252,38 @@ public static class CompletionProvider
             return !IsWeakExtensionReceiverType(receiverType);
         }
 
+        static IEnumerable<ISymbol> GetTypeMembersIncludingBase(ITypeSymbol type, bool includeStatic)
+        {
+            var yielded = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+            var current = type as INamedTypeSymbol;
+
+            while (current is not null)
+            {
+                foreach (var member in current.GetMembers())
+                {
+                    if (member.IsStatic != includeStatic)
+                        continue;
+
+                    if (yielded.Add(member))
+                        yield return member;
+                }
+
+                current = current.BaseType;
+            }
+
+            if (type is INamedTypeSymbol)
+                yield break;
+
+            foreach (var member in type.GetMembers())
+            {
+                if (member.IsStatic != includeStatic)
+                    continue;
+
+                if (yielded.Add(member))
+                    yield return member;
+            }
+        }
+
         static ITypeSymbol UnwrapAliases(ITypeSymbol type)
         {
             while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
@@ -269,6 +353,17 @@ public static class CompletionProvider
                 IParameterSymbol parameter => parameter.Type,
                 _ => null
             };
+
+        static bool NeedsReceiverFallback(ISymbol? symbol, ITypeSymbol? type)
+        {
+            if (symbol is null)
+                return true;
+
+            if (symbol.Kind is SymbolKind.Error or SymbolKind.ErrorType)
+                return true;
+
+            return type is { TypeKind: TypeKind.Error };
+        }
 
         ITypeSymbol? TryGetExplicitlyAnnotatedType(ISymbol? symbol)
         {
@@ -902,7 +997,7 @@ public static class CompletionProvider
         {
             var operatorToken = memberBinding.OperatorToken;
 
-            if (position >= operatorToken.End)
+            if (position >= operatorToken.Span.End)
             {
                 var symbolInfo = model.GetSymbolInfo(conditionalAccess.Expression);
                 var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
@@ -911,10 +1006,10 @@ public static class CompletionProvider
                 IEnumerable<ISymbol>? members = null;
                 INamedTypeSymbol? instanceTypeForExtensions = null;
 
-                if (symbol is null && conditionalAccess.Expression is IdentifierNameSyntax receiverIdentifier)
+                if (NeedsReceiverFallback(symbol, type) && conditionalAccess.Expression is IdentifierNameSyntax receiverIdentifier)
                 {
-                    symbol = binder.LookupSymbol(receiverIdentifier.Identifier.ValueText);
-                    type ??= GetTypeFromSymbol(symbol);
+                    symbol = TryResolveReceiverSymbol(receiverIdentifier);
+                    type = GetTypeFromSymbol(symbol) ?? type;
                 }
 
                 // For invocation expressions, prefer the invoked method return type.
@@ -942,7 +1037,7 @@ public static class CompletionProvider
                 else if (type is ITypeSymbol instanceType)
                 {
                     var completionType = GetCarrierConditionalAccessLookupType(instanceType) ?? instanceType.GetPlainType();
-                    members = completionType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
+                    members = GetTypeMembersIncludingBase(completionType, includeStatic: false).Where(IsAccessible);
                     instanceTypeForExtensions = completionType switch
                     {
                         INamedTypeSymbol named => named,
@@ -1038,7 +1133,7 @@ public static class CompletionProvider
         {
             var dotToken = memberAccess.OperatorToken;
 
-            if (position >= dotToken.End)
+            if (position >= dotToken.Span.End)
             {
                 var symbolInfo = model.GetSymbolInfo(memberAccess.Expression);
                 var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
@@ -1047,10 +1142,10 @@ public static class CompletionProvider
                 IEnumerable<ISymbol>? members = null;
                 INamedTypeSymbol? instanceTypeForExtensions = null;
 
-                if (symbol is null && memberAccess.Expression is IdentifierNameSyntax receiverIdentifier)
+                if (NeedsReceiverFallback(symbol, type) && memberAccess.Expression is IdentifierNameSyntax receiverIdentifier)
                 {
-                    symbol = binder.LookupSymbol(receiverIdentifier.Identifier.ValueText);
-                    type ??= GetTypeFromSymbol(symbol);
+                    symbol = TryResolveReceiverSymbol(receiverIdentifier);
+                    type = GetTypeFromSymbol(symbol) ?? type;
                 }
 
                 // For invocation expressions, prefer the invoked method return type.
@@ -1080,7 +1175,7 @@ public static class CompletionProvider
                 else if (type is ITypeSymbol instanceType)
                 {
                     // Accessing an instance: show instance members
-                    members = instanceType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
+                    members = GetTypeMembersIncludingBase(instanceType, includeStatic: false).Where(IsAccessible);
                     instanceTypeForExtensions = instanceType switch
                     {
                         INamedTypeSymbol named => named,
@@ -1210,8 +1305,8 @@ public static class CompletionProvider
                 ?? model.GetTypeInfo(qualifiedName.Left).Type;
             if (receiverType is ITypeSymbol typeSymbolForQualified)
             {
-                var members = typeSymbolForQualified.GetMembers()
-                    .Where(m => !m.IsStatic && IsAccessible(m));
+                var members = GetTypeMembersIncludingBase(typeSymbolForQualified, includeStatic: false)
+                    .Where(IsAccessible);
 
                 foreach (var member in members.Where(m => NameMatchesPrefix(m.Name, prefix)))
                 {
