@@ -778,6 +778,7 @@ internal class MethodBodyGenerator
     {
         baseGenerator = new BaseGenerator(this);
         scope = new Scope(baseGenerator);
+        _lambdaClosure = MethodGenerator.LambdaClosure;
 
         ILGenerator = MethodGenerator.ILBuilderFactory.Create(MethodGenerator);
 
@@ -3577,6 +3578,27 @@ internal class MethodBodyGenerator
             return;
 
         var methodGenerator = new MethodGenerator(MethodGenerator.TypeGenerator, methodSymbol, MethodGenerator.ILBuilderFactory);
+        var sourceMethod = methodSymbol switch
+        {
+            SourceMethodSymbol direct => direct,
+            _ when methodSymbol.UnderlyingSymbol is SourceMethodSymbol underlying => underlying,
+            _ => null
+        };
+
+        if (sourceMethod is not null)
+        {
+            var capturedVariables = sourceMethod.CapturedVariables;
+            if (capturedVariables.IsDefaultOrEmpty)
+                capturedVariables = Compilation.GetSemanticModel(localFunctionStmt.SyntaxTree).GetCapturedVariables(localFunctionStmt);
+
+            if (!capturedVariables.IsDefaultOrEmpty &&
+                !Compilation.IsEntryPointCandidate(sourceMethod))
+            {
+                var closure = MethodGenerator.TypeGenerator.EnsureMethodClosure(sourceMethod, capturedVariables);
+                methodGenerator.SetLambdaClosure(closure);
+            }
+        }
+
         MethodGenerator.TypeGenerator.Add(methodSymbol, methodGenerator);
         methodGenerator.DefineMethodBuilder();
     }

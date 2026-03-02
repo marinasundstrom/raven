@@ -83,6 +83,22 @@ internal static class SymbolResolver
             token == parentParameterDeclaration.Identifier)
             return semanticModel.GetDeclaredSymbol(parentParameterDeclaration);
 
+        if (node is FunctionStatementSyntax functionStatement &&
+            token.Span.IntersectsWith(functionStatement.Span) &&
+            (functionStatement.Body is null || !functionStatement.Body.Span.Contains(token.Span)) &&
+            (functionStatement.ExpressionBody is null || !functionStatement.ExpressionBody.Span.Contains(token.Span)))
+        {
+            return semanticModel.GetDeclaredSymbol(functionStatement);
+        }
+
+        if (node is LambdaExpressionSyntax lambdaExpression &&
+            token.Span.IntersectsWith(lambdaExpression.Span))
+        {
+            var lambdaSymbolInfo = semanticModel.GetSymbolInfo(lambdaExpression);
+            if (lambdaSymbolInfo.Symbol is not null || !lambdaSymbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+                return ChoosePreferredSymbol(lambdaSymbolInfo.Symbol, lambdaSymbolInfo.CandidateSymbols, lambdaExpression);
+        }
+
         var symbolInfo = semanticModel.GetSymbolInfo(node);
         if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
         {

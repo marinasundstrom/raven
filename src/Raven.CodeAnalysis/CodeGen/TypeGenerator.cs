@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
@@ -17,6 +18,7 @@ internal class TypeGenerator
     readonly Dictionary<IMethodSymbol, MethodGenerator> _methodGenerators = new Dictionary<IMethodSymbol, MethodGenerator>(SymbolEqualityComparer.Default);
     readonly Dictionary<IFieldSymbol, FieldBuilder> _fieldBuilders = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
     readonly Dictionary<ILambdaSymbol, LambdaClosure> _lambdaClosures = new Dictionary<ILambdaSymbol, LambdaClosure>(SymbolEqualityComparer.Default);
+    readonly Dictionary<IMethodSymbol, LambdaClosure> _methodClosures = new Dictionary<IMethodSymbol, LambdaClosure>(SymbolEqualityComparer.Default);
 
     private int _lambdaClosureOrdinal;
 
@@ -740,6 +742,16 @@ internal class TypeGenerator
                             var closure = EnsureLambdaClosure(sourceLambda);
                             methodGenerator.SetLambdaClosure(closure);
                         }
+                        else if ((methodSymbol as SourceMethodSymbol ?? methodSymbol.UnderlyingSymbol as SourceMethodSymbol) is { } sourceMethod)
+                        {
+                            var capturedVariables = GetCapturedVariablesForMethod(sourceMethod);
+                            if (!capturedVariables.IsDefaultOrEmpty &&
+                                !Compilation.IsEntryPointCandidate(sourceMethod))
+                            {
+                                var closure = EnsureMethodClosure(sourceMethod, capturedVariables);
+                                methodGenerator.SetLambdaClosure(closure);
+                            }
+                        }
 
                         _methodGenerators[methodSymbol] = methodGenerator;
                         methodGenerator.DefineMethodBuilder();
@@ -975,6 +987,9 @@ internal class TypeGenerator
     public Type CreateType()
     {
         foreach (var closure in _lambdaClosures.Values)
+            closure.CreateType();
+
+        foreach (var closure in _methodClosures.Values)
             closure.CreateType();
 
         _extensionMarkerTypeBuilder?.CreateType();
@@ -1521,6 +1536,21 @@ internal class TypeGenerator
         return _lambdaClosures.TryGetValue(lambdaSymbol, out closure);
     }
 
+    public bool TryGetMethodClosure(IMethodSymbol methodSymbol, out LambdaClosure closure)
+    {
+        if (_methodClosures.TryGetValue(methodSymbol, out closure))
+            return true;
+
+        if (methodSymbol.UnderlyingSymbol is IMethodSymbol underlyingMethod &&
+            !ReferenceEquals(underlyingMethod, methodSymbol))
+        {
+            return _methodClosures.TryGetValue(underlyingMethod, out closure);
+        }
+
+        closure = null!;
+        return false;
+    }
+
     internal LambdaClosure EnsureLambdaClosure(SourceLambdaSymbol lambdaSymbol)
     {
         if (TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
@@ -1542,52 +1572,19 @@ internal class TypeGenerator
 
         if (_lambdaClosures.TryGetValue(lambdaSymbol, out var existing))
             return existing;
-
-        if (TypeBuilder is null)
-            throw new InvalidOperationException("Type builder must be defined before creating a lambda closure.");
-
-        var closureName = $"<>c__LambdaClosure{_lambdaClosureOrdinal++}";
-        var objectType = ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Object));
-        var baseType = Compilation.GetSpecialType(SpecialType.System_Object);
-        var closureSymbol = new SourceNamedTypeSymbol(
-            closureName,
-            baseType,
-            TypeKind.Class,
-            lambdaSymbol.ContainingSymbol,
-            containingType: TypeSymbol as INamedTypeSymbol,
-            containingNamespace: TypeSymbol.ContainingNamespace,
-            locations: lambdaSymbol.Locations.ToArray(),
-            declaringSyntaxReferences: lambdaSymbol.DeclaringSyntaxReferences.ToArray(),
-            isSealed: true,
-            declaredAccessibility: Accessibility.Private);
-
-        var closureGenerator = CodeGen.GetOrCreateTypeGenerator(closureSymbol);
-        if (closureGenerator.TypeBuilder is null)
-            closureGenerator.DefineTypeBuilder();
-
-        var closureBuilder = closureGenerator.TypeBuilder
-            ?? throw new InvalidOperationException("Failed to define closure type builder.");
-
-        var ctor = closureBuilder.DefineDefaultConstructor(MethodAttributes.Public);
-
-        var fields = new Dictionary<ISymbol, FieldBuilder>(SymbolEqualityComparer.Default);
-        var index = 0;
-        foreach (var captured in lambdaSymbol.CapturedVariables)
-        {
-            var capturedTypeSymbol = GetCapturedSymbolTypeSymbol(captured);
-            var fieldType = ResolveClrType(capturedTypeSymbol);
-            var fieldName = CreateClosureFieldName(captured, index++);
-            var fieldBuilder = closureBuilder.DefineField(fieldName, fieldType, FieldAttributes.Public);
-
-            var tupleAttr = CodeGen.CreateTupleElementNamesAttribute(capturedTypeSymbol);
-            if (tupleAttr is not null)
-                fieldBuilder.SetCustomAttribute(tupleAttr);
-
-            fields[captured] = fieldBuilder;
-        }
-
-        var closure = new LambdaClosure(closureSymbol, closureBuilder, ctor, fields);
+        var closure = CreateClosure(lambdaSymbol, lambdaSymbol.CapturedVariables);
         _lambdaClosures[lambdaSymbol] = closure;
+        return closure;
+    }
+
+    internal LambdaClosure EnsureMethodClosure(SourceMethodSymbol methodSymbol, ImmutableArray<ISymbol>? capturedVariables = null)
+    {
+        if (_methodClosures.TryGetValue(methodSymbol, out var existing))
+            return existing;
+
+        var captures = capturedVariables ?? methodSymbol.CapturedVariables;
+        var closure = CreateClosure(methodSymbol, captures);
+        _methodClosures[methodSymbol] = closure;
         return closure;
     }
 
@@ -1627,6 +1624,70 @@ internal class TypeGenerator
         };
     }
 
+    private ImmutableArray<ISymbol> GetCapturedVariablesForMethod(SourceMethodSymbol methodSymbol)
+    {
+        var capturedVariables = methodSymbol.CapturedVariables;
+        if (!capturedVariables.IsDefaultOrEmpty)
+            return capturedVariables;
+
+        if (methodSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not FunctionStatementSyntax functionSyntax)
+            return ImmutableArray<ISymbol>.Empty;
+
+        var semanticModel = Compilation.GetSemanticModel(functionSyntax.SyntaxTree);
+        return semanticModel.GetCapturedVariables(functionSyntax);
+    }
+
+    private LambdaClosure CreateClosure(IMethodSymbol owner, ImmutableArray<ISymbol> capturedVariables)
+    {
+        if (TypeBuilder is null)
+            throw new InvalidOperationException("Type builder must be defined before creating a lambda closure.");
+
+        var closureName = $"<>c__LambdaClosure{_lambdaClosureOrdinal++}";
+        var baseType = Compilation.GetSpecialType(SpecialType.System_Object);
+        var closureSymbol = new SourceNamedTypeSymbol(
+            closureName,
+            baseType,
+            TypeKind.Class,
+            owner.ContainingSymbol,
+            containingType: TypeSymbol as INamedTypeSymbol,
+            containingNamespace: TypeSymbol.ContainingNamespace,
+            locations: owner.Locations.ToArray(),
+            declaringSyntaxReferences: owner.DeclaringSyntaxReferences.ToArray(),
+            isSealed: true,
+            declaredAccessibility: Accessibility.Private);
+
+        var closureGenerator = CodeGen.GetOrCreateTypeGenerator(closureSymbol);
+        if (closureGenerator.TypeBuilder is null)
+            closureGenerator.DefineTypeBuilder();
+
+        var closureBuilder = closureGenerator.TypeBuilder
+            ?? throw new InvalidOperationException("Failed to define closure type builder.");
+
+        var ctor = closureBuilder.DefineDefaultConstructor(MethodAttributes.Public);
+
+        var fields = new Dictionary<ISymbol, FieldBuilder>(SymbolEqualityComparer.Default);
+        var capturedSymbols = capturedVariables
+            .Where(static symbol => symbol is not null)
+            .Distinct(SymbolEqualityComparer.Default)
+            .ToImmutableArray();
+        var index = 0;
+        foreach (var captured in capturedSymbols)
+        {
+            var capturedTypeSymbol = GetCapturedSymbolTypeSymbol(captured);
+            var fieldType = ResolveClrType(capturedTypeSymbol);
+            var fieldName = CreateClosureFieldName(captured, index++);
+            var fieldBuilder = closureBuilder.DefineField(fieldName, fieldType, FieldAttributes.Public);
+
+            var tupleAttr = CodeGen.CreateTupleElementNamesAttribute(capturedTypeSymbol);
+            if (tupleAttr is not null)
+                fieldBuilder.SetCustomAttribute(tupleAttr);
+
+            fields[captured] = fieldBuilder;
+        }
+
+        return new LambdaClosure(closureSymbol, closureBuilder, ctor, fields, capturedSymbols);
+    }
+
     internal sealed class LambdaClosure
     {
         private readonly Dictionary<ISymbol, FieldBuilder> _fields;
@@ -1636,18 +1697,24 @@ internal class TypeGenerator
             SourceNamedTypeSymbol symbol,
             TypeBuilder typeBuilder,
             ConstructorBuilder constructor,
-            Dictionary<ISymbol, FieldBuilder> fields)
+            Dictionary<ISymbol, FieldBuilder> fields,
+            ImmutableArray<ISymbol> capturedSymbols)
         {
             Symbol = symbol ?? throw new ArgumentNullException(nameof(symbol));
             TypeBuilder = typeBuilder;
             Constructor = constructor;
             _fields = fields;
+            CapturedSymbols = capturedSymbols.IsDefault
+                ? ImmutableArray<ISymbol>.Empty
+                : capturedSymbols;
         }
 
         public SourceNamedTypeSymbol Symbol { get; }
         public TypeBuilder TypeBuilder { get; }
 
         public ConstructorBuilder Constructor { get; }
+
+        public ImmutableArray<ISymbol> CapturedSymbols { get; }
 
         public bool TryGetField(ISymbol symbol, out FieldBuilder fieldBuilder) => _fields.TryGetValue(symbol, out fieldBuilder);
 

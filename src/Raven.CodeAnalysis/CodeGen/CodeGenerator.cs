@@ -1426,13 +1426,13 @@ internal class CodeGenerator
     private void DefineMemberBuilders()
     {
         PrintDebug("Defining member builders for all types.");
-        foreach (var typeGenerator in _typeGenerators.Values)
+        foreach (var typeGenerator in _typeGenerators.Values.ToArray())
         {
             typeGenerator.DefineMemberBuilders();
         }
 
         PrintDebug("Completing interface implementations for all types.");
-        foreach (var typeGenerator in _typeGenerators.Values)
+        foreach (var typeGenerator in _typeGenerators.Values.ToArray())
         {
             typeGenerator.CompleteInterfaceImplementations();
         }

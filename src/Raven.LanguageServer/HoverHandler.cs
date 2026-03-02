@@ -70,6 +70,8 @@ internal sealed class HoverHandler : IHoverHandler
             var containing = BuildContainingDisplay(symbol);
             var documentation = symbol.GetDocumentationComment();
             var functionCaptures = semanticModel.GetCapturedVariables(symbol);
+            if (functionCaptures.IsDefaultOrEmpty)
+                functionCaptures = semanticModel.GetCapturedVariables(resolution.Value.Node);
             var isCapturedVariable = semanticModel.IsCapturedVariable(symbol);
             var hoverText = BuildHoverText(
                 signature,

@@ -7,6 +7,7 @@ The Raven language server provides Language Server Protocol (LSP) support for `.
 - **Diagnostics:** Publishes Raven diagnostics for the current file after each change so clients can highlight errors inline.
 - **Completions:** Maps the compiler's completion items into LSP responses with snippet ranges for insertion.
 - **Hover symbol projection:** Hover on member-access segments resolves the member symbol for both identifier and access operators (for example `.Name` and `?.Name`), including carrier/conditional-access chains.
+- **Hover capture annotations:** Hover on lambdas and nested `func` statements includes captured-symbol lists. Hover on captured locals/parameters marks them as captured variables.
 - **Framework references:** Loads reference assemblies from the latest installed .NET targeting pack so compilations can bind to standard library types without additional setup.
 
 ## Project layout

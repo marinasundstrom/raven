@@ -2933,7 +2933,8 @@ requirement.
 ### Nested functions
 
 Functions may be declared inside other functions. Such a function is
-scoped to its containing body and can capture local variables. Local functions
+scoped to its containing body and can capture local variables, parameters, and
+`self` from enclosing scopes. Local functions
 support the same generic syntax and constraints as file-scoped functions: place
 an optional type parameter list after the function name and declare constraints
 using the `:` syntax when needed.
@@ -2991,10 +2992,10 @@ observable behaviour.
 Lambda expressions start with either a parenthesized parameter list or a single
 identifier, optionally followed by a return-type arrow, and then the `=>` token
 with either an expression or block body. Lambdas may appear wherever a function
-value is expected. When a lambda references a local defined in an
-outer scope, the compiler lifts that local into shared closure storage so both
-the outer scope and the lambda observe the same value. Each capturing lambda
-materializes a synthesized closure class that stores the lambda body as an
+value is expected. When a lambda or nested function statement (`func`) references
+a local defined in an outer scope, the compiler lifts that symbol into shared
+closure storage so both scopes observe the same value. Each capturing lambda or
+nested function materializes a synthesized closure class that stores the body as an
 instance method and exposes fields for every captured symbol. Reads and writes
 in any scope access those fields directly, so mutating a `var` binding after
 creating a lambda immediately affects all delegates that captured it. Capturing
@@ -3002,6 +3003,7 @@ creating a lambda immediately affects all delegates that captured it. Capturing
 preserves the argument value from the invoking scope. Nested lambdas reuse the
 closure instances produced by their enclosing scopes so that captures shared
 across multiple lambda layers continue to reference the same storage locations.
+`static func` declarations do not capture enclosing state.
 
 Parenthesized lambdas may place attribute lists immediately before the
 parameter list as shorthand. Leading lists are applied contextually:

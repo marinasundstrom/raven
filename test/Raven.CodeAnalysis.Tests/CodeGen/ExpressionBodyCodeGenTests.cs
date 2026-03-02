@@ -110,6 +110,46 @@ class Program {
     }
 
     [Fact]
+    public void FunctionStatement_CapturingEnclosingLocal_EmitsAndExecutes()
+    {
+        const string code = """
+class Program {
+    public static func Run() -> int {
+        val baseValue = 40
+
+        func AddTwo() -> int {
+            return baseValue + 2
+        }
+
+        return AddTwo()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create(
+                "function-statement-capture",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var runMethod = programType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(runMethod);
+
+        var output = runMethod!.Invoke(null, Array.Empty<object?>());
+        Assert.Equal(42, output);
+    }
+
+    [Fact]
     public void PropertyGetterAccessorExpressionBody_ReturnsExpectedValue()
     {
         const string code = """

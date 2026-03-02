@@ -1,12 +1,14 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
 class Scope : Generator
 {
-    private readonly IDictionary<ILocalSymbol, IILocal> _localBuilders = new Dictionary<ILocalSymbol, IILocal>(ReferenceEqualityComparer.Instance);
+    private readonly IDictionary<ILocalSymbol, IILocal> _localBuilders = new Dictionary<ILocalSymbol, IILocal>(SymbolEqualityComparer.Default);
     private readonly ImmutableArray<ILocalSymbol> _localsToDispose;
     private bool _hasBreakLabel;
     private ILLabel _breakLabel;

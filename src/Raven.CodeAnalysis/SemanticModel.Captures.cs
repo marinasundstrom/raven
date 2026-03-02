@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -16,7 +17,7 @@ public partial class SemanticModel
         return symbol switch
         {
             SourceLambdaSymbol lambda => lambda.CapturedVariables,
-            SourceMethodSymbol method => method.CapturedVariables,
+            SourceMethodSymbol method => GetOrComputeFunctionCapturedVariables(method),
             _ => ImmutableArray<ISymbol>.Empty
         };
     }
@@ -87,5 +88,101 @@ public partial class SemanticModel
         }
 
         return false;
+    }
+
+    private ImmutableArray<ISymbol> GetOrComputeFunctionCapturedVariables(SourceMethodSymbol method)
+    {
+        if (!method.CapturedVariables.IsDefaultOrEmpty)
+            return method.CapturedVariables;
+
+        if (method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not FunctionStatementSyntax function)
+            return ImmutableArray<ISymbol>.Empty;
+
+        BoundBlockStatement? functionBody = function.Body is not null
+            ? GetBoundNode(function.Body, BoundTreeView.Original) as BoundBlockStatement
+                ?? GetBoundNode(function.Body, BoundTreeView.Lowered) as BoundBlockStatement
+            : GetBoundNode(function.ExpressionBody!, BoundTreeView.Original) as BoundBlockStatement
+                ?? GetBoundNode(function.ExpressionBody!, BoundTreeView.Lowered) as BoundBlockStatement;
+
+        if (functionBody is null)
+            return ImmutableArray<ISymbol>.Empty;
+
+        var captures = AnalyzeFunctionCapturedVariables(functionBody, method);
+        if (!captures.IsDefaultOrEmpty)
+            method.SetCapturedVariables(captures);
+
+        return captures;
+    }
+
+    private static ImmutableArray<ISymbol> AnalyzeFunctionCapturedVariables(BoundBlockStatement body, IMethodSymbol functionSymbol)
+    {
+        var walker = new FunctionCapturedVariableWalker(functionSymbol);
+        walker.VisitStatement(body);
+        return walker.GetCapturedVariables();
+    }
+
+    private sealed class FunctionCapturedVariableWalker : BoundTreeWalker
+    {
+        private readonly IMethodSymbol _functionSymbol;
+        private readonly HashSet<ISymbol> _captured = new(SymbolEqualityComparer.Default);
+
+        public FunctionCapturedVariableWalker(IMethodSymbol functionSymbol)
+        {
+            _functionSymbol = functionSymbol;
+        }
+
+        public ImmutableArray<ISymbol> GetCapturedVariables()
+        {
+            if (_captured.Count == 0)
+                return ImmutableArray<ISymbol>.Empty;
+
+            return _captured.ToImmutableArray();
+        }
+
+        public override void VisitLocalAccess(BoundLocalAccess node)
+        {
+            AddIfCaptured(node.Symbol);
+            base.VisitLocalAccess(node);
+        }
+
+        public override void VisitParameterAccess(BoundParameterAccess node)
+        {
+            AddIfCaptured(node.Symbol);
+            base.VisitParameterAccess(node);
+        }
+
+        public override void VisitVariableExpression(BoundVariableExpression node)
+        {
+            AddIfCaptured(node.Symbol);
+            base.VisitVariableExpression(node);
+        }
+
+        public override void VisitSelfExpression(BoundSelfExpression node)
+        {
+            AddIfCaptured(node.Symbol ?? node.Type);
+            base.VisitSelfExpression(node);
+        }
+
+        private void AddIfCaptured(ISymbol? symbol)
+        {
+            if (symbol is null)
+                return;
+
+            if (symbol is ILocalSymbol or IParameterSymbol)
+            {
+                if (SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, _functionSymbol))
+                    return;
+
+                _captured.Add(symbol);
+                return;
+            }
+
+            if (symbol is ITypeSymbol typeSymbol &&
+                _functionSymbol.ContainingType is { } containingType &&
+                SymbolEqualityComparer.Default.Equals(typeSymbol, containingType))
+            {
+                _captured.Add(typeSymbol);
+            }
+        }
     }
 }

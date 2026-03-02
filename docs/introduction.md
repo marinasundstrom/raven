@@ -198,6 +198,9 @@ Behind the scenes, function values map to .NET delegates.
 > ℹ️ **Note:** Function statements (`func` inside another body) can capture locals,
 > parameters, and `self` from enclosing scopes.
 > Use `static func` to explicitly opt out of capture.
+>
+> Hover in language-service clients shows capture info for both lambdas and
+> function statements, and marks captured locals/parameters as captured.
 
 ### Function declarations
 

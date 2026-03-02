@@ -195,6 +195,64 @@ func Main() {
     }
 
     [Fact]
+    public void FunctionStatement_InMethodBody_CapturesOuterLocal()
+    {
+        const string source = """
+class Program {
+    public static func Run() -> int {
+        val x: int = 2
+
+        func Foo() -> int {
+            return x
+        }
+
+        return Foo()
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.ValueText == "Foo");
+
+        var captures = model.GetCapturedVariables(function);
+        Assert.Contains(captures, static s => s is ILocalSymbol { Name: "x" });
+    }
+
+    [Fact]
+    public void CapturedLocal_InMethodBody_IsReportedAsCapturedVariable()
+    {
+        const string source = """
+class Program {
+    public static func Run() -> int {
+        val x: int = 2
+
+        func Foo() -> int {
+            return x
+        }
+
+        return Foo()
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var localDeclarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(d => d.Identifier.ValueText == "x");
+        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(localDeclarator));
+
+        Assert.True(model.IsCapturedVariable(localSymbol));
+    }
+
+    [Fact]
     public void SemanticModel_ReportsCapturedVariable_ForIdentifier()
     {
         const string source = """

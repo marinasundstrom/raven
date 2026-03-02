@@ -4569,6 +4569,20 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
+        var closureOwnerMethod = target switch
+        {
+            SourceMethodSymbol direct => direct,
+            _ when target.UnderlyingSymbol is SourceMethodSymbol underlying => underlying,
+            _ => null
+        };
+
+        if (target.IsStatic &&
+            closureOwnerMethod is { HasCaptures: true } sourceTargetMethod &&
+            MethodGenerator.TypeGenerator.TryGetMethodClosure(sourceTargetMethod, out var targetClosure))
+        {
+            EmitInvocationClosureArgument(targetClosure);
+        }
+
         var receiverType = receiver?.Type?.UnwrapLiteralType() ?? receiver?.Type;
         var useConstrainedCall = !target.IsStatic &&
             receiverType is ITypeParameterSymbol typeParameterSymbol &&
@@ -4763,6 +4777,22 @@ internal partial class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(memberInfo));
         }
+    }
+
+    private void EmitInvocationClosureArgument(TypeGenerator.LambdaClosure closure)
+    {
+        var closureLocal = ILGenerator.DeclareLocal(closure.TypeBuilder);
+        ILGenerator.Emit(OpCodes.Newobj, closure.Constructor);
+        ILGenerator.Emit(OpCodes.Stloc, closureLocal);
+
+        foreach (var captured in closure.CapturedSymbols)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
+            EmitCapturedValue(captured);
+            ILGenerator.Emit(OpCodes.Stfld, closure.GetField(captured));
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
     }
 
     private void EmitArgument(
