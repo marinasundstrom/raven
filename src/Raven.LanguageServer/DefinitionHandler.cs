@@ -9,7 +9,6 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
-using LspLocation = OmniSharp.Extensions.LanguageServer.Protocol.Models.Location;
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
 
 namespace Raven.LanguageServer;
@@ -58,11 +57,14 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             if (resolution is null)
                 return new LocationOrLocationLinks();
 
-            var locations = BuildLocations(resolution.Value.Symbol)
+            var links = DefinitionLocationMapper.BuildLocationLinks(
+                    resolution.Value.Symbol,
+                    sourceText,
+                    resolution.Value.Node.Span)
                 .Select(location => (LocationOrLocationLink)location)
                 .ToArray();
 
-            return new LocationOrLocationLinks(locations);
+            return new LocationOrLocationLinks(links);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -79,17 +81,23 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             return new LocationOrLocationLinks();
         }
     }
+}
 
-    private static IEnumerable<LspLocation> BuildLocations(ISymbol symbol)
+internal static class DefinitionLocationMapper
+{
+    public static IEnumerable<LocationLink> BuildLocationLinks(ISymbol symbol, SourceText sourceText, TextSpan originSpan)
     {
+        var originSelectionRange = PositionHelper.ToRange(sourceText, originSpan);
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var syntaxReference in symbol.DeclaringSyntaxReferences)
         {
-            if (TryCreateLocation(syntaxReference.SyntaxTree, syntaxReference.Span, out var location) &&
-                seen.Add($"{location.Uri}|{location.Range.Start.Line}:{location.Range.Start.Character}:{location.Range.End.Line}:{location.Range.End.Character}"))
+            var selectionSpan = syntaxReference.Span;
+            var targetSpan = syntaxReference.GetSyntax().Span;
+            if (TryCreateLocationLink(syntaxReference.SyntaxTree, targetSpan, selectionSpan, originSelectionRange, out var locationLink) &&
+                seen.Add($"{locationLink.TargetUri}|{locationLink.TargetSelectionRange.Start.Line}:{locationLink.TargetSelectionRange.Start.Character}:{locationLink.TargetSelectionRange.End.Line}:{locationLink.TargetSelectionRange.End.Character}"))
             {
-                yield return location;
+                yield return locationLink;
             }
         }
 
@@ -98,21 +106,26 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             if (!location.IsInSource || location.SourceTree is null)
                 continue;
 
-            if (TryCreateLocation(location.SourceTree, location.SourceSpan, out var mappedLocation) &&
-                seen.Add($"{mappedLocation.Uri}|{mappedLocation.Range.Start.Line}:{mappedLocation.Range.Start.Character}:{mappedLocation.Range.End.Line}:{mappedLocation.Range.End.Character}"))
+            if (TryCreateLocationLink(location.SourceTree, location.SourceSpan, location.SourceSpan, originSelectionRange, out var mappedLocationLink) &&
+                seen.Add($"{mappedLocationLink.TargetUri}|{mappedLocationLink.TargetSelectionRange.Start.Line}:{mappedLocationLink.TargetSelectionRange.Start.Character}:{mappedLocationLink.TargetSelectionRange.End.Line}:{mappedLocationLink.TargetSelectionRange.End.Character}"))
             {
-                yield return mappedLocation;
+                yield return mappedLocationLink;
             }
         }
     }
 
-    private static bool TryCreateLocation(SyntaxTree syntaxTree, TextSpan span, out LspLocation location)
+    private static bool TryCreateLocationLink(
+        SyntaxTree syntaxTree,
+        TextSpan targetSpan,
+        TextSpan selectionSpan,
+        OmniSharp.Extensions.LanguageServer.Protocol.Models.Range originSelectionRange,
+        out LocationLink locationLink)
     {
         var path = syntaxTree.FilePath;
 
         if (string.IsNullOrWhiteSpace(path) || path == "file")
         {
-            location = null!;
+            locationLink = null!;
             return false;
         }
 
@@ -121,15 +134,18 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         var text = syntaxTree.GetText();
         if (text is null)
         {
-            location = null!;
+            locationLink = null!;
             return false;
         }
 
-        location = new LspLocation
+        locationLink = new LocationLink
         {
-            Uri = uri,
-            Range = PositionHelper.ToRange(text, span)
+            OriginSelectionRange = originSelectionRange,
+            TargetUri = uri,
+            TargetRange = PositionHelper.ToRange(text, targetSpan),
+            TargetSelectionRange = PositionHelper.ToRange(text, selectionSpan)
         };
+
         return true;
     }
 }

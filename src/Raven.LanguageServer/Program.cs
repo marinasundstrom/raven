@@ -39,8 +39,11 @@ internal static class Program
             .WithHandler<CompletionHandler>()
             .WithHandler<SignatureHelpHandler>()
             .WithHandler<DefinitionHandler>()
+            .WithHandler<ReferencesHandler>()
+            .WithHandler<RenameHandler>()
             .WithHandler<HoverHandler>()
             .WithHandler<DocumentSymbolHandler>()
+            .WithHandler<WorkspaceSymbolsHandler>()
             .WithHandler<CodeActionHandler>()
             .ConfigureLogging(logging =>
             {

@@ -53,7 +53,7 @@ internal sealed class CompletionHandler : ICompletionHandler
                 return new CompletionList();
 
             var items = (await _completionService.GetCompletionsAsync(compilation, syntaxTree, position, cancellationToken).ConfigureAwait(false))
-                .Select(item => ToLspCompletion(item, text))
+                .Select(item => CompletionItemMapper.ToLspCompletion(item, text))
                 .ToList();
 
             return new CompletionList(items, isIncomplete: false);
@@ -78,26 +78,7 @@ internal sealed class CompletionHandler : ICompletionHandler
     {
     }
 
-    private static LspCompletionItem ToLspCompletion(RavenCompletionItem item, SourceText text)
-    {
-        var range = PositionHelper.ToRange(text, item.ReplacementSpan);
-        return new LspCompletionItem
-        {
-            Label = item.DisplayText,
-            Detail = item.Description,
-            Kind = MapCompletionItemKind(item),
-            SortText = GetSortText(item),
-            InsertText = item.InsertionText,
-            TextEdit = new TextEditOrInsertReplaceEdit(new TextEdit
-            {
-                NewText = item.InsertionText,
-                Range = range
-            }),
-            InsertTextFormat = InsertTextFormat.PlainText
-        };
-    }
-
-    private static CompletionItemKind MapCompletionItemKind(RavenCompletionItem item)
+    internal static CompletionItemKind MapCompletionItemKind(RavenCompletionItem item)
     {
         if (item.Symbol is { } symbol)
         {
@@ -131,7 +112,7 @@ internal sealed class CompletionHandler : ICompletionHandler
         return CompletionItemKind.Text;
     }
 
-    private static string GetSortText(RavenCompletionItem item)
+    internal static string GetSortText(RavenCompletionItem item)
     {
         var rank = item.Symbol switch
         {
@@ -149,5 +130,68 @@ internal sealed class CompletionHandler : ICompletionHandler
         };
 
         return $"{rank:D2}_{item.DisplayText}";
+    }
+}
+
+internal static class CompletionItemMapper
+{
+    private static readonly Container<string> s_defaultCommitCharacters = new(".", "(", ")", ",", ";");
+
+    public static LspCompletionItem ToLspCompletion(RavenCompletionItem item, SourceText text)
+    {
+        var range = PositionHelper.ToRange(text, item.ReplacementSpan);
+        var useSnippet = TryBuildSnippetText(item.InsertionText, item.CursorOffset, out var newText);
+
+        return new LspCompletionItem
+        {
+            Label = item.DisplayText,
+            FilterText = item.DisplayText,
+            Detail = item.Description,
+            Kind = CompletionHandler.MapCompletionItemKind(item),
+            SortText = CompletionHandler.GetSortText(item),
+            CommitCharacters = s_defaultCommitCharacters,
+            InsertText = newText,
+            TextEdit = new TextEditOrInsertReplaceEdit(new TextEdit
+            {
+                NewText = newText,
+                Range = range
+            }),
+            InsertTextFormat = useSnippet
+                ? InsertTextFormat.Snippet
+                : InsertTextFormat.PlainText
+        };
+    }
+
+    private static bool TryBuildSnippetText(string insertionText, int? cursorOffset, out string newText)
+    {
+        var insertionLength = insertionText.Length;
+        if (cursorOffset is null)
+        {
+            newText = insertionText;
+            return false;
+        }
+
+        var clampedCursorOffset = Math.Clamp(cursorOffset.Value, 0, insertionLength);
+        if (clampedCursorOffset == insertionLength)
+        {
+            newText = insertionText;
+            return false;
+        }
+
+        var beforeCursor = insertionText[..clampedCursorOffset];
+        var afterCursor = insertionText[clampedCursorOffset..];
+        newText = EscapeSnippetText(beforeCursor) + "$0" + EscapeSnippetText(afterCursor);
+        return true;
+    }
+
+    private static string EscapeSnippetText(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return value;
+
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("$", "\\$", StringComparison.Ordinal)
+            .Replace("}", "\\}", StringComparison.Ordinal);
     }
 }

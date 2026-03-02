@@ -12,6 +12,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Text;
+
 using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
 
 namespace Raven.LanguageServer;
@@ -393,6 +394,14 @@ internal sealed class WorkspaceManager
         }
 
         return true;
+    }
+
+    public IReadOnlyList<Project> GetProjectsSnapshot()
+    {
+        lock (_gate)
+        {
+            return _workspace.CurrentSolution.Projects.ToArray();
+        }
     }
 
     private List<string> ResolveRoots(InitializeParams request)

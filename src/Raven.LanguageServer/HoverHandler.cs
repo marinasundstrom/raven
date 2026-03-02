@@ -205,6 +205,17 @@ internal sealed class HoverHandler : IHoverHandler
             return $"{constructorName}({parameters})";
         }
 
+        if (symbol is IMethodSymbol method)
+        {
+            var parameters = FormatParameters(method.Parameters, plainTypeFormat);
+            var returnType = method.ReturnType.ToDisplayString(plainTypeFormat);
+            var typeParameters = method.TypeParameters.IsDefaultOrEmpty
+                ? string.Empty
+                : $"<{string.Join(", ", method.TypeParameters.Select(static tp => tp.Name))}>";
+            var staticPrefix = method.IsStatic ? "static " : string.Empty;
+            return $"{staticPrefix}{method.Name}{typeParameters}({parameters}) -> {returnType}";
+        }
+
         if (symbol is IParameterSymbol parameter)
         {
             var binding = parameter.IsMutable ? "var" : "val";
