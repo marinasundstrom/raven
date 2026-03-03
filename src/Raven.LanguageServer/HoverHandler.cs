@@ -66,7 +66,7 @@ internal sealed class HoverHandler : IHoverHandler
                 return null;
 
             var symbol = resolution.Value.Symbol;
-            var signature = BuildSignature(symbol);
+            var signature = BuildSignature(symbol, resolution.Value.Node, semanticModel);
             var containing = BuildContainingDisplay(symbol, semanticModel);
             var documentation = symbol.GetDocumentationComment();
             var functionCaptures = semanticModel.GetCapturedVariables(symbol);
@@ -187,7 +187,7 @@ internal sealed class HoverHandler : IHoverHandler
             yield return clamped - 1;
     }
 
-    private static string BuildSignature(ISymbol symbol)
+    private static string BuildSignature(ISymbol symbol, SyntaxNode contextNode, SemanticModel semanticModel)
     {
         var plainTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
             .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
@@ -213,7 +213,9 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is IMethodSymbol method)
         {
-            var parameters = FormatParameters(method.Parameters, plainTypeFormat);
+            var parameters = FormatParameters(
+                GetDisplayParametersForMethod(method, contextNode, semanticModel),
+                plainTypeFormat);
             var returnType = method.ReturnType.ToDisplayString(plainTypeFormat);
             // Use concrete type arguments when available (inferred at a call site),
             // otherwise fall back to type parameter names for the generic definition.
@@ -224,10 +226,18 @@ internal sealed class HoverHandler : IHoverHandler
                   method.TypeArguments.Any(static a => a is not ITypeParameterSymbol)
                     ? $"<{string.Join(", ", method.TypeArguments.Select(a => a.ToDisplayString(plainTypeFormat)))}>"
                     : $"<{string.Join(", ", method.TypeParameters.Select(static tp => tp.Name))}>";
-            var staticPrefix = IsLocalFunctionDeclaredStatic(method) || (!IsFunctionStatementSymbol(method) && method.IsStatic)
+            var isExtensionAsInstance = IsExtensionMethodAccessedAsInstance(method, contextNode, semanticModel);
+            var staticPrefix = !isExtensionAsInstance &&
+                               (IsLocalFunctionDeclaredStatic(method) || (!IsFunctionStatementSymbol(method) && method.IsStatic))
                 ? "static "
                 : string.Empty;
             return $"{staticPrefix}func {method.Name}{typeParameters}({parameters}) -> {returnType}";
+        }
+
+        if (symbol is IEventSymbol ev)
+        {
+            var eventType = ev.Type.ToDisplayString(plainTypeFormat);
+            return $"event {ev.Name}: {eventType}";
         }
 
         if (symbol is IParameterSymbol parameter)
@@ -271,16 +281,59 @@ internal sealed class HoverHandler : IHoverHandler
                     text += ": " + string.Join(", ", bases);
             }
 
-            if (symbol is IEventSymbol ev)
-            {
-                var eventType = ev.Type.ToDisplayString(plainTypeFormat);
-                return $"event {ev.Name}: {eventType}";
-            }
-
             return text;
         }
 
         return symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
+    }
+
+    private static ImmutableArray<IParameterSymbol> GetDisplayParametersForMethod(
+        IMethodSymbol method,
+        SyntaxNode contextNode,
+        SemanticModel semanticModel)
+    {
+        if (IsExtensionMethodAccessedAsInstance(method, contextNode, semanticModel) &&
+            !method.Parameters.IsDefaultOrEmpty)
+        {
+            return method.Parameters.RemoveAt(0);
+        }
+
+        return method.Parameters;
+    }
+
+    private static bool IsExtensionMethodAccessedAsInstance(
+        IMethodSymbol method,
+        SyntaxNode contextNode,
+        SemanticModel semanticModel)
+    {
+        if (!method.IsExtensionMethod)
+            return false;
+
+        // We want C#-like behavior when the extension is used through member access:
+        //   receiver.ExtMethod(...)
+        // and NOT when called statically:
+        //   Extensions.ExtMethod(receiver, ...)
+        var nameNode = contextNode;
+
+        // Hover resolution may give us the member access node or the identifier node.
+        if (nameNode is MemberAccessExpressionSyntax memberAccess)
+            nameNode = memberAccess.Name;
+
+        if (nameNode is not IdentifierNameSyntax identifier)
+            return false;
+
+        if (identifier.Parent is not MemberAccessExpressionSyntax parentAccess ||
+            parentAccess.Name != identifier)
+        {
+            return false;
+        }
+
+        // If the receiver resolves to a type/namespace, this is a static-style access.
+        var receiverSymbol = semanticModel.GetSymbolInfo(parentAccess.Expression).Symbol;
+        if (receiverSymbol is ITypeSymbol or INamespaceSymbol)
+            return false;
+
+        return true;
     }
 
     private static string? BuildContainingDisplay(ISymbol symbol, SemanticModel semanticModel)
