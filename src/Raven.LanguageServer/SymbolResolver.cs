@@ -67,6 +67,9 @@ internal static class SymbolResolver
         if (TryResolveInvocationTargetSymbol(semanticModel, node, token, out var invocationSymbol))
             return invocationSymbol;
 
+        if (TryResolvePipeRightHandSymbol(semanticModel, node, token, out var pipeRhsSymbol))
+            return pipeRhsSymbol;
+
         if (TryResolveRecordPatternCaseSymbol(semanticModel, node, token, out var recordPatternCaseSymbol))
             return recordPatternCaseSymbol;
 
@@ -376,6 +379,34 @@ internal static class SymbolResolver
             return true;
         }
 
+        // When this invocation is the right-hand side of a pipe expression the binder
+        // resolves overloads using the piped value as an implicit first argument and
+        // stores the constructed symbol on the BinaryExpression node, not on the
+        // InvocationExpression itself.
+        if (invocation.Parent is BinaryExpressionSyntax { Kind: SyntaxKind.PipeExpression } pipeExpr &&
+            pipeExpr.Right == invocation)
+        {
+            var pipeInfo = semanticModel.GetSymbolInfo(pipeExpr);
+            if (pipeInfo.Symbol is not null)
+            {
+                symbol = ProjectInvocationSymbolForDisplay(pipeInfo.Symbol, semanticModel, invocation);
+                return true;
+            }
+
+            if (!pipeInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                symbol = ProjectInvocationSymbolForDisplay(pipeInfo.CandidateSymbols[0], semanticModel, invocation);
+                return true;
+            }
+
+            if (semanticModel.GetOperation(pipeExpr) is IInvocationOperation pipeOp &&
+                pipeOp.TargetMethod is not null)
+            {
+                symbol = ProjectInvocationSymbolForDisplay(pipeOp.TargetMethod, semanticModel, invocation);
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -559,6 +590,55 @@ internal static class SymbolResolver
 
         symbol = caseSymbol;
         return true;
+    }
+
+    // Handles bare method references on the RHS of a pipe: `expr |> WriteLine`
+    // These have no InvocationExpressionSyntax (no parentheses), so
+    // TryResolveInvocationTargetSymbol never fires. The binder stores the
+    // resolved / overload-selected symbol on the BinaryExpression itself.
+    private static bool TryResolvePipeRightHandSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        // Only act on tokens that sit inside the right-hand side of a pipe and
+        // whose RHS is NOT itself an InvocationExpression (that case is handled
+        // inside TryResolveInvocationTargetSymbol).
+        var pipeExpr = node
+            .AncestorsAndSelf()
+            .OfType<BinaryExpressionSyntax>()
+            .FirstOrDefault(b =>
+                b.Kind == SyntaxKind.PipeExpression &&
+                b.Right is not InvocationExpressionSyntax &&
+                b.Right.Span.Contains(token.Span));
+
+        if (pipeExpr is null)
+            return false;
+
+        var pipeInfo = semanticModel.GetSymbolInfo(pipeExpr);
+        if (pipeInfo.Symbol is not null)
+        {
+            symbol = ProjectSymbolForDisplay(pipeInfo.Symbol);
+            return symbol is not null;
+        }
+
+        if (!pipeInfo.CandidateSymbols.IsDefaultOrEmpty)
+        {
+            symbol = ProjectSymbolForDisplay(pipeInfo.CandidateSymbols[0]);
+            return symbol is not null;
+        }
+
+        if (semanticModel.GetOperation(pipeExpr) is IInvocationOperation op &&
+            op.TargetMethod is not null)
+        {
+            symbol = op.TargetMethod;
+            return true;
+        }
+
+        return false;
     }
 
     private static bool ShouldSkipCandidateNode(SyntaxNode node, SyntaxToken token)
