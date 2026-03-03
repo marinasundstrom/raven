@@ -1246,7 +1246,10 @@ partial class BlockBinder
                 if (method.ReturnType.SpecialType != SpecialType.System_Boolean)
                     continue;
 
-                if (TryResolveEnumeratorCurrentGetter(interfaceType, out currentGetter))
+                // Prefer Current from the original enumerator type (e.g. IEnumerator<T> returns T)
+                // over the interface that declared MoveNext (e.g. IEnumerator returns object).
+                if (TryResolveEnumeratorCurrentGetter(namedEnumerator, out currentGetter) ||
+                    TryResolveEnumeratorCurrentGetter(interfaceType, out currentGetter))
                 {
                     moveNextMethod = method;
                     return true;

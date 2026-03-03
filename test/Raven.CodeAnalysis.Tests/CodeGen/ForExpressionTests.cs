@@ -226,12 +226,56 @@ class C {
         Assert.NotNull(loaded.Assembly.GetType("C", throwOnError: false));
     }
 
-    private static string[] CompileAndRun(string code)
+    [Fact]
+    public void ForEach_OverGenericIEnumerable_UsesTypedCurrentGetter()
+    {
+        // Regression test: IEnumerator<T>.Current was resolved to the non-generic
+        // IEnumerator.Current (returning object), causing castclass !!T instead of the typed
+        // get_Current(), which produced the boxed-int heap address instead of the unboxed value.
+        var code = """
+import System.Collections.Generic.*
+
+class C {
+    static func Sum(source: IEnumerable<int>) -> int {
+        var total: int = 0
+        for item in source {
+            total = total + item
+        }
+        return total
+    }
+
+    static func Run() -> int {
+        val items: IEnumerable<int> = [1, 2, 3]
+        return Sum(items)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("for-generic-enumerable", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("C", true)!;
+        var method = type.GetMethod("Run", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var value = (int)method!.Invoke(null, Array.Empty<object>())!;
+        Assert.Equal(6, value);
+    }
+
+    private static string[] CompileAndRun(string code, OutputKind outputKind = OutputKind.ConsoleApplication)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("for-range", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("for-range", new CompilationOptions(outputKind))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
