@@ -61,6 +61,9 @@ internal static class SymbolResolver
 
     private static ISymbol? ResolveSymbolFromNode(SemanticModel semanticModel, SyntaxNode node, SyntaxToken token)
     {
+        if (TryResolveCompoundEventAssignmentSymbol(semanticModel, node, token, out var compoundEventSymbol))
+            return compoundEventSymbol;
+
         if (TryResolveInvocationTargetSymbol(semanticModel, node, token, out var invocationSymbol))
             return invocationSymbol;
 
@@ -413,6 +416,59 @@ internal static class SymbolResolver
             return expressionType;
 
         return null;
+    }
+
+    private static bool TryResolveCompoundEventAssignmentSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+    out ISymbol? symbol)
+    {
+        symbol = null;
+
+        // foo.Click += ... / foo.Click -= ...
+        var assignment = node.AncestorsAndSelf().OfType<AssignmentExpressionSyntax>().FirstOrDefault();
+        if (assignment is null)
+            return false;
+
+        var opKind = assignment.OperatorToken.Kind;
+        if (opKind != SyntaxKind.PlusEqualsToken && opKind != SyntaxKind.MinusEqualsToken)
+            return false;
+
+        if (assignment.Left is not MemberAccessExpressionSyntax memberAccess)
+            return false;
+
+        // Only when hovering the member name itself (e.g. Click)
+        if (!memberAccess.Name.Span.Contains(token.Span))
+            return false;
+
+        // Prefer symbol info on the Name node so we get the IEventSymbol, not add/remove accessor methods.
+        var nameInfo = semanticModel.GetSymbolInfo(memberAccess.Name);
+        if (nameInfo.Symbol is not null || !nameInfo.CandidateSymbols.IsDefaultOrEmpty)
+        {
+            var chosen = ChoosePreferredSymbol(nameInfo.Symbol, nameInfo.CandidateSymbols, memberAccess.Name);
+            chosen = ProjectSymbolForDisplay(chosen);
+            if (chosen is not null)
+            {
+                symbol = chosen;
+                return true;
+            }
+        }
+
+        // Fallback: resolve on the full member access
+        var memberInfo = semanticModel.GetSymbolInfo(memberAccess);
+        if (memberInfo.Symbol is not null || !memberInfo.CandidateSymbols.IsDefaultOrEmpty)
+        {
+            var chosen = ChoosePreferredSymbol(memberInfo.Symbol, memberInfo.CandidateSymbols, memberAccess);
+            chosen = ProjectSymbolForDisplay(chosen);
+            if (chosen is not null)
+            {
+                symbol = chosen;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool TryResolveUnionCaseFromInvocationContext(

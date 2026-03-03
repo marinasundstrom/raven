@@ -271,6 +271,12 @@ internal sealed class HoverHandler : IHoverHandler
                     text += ": " + string.Join(", ", bases);
             }
 
+            if (symbol is IEventSymbol ev)
+            {
+                var eventType = ev.Type.ToDisplayString(plainTypeFormat);
+                return $"event {ev.Name}: {eventType}";
+            }
+
             return text;
         }
 
