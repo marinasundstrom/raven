@@ -1208,15 +1208,25 @@ partial class BlockBinder
                     effectiveDelegateType = innerDelegate;
             }
 
-            if (effectiveDelegateType is not null)
+            if (effectiveDelegateType is null)
             {
-                var invoke = effectiveDelegateType.GetDelegateInvokeMethod();
-                if (invoke is null)
+                // A lambda can only match a delegate-typed parameter.
+                // Concrete non-delegate named types (e.g. int, string) are definitely
+                // incompatible.  Unbound type parameters (T) are kept because the
+                // concrete type might turn out to be a delegate after substitution.
+                if (parameterType is not ITypeParameterSymbol)
                     continue;
 
-                if (invoke.Parameters.Length != parameterCount)
-                    continue;
+                builder.Add(method);
+                continue;
             }
+
+            var invoke = effectiveDelegateType.GetDelegateInvokeMethod();
+            if (invoke is null)
+                continue;
+
+            if (invoke.Parameters.Length != parameterCount)
+                continue;
 
             builder.Add(method);
         }
