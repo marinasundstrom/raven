@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -263,7 +264,7 @@ internal sealed class HoverHandler : IHoverHandler
         if (symbol is ITypeSymbol typeSymbol)
         {
             var typeFormat = plainTypeFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
-            var text = typeSymbol.ToDisplayString(typeFormat);
+            var text = FormatType(typeSymbol, typeFormat);
 
             // Append base class / base interface list (e.g. "class Foo: Bar")
             if (typeSymbol is INamedTypeSymbol namedType)
@@ -285,6 +286,13 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         return symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
+    }
+
+    private static string FormatType(ITypeSymbol type, SymbolDisplayFormat format)
+    {
+        return type is UnitTypeSymbol
+            ? "unit"
+            : type.ToDisplayString(format);
     }
 
     private static ImmutableArray<IParameterSymbol> GetDisplayParametersForMethod(
