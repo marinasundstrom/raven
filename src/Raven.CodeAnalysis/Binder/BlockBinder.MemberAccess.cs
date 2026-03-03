@@ -283,8 +283,23 @@ partial class BlockBinder
         // operator and `pipeReceiverType` is the type of the left-hand side of the pipe.  For
         // non-extension pipe methods parameter[0] is the implicit pipe source, so each explicit
         // argument at index i maps to parameter[i+1].
+        //
+        // Generic type inference (C#-style phase 1 + phase 2):
+        // Before binding any argument with a target type we run a pre-inference pass that binds
+        // every non-lambda argument naturally (no target type). The resulting types are unified
+        // against the matching parameter types to build a preliminary {T -> int, U -> string, ...}
+        // substitution map. Those substitutions are then applied to every target type before use,
+        // so that lambdas see concrete types (int -> bool) instead of open generics (T -> bool).
 
         hasErrors = false;
+
+        // Pre-inference pass: infer type parameters from non-lambda arguments.
+        var preInferredSubstitutions = TryPreInferTypeArguments(methods, arguments, receiver, pipeReceiverType);
+
+        // Collect all method type parameters so we can detect unresolved ones.
+        var allMethodTypeParams = methods.IsDefaultOrEmpty
+            ? ImmutableArray<ITypeParameterSymbol>.Empty
+            : methods.SelectMany(static m => m.TypeParameters).Distinct(SymbolEqualityComparer.Default).Cast<ITypeParameterSymbol>().ToImmutableArray();
 
         var boundArguments = new BoundArgument[arguments.Count];
 
@@ -307,6 +322,15 @@ partial class BlockBinder
                 if (!string.IsNullOrEmpty(argName))
                     targetType = TryGetCommonNamedParameterType(methods, argName, receiver);
             }
+
+            // Apply pre-inferred type-parameter substitutions to the target type, then
+            // discard the target type if it still contains unresolved type parameters —
+            // passing an open generic as a hint causes wrong inference.
+            if (targetType is not null && preInferredSubstitutions.Count > 0)
+                targetType = SubstituteTypeParameters(targetType, preInferredSubstitutions);
+
+            if (targetType is not null && ContainsAnyTypeParameter(targetType, allMethodTypeParams))
+                targetType = null;
 
             var boundExpr = targetType is null
                 ? BindExpression(arg.Expression)
@@ -677,6 +701,120 @@ partial class BlockBinder
         }
 
         return type;
+    }
+
+    /// <summary>
+    /// Phase-1 generic type inference: bind every non-lambda argument naturally (no target type)
+    /// and unify its type against the corresponding parameter type to build a
+    /// <c>{ T → int, U → string, … }</c> substitution map.
+    ///
+    /// This mirrors C#'s two-phase inference: infer type parameters from fixed arguments first,
+    /// then use the inferred types when target-typing lambda arguments.
+    /// </summary>
+    private Dictionary<ITypeParameterSymbol, ITypeSymbol> TryPreInferTypeArguments(
+        ImmutableArray<IMethodSymbol> methods,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        BoundExpression? receiver,
+        ITypeSymbol? pipeReceiverType)
+    {
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        // Only pre-infer when there is a single candidate with type parameters.
+        // With multiple overloads the "natural" types may not pick the right one.
+        if (methods.IsDefaultOrEmpty || methods.Length != 1)
+            return substitutions;
+
+        var method = methods[0];
+        if (method.TypeParameters.IsDefaultOrEmpty)
+            return substitutions;
+
+        // Seed from the implicit first argument (pipe source or extension receiver).
+        if (pipeReceiverType is not null && !method.Parameters.IsDefaultOrEmpty)
+        {
+            TryUnifyExtensionReceiverType(method.Parameters[0].Type, pipeReceiverType, substitutions);
+        }
+        else if (method.IsExtensionMethod && receiver is not null && !method.Parameters.IsDefaultOrEmpty)
+        {
+            var extensionReceiverType = method.GetExtensionReceiverType() ?? method.Parameters[0].Type;
+            if (extensionReceiverType is not null && extensionReceiverType.TypeKind != TypeKind.Error)
+                TryUnifyExtensionReceiverType(extensionReceiverType, receiver.Type, substitutions);
+        }
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            var arg = arguments[i];
+
+            // Skip lambda arguments — they consume the inferred types, not the other way around.
+            if (arg.Expression is LambdaExpressionSyntax)
+                continue;
+
+            int parameterIndex;
+            if (arg.NameColon is not null)
+            {
+                var argName = arg.NameColon.Name.Identifier.ValueText;
+                var param = method.Parameters.FirstOrDefault(p =>
+                    string.Equals(p.Name, argName, StringComparison.OrdinalIgnoreCase));
+                if (param is null) continue;
+                parameterIndex = method.Parameters.IndexOf(param);
+            }
+            else
+            {
+                parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null) ? i + 1 : i;
+            }
+
+            if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                continue;
+
+            var parameterType = method.Parameters[parameterIndex].Type;
+
+            // Only bother if this parameter type involves type parameters.
+            if (!ContainsAnyTypeParameter(parameterType, method.TypeParameters))
+                continue;
+
+            // Bind the argument without any target type to get its natural type.
+            var naturalBound = BindExpression(arg.Expression);
+            if (naturalBound.Type is null || naturalBound.Type.TypeKind == TypeKind.Error)
+                continue;
+
+            TryUnifyExtensionReceiverType(parameterType, naturalBound.Type, substitutions);
+        }
+
+        return substitutions;
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when <paramref name="type"/> references any of the given type parameters.
+    /// </summary>
+    private static bool ContainsAnyTypeParameter(
+        ITypeSymbol type,
+        ImmutableArray<ITypeParameterSymbol> typeParameters)
+    {
+        if (typeParameters.IsDefaultOrEmpty)
+            return false;
+
+        return ContainsAnyTypeParameterCore(type, typeParameters);
+    }
+
+    private static bool ContainsAnyTypeParameterCore(
+        ITypeSymbol type,
+        ImmutableArray<ITypeParameterSymbol> typeParameters)
+    {
+        if (type is ITypeParameterSymbol tp)
+            return typeParameters.Contains(tp, SymbolEqualityComparer.Default);
+
+        if (type is INamedTypeSymbol named)
+        {
+            foreach (var arg in named.TypeArguments)
+            {
+                if (ContainsAnyTypeParameterCore(arg, typeParameters))
+                    return true;
+            }
+        }
+
+        if (type is IArrayTypeSymbol array)
+            return ContainsAnyTypeParameterCore(array.ElementType, typeParameters);
+
+        return false;
     }
 
     private BoundExpression BindConstructorInvocation(
