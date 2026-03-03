@@ -197,27 +197,37 @@ internal sealed class HoverHandler : IHoverHandler
         {
             var parameters = FormatParameters(lambda.Parameters, plainTypeFormat);
             var returnType = lambda.ReturnType.ToDisplayString(plainTypeFormat);
-            return $"({parameters}) -> {returnType}";
+            return $"func ({parameters}) -> {returnType}";
         }
 
         if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
         {
-            var constructorName = constructor.ContainingType?.Name ?? constructor.Name;
+            var containingType = constructor.ContainingType;
+            var constructorName = containingType?.Name ?? constructor.Name;
+            var typeParams = containingType is not null && !containingType.TypeParameters.IsDefaultOrEmpty
+                ? $"<{string.Join(", ", containingType.TypeParameters.Select(static tp => tp.Name))}>"
+                : string.Empty;
             var parameters = FormatParameters(constructor.Parameters, plainTypeFormat);
-            return $"{constructorName}({parameters})";
+            return $"{constructorName}{typeParams}({parameters})";
         }
 
         if (symbol is IMethodSymbol method)
         {
             var parameters = FormatParameters(method.Parameters, plainTypeFormat);
             var returnType = method.ReturnType.ToDisplayString(plainTypeFormat);
+            // Use concrete type arguments when available (inferred at a call site),
+            // otherwise fall back to type parameter names for the generic definition.
             var typeParameters = method.TypeParameters.IsDefaultOrEmpty
                 ? string.Empty
-                : $"<{string.Join(", ", method.TypeParameters.Select(static tp => tp.Name))}>";
+                : !method.TypeArguments.IsDefaultOrEmpty &&
+                  method.TypeArguments.Length == method.TypeParameters.Length &&
+                  method.TypeArguments.Any(static a => a is not ITypeParameterSymbol)
+                    ? $"<{string.Join(", ", method.TypeArguments.Select(a => a.ToDisplayString(plainTypeFormat)))}>"
+                    : $"<{string.Join(", ", method.TypeParameters.Select(static tp => tp.Name))}>";
             var staticPrefix = IsLocalFunctionDeclaredStatic(method) || (!IsFunctionStatementSymbol(method) && method.IsStatic)
                 ? "static "
                 : string.Empty;
-            return $"{staticPrefix}{method.Name}{typeParameters}({parameters}) -> {returnType}";
+            return $"{staticPrefix}func {method.Name}{typeParameters}({parameters}) -> {returnType}";
         }
 
         if (symbol is IParameterSymbol parameter)
@@ -241,7 +251,28 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         if (symbol is ITypeSymbol typeSymbol)
-            return typeSymbol.ToDisplayString(plainTypeFormat);
+        {
+            var typeFormat = plainTypeFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
+            var text = typeSymbol.ToDisplayString(typeFormat);
+
+            // Append base class / base interface list (e.g. "class Foo: Bar")
+            if (typeSymbol is INamedTypeSymbol namedType)
+            {
+                var bases = new System.Collections.Generic.List<string>();
+
+                // Only show user-defined base types (SpecialType.None excludes object, ValueType, etc.)
+                if (namedType.BaseType is { SpecialType: SpecialType.None } baseType)
+                    bases.Add(baseType.ToDisplayString(plainTypeFormat));
+
+                foreach (var iface in namedType.Interfaces)
+                    bases.Add(iface.ToDisplayString(plainTypeFormat));
+
+                if (bases.Count > 0)
+                    text += ": " + string.Join(", ", bases);
+            }
+
+            return text;
+        }
 
         return symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
     }

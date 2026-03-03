@@ -285,6 +285,8 @@ public interface IMethodSymbol : ISymbol
     IteratorMethodKind IteratorKind { get; }
     ITypeSymbol? IteratorElementType { get; }
 
+    bool IsLambda => false;
+
     ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations { get; }
 
     ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }

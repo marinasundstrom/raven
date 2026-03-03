@@ -36,6 +36,8 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         IsAsync = isAsync;
     }
 
+    public bool IsLambda => true;
+
     public ImmutableArray<IParameterSymbol> Parameters { get; }
 
     public ITypeSymbol ReturnType { get; private set; }

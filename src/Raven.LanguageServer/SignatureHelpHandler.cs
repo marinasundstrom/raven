@@ -129,17 +129,32 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
     private static SignatureInformation CreateSignatureInformation(IMethodSymbol method, SymbolDisplayFormat plainTypeFormat)
     {
-        var name = method.MethodKind == MethodKind.Constructor
-            ? method.ContainingType?.Name ?? method.Name
-            : method.Name;
+        string name;
+        string typeParams;
+
+        if (method.MethodKind == MethodKind.Constructor)
+        {
+            var containingType = method.ContainingType;
+            name = containingType?.Name ?? method.Name;
+            typeParams = containingType is not null && !containingType.TypeParameters.IsDefaultOrEmpty
+                ? $"<{string.Join(", ", containingType.TypeParameters.Select(static tp => tp.Name))}>"
+                : string.Empty;
+        }
+        else
+        {
+            name = method.Name;
+            typeParams = !method.TypeParameters.IsDefaultOrEmpty
+                ? $"<{string.Join(", ", method.TypeParameters.Select(static tp => tp.Name))}>"
+                : string.Empty;
+        }
 
         var parameterLabels = method.Parameters
             .Select(parameter => FormatParameter(parameter, plainTypeFormat))
             .ToArray();
 
         var signatureLabel = method.MethodKind == MethodKind.Constructor
-            ? $"{name}({string.Join(", ", parameterLabels)})"
-            : $"{name}({string.Join(", ", parameterLabels)}) -> {method.ReturnType.ToDisplayString(plainTypeFormat)}";
+            ? $"{name}{typeParams}({string.Join(", ", parameterLabels)})"
+            : $"func {name}{typeParams}({string.Join(", ", parameterLabels)}) -> {method.ReturnType.ToDisplayString(plainTypeFormat)}";
 
         var parameterInfos = method.Parameters
             .Select(parameter => new ParameterInformation

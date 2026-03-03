@@ -183,10 +183,20 @@ public static partial class SymbolExtensions
         // Single entry point for top-level types – we can prepend type keyword here
         if (symbol is ITypeSymbol typeSymbol)
         {
-            var text = typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
-                       format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature
-                ? FormatNamedDelegateDeclaration(delegateType, format)
-                : FormatType(typeSymbol, format);
+            // TryFormatFunctionType must be checked first: System.Func/Action and synthesized
+            // delegates always render as arrow-notation (e.g. T -> bool), even when
+            // DelegateStyle is NameAndSignature.
+            string text;
+            if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
+                format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature &&
+                !TryFormatFunctionType(typeSymbol, format, out _))
+            {
+                text = FormatNamedDelegateDeclaration(delegateType, format);
+            }
+            else
+            {
+                text = FormatType(typeSymbol, format);
+            }
 
             if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword) &&
                             symbol is INamedTypeSymbol namedTypeSymbol)
@@ -386,6 +396,11 @@ public static partial class SymbolExtensions
 
         if (symbol is IMethodSymbol methodSymbol)
         {
+            // Prepend "func" for lambda methods
+            if (methodSymbol.IsLambda)
+            {
+                result.Insert(0, "func ");
+            }
             if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters)
                 && (!methodSymbol.TypeParameters.IsDefaultOrEmpty || !methodSymbol.TypeArguments.IsDefaultOrEmpty))
             {
@@ -956,7 +971,7 @@ public static partial class SymbolExtensions
         string parameterText = parameterDisplays.Count switch
         {
             0 => "()",
-            1 when parameterTypes[0] is not ITupleTypeSymbol and not UnitTypeSymbol => parameterDisplays[0],
+            1 => $"({parameterDisplays[0]})",
             _ => $"({string.Join(", ", parameterDisplays)})"
         };
 
