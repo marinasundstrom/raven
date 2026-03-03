@@ -8778,7 +8778,20 @@ partial class BlockBinder : Binder
                 converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
                 continue;
             }
-            converted[i] = ApplyConversion(expression, parameter.Type, conversion, syntaxNode);
+            var convertedExpr = ApplyConversion(expression, parameter.Type, conversion, syntaxNode);
+
+            // When a method group is resolved to a concrete delegate type during argument
+            // conversion, update the bound-node cache so that language-service queries
+            // (e.g. hover) on the argument expression see the selected overload rather than
+            // the unresolved method group.
+            if (syntaxNode is not null &&
+                expression is BoundMethodGroupExpression &&
+                convertedExpr is BoundDelegateCreationExpression)
+            {
+                CacheBoundNode(syntaxNode, convertedExpr);
+            }
+
+            converted[i] = convertedExpr;
         }
 
         return converted;
