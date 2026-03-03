@@ -5998,7 +5998,45 @@ partial class BlockBinder : Binder
                         return BindPipelineInvocationOnMethodGroup(methodGroup, invocation, syntax.Left, left, boundExtensionArguments);
                 }
 
-                var boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out var hasErrors);
+                // For non-extension pipe methods the pipe inserts 'left' as the implicit first
+                // argument (parameter index 0), so each explicit argument at index i maps to
+                // parameter index i+1.  Use BindInvocationArgumentsWithCandidateTargetTypes with
+                // pipeReceiverType so that (a) the correct +1 offset is applied and (b) delegate
+                // target types are pushed via PushTargetType/GetTargetType — bypassing the
+                // reference-equality _lambdaDelegateTargets dictionary that would otherwise fail
+                // because SyntaxNodeCache is currently disabled (each access to arguments[i] creates
+                // a new red-node instance).
+                var nonExtensionCandidates = methodGroup.Methods
+                    .Where(static m => !m.IsExtensionMethod)
+                    .ToImmutableArray();
+
+                BoundArgument[] boundArguments;
+                bool hasErrors;
+
+                if (!nonExtensionCandidates.IsDefaultOrEmpty)
+                {
+                    var nonExtensionCandidatesForBinding = nonExtensionCandidates;
+                    for (var argumentIndex = 0; argumentIndex < invocation.ArgumentList.Arguments.Count; argumentIndex++)
+                    {
+                        var argumentExpression = invocation.ArgumentList.Arguments[argumentIndex].Expression;
+                        nonExtensionCandidatesForBinding = FilterMethodsForLambda(
+                            nonExtensionCandidatesForBinding,
+                            argumentIndex + 1,
+                            argumentExpression,
+                            extensionReceiverImplicit: false,
+                            callSiteArgumentCount: invocation.ArgumentList.Arguments.Count + 1);
+                    }
+
+                    boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(
+                        nonExtensionCandidatesForBinding,
+                        invocation.ArgumentList.Arguments,
+                        out hasErrors,
+                        pipeReceiverType: left.Type);
+                }
+                else
+                {
+                    boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out hasErrors);
+                }
 
                 if (hasErrors)
                     return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
@@ -6028,7 +6066,13 @@ partial class BlockBinder : Binder
                 }
                 else
                 {
-                    boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out hasErrors);
+                    // Non-extension pipe: method's parameter[0] is the implicit pipe source.
+                    // Use pipeReceiverType so the +1 offset and generic inference are applied.
+                    boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(
+                        ImmutableArray.Create(method),
+                        invocation.ArgumentList.Arguments,
+                        out hasErrors,
+                        pipeReceiverType: left.Type);
                 }
 
                 if (hasErrors)

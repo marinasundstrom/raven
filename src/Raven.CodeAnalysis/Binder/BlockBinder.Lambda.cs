@@ -851,7 +851,8 @@ partial class BlockBinder
         ImmutableArray<IMethodSymbol> methods,
         int parameterIndex,
         bool extensionReceiverImplicit = false,
-        ITypeSymbol? receiverType = null)
+        ITypeSymbol? receiverType = null,
+        bool pipeReceiverImplicit = false)
     {
         if (argumentExpression is not LambdaExpressionSyntax lambda)
         {
@@ -899,6 +900,20 @@ partial class BlockBinder
                 !method.TypeParameters.IsDefaultOrEmpty)
             {
                 var substitutions = TryInferTypeParametersFromReceiver(method, receiverType);
+                if (substitutions is not null)
+                {
+                    var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
+                    if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                        delegateToAdd = substitutedNamed;
+                }
+            }
+            // For generic non-extension methods in pipe expressions, infer type parameters from
+            // the pipe source (which occupies parameter 0 implicitly).
+            else if (delegateToAdd is not null && receiverType is not null &&
+                pipeReceiverImplicit && !method.IsExtensionMethod &&
+                !method.TypeParameters.IsDefaultOrEmpty)
+            {
+                var substitutions = TryInferTypeParametersFromFirstArg(method, receiverType);
                 if (substitutions is not null)
                 {
                     var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
@@ -978,12 +993,22 @@ partial class BlockBinder
         if (!method.IsExtensionMethod || method.TypeParameters.IsDefaultOrEmpty)
             return null;
 
+        return TryInferTypeParametersFromFirstArg(method, receiverType);
+    }
+
+    private static Dictionary<ITypeParameterSymbol, ITypeSymbol>? TryInferTypeParametersFromFirstArg(
+        IMethodSymbol method,
+        ITypeSymbol argumentType)
+    {
+        if (method.TypeParameters.IsDefaultOrEmpty || method.Parameters.IsDefaultOrEmpty)
+            return null;
+
         var firstParamType = method.Parameters[0].Type;
         if (firstParamType is null)
             return null;
 
         var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
-        InferTypeParametersFromMatch(firstParamType, receiverType, substitutions, method);
+        InferTypeParametersFromMatch(firstParamType, argumentType, substitutions, method);
 
         return substitutions.Count > 0 ? substitutions : null;
     }

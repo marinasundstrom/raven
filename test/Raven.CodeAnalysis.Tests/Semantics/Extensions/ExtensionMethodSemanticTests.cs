@@ -1957,6 +1957,66 @@ static class MathHelpers {
     }
 
     [Fact]
+    public void PipeOperator_WithFunction_AndLambdaArgument_InfersLambdaParameterType()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+
+val items: IEnumerable<int> = [1, 2, 3, 4, 5]
+val r = items |> Filter(x => x == 2)
+
+func Filter(source: IEnumerable<int>, predicate: int -> bool) -> IEnumerable<int> => source
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambda = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var parameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithGenericFunction_AndLambdaArgument_InfersLambdaParameterType()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+
+val items: IEnumerable<int> = [1, 2, 3, 4, 5]
+val r = items |> Filter(x => x == 2)
+
+func Filter<T>(source: IEnumerable<T>, predicate: T -> bool) -> IEnumerable<T> => source
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambda = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var parameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+    }
+
+    [Fact]
     public void PipeOperator_WithInstanceProperty_AssignsThroughSetter()
     {
         const string source = """

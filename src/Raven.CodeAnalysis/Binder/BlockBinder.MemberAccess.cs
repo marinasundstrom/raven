@@ -272,11 +272,17 @@ partial class BlockBinder
         ImmutableArray<IMethodSymbol> methods,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         out bool hasErrors,
-        BoundExpression? receiver = null)
+        BoundExpression? receiver = null,
+        ITypeSymbol? pipeReceiverType = null)
     {
         // Bind invocation arguments while supplying a best-effort target type.
         // This is important for target-typed member bindings inside argument position,
         // e.g. `format(.Ok(42))`, where `.Ok(42)` needs the parameter type to resolve.
+        //
+        // pipeReceiverType: when non-null, the method candidates are being called via the pipe
+        // operator and `pipeReceiverType` is the type of the left-hand side of the pipe.  For
+        // non-extension pipe methods parameter[0] is the implicit pipe source, so each explicit
+        // argument at index i maps to parameter[i+1].
 
         hasErrors = false;
 
@@ -340,12 +346,16 @@ partial class BlockBinder
                     continue;
 
                 // For extension methods, the receiver occupies parameter 0.
-                var parameterIndex = method.IsExtensionMethod ? argumentIndex + 1 : argumentIndex;
+                // For non-extension pipe methods (pipeReceiverType != null), the pipe source
+                // also occupies parameter 0, so explicit argument i maps to parameter i+1.
+                var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+                    ? argumentIndex + 1
+                    : argumentIndex;
 
                 if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
                     return null;
 
-                var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver);
+                var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver, pipeReceiverType);
 
                 if (!hasCommon)
                 {
@@ -405,22 +415,39 @@ partial class BlockBinder
     private ITypeSymbol GetInvocationParameterTypeForArgumentBinding(
         IMethodSymbol method,
         int parameterIndex,
-        BoundExpression? receiver)
+        BoundExpression? receiver,
+        ITypeSymbol? pipeReceiverType = null)
     {
         var parameterType = method.Parameters[parameterIndex].Type;
 
-        if (!method.IsExtensionMethod || receiver is null || method.Parameters.IsDefaultOrEmpty)
-            return parameterType;
+        if (method.IsExtensionMethod)
+        {
+            if (receiver is null || method.Parameters.IsDefaultOrEmpty)
+                return parameterType;
 
-        var extensionReceiverType = method.GetExtensionReceiverType() ?? method.Parameters[0].Type;
-        if (extensionReceiverType is null || extensionReceiverType.TypeKind == TypeKind.Error)
-            return parameterType;
+            var extensionReceiverType = method.GetExtensionReceiverType() ?? method.Parameters[0].Type;
+            if (extensionReceiverType is null || extensionReceiverType.TypeKind == TypeKind.Error)
+                return parameterType;
 
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
-        if (!TryUnifyExtensionReceiverType(extensionReceiverType, receiver.Type, substitutions))
-            return parameterType;
+            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            if (!TryUnifyExtensionReceiverType(extensionReceiverType, receiver.Type, substitutions))
+                return parameterType;
 
-        return SubstituteTypeParameters(parameterType, substitutions);
+            return SubstituteTypeParameters(parameterType, substitutions);
+        }
+
+        // For non-extension pipe methods with unbound type parameters, infer the substitution
+        // by unifying parameter[0] (the implicit pipe source parameter) with the actual pipe
+        // receiver type — mirroring the extension-method path above.
+        if (pipeReceiverType is not null && !method.TypeParameters.IsDefaultOrEmpty && !method.Parameters.IsDefaultOrEmpty)
+        {
+            var firstParamType = method.Parameters[0].Type;
+            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            if (TryUnifyExtensionReceiverType(firstParamType, pipeReceiverType, substitutions))
+                return SubstituteTypeParameters(parameterType, substitutions);
+        }
+
+        return parameterType;
     }
 
     private static bool TryUnifyExtensionReceiverType(
