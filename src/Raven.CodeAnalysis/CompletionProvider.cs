@@ -1004,7 +1004,7 @@ public static class CompletionProvider
                 var typeInfo = model.GetTypeInfo(conditionalAccess.Expression).Type;
                 var type = typeInfo?.UnderlyingSymbol as ITypeSymbol;
                 IEnumerable<ISymbol>? members = null;
-                INamedTypeSymbol? instanceTypeForExtensions = null;
+                ITypeSymbol? instanceTypeForExtensions = null;
 
                 if (NeedsReceiverFallback(symbol, type) && conditionalAccess.Expression is IdentifierNameSyntax receiverIdentifier)
                 {
@@ -1041,7 +1041,8 @@ public static class CompletionProvider
                     instanceTypeForExtensions = completionType switch
                     {
                         INamedTypeSymbol named => named,
-                        LiteralTypeSymbol literal => literal.UnderlyingType as INamedTypeSymbol,
+                        IArrayTypeSymbol array => array,
+                        LiteralTypeSymbol literal => literal.UnderlyingType as ITypeSymbol,
                         _ => null
                     };
                 }
@@ -1140,7 +1141,7 @@ public static class CompletionProvider
                 var typeInfo = model.GetTypeInfo(memberAccess.Expression).Type;
                 var type = typeInfo?.UnderlyingSymbol as ITypeSymbol;
                 IEnumerable<ISymbol>? members = null;
-                INamedTypeSymbol? instanceTypeForExtensions = null;
+                ITypeSymbol? instanceTypeForExtensions = null;
 
                 if (NeedsReceiverFallback(symbol, type) && memberAccess.Expression is IdentifierNameSyntax receiverIdentifier)
                 {
@@ -1179,7 +1180,8 @@ public static class CompletionProvider
                     instanceTypeForExtensions = instanceType switch
                     {
                         INamedTypeSymbol named => named,
-                        LiteralTypeSymbol literal => literal.UnderlyingType as INamedTypeSymbol,
+                        IArrayTypeSymbol array => array,
+                        LiteralTypeSymbol literal => literal.UnderlyingType as ITypeSymbol,
                         _ => null
                     };
                 }
@@ -1332,11 +1334,11 @@ public static class CompletionProvider
                     }
                 }
 
-                if (receiverType is INamedTypeSymbol namedReceiver)
+                if (receiverType is ITypeSymbol { TypeKind: not TypeKind.Error } typedReceiver)
                 {
                     var extensionMembers = ExtensionMemberLookup.Lookup(
                         binder,
-                        namedReceiver,
+                        typedReceiver,
                         includePartialMatches: false,
                         kinds: ExtensionMemberKinds.InstanceMethods);
 

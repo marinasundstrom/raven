@@ -479,4 +479,77 @@ class Counter {
 
         Assert.Contains(items, i => i.DisplayText == "value");
     }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnArray_IncludesLinqExtensionMethods()
+    {
+        // Regression test: LINQ extension methods on T[] were previously missing because
+        // IArrayTypeSymbol fell through to null in the instanceTypeForExtensions switch.
+        var code = """
+import System.Collections.Generic.*;
+import System.Linq.*;
+
+val numbers: int[] = [1, 2, 3]
+numbers.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var references = TestMetadataReferences.Default
+            .Concat([
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            ])
+            .ToArray();
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Where");
+        Assert.Contains(items, i => i.DisplayText == "Select");
+        Assert.Contains(items, i => i.DisplayText == "FirstOrDefault");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnGenericArray_IncludesLinqExtensionMethods()
+    {
+        // Regression test: same issue but with a generic array T[].
+        var code = """
+import System.Collections.Generic.*;
+import System.Linq.*;
+
+func Test<T>(items: T[]) {
+    items.
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var references = TestMetadataReferences.Default
+            .Concat([
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            ])
+            .ToArray();
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Where");
+        Assert.Contains(items, i => i.DisplayText == "Select");
+    }
 }
