@@ -111,6 +111,11 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         private readonly HashSet<ILocalSymbol> _writtenAfterDeclaration =
             new(SymbolEqualityComparer.Default);
 
+        private readonly HashSet<ILocalSymbol> _capturedByClosure =
+            new(SymbolEqualityComparer.Default);
+
+        private int _closureDepth;
+
         public VarRebindingCollector(SemanticModel semanticModel)
         {
             _semanticModel = semanticModel;
@@ -123,10 +128,16 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
                 var local = kvp.Key;
                 var candidate = kvp.Value;
 
-                if (!_writtenAfterDeclaration.Contains(local))
+                if (!_writtenAfterDeclaration.Contains(local) && !_capturedByClosure.Contains(local))
                     yield return candidate;
             }
         }
+
+        private void EnterClosure() => _closureDepth++;
+
+        private void ExitClosure() => _closureDepth--;
+
+        private bool IsInClosure => _closureDepth > 0;
 
         // --- Core traversal helpers ---------------------------------------------
 
@@ -154,6 +165,32 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         {
             foreach (var statement in node.Statements)
                 statement.Accept(this);
+        }
+
+        // --- Closures ------------------------------------------------------------
+
+        public override void VisitFunctionStatement(FunctionStatementSyntax node)
+        {
+            // A nested function forms a closure boundary.
+            EnterClosure();
+
+            // Visit body/expression body explicitly to ensure we walk in closure mode.
+            VisitMaybe(node.Body);
+            VisitMaybe(node.ExpressionBody);
+
+            ExitClosure();
+        }
+
+        public override void VisitLambdaExpression(LambdaExpressionSyntax node)
+        {
+            // Lambda forms a closure boundary.
+            EnterClosure();
+
+            // Adjust property names if yours differ (Body/ExpressionBody/Expression).
+            //VisitMaybe(node.Body);
+            VisitMaybe(node.ExpressionBody);
+
+            ExitClosure();
         }
 
         // --- Decls / writes ------------------------------------------------------
@@ -269,6 +306,21 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
             // adjust names
             VisitMaybe(node.Pattern);
             VisitMaybe(node.Expression);
+        }
+
+        // --- Capture detection ----------------------------------------------------
+
+        public override void VisitIdentifierName(IdentifierNameSyntax node)
+        {
+            // Only treat name references inside closures as captures.
+            if (IsInClosure)
+            {
+                var symbol = _semanticModel.GetSymbolInfo(node).Symbol;
+                if (symbol is ILocalSymbol local)
+                    _capturedByClosure.Add(local);
+            }
+
+            base.VisitIdentifierName(node);
         }
 
         // --- write marking -------------------------------------------------------
