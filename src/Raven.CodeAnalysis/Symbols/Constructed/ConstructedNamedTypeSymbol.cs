@@ -434,8 +434,36 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         {
             var leftDefinition = (INamedTypeSymbol)(leftNamed.OriginalDefinition ?? leftNamed);
             var rightDefinition = (INamedTypeSymbol)(rightNamed.OriginalDefinition ?? rightNamed);
-            return leftDefinition.MetadataName == rightDefinition.MetadataName
-                && leftDefinition.Arity == rightDefinition.Arity;
+
+            // Definitions must match.
+            if (!string.Equals(leftDefinition.MetadataName, rightDefinition.MetadataName, StringComparison.Ordinal))
+                return false;
+
+            if (leftDefinition.Arity != rightDefinition.Arity)
+                return false;
+
+            // For non-generic types, or when no type arguments are present, definition+arity is enough.
+            if (!leftNamed.IsGenericType || leftNamed.IsUnboundGenericType || leftDefinition.Arity == 0)
+                return true;
+
+            // Compare shallow type arguments. This is required for correct change detection during substitution
+            // (e.g. IEnumerable<KeyValuePair<TKey,TValue>> must become IEnumerable<KeyValuePair<string,int>>).
+            var leftArgs = GetShallowTypeArguments(leftNamed);
+            var rightArgs = GetShallowTypeArguments(rightNamed);
+
+            if (leftArgs.IsDefaultOrEmpty || rightArgs.IsDefaultOrEmpty)
+                return leftArgs.Length == rightArgs.Length;
+
+            if (leftArgs.Length != rightArgs.Length)
+                return false;
+
+            for (var i = 0; i < leftArgs.Length; i++)
+            {
+                if (!IsEquivalentForSubstitution(leftArgs[i], rightArgs[i]))
+                    return false;
+            }
+
+            return true;
         }
 
         return false;
@@ -497,7 +525,10 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>(interfaces.Length);
 
         foreach (var interfaceType in interfaces)
-            builder.Add(SubstituteInterfaceType(interfaceType, cache, visiting));
+        {
+            var result = SubstituteInterfaceType(interfaceType, cache, visiting);
+            builder.Add(result);
+        }
 
         return builder.MoveToImmutable();
     }
@@ -508,10 +539,14 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         HashSet<INamedTypeSymbol> visiting)
     {
         if (cache.TryGetValue(interfaceType, out var cached))
+        {
             return cached;
+        }
 
         if (!visiting.Add(interfaceType))
+        {
             return interfaceType;
+        }
 
         try
         {
@@ -560,8 +595,16 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         if (argument is ITypeParameterSymbol typeParameter && TryGetSubstitution(typeParameter, out var replacement))
             return replacement;
 
-        if (argument is INamedTypeSymbol)
-            return argument;
+        if (argument is INamedTypeSymbol namedArg)
+        {
+            // Non-generic named types (e.g. string, int) contain no type parameters —
+            // return unchanged.  For generic named types (e.g. KeyValuePair<TKey, TValue>)
+            // we must recurse so that inner type parameters get substituted as well.
+            if (!namedArg.IsGenericType || namedArg.TypeArguments.IsDefaultOrEmpty)
+                return argument;
+
+            return SubstituteInterfaceType(namedArg, cache, visiting);
+        }
 
         if (argument is NullableTypeSymbol nullableArgument)
         {
