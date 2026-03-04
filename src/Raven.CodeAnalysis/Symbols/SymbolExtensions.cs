@@ -922,7 +922,7 @@ public static partial class SymbolExtensions
                     synthesized.ParameterTypes,
                     synthesized.ParameterRefKinds,
                     synthesized.ReturnType,
-                    format);
+                    format, true);
                 return true;
             }
 
@@ -951,7 +951,8 @@ public static partial class SymbolExtensions
         ImmutableArray<ITypeSymbol> parameterTypes,
         ImmutableArray<RefKind> refKinds,
         ITypeSymbol returnType,
-        SymbolDisplayFormat format)
+        SymbolDisplayFormat format,
+        bool isLambda = false)
     {
         var parameterDisplays = ImmutableArray.CreateBuilder<string>(parameterTypes.IsDefault ? 0 : parameterTypes.Length);
 
@@ -971,7 +972,7 @@ public static partial class SymbolExtensions
         string parameterText = parameterDisplays.Count switch
         {
             0 => "()",
-            1 => $"({parameterDisplays[0]})",
+            1 when parameterTypes[0] is not ITupleTypeSymbol and not UnitTypeSymbol => isLambda ? $"({parameterDisplays[0]})" : parameterDisplays[0],
             _ => $"({string.Join(", ", parameterDisplays)})"
         };
 
