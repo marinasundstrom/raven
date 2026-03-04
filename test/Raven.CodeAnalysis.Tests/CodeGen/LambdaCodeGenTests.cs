@@ -1,6 +1,8 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -217,6 +219,9 @@ class Counter {
         Assert.Equal(15, value);
     }
 
+    // Known bug: self is not detected as a captured variable, so the lambda is
+    // incorrectly emitted as a static method, which produces RAV2801.
+    // The correct result is 15 (self.value=8, offset=7). Tracked for fixing.
     [Fact]
     public void Lambda_CapturesSelfField_UsesInstanceState()
     {
@@ -250,7 +255,7 @@ class Holder {
         var method = type.GetMethod("Compute", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
 
         var value = (int)method.Invoke(instance, Array.Empty<object>())!;
-        Assert.Equal(0, value);
+        Assert.Equal(15, value); // self.value(8) + offset(7)
     }
 
     [Fact]
@@ -329,6 +334,140 @@ class Handler {
         var thrown = Assert.Throws<TargetInvocationException>(() => method.Invoke(instance, new object?[] { null }));
         var invalidOperation = Assert.IsType<InvalidOperationException>(thrown.InnerException);
         Assert.Equal("missing", invalidOperation.Message);
+    }
+
+    // ─── DisplayClass structure ───────────────────────────────────────────────────
+
+    [Fact]
+    public void Lambda_WithoutCaptures_DoesNotGenerateDisplayClass()
+    {
+        // A lambda that captures nothing should be emitted as a static method.
+        // No DisplayClass nested type should be generated inside the outer class.
+        var code = """
+class Pure {
+    func Run() -> int {
+        val add = (x: int, y: int) -> int => x + y
+        return add(3, 4)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Pure", throwOnError: true)!;
+
+        var displayClasses = type.GetNestedTypes(BindingFlags.NonPublic)
+            .Where(t => t.Name.Contains("DisplayClass"))
+            .ToArray();
+
+        Assert.Empty(displayClasses);
+
+        // Correctness check: the lambda still executes.
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+        Assert.Equal(7, (int)method.Invoke(instance, Array.Empty<object>())!);
+    }
+
+    [Fact]
+    public void MultipleLambdas_CapturingSameScope_ShareSingleDisplayClass()
+    {
+        // When multiple lambdas in the same method capture locals, only one
+        // DisplayClass should be generated — all lambdas must share it.
+        var code = """
+class Pair {
+    func Run() -> int {
+        var shared = 0
+        val inc = () -> unit => { shared = shared + 10 }
+        val dec = () -> unit => { shared = shared - 3 }
+        inc()
+        dec()
+        inc()
+        return shared
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Pair", throwOnError: true)!;
+
+        var displayClasses = type.GetNestedTypes(BindingFlags.NonPublic)
+            .Where(t => t.Name.Contains("DisplayClass"))
+            .ToArray();
+
+        // Exactly one DisplayClass for the whole method scope.
+        Assert.Single(displayClasses);
+
+        // Correctness check: shared reference semantics (0 + 10 - 3 + 10 = 17).
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+        Assert.Equal(17, (int)method.Invoke(instance, Array.Empty<object>())!);
+    }
+
+    [Fact]
+    public void Lambda_CapturesMultipleLocals_AllLiftedintoOneDisplayClass()
+    {
+        // All captured locals in the same scope must share a single DisplayClass,
+        // regardless of how many distinct variables are captured.
+        var code = """
+class Multi {
+    func Run() -> int {
+        var a = 1
+        var b = 10
+        var c = 100
+        val sum = () -> int => a + b + c
+        a = 2
+        b = 20
+        c = 200
+        return sum()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Multi", throwOnError: true)!;
+
+        // Still exactly one DisplayClass even for three captured locals.
+        var displayClasses = type.GetNestedTypes(BindingFlags.NonPublic)
+            .Where(t => t.Name.Contains("DisplayClass"))
+            .ToArray();
+        Assert.Single(displayClasses);
+
+        // Reference semantics: lambda sees the post-assignment values (2+20+200 = 222).
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+        Assert.Equal(222, (int)method.Invoke(instance, Array.Empty<object>())!);
     }
 
     // ─── Reference-based capture (C#-style variable hoisting) ────────────────────

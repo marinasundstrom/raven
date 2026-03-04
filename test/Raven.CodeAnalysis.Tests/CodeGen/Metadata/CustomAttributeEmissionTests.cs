@@ -139,9 +139,11 @@ class Widget
         const string source = """
 class C
 {
-    fun Capture(x: int): () -> int
+    func Run() -> int
     {
-        return () => x;
+        var x = 1
+        val f = () -> int => x
+        return f()
     }
 }
 """;
