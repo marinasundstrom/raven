@@ -572,6 +572,23 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitExpression(node.Receiver);
     }
 
+    public virtual void VisitFieldAccess(BoundFieldAccess node)
+    {
+        if (node.Receiver is not null)
+            VisitExpression(node.Receiver);
+    }
+
+    public virtual void VisitMemberAccessExpression(BoundMemberAccessExpression node)
+    {
+        if (node.Receiver is not null)
+            VisitExpression(node.Receiver);
+    }
+
+    public virtual void VisitPointerMemberAccessExpression(BoundPointerMemberAccessExpression node)
+    {
+        VisitExpression(node.PointerReceiver);
+    }
+
     public virtual void VisitIfStatement(BoundIfStatement node)
     {
         VisitExpression(node.Condition);

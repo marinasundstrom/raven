@@ -854,12 +854,35 @@ partial class BlockBinder : Binder
                 return new BoundParameterAccess(receiver);
             }
 
+            // Lambdas report IsStatic=true until their captures are analyzed, so we
+            // can't rely on IsStatic here.  Walk the binder chain for an enclosing
+            // instance method — if one exists, self is reachable and will be lifted
+            // into the closure during capture analysis.
+            if (method is ILambdaSymbol)
+            {
+                var enclosing = FindEnclosingInstanceMethod();
+                if (enclosing is not null)
+                    return new BoundSelfExpression(enclosing.ContainingType);
+            }
+
             _diagnostics.ReportSelfNotAvailableInStaticContext(selfExpression.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         _diagnostics.ReportSelfNotAvailableInStaticContext(selfExpression.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private IMethodSymbol? FindEnclosingInstanceMethod()
+    {
+        var binder = ParentBinder;
+        while (binder is not null)
+        {
+            if (binder.ContainingSymbol is IMethodSymbol m && m is not ILambdaSymbol && !m.IsStatic)
+                return m;
+            binder = binder.ParentBinder;
+        }
+        return null;
     }
 
     private BoundExpression BindCompoundAssignmentValue(
