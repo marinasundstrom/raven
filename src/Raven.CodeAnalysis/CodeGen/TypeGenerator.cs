@@ -1589,6 +1589,30 @@ internal class TypeGenerator
         return closure;
     }
 
+    /// <summary>
+    /// Creates a single shared closure for an outer method that contains lambdas capturing
+    /// outer locals. Registers the closure for every supplied lambda symbol so that
+    /// <see cref="EnsureLambdaClosure"/> returns the shared instance instead of allocating
+    /// a fresh per-lambda closure.
+    /// </summary>
+    internal LambdaClosure EnsureSharedMethodClosure(
+        IMethodSymbol hostMethod,
+        ImmutableArray<ISymbol> allCapturedSymbols,
+        IReadOnlyList<ILambdaSymbol> lambdas)
+    {
+        var closure = CreateClosure(hostMethod, allCapturedSymbols);
+
+        // Pre-register the shared closure for every lambda so that EnsureLambdaClosure
+        // returns the same object instead of creating a separate per-lambda closure.
+        foreach (var lambda in lambdas)
+        {
+            if (lambda is SourceLambdaSymbol source)
+                _lambdaClosures[source] = closure;
+        }
+
+        return closure;
+    }
+
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
         return TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, CodeGen);

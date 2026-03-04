@@ -872,6 +872,21 @@ internal partial class ExpressionGenerator : Generator
         ITypeSymbol delegateTypeSymbol,
         Type delegateType)
     {
+        var delegateCtor = GetDelegateConstructor(delegateTypeSymbol, delegateType);
+
+        // If the closure is the shared outer-method closure (reference-based capture), reuse the
+        // already-allocated local instead of creating a new instance and snapshotting values.
+        if (MethodBodyGenerator.OuterMethodClosure is { } outerClosure &&
+            ReferenceEquals(outerClosure, closure) &&
+            MethodBodyGenerator.OuterMethodClosureLocal is { } outerLocal)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, outerLocal);
+            ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
+            ILGenerator.Emit(OpCodes.Newobj, delegateCtor);
+            return;
+        }
+
+        // Fallback (value-based capture): create a new closure instance and copy captured values.
         var closureLocal = ILGenerator.DeclareLocal(closure.TypeBuilder);
         ILGenerator.Emit(OpCodes.Newobj, closure.Constructor);
         ILGenerator.Emit(OpCodes.Stloc, closureLocal);
@@ -885,8 +900,6 @@ internal partial class ExpressionGenerator : Generator
             EmitCapturedValue(captured);
             ILGenerator.Emit(OpCodes.Stfld, closure.GetField(captured));
         }
-
-        var delegateCtor = GetDelegateConstructor(delegateTypeSymbol, delegateType);
 
         ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
         ILGenerator.Emit(OpCodes.Ldftn, methodInfo);

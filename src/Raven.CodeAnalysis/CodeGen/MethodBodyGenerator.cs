@@ -23,6 +23,12 @@ internal class MethodBodyGenerator
     private Compilation _compilation;
     private IMethodSymbol _methodSymbol;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
+    // Shared closure for the outer method when it contains lambdas that capture locals.
+    // Both the outer method and its lambdas access captured locals through this shared
+    // instance, giving C#-style reference-based capture semantics.
+    private TypeGenerator.LambdaClosure? _outerMethodClosure;
+    private IILocal? _outerMethodClosureLocal;
+    private HashSet<ISymbol>? _hoistedSymbols;
     private readonly Dictionary<ILabelSymbol, ILLabel> _labels = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(ReferenceEqualityComparer.Instance);
     private ILLabel? _returnLabel;
@@ -60,6 +66,12 @@ internal class MethodBodyGenerator
 
     public IILBuilder ILGenerator { get; private set; }
 
+    /// <summary>The shared closure used by the outer method for reference-based local hoisting (null when not applicable).</summary>
+    internal TypeGenerator.LambdaClosure? OuterMethodClosure => _outerMethodClosure;
+
+    /// <summary>The IL local that holds the shared outer-method closure instance.</summary>
+    internal IILocal? OuterMethodClosureLocal => _outerMethodClosureLocal;
+
     internal bool TryGetCapturedField(ISymbol symbol, out FieldBuilder fieldBuilder)
         => TryGetCapturedField(symbol, out fieldBuilder, out _);
 
@@ -69,6 +81,10 @@ internal class MethodBodyGenerator
 
         if (_lambdaClosure is null)
         {
+            // Check the shared outer-method closure first (reference-based capture).
+            if (_outerMethodClosure is not null && _outerMethodClosure.TryGetField(symbol, out fieldBuilder))
+                return true;
+
             if (symbol is ILocalSymbol localSymbol &&
                 MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
                 asyncStateMachine.TryGetHoistedLocalField(localSymbol, out var hoistedField) &&
@@ -758,6 +774,13 @@ internal class MethodBodyGenerator
 
     internal void EmitLoadClosure()
     {
+        // Outer method with a shared hoisted closure: load the closure local variable.
+        if (_lambdaClosure is null && _outerMethodClosure is not null && _outerMethodClosureLocal is not null)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, _outerMethodClosureLocal);
+            return;
+        }
+
         if (_lambdaClosure is null)
             throw new InvalidOperationException("No closure parameter available for this lambda.");
 
@@ -3620,11 +3643,70 @@ internal class MethodBodyGenerator
         var collector = new LocalCollector(MethodSymbol);
         collector.Visit(block);
 
+        // === SHARED CLOSURE HOISTING (reference-based capture) ===
+        // On the very first call for an outer method (not itself a lambda or state machine),
+        // scan for lambdas that capture outer locals and build a single shared closure so
+        // that both the outer method and its lambdas read/write the same heap field.
+        if (_lambdaClosure is null && _outerMethodClosure is null &&
+            MethodSymbol is not ILambdaSymbol &&
+            MethodSymbol.ContainingType is not SynthesizedAsyncStateMachineTypeSymbol &&
+            MethodSymbol.ContainingType is not SynthesizedIteratorTypeSymbol)
+        {
+            var hoistCollector = new HoistedLocalsCollector();
+            hoistCollector.Visit(block);
+
+            if (hoistCollector.CapturedSymbols.Count > 0)
+            {
+                _hoistedSymbols = hoistCollector.CapturedSymbols;
+                var allCaptured = hoistCollector.CapturedSymbols.ToImmutableArray();
+
+                _outerMethodClosure = MethodGenerator.TypeGenerator.EnsureSharedMethodClosure(
+                    MethodSymbol, allCaptured, hoistCollector.LambdaSymbols);
+
+                // Allocate the shared closure at the very start of the method body.
+                _outerMethodClosureLocal = ILGenerator.DeclareLocal(_outerMethodClosure.TypeBuilder);
+                ILGenerator.Emit(OpCodes.Newobj, _outerMethodClosure.Constructor);
+                ILGenerator.Emit(OpCodes.Stloc, _outerMethodClosureLocal);
+
+                // Eagerly copy non-local captures (parameters, self/'this') into the
+                // closure so the lambda can read them even before any outer-method code runs.
+                foreach (var captured in hoistCollector.CapturedSymbols)
+                {
+                    if (captured is ILocalSymbol)
+                        continue; // initialized lazily by the hoisted assignment
+
+                    if (!_outerMethodClosure.TryGetField(captured, out var initField))
+                        continue;
+
+                    ILGenerator.Emit(OpCodes.Ldloc, _outerMethodClosureLocal);
+                    switch (captured)
+                    {
+                        case IParameterSymbol paramSymbol:
+                            var paramBuilder = MethodGenerator.GetParameterBuilder(paramSymbol);
+                            var position = paramBuilder.Position;
+                            if (MethodSymbol.IsStatic) position -= 1;
+                            ILGenerator.Emit(OpCodes.Ldarg, position);
+                            break;
+                        case ITypeSymbol: // self / this
+                            ILGenerator.Emit(OpCodes.Ldarg_0);
+                            break;
+                    }
+                    ILGenerator.Emit(OpCodes.Stfld, initField);
+                }
+            }
+        }
+        // === END SHARED CLOSURE HOISTING ===
+
         foreach (var localSymbol in collector.Locals)
         {
             // Skip locals without a type. This can occur when the initializer
             // contains an early return, making the declaration unreachable.
             if (localSymbol.Type is null)
+                continue;
+
+            // Skip locals that have been hoisted into the shared closure: they are stored
+            // as fields on the closure object, not as IL stack locals.
+            if (_hoistedSymbols?.Contains(localSymbol) == true)
                 continue;
 
             // Locals are declared once at the method scope. When the block is emitted
@@ -3884,6 +3966,32 @@ internal class MethodBodyGenerator
             base.VisitAssignmentStatement(node);
         }
 
+    }
+
+    /// <summary>
+    /// Collects all symbols captured by immediately-nested lambdas without recursing into
+    /// nested lambda bodies. Used to determine which outer-method variables should be
+    /// hoisted into a shared closure for reference-based capture semantics.
+    /// </summary>
+    private sealed class HoistedLocalsCollector : BoundTreeWalker
+    {
+        public HashSet<ISymbol> CapturedSymbols { get; } = new(SymbolEqualityComparer.Default);
+        public List<ILambdaSymbol> LambdaSymbols { get; } = new();
+
+        public override void VisitLambdaExpression(BoundLambdaExpression node)
+        {
+            if (node.Symbol is ILambdaSymbol lambdaSymbol)
+                LambdaSymbols.Add(lambdaSymbol);
+
+            foreach (var captured in node.CapturedVariables)
+            {
+                if (captured is not null)
+                    CapturedSymbols.Add(captured);
+            }
+
+            // Intentionally do NOT recurse into the lambda body: its locals belong to a
+            // separate generated method and must not be hoisted into the outer method's closure.
+        }
     }
 
     private void EmitIL(IEnumerable<StatementSyntax> statements, ImmutableArray<ILocalSymbol> localsToDispose, bool withReturn = true)

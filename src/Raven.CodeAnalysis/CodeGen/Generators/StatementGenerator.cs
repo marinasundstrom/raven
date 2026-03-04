@@ -1092,8 +1092,41 @@ internal class StatementGenerator : Generator
 
         if (declarator.Initializer is not null)
         {
-            var initType = declarator.Initializer.Type;
-            var discardValue = localBuilder is null && initType?.SpecialType is (SpecialType.System_Void or SpecialType.System_Unit);
+            // If the local is hoisted into the shared outer-method closure (reference-based capture),
+            // store the initializer value directly into the closure field instead of a stack slot.
+            // We load the closure *before* emitting the initializer so the IL stack is:
+            //   [closure_ref] [value] → stfld  (no temp needed).
+            if (localBuilder is null &&
+                MethodBodyGenerator.TryGetCapturedField(localSymbol, out var hoistedField, out var fromSm))
+            {
+                var initType = declarator.Initializer.Type;
+                if (initType?.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit))
+                {
+                    if (!fromSm)
+                        MethodBodyGenerator.EmitLoadClosure();
+                    else
+                        ILGenerator.Emit(OpCodes.Ldarg_0);
+
+                    new ExpressionGenerator(this, declarator.Initializer, preserveResult: true).Emit2();
+
+                    var exprType = declarator.Initializer.Type;
+
+                    // Apply implicit conversion if the expression and local types differ.
+                    if (exprType is not null && localSymbol.Type is not null &&
+                        !SymbolEqualityComparer.Default.Equals(exprType, localSymbol.Type))
+                    {
+                        var conv = Compilation.ClassifyConversion(exprType, localSymbol.Type);
+                        if (conv.Exists && !conv.IsIdentity)
+                            EmitConversion(exprType, localSymbol.Type, conv);
+                    }
+
+                    ILGenerator.Emit(OpCodes.Stfld, hoistedField);
+                }
+                return;
+            }
+
+            var initType2 = declarator.Initializer.Type;
+            var discardValue = localBuilder is null && initType2?.SpecialType is (SpecialType.System_Void or SpecialType.System_Unit);
 
             new ExpressionGenerator(this, declarator.Initializer, preserveResult: !discardValue).Emit2();
 

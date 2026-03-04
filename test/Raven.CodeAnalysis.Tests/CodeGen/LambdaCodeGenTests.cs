@@ -331,4 +331,114 @@ class Handler {
         Assert.Equal("missing", invalidOperation.Message);
     }
 
+    // ─── Reference-based capture (C#-style variable hoisting) ────────────────────
+
+    [Fact]
+    public void Lambda_MutableCapture_LambdaWriteReflectsInOuterMethod()
+    {
+        // The lambda writes to the captured local; the outer method reads the updated value.
+        var code = """
+class Counter {
+    func CountItems() -> int {
+        var count = 0
+        val increment = () -> unit => { count = count + 1 }
+        increment()
+        increment()
+        increment()
+        return count
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Counter", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("CountItems", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        Assert.Equal(3, (int)method.Invoke(instance, Array.Empty<object>())!);
+    }
+
+    [Fact]
+    public void Lambda_MutableCapture_OuterWriteReflectsInLambda()
+    {
+        // The outer method writes to the captured local; the lambda reads the updated value.
+        var code = """
+class Spy {
+    func Run() -> int {
+        var value = 0
+        val read = () -> int => value
+        value = 42
+        return read()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Spy", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        Assert.Equal(42, (int)method.Invoke(instance, Array.Empty<object>())!);
+    }
+
+    [Fact]
+    public void Lambda_MultipleLambdas_SharedCapturedLocal()
+    {
+        // Two lambdas sharing the same captured local: writes from one are visible to the other.
+        var code = """
+class Pair {
+    func Run() -> int {
+        var shared = 0
+        val inc = () -> unit => { shared = shared + 10 }
+        val dec = () -> unit => { shared = shared - 3 }
+        inc()
+        dec()
+        inc()
+        return shared
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Pair", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        // 0 + 10 - 3 + 10 = 17
+        Assert.Equal(17, (int)method.Invoke(instance, Array.Empty<object>())!);
+    }
+
 }
