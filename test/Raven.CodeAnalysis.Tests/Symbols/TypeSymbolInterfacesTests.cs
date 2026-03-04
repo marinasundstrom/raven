@@ -150,6 +150,78 @@ public class TypeSymbolInterfacesTests
         Assert.Contains(ib.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
     }
 
+    [Fact]
+    public void Dictionary_AllInterfaces_SubstitutesTypeArgsIntoKeyValuePair()
+    {
+        // Regression test: ConstructedNamedTypeSymbol.AllInterfaces was not substituting type
+        // parameters inside generic type arguments like KeyValuePair<TKey,TValue>.
+        // Dictionary<string, int>.AllInterfaces should include IEnumerable<KeyValuePair<string, int>>
+        // with the concrete types, not the open IEnumerable<KeyValuePair<TKey, TValue>>.
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var dictDef = compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2")!;
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var dict = (INamedTypeSymbol)dictDef.Construct(stringType, intType);
+
+        // Find IEnumerable<T> in all interfaces
+        var ienumerable = dict.AllInterfaces
+            .FirstOrDefault(i => i.Name == "IEnumerable" && i.TypeArguments.Length == 1);
+
+        Assert.NotNull(ienumerable);
+
+        // The single type argument should be KeyValuePair<string, int>, not KeyValuePair<TKey, TValue>
+        var typeArg = Assert.IsAssignableFrom<INamedTypeSymbol>(ienumerable.TypeArguments[0]);
+        Assert.Equal("KeyValuePair", typeArg.Name);
+        Assert.Equal(2, typeArg.TypeArguments.Length);
+
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(typeArg.TypeArguments[0], stringType),
+            $"Expected KeyValuePair<string, ?> but first arg was {typeArg.TypeArguments[0].ToDisplayString()}");
+
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(typeArg.TypeArguments[1], intType),
+            $"Expected KeyValuePair<?, int> but second arg was {typeArg.TypeArguments[1].ToDisplayString()}");
+    }
+
+    [Fact]
+    public void Dictionary_AllInterfaces_SubstitutesTypeArgsIntoKeyValuePair_ForAllCollectionInterfaces()
+    {
+        // Verify the substitution also covers ICollection<KeyValuePair<TKey,TValue>> and
+        // IReadOnlyCollection<KeyValuePair<TKey,TValue>>, not just IEnumerable.
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var dictDef = compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2")!;
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var dict = (INamedTypeSymbol)dictDef.Construct(stringType, intType);
+
+        // Every generic interface whose single type argument is KeyValuePair<?,?> should
+        // have it fully substituted.
+        var kvpInterfaces = dict.AllInterfaces
+            .Where(i => i.TypeArguments.Length == 1
+                        && i.TypeArguments[0] is INamedTypeSymbol n
+                        && n.Name == "KeyValuePair")
+            .ToList();
+
+        Assert.NotEmpty(kvpInterfaces);
+
+        foreach (var iface in kvpInterfaces)
+        {
+            var kvp = Assert.IsAssignableFrom<INamedTypeSymbol>(iface.TypeArguments[0]);
+
+            Assert.True(
+                SymbolEqualityComparer.Default.Equals(kvp.TypeArguments[0], stringType),
+                $"{iface.Name}: expected KVP<string, ?> but first type arg was {kvp.TypeArguments[0].ToDisplayString()}");
+
+            Assert.True(
+                SymbolEqualityComparer.Default.Equals(kvp.TypeArguments[1], intType),
+                $"{iface.Name}: expected KVP<?, int> but second type arg was {kvp.TypeArguments[1].ToDisplayString()}");
+        }
+    }
+
     private static INamedTypeSymbol GetSourceType(Compilation compilation, string name)
     {
         foreach (var syntaxTree in compilation.SyntaxTrees)

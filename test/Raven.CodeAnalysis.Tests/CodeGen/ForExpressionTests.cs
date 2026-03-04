@@ -270,6 +270,66 @@ class C {
         Assert.Equal(6, value);
     }
 
+    [Fact]
+    public void GenericForEach_WithDictionaryArgument_IteratesAllEntries()
+    {
+        // Regression: ForEach<T>(IEnumerable<T>, T -> ()) called with Dictionary<string, int>
+        // must infer T = KeyValuePair<string, int> and iterate the correct number of entries.
+        // Previously T stayed as the open KeyValuePair<TKey, TValue> causing a BadImageFormatException.
+        // Note: Raven uses value-based lambda capture, so we verify iteration count via stdout.
+        var code = """
+import System.Console.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+val dict = ["a", "bb", "ccc"].ToDictionary(x => x, y => y.Length)
+ForEach(dict, item => WriteLine("tick"))
+
+func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
+    for item in source {
+        callback(item)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(3, output.Length);
+        Assert.All(output, line => Assert.Equal("tick", line));
+    }
+
+    [Fact]
+    public void GenericForEach_WithDictionaryAndMatchingMethodReference_CallsCallbackForEachEntry()
+    {
+        // ForEach(dict, Print) where Print accepts KeyValuePair<string, int> exactly —
+        // the method reference must resolve to the right overload without a boxing thunk.
+        var code = """
+import System.Console.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+func Main() -> () {
+    val dict = ["a", "bb"].ToDictionary(x => x, y => y.Length)
+    ForEach(dict, PrintEntry)
+}
+
+func PrintEntry(item: KeyValuePair<string, int>) -> () {
+    WriteLine(item.Value)
+}
+
+func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
+    for item in source {
+        callback(item)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+
+        // Dictionary iteration order is not guaranteed, so sort before asserting.
+        var sorted = output.OrderBy(x => x).ToArray();
+        Assert.Equal(["1", "2"], sorted);
+    }
+
     private static string[] CompileAndRun(string code, OutputKind outputKind = OutputKind.ConsoleApplication)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
