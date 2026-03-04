@@ -2415,4 +2415,54 @@ func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
         var parameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }
+
+    [Fact]
+    public void GenericFunction_ToDictionary_WithTwoLambdas_InfersTypeParameters()
+    {
+        // [1, 2, 3].ToDictionary(x => x, y => y) should infer Dictionary<int, int>,
+        // and both lambda parameters x and y should have type int.
+        const string source = """
+import System.*
+import System.Linq.*
+
+func Main() {
+    val o = [1, 2, 3].ToDictionary(x => x, y => y)
+}
+""";
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+
+        // Find the ToDictionary invocation and verify its return type is Dictionary<int, int>.
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(n => n.Expression is MemberAccessExpressionSyntax m && m.Name.Identifier.Text == "ToDictionary");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundInvocation.Type);
+        Assert.Equal("Dictionary", returnType.Name);
+        Assert.Equal(2, returnType.TypeArguments.Length);
+        Assert.Equal(SpecialType.System_Int32, returnType.TypeArguments[0].SpecialType);
+        Assert.Equal(SpecialType.System_Int32, returnType.TypeArguments[1].SpecialType);
+
+        // Verify both lambda parameter types are inferred as int.
+        var lambdas = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .ToDictionary(lambda => lambda.Parameter.Identifier.ValueText);
+
+        var xLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["x"]));
+        var xParam = Assert.Single(xLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, xParam.Type.SpecialType);
+
+        var yLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["y"]));
+        var yParam = Assert.Single(yLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, yParam.Type.SpecialType);
+    }
 }

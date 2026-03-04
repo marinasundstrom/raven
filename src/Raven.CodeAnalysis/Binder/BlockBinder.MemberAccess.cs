@@ -323,14 +323,33 @@ partial class BlockBinder
                     targetType = TryGetCommonNamedParameterType(methods, argName, receiver);
             }
 
+            // For lambda arguments where candidates disagree on the delegate type
+            // (TryGetCommonPositionalParameterType returns null), fall back to the first
+            // candidate that provides a delegate type for this argument position.  This
+            // handles cases like [1,2,3].ToDictionary(x => x, y => y) where overloads agree
+            // on input parameter types but differ on return-type type parameters
+            // (e.g. Func<int,TKey1> vs Func<int,TKey2>).
+            if (targetType is null && arg.Expression is LambdaExpressionSyntax)
+                targetType = TryGetFirstDelegateParameterType(methods, i, receiver, pipeReceiverType);
+
             // Apply pre-inferred type-parameter substitutions to the target type, then
             // discard the target type if it still contains unresolved type parameters —
             // passing an open generic as a hint causes wrong inference.
             if (targetType is not null && preInferredSubstitutions.Count > 0)
                 targetType = SubstituteTypeParameters(targetType, preInferredSubstitutions);
 
-            if (targetType is not null && ContainsAnyTypeParameter(targetType, allMethodTypeParams))
-                targetType = null;
+            // For lambda arguments, only null out the target type when the DELEGATE INPUT
+            // PARAMETER TYPES still contain unresolved type parameters.  The return-type
+            // position can be left open — the lambda binder already handles that correctly by
+            // inferring the return type from the body (see BlockBinder.Lambda.cs line ~541).
+            if (targetType is not null)
+            {
+                var hasUnresolved = arg.Expression is LambdaExpressionSyntax
+                    ? ContainsAnyTypeParameterInDelegateInputParams(targetType, allMethodTypeParams)
+                    : ContainsAnyTypeParameter(targetType, allMethodTypeParams);
+                if (hasUnresolved)
+                    targetType = null;
+            }
 
             var boundExpr = targetType is null
                 ? BindExpression(arg.Expression)
@@ -815,6 +834,80 @@ partial class BlockBinder
             return ContainsAnyTypeParameterCore(array.ElementType, typeParameters);
 
         return false;
+    }
+
+    /// <summary>
+    /// For lambda argument positions where no common delegate target type could be computed
+    /// (i.e. <see cref="TryGetCommonPositionalParameterType"/> returned <c>null</c> because the
+    /// candidates' parameter types disagree), returns the first candidate that provides a
+    /// delegate type for this argument index.  This lets lambdas infer their parameter types
+    /// even when multiple overloads differ only in the return-type type parameter
+    /// (e.g. <c>Func&lt;int,TKey1&gt;</c> vs <c>Func&lt;int,TKey2&gt;</c>).
+    /// </summary>
+    private ITypeSymbol? TryGetFirstDelegateParameterType(
+        ImmutableArray<IMethodSymbol> methods,
+        int argumentIndex,
+        BoundExpression? receiver,
+        ITypeSymbol? pipeReceiverType)
+    {
+        foreach (var method in methods)
+        {
+            if (method is null)
+                continue;
+
+            var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+                ? argumentIndex + 1
+                : argumentIndex;
+
+            if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                continue;
+
+            var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, receiver, pipeReceiverType);
+
+            // Only return delegate types — other types (interfaces, structs …) cannot supply
+            // useful parameter-type information to a lambda.
+            if (type is INamedTypeSymbol namedType && namedType.TypeKind == TypeKind.Delegate)
+                return type;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when the <em>input parameter types</em> (not the return type) of a
+    /// delegate target type reference any of the given method type parameters.
+    /// For non-delegate types this falls back to the full <see cref="ContainsAnyTypeParameter"/>
+    /// check.
+    /// </summary>
+    /// <remarks>
+    /// The lambda binder already handles an unresolved return-type type parameter by inferring
+    /// the return type from the lambda body, so it is safe to use a delegate target type whose
+    /// return type is still open as long as the input parameter types are fully resolved.
+    /// </remarks>
+    private static bool ContainsAnyTypeParameterInDelegateInputParams(
+        ITypeSymbol type,
+        ImmutableArray<ITypeParameterSymbol> typeParameters)
+    {
+        if (typeParameters.IsDefaultOrEmpty)
+            return false;
+
+        if (type is INamedTypeSymbol namedType && namedType.TypeKind == TypeKind.Delegate)
+        {
+            var invoke = namedType.GetDelegateInvokeMethod();
+            if (invoke is not null)
+            {
+                // Only check input parameter types; the return type is intentionally excluded.
+                foreach (var param in invoke.Parameters)
+                {
+                    if (ContainsAnyTypeParameterCore(param.Type, typeParameters))
+                        return true;
+                }
+                return false;
+            }
+        }
+
+        // Not a recognised delegate type — fall back to the full check.
+        return ContainsAnyTypeParameterCore(type, typeParameters);
     }
 
     private BoundExpression BindConstructorInvocation(

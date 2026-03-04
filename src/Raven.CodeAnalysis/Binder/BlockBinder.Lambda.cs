@@ -729,20 +729,25 @@ partial class BlockBinder
         {
             case MemberAccessExpressionSyntax memberAccess:
                 {
-                    var boundMember = BindMemberAccessExpression(memberAccess);
-                    if (boundMember is BoundMethodGroupExpression methodGroup)
+                    // Suppress diagnostics: this is a speculative re-bind to discover
+                    // candidate delegate types. Any lookup failures here are spurious.
+                    using (_diagnostics.CreateNonReportingScope())
                     {
-                        extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
-                        if (extensionReceiverImplicit)
-                            extensionReceiverType = methodGroup.Receiver?.Type;
-                        methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit, callSiteArgumentCount);
-                    }
-                    else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
-                    {
-                        extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
-                        if (extensionReceiverImplicit)
-                            extensionReceiverType = receiver?.Type;
-                        methods = ImmutableArray.Create(method);
+                        var boundMember = BindMemberAccessExpression(memberAccess);
+                        if (boundMember is BoundMethodGroupExpression methodGroup)
+                        {
+                            extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
+                            if (extensionReceiverImplicit)
+                                extensionReceiverType = methodGroup.Receiver?.Type;
+                            methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit, callSiteArgumentCount);
+                        }
+                        else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
+                        {
+                            extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
+                            if (extensionReceiverImplicit)
+                                extensionReceiverType = receiver?.Type;
+                            methods = ImmutableArray.Create(method);
+                        }
                     }
 
                     break;
@@ -750,20 +755,25 @@ partial class BlockBinder
 
             case MemberBindingExpressionSyntax memberBinding:
                 {
-                    var boundMember = BindMemberBindingExpression(memberBinding);
-                    if (boundMember is BoundMethodGroupExpression methodGroup)
+                    // Suppress diagnostics: this is a speculative re-bind to discover
+                    // candidate delegate types. Any lookup failures here are spurious.
+                    using (_diagnostics.CreateNonReportingScope())
                     {
-                        extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
-                        if (extensionReceiverImplicit)
-                            extensionReceiverType = methodGroup.Receiver?.Type;
-                        methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit, callSiteArgumentCount);
-                    }
-                    else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
-                    {
-                        extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
-                        if (extensionReceiverImplicit)
-                            extensionReceiverType = receiver?.Type;
-                        methods = ImmutableArray.Create(method);
+                        var boundMember = BindMemberBindingExpression(memberBinding);
+                        if (boundMember is BoundMethodGroupExpression methodGroup)
+                        {
+                            extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
+                            if (extensionReceiverImplicit)
+                                extensionReceiverType = methodGroup.Receiver?.Type;
+                            methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit, callSiteArgumentCount);
+                        }
+                        else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
+                        {
+                            extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
+                            if (extensionReceiverImplicit)
+                                extensionReceiverType = receiver?.Type;
+                            methods = ImmutableArray.Create(method);
+                        }
                     }
 
                     break;
