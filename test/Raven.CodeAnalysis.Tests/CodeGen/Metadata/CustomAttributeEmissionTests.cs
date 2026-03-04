@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
@@ -130,6 +131,37 @@ class Widget
         Assert.Contains(fieldAttributes, a => a.AttributeType == typeof(CompilerGeneratedAttribute));
         var debuggerBrowsable = Assert.Single(fieldAttributes, a => a.AttributeType == typeof(DebuggerBrowsableAttribute));
         Assert.Equal(DebuggerBrowsableState.Never, (DebuggerBrowsableState)debuggerBrowsable.ConstructorArguments[0].Value!);
+    }
+
+    [Fact]
+    public void ClosureClass_IsNamedDisplayClass_AndHasCompilerGeneratedAttribute()
+    {
+        const string source = """
+class C
+{
+    fun Capture(x: int): () -> int
+    {
+        return () => x;
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var outerType = assembly.GetType("C", throwOnError: true)!;
+
+        var closureType = outerType.GetNestedTypes(BindingFlags.NonPublic)
+            .FirstOrDefault(t => t.Name.Contains("DisplayClass"));
+
+        Assert.NotNull(closureType);
+        Assert.Contains(closureType!.GetCustomAttributesData(), a => a.AttributeType == typeof(CompilerGeneratedAttribute));
     }
 
     [Fact]

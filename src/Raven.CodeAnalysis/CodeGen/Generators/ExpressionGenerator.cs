@@ -4043,7 +4043,7 @@ internal partial class ExpressionGenerator : Generator
                     (!SymbolEqualityComparer.Default.Equals(receiver?.Type, memberFieldContainingType)) &&
                     MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol memberStateMachine &&
                     memberStateMachine.GetConstructedMembers(memberStateMachine.AsyncMethod).ThisField is { } memberClosureField &&
-                    memberFieldContainingType.Name.Contains("LambdaClosure", StringComparison.Ordinal))
+                    memberFieldContainingType.Name.Contains("DisplayClass", StringComparison.Ordinal))
                 {
                     ILGenerator.Emit(OpCodes.Ldarg_0);
                     ILGenerator.Emit(OpCodes.Ldfld, GetField(memberClosureField));
@@ -4063,7 +4063,7 @@ internal partial class ExpressionGenerator : Generator
                     receiver is BoundSelfExpression self &&
                     MethodGenerator.LambdaClosure is not null &&
                     !SymbolEqualityComparer.Default.Equals(self.Type, closureContainingType) &&
-                    closureContainingType.Name.Contains("LambdaClosure", StringComparison.Ordinal))
+                    closureContainingType.Name.Contains("DisplayClass", StringComparison.Ordinal))
                 {
                     MethodBodyGenerator.EmitLoadClosure();
 
@@ -5181,7 +5181,7 @@ internal partial class ExpressionGenerator : Generator
             MethodGenerator.TypeGenerator.TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
             asyncStateMachine.GetConstructedMembers(asyncStateMachine.AsyncMethod).ThisField is { } asyncClosureField &&
             fieldSymbol.ContainingType is { } closureContainingType &&
-            closureContainingType.Name.Contains("LambdaClosure", StringComparison.Ordinal))
+            closureContainingType.Name.Contains("DisplayClass", StringComparison.Ordinal))
         {
             ILGenerator.Emit(OpCodes.Ldarg_0);
             ILGenerator.Emit(OpCodes.Ldfld, GetField(asyncClosureField));
@@ -5312,7 +5312,7 @@ internal partial class ExpressionGenerator : Generator
                 stateMachine.GetConstructedMembers(stateMachine.AsyncMethod).ThisField is { } thisField &&
                 fieldSymbol.ContainingType is { } fieldContainingType &&
                 (SymbolEqualityComparer.Default.Equals(fieldContainingType, thisField.Type) ||
-                 fieldContainingType.Name.Contains("LambdaClosure", StringComparison.Ordinal)))
+                 fieldContainingType.Name.Contains("DisplayClass", StringComparison.Ordinal)))
             {
                 var receiverType = fieldAccess.Receiver?.Type;
                 if (receiverType is null || !SymbolEqualityComparer.Default.Equals(receiverType, fieldContainingType))

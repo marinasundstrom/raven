@@ -1058,7 +1058,7 @@ internal static class AsyncLowerer
                 _closureField.Type is { } closureType &&
                 field.ContainingType is { } containingType &&
                 (SymbolEqualityComparer.Default.Equals(containingType, closureType) ||
-                 containingType.Name.Contains("LambdaClosure", StringComparison.Ordinal)))
+                 containingType.Name.Contains("DisplayClass", StringComparison.Ordinal)))
             {
                 var closureReceiver = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), _closureField);
                 rewritten = new BoundMemberAccessExpression(closureReceiver, field, reason);
@@ -1139,7 +1139,7 @@ internal static class AsyncLowerer
         {
             if (ClosureType is null &&
                 node.Field.ContainingType is { } containingType &&
-                containingType.Name.Contains("LambdaClosure", StringComparison.Ordinal))
+                containingType.Name.Contains("DisplayClass", StringComparison.Ordinal))
             {
                 ClosureType = containingType;
                 return;

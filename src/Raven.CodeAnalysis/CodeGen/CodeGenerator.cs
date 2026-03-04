@@ -244,6 +244,7 @@ internal class CodeGenerator
     ConstructorInfo? _extensionMarkerNameCtor;
     ConstructorInfo? _extensionAttributeCtor;
     ConstructorInfo? _closedHierarchyCtor;
+    ConstructorInfo? _compilerGeneratedCtor;
 
     bool _emitExtensionMarkerNameAttribute = true;
 
@@ -1072,6 +1073,20 @@ internal class CodeGenerator
             return null;
 
         return new CustomAttributeBuilder(_extensionAttributeCtor, Array.Empty<object>());
+    }
+
+    internal CustomAttributeBuilder? CreateCompilerGeneratedAttributeBuilder()
+    {
+        if (_compilerGeneratedCtor is null)
+        {
+            var type = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.CompilerGeneratedAttribute");
+            _compilerGeneratedCtor = type?.GetConstructor(Type.EmptyTypes);
+        }
+
+        if (_compilerGeneratedCtor is null)
+            return null;
+
+        return new CustomAttributeBuilder(_compilerGeneratedCtor, Array.Empty<object>());
     }
 
     private void CreateUnitStruct()

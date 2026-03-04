@@ -1667,7 +1667,7 @@ internal class TypeGenerator
         if (TypeBuilder is null)
             throw new InvalidOperationException("Type builder must be defined before creating a lambda closure.");
 
-        var closureName = $"<>c__LambdaClosure{_lambdaClosureOrdinal++}";
+        var closureName = $"<>c__DisplayClass{_lambdaClosureOrdinal++}";
         var baseType = Compilation.GetSpecialType(SpecialType.System_Object);
         var closureSymbol = new SourceNamedTypeSymbol(
             closureName,
@@ -1687,6 +1687,10 @@ internal class TypeGenerator
 
         var closureBuilder = closureGenerator.TypeBuilder
             ?? throw new InvalidOperationException("Failed to define closure type builder.");
+
+        var compilerGeneratedAttr = CodeGen.CreateCompilerGeneratedAttributeBuilder();
+        if (compilerGeneratedAttr is not null)
+            closureBuilder.SetCustomAttribute(compilerGeneratedAttr);
 
         var ctor = closureBuilder.DefineDefaultConstructor(MethodAttributes.Public);
 
