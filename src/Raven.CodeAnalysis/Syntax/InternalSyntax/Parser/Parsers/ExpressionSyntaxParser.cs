@@ -514,6 +514,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return token.Kind switch
         {
             SyntaxKind.OpenParenToken => true,
+            SyntaxKind.OpenBracketToken => true,
             SyntaxKind.LetKeyword => true,
             SyntaxKind.ValKeyword => true,
             SyntaxKind.VarKeyword => true,

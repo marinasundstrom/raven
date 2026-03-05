@@ -3533,6 +3533,13 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitPositionalPatternAssignment(BoundPositionalPattern tuplePattern, IILocal valueLocal, ITypeSymbol valueType)
     {
+        if (GetPatternValueType(valueType) is IArrayTypeSymbol arrayType &&
+            GetPatternValueType(tuplePattern.Type) is IArrayTypeSymbol)
+        {
+            EmitArrayPositionalPatternAssignment(tuplePattern, valueLocal, arrayType.ElementType);
+            return;
+        }
+
         if (GetPatternValueType(valueType) is not ITupleTypeSymbol tupleType)
             return;
 
@@ -3563,6 +3570,31 @@ internal partial class ExpressionGenerator : Generator
             var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementValueType));
             ILGenerator.Emit(OpCodes.Stloc, elementLocal);
 
+            EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
+        }
+    }
+
+    private void EmitArrayPositionalPatternAssignment(BoundPositionalPattern pattern, IILocal arrayLocal, ITypeSymbol elementType)
+    {
+        for (var i = 0; i < pattern.Elements.Length; i++)
+        {
+            var elementPattern = pattern.Elements[i];
+            if (elementPattern is null or BoundDiscardPattern)
+                continue;
+
+            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4, i);
+            EmitLoadElement(elementType);
+
+            var elementValueType = GetPatternValueType(elementType);
+            if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
+            {
+                ILGenerator.Emit(OpCodes.Pop);
+                continue;
+            }
+
+            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementValueType));
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
             EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
         }
     }

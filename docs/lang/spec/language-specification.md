@@ -2283,6 +2283,8 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   corresponding array element.
 
   * Collection patterns are currently supported for array scrutinees (`T[]`).
+  * The same bracketed shape can be used for collection deconstruction assignments
+    and declarations (`[val a, val b] = values`).
   * Each element is a full pattern; bindings still require `val`/`var`.
   * Length must match exactly.
 
@@ -3356,6 +3358,16 @@ var second = 0
 (first, second, _) = (1, 2, 3)
 val (third, fourth: double, _) = toTuple()
 var (val fifth, var sixth: double, _) = project()
+```
+
+Collection deconstruction uses the same element-pattern rules but with bracket
+syntax. In assignments and declarations, collection deconstruction currently
+targets arrays (`T[]`), and elements are bound by index order.
+
+```raven
+val values: int[] = [1, 2, 3]
+[val first, val second, _] = values
+[var head, var tail, _] = values
 ```
 
 Use `_` to discard unwanted elements. Nested positional patterns work the same way:

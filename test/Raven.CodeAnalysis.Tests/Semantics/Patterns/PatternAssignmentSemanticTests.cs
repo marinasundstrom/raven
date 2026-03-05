@@ -62,6 +62,53 @@ first + second
     }
 
     [Fact]
+    public void LetCollectionPatternAssignment_BindsLocals()
+    {
+        const string source = """
+val values: int[] = [1, 2, 3]
+[val first, val second, _] = values
+first + second
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Last();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        Assert.Equal(3, collectionPattern.Elements.Length);
+        Assert.True(collectionPattern.Type is IArrayTypeSymbol);
+
+        var intType = result.Compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var firstPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[0]);
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstPattern.Designator);
+        Assert.Equal("first", firstDesignator.Local.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(firstDesignator.Local.Type, intType));
+        Assert.False(firstDesignator.Local.IsMutable);
+
+        var secondPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var secondDesignator = Assert.IsType<BoundSingleVariableDesignator>(secondPattern.Designator);
+        Assert.Equal("second", secondDesignator.Local.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(secondDesignator.Local.Type, intType));
+        Assert.False(secondDesignator.Local.IsMutable);
+
+        Assert.IsType<BoundDiscardPattern>(collectionPattern.Elements[2]);
+    }
+
+    [Fact]
     public void DiscardAssignmentStatement_BindsDiscardPattern()
     {
         const string source = "_ = 1";

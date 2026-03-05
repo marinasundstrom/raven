@@ -8050,6 +8050,9 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindPositionalPatternForAssignment(PositionalPatternSyntax pattern, ITypeSymbol valueType)
     {
+        if (pattern.OpenParenToken.IsKind(SyntaxKind.OpenBracketToken))
+            return BindCollectionPatternForAssignment(pattern, valueType);
+
         var elements = pattern.Elements;
         var elementCount = elements.Count;
 
@@ -8118,6 +8121,37 @@ partial class BlockBinder : Binder
 
         var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
         return new BoundPositionalPattern(tupleType, boundElements.ToImmutable());
+    }
+
+    private BoundPattern BindCollectionPatternForAssignment(PositionalPatternSyntax pattern, ITypeSymbol valueType)
+    {
+        var elements = pattern.Elements;
+        var elementCount = elements.Count;
+        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(elementCount);
+        var elementType = Compilation.ErrorTypeSymbol;
+        var patternType = valueType;
+
+        if (valueType is IArrayTypeSymbol arrayType)
+        {
+            elementType = arrayType.ElementType;
+        }
+        else if (valueType.TypeKind != TypeKind.Error)
+        {
+            _diagnostics.ReportPositionalDeconstructionRequiresDeconstructableType(
+                GetPatternTypeDisplay(valueType),
+                pattern.GetLocation());
+
+            patternType = Compilation.ErrorTypeSymbol;
+        }
+
+        for (var i = 0; i < elementCount; i++)
+        {
+            var elementSyntax = elements[i];
+            var boundElement = BindPatternForAssignment(elementSyntax.Pattern, elementType, elementSyntax.Pattern);
+            boundElements.Add(boundElement);
+        }
+
+        return new BoundPositionalPattern(patternType, boundElements.ToImmutable());
     }
 
     private BoundPattern BindVariableDesignationForAssignment(
