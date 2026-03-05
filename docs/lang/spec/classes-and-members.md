@@ -43,6 +43,7 @@ class Counter(name: string)
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
 * Members that intentionally hide inherited members should use the `new` modifier; otherwise the compiler emits a warning.
+* A member name cannot match its immediate containing type name.
 
 ### Delegate declarations
 
@@ -189,14 +190,20 @@ class Widget(name: string) {
 }
 ```
 
-Classes may declare primary-constructor parameters by adding an argument list to
-the type header. Each parameter is captured and stored in an implicit instance
-field with the same name. The compiler synthesizes an instance constructor
-whose signature matches the header parameters and assigns the arguments to
-those fields before other instance initialization logic executes.
+Classes and structs may declare primary-constructor parameters by adding an
+argument list to the type header. The compiler synthesizes an instance
+constructor whose signature matches those parameters.
+
+For `class` / `struct`, parameter promotion is explicit:
+
+* `val` parameter: promoted to an instance `val` auto-property.
+* `var` parameter: promoted to an instance `var` auto-property.
+* no binding keyword: captured in synthesized private instance storage for member access, but not promoted to a public property.
+* constructor calls must use invocation syntax (`Foo()`); a standalone type name (`Foo`) is not a value expression.
+* semantic model note: unqualified identifier access to captured/promoted primary-constructor members resolves to the originating parameter symbol.
 
 ```raven
-class Person(name: string, age: int)
+class Person(val name: string, var age: int)
 {
     func GetName() -> string => name
     func GetAge() -> int => age
@@ -233,8 +240,8 @@ record struct Point(x: int, y: int);          // explicit record struct
 
 Primary-constructor semantics differ between nominal types and records:
 
-* `class` / `struct` primary-constructor parameters are constructor parameters only. They are captured in synthesized private storage and are **not** promoted to public properties.
-* `record class` / `record struct` positional parameters are promoted to public auto-properties (use `var` to make a property mutable). The compiler synthesizes value-based members such as `Equals`, `GetHashCode`, deconstruction, and record equality operators.
+* `class` / `struct`: only `val`/`var` parameters are promoted to properties; parameters without a binding keyword are captured in synthesized private instance storage for member access.
+* `record class` / `record struct`: positional parameters are promoted to public auto-properties by default (as `val` when no binding keyword is specified, or `var` when `var` is specified). The compiler synthesizes value-based members such as `Equals`, `GetHashCode`, deconstruction, and record equality operators.
 
 ```raven
 record class Person(name: string, age: int);

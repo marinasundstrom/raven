@@ -1,0 +1,129 @@
+using System.Linq;
+
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
+
+using Xunit;
+
+namespace Raven.CodeAnalysis.Semantics.Tests;
+
+public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
+{
+    [Fact]
+    public void PrimaryConstructor_ParameterWithoutBindingKeyword_IsCapturedButNotPromoted()
+    {
+        var source = """
+            class Person(name: string)
+            {
+                func GetName() -> string => name
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var identifier = tree.GetRoot().DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(id => id.Identifier.ValueText == "name");
+
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Person"));
+        Assert.Empty(type.GetMembers("name").OfType<IPropertySymbol>());
+        Assert.Single(type.GetMembers("name").OfType<IFieldSymbol>());
+
+        var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
+        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+
+        var symbol = model.GetSymbolInfo(identifier).Symbol;
+        Assert.Same(parameterSymbol, symbol);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void PrimaryConstructor_CapturedParameterIdentifierAccess_BindsToParameterSymbol()
+    {
+        var source = """
+            class Foo(b: int) {
+                func self(factor: int) -> int {
+                    return b * factor
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var methodIdentifier = tree.GetRoot().DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(id => id.Identifier.ValueText == "b");
+        var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().First();
+        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+
+        var methodSymbol = model.GetSymbolInfo(methodIdentifier).Symbol;
+        Assert.Same(parameterSymbol, methodSymbol);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void PrimaryConstructor_ValParameter_PromotesToReadOnlyProperty()
+    {
+        var source = """
+            class Person(val Name: string)
+            {
+                func GetName() -> string => Name
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Person"));
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(Assert.Single(type.GetMembers("Name")));
+        Assert.False(property.IsMutable);
+        Assert.Equal(MethodKind.InitOnly, property.SetMethod?.MethodKind);
+
+        var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
+        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        Assert.False(parameterSymbol.IsMutable);
+
+        var identifier = tree.GetRoot().DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(id => id.Identifier.ValueText == "Name");
+        Assert.Same(parameterSymbol, model.GetSymbolInfo(identifier).Symbol);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void PrimaryConstructor_VarParameter_PromotesToMutableProperty()
+    {
+        var source = """
+            class Counter(var Count: int)
+            {
+                func Increment() {
+                    Count = Count + 1
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Counter"));
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(Assert.Single(type.GetMembers("Count")));
+        Assert.True(property.IsMutable);
+        Assert.Equal(MethodKind.PropertySet, property.SetMethod?.MethodKind);
+
+        var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
+        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        Assert.True(parameterSymbol.IsMutable);
+
+        var propertyIdentifiers = tree.GetRoot().DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(id => id.Identifier.ValueText == "Count")
+            .ToArray();
+        Assert.All(propertyIdentifiers, id => Assert.Same(parameterSymbol, model.GetSymbolInfo(id).Symbol));
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+}

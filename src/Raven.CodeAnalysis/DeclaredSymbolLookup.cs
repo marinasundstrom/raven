@@ -69,6 +69,22 @@ internal sealed class DeclaredSymbolLookup
             return declaredMethod;
         }
 
+        if (node is ParameterSyntax parameterSyntax &&
+            parameterSyntax.Parent?.Parent is TypeDeclarationSyntax parameterContainingType &&
+            _semanticModel.GetDeclaredSymbol(parameterContainingType) is INamedTypeSymbol containingType)
+        {
+            var parameterSymbol = containingType
+                .GetMembers(".ctor")
+                .OfType<IMethodSymbol>()
+                .SelectMany(method => method.Parameters)
+                .FirstOrDefault(parameter => parameter.DeclaringSyntaxReferences.Any(reference =>
+                    reference.SyntaxTree == parameterSyntax.SyntaxTree &&
+                    reference.Span == parameterSyntax.Span));
+
+            if (parameterSymbol is not null)
+                return parameterSymbol;
+        }
+
         var binder = _semanticModel.GetBinder(node);
 
         if (_semanticModel.Compilation.DeclarationTable.TryGetDeclKey(node, out var key))

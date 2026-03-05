@@ -46,4 +46,52 @@ class Counter {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void MethodUsingPromotedPrimaryConstructorProperty_DoesNotReport()
+    {
+        const string code = """
+class Foo(var Name: string) {
+    func GetName() -> string => Name
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MemberCanBeStaticAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MethodUsingCapturedPrimaryConstructorParameter_DoesNotReport()
+    {
+        const string code = """
+class Foo(name: string) {
+    func GetName() -> string => name
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MemberCanBeStaticAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PrimaryConstructorPromotedMemberAccess_DoesNotReportEvenWhenMethodNameMatchesType()
+    {
+        const string code = """
+class Foo(var Name: string) {
+    func Foo() -> string => Name
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MemberCanBeStaticAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, "RAV0113"]);
+
+        verifier.Verify();
+    }
 }

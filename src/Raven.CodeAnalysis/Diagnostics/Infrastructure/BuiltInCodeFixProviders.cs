@@ -23,6 +23,7 @@ public static class BuiltInCodeFixProviders
             new RedundantAccessorDeclarationCodeFixProvider(),
             new StringConcatenationToInterpolatedStringCodeFixProvider(),
             new MergeStringLiteralConcatenationCodeFixProvider(),
+            new ConstructorParameterNamingCodeFixProvider(),
         ];
     }
 }

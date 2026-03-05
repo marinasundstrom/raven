@@ -73,6 +73,7 @@ internal partial class TypeMemberBinder : Binder
         var explicitInterfaceSpecifier = propertyDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(propertyDecl.Identifier, explicitInterfaceSpecifier);
         var propertyName = identifierToken.Text;
+        ReportMemberNameMatchesContainingTypeIfNeeded(propertyName, identifierToken.GetLocation());
         var metadataName = propertyName;
         INamedTypeSymbol? explicitInterfaceType = null;
         string? explicitInterfaceMetadataName = null;

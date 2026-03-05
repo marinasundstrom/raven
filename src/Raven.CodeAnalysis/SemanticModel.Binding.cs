@@ -3246,7 +3246,8 @@ public partial class SemanticModel
                 parameterSyntax.Identifier.ValueText,
                 classBinder.Diagnostics,
                 ref seenOptionalParameter);
-            var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var bindingKeywordKind = parameterSyntax.BindingKeyword?.Kind ?? SyntaxKind.None;
+            var isMutable = bindingKeywordKind == SyntaxKind.VarKeyword;
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 parameterType,
@@ -3264,21 +3265,37 @@ public partial class SemanticModel
 
             if (refKind == RefKind.None)
             {
-                if (isRecord)
+                // Record positional parameters always synthesize properties. For class/struct primary
+                // constructors, only `val`/`var` parameters are promoted.
+                var shouldPromoteToProperty = isRecord || bindingKeywordKind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+                if (shouldPromoteToProperty)
                 {
-                    var propertySymbol = CreateRecordPropertyFromPrimaryConstructor(
+                    if (string.Equals(parameterSymbol.Name, classSymbol.Name, StringComparison.Ordinal))
+                    {
+                        classBinder.Diagnostics.ReportMemberNameCannotMatchContainingType(
+                            parameterSymbol.Name,
+                            classSymbol.Name,
+                            parameterSyntax.Identifier.GetLocation());
+                        continue;
+                    }
+
+                    var propertySymbol = CreatePrimaryConstructorProperty(
                         classSymbol,
                         parameterSymbol,
                         parameterSyntax,
                         parameterType,
                         namespaceSymbol,
-                        classBinder);
+                        classBinder,
+                        applyRecordInheritanceSemantics: isRecord,
+                        markRequired: isRecord);
 
-                    if (propertySymbol is not null)
+                    if (isRecord && propertySymbol is not null)
                         recordProperties?.Add(propertySymbol);
                 }
                 else
                 {
+                    // For class/struct primary constructors, non-promoted parameters are still
+                    // captured in private instance storage so members can reference them.
                     _ = new SourceFieldSymbol(
                         parameterSyntax.Identifier.ValueText,
                         parameterType,
@@ -3341,21 +3358,21 @@ public partial class SemanticModel
         return char.ToLowerInvariant(valueText[0]) + valueText[1..];
     }
 
-    private SourcePropertySymbol? CreateRecordPropertyFromPrimaryConstructor(
+    private SourcePropertySymbol? CreatePrimaryConstructorProperty(
         SourceNamedTypeSymbol classSymbol,
         SourceParameterSymbol parameterSymbol,
         ParameterSyntax parameterSyntax,
         ITypeSymbol parameterType,
         SourceNamespaceSymbol? namespaceSymbol,
-        ClassDeclarationBinder classBinder)
+        ClassDeclarationBinder classBinder,
+        bool applyRecordInheritanceSemantics,
+        bool markRequired)
     {
         var propertyName = parameterSyntax.Identifier.ValueText;
-        // C# record inheritance semantics (compatible with C# derived-record forwarding):
-        // If a derived record redeclares a primary-ctor parameter whose name matches an inherited
-        // instance member, we must NOT synthesize a *new* property (which would hide the base member).
-        // However, the parameter should still contribute to the record’s positional shape. In Raven,
-        // that shape is driven by `RecordProperties`, so we reuse the inherited property symbol when possible.
-        if (classSymbol.BaseType is INamedTypeSymbol baseType)
+        // C#-compatible record inheritance semantics for primary-constructor properties:
+        // if a derived record redeclares a parameter matching an inherited instance member,
+        // reuse the inherited property to avoid shadowing.
+        if (applyRecordInheritanceSemantics && classSymbol.BaseType is INamedTypeSymbol baseType)
         {
             for (var current = baseType; current is not null; current = current.BaseType)
             {
@@ -3400,7 +3417,8 @@ public partial class SemanticModel
             isStatic: false,
             declaredAccessibility: Accessibility.Public);
 
-        propertySymbol.MarkAsRequired();
+        if (markRequired)
+            propertySymbol.MarkAsRequired();
 
         var backingField = new SourceFieldSymbol(
             $"<{propertySymbol.Name}>k__BackingField",

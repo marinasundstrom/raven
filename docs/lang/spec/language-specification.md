@@ -1276,8 +1276,12 @@ val p = Person("Ada", 36)   // ok
 
 Primary-constructor behavior is intentionally split:
 
-1. `class`/`struct`: parameters are constructor parameters (captured into compiler-generated private storage when referenced by members).
-2. `record class`/`record struct`: positional parameters additionally define the record's public data shape via synthesized properties and value members.
+1. `class`/`struct`: parameters marked with `val` or `var` are promoted to properties; parameters without a binding keyword are captured in compiler-generated private storage for member access, but are not promoted to public properties.
+2. `record class`/`record struct`: positional parameters define the record's public data shape via synthesized properties and value members. When no binding keyword is present, record parameters are promoted as `val` properties by default.
+3. Constructor calls require invocation syntax (`Foo(...)` or `Foo()`); a standalone type name (`Foo`) is not a value expression, while `Foo { ... }` remains a valid object initializer form.
+4. Member declarations cannot reuse the immediate containing type's name.
+
+For semantic-model queries, unqualified identifier access to those captured/promoted members resolves to the originating primary-constructor parameter symbol.
 
 For constructors **without** this attribute, all required members must be provided by an object initializer at each creation site.
 
@@ -1748,6 +1752,9 @@ val list = new List<int>()
 ```
 
 This way it’s clear that *constructor-as-call* is the default, and `new` is optional/explicit.  
+
+> A standalone type name is not a constructor call in value position.
+> Use `Foo()` (or `new Foo()`) instead of `Foo`.
 
 When an object initializer trailer is present, the parameter list may be omitted for parameterless construction:
 

@@ -239,6 +239,14 @@ public partial class SemanticModel
     {
         projected = symbol;
 
+        if (node is IdentifierNameSyntax identifierName &&
+            !IsExplicitMemberName(identifierName) &&
+            TryGetPrimaryConstructorCaptureParameter(symbol, out var primaryParameter))
+        {
+            projected = primaryParameter;
+            return true;
+        }
+
         if (symbol is IMethodSymbol methodSymbol &&
             methodSymbol.AssociatedSymbol is { } associatedMemberSymbol &&
             associatedMemberSymbol is IPropertySymbol or IEventSymbol)
@@ -261,6 +269,38 @@ public partial class SemanticModel
         {
             projected = associatedSymbol;
             return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsExplicitMemberName(IdentifierNameSyntax identifier)
+    {
+        return identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
+               ReferenceEquals(memberAccess.Name, identifier);
+    }
+
+    private static bool TryGetPrimaryConstructorCaptureParameter(ISymbol? symbol, out IParameterSymbol? parameter)
+    {
+        parameter = null;
+
+        while (symbol is not null)
+        {
+            switch (symbol)
+            {
+                case SourceFieldSymbol sourceField when sourceField.Initializer is BoundParameterAccess parameterAccess:
+                    parameter = parameterAccess.Parameter;
+                    return true;
+                case SourcePropertySymbol sourceProperty when sourceProperty.BackingField?.Initializer is BoundParameterAccess parameterAccess:
+                    parameter = parameterAccess.Parameter;
+                    return true;
+            }
+
+            var underlying = symbol.UnderlyingSymbol;
+            if (ReferenceEquals(underlying, symbol))
+                break;
+
+            symbol = underlying;
         }
 
         return false;

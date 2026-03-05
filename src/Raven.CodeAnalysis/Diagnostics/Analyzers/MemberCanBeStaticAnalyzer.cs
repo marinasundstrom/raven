@@ -82,6 +82,12 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
             if (referenced is null || referenced.IsStatic)
                 continue;
 
+            if (referenced is IParameterSymbol parameterSymbol &&
+                IsPrimaryConstructorParameterOfContainingType(parameterSymbol, methodSymbol.ContainingType))
+            {
+                return true;
+            }
+
             if (referenced.ContainingType is null ||
                 !SymbolEqualityComparer.Default.Equals(referenced.ContainingType, methodSymbol.ContainingType))
             {
@@ -95,6 +101,31 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
                 continue;
 
             return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsPrimaryConstructorParameterOfContainingType(
+        IParameterSymbol parameterSymbol,
+        INamedTypeSymbol? containingType)
+    {
+        if (containingType is null)
+            return false;
+
+        if (parameterSymbol.ContainingSymbol is not IMethodSymbol methodSymbol ||
+            methodSymbol.MethodKind != MethodKind.Constructor)
+        {
+            return false;
+        }
+
+        if (!SymbolEqualityComparer.Default.Equals(methodSymbol.ContainingType, containingType))
+            return false;
+
+        foreach (var syntaxReference in methodSymbol.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is TypeDeclarationSyntax { ParameterList: not null })
+                return true;
         }
 
         return false;

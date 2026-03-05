@@ -170,16 +170,97 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void PrimaryConstructor_CreatesInstanceFields()
+    public void PrimaryConstructor_ValParameter_PromotesToInstanceProperty()
     {
         string testCode =
             """
             val person = Person("John")
             val name = person.GetName()
 
-            class Person(name: string)
+            class Person(val name: string)
             {
                 func GetName() -> string => name
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PrimaryConstructor_VarParameter_PromotesToMutableInstanceProperty()
+    {
+        string testCode =
+            """
+            val counter = Counter(1)
+            counter.Increment()
+            val value = counter.GetValue()
+
+            class Counter(var value: int)
+            {
+                func Increment() {
+                    value = value + 1
+                }
+
+                func GetValue() -> int => value
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void BareTypeInitializer_ReportsInvalidInvocationEvenWithParameterlessConstructor()
+    {
+        string testCode =
+            """
+            val foo = Foo
+
+            class Foo {
+                init() {}
+            }
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            expectedDiagnostics: [
+                new DiagnosticResult(CompilerDiagnostics.InvalidInvocation.Id).WithSpan(1, 11, 1, 14)
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void BareTypeInitializer_WithoutParameterlessConstructor_ReportsInvalidInvocation()
+    {
+        string testCode =
+            """
+            val foo = Foo
+
+            class Foo(var Name: string)
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            expectedDiagnostics: [
+                new DiagnosticResult(CompilerDiagnostics.InvalidInvocation.Id).WithSpan(1, 11, 1, 14)
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ObjectInitializer_WithoutParens_RemainsSupported()
+    {
+        string testCode =
+            """
+            val foo = Foo { }
+
+            class Foo {
+                init() {}
             }
             """;
 

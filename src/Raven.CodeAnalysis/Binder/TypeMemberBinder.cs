@@ -455,6 +455,8 @@ internal partial class TypeMemberBinder : Binder
 
         foreach (var decl in declaration.Declarators)
         {
+            ReportMemberNameMatchesContainingTypeIfNeeded(decl.Identifier.ValueText, decl.Identifier.GetLocation());
+
             ITypeSymbol? fieldType = decl.TypeAnnotation is null
                 ? null
                 : ResolveTypeSyntaxForSignature(this, decl.TypeAnnotation.Type, RefKind.None);
@@ -571,6 +573,7 @@ internal partial class TypeMemberBinder : Binder
         var explicitInterfaceSpecifier = methodDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(methodDecl.Identifier, explicitInterfaceSpecifier);
         var name = identifierToken.Kind == SyntaxKind.SelfKeyword ? "Invoke" : identifierToken.ValueText;
+        ReportMemberNameMatchesContainingTypeIfNeeded(name, identifierToken.GetLocation());
         ReportPartialModifierNotSupported(methodDecl.Modifiers, "method", name);
         if (methodDecl.FuncKeyword.IsMissing)
             _diagnostics.ReportMethodDeclarationMissingFuncKeyword(name, methodDecl.Identifier.GetLocation());
@@ -1746,6 +1749,7 @@ internal partial class TypeMemberBinder : Binder
 
     public DelegateDeclarationBinder BindDelegateDeclaration(DelegateDeclarationSyntax delegateDecl)
     {
+        ReportMemberNameMatchesContainingTypeIfNeeded(delegateDecl.Identifier.ValueText, delegateDecl.Identifier.GetLocation());
         ReportPartialModifierNotSupported(delegateDecl.Modifiers, "delegate", delegateDecl.Identifier.ValueText);
         var declared = BindDelegateSymbol(delegateDecl);
         var delegateSymbol = declared as SourceNamedTypeSymbol;
@@ -1904,6 +1908,12 @@ internal partial class TypeMemberBinder : Binder
         }
     }
 
+    private void ReportMemberNameMatchesContainingTypeIfNeeded(string memberName, Location location)
+    {
+        if (string.Equals(memberName, _containingType.Name, StringComparison.Ordinal))
+            _diagnostics.ReportMemberNameCannotMatchContainingType(memberName, _containingType.Name, location);
+    }
+
     private static bool SignaturesMatch(IMethodSymbol existing, (ITypeSymbol type, RefKind refKind)[] parameters)
     {
         if (existing.Parameters.Length != parameters.Length)
@@ -1953,6 +1963,7 @@ internal partial class TypeMemberBinder : Binder
         var explicitInterfaceSpecifier = eventDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(eventDecl.Identifier, explicitInterfaceSpecifier);
         var eventName = identifierToken.Text;
+        ReportMemberNameMatchesContainingTypeIfNeeded(eventName, identifierToken.GetLocation());
         var metadataName = eventName;
         INamedTypeSymbol? explicitInterfaceType = null;
         string? explicitInterfaceMetadataName = null;

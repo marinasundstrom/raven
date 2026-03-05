@@ -29,6 +29,10 @@
   <Descriptor Id="RAV0111" Identifier="TypeAlreadyDefinesMember" Title="Member already defined"
     Message="Type '{typeName}' already defines a member called '{memberName}' with the same parameter types"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0113" Identifier="MemberNameCannotMatchContainingType"
+    Title="Member name cannot match containing type"
+    Message="Member '{memberName}' cannot have the same name as its containing type '{typeName}'."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0112" Identifier="FunctionAlreadyDefined" Title="Function already defined"
     Message="A function named '{name}' is already defined with the same parameter types"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

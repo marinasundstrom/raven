@@ -219,6 +219,7 @@ partial class BlockBinder : Binder
                 annotatedType,
                 allowReturn: false,
                 allowReturnInBlockExpressionsOnly: true);
+            boundInitializer = BindImplicitParameterlessConstructionIfNeeded(boundInitializer, initializer.Value);
             initializerValueType = boundInitializer?.Type;
         }
 
@@ -653,6 +654,7 @@ partial class BlockBinder : Binder
             initializer.Value,
             allowReturn: false,
             allowReturnInBlockExpressionsOnly: true);
+        boundInitializer = BindImplicitParameterlessConstructionIfNeeded(boundInitializer, initializer.Value);
 
         if (variableDeclarator.TypeAnnotation is not null)
         {
@@ -684,6 +686,18 @@ partial class BlockBinder : Binder
         }
 
         return new BoundExpressionStatement(boundInitializer);
+    }
+
+    private BoundExpression BindImplicitParameterlessConstructionIfNeeded(BoundExpression expression, ExpressionSyntax syntax)
+    {
+        if (expression is not BoundTypeExpression typeExpression)
+            return expression;
+
+        if (typeExpression.Type is NullTypeSymbol)
+            return expression;
+
+        _diagnostics.ReportInvalidInvocation(syntax.GetLocation());
+        return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
     }
 
     public BoundExpression BindExpression(ExpressionSyntax syntax, bool allowReturn, bool allowReturnInBlockExpressionsOnly = false)
