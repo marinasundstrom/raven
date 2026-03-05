@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Linq;
 
 using MediatR;
@@ -18,9 +19,12 @@ namespace Raven.LanguageServer;
 
 internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
+    private const int DiagnosticsDebounceMilliseconds = 250;
+
     private readonly DocumentStore _documents;
     private readonly ILanguageServerFacade _languageServer;
     private readonly ILogger<RavenTextDocumentSyncHandler> _logger;
+    private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingDiagnostics = new();
 
     public RavenTextDocumentSyncHandler(DocumentStore documents, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
     {
@@ -53,7 +57,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             var change = notification.ContentChanges.LastOrDefault();
             var text = change?.Text ?? string.Empty;
             _documents.UpsertDocument(notification.TextDocument.Uri, text);
-            return PublishDiagnosticsAsync(notification.TextDocument.Uri, cancellationToken);
+            return ScheduleDiagnosticsPublishAsync(notification.TextDocument.Uri, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -66,6 +70,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     {
         try
         {
+            CancelPendingDiagnostics(notification.TextDocument.Uri);
             _documents.RemoveDocument(notification.TextDocument.Uri);
             _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
@@ -94,6 +99,60 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 IncludeText = true
             }
         };
+
+    private Task<Unit> ScheduleDiagnosticsPublishAsync(DocumentUri uri, CancellationToken cancellationToken)
+    {
+        var source = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var current = _pendingDiagnostics.AddOrUpdate(
+            uri,
+            source,
+            (_, previous) =>
+            {
+                previous.Cancel();
+                previous.Dispose();
+                return source;
+            });
+
+        if (!ReferenceEquals(current, source))
+        {
+            source.Dispose();
+            return Task.FromResult(Unit.Value);
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(DiagnosticsDebounceMilliseconds, source.Token).ConfigureAwait(false);
+                await PublishDiagnosticsAsync(uri, source.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Debounced diagnostics publish failed for {Uri}.", uri);
+            }
+            finally
+            {
+                if (_pendingDiagnostics.TryGetValue(uri, out var active) && ReferenceEquals(active, source))
+                    _pendingDiagnostics.TryRemove(uri, out _);
+
+                source.Dispose();
+            }
+        }, CancellationToken.None);
+
+        return Task.FromResult(Unit.Value);
+    }
+
+    private void CancelPendingDiagnostics(DocumentUri uri)
+    {
+        if (_pendingDiagnostics.TryRemove(uri, out var pending))
+        {
+            pending.Cancel();
+            pending.Dispose();
+        }
+    }
 
     private async Task<Unit> PublishDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
