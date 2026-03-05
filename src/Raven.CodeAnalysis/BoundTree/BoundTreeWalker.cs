@@ -427,6 +427,14 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitExpression(element);
     }
 
+    public override void VisitCollectionComprehensionExpression(BoundCollectionComprehensionExpression node)
+    {
+        VisitExpression(node.Source);
+        if (node.Condition is not null)
+            VisitExpression(node.Condition);
+        VisitExpression(node.Selector);
+    }
+
     public virtual void VisitSpreadElement(BoundSpreadElement node)
     {
         VisitExpression(node.Expression);

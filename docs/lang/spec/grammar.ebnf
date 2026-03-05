@@ -566,6 +566,7 @@ PrimaryExpression        ::= Literal
                            | DefaultExpression
                            | TypeOfExpression
                            | NameOfExpression
+                           | CollectionExpression
                            | Identifier
                            | MemberBindingExpression
                            | ObjectCreationExpression
@@ -605,6 +606,13 @@ InterpolatedStringText   ::= /* text segment without ${ or closing quote */ ;
 Interpolation            ::= '${' Expression '}' ;
 
 ObjectCreationExpression ::= 'new' Type ArgumentList ObjectInitializer? ;
+
+CollectionExpression     ::= '[' [CollectionElement {',' CollectionElement} [',']] ']' ;
+CollectionElement        ::= Expression
+                           | '..' Expression
+                           | CollectionComprehensionElement ;
+CollectionComprehensionElement
+                         ::= 'for' Identifier 'in' Expression ['if' Expression] '=>' Expression ;
 
 TupleExpression          ::= '(' TupleElement {',' TupleElement} ')' ;
 TupleElement             ::= [Identifier ':'] Expression ;

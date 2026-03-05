@@ -55,6 +55,35 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
 
     public virtual BoundNode? VisitContinueStatement(BoundContinueStatement node) => node;
 
+    public override BoundNode? VisitCollectionComprehensionExpression(BoundCollectionComprehensionExpression node)
+    {
+        var type = VisitType(node.Type);
+        var source = (BoundExpression)Visit(node.Source)!;
+        var iterationLocal = VisitLocal(node.IterationLocal);
+        var condition = (BoundExpression?)Visit(node.Condition);
+        var selector = (BoundExpression)Visit(node.Selector)!;
+        var elementType = VisitType(node.ElementType);
+
+        if (ReferenceEquals(type, node.Type) &&
+            ReferenceEquals(source, node.Source) &&
+            ReferenceEquals(iterationLocal, node.IterationLocal) &&
+            ReferenceEquals(condition, node.Condition) &&
+            ReferenceEquals(selector, node.Selector) &&
+            ReferenceEquals(elementType, node.ElementType))
+        {
+            return node;
+        }
+
+        return new BoundCollectionComprehensionExpression(
+            type,
+            source,
+            iterationLocal,
+            condition,
+            selector,
+            elementType,
+            node.Reason);
+    }
+
     public virtual INamespaceSymbol VisitNamespace(INamespaceSymbol @namespace)
     {
         return @namespace;

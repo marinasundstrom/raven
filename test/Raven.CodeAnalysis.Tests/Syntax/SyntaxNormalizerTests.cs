@@ -105,4 +105,15 @@ class Foo {
         Assert.Equal(expected, normalized);
         Assert.DoesNotContain(" \n", normalized);
     }
+
+    [Fact]
+    public void NormalizeWhitespace_FormatsCollectionComprehension()
+    {
+        const string source = "val odds=[for n in nums if n%2==1=>n*10]";
+        var tree = SyntaxTree.ParseText(source);
+
+        var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
+
+        Assert.Equal("val odds = [for n in nums if n % 2 == 1 => n * 10]", normalized);
+    }
 }

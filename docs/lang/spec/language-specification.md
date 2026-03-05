@@ -1077,6 +1077,17 @@ item into the resulting collection in order. The spread source must be convertib
 `System.Collections.IEnumerable` (including arrays and `IEnumerable<T>` implementations);
 otherwise diagnostic `RAV2022` is reported. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3670】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L260-L266】
 
+Collection expressions also support a list-comprehension form:
+
+* `[for item in source => selector]`
+* `[for item in source if condition => selector]`
+
+The `source` position also accepts range expressions. These follow the same range
+iteration semantics as `for ... in start..end` loops.
+
+Comprehensions are lowered by the compiler into collection-building loops, so they
+follow the same target-typing and conversion rules as other collection elements.
+
 Collection expressions are target-typed:
 
 * **Array targets** — When the expected type is an array `T[]`, the expression allocates a
@@ -1099,6 +1110,9 @@ produces an empty instance of that type (an empty array or an initialized collec
 ```raven
 val numbers: int[] = [1, 2, 3]
 val combined = [0, ..numbers, 4]
+val squares = [for n in numbers => n * n]
+val evenSquares = [for n in numbers if n % 2 == 0 => n * n]
+val evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
 
 val names: List<string> = ["a", "b"]
 val inferred = [1, 2.0]  // inferred as object[]

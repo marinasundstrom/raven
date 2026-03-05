@@ -39,3 +39,39 @@ internal partial class BoundSpreadElement : BoundExpression
 
     public BoundExpression Expression { get; }
 }
+
+internal sealed class BoundCollectionComprehensionExpression : BoundExpression
+{
+    public BoundCollectionComprehensionExpression(
+        ITypeSymbol type,
+        BoundExpression source,
+        ILocalSymbol iterationLocal,
+        BoundExpression? condition,
+        BoundExpression selector,
+        ITypeSymbol elementType,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(type, type, reason)
+    {
+        Source = source;
+        IterationLocal = iterationLocal;
+        Condition = condition;
+        Selector = selector;
+        ElementType = elementType;
+    }
+
+    public BoundExpression Source { get; }
+    public ILocalSymbol IterationLocal { get; }
+    public BoundExpression? Condition { get; }
+    public BoundExpression Selector { get; }
+    public ITypeSymbol ElementType { get; }
+
+    public override void Accept(BoundTreeVisitor visitor)
+    {
+        visitor.VisitCollectionComprehensionExpression(this);
+    }
+
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+    {
+        return visitor.VisitCollectionComprehensionExpression(this);
+    }
+}

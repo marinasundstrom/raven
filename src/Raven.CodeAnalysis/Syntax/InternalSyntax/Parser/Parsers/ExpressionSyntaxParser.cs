@@ -1865,7 +1865,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             CollectionElementSyntax element;
             var elementStart = Position;
 
-            if (t.IsKind(SyntaxKind.DotDotToken))
+            if (t.IsKind(SyntaxKind.ForKeyword))
+            {
+                element = ParseCollectionComprehensionElement();
+            }
+            else if (t.IsKind(SyntaxKind.DotDotToken))
             {
                 var dotDotToken = ReadToken();
                 var spreadExpr = new ExpressionSyntaxParser(this).ParseExpression();
@@ -1913,6 +1917,30 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
 
         return CollectionExpression(openBracketToken, List(elementList), closeBracketToken);
+    }
+
+    private CollectionComprehensionElementSyntax ParseCollectionComprehensionElement()
+    {
+        var forKeyword = ReadToken();
+        var identifier = CanTokenBeIdentifier(PeekToken())
+            ? ReadIdentifierToken()
+            : ExpectToken(SyntaxKind.IdentifierToken);
+
+        ConsumeTokenOrMissing(SyntaxKind.InKeyword, out var inKeyword);
+        var source = new ExpressionSyntaxParser(this, allowLambdaExpressions: false).ParseExpression();
+
+        var ifKeyword = Token(SyntaxKind.None);
+        ExpressionSyntax? condition = null;
+        if (ConsumeToken(SyntaxKind.IfKeyword, out var parsedIfKeyword))
+        {
+            ifKeyword = parsedIfKeyword;
+            condition = new ExpressionSyntaxParser(this, allowLambdaExpressions: false).ParseExpression();
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
+        var selector = new ExpressionSyntaxParser(this).ParseExpression();
+
+        return CollectionComprehensionElement(forKeyword, identifier, inKeyword, source, ifKeyword, condition, fatArrowToken, selector);
     }
 
     private ExpressionSyntax ParseNewExpression()

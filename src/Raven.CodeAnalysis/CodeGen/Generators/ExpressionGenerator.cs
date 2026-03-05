@@ -244,6 +244,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitEmptyCollectionExpression(emptyCollectionExpression);
                 break;
 
+            case BoundCollectionComprehensionExpression comprehensionExpression:
+                EmitCollectionComprehensionExpression(comprehensionExpression);
+                break;
+
             case BoundTryExpression tryExpression:
                 EmitTryExpression(tryExpression);
                 break;
@@ -2693,6 +2697,372 @@ internal partial class ExpressionGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Br, loopStart);
         ILGenerator.MarkLabel(loopEnd);
+    }
+
+    private void EmitCollectionComprehensionExpression(BoundCollectionComprehensionExpression comprehension)
+    {
+        var elementType = comprehension.ElementType;
+        var listTypeDef = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
+        var listCtor = listType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0)
+            ?? throw new InvalidOperationException("List<T> must expose a parameterless constructor.");
+
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(listCtor));
+        var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
+        ILGenerator.Emit(OpCodes.Stloc, listLocal);
+
+        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().First();
+        var addMethodInfo = GetMethodInfo(addMethod);
+
+        var iterationLocalBuilder = ILGenerator.DeclareLocal(ResolveClrType(comprehension.IterationLocal.Type));
+        var scope = new Scope(this);
+        scope.AddLocal(comprehension.IterationLocal, iterationLocalBuilder);
+
+        if (comprehension.Source is BoundRangeExpression rangeSource)
+        {
+            EmitCollectionComprehensionRangeLoop(comprehension, rangeSource, scope, listLocal, addMethodInfo, iterationLocalBuilder);
+            ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+            var toArrayRangeMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
+            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(toArrayRangeMethod));
+            return;
+        }
+
+        EmitExpression(comprehension.Source);
+
+        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
+        var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<IMethodSymbol>().First();
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
+
+        var enumeratorType = getEnumerator.ReturnType;
+        var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
+        ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+
+        var loopStart = ILGenerator.DefineLabel();
+        var loopNext = ILGenerator.DefineLabel();
+        var loopEnd = ILGenerator.DefineLabel();
+
+        ILGenerator.MarkLabel(loopStart);
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<IMethodSymbol>().First();
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
+        ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
+
+        var currentGetter = enumeratorType
+            .GetMembers(nameof(IEnumerator.Current))
+            .OfType<IPropertySymbol>()
+            .First()
+            .GetMethod!;
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(currentGetter));
+
+        var iterationClrType = ResolveClrType(comprehension.IterationLocal.Type);
+        if (comprehension.IterationLocal.Type.IsValueType)
+            ILGenerator.Emit(OpCodes.Unbox_Any, iterationClrType);
+        else
+            ILGenerator.Emit(OpCodes.Castclass, iterationClrType);
+
+        ILGenerator.Emit(OpCodes.Stloc, iterationLocalBuilder);
+
+        if (comprehension.Condition is not null)
+        {
+            new ExpressionGenerator(scope, comprehension.Condition, EmitContext.None).Emit2();
+            ILGenerator.Emit(OpCodes.Brfalse, loopNext);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+        new ExpressionGenerator(scope, comprehension.Selector, EmitContext.None).Emit2();
+
+        if (comprehension.Selector.Type is { IsValueType: true } && !elementType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(comprehension.Selector.Type));
+
+        ILGenerator.Emit(OpCodes.Callvirt, addMethodInfo);
+
+        ILGenerator.MarkLabel(loopNext);
+        ILGenerator.Emit(OpCodes.Br, loopStart);
+        ILGenerator.MarkLabel(loopEnd);
+
+        ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+        var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(toArrayMethod));
+    }
+
+    private void EmitCollectionComprehensionRangeLoop(
+        BoundCollectionComprehensionExpression comprehension,
+        BoundRangeExpression rangeSource,
+        Scope scope,
+        IILocal listLocal,
+        MethodInfo addMethodInfo,
+        IILocal iterationLocalBuilder)
+    {
+        var elementType = comprehension.IterationLocal.Type.UnwrapLiteralType() ?? comprehension.IterationLocal.Type;
+        var elementClrType = ResolveClrType(elementType);
+
+        var startExpr = rangeSource.Left?.Value ?? throw new InvalidOperationException("Range comprehension requires a start value.");
+        var endExpr = rangeSource.Right?.Value ?? throw new InvalidOperationException("Range comprehension requires an end value.");
+
+        var startLocal = ILGenerator.DeclareLocal(elementClrType);
+        new ExpressionGenerator(scope, startExpr, EmitContext.None).Emit2();
+        ILGenerator.Emit(OpCodes.Stloc, startLocal);
+
+        var endLocal = ILGenerator.DeclareLocal(elementClrType);
+        new ExpressionGenerator(scope, endExpr, EmitContext.None).Emit2();
+        ILGenerator.Emit(OpCodes.Stloc, endLocal);
+
+        var stepLocal = ILGenerator.DeclareLocal(elementClrType);
+        EmitNumericOne(elementType);
+        ILGenerator.Emit(OpCodes.Stloc, stepLocal);
+
+        var loopStart = ILGenerator.DefineLabel();
+        var loopNext = ILGenerator.DefineLabel();
+        var loopEnd = ILGenerator.DefineLabel();
+        var positiveStepLabel = ILGenerator.DefineLabel();
+        var negativeStepLabel = ILGenerator.DefineLabel();
+        var bodyLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.MarkLabel(loopStart);
+        EmitBranchIfGreaterThanZero(elementType, stepLocal, positiveStepLabel);
+        EmitBranchIfLessThanZero(elementType, stepLocal, negativeStepLabel);
+        ILGenerator.Emit(OpCodes.Br, loopEnd);
+
+        ILGenerator.MarkLabel(positiveStepLabel);
+        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: true);
+        ILGenerator.Emit(OpCodes.Br, bodyLabel);
+
+        ILGenerator.MarkLabel(negativeStepLabel);
+        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: false);
+
+        ILGenerator.MarkLabel(bodyLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, startLocal);
+        ILGenerator.Emit(OpCodes.Stloc, iterationLocalBuilder);
+
+        if (comprehension.Condition is not null)
+        {
+            new ExpressionGenerator(scope, comprehension.Condition, EmitContext.None).Emit2();
+            ILGenerator.Emit(OpCodes.Brfalse, loopNext);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+        new ExpressionGenerator(scope, comprehension.Selector, EmitContext.None).Emit2();
+
+        if (comprehension.Selector.Type is { IsValueType: true } && !comprehension.ElementType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(comprehension.Selector.Type));
+
+        ILGenerator.Emit(OpCodes.Callvirt, addMethodInfo);
+
+        ILGenerator.MarkLabel(loopNext);
+        EmitRangeLoopIncrement(elementType, startLocal, stepLocal);
+        ILGenerator.Emit(OpCodes.Br, loopStart);
+        ILGenerator.MarkLabel(loopEnd);
+    }
+
+    private void EmitRangeLoopBreakCondition(ITypeSymbol elementType, IILocal currentLocal, IILocal endLocal, ILLabel endLabel, bool positiveStep)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+
+        if (specialType == SpecialType.System_Decimal)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, endLocal);
+
+            var compareMethod = typeof(decimal).GetMethod(
+                nameof(decimal.Compare),
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                [typeof(decimal), typeof(decimal)],
+                modifiers: null)
+                ?? throw new InvalidOperationException("Failed to resolve decimal.Compare(decimal, decimal).");
+
+            ILGenerator.Emit(OpCodes.Call, compareMethod);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(positiveStep ? OpCodes.Bgt : OpCodes.Blt, endLabel);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, endLocal);
+        if (positiveStep)
+        {
+            ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Bgt_Un : OpCodes.Bgt, endLabel);
+        }
+        else
+        {
+            ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Blt_Un : OpCodes.Blt, endLabel);
+        }
+    }
+
+    private void EmitBranchIfGreaterThanZero(ITypeSymbol elementType, IILocal valueLocal, ILLabel target)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+
+        if (specialType == SpecialType.System_Decimal)
+        {
+            EmitDecimalCompareWithZero(valueLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Bgt, target);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+        EmitNumericZero(elementType);
+        ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Bgt_Un : OpCodes.Bgt, target);
+    }
+
+    private void EmitBranchIfLessThanZero(ITypeSymbol elementType, IILocal valueLocal, ILLabel target)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+
+        if (specialType == SpecialType.System_Decimal)
+        {
+            EmitDecimalCompareWithZero(valueLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Blt, target);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+        EmitNumericZero(elementType);
+        ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Blt_Un : OpCodes.Blt, target);
+    }
+
+    private void EmitDecimalCompareWithZero(IILocal valueLocal)
+    {
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+
+        var zeroField = typeof(decimal).GetField(nameof(decimal.Zero), BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Failed to resolve decimal.Zero.");
+        ILGenerator.Emit(OpCodes.Ldsfld, zeroField);
+
+        var compareMethod = typeof(decimal).GetMethod(
+            nameof(decimal.Compare),
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            [typeof(decimal), typeof(decimal)],
+            modifiers: null)
+            ?? throw new InvalidOperationException("Failed to resolve decimal.Compare(decimal, decimal).");
+
+        ILGenerator.Emit(OpCodes.Call, compareMethod);
+    }
+
+    private void EmitRangeLoopIncrement(ITypeSymbol elementType, IILocal currentLocal, IILocal stepLocal)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+
+        if (specialType == SpecialType.System_Decimal)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
+
+            var addMethod = typeof(decimal).GetMethod(
+                nameof(decimal.Add),
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                [typeof(decimal), typeof(decimal)],
+                modifiers: null)
+                ?? throw new InvalidOperationException("Failed to resolve decimal.Add(decimal, decimal).");
+
+            ILGenerator.Emit(OpCodes.Call, addMethod);
+            ILGenerator.Emit(OpCodes.Stloc, currentLocal);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
+        ILGenerator.Emit(OpCodes.Add);
+
+        switch (specialType)
+        {
+            case SpecialType.System_Byte:
+                ILGenerator.Emit(OpCodes.Conv_U1);
+                break;
+            case SpecialType.System_SByte:
+                ILGenerator.Emit(OpCodes.Conv_I1);
+                break;
+            case SpecialType.System_Int16:
+                ILGenerator.Emit(OpCodes.Conv_I2);
+                break;
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Conv_U2);
+                break;
+            case SpecialType.System_UInt32:
+                ILGenerator.Emit(OpCodes.Conv_U4);
+                break;
+            case SpecialType.System_Int64:
+                ILGenerator.Emit(OpCodes.Conv_I8);
+                break;
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Conv_U8);
+                break;
+        }
+
+        ILGenerator.Emit(OpCodes.Stloc, currentLocal);
+    }
+
+    private void EmitNumericZero(ITypeSymbol elementType)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+        switch (specialType)
+        {
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Ldc_I8, 0L);
+                break;
+            case SpecialType.System_Single:
+                ILGenerator.Emit(OpCodes.Ldc_R4, 0f);
+                break;
+            case SpecialType.System_Double:
+                ILGenerator.Emit(OpCodes.Ldc_R8, 0d);
+                break;
+            case SpecialType.System_Decimal:
+                var zeroField = typeof(decimal).GetField(nameof(decimal.Zero), BindingFlags.Public | BindingFlags.Static)
+                    ?? throw new InvalidOperationException("Failed to resolve decimal.Zero.");
+                ILGenerator.Emit(OpCodes.Ldsfld, zeroField);
+                break;
+            default:
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                break;
+        }
+    }
+
+    private void EmitNumericOne(ITypeSymbol elementType)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+        switch (specialType)
+        {
+            case SpecialType.System_Int64:
+                ILGenerator.Emit(OpCodes.Ldc_I8, 1L);
+                break;
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Ldc_I8, 1L);
+                ILGenerator.Emit(OpCodes.Conv_U8);
+                break;
+            case SpecialType.System_Single:
+                ILGenerator.Emit(OpCodes.Ldc_R4, 1f);
+                break;
+            case SpecialType.System_Double:
+                ILGenerator.Emit(OpCodes.Ldc_R8, 1d);
+                break;
+            case SpecialType.System_Decimal:
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                var decimalCtor = typeof(decimal).GetConstructor([typeof(int)])
+                    ?? throw new InvalidOperationException("Failed to resolve decimal(int) constructor.");
+                ILGenerator.Emit(OpCodes.Newobj, decimalCtor);
+                break;
+            default:
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                break;
+        }
+    }
+
+    private static bool IsUnsignedIntegralType(SpecialType specialType)
+    {
+        return specialType is
+            SpecialType.System_Byte or
+            SpecialType.System_UInt16 or
+            SpecialType.System_Char or
+            SpecialType.System_UInt32 or
+            SpecialType.System_UInt64;
     }
 
     private void EmitEmptyCollectionExpression(BoundEmptyCollectionExpression emptyCollectionExpression)

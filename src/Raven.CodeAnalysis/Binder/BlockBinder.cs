@@ -9205,6 +9205,10 @@ partial class BlockBinder : Binder
                     boundElement = new BoundSpreadElement(spreadExpr);
                     elementNode = spreadElem.Expression;
                     break;
+                case CollectionComprehensionElementSyntax comprehensionElem:
+                    boundElement = BindCollectionComprehensionElement(comprehensionElem);
+                    elementNode = comprehensionElem.Source;
+                    break;
                 default:
                     continue;
             }
@@ -9413,6 +9417,173 @@ partial class BlockBinder : Binder
         }
 
         return new BoundCollectionExpression(fallbackArray, convertedFallback.ToImmutable());
+    }
+
+    private BoundExpression BindCollectionComprehensionElement(CollectionComprehensionElementSyntax syntax)
+    {
+        BoundExpression source;
+        ITypeSymbol iterationType;
+
+        if (syntax.Source is RangeExpressionSyntax rangeSource &&
+            TryBindCollectionComprehensionRangeSource(rangeSource, out var loweredRangeSource, out var rangeIterationType))
+        {
+            source = loweredRangeSource;
+            iterationType = rangeIterationType;
+            CacheBoundNode(syntax.Source, source);
+        }
+        else
+        {
+            source = BindExpression(syntax.Source);
+            if (HasExpressionErrors(source))
+                return AsErrorExpression(source);
+
+            var sourceType = source.Type ?? Compilation.ErrorTypeSymbol;
+            if (!IsSpreadEnumerable(sourceType))
+            {
+                _diagnostics.ReportSpreadSourceMustBeEnumerable(
+                    sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.Source.GetLocation());
+            }
+
+            iterationType = GetSpreadElementType(sourceType);
+        }
+
+        var iterationName = string.IsNullOrWhiteSpace(syntax.Identifier.ValueText)
+            ? "__item"
+            : syntax.Identifier.ValueText;
+        var iterationLocal = CreateTempLocal(iterationName, iterationType, syntax);
+
+        var priorDepth = _scopeDepth;
+        _scopeDepth = priorDepth + 1;
+
+        var hadExisting = _locals.TryGetValue(iterationName, out var existingLocal);
+        _locals[iterationName] = (iterationLocal, _scopeDepth);
+
+        BoundExpression? condition = null;
+        BoundExpression selector;
+
+        try
+        {
+            if (syntax.Condition is not null)
+            {
+                condition = BindExpression(syntax.Condition);
+                var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+                if (condition.Type is not null &&
+                    condition.Type.TypeKind != TypeKind.Error &&
+                    !SymbolEqualityComparer.Default.Equals(condition.Type, boolType))
+                {
+                    if (!IsAssignable(boolType, condition.Type, out var conversion))
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            condition.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            boolType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.Condition.GetLocation());
+                    }
+                    else
+                    {
+                        condition = ApplyConversion(condition, boolType, conversion, syntax.Condition);
+                    }
+                }
+            }
+
+            selector = BindExpression(syntax.Selector);
+        }
+        finally
+        {
+            if (hadExisting)
+                _locals[iterationName] = existingLocal;
+            else
+                _locals.Remove(iterationName);
+
+            _scopeDepth = priorDepth;
+        }
+
+        var selectorType = selector.Type ?? Compilation.ErrorTypeSymbol;
+        var resultArrayType = Compilation.CreateArrayTypeSymbol(selectorType);
+        var comprehension = new BoundCollectionComprehensionExpression(
+            resultArrayType,
+            source,
+            iterationLocal,
+            condition,
+            selector,
+            selectorType);
+
+        return new BoundSpreadElement(comprehension);
+    }
+
+    private bool TryBindCollectionComprehensionRangeSource(
+        RangeExpressionSyntax rangeSyntax,
+        out BoundExpression loweredSource,
+        out ITypeSymbol iterationType)
+    {
+        loweredSource = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        iterationType = Compilation.ErrorTypeSymbol;
+
+        var rangeInfo = BindCollectionComprehensionRangeInfo(rangeSyntax);
+        if (!rangeInfo.IsValid)
+            return false;
+
+        var rangeExpression = new BoundRangeExpression(
+            new BoundIndexExpression(rangeInfo.Start!, isFromEnd: false, GetIndexType()),
+            new BoundIndexExpression(rangeInfo.End!, isFromEnd: false, GetIndexType()),
+            GetRangeType());
+
+        loweredSource = rangeExpression;
+        iterationType = rangeInfo.ElementType!;
+        return true;
+    }
+
+    private ComprehensionRangeInfo BindCollectionComprehensionRangeInfo(RangeExpressionSyntax rangeSyntax)
+    {
+        var start = BindForRangeBoundary(rangeSyntax.LeftExpression);
+        if (start is BoundErrorExpression)
+            return ComprehensionRangeInfo.Invalid;
+
+        var end = BindForRangeBoundary(rangeSyntax.RightExpression);
+        if (end is BoundErrorExpression)
+            return ComprehensionRangeInfo.Invalid;
+
+        if (end is null)
+        {
+            _diagnostics.ReportRangeForLoopRequiresEnd(rangeSyntax.GetLocation());
+            return ComprehensionRangeInfo.Invalid;
+        }
+
+        var endType = TypeSymbolNormalization.NormalizeForInference(end.Type ?? Compilation.ErrorTypeSymbol);
+        var startType = TypeSymbolNormalization.NormalizeForInference(start?.Type ?? endType);
+
+        if (!TryInferBestCommonType(startType, endType, out var elementType))
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                startType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                endType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                rangeSyntax.GetLocation());
+            return ComprehensionRangeInfo.Invalid;
+        }
+
+        elementType = elementType.UnwrapLiteralType() ?? elementType;
+        if (!IsSupportedForRangeLoopType(elementType))
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                elementType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                Compilation.GetSpecialType(SpecialType.System_Int32).ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                rangeSyntax.GetLocation());
+            return ComprehensionRangeInfo.Invalid;
+        }
+
+        var startValue = start ?? CreateZeroForRangeLoop(elementType);
+        if (!TryConvertForRangeBoundary(startValue, elementType, rangeSyntax.LeftExpression ?? rangeSyntax, out var convertedStart))
+            return ComprehensionRangeInfo.Invalid;
+
+        if (!TryConvertForRangeBoundary(end, elementType, rangeSyntax.RightExpression!, out var convertedEnd))
+            return ComprehensionRangeInfo.Invalid;
+
+        return new ComprehensionRangeInfo(true, convertedStart, convertedEnd, elementType);
+    }
+
+    private readonly record struct ComprehensionRangeInfo(bool IsValid, BoundExpression? Start, BoundExpression? End, ITypeSymbol? ElementType)
+    {
+        public static ComprehensionRangeInfo Invalid => new(false, null, null, null);
     }
 
     private ITypeSymbol InferCollectionElementType(IEnumerable<BoundExpression> elements)

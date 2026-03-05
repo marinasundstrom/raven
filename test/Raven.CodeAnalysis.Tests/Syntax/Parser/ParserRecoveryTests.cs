@@ -170,6 +170,26 @@ public class ParserRecoveryTests
     }
 
     [Fact]
+    public void CompilationUnit_CollectionComprehensionBeforeDeclaration_RemainsGlobalStatement()
+    {
+        var source = """
+            [for n in numbers if n > 1 => n]
+            class Foo {}
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        Assert.Equal(2, root.Members.Count);
+        var global = Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
+        var expressionStatement = Assert.IsType<ExpressionStatementSyntax>(global.Statement);
+        var collection = Assert.IsType<CollectionExpressionSyntax>(expressionStatement.Expression);
+        Assert.IsType<CollectionComprehensionElementSyntax>(Assert.Single(collection.Elements));
+        Assert.IsType<ClassDeclarationSyntax>(root.Members[1]);
+        Assert.DoesNotContain(root.Members, member => member is IncompleteMemberDeclarationSyntax);
+    }
+
+    [Fact]
     public void FileScopedNamespace_GlobalStatementBeforeDeclaration_RemainsGlobalStatement()
     {
         var source = """
