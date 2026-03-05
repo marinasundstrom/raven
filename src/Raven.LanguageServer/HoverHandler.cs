@@ -375,6 +375,15 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static string? BuildContainingDisplay(ISymbol symbol, SemanticModel semanticModel)
     {
+        if (symbol is IParameterSymbol parameterSymbol &&
+            IsPromotedPrimaryConstructorParameter(parameterSymbol) &&
+            parameterSymbol.ContainingSymbol is IMethodSymbol constructor &&
+            constructor.ContainingType is { } containingType)
+        {
+            return containingType.ToDisplayString(
+                SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
+        }
+
         if (symbol is IMethodSymbol method &&
             TryGetEnclosingCallableDisplayForLocalFunction(method, semanticModel, out var localContaining))
         {
@@ -396,6 +405,12 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static string BuildKindDisplay(ISymbol symbol)
     {
+        if (symbol is IParameterSymbol parameterSymbol &&
+            IsPromotedPrimaryConstructorParameter(parameterSymbol))
+        {
+            return "Property";
+        }
+
         if (symbol is IMethodSymbol method && IsFunctionStatementSymbol(method))
             return "Function";
 
@@ -406,6 +421,29 @@ internal sealed class HoverHandler : IHoverHandler
             return "Constructor";
 
         return symbol.Kind.ToString();
+    }
+
+    private static bool IsPromotedPrimaryConstructorParameter(IParameterSymbol parameter)
+    {
+        foreach (var syntaxReference in parameter.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not ParameterSyntax parameterSyntax)
+                continue;
+
+            if (parameterSyntax.Parent is not ParameterListSyntax { Parent: TypeDeclarationSyntax typeDeclaration })
+                continue;
+
+            var refKeywordKind = parameterSyntax.RefKindKeyword?.Kind ?? SyntaxKind.None;
+            var typeIsByRef = parameterSyntax.TypeAnnotation?.Type is ByRefTypeSyntax;
+            if (refKeywordKind is not SyntaxKind.None || typeIsByRef)
+                return false;
+
+            var bindingKeyword = parameterSyntax.BindingKeyword?.Kind ?? SyntaxKind.None;
+            var isRecord = typeDeclaration is RecordDeclarationSyntax;
+            return isRecord || bindingKeyword is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+        }
+
+        return false;
     }
 
     private static bool TryGetEnclosingCallableDisplayForLocalFunction(
