@@ -120,9 +120,12 @@ internal static class ReferenceSearchService
                 if (text is null)
                     continue;
 
-                var key = BuildKey(path, syntaxReference.Span);
+                var declarationSyntax = syntaxReference.GetSyntax(cancellationToken);
+                var declarationSpan = GetReferenceSpan(declarationSyntax);
+
+                var key = BuildKey(path, declarationSpan);
                 if (seen.Add(key))
-                    results.Add(new ReferenceResult(path, text, syntaxReference.Span));
+                    results.Add(new ReferenceResult(path, text, declarationSpan));
             }
         }
 
@@ -223,6 +226,16 @@ internal static class ReferenceSearchService
             IdentifierNameSyntax identifier => identifier.Identifier.Span,
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Span,
             MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Span,
+            ParameterSyntax parameter => parameter.Identifier.Span,
+            MethodDeclarationSyntax method => method.Identifier.Span,
+            FunctionStatementSyntax function => function.Identifier.Span,
+            PropertyDeclarationSyntax property => property.Identifier.Span,
+            EventDeclarationSyntax @event => @event.Identifier.Span,
+            ConstructorDeclarationSyntax constructor => constructor.InitKeyword.Span,
+            ParameterlessConstructorDeclarationSyntax init => init.InitKeyword.Span,
+            DelegateDeclarationSyntax @delegate => @delegate.Identifier.Span,
+            VariableDeclaratorSyntax declarator => declarator.Identifier.Span,
+            TypeDeclarationSyntax typeDeclaration => typeDeclaration.Identifier.Span,
             _ => node.Span
         };
 

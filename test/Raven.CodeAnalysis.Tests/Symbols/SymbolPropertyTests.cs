@@ -52,4 +52,30 @@ class Widget {
         Assert.False(parameterSymbol.IsImplicitlyDeclared);
         Assert.False(localSymbol.IsImplicitlyDeclared);
     }
+
+    [Fact]
+    public void ConstructorAndPrimaryConstructorParameterSymbols_UseIdentifierLocation()
+    {
+        const string source = """
+class Foo(name: string) {
+    init(value: int) {
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var typeDecl = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var primaryParameter = typeDecl.ParameterList!.Parameters.Single();
+        var primarySymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(primaryParameter));
+
+        var ctorDecl = root.DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
+        var ctorParameter = ctorDecl.ParameterList.Parameters.Single();
+        var ctorSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(ctorParameter));
+
+        Assert.Equal(primaryParameter.Identifier.Span, primarySymbol.Locations[0].SourceSpan);
+        Assert.Equal(ctorParameter.Identifier.Span, ctorSymbol.Locations[0].SourceSpan);
+    }
 }

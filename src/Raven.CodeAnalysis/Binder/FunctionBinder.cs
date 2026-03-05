@@ -152,7 +152,7 @@ class FunctionBinder : Binder
                 _methodSymbol,
                 container.ContainingType,
                 container.ContainingNamespace,
-                [p.GetLocation()],
+                [p.Identifier.GetLocation()],
                 [p.GetReference()],
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
