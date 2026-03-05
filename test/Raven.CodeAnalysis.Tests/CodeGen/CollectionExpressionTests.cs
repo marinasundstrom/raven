@@ -203,6 +203,82 @@ class Foo {
     }
 
     [Fact]
+    public void ArrayCollectionExpressions_SingleArraySpread_ReusesSourceArray()
+    {
+        var code = """
+class Foo {
+    static func GetCount() -> int {
+        val source: int[] = [1, 2, 3]
+        val values: int[] = [..source]
+        return values.Length
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.DoesNotContain(calledMembers, static member => member == "System.Array::Copy");
+        Assert.DoesNotContain(
+            calledMembers,
+            static member => member.Contains("System.Collections.Generic.List`1::Add", StringComparison.Ordinal));
+        Assert.Equal(3, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void EnumerableCollectionExpressions_SingleArraySpread_ReusesSourceArray()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+class Foo {
+    static func GetCount() -> int {
+        val source: int[] = [1, 2, 3]
+        val values: IEnumerable<int> = [..source]
+        return values.Count()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.DoesNotContain(calledMembers, static member => member == "System.Array::Copy");
+        Assert.DoesNotContain(
+            calledMembers,
+            static member => member.Contains("System.Collections.Generic.List`1::Add", StringComparison.Ordinal));
+        Assert.Equal(3, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
     public void ArrayCollectionExpressions_NonArraySpread_UsesListFallback()
     {
         var code = """

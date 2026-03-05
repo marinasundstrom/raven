@@ -2500,6 +2500,15 @@ internal partial class ExpressionGenerator : Generator
         ITypeSymbol targetElementType,
         BoundCollectionExpression collectionExpression)
     {
+        if (collectionExpression.Elements.Count() == 1 &&
+            collectionExpression.Elements.First() is BoundSpreadElement singleSpread &&
+            singleSpread.Expression.Type is IArrayTypeSymbol { Rank: 1 } singleSourceArrayType &&
+            SymbolEqualityComparer.Default.Equals(singleSourceArrayType.ElementType, targetElementType))
+        {
+            EmitExpression(singleSpread.Expression);
+            return true;
+        }
+
         var spreads = new List<(BoundSpreadElement Spread, IArrayTypeSymbol SourceType)>();
         foreach (var element in collectionExpression.Elements)
         {
