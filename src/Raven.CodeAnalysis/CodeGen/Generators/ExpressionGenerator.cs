@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Text;
 
 using Raven.CodeAnalysis;
@@ -19,6 +20,7 @@ namespace Raven.CodeAnalysis.CodeGen;
 internal partial class ExpressionGenerator : Generator
 {
     private static readonly DelegateConstructorCacheKeyComparer s_delegateConstructorComparer = new();
+    private static int s_delegateBridgeOrdinal;
 
     private readonly BoundExpression _expression;
     private bool _preserveResult;
@@ -835,6 +837,13 @@ internal partial class ExpressionGenerator : Generator
         var ctor = GetDelegateConstructor(delegateType, delegateClrType);
 
         var methodInfo = GetMethodInfo(method);
+        if (TryEmitDelegateBridge(receiver, method, methodInfo, delegateType) is { } bridgeMethod)
+        {
+            ILGenerator.Emit(OpCodes.Ldnull);
+            ILGenerator.Emit(OpCodes.Ldftn, bridgeMethod);
+            ILGenerator.Emit(OpCodes.Newobj, ctor);
+            return;
+        }
 
         if (method.IsStatic)
         {
@@ -863,6 +872,160 @@ internal partial class ExpressionGenerator : Generator
         }
 
         ILGenerator.Emit(OpCodes.Newobj, ctor);
+    }
+
+    private MethodInfo? TryEmitDelegateBridge(
+        BoundExpression? receiver,
+        IMethodSymbol method,
+        MethodInfo methodInfo,
+        INamedTypeSymbol delegateType)
+    {
+        if (!method.IsStatic || receiver is not null)
+            return null;
+
+        var invoke = delegateType.GetDelegateInvokeMethod();
+        if (invoke is null)
+            return null;
+
+        if (invoke.Parameters.Length != method.Parameters.Length)
+            return null;
+
+        if (!RequiresDelegateBridge(method, invoke))
+            return null;
+
+        if (MethodGenerator.TypeGenerator.TypeBuilder is not TypeBuilder bridgeOwner)
+            return null;
+
+        var parameterTypes = invoke.Parameters
+            .Select(p => ResolveClrType(p.Type))
+            .ToArray();
+        var returnType = invoke.ReturnType.SpecialType == SpecialType.System_Unit
+            ? ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Void))
+            : ResolveClrType(invoke.ReturnType);
+
+        var name = $"<>__methodGroupBridge{Interlocked.Increment(ref s_delegateBridgeOrdinal)}";
+        var bridgeBuilder = bridgeOwner.DefineMethod(
+            name,
+            MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig,
+            CallingConventions.Standard,
+            returnType,
+            parameterTypes);
+        var compilerGeneratedAttr = MethodGenerator.TypeGenerator.CodeGen.CreateCompilerGeneratedAttributeBuilder();
+        if (compilerGeneratedAttr is not null)
+            bridgeBuilder.SetCustomAttribute(compilerGeneratedAttr);
+
+        var il = bridgeBuilder.GetILGenerator();
+
+        for (var i = 0; i < invoke.Parameters.Length; i++)
+        {
+            var sourceType = invoke.Parameters[i].Type;
+            var targetType = method.Parameters[i].Type;
+
+            il.Emit(OpCodes.Ldarg, i);
+            EmitBridgeConversion(il, sourceType, targetType);
+        }
+
+        il.Emit(OpCodes.Call, methodInfo);
+        EmitBridgeReturnConversion(il, method.ReturnType, invoke.ReturnType);
+        il.Emit(OpCodes.Ret);
+
+        return bridgeBuilder;
+    }
+
+    private bool RequiresDelegateBridge(IMethodSymbol method, IMethodSymbol invoke)
+    {
+        if (method.Parameters.Length != invoke.Parameters.Length)
+            return false;
+
+        for (var i = 0; i < method.Parameters.Length; i++)
+        {
+            var methodParameter = method.Parameters[i];
+            var delegateParameter = invoke.Parameters[i];
+
+            if (methodParameter.RefKind != delegateParameter.RefKind)
+                return false;
+
+            if (SymbolEqualityComparer.Default.Equals(delegateParameter.Type, methodParameter.Type))
+                continue;
+
+            var conversion = Compilation.ClassifyConversion(delegateParameter.Type, methodParameter.Type);
+            if (!conversion.Exists || !conversion.IsImplicit || conversion.IsNumeric || conversion.IsUserDefined)
+                return false;
+
+            return true;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(method.ReturnType, invoke.ReturnType))
+            return false;
+
+        if (invoke.ReturnType.SpecialType == SpecialType.System_Void &&
+            method.ReturnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+            return method.ReturnType.SpecialType == SpecialType.System_Unit;
+
+        var returnConversion = Compilation.ClassifyConversion(method.ReturnType, invoke.ReturnType);
+        if (!returnConversion.Exists || !returnConversion.IsImplicit || returnConversion.IsNumeric || returnConversion.IsUserDefined)
+            return false;
+
+        return true;
+    }
+
+    private void EmitBridgeConversion(ILGenerator il, ITypeSymbol sourceType, ITypeSymbol targetType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
+            return;
+
+        var conversion = Compilation.ClassifyConversion(sourceType, targetType);
+        if (!conversion.Exists || !conversion.IsImplicit)
+            throw new InvalidOperationException($"Cannot bridge delegate parameter conversion from '{sourceType}' to '{targetType}'.");
+
+        var sourceClr = ResolveClrType(sourceType);
+        var targetClr = ResolveClrType(targetType);
+
+        if (conversion.IsBoxing || (sourceType.IsValueType && !targetType.IsValueType))
+        {
+            il.Emit(OpCodes.Box, sourceClr);
+            if (!SymbolEqualityComparer.Default.Equals(sourceType, targetType))
+                il.Emit(OpCodes.Castclass, targetClr);
+            return;
+        }
+
+        if (conversion.IsReference)
+        {
+            il.Emit(OpCodes.Castclass, targetClr);
+            return;
+        }
+    }
+
+    private void EmitBridgeReturnConversion(ILGenerator il, ITypeSymbol methodReturnType, ITypeSymbol delegateReturnType)
+    {
+        if (delegateReturnType.SpecialType == SpecialType.System_Void)
+        {
+            if (methodReturnType.SpecialType == SpecialType.System_Unit)
+                il.Emit(OpCodes.Pop);
+
+            return;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(methodReturnType, delegateReturnType))
+            return;
+
+        var conversion = Compilation.ClassifyConversion(methodReturnType, delegateReturnType);
+        if (!conversion.Exists || !conversion.IsImplicit)
+            throw new InvalidOperationException($"Cannot bridge delegate return conversion from '{methodReturnType}' to '{delegateReturnType}'.");
+
+        var methodReturnClr = ResolveClrType(methodReturnType);
+        var delegateReturnClr = ResolveClrType(delegateReturnType);
+
+        if (conversion.IsBoxing || (methodReturnType.IsValueType && !delegateReturnType.IsValueType))
+        {
+            il.Emit(OpCodes.Box, methodReturnClr);
+            if (!SymbolEqualityComparer.Default.Equals(methodReturnType, delegateReturnType))
+                il.Emit(OpCodes.Castclass, delegateReturnClr);
+            return;
+        }
+
+        if (conversion.IsReference)
+            il.Emit(OpCodes.Castclass, delegateReturnClr);
     }
 
     private void EmitCapturedLambda(

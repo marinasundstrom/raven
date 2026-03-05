@@ -159,4 +159,53 @@ class Calculator {
         var value = (int)run.Invoke(null, Array.Empty<object>())!;
         Assert.Equal(42, value);
     }
+
+    [Fact]
+    public void MethodGroup_ToObjectParameter_ForValueTypeDelegateArgument_UsesBridge()
+    {
+        const string code = """
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+class Program {
+    static var count: int = 0
+
+    static func Capture(value: object) -> unit {
+        count = count + 1
+    }
+
+    static func ForEach<T>(source: IEnumerable<T>, callback: T -> unit) -> unit {
+        for item in source {
+            callback(item)
+        }
+    }
+
+    static func Run() -> int {
+        val o = ["1", "2", "3"].ToDictionary(x => x, y => int.Parse(y))
+        ForEach(o, Capture)
+        count
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Program", throwOnError: true)!;
+        var run = type.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+
+        var value = (int)run.Invoke(null, Array.Empty<object>())!;
+        Assert.Equal(3, value);
+    }
 }
