@@ -1593,6 +1593,19 @@ internal class TypeGenerator
 
         if (owner is ILambdaSymbol ownerLambda && ownerLambda is SourceLambdaSymbol ownerSourceLambda)
         {
+            if (SymbolEqualityComparer.Default.Equals(ownerSourceLambda, lambdaSymbol))
+            {
+                if (_lambdaClosures.TryGetValue(lambdaSymbol, out var selfExisting))
+                {
+                    selfExisting.EnsureFields(captures);
+                    return selfExisting;
+                }
+
+                var selfClosure = CreateClosure(lambdaSymbol, captures);
+                _lambdaClosures[lambdaSymbol] = selfClosure;
+                return selfClosure;
+            }
+
             // Nested lambdas capturing locals declared in an outer lambda: one closure per outer-lambda scope.
             var lambdaClosure = EnsureLambdaClosure(ownerSourceLambda);
             lambdaClosure.EnsureFields(captures);
