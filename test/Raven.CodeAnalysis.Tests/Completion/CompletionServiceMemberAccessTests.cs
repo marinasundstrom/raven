@@ -552,4 +552,104 @@ func Test<T>(items: T[]) {
         Assert.Contains(items, i => i.DisplayText == "Where");
         Assert.Contains(items, i => i.DisplayText == "Select");
     }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnUnitValue_IncludesInheritedObjectMembers()
+    {
+        var code = """
+func MakeUnit() -> unit {
+    ()
+}
+
+val value = MakeUnit()
+value.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "ToString");
+        Assert.Contains(items, i => i.DisplayText == "GetType");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnUnitLiteral_IncludesInheritedObjectMembers()
+    {
+        var code = """
+func Main() -> unit {
+    ().
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "ToString");
+        Assert.Contains(items, i => i.DisplayText == "GetType");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnDiscriminatedUnionCaseValue_IncludesInheritedObjectMembers()
+    {
+        var code = """
+union Result {
+    Ok
+    Err(message: string)
+}
+
+val value = Result.Ok
+value.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "ToString");
+        Assert.Contains(items, i => i.DisplayText == "GetType");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnDiscriminatedUnionCaseInvocation_IncludesInheritedObjectMembers()
+    {
+        var code = """
+union Option<T> {
+    None
+    Some(value: T)
+}
+
+val x = Option<int>.Some(value: 2)
+x.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "ToString");
+        Assert.Contains(items, i => i.DisplayText == "GetType");
+    }
+
 }

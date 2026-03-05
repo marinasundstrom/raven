@@ -104,4 +104,47 @@ public static class TypeSymbolLookupExtensions
             };
         }
     }
+
+    public static IEnumerable<ISymbol> GetMembersRecursive(
+        this ITypeSymbol type,
+        MemberLookupFlags flags = MemberLookupFlags.Default,
+        Func<ISymbol, bool>? predicate = null)
+    {
+        if ((flags & MemberLookupFlags.AnyMember) == 0)
+            flags |= MemberLookupFlags.AnyMember;
+
+        var includeBaseTypes = (flags & MemberLookupFlags.IncludeBaseTypes) != 0;
+        var yielded = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        for (var currentType = type; currentType != null; currentType = includeBaseTypes ? currentType.BaseType : null)
+        {
+            foreach (var member in currentType.GetMembers())
+            {
+                if (!IsAllowedKind(member, flags))
+                    continue;
+
+                if (predicate is not null && !predicate(member))
+                    continue;
+
+                if (yielded.Add(member))
+                    yield return member;
+            }
+
+            if (!includeBaseTypes)
+                yield break;
+        }
+
+        static bool IsAllowedKind(ISymbol member, MemberLookupFlags flags)
+        {
+            return member switch
+            {
+                IMethodSymbol => (flags & MemberLookupFlags.Methods) != 0,
+                IPropertySymbol => (flags & MemberLookupFlags.Properties) != 0,
+                IFieldSymbol => (flags & MemberLookupFlags.Fields) != 0,
+                ITypeSymbol => (flags & MemberLookupFlags.Types) != 0,
+                IEventSymbol => (flags & MemberLookupFlags.Events) != 0,
+                _ => false,
+            };
+        }
+    }
 }

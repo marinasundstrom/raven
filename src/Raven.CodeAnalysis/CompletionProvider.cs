@@ -252,37 +252,18 @@ public static class CompletionProvider
             return !IsWeakExtensionReceiverType(receiverType);
         }
 
-        static IEnumerable<ISymbol> GetTypeMembersIncludingBase(ITypeSymbol type, bool includeStatic)
+        static bool IsTypeAccessSymbol(ISymbol? symbol, ITypeSymbol? type)
         {
-            var yielded = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-            var current = type as INamedTypeSymbol;
+            if (symbol is not INamedTypeSymbol)
+                return false;
 
-            while (current is not null)
-            {
-                foreach (var member in current.GetMembers())
-                {
-                    if (member.IsStatic != includeStatic)
-                        continue;
-
-                    if (yielded.Add(member))
-                        yield return member;
-                }
-
-                current = current.BaseType;
-            }
-
-            if (type is INamedTypeSymbol)
-                yield break;
-
-            foreach (var member in type.GetMembers())
-            {
-                if (member.IsStatic != includeStatic)
-                    continue;
-
-                if (yielded.Add(member))
-                    yield return member;
-            }
+            return type is not null && SymbolEqualityComparer.Default.Equals(symbol, type);
         }
+
+        static IEnumerable<ISymbol> GetTypeMembersIncludingBase(ITypeSymbol type, bool includeStatic) =>
+            type.GetMembersRecursive(
+                TypeSymbolLookupExtensions.MemberLookupFlags.Default,
+                member => member.IsStatic == includeStatic);
 
         static ITypeSymbol UnwrapAliases(ITypeSymbol type)
         {
@@ -1027,8 +1008,9 @@ public static class CompletionProvider
                 {
                     members = ns.GetMembers().Where(IsAccessible);
                 }
-                else if (symbol is INamedTypeSymbol typeSymbol && SymbolEqualityComparer.Default.Equals(symbol, type))
+                else if (IsTypeAccessSymbol(symbol, type))
                 {
+                    var typeSymbol = (INamedTypeSymbol)symbol!;
                     var staticMembers = typeSymbol.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
                     members = typeSymbol is IDiscriminatedUnionSymbol union
                         ? staticMembers.Concat(union.Cases.Where(IsAccessible))
@@ -1165,8 +1147,9 @@ public static class CompletionProvider
                     // Namespace or namespace alias: list its public members
                     members = ns.GetMembers().Where(IsAccessible);
                 }
-                else if (symbol is INamedTypeSymbol typeSymbol && SymbolEqualityComparer.Default.Equals(symbol, type))
+                else if (IsTypeAccessSymbol(symbol, type))
                 {
+                    var typeSymbol = (INamedTypeSymbol)symbol!;
                     // Accessing a type name: show static members
                     var staticMembers = typeSymbol.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
                     members = typeSymbol is IDiscriminatedUnionSymbol union
