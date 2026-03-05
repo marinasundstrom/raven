@@ -274,6 +274,7 @@ partial class BlockBinder : Binder
             {
                 if (initializer is not null &&
                     ConstantValueEvaluator.TryEvaluate(initializer.Value, out var evaluated) &&
+                    (evaluated is not null || (isConst && type.SpecialType == SpecialType.System_String)) &&
                     ConstantValueEvaluator.TryConvert(type, evaluated, out var converted))
                 {
                     constantValue = converted;
@@ -4979,7 +4980,7 @@ partial class BlockBinder : Binder
             if (targetType is not null)
             {
                 var conversion = Compilation.ClassifyConversion(Compilation.NullTypeSymbol, targetType);
-                if (conversion.Exists)
+                if (conversion.Exists && conversion.IsImplicit)
                     convertedType = targetType;
             }
 
