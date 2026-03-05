@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -256,6 +257,27 @@ class Foo : IDisposable {
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsReference);
+    }
+
+    [Fact]
+    public void ClassifyConversion_IsStableUnderConcurrentAccess()
+    {
+        var compilation = CreateCompilation();
+        var source = compilation.GetSpecialType(SpecialType.System_Int32);
+        var destination = compilation.GetSpecialType(SpecialType.System_Int64);
+        var results = new Conversion[256];
+
+        Parallel.For(0, results.Length, i =>
+        {
+            results[i] = compilation.ClassifyConversion(source, destination);
+        });
+
+        Assert.All(results, conversion =>
+        {
+            Assert.True(conversion.Exists);
+            Assert.True(conversion.IsImplicit);
+            Assert.True(conversion.IsNumeric);
+        });
     }
 
     [Fact]

@@ -79,6 +79,35 @@ text.
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_WithPriorDeconstruction_DoesNotThrow()
+    {
+        var code = """
+import System.*;
+
+func GetResult() -> (string, int) {
+    return ("hello", 42)
+}
+
+func Main() -> unit {
+    val result = GetResult()
+    val [first, _] = result
+    result.
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf(".", StringComparison.Ordinal) + 1;
+
+        var exception = Record.Exception(() => service.GetCompletions(compilation, syntaxTree, position).ToList());
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_BeforeAddAssignment_ReturnsInstanceMembers()
     {
         var code = """

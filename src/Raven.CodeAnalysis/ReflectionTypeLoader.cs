@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -9,11 +10,12 @@ namespace Raven.CodeAnalysis;
 
 internal class ReflectionTypeLoader(Compilation compilation)
 {
-    private readonly Dictionary<Type, ITypeSymbol> _cache = new();
-    private readonly Dictionary<string, ITypeSymbol> _metadataCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<Type, ITypeSymbol> _cache = new();
+    private readonly ConcurrentDictionary<string, ITypeSymbol> _metadataCache = new(StringComparer.Ordinal);
     private readonly NullabilityInfoContext _nullabilityContext = new();
-    private readonly Dictionary<MethodBase, PEMethodSymbol> _methodSymbols = new();
-    private readonly Dictionary<(PEMethodSymbol method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
+    private readonly object _nullabilityContextGate = new();
+    private readonly ConcurrentDictionary<MethodBase, PEMethodSymbol> _methodSymbols = new();
+    private readonly ConcurrentDictionary<(PEMethodSymbol method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
 
     public ITypeSymbol? ResolveType(ParameterInfo parameterInfo)
     {
@@ -26,7 +28,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
             if (elementType is null)
                 return null;
 
-            var nullInfo = _nullabilityContext.Create(parameterInfo);
+            System.Reflection.NullabilityInfo nullInfo;
+            lock (_nullabilityContextGate)
+                nullInfo = _nullabilityContext.Create(parameterInfo);
             if (nullInfo.ElementType is not null)
                 elementType = ApplyNullability(elementType, nullInfo.ElementType);
 
@@ -40,7 +44,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (type is ITypeParameterSymbol typeParameterSymbol)
             return type;
 
-        var parameterNullInfo = _nullabilityContext.Create(parameterInfo);
+        System.Reflection.NullabilityInfo parameterNullInfo;
+        lock (_nullabilityContextGate)
+            parameterNullInfo = _nullabilityContext.Create(parameterInfo);
         return ApplyNullability(type!, parameterNullInfo);
     }
 
@@ -51,7 +57,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (type is ITypeParameterSymbol typeParameterSymbol)
             return type;
 
-        var nullInfo = _nullabilityContext.Create(fieldInfo);
+        System.Reflection.NullabilityInfo nullInfo;
+        lock (_nullabilityContextGate)
+            nullInfo = _nullabilityContext.Create(fieldInfo);
         return ApplyNullability(type!, nullInfo);
     }
 
@@ -62,7 +70,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (type is ITypeParameterSymbol typeParameterSymbol)
             return type;
 
-        var nullInfo = _nullabilityContext.Create(propertyInfo);
+        System.Reflection.NullabilityInfo nullInfo;
+        lock (_nullabilityContextGate)
+            nullInfo = _nullabilityContext.Create(propertyInfo);
         return ApplyNullability(type!, nullInfo);
     }
 
@@ -77,7 +87,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (type is ITypeParameterSymbol typeParameterSymbol)
             return type;
 
-        var nullInfo = _nullabilityContext.Create(eventInfo);
+        System.Reflection.NullabilityInfo nullInfo;
+        lock (_nullabilityContextGate)
+            nullInfo = _nullabilityContext.Create(eventInfo);
         return ApplyNullability(type!, nullInfo);
     }
 

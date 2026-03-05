@@ -1,3 +1,6 @@
+using System.Collections.Immutable;
+using System.Threading;
+
 using Microsoft.Extensions.Logging;
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -56,75 +59,39 @@ internal sealed class WorkspaceSymbolsHandler : IWorkspaceSymbolsHandler
 internal static class WorkspaceSymbolSearchService
 {
     private const int MaxResults = 200;
+    private static readonly SemaphoreSlim s_indexBuildGate = new(1, 1);
+    private static SymbolIndexCache? s_cachedIndex;
 
     public static async Task<IReadOnlyList<WorkspaceSymbol>> FindSymbolsAsync(
         IReadOnlyList<Project> projects,
         string query,
         CancellationToken cancellationToken)
     {
+        var entries = await GetOrBuildIndexAsync(projects, cancellationToken).ConfigureAwait(false);
         var results = new List<WorkspaceSymbol>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
         var hasQuery = !string.IsNullOrWhiteSpace(query);
 
-        foreach (var project in projects)
+        foreach (var entry in entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var compilation = project.Solution.Workspace?.GetCompilation(project.Id);
-            if (compilation is null)
+
+            if (hasQuery && !MatchesQuery(entry.Name, entry.ContainerName, query))
                 continue;
 
-            foreach (var document in project.Documents)
+            results.Add(new WorkspaceSymbol
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-                if (syntaxTree is null)
-                    continue;
-
-                var path = syntaxTree.FilePath;
-                if (string.IsNullOrWhiteSpace(path) || path == "file")
-                    continue;
-
-                var semanticModel = compilation.GetSemanticModel(syntaxTree);
-                var root = syntaxTree.GetRoot(cancellationToken);
-                var sourceText = syntaxTree.GetText();
-                if (sourceText is null)
-                    continue;
-
-                foreach (var declaration in root.DescendantNodes().Where(IsDeclarationCandidate))
+                Name = entry.Name,
+                Kind = entry.Kind,
+                ContainerName = entry.ContainerName,
+                Location = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Location
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var symbol = semanticModel.GetDeclaredSymbol(declaration);
-                    if (symbol is null)
-                        continue;
-
-                    var name = GetSymbolName(symbol);
-                    if (string.IsNullOrWhiteSpace(name))
-                        continue;
-
-                    if (hasQuery && !MatchesQuery(name, symbol, query))
-                        continue;
-
-                    var selectionSpan = GetSelectionSpan(declaration);
-                    var key = $"{path}|{selectionSpan.Start}:{selectionSpan.End}|{name}";
-                    if (!seen.Add(key))
-                        continue;
-
-                    results.Add(new WorkspaceSymbol
-                    {
-                        Name = name,
-                        Kind = MapSymbolKind(symbol),
-                        ContainerName = GetContainerName(symbol),
-                        Location = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Location
-                        {
-                            Uri = DocumentUri.FromFileSystemPath(path),
-                            Range = PositionHelper.ToRange(sourceText, selectionSpan)
-                        }
-                    });
-
-                    if (results.Count >= MaxResults)
-                        return results;
+                    Uri = entry.Uri,
+                    Range = entry.Range
                 }
-            }
+            });
+
+            if (results.Count >= MaxResults)
+                return results;
         }
 
         return results;
@@ -145,14 +112,13 @@ internal static class WorkspaceSymbolSearchService
             or FieldDeclarationSyntax
             or EventDeclarationSyntax;
 
-    private static bool MatchesQuery(string name, ISymbol symbol, string query)
+    private static bool MatchesQuery(string name, string? containerName, string query)
     {
         if (name.Contains(query, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        var container = GetContainerName(symbol);
-        return !string.IsNullOrWhiteSpace(container) &&
-               container.Contains(query, StringComparison.OrdinalIgnoreCase);
+        return !string.IsNullOrWhiteSpace(containerName) &&
+               containerName.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GetSymbolName(ISymbol symbol)
@@ -218,4 +184,114 @@ internal static class WorkspaceSymbolSearchService
             _ => declaration.Span
         };
     }
+
+    private static async Task<ImmutableArray<WorkspaceSymbolEntry>> GetOrBuildIndexAsync(
+        IReadOnlyList<Project> projects,
+        CancellationToken cancellationToken)
+    {
+        var fingerprint = ComputeFingerprint(projects);
+        var cached = s_cachedIndex;
+        if (cached is not null && cached.Fingerprint == fingerprint)
+            return cached.Entries;
+
+        await s_indexBuildGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            cached = s_cachedIndex;
+            if (cached is not null && cached.Fingerprint == fingerprint)
+                return cached.Entries;
+
+            var entries = await BuildIndexAsync(projects, cancellationToken).ConfigureAwait(false);
+            s_cachedIndex = new SymbolIndexCache(fingerprint, entries);
+            return entries;
+        }
+        finally
+        {
+            s_indexBuildGate.Release();
+        }
+    }
+
+    private static async Task<ImmutableArray<WorkspaceSymbolEntry>> BuildIndexAsync(
+        IReadOnlyList<Project> projects,
+        CancellationToken cancellationToken)
+    {
+        var entries = ImmutableArray.CreateBuilder<WorkspaceSymbolEntry>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var project in projects.OrderBy(p => p.Id.ToString(), StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var compilation = project.Solution.Workspace?.GetCompilation(project.Id);
+            if (compilation is null)
+                continue;
+
+            foreach (var document in project.Documents.OrderBy(d => d.FilePath, StringComparer.OrdinalIgnoreCase))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+                if (syntaxTree is null)
+                    continue;
+
+                var path = syntaxTree.FilePath;
+                if (string.IsNullOrWhiteSpace(path) || path == "file")
+                    continue;
+
+                var semanticModel = compilation.GetSemanticModel(syntaxTree);
+                var root = syntaxTree.GetRoot(cancellationToken);
+                var sourceText = syntaxTree.GetText();
+                if (sourceText is null)
+                    continue;
+
+                foreach (var declaration in root.DescendantNodes().Where(IsDeclarationCandidate))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var symbol = semanticModel.GetDeclaredSymbol(declaration);
+                    if (symbol is null)
+                        continue;
+
+                    var name = GetSymbolName(symbol);
+                    if (string.IsNullOrWhiteSpace(name))
+                        continue;
+
+                    var containerName = GetContainerName(symbol);
+                    var selectionSpan = GetSelectionSpan(declaration);
+                    var key = $"{path}|{selectionSpan.Start}:{selectionSpan.End}|{name}";
+                    if (!seen.Add(key))
+                        continue;
+
+                    entries.Add(new WorkspaceSymbolEntry(
+                        name,
+                        containerName,
+                        MapSymbolKind(symbol),
+                        DocumentUri.FromFileSystemPath(path),
+                        PositionHelper.ToRange(sourceText, selectionSpan)));
+                }
+            }
+        }
+
+        return entries.MoveToImmutable();
+    }
+
+    private static int ComputeFingerprint(IReadOnlyList<Project> projects)
+    {
+        var hash = new HashCode();
+
+        foreach (var project in projects.OrderBy(p => p.Id.ToString(), StringComparer.Ordinal))
+        {
+            hash.Add(project.Id);
+            hash.Add(project.Version.GetHashCode());
+            hash.Add(project.Documents.Count());
+        }
+
+        return hash.ToHashCode();
+    }
+
+    private sealed record SymbolIndexCache(int Fingerprint, ImmutableArray<WorkspaceSymbolEntry> Entries);
+
+    private sealed record WorkspaceSymbolEntry(
+        string Name,
+        string? ContainerName,
+        LspSymbolKind Kind,
+        DocumentUri Uri,
+        OmniSharp.Extensions.LanguageServer.Protocol.Models.Range Range);
 }

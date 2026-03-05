@@ -44,6 +44,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
     {
         try
         {
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
             if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
                 return null;
 
@@ -431,6 +432,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             {
                 var conditional = conditionalElementBinding.Value.conditional;
                 var binding = conditionalElementBinding.Value.binding;
+                if (binding is null)
+                    return null;
 
                 // ElementBindingExpressionSyntax does not carry the receiver expression; the receiver lives on
                 // ConditionalAccessExpressionSyntax.Expression.

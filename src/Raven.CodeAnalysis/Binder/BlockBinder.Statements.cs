@@ -12,9 +12,19 @@ partial class BlockBinder
 {
     private BoundStatement BindExpressionStatement(ExpressionStatementSyntax expressionStmt)
     {
-        var expr = expressionStmt.Parent is BlockStatementSyntax block &&
+        var isImplicitReturnTarget = expressionStmt.Parent is BlockStatementSyntax block &&
             IsImplicitReturnTarget(block, expressionStmt) &&
-            _containingSymbol is IMethodSymbol method
+            _containingSymbol is IMethodSymbol;
+
+        if (isImplicitReturnTarget)
+        {
+            // Keep implicit-return binding consistent with explicit return: if the expression was
+            // previously cached without target type, force a rebind so target-typed union cases
+            // (e.g. trailing `Ok`) don't degrade into open-generic fallbacks.
+            RemoveCachedBoundNode(expressionStmt.Expression);
+        }
+
+        var expr = isImplicitReturnTarget && _containingSymbol is IMethodSymbol method
             ? BindExpressionWithTargetType(expressionStmt.Expression, GetReturnTargetType(method))
             : BindExpression(expressionStmt.Expression, allowReturn: true);
 

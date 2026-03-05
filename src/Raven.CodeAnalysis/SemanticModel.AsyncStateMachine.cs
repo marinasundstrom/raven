@@ -11,7 +11,7 @@ public partial class SemanticModel
     internal void EnsureAsyncLoweredForDeclaredMethod(MethodDeclarationSyntax methodDeclaration, IMethodSymbol methodSymbol)
     {
         var methodKey = GetSyntaxNodeMapKey(methodDeclaration);
-        if (!_asyncLoweringInProgress.Add(methodKey))
+        if (!_asyncLoweringInProgress.TryAdd(methodKey, 0))
             return;
 
         try
@@ -132,7 +132,7 @@ public partial class SemanticModel
         }
         finally
         {
-            _asyncLoweringInProgress.Remove(methodKey);
+            _asyncLoweringInProgress.TryRemove(methodKey, out _);
         }
     }
 

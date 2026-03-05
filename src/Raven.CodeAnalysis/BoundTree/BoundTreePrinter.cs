@@ -154,13 +154,6 @@ public static class BoundTreePrinter
             => new(name, Node: null, children);
     }
 
-    /*
-    private static Dictionary<SyntaxNode, BoundNode> GetBoundNodeCache(SemanticModel model)
-    {
-        var field = typeof(SemanticModel).GetField("_boundNodeCache", BindingFlags.NonPublic | BindingFlags.Instance);
-        return (Dictionary<SyntaxNode, BoundNode>)field!.GetValue(model)!;
-    }*/
-
     private static Dictionary<SyntaxNode, (Binder, BoundNode)> GetBoundNodeCache(SemanticModel model, BoundTreeView view)
     {
         var fieldName = view switch
@@ -170,7 +163,10 @@ public static class BoundTreePrinter
             _ => "_boundNodeCache2"
         };
         var field = typeof(SemanticModel).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-        return (Dictionary<SyntaxNode, (Binder, BoundNode)>)field!.GetValue(model)!;
+        if (field?.GetValue(model) is IEnumerable<KeyValuePair<SyntaxNode, (Binder, BoundNode)>> cache)
+            return cache.ToDictionary(static kvp => kvp.Key, static kvp => kvp.Value);
+
+        return [];
     }
 
     private static void ForceBind(SemanticModel model, BoundTreeView view)

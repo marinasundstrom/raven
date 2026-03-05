@@ -8,6 +8,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PEModuleSymbol _module = default!;
     private readonly List<ISymbol> _members = new(); // new(SymbolEqualityComparer.Default);
+    private readonly object _membersGate = new();
     private readonly string _name;
     private bool _membersLoaded;
 
@@ -39,7 +40,8 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 
     internal void AddMember(ISymbol member)
     {
-        _members.Add(member);
+        lock (_membersGate)
+            _members.Add(member);
 
         /*
         if (!_members.Add(member))
@@ -52,25 +54,30 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     public ImmutableArray<ISymbol> GetMembers()
     {
         EnsureMembersLoaded();
-        return _members.ToImmutableArray();
+        lock (_membersGate)
+            return _members.ToImmutableArray();
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
         EnsureMembersLoaded();
-        return _members.Where(m => m.Name == name).ToImmutableArray();
+        lock (_membersGate)
+            return _members.Where(m => m.Name == name).ToImmutableArray();
     }
 
     public INamespaceSymbol? LookupNamespace(string name)
     {
         EnsureMembersLoaded();
-        return _members.OfType<INamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
+        lock (_membersGate)
+            return _members.OfType<INamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
     }
 
     public ITypeSymbol? LookupType(string name)
     {
         EnsureMembersLoaded();
-        var type = _members.OfType<ITypeSymbol>().FirstOrDefault(t => t.Name == name);
+        ITypeSymbol? type;
+        lock (_membersGate)
+            type = _members.OfType<ITypeSymbol>().FirstOrDefault(t => t.Name == name);
         if (type != null)
             return type;
 
@@ -81,7 +88,8 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
         EnsureMembersLoaded();
-        symbol = _members.FirstOrDefault(m => m.Name == name);
+        lock (_membersGate)
+            symbol = _members.FirstOrDefault(m => m.Name == name);
         return symbol is not null;
     }
 
@@ -98,35 +106,38 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 
     private void EnsureMembersLoaded()
     {
-        if (_membersLoaded)
-            return;
-
-        _membersLoaded = true;
-
-        var assemblyInfo = PEContainingAssembly.GetAssemblyInfo();
-
-        foreach (var type in assemblyInfo.GetTypes().Where(x => !x.IsNested))
+        lock (_membersGate)
         {
-            if (type.Namespace != MetadataName)
-                continue;
+            if (_membersLoaded)
+                return;
 
-            // IMPORTANT: Always intern types via the module's Type-based cache.
-            // Creating symbols directly here bypasses the module cache and can create duplicate type symbols
-            // (e.g., two instances of Result`2 with different loaded states).
-            var module = (PEModuleSymbol)ContainingModule;
-            _ = module.GetType(type);
-        }
+            _membersLoaded = true;
 
-        foreach (var nsName in FindNestedNamespaces(assemblyInfo))
-        {
-            var childName = nsName.Split('.').Last(); // e.g., for "System.IO", take "IO"
-            var nestedNamespace = new PENamespaceSymbol(_reflectionTypeLoader, _module, childName, this, this);
-            //AddMember(nestedNamespace);
-        }
+            var assemblyInfo = PEContainingAssembly.GetAssemblyInfo();
 
-        foreach (var member in _members.OfType<PEAssemblySymbol>())
-        {
-            member.Complete();
+            foreach (var type in assemblyInfo.GetTypes().Where(x => !x.IsNested))
+            {
+                if (type.Namespace != MetadataName)
+                    continue;
+
+                // IMPORTANT: Always intern types via the module's Type-based cache.
+                // Creating symbols directly here bypasses the module cache and can create duplicate type symbols
+                // (e.g., two instances of Result`2 with different loaded states).
+                var module = (PEModuleSymbol)ContainingModule;
+                _ = module.GetType(type);
+            }
+
+            foreach (var nsName in FindNestedNamespaces(assemblyInfo))
+            {
+                var childName = nsName.Split('.').Last(); // e.g., for "System.IO", take "IO"
+                var nestedNamespace = new PENamespaceSymbol(_reflectionTypeLoader, _module, childName, this, this);
+                //AddMember(nestedNamespace);
+            }
+
+            foreach (var member in _members.OfType<PEAssemblySymbol>())
+            {
+                member.Complete();
+            }
         }
     }
 

@@ -46,6 +46,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
     {
         try
         {
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
             if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
                 return new CommandOrCodeActionContainer();
 

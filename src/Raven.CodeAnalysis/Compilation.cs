@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -19,12 +20,15 @@ public partial class Compilation
     private readonly SyntaxTree[] _syntaxTrees;
     private readonly MetadataReference[] _references;
     internal SyntaxTree? SyntaxTreeWithFileScopedCode;
-    private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new();
-    private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new();
-    private readonly Dictionary<string, Assembly> _lazyMetadataAssemblies = new();
-    private readonly Dictionary<string, string> _assemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<Assembly, Assembly> _metadataToRuntimeAssemblyMap = new();
-    private readonly Dictionary<string, Assembly> _runtimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new();
+    private readonly ConcurrentDictionary<Assembly, IAssemblySymbol> _assemblySymbols = new();
+    private readonly ConcurrentDictionary<string, Assembly> _lazyMetadataAssemblies = new();
+    private readonly ConcurrentDictionary<string, string> _assemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<Assembly, Assembly> _metadataToRuntimeAssemblyMap = new();
+    private readonly ConcurrentDictionary<string, Assembly> _runtimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, string> s_globalAssemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, Assembly> s_globalRuntimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
+    private static int s_trustedPlatformAssembliesInitialized;
     private bool _trustedPlatformAssembliesCached;
     private MetadataLoadContext _metadataLoadContext;
     private GlobalBinder _globalBinder;
@@ -1352,6 +1356,9 @@ public partial class Compilation
             _assemblyPathMap[identity.Name] = explicitPath;
         else if (identity.Name is { } identityName)
         {
+            if (!_assemblyPathMap.ContainsKey(identityName) && s_globalAssemblyPathMap.TryGetValue(identityName, out var sharedPath))
+                _assemblyPathMap.TryAdd(identityName, sharedPath);
+
             try
             {
                 var metadataLocation = metadataAssembly.Location;
@@ -1364,6 +1371,13 @@ public partial class Compilation
             {
                 // Dynamic assemblies can throw when querying Location.
             }
+        }
+
+        if (identity.Name is not null &&
+            !_runtimeAssemblyCache.ContainsKey(identity.Name) &&
+            s_globalRuntimeAssemblyCache.TryGetValue(identity.Name, out var sharedRuntimeAssembly))
+        {
+            _runtimeAssemblyCache.TryAdd(identity.Name, sharedRuntimeAssembly);
         }
 
         if (_metadataToRuntimeAssemblyMap.TryGetValue(metadataAssembly, out var cached))
@@ -1449,11 +1463,15 @@ public partial class Compilation
                 if (!string.IsNullOrEmpty(resolvedPath))
                 {
                     _assemblyPathMap[identity.Name] = resolvedPath;
+                    s_globalAssemblyPathMap[identity.Name] = resolvedPath;
                 }
                 else if (!string.IsNullOrEmpty(runtimeAssembly.Location))
                 {
                     _assemblyPathMap[identity.Name] = runtimeAssembly.Location;
+                    s_globalAssemblyPathMap[identity.Name] = runtimeAssembly.Location;
                 }
+
+                s_globalRuntimeAssemblyCache[identity.Name] = runtimeAssembly;
             }
 
             _metadataToRuntimeAssemblyMap[metadataAssembly] = runtimeAssembly;
@@ -1467,44 +1485,53 @@ public partial class Compilation
         if (_trustedPlatformAssembliesCached)
             return;
 
-        _trustedPlatformAssembliesCached = true;
-
-        if (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") is not string platformAssemblies)
-            return;
-
-        var candidates = platformAssemblies.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
-
-        foreach (var candidate in candidates)
+        if (Interlocked.CompareExchange(ref s_trustedPlatformAssembliesInitialized, 1, 0) == 0)
         {
-            if (string.IsNullOrWhiteSpace(candidate) || !File.Exists(candidate))
-                continue;
-
-            System.Reflection.AssemblyName? candidateIdentity;
-            try
+            var platformAssemblies = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
+            if (!string.IsNullOrWhiteSpace(platformAssemblies))
             {
-                candidateIdentity = System.Reflection.AssemblyName.GetAssemblyName(candidate);
+                var candidates = platformAssemblies.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var candidate in candidates)
+                {
+                    if (string.IsNullOrWhiteSpace(candidate) || !File.Exists(candidate))
+                        continue;
+
+                    System.Reflection.AssemblyName? candidateIdentity;
+                    try
+                    {
+                        candidateIdentity = System.Reflection.AssemblyName.GetAssemblyName(candidate);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (candidateIdentity.Name is not { Length: > 0 } candidateName)
+                        continue;
+
+                    s_globalAssemblyPathMap.TryAdd(candidateName, candidate);
+
+                    if (s_globalRuntimeAssemblyCache.ContainsKey(candidateName))
+                        continue;
+
+                    var alreadyLoaded = AppDomain.CurrentDomain
+                        .GetAssemblies()
+                        .FirstOrDefault(a => string.Equals(a.GetName().Name, candidateName, StringComparison.OrdinalIgnoreCase));
+
+                    if (alreadyLoaded is not null)
+                        s_globalRuntimeAssemblyCache.TryAdd(candidateName, alreadyLoaded);
+                }
             }
-            catch
-            {
-                continue;
-            }
-
-            if (candidateIdentity.Name is not { Length: > 0 } candidateName)
-                continue;
-
-            if (!_assemblyPathMap.ContainsKey(candidateName))
-                _assemblyPathMap[candidateName] = candidate;
-
-            if (_runtimeAssemblyCache.ContainsKey(candidateName))
-                continue;
-
-            var alreadyLoaded = AppDomain.CurrentDomain
-                .GetAssemblies()
-                .FirstOrDefault(a => string.Equals(a.GetName().Name, candidateName, StringComparison.OrdinalIgnoreCase));
-
-            if (alreadyLoaded is not null)
-                _runtimeAssemblyCache[candidateName] = alreadyLoaded;
         }
+
+        foreach (var (assemblyName, path) in s_globalAssemblyPathMap)
+            _assemblyPathMap.TryAdd(assemblyName, path);
+
+        foreach (var (assemblyName, runtimeAssembly) in s_globalRuntimeAssemblyCache)
+            _runtimeAssemblyCache.TryAdd(assemblyName, runtimeAssembly);
+
+        _trustedPlatformAssembliesCached = true;
     }
 
     private static string? TryMapReferenceAssemblyToRuntimePath(string? metadataAssemblyPath)

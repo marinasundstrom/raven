@@ -41,6 +41,7 @@ internal sealed class ReferencesHandler : IReferencesHandler
     {
         try
         {
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
             if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
                 return new LocationContainer();
 
@@ -174,7 +175,7 @@ internal static class ReferenceSearchService
         if (symbol is IMethodSymbol method)
         {
             if (method.MethodKind == MethodKind.Constructor)
-                return method.ContainingType;
+                return (ISymbol?)method.ContainingType ?? method;
 
             if (method.AssociatedSymbol is IPropertySymbol or IEventSymbol)
                 return method.AssociatedSymbol;

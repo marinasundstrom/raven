@@ -576,7 +576,13 @@ internal sealed class PropertyReferenceOperation : SymbolReferenceOperation<IPro
 internal sealed class MethodReferenceOperation : SymbolReferenceOperation<IMethodSymbol>, IMethodReferenceOperation
 {
     internal MethodReferenceOperation(SemanticModel semanticModel, BoundMethodGroupExpression bound, SyntaxNode syntax, bool isImplicit)
-        : base(semanticModel, OperationKind.MethodReference, syntax, bound.Methods.Single(), bound.Type, isImplicit)
+        : base(
+            semanticModel,
+            OperationKind.MethodReference,
+            syntax,
+            bound.SelectedMethod ?? bound.Methods[0],
+            bound.Type,
+            isImplicit)
     {
     }
 

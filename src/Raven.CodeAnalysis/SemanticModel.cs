@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -14,20 +15,21 @@ namespace Raven.CodeAnalysis;
 public partial class SemanticModel
 {
     private static readonly CompletionService s_completionService = new();
-    private readonly Dictionary<SyntaxNode, Binder> _binderCache = new();
-    private readonly Dictionary<SyntaxNodeMapKey, Binder> _binderCacheByKey = new();
-    private readonly Dictionary<SyntaxNode, SymbolInfo> _symbolMappings = new();
-    private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
-    private readonly Dictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 = new Dictionary<SyntaxNode, (Binder, BoundNode)>();
-    private readonly Dictionary<SyntaxNode, BoundNode> _loweredBoundNodeCache = new();
-    private readonly Dictionary<SyntaxNode, (Binder, BoundNode)> _loweredBoundNodeCache2 = new Dictionary<SyntaxNode, (Binder, BoundNode)>();
-    private readonly HashSet<SyntaxNodeMapKey> _asyncLoweringInProgress = new();
+    private readonly ConcurrentDictionary<SyntaxNode, Binder> _binderCache = new();
+    private readonly ConcurrentDictionary<SyntaxNodeMapKey, Binder> _binderCacheByKey = new();
+    private readonly ConcurrentDictionary<SyntaxNode, SymbolInfo> _symbolMappings = new();
+    private readonly ConcurrentDictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 = new();
+    private readonly ConcurrentDictionary<SyntaxNode, BoundNode> _loweredBoundNodeCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _loweredBoundNodeCache2 = new();
+    private readonly ConcurrentDictionary<SyntaxNodeMapKey, byte> _asyncLoweringInProgress = new();
 
-    private readonly Dictionary<BoundNode, SyntaxNode> _syntaxCache = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<BoundNode, SyntaxNode> _loweredSyntaxCache = new(ReferenceEqualityComparer.Instance);
+    private readonly ConcurrentDictionary<BoundNode, SyntaxNode> _syntaxCache = new(ReferenceEqualityComparer.Instance);
+    private readonly ConcurrentDictionary<BoundNode, SyntaxNode> _loweredSyntaxCache = new(ReferenceEqualityComparer.Instance);
     private readonly DeclaredSymbolLookup _declaredSymbolLookup;
     private IImmutableList<Diagnostic>? _diagnostics;
     private readonly DiagnosticBag _declarationDiagnostics = new();
+    private readonly object _diagnosticsCollectionGate = new();
     private bool _declarationsComplete;
     private bool _rootBinderCreated;
 
@@ -95,12 +97,15 @@ public partial class SemanticModel
 
     private void EnsureDiagnosticsCollected()
     {
-        var root = SyntaxTree.GetRoot();
-        var binder = GetBinder(root);
+        lock (_diagnosticsCollectionGate)
+        {
+            var root = SyntaxTree.GetRoot();
+            var binder = GetBinder(root);
 
-        Traverse(root, binder);
+            Traverse(root, binder);
 
-        DocumentationCommentValidator.Analyze(this, root, binder.Diagnostics);
+            DocumentationCommentValidator.Analyze(this, root, binder.Diagnostics);
+        }
 
         void Traverse(SyntaxNode node, Binder currentBinder)
         {

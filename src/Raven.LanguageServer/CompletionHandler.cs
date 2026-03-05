@@ -40,6 +40,15 @@ internal sealed class CompletionHandler : ICompletionHandler
     {
         try
         {
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug(
+                "Completion request for {Uri} at {Line}:{Character}. Trigger={TriggerKind}/{TriggerCharacter}",
+                request.TextDocument.Uri,
+                request.Position.Line,
+                request.Position.Character,
+                request.Context?.TriggerKind,
+                request.Context?.TriggerCharacter);
+
             if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
                 return new CompletionList();
 
@@ -55,6 +64,11 @@ internal sealed class CompletionHandler : ICompletionHandler
             var items = (await _completionService.GetCompletionsAsync(compilation, syntaxTree, position, cancellationToken).ConfigureAwait(false))
                 .Select(item => CompletionItemMapper.ToLspCompletion(item, text))
                 .ToList();
+
+            _logger.LogDebug(
+                "Completion produced {Count} items for {Uri}.",
+                items.Count,
+                request.TextDocument.Uri);
 
             return new CompletionList(items, isIncomplete: false);
         }

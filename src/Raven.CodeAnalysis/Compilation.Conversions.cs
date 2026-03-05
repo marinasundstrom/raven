@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -11,7 +12,7 @@ public partial class Compilation
 {
     private ImmutableArray<IMethodSymbol> _extensionConversionOperators;
     private bool _extensionConversionOperatorsInitialized;
-    private readonly Dictionary<ConversionCacheKey, Conversion> _conversionCache = new(new ConversionCacheKeyComparer());
+    private readonly ConcurrentDictionary<ConversionCacheKey, Conversion> _conversionCache = new(new ConversionCacheKeyComparer());
 
     public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true)
     {
@@ -23,8 +24,7 @@ public partial class Compilation
             return cached;
 
         var conversion = ClassifyConversionCore(source, destination, includeUserDefined);
-        _conversionCache[key] = conversion;
-        return conversion;
+        return _conversionCache.GetOrAdd(key, conversion);
     }
 
     private Conversion ClassifyConversionCore(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true)

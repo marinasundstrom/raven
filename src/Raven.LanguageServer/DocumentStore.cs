@@ -21,6 +21,7 @@ internal sealed class DocumentStore
 {
     private readonly WorkspaceManager _workspaceManager;
     private readonly ILogger<DocumentStore> _logger;
+    private readonly SemaphoreSlim _compilerAccessGate = new(1, 1);
 
     public DocumentStore(WorkspaceManager workspaceManager, ILogger<DocumentStore> logger)
     {
@@ -40,10 +41,17 @@ internal sealed class DocumentStore
     public bool RemoveDocument(DocumentUri uri)
         => _workspaceManager.RemoveDocument(uri);
 
+    public async ValueTask<IDisposable> EnterCompilerAccessAsync(CancellationToken cancellationToken)
+    {
+        await _compilerAccessGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new CompilerAccessLease(_compilerAccessGate);
+    }
+
     public async Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
         try
         {
+            using var _ = await EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
             if (!TryGetDocument(uri, out var document))
                 return Array.Empty<LspDiagnostic>();
 
@@ -106,4 +114,20 @@ internal sealed class DocumentStore
             CodeDiagnosticSeverity.Hidden => LspDiagnosticSeverity.Hint,
             _ => null
         };
+
+    private sealed class CompilerAccessLease : IDisposable
+    {
+        private SemaphoreSlim? _gate;
+
+        public CompilerAccessLease(SemaphoreSlim gate)
+        {
+            _gate = gate;
+        }
+
+        public void Dispose()
+        {
+            var gate = Interlocked.Exchange(ref _gate, null);
+            gate?.Release();
+        }
+    }
 }

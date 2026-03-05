@@ -296,6 +296,34 @@ class C {
         operation.Finally!.Kind.ShouldBe(OperationKind.Block);
     }
 
+    [Fact]
+    public void GetOperation_MethodGroupWithOverloads_DoesNotThrow()
+    {
+        const string source = """
+class C {
+    func M(value: int) -> unit {}
+    func M(value: string) -> unit {}
+
+    func Test() -> unit {
+        val methodRef = M
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var methodIdentifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(node => node.Identifier.ValueText == "M");
+
+        var operation = Record.Exception(() => model.GetOperation(methodIdentifier));
+        operation.ShouldBeNull();
+
+        var methodReference = Assert.IsAssignableFrom<IMethodReferenceOperation>(model.GetOperation(methodIdentifier));
+        methodReference.Method.Name.ShouldBe("M");
+    }
+
     private static Raven.CodeAnalysis.MetadataReference[] GetReferencesWithRavenCore()
     {
         var corePath = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");

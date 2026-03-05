@@ -81,6 +81,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private readonly PETypeIdentity _metadataIdentity;
     private readonly bool _isValueType;
     private readonly List<ISymbol> _members = new(); //new(SymbolEqualityComparer.Default);
+    private readonly object _membersGate = new();
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
     private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
@@ -613,7 +614,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             EnsureMembersLoaded();
 
-            _tupleElements = _members
+            _tupleElements = GetMembersSnapshot()
                 .OfType<IFieldSymbol>()
                 .Where(@field => @field.Name.StartsWith("Item", StringComparison.Ordinal))
                 .OrderBy(@field => @field.Name, StringComparer.Ordinal)
@@ -626,25 +627,26 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public ImmutableArray<ISymbol> GetMembers()
     {
         EnsureMembersLoaded();
-        return _members.ToImmutableArray();
+        return GetMembersSnapshot().ToImmutableArray();
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
         EnsureMembersLoaded();
-        return _members.Where(x => x.Name == name).ToImmutableArray();
+        return GetMembersSnapshot().Where(x => x.Name == name).ToImmutableArray();
     }
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        symbol = _members.FirstOrDefault(m => m.Name == name);
+        EnsureMembersLoaded();
+        symbol = GetMembersSnapshot().FirstOrDefault(m => m.Name == name);
         return symbol is not null;
     }
 
     public ITypeSymbol? LookupType(string name)
     {
         EnsureMembersLoaded();
-        return _members
+        return GetMembersSnapshot()
             .OfType<INamedTypeSymbol>()
             .FirstOrDefault(type => type.Name == name);
     }
@@ -662,7 +664,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     internal void AddMember(ISymbol member)
     {
-        _members.Add(member);
+        lock (_membersGate)
+            _members.Add(member);
 
         /*
         if (!_members.Add(member))
@@ -674,155 +677,166 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     private void EnsureMembersLoaded()
     {
-        if (_membersLoaded)
-            return;
-
-        _membersLoaded = true;
-
-        foreach (var methodInfo in _typeInfo.DeclaredMethods)
+        lock (_membersGate)
         {
-            if (methodInfo.IsSpecialName)
-                continue;
+            if (_membersLoaded)
+                return;
 
-            var name = methodInfo.Name;
+            _membersLoaded = true;
 
-            if (name.StartsWith("get_")
-                || name.StartsWith("set_")
-                || name.StartsWith("add_")
-                || name.StartsWith("remove_"))
-                continue;
-
-            new PEMethodSymbol(
-                _reflectionTypeLoader,
-                methodInfo,
-                this,
-                [new MetadataLocation(ContainingModule!)]);
-        }
-
-        foreach (var propertyInfo in _typeInfo.DeclaredProperties)
-        {
-            var property = new PEPropertySymbol(
-                _reflectionTypeLoader,
-                propertyInfo,
-                this,
-                [new MetadataLocation(ContainingModule!)]);
-
-            if (propertyInfo.GetMethod is not null)
+            foreach (var methodInfo in _typeInfo.DeclaredMethods)
             {
-                property.GetMethod = new PEMethodSymbol(
+                if (methodInfo.IsSpecialName)
+                    continue;
+
+                var name = methodInfo.Name;
+
+                if (name.StartsWith("get_")
+                    || name.StartsWith("set_")
+                    || name.StartsWith("add_")
+                    || name.StartsWith("remove_"))
+                    continue;
+
+                new PEMethodSymbol(
                     _reflectionTypeLoader,
-                    propertyInfo.GetMethod,
+                    methodInfo,
                     this,
-                    this,
-                    [new MetadataLocation(ContainingModule!)],
-                    associatedSymbol: property);
+                    [new MetadataLocation(ContainingModule!)]);
             }
 
-            if (propertyInfo.SetMethod is not null)
+            foreach (var propertyInfo in _typeInfo.DeclaredProperties)
             {
-                property.SetMethod = new PEMethodSymbol(
+                var property = new PEPropertySymbol(
                     _reflectionTypeLoader,
-                    propertyInfo.SetMethod,
+                    propertyInfo,
                     this,
-                    this,
-                    [new MetadataLocation(ContainingModule!)],
-                    associatedSymbol: property);
-            }
-        }
+                    [new MetadataLocation(ContainingModule!)]);
 
-        if (this.HasStaticExtensionMembers())
-        {
-            var props = ExtensionPropertyReflection.GroupByAccessorConvention(_typeInfo);
-
-            foreach (var prop in props)
-            {
-                var property = new SynthesizedExtensionPropertySymbol(
-                        this,
-                        [new MetadataLocation(ContainingModule!)],
-                        [], name: prop.Name);
-
-                if (prop.GetMethod is not null)
+                if (propertyInfo.GetMethod is not null)
                 {
                     property.GetMethod = new PEMethodSymbol(
                         _reflectionTypeLoader,
-                        prop.GetMethod,
+                        propertyInfo.GetMethod,
                         this,
                         this,
                         [new MetadataLocation(ContainingModule!)],
                         associatedSymbol: property);
                 }
 
-                if (prop.SetMethod is not null)
+                if (propertyInfo.SetMethod is not null)
                 {
                     property.SetMethod = new PEMethodSymbol(
                         _reflectionTypeLoader,
-                        prop.SetMethod,
+                        propertyInfo.SetMethod,
                         this,
                         this,
                         [new MetadataLocation(ContainingModule!)],
                         associatedSymbol: property);
                 }
             }
-        }
 
-        foreach (var eventInfo in _typeInfo.DeclaredEvents)
-        {
-            var @event = new PEEventSymbol(
-                _reflectionTypeLoader,
-                eventInfo,
-                this,
-                [new MetadataLocation(ContainingModule!)]);
-
-            if (eventInfo.AddMethod is not null)
+            if (this.HasStaticExtensionMembers())
             {
-                @event.AddMethod = new PEMethodSymbol(
-                    _reflectionTypeLoader,
-                    eventInfo.AddMethod,
-                    this,
-                    this,
-                    [new MetadataLocation(ContainingModule!)],
-                    associatedSymbol: @event);
+                var props = ExtensionPropertyReflection.GroupByAccessorConvention(_typeInfo);
+
+                foreach (var prop in props)
+                {
+                    var property = new SynthesizedExtensionPropertySymbol(
+                            this,
+                            [new MetadataLocation(ContainingModule!)],
+                            [], name: prop.Name);
+
+                    if (prop.GetMethod is not null)
+                    {
+                        property.GetMethod = new PEMethodSymbol(
+                            _reflectionTypeLoader,
+                            prop.GetMethod,
+                            this,
+                            this,
+                            [new MetadataLocation(ContainingModule!)],
+                            associatedSymbol: property);
+                    }
+
+                    if (prop.SetMethod is not null)
+                    {
+                        property.SetMethod = new PEMethodSymbol(
+                            _reflectionTypeLoader,
+                            prop.SetMethod,
+                            this,
+                            this,
+                            [new MetadataLocation(ContainingModule!)],
+                            associatedSymbol: property);
+                    }
+                }
             }
 
-            if (eventInfo.RemoveMethod is not null)
+            foreach (var eventInfo in _typeInfo.DeclaredEvents)
             {
-                @event.RemoveMethod = new PEMethodSymbol(
+                var @event = new PEEventSymbol(
                     _reflectionTypeLoader,
-                    eventInfo.RemoveMethod,
+                    eventInfo,
                     this,
+                    [new MetadataLocation(ContainingModule!)]);
+
+                if (eventInfo.AddMethod is not null)
+                {
+                    @event.AddMethod = new PEMethodSymbol(
+                        _reflectionTypeLoader,
+                        eventInfo.AddMethod,
+                        this,
+                        this,
+                        [new MetadataLocation(ContainingModule!)],
+                        associatedSymbol: @event);
+                }
+
+                if (eventInfo.RemoveMethod is not null)
+                {
+                    @event.RemoveMethod = new PEMethodSymbol(
+                        _reflectionTypeLoader,
+                        eventInfo.RemoveMethod,
+                        this,
+                        this,
+                        [new MetadataLocation(ContainingModule!)],
+                        associatedSymbol: @event);
+                }
+            }
+
+            foreach (var fieldInfo in _typeInfo.DeclaredFields)
+            {
+                if (fieldInfo.IsSpecialName)
+                    continue;
+
+                new PEFieldSymbol(
+                    _reflectionTypeLoader,
+                    fieldInfo,
                     this,
-                    [new MetadataLocation(ContainingModule!)],
-                    associatedSymbol: @event);
+                    [new MetadataLocation(ContainingModule!)]);
+            }
+
+            foreach (var constructorInfo in _typeInfo.DeclaredConstructors)
+            {
+                new PEMethodSymbol(
+                    _reflectionTypeLoader,
+                    constructorInfo,
+                    this,
+                    [new MetadataLocation(ContainingModule!)]);
+            }
+
+            foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
+            {
+                // Always intern nested types via the module's Type-based cache to avoid creating duplicate symbols.
+                // The module is responsible for placing nested types under the correct containing type.
+                var module = (PEModuleSymbol)ContainingModule;
+                _ = module.GetType(nestedTypeInfo.AsType());
             }
         }
+    }
 
-        foreach (var fieldInfo in _typeInfo.DeclaredFields)
+    private List<ISymbol> GetMembersSnapshot()
+    {
+        lock (_membersGate)
         {
-            if (fieldInfo.IsSpecialName)
-                continue;
-
-            new PEFieldSymbol(
-                _reflectionTypeLoader,
-                fieldInfo,
-                this,
-                [new MetadataLocation(ContainingModule!)]);
-        }
-
-        foreach (var constructorInfo in _typeInfo.DeclaredConstructors)
-        {
-            new PEMethodSymbol(
-                _reflectionTypeLoader,
-                constructorInfo,
-                this,
-                [new MetadataLocation(ContainingModule!)]);
-        }
-
-        foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
-        {
-            // Always intern nested types via the module's Type-based cache to avoid creating duplicate symbols.
-            // The module is responsible for placing nested types under the correct containing type.
-            var module = (PEModuleSymbol)ContainingModule;
-            _ = module.GetType(nestedTypeInfo.AsType());
+            return _members.ToList();
         }
     }
 

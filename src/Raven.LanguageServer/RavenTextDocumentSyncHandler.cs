@@ -11,6 +11,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 
+using Raven.CodeAnalysis.Text;
+
 using SaveOptions = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.SaveOptions;
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
 using TextDocumentSyncKind = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.TextDocumentSyncKind;
@@ -25,6 +27,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ILanguageServerFacade _languageServer;
     private readonly ILogger<RavenTextDocumentSyncHandler> _logger;
     private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingDiagnostics = new();
+    private readonly ConcurrentDictionary<DocumentUri, SemaphoreSlim> _documentUpdateGates = new();
+    private readonly ConcurrentDictionary<DocumentUri, int> _documentVersions = new();
 
     public RavenTextDocumentSyncHandler(DocumentStore documents, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
     {
@@ -41,7 +45,14 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         try
         {
             _documents.UpsertDocument(notification.TextDocument.Uri, notification.TextDocument.Text);
-            return PublishDiagnosticsAsync(notification.TextDocument.Uri, cancellationToken);
+            if (notification.TextDocument.Version is { } openVersion)
+                _documentVersions[notification.TextDocument.Uri] = openVersion;
+            _logger.LogDebug(
+                "DidOpen {Uri} (version={Version}, length={Length}).",
+                notification.TextDocument.Uri,
+                notification.TextDocument.Version,
+                notification.TextDocument.Text?.Length ?? 0);
+            return PublishDiagnosticsAsync(notification.TextDocument.Uri, CancellationToken.None, expectedVersion: notification.TextDocument.Version);
         }
         catch (Exception ex)
         {
@@ -51,19 +62,87 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     }
 
     public override Task<Unit> Handle(DidChangeTextDocumentParams notification, CancellationToken cancellationToken)
+        => HandleDidChangeAsync(notification, cancellationToken);
+
+    private async Task<Unit> HandleDidChangeAsync(DidChangeTextDocumentParams notification, CancellationToken cancellationToken)
     {
+        var gate = _documentUpdateGates.GetOrAdd(notification.TextDocument.Uri, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
         try
         {
-            var change = notification.ContentChanges.LastOrDefault();
-            var text = change?.Text ?? string.Empty;
-            _documents.UpsertDocument(notification.TextDocument.Uri, text);
-            return ScheduleDiagnosticsPublishAsync(notification.TextDocument.Uri, cancellationToken);
+            if (notification.TextDocument.Version is { } incomingVersion &&
+                _documentVersions.TryGetValue(notification.TextDocument.Uri, out var currentVersion) &&
+                incomingVersion < currentVersion)
+            {
+                _logger.LogDebug(
+                    "DidChange ignored for {Uri}: stale version {IncomingVersion} < {CurrentVersion}.",
+                    notification.TextDocument.Uri,
+                    incomingVersion,
+                    currentVersion);
+                return Unit.Value;
+            }
+
+            var currentText = await GetCurrentDocumentTextAsync(notification.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var updatedText = ApplyContentChanges(currentText, notification.ContentChanges);
+            _documents.UpsertDocument(notification.TextDocument.Uri, updatedText);
+            if (notification.TextDocument.Version is { } appliedVersion)
+                _documentVersions[notification.TextDocument.Uri] = appliedVersion;
+            _logger.LogDebug(
+                "DidChange {Uri} version={Version} changes={ChangeCount} currentLength={CurrentLength} updatedLength={UpdatedLength}.",
+                notification.TextDocument.Uri,
+                notification.TextDocument.Version,
+                notification.ContentChanges.Count(),
+                currentText.Length,
+                updatedText.Length);
+            return await ScheduleDiagnosticsPublishAsync(notification.TextDocument.Uri).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "DidChange handling failed for {Uri}.", notification.TextDocument.Uri);
-            return Task.FromResult(Unit.Value);
+            return Unit.Value;
         }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private async Task<string> GetCurrentDocumentTextAsync(DocumentUri uri, CancellationToken cancellationToken)
+    {
+        if (!_documents.TryGetDocument(uri, out var document))
+            return string.Empty;
+
+        var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        return sourceText?.ToString() ?? string.Empty;
+    }
+
+    private static string ApplyContentChanges(string currentText, IEnumerable<TextDocumentContentChangeEvent> contentChanges)
+    {
+        var text = currentText;
+
+        foreach (var change in contentChanges)
+        {
+            if (change.Range is null)
+            {
+                text = change.Text ?? string.Empty;
+                continue;
+            }
+
+            var source = SourceText.From(text);
+            var start = PositionHelper.ToOffset(source, change.Range.Start);
+            var end = PositionHelper.ToOffset(source, change.Range.End);
+
+            start = Math.Clamp(start, 0, text.Length);
+            end = Math.Clamp(end, start, text.Length);
+
+            text = string.Concat(
+                text.AsSpan(0, start),
+                (change.Text ?? string.Empty).AsSpan(),
+                text.AsSpan(end));
+        }
+
+        return text;
     }
 
     public override Task<Unit> Handle(DidCloseTextDocumentParams notification, CancellationToken cancellationToken)
@@ -72,6 +151,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             CancelPendingDiagnostics(notification.TextDocument.Uri);
             _documents.RemoveDocument(notification.TextDocument.Uri);
+            _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
+
+            if (_documentUpdateGates.TryRemove(notification.TextDocument.Uri, out var gate))
+                gate.Dispose();
+
             _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
                 Uri = notification.TextDocument.Uri,
@@ -87,7 +171,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     }
 
     public override Task<Unit> Handle(DidSaveTextDocumentParams notification, CancellationToken cancellationToken)
-        => PublishDiagnosticsAsync(notification.TextDocument.Uri, cancellationToken);
+        => PublishDiagnosticsAsync(notification.TextDocument.Uri, CancellationToken.None);
 
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)
         => new()
@@ -100,9 +184,12 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             }
         };
 
-    private Task<Unit> ScheduleDiagnosticsPublishAsync(DocumentUri uri, CancellationToken cancellationToken)
+    private Task<Unit> ScheduleDiagnosticsPublishAsync(DocumentUri uri)
     {
-        var source = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var source = new CancellationTokenSource();
+        int? expectedVersion = _documentVersions.TryGetValue(uri, out var currentVersion)
+            ? currentVersion
+            : null;
         var current = _pendingDiagnostics.AddOrUpdate(
             uri,
             source,
@@ -124,7 +211,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             try
             {
                 await Task.Delay(DiagnosticsDebounceMilliseconds, source.Token).ConfigureAwait(false);
-                await PublishDiagnosticsAsync(uri, source.Token).ConfigureAwait(false);
+                await PublishDiagnosticsAsync(uri, source.Token, expectedVersion).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -154,11 +241,24 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         }
     }
 
-    private async Task<Unit> PublishDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken)
+    private async Task<Unit> PublishDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken, int? expectedVersion = null)
     {
         try
         {
             var diagnostics = await _documents.GetDiagnosticsAsync(uri, cancellationToken).ConfigureAwait(false);
+
+            if (expectedVersion is { } expected &&
+                _documentVersions.TryGetValue(uri, out var latestVersion) &&
+                latestVersion != expected)
+            {
+                _logger.LogDebug(
+                    "Skipping diagnostics publish for {Uri}: computed for version {ExpectedVersion}, latest is {LatestVersion}.",
+                    uri,
+                    expected,
+                    latestVersion);
+                return Unit.Value;
+            }
+
             _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
                 Uri = uri,

@@ -32,7 +32,7 @@ func format<T>(value: T) -> string {
     }
 
     [Fact]
-    public void StaticAbstractInterfaceMembers_WithSelfConstraint_ReportsConstraintDiagnostic()
+    public void StaticAbstractInterfaceMembers_WithSelfConstraint_BindsWithoutConstraintDiagnostic()
     {
         const string source = """
 import System.*
@@ -52,6 +52,6 @@ func parse<T: IParsable<T>>(text: string) -> T {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Id == "RAV0320");
+        Assert.DoesNotContain(diagnostics, d => d.Id == "RAV0320");
     }
 }

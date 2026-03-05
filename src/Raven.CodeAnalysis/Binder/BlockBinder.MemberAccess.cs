@@ -297,9 +297,7 @@ partial class BlockBinder
         var preInferredSubstitutions = TryPreInferTypeArguments(methods, arguments, receiver, pipeReceiverType);
 
         // Collect all method type parameters so we can detect unresolved ones.
-        var allMethodTypeParams = methods.IsDefaultOrEmpty
-            ? ImmutableArray<ITypeParameterSymbol>.Empty
-            : methods.SelectMany(static m => m.TypeParameters).Distinct(SymbolEqualityComparer.Default).Cast<ITypeParameterSymbol>().ToImmutableArray();
+        var allMethodTypeParams = CollectDistinctMethodTypeParameters(methods);
 
         var boundArguments = new BoundArgument[arguments.Count];
 
@@ -374,6 +372,32 @@ partial class BlockBinder
         }
 
         return boundArguments;
+
+        static ImmutableArray<ITypeParameterSymbol> CollectDistinctMethodTypeParameters(ImmutableArray<IMethodSymbol> candidates)
+        {
+            if (candidates.IsDefaultOrEmpty)
+                return ImmutableArray<ITypeParameterSymbol>.Empty;
+
+            var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>();
+            foreach (var method in candidates)
+            {
+                if (method is null)
+                    continue;
+
+                var typeParameters = method.TypeParameters;
+                if (typeParameters.IsDefaultOrEmpty)
+                    continue;
+
+                foreach (var typeParameter in typeParameters)
+                {
+                    var exists = builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, typeParameter));
+                    if (!exists)
+                        builder.Add(typeParameter);
+                }
+            }
+
+            return builder.ToImmutable();
+        }
 
         ITypeSymbol? TryGetCommonPositionalParameterType(ImmutableArray<IMethodSymbol> methods, int argumentIndex, BoundExpression? invocationReceiver)
         {
@@ -2720,7 +2744,6 @@ partial class BlockBinder
         if (simpleName.Identifier.IsMissing)
         {
             _diagnostics.ReportIdentifierExpected(simpleName.Identifier.GetLocation());
-            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(string.Empty, simpleName.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 

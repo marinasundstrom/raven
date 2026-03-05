@@ -2,6 +2,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
@@ -180,6 +181,35 @@ union Result<T, E> {
         ]);
         verifier.Verify();
     }
+
+    [Fact]
+    public void IncompleteMemberAccessBeforeImplicitOkReturn_DoesNotReportResultConversionDiagnostic()
+    {
+        var code = """
+import System.Console.*
+
+func build() -> Result<(), AppError> {
+    val result = [1, 2, 3]
+
+    for no in result {
+        WriteLine(no.)
+    }
+
+    Ok
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+record AppError(Message: string)
+""";
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id).WithAnySpan()
+        ]);
+        verifier.Verify();
+    }
 }
 
 public class DiscriminatedUnionCaseConversionClassificationTests : CompilationTestBase
@@ -260,5 +290,34 @@ func build() -> Result<string, InvalidOperationException> {
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+    }
+
+    [Fact]
+    public void ImplicitReturn_TargetTypedOk_RemainsStableAfterPriorNonTargetBinding()
+    {
+        var source = """
+func build() -> Result<(), string> {
+    Ok
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var okIdentifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(node => node.Identifier.ValueText == "Ok");
+
+        var semanticModel = compilation.GetSemanticModel(tree);
+        _ = semanticModel.GetBoundNode(okIdentifier);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Id == CompilerDiagnostics.CannotConvertFromTypeToType.Id);
     }
 }

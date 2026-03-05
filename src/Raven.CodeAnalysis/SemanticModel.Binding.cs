@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
@@ -4028,18 +4029,18 @@ public partial class SemanticModel
     internal void RemoveCachedBoundNode(SyntaxNode node)
     {
         if (_boundNodeCache.TryGetValue(node, out var bound))
-            _syntaxCache.Remove(bound);
+            _syntaxCache.TryRemove(bound, out _);
 
-        _boundNodeCache.Remove(node);
+        _boundNodeCache.TryRemove(node, out _);
         if (_loweredBoundNodeCache.TryGetValue(node, out var loweredBound))
-            _loweredSyntaxCache.Remove(loweredBound);
+            _loweredSyntaxCache.TryRemove(loweredBound, out _);
 
-        _loweredBoundNodeCache.Remove(node);
+        _loweredBoundNodeCache.TryRemove(node, out _);
 
         if (IsDebuggingEnabled)
         {
-            _boundNodeCache2.Remove(node);
-            _loweredBoundNodeCache2.Remove(node);
+            _boundNodeCache2.TryRemove(node, out _);
+            _loweredBoundNodeCache2.TryRemove(node, out _);
         }
     }
 
@@ -4055,7 +4056,7 @@ public partial class SemanticModel
             ? syntax
             : null;
 
-    private readonly Dictionary<SyntaxNodeMapKey, SourceNamedTypeSymbol> _declaredTypeSymbols = new();
+    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceNamedTypeSymbol> _declaredTypeSymbols = new();
 
     private void RegisterDeclaredTypeSymbol(SyntaxNode node, SourceNamedTypeSymbol symbol)
     {
@@ -4084,7 +4085,7 @@ public partial class SemanticModel
     internal SourceNamedTypeSymbol GetDeclaredTypeSymbolForDeclaration(SyntaxNode node)
         => GetDeclaredTypeSymbol(node);
 
-    private readonly Dictionary<SyntaxNodeMapKey, SourceNamedTypeSymbol> _classSymbols = new();
+    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceNamedTypeSymbol> _classSymbols = new();
 
     internal void RegisterClassSymbol(TypeDeclarationSyntax node, SourceNamedTypeSymbol symbol)
         => _classSymbols[GetSyntaxNodeMapKey(node)] = symbol;
@@ -4095,8 +4096,8 @@ public partial class SemanticModel
     internal bool TryGetClassSymbol(TypeDeclarationSyntax node, out SourceNamedTypeSymbol symbol)
         => _classSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
 
-    private readonly Dictionary<SyntaxNodeMapKey, SourceDiscriminatedUnionSymbol> _unionSymbols = new();
-    private readonly Dictionary<SyntaxNodeMapKey, SourceDiscriminatedUnionCaseTypeSymbol> _unionCaseSymbols = new();
+    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceDiscriminatedUnionSymbol> _unionSymbols = new();
+    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceDiscriminatedUnionCaseTypeSymbol> _unionCaseSymbols = new();
 
     internal void RegisterUnionSymbol(UnionDeclarationSyntax node, SourceDiscriminatedUnionSymbol symbol)
         => _unionSymbols[GetSyntaxNodeMapKey(node)] = symbol;
@@ -4116,7 +4117,7 @@ public partial class SemanticModel
     internal bool TryGetUnionCaseSymbol(UnionCaseClauseSyntax node, out SourceDiscriminatedUnionCaseTypeSymbol symbol)
         => _unionCaseSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
 
-    private readonly Dictionary<SyntaxNodeMapKey, IMethodSymbol> _methodSymbols = new();
+    private readonly ConcurrentDictionary<SyntaxNodeMapKey, IMethodSymbol> _methodSymbols = new();
 
     internal void RegisterMethodSymbol(MethodDeclarationSyntax node, IMethodSymbol symbol)
         => _methodSymbols[GetSyntaxNodeMapKey(node)] = symbol;

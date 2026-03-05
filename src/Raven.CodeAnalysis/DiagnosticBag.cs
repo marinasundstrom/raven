@@ -1,13 +1,16 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Linq;
+using System.Threading;
 
 namespace Raven.CodeAnalysis;
 
 public class DiagnosticBag
 {
-    private readonly HashSet<Diagnostic> _diagnostics;
-    private bool _dontReport;
+    private readonly ConcurrentDictionary<Diagnostic, byte> _diagnostics;
+    private int _reportingDisabledCount;
 
-    public bool IsEmpty => _diagnostics.Count == 0;
+    public bool IsEmpty => _diagnostics.IsEmpty;
 
     public DiagnosticBag()
     {
@@ -16,36 +19,41 @@ public class DiagnosticBag
 
     internal DiagnosticBag(IEnumerable<Diagnostic> enumerable)
     {
-        _diagnostics = [.. enumerable];
+        _diagnostics = new ConcurrentDictionary<Diagnostic, byte>(
+            enumerable.Select(static diagnostic => new KeyValuePair<Diagnostic, byte>(diagnostic, 0)));
     }
 
     public void Report(Diagnostic diagnostic)
     {
-        if (_dontReport)
+        if (Volatile.Read(ref _reportingDisabledCount) > 0)
             return;
 
-        _diagnostics.Add(diagnostic);
+        _diagnostics.TryAdd(diagnostic, 0);
     }
 
     public IEnumerable<Diagnostic> AsEnumerable()
     {
-        return _diagnostics;
+        return _diagnostics.Keys;
     }
 
     public void ClearDiagnostics(TextSpan textSpan)
     {
-        _diagnostics.RemoveWhere(x => x.Location != null && x.Location.SourceSpan.IntersectsWith(textSpan));
+        foreach (var diagnostic in _diagnostics.Keys)
+        {
+            if (diagnostic.Location != null && diagnostic.Location.SourceSpan.IntersectsWith(textSpan))
+                _diagnostics.TryRemove(diagnostic, out _);
+        }
     }
 
     public IDisposable CreateNonReportingScope()
     {
-        _dontReport = true;
+        Interlocked.Increment(ref _reportingDisabledCount);
         return new NonReportingScopeDisposable(this);
     }
 
     public void ResumeReporting()
     {
-        _dontReport = false;
+        Interlocked.Decrement(ref _reportingDisabledCount);
     }
 }
 

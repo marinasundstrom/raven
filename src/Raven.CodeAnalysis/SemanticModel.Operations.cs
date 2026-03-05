@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -8,7 +9,7 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
-    private readonly Dictionary<SyntaxNode, IOperation> _operationCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, IOperation> _operationCache = new();
 
     /// <summary>
     /// Gets the semantic operation corresponding to the specified syntax node.

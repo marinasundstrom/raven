@@ -140,7 +140,7 @@ internal static class SymbolResolver
     private static ISymbol ProjectTypeContextSymbol(ISymbol symbol)
     {
         if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
-            return constructor.ContainingType;
+            return constructor.ContainingType ?? symbol;
 
         return symbol;
     }
@@ -422,7 +422,7 @@ internal static class SymbolResolver
             if (TryGetInstantiatedInvocationType(semanticModel, invocation) is { } instantiated)
                 return instantiated;
 
-            return constructor.ContainingType;
+            return constructor.ContainingType ?? symbol;
         }
 
         return symbol;

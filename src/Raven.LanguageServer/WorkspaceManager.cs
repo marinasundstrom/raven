@@ -25,6 +25,7 @@ internal sealed class WorkspaceManager
     private readonly ImmutableArray<CodeFixProvider> _builtInCodeFixProviders = BuiltInCodeFixProviders.CreateDefault();
     private readonly Dictionary<string, ProjectId> _projectsByRoot = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
+    private readonly ConcurrentDictionary<ProjectId, CachedDiagnostics> _diagnosticsCache = new();
     private ProjectId? _fallbackProjectId;
 
     public WorkspaceManager(RavenWorkspace workspace, ILogger<WorkspaceManager> logger)
@@ -41,6 +42,7 @@ internal sealed class WorkspaceManager
             _projectsByRoot.Clear();
             _fallbackProjectId = null;
             _documents.Clear();
+            _diagnosticsCache.Clear();
             var loadedProjects = new Dictionary<string, ProjectId>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var root in roots)
@@ -246,6 +248,7 @@ internal sealed class WorkspaceManager
                 {
                     solution = solution.WithDocumentText(existing.DocumentId, sourceText);
                     _workspace.TryApplyChanges(solution);
+                    _diagnosticsCache.TryRemove(ownerProject, out _);
                     return _workspace.CurrentSolution.GetDocument(existing.DocumentId)!;
                 }
 
@@ -265,6 +268,9 @@ internal sealed class WorkspaceManager
                 }
                 _workspace.TryApplyChanges(solution);
                 _documents[uri] = new OwnedDocument(existingDocument.Id, existingOwnerProject);
+                _diagnosticsCache.TryRemove(existingOwnerProject, out _);
+                if (staleOwnedDocument is { } staleOwner && staleOwner.ProjectId != existingOwnerProject)
+                    _diagnosticsCache.TryRemove(staleOwner.ProjectId, out _);
                 return _workspace.CurrentSolution.GetDocument(existingDocument.Id)!;
             }
 
@@ -278,6 +284,7 @@ internal sealed class WorkspaceManager
             solution = solution.AddDocument(documentId, name, sourceText, filePath);
             _workspace.TryApplyChanges(solution);
             _documents[uri] = new OwnedDocument(documentId, ownerProject);
+            _diagnosticsCache.TryRemove(ownerProject, out _);
 
             return _workspace.CurrentSolution.GetDocument(documentId)!;
         }
@@ -355,7 +362,20 @@ internal sealed class WorkspaceManager
     {
         if (_documents.TryGetValue(uri, out var ownedDocument))
         {
+            var project = _workspace.CurrentSolution.GetProject(ownedDocument.ProjectId);
+            if (project is not null && analyzerOptions is null &&
+                _diagnosticsCache.TryGetValue(ownedDocument.ProjectId, out var cached) &&
+                cached.Version == project.Version)
+            {
+                diagnostics = cached.Diagnostics;
+                return true;
+            }
+
             diagnostics = _workspace.GetDiagnostics(ownedDocument.ProjectId, analyzerOptions, cancellationToken);
+            if (project is not null && analyzerOptions is null)
+            {
+                _diagnosticsCache[ownedDocument.ProjectId] = new CachedDiagnostics(project.Version, diagnostics);
+            }
             return true;
         }
 
@@ -391,6 +411,7 @@ internal sealed class WorkspaceManager
         {
             var solution = _workspace.CurrentSolution.RemoveDocument(ownedDocument.DocumentId);
             _workspace.TryApplyChanges(solution);
+            _diagnosticsCache.TryRemove(ownedDocument.ProjectId, out _);
         }
 
         return true;
@@ -597,4 +618,5 @@ internal sealed class WorkspaceManager
     }
 
     private readonly record struct OwnedDocument(DocumentId DocumentId, ProjectId ProjectId);
+    private readonly record struct CachedDiagnostics(VersionStamp Version, ImmutableArray<CodeDiagnostic> Diagnostics);
 }

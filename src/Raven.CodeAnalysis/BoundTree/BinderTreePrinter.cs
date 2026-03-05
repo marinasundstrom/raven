@@ -196,9 +196,12 @@ public static class BinderTreePrinter
         };
     }
 
-    private static Dictionary<SyntaxNode, Binder> GetBinderCache(SemanticModel model)
+    private static IEnumerable<KeyValuePair<SyntaxNode, Binder>> GetBinderCache(SemanticModel model)
     {
         var field = typeof(SemanticModel).GetField("_binderCache", BindingFlags.NonPublic | BindingFlags.Instance);
-        return (Dictionary<SyntaxNode, Binder>)field!.GetValue(model)!;
+        if (field?.GetValue(model) is IEnumerable<KeyValuePair<SyntaxNode, Binder>> cache)
+            return cache;
+
+        return [];
     }
 }
