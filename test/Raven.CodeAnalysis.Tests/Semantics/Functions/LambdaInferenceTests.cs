@@ -724,6 +724,136 @@ class Container {
             compilation.GetSpecialType(SpecialType.System_Int32)));
         Assert.Equal(TypeKind.Delegate, constructed.TypeKind);
     }
+
+    [Fact]
+    public void GenericFunction_WithCollectionLiteralAndLambda_InfersTypeParameterFromCollection()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+ForEach([1, 2], no => {})
+
+func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambda = tree.GetRoot().DescendantNodes().OfType<SimpleLambdaExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var parameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+    }
+
+    [Fact]
+    public void GenericFunction_WithMethodGroupArgument_InfersTypeParameterAndResolvesOverload()
+    {
+        const string source = """
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+
+val items: List<int> = [1, 2, 3]
+ForEach(items, WriteLine)
+
+func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(n => n.Expression is IdentifierNameSyntax id && id.Identifier.ValueText == "ForEach");
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.True(boundInvocation.Method.IsGenericMethod);
+        Assert.Equal(SpecialType.System_Int32, boundInvocation.Method.TypeArguments[0].SpecialType);
+
+        var writeLineNode = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(n => n.Identifier.ValueText == "WriteLine");
+        var symbolInfo = model.GetSymbolInfo(writeLineNode);
+        var selectedMethod = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        Assert.Equal("WriteLine", selectedMethod.Name);
+        Assert.Equal(SpecialType.System_Int32, selectedMethod.Parameters[0].Type.SpecialType);
+    }
+
+    [Fact]
+    public void GenericFunction_WithTypedSourceAndLambda_InfersTypeParameter()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val items: IEnumerable<int> = [1, 2, 3]
+ForEach(items, x => {})
+
+func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambda = tree.GetRoot().DescendantNodes().OfType<SimpleLambdaExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var parameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+    }
+
+    [Fact]
+    public void GenericFunction_ToDictionary_WithTwoLambdas_InfersTypeParameters()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+
+func Main() {
+    val o = [1, 2, 3].ToDictionary(x => x, y => y)
+}
+""";
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(n => n.Expression is MemberAccessExpressionSyntax m && m.Name.Identifier.Text == "ToDictionary");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundInvocation.Type);
+        Assert.Equal("Dictionary", returnType.Name);
+        Assert.Equal(2, returnType.TypeArguments.Length);
+        Assert.Equal(SpecialType.System_Int32, returnType.TypeArguments[0].SpecialType);
+        Assert.Equal(SpecialType.System_Int32, returnType.TypeArguments[1].SpecialType);
+
+        var lambdas = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .ToDictionary(lambda => lambda.Parameter.Identifier.ValueText);
+
+        var xLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["x"]));
+        var xParam = Assert.Single(xLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, xParam.Type.SpecialType);
+
+        var yLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["y"]));
+        var yParam = Assert.Single(yLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, yParam.Type.SpecialType);
+    }
 }
 
 public class LambdaInferenceDiagnosticsTests : DiagnosticTestBase
