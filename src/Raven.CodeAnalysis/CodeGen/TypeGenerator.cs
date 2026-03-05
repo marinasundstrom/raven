@@ -452,15 +452,25 @@ internal class TypeGenerator
             return;
 
         var inScopeParameters = GetTypeParametersInScope(namedType);
+
+        // Some source containers (notably generic extension containers) are lowered to
+        // non-generic runtime types. For nested synthesized types under those containers,
+        // inherited source type parameters must be dropped to keep emitted signatures valid.
+        if (namedType.ContainingType is not null &&
+            TypeBuilder.DeclaringType is { IsGenericTypeDefinition: false, ContainsGenericParameters: false })
+        {
+            inScopeParameters = namedType.TypeParameters;
+        }
+
         if (inScopeParameters.IsDefaultOrEmpty)
             return;
 
         var parameterBuilders = TypeBuilder.DefineGenericParameters(inScopeParameters.Select(tp => tp.Name).ToArray());
         CodeGen.RegisterGenericParameters(inScopeParameters, parameterBuilders);
 
-        _inheritedTypeParameters = namedType.ContainingType is null
-            ? ImmutableArray<ITypeParameterSymbol>.Empty
-            : GetTypeParametersInScope(namedType.ContainingType);
+        _inheritedTypeParameters = inScopeParameters.Length > namedType.TypeParameters.Length && namedType.ContainingType is not null
+            ? GetTypeParametersInScope(namedType.ContainingType)
+            : ImmutableArray<ITypeParameterSymbol>.Empty;
     }
 
     private static ImmutableArray<ITypeParameterSymbol> GetTypeParametersInScope(INamedTypeSymbol? typeSymbol)

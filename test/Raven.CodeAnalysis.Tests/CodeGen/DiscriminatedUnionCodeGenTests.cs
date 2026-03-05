@@ -1116,6 +1116,52 @@ class Container {
     }
 
     [Fact]
+    public void UnionToString_QuotesGenericStringPayload()
+    {
+        var code = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+record CustomError(message: string)
+
+class Container {
+    public static func Create() -> Result<string, CustomError> {
+        return Result<string, CustomError>.Ok("Foo")
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var createMethod = containerType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static)!;
+        var unionValue = createMethod.Invoke(null, Array.Empty<object?>());
+
+        Assert.NotNull(unionValue);
+
+        var text = unionValue!.ToString();
+        Assert.Equal("Result.Ok(\"Foo\")", text);
+    }
+
+    [Fact]
     public void UnionToString_ReturnsUninitializedWhenTagIsInvalid()
     {
         var code = """

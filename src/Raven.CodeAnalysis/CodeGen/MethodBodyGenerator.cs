@@ -3687,9 +3687,14 @@ internal class MethodBodyGenerator
                 _outerMethodClosure = MethodGenerator.TypeGenerator.EnsureSharedMethodClosure(
                     MethodSymbol, allCaptured, hoistCollector.LambdaSymbols, hoistCollector.LocalFunctionSymbols);
 
+                var runtimeClosureType = Generator.InstantiateType(_outerMethodClosure.TypeBuilder);
+                var runtimeClosureCtor = runtimeClosureType == _outerMethodClosure.TypeBuilder
+                    ? _outerMethodClosure.Constructor
+                    : TypeBuilder.GetConstructor(runtimeClosureType, _outerMethodClosure.Constructor);
+
                 // Allocate the shared closure at the very start of the method body.
-                _outerMethodClosureLocal = ILGenerator.DeclareLocal(_outerMethodClosure.TypeBuilder);
-                ILGenerator.Emit(OpCodes.Newobj, _outerMethodClosure.Constructor);
+                _outerMethodClosureLocal = ILGenerator.DeclareLocal(runtimeClosureType);
+                ILGenerator.Emit(OpCodes.Newobj, runtimeClosureCtor);
                 ILGenerator.Emit(OpCodes.Stloc, _outerMethodClosureLocal);
 
                 // Eagerly copy non-local captures (parameters, self/'this') into the
@@ -3715,7 +3720,10 @@ internal class MethodBodyGenerator
                             ILGenerator.Emit(OpCodes.Ldarg_0);
                             break;
                     }
-                    ILGenerator.Emit(OpCodes.Stfld, initField);
+                    var runtimeField = runtimeClosureType == _outerMethodClosure.TypeBuilder
+                        ? initField
+                        : TypeBuilder.GetField(runtimeClosureType, initField);
+                    ILGenerator.Emit(OpCodes.Stfld, runtimeField);
                 }
             }
         }

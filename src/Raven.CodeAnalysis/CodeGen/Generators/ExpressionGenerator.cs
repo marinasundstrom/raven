@@ -1036,6 +1036,13 @@ internal partial class ExpressionGenerator : Generator
         Type delegateType)
     {
         var delegateCtor = GetDelegateConstructor(delegateTypeSymbol, delegateType);
+        var runtimeClosureType = Generator.InstantiateType(closure.TypeBuilder);
+        var runtimeClosureCtor = runtimeClosureType == closure.TypeBuilder
+            ? closure.Constructor
+            : TypeBuilder.GetConstructor(runtimeClosureType, closure.Constructor);
+        var runtimeLambdaMethod = runtimeClosureType == closure.TypeBuilder || methodInfo.DeclaringType != closure.TypeBuilder
+            ? methodInfo
+            : TypeBuilder.GetMethod(runtimeClosureType, methodInfo);
 
         // If the closure is the shared outer-method closure (reference-based capture), reuse the
         // already-allocated local instead of creating a new instance and snapshotting values.
@@ -1044,14 +1051,14 @@ internal partial class ExpressionGenerator : Generator
             MethodBodyGenerator.OuterMethodClosureLocal is { } outerLocal)
         {
             ILGenerator.Emit(OpCodes.Ldloc, outerLocal);
-            ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
+            ILGenerator.Emit(OpCodes.Ldftn, runtimeLambdaMethod);
             ILGenerator.Emit(OpCodes.Newobj, delegateCtor);
             return;
         }
 
         // Fallback (value-based capture): create a new closure instance and copy captured values.
-        var closureLocal = ILGenerator.DeclareLocal(closure.TypeBuilder);
-        ILGenerator.Emit(OpCodes.Newobj, closure.Constructor);
+        var closureLocal = ILGenerator.DeclareLocal(runtimeClosureType);
+        ILGenerator.Emit(OpCodes.Newobj, runtimeClosureCtor);
         ILGenerator.Emit(OpCodes.Stloc, closureLocal);
 
         var capturedSymbols = lambdaExpression.CapturedVariables.ToArray();
@@ -1061,11 +1068,15 @@ internal partial class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
             EmitCapturedValue(captured);
-            ILGenerator.Emit(OpCodes.Stfld, closure.GetField(captured));
+            var closureField = closure.GetField(captured);
+            var runtimeField = runtimeClosureType == closure.TypeBuilder
+                ? closureField
+                : TypeBuilder.GetField(runtimeClosureType, closureField);
+            ILGenerator.Emit(OpCodes.Stfld, runtimeField);
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
-        ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
+        ILGenerator.Emit(OpCodes.Ldftn, runtimeLambdaMethod);
         ILGenerator.Emit(OpCodes.Newobj, delegateCtor);
     }
 
@@ -4925,17 +4936,6 @@ internal partial class ExpressionGenerator : Generator
             }
         }
 
-        // Special cast for Object.GetType() to MemberInfo
-        if (target.Name == "GetType"
-            && target.ContainingType.Name == "Object"
-            && target.ContainingNamespace.Name == "System")
-        {
-            var memberInfo = Compilation.ReferencedAssemblySymbols
-                .First(x => x.Name == "System.Runtime")
-                .GetTypeByMetadataName("System.Reflection.MemberInfo");
-
-            ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(memberInfo));
-        }
     }
 
     private void EmitInvocationClosureArgument(TypeGenerator.LambdaClosure closure)
@@ -4954,15 +4954,24 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        var closureLocal = ILGenerator.DeclareLocal(closure.TypeBuilder);
-        ILGenerator.Emit(OpCodes.Newobj, closure.Constructor);
+        var runtimeClosureType = Generator.InstantiateType(closure.TypeBuilder);
+        var runtimeClosureCtor = runtimeClosureType == closure.TypeBuilder
+            ? closure.Constructor
+            : TypeBuilder.GetConstructor(runtimeClosureType, closure.Constructor);
+
+        var closureLocal = ILGenerator.DeclareLocal(runtimeClosureType);
+        ILGenerator.Emit(OpCodes.Newobj, runtimeClosureCtor);
         ILGenerator.Emit(OpCodes.Stloc, closureLocal);
 
         foreach (var captured in closure.CapturedSymbols)
         {
             ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
             EmitCapturedValue(captured);
-            ILGenerator.Emit(OpCodes.Stfld, closure.GetField(captured));
+            var closureField = closure.GetField(captured);
+            var runtimeField = runtimeClosureType == closure.TypeBuilder
+                ? closureField
+                : TypeBuilder.GetField(runtimeClosureType, closureField);
+            ILGenerator.Emit(OpCodes.Stfld, runtimeField);
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
