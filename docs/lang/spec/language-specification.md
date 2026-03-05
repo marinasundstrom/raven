@@ -3005,6 +3005,9 @@ creating a lambda immediately affects all delegates that captured it. Capturing
 preserves the argument value from the invoking scope. Nested lambdas reuse the
 closure instances produced by their enclosing scopes so that captures shared
 across multiple lambda layers continue to reference the same storage locations.
+Non-capturing lambdas are emitted using the same closure-carrier convention
+(with zero capture fields) so lambda emission remains uniform across contexts.
+Synthesized lambda method names follow C#-style metadata naming (`<Method>b__...`).
 `static func` declarations do not capture enclosing state, and `self` is not
 available in static contexts (`RAV2801`).
 
@@ -3072,6 +3075,13 @@ Passing `Console.WriteLine` as an argument to a parameter of function type `(str
 (equivalent to `System.Action<string>`) likewise selects the `string` overload without requiring
 an explicit annotation at the call site. If no overload matches the target
 delegate's signature, diagnostic `RAV2203` is produced.
+
+When the selected method is compatible with the target delegate only through
+implicit parameter/return conversion (for example, delegate parameter
+`KeyValuePair<string, int>` forwarded to method parameter `object`), Raven
+synthesizes an internal compiler-generated bridge method and binds the delegate
+to that bridge. The bridge performs the required implicit conversions (including
+boxing for value types) before invoking the selected method.
 
 If no compatible delegate type exists in the current context, the compiler
 generates one whose signature matches the referenced function or method. The

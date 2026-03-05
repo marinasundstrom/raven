@@ -62,7 +62,7 @@ Current safeguards:
 
 - Binder marks expression-tree-targeted lambdas (`SourceLambdaSymbol.MarkExpressionTreeLambda`).
 - Codegen has a fail-fast guard if a marked expression-tree lambda reaches delegate-lambda emission.
-- Codegen test coverage asserts expression-tree-only source does not emit `<lambda_...>` methods.
+- Codegen test coverage asserts expression-tree-only source does not emit delegate lambda methods (`<Method>b__...`).
 
 ## Tests in place
 
@@ -75,4 +75,4 @@ Current safeguards:
 
 - `/Users/robert/Projects/Raven/samples/runtime/expression-trees-basic.rav`
 
-Note: this sample currently includes both plain delegate lambdas and expression-tree lambdas; plain delegate lambdas are still expected to emit `<lambda_...>` methods.
+Note: this sample currently includes both plain delegate lambdas and expression-tree lambdas; plain delegate lambdas are still expected to emit `<Method>b__...` methods.
