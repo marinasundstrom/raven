@@ -198,6 +198,7 @@ For `class` / `struct`, parameter promotion is explicit:
 
 * `val` parameter: promoted to an instance `val` auto-property.
 * `var` parameter: promoted to an instance `var` auto-property.
+* promoted parameters may specify an access modifier (`public`, `internal`, `protected`, `private`) before `val`/`var` to control synthesized property accessibility (default is `public`).
 * no binding keyword: captured in synthesized private instance storage for member access, but not promoted to a public property.
 * constructor calls must use invocation syntax (`Foo()`); a standalone type name (`Foo`) is not a value expression.
 * semantic model note: unqualified identifier access to captured/promoted primary-constructor members resolves to the originating parameter symbol.
@@ -240,7 +241,7 @@ record struct Point(x: int, y: int);          // explicit record struct
 
 Primary-constructor semantics differ between nominal types and records:
 
-* `class` / `struct`: only `val`/`var` parameters are promoted to properties; parameters without a binding keyword are captured in synthesized private instance storage for member access.
+* `class` / `struct`: only `val`/`var` parameters are promoted to properties; parameters without a binding keyword are captured in synthesized private instance storage for member access. Access modifiers on primary-constructor parameters are valid only when the parameter is promoted.
 * `record class` / `record struct`: positional parameters are promoted to public auto-properties by default (as `val` when no binding keyword is specified, or `var` when `var` is specified). The compiler synthesizes value-based members such as `Equals`, `GetHashCode`, deconstruction, and record equality operators.
 
 ```raven

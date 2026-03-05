@@ -87,4 +87,18 @@ class Foo(value: int, var Name: string) {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void PrimaryConstructorNonPublicPromotedParameter_CamelCase_DoesNotReport()
+    {
+        const string code = """
+class Foo(private var name: string)
+""";
+
+        var verifier = CreateAnalyzerVerifier<ConstructorParameterNamingAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
 }

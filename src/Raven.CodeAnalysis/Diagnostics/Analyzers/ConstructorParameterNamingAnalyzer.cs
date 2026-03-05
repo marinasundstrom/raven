@@ -82,7 +82,12 @@ public sealed class ConstructorParameterNamingAnalyzer : DiagnosticAnalyzer
         var isRecord = typeDeclaration is RecordDeclarationSyntax;
         var bindingKeyword = parameterSyntax.BindingKeyword?.Kind ?? SyntaxKind.None;
         var isPromoted = isRecord || bindingKeyword is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
-        return isPromoted ? NamingStyle.PascalCase : NamingStyle.CamelCase;
+        if (!isPromoted)
+            return NamingStyle.CamelCase;
+
+        var accessibilityKeyword = parameterSyntax.AccessibilityKeyword.Kind;
+        var isPublicPromotion = accessibilityKeyword is SyntaxKind.None or SyntaxKind.PublicKeyword;
+        return isPublicPromotion ? NamingStyle.PascalCase : null;
     }
 
     private static string GetSymbolKindDisplay(ParameterListSyntax parameterList, ParameterSyntax parameterSyntax)

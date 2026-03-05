@@ -19,7 +19,7 @@ val message = quoteResult match {
 
 WriteLine(message)
 
-class ShipmentOrderService(var pendingCount: int = 0) {
+class ShipmentOrderService(private var pendingCount: int = 0) {
     val PendingCount: int => pendingCount
 
     func RecordPending(count: int) -> () {

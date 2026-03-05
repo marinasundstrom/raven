@@ -210,7 +210,8 @@ internal sealed class HoverHandler : IHoverHandler
                 ? $"<{string.Join(", ", containingType.TypeParameters.Select(static tp => tp.Name))}>"
                 : string.Empty;
             var parameters = FormatParameters(constructor.Parameters, plainTypeFormat);
-            return $"{constructorName}{typeParams}({parameters})";
+            var accessibilityPrefix = GetNonPublicAccessibilityPrefix(constructor);
+            return $"{accessibilityPrefix}{constructorName}{typeParams}({parameters})";
         }
 
         if (symbol is IMethodSymbol method)
@@ -233,20 +234,23 @@ internal sealed class HoverHandler : IHoverHandler
                                (IsLocalFunctionDeclaredStatic(method) || (!IsFunctionStatementSymbol(method) && method.IsStatic))
                 ? "static "
                 : string.Empty;
-            return $"{staticPrefix}func {method.Name}{typeParameters}({parameters}) -> {returnType}";
+            var accessibilityPrefix = GetNonPublicAccessibilityPrefix(method);
+            return $"{accessibilityPrefix}{staticPrefix}func {method.Name}{typeParameters}({parameters}) -> {returnType}";
         }
 
         if (symbol is IEventSymbol ev)
         {
             var eventType = ev.Type.ToDisplayString(plainTypeFormat);
-            return $"event {ev.Name}: {eventType}";
+            var accessibilityPrefix = GetNonPublicAccessibilityPrefix(ev);
+            return $"{accessibilityPrefix}event {ev.Name}: {eventType}";
         }
 
         if (symbol is IParameterSymbol parameter)
         {
             var binding = parameter.IsMutable ? "var" : "val";
             var parameterType = parameter.Type.ToDisplayString(plainTypeFormat);
-            return $"{binding} {parameter.Name}: {parameterType}";
+            var accessibilityPrefix = GetNonPublicParameterAccessibilityPrefix(parameter);
+            return $"{accessibilityPrefix}{binding} {parameter.Name}: {parameterType}";
         }
 
         if (symbol is ILocalSymbol local)
@@ -287,6 +291,30 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         return symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
+    }
+
+    private static string GetNonPublicAccessibilityPrefix(ISymbol symbol)
+    {
+        var accessibility = symbol.DeclaredAccessibility;
+        if (accessibility is Accessibility.NotApplicable or Accessibility.Public)
+            return string.Empty;
+
+        return accessibility.ToString().ToLowerInvariant() + " ";
+    }
+
+    private static string GetNonPublicParameterAccessibilityPrefix(IParameterSymbol parameter)
+    {
+        foreach (var syntaxReference in parameter.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not ParameterSyntax parameterSyntax)
+                continue;
+
+            var kind = parameterSyntax.AccessibilityKeyword.Kind;
+            if (kind is SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword)
+                return parameterSyntax.AccessibilityKeyword.Text + " ";
+        }
+
+        return string.Empty;
     }
 
     private static string FormatType(ITypeSymbol type, SymbolDisplayFormat format)

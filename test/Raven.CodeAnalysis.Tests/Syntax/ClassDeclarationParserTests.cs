@@ -23,6 +23,21 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void ClassDeclaration_WithPrimaryConstructorParameterAccessibility_ParsesAccessibilityKeyword()
+    {
+        var source = "class Person(private var Name: string) {}";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(root.Members));
+        var parameter = Assert.Single(declaration.ParameterList!.Parameters);
+
+        Assert.Equal(SyntaxKind.PrivateKeyword, parameter.AccessibilityKeyword.Kind);
+        Assert.Equal(SyntaxKind.VarKeyword, parameter.BindingKeyword?.Kind);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void ClassDeclaration_WithTypeParameters_ParsesTypeParameterList()
     {
         var source = "class Box<TValue, TOther> {}";

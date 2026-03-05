@@ -126,4 +126,57 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
 
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void PrimaryConstructor_PromotedParameterAccessibility_AppliesToSynthesizedProperty()
+    {
+        var source = """
+            class Person(private var Name: string)
+            {
+                func GetName() -> string => Name
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        _ = compilation.GetSemanticModel(tree);
+
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Person"));
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(Assert.Single(type.GetMembers("Name")));
+
+        Assert.Equal(Accessibility.Private, property.DeclaredAccessibility);
+        Assert.Equal(Accessibility.Private, property.GetMethod?.DeclaredAccessibility);
+        Assert.Equal(Accessibility.Private, property.SetMethod?.DeclaredAccessibility);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void PrimaryConstructor_AccessibilityOnNonPromotedParameter_ReportsDiagnostic()
+    {
+        var source = """
+            class Person(private name: string)
+            {
+                func GetName() -> string => name
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.ModifierNotValidOnMember);
+    }
+
+    [Fact]
+    public void PrimaryConstructor_AccessibilityOnByRefParameter_ReportsDiagnostic()
+    {
+        var source = """
+            class Counter(private ref value: int)
+            {
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.ModifierNotValidOnMember);
+    }
 }

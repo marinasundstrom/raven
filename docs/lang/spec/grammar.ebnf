@@ -83,8 +83,10 @@ ExtensionPropertyModifiers ::= AccessModifier ;
 ReturnTypeClause         ::= '->' Type ;
 
 ParameterList            ::= Parameter {',' Parameter} ;
-Parameter                ::= {AttributeList} RefKindModifier? Identifier ':' Type ['=' Expression] ;
+Parameter                ::= {AttributeList} AccessModifier? RefKindModifier? ParameterBindingKeyword?
+                             Identifier ':' Type ['=' Expression] ;
 RefKindModifier          ::= 'ref' | 'out' | 'in' ;
+ParameterBindingKeyword  ::= 'let' | 'val' | 'var' | 'const' ;
 
 AttributeList            ::= '[' Attribute {',' Attribute} ']' ;
 Attribute                ::= QualifiedName [AttributeArgumentList] ;

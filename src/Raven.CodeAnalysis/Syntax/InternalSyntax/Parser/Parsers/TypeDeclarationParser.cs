@@ -66,7 +66,7 @@ internal class TypeDeclarationParser : SyntaxParser
         if ((typeKeyword.IsKind(SyntaxKind.ClassKeyword) || typeKeyword.IsKind(SyntaxKind.StructKeyword) || typeKeyword.IsKind(SyntaxKind.RecordKeyword)) &&
             PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            parameterList = ParseParameterList();
+            parameterList = ParseParameterList(allowAccessModifiers: true);
         }
 
         TypeParameterListSyntax? typeParameterList = null;
@@ -1031,7 +1031,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return AccessorList(openBraceToken, List(accessorList.ToArray()), closeBraceToken);
     }
 
-    public ParameterListSyntax ParseParameterList(SyntaxToken? openParenToken = null)
+    public ParameterListSyntax ParseParameterList(SyntaxToken? openParenToken = null, bool allowAccessModifiers = false)
     {
         var openParenTokenValue = openParenToken ?? ReadToken();
 
@@ -1082,6 +1082,13 @@ internal class TypeDeclarationParser : SyntaxParser
                 var parameterStart = Position;
                 var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
+                var accessibilityKeyword = Token(SyntaxKind.None);
+                if (allowAccessModifiers &&
+                    PeekToken().Kind is SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.ProtectedKeyword or SyntaxKind.InternalKeyword)
+                {
+                    accessibilityKeyword = ReadToken();
+                }
+
                 SyntaxToken? refKindKeyword = null;
                 if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
                     refKindKeyword = ReadToken();
@@ -1128,7 +1135,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+                parameterList.Add(Parameter(attributeLists, accessibilityKeyword, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
                 parsedParameters++;
             }
 
@@ -1421,7 +1428,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
                 parsedParameters++;
             }
 

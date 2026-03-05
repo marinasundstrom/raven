@@ -1276,7 +1276,7 @@ val p = Person("Ada", 36)   // ok
 
 Primary-constructor behavior is intentionally split:
 
-1. `class`/`struct`: parameters marked with `val` or `var` are promoted to properties; parameters without a binding keyword are captured in compiler-generated private storage for member access, but are not promoted to public properties.
+1. `class`/`struct`: parameters marked with `val` or `var` are promoted to properties; parameters without a binding keyword are captured in compiler-generated private storage for member access, but are not promoted to public properties. Promoted parameters may include an access modifier (`public`/`internal`/`protected`/`private`) before `val`/`var` to set synthesized property accessibility (default `public`).
 2. `record class`/`record struct`: positional parameters define the record's public data shape via synthesized properties and value members. When no binding keyword is present, record parameters are promoted as `val` properties by default.
 3. Constructor calls require invocation syntax (`Foo(...)` or `Foo()`); a standalone type name (`Foo`) is not a value expression, while `Foo { ... }` remains a valid object initializer form.
 4. Member declarations cannot reuse the immediate containing type's name.

@@ -381,9 +381,16 @@ partial class BlockBinder : Binder
         if (base.EnsureMemberAccessible(symbol, location, symbolKind))
             return true;
 
-        var display = symbol is ITypeSymbol typeSymbol
-            ? typeSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)
-            : symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var inaccessibleMemberDisplayFormat = SymbolDisplayFormat.MinimallyQualifiedFormat
+            .WithKindOptions(SymbolDisplayKindOptions.IncludeMemberKeyword)
+            .WithPropertyStyle(SymbolDisplayPropertyStyle.NameOnly);
+
+        var display = symbol switch
+        {
+            ITypeSymbol typeSymbol => typeSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            IPropertySymbol propertySymbol => $"{(propertySymbol.IsMutable ? "var" : "val")} {propertySymbol.Name}: {propertySymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}",
+            _ => symbol.ToDisplayString(inaccessibleMemberDisplayFormat),
+        };
 
         _diagnostics.ReportSymbolIsInaccessible(symbolKind, display, location);
         return false;

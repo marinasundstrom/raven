@@ -738,6 +738,7 @@
   </Node>
   <Node Name="Parameter" Inherits="Node">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
+    <Slot Name="AccessibilityKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="RefKindKeyword" Type="Token" IsNullable="true" />
     <Slot Name="BindingKeyword" Type="Token" IsNullable="true" />
     <Slot Name="Identifier" Type="Token" />

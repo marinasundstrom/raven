@@ -835,6 +835,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             var mergedAttributes = ConcatSyntaxLists(parameterAttributeLists, firstParameter.AttributeLists);
             var updatedFirstParameter = firstParameter.Update(
                 mergedAttributes,
+                firstParameter.AccessibilityKeyword,
                 firstParameter.RefKindKeyword,
                 firstParameter.BindingKeyword,
                 firstParameter.Identifier,
@@ -990,7 +991,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         var body = new ExpressionSyntaxParser(this).ParseExpression();
 
-        var parameter = Parameter(attributeLists, refKindKeyword, bindingKeyword, identifier, typeAnnotation, defaultValue);
+        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, identifier, typeAnnotation, defaultValue);
 
         lambda = SimpleLambdaExpression(asyncKeyword, parameter, returnType, fatArrowToken, body);
 

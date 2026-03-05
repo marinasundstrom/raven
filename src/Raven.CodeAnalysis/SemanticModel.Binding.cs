@@ -3248,6 +3248,7 @@ public partial class SemanticModel
                 ref seenOptionalParameter);
             var bindingKeywordKind = parameterSyntax.BindingKeyword?.Kind ?? SyntaxKind.None;
             var isMutable = bindingKeywordKind == SyntaxKind.VarKeyword;
+            var accessibilityKeywordKind = parameterSyntax.AccessibilityKeyword.Kind;
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 parameterType,
@@ -3263,12 +3264,24 @@ public partial class SemanticModel
 
             parameters.Add(parameterSymbol);
 
+            var shouldPromoteToProperty = refKind == RefKind.None &&
+                                          (isRecord || bindingKeywordKind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword);
+            if (!shouldPromoteToProperty && accessibilityKeywordKind is not SyntaxKind.None)
+            {
+                var keywordText = parameterSyntax.AccessibilityKeyword.Text;
+                classBinder.Diagnostics.ReportModifierNotValidOnMember(
+                    keywordText,
+                    "parameter",
+                    parameterSyntax.Identifier.ValueText,
+                    parameterSyntax.AccessibilityKeyword.GetLocation());
+            }
+
             if (refKind == RefKind.None)
             {
                 // Record positional parameters always synthesize properties. For class/struct primary
                 // constructors, only `val`/`var` parameters are promoted.
-                var shouldPromoteToProperty = isRecord || bindingKeywordKind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
-                if (shouldPromoteToProperty)
+                var shouldPromoteToPropertyWithoutRef = isRecord || bindingKeywordKind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+                if (shouldPromoteToPropertyWithoutRef)
                 {
                     if (string.Equals(parameterSymbol.Name, classSymbol.Name, StringComparison.Ordinal))
                     {
@@ -3286,6 +3299,7 @@ public partial class SemanticModel
                         parameterType,
                         namespaceSymbol,
                         classBinder,
+                        GetPrimaryConstructorPropertyAccessibility(accessibilityKeywordKind),
                         applyRecordInheritanceSemantics: isRecord,
                         markRequired: isRecord);
 
@@ -3365,6 +3379,7 @@ public partial class SemanticModel
         ITypeSymbol parameterType,
         SourceNamespaceSymbol? namespaceSymbol,
         ClassDeclarationBinder classBinder,
+        Accessibility declaredAccessibility,
         bool applyRecordInheritanceSemantics,
         bool markRequired)
     {
@@ -3415,7 +3430,7 @@ public partial class SemanticModel
             [location],
             references,
             isStatic: false,
-            declaredAccessibility: Accessibility.Public);
+            declaredAccessibility: declaredAccessibility);
 
         if (markRequired)
             propertySymbol.MarkAsRequired();
@@ -3448,7 +3463,7 @@ public partial class SemanticModel
             references,
             isStatic: false,
             methodKind: MethodKind.PropertyGet,
-            declaredAccessibility: Accessibility.Public);
+            declaredAccessibility: declaredAccessibility);
 
         var setMethodKind = parameterSymbol.IsMutable ? MethodKind.PropertySet : MethodKind.InitOnly;
         var setMethod = new SourceMethodSymbol(
@@ -3462,7 +3477,7 @@ public partial class SemanticModel
             references,
             isStatic: false,
             methodKind: setMethodKind,
-            declaredAccessibility: Accessibility.Public);
+            declaredAccessibility: declaredAccessibility);
 
         var valueParameter = new SourceParameterSymbol(
             "value",
@@ -3476,6 +3491,18 @@ public partial class SemanticModel
 
         propertySymbol.SetAccessors(getMethod, setMethod);
         return propertySymbol;
+    }
+
+    private static Accessibility GetPrimaryConstructorPropertyAccessibility(SyntaxKind accessibilityKeywordKind)
+    {
+        return accessibilityKeywordKind switch
+        {
+            SyntaxKind.PrivateKeyword => Accessibility.Private,
+            SyntaxKind.InternalKeyword => Accessibility.Internal,
+            SyntaxKind.ProtectedKeyword => Accessibility.ProtectedAndProtected,
+            SyntaxKind.PublicKeyword => Accessibility.Public,
+            _ => Accessibility.Public,
+        };
     }
 
     private void RegisterRecordValueMembers(TypeDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
