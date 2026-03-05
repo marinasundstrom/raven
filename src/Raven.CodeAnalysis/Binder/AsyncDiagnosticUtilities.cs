@@ -24,7 +24,7 @@ internal static class AsyncDiagnosticUtilities
 
         if (string.IsNullOrWhiteSpace(display) ||
             display == "<lambda>" ||
-            display.StartsWith("<lambda_", StringComparison.Ordinal))
+            (methodSymbol.MethodKind == MethodKind.LambdaMethod && display.Contains(">b__", StringComparison.Ordinal)))
             return kind;
 
         return $"{kind} '{display}'";

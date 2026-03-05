@@ -1005,18 +1005,15 @@ internal partial class ExpressionGenerator : Generator
 
         var typeGenerator = MethodGenerator.TypeGenerator;
         var lambdaGenerator = typeGenerator.GetMethodGenerator(lambdaSymbol);
-        var hasCaptures = lambdaExpression.CapturedVariables.Any();
         TypeGenerator.LambdaClosure? closure = null;
+        if (lambdaSymbol is SourceLambdaSymbol sourceLambda)
+            closure = typeGenerator.EnsureLambdaClosure(sourceLambda);
 
         if (lambdaGenerator is null)
         {
             lambdaGenerator = new MethodGenerator(typeGenerator, lambdaSymbol, typeGenerator.CodeGen.ILBuilderFactory);
-
-            if (hasCaptures && lambdaSymbol is SourceLambdaSymbol sourceLambda)
-            {
-                closure = typeGenerator.EnsureLambdaClosure(sourceLambda);
+            if (closure is not null)
                 lambdaGenerator.SetLambdaClosure(closure);
-            }
 
             typeGenerator.Add(lambdaSymbol, lambdaGenerator);
             lambdaGenerator.DefineMethodBuilder();
@@ -1024,14 +1021,10 @@ internal partial class ExpressionGenerator : Generator
             if (lambdaSymbol is SourceLambdaSymbol sourceLambdaSymbol)
                 typeGenerator.CodeGen.AddMemberBuilder(sourceLambdaSymbol, lambdaGenerator.MethodBase);
         }
-        else if (hasCaptures && lambdaSymbol is SourceLambdaSymbol existingSource)
+        else if (closure is not null)
         {
-            closure = typeGenerator.EnsureLambdaClosure(existingSource);
             lambdaGenerator.SetLambdaClosure(closure);
         }
-
-        if (hasCaptures && closure is null && lambdaSymbol is SourceLambdaSymbol lateSource)
-            closure = typeGenerator.EnsureLambdaClosure(lateSource);
 
         if (!lambdaGenerator.HasEmittedBody)
             lambdaGenerator.EmitLambdaBody(lambdaExpression, closure);
@@ -1044,20 +1037,10 @@ internal partial class ExpressionGenerator : Generator
         var delegateType = ResolveClrType(delegateTypeSymbol);
         delegateType = CloseOpenDelegateType(delegateType, methodInfo);
 
-        if (hasCaptures)
-        {
-            if (closure is null && !typeGenerator.TryGetLambdaClosure(lambdaSymbol, out closure))
-                throw new InvalidOperationException("Missing closure information for captured lambda.");
+        if (closure is null && !typeGenerator.TryGetLambdaClosure(lambdaSymbol, out closure))
+            throw new InvalidOperationException("Missing closure information for lambda.");
 
-            EmitCapturedLambda(lambdaExpression, closure!, methodInfo, delegateTypeSymbol, delegateType);
-            return;
-        }
-
-        var ctor = GetDelegateConstructor(delegateTypeSymbol, delegateType);
-
-        ILGenerator.Emit(OpCodes.Ldnull);
-        ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
-        ILGenerator.Emit(OpCodes.Newobj, ctor);
+        EmitCapturedLambda(lambdaExpression, closure!, methodInfo, delegateTypeSymbol, delegateType);
     }
 
     private static Type CloseOpenDelegateType(Type delegateType, MethodInfo lambdaMethod)
@@ -4794,6 +4777,20 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitInvocationClosureArgument(TypeGenerator.LambdaClosure closure)
     {
+        if (ReferenceEquals(MethodGenerator.LambdaClosure, closure))
+        {
+            MethodBodyGenerator.EmitLoadClosure();
+            return;
+        }
+
+        if (MethodBodyGenerator.OuterMethodClosure is { } outerClosure &&
+            ReferenceEquals(outerClosure, closure) &&
+            MethodBodyGenerator.OuterMethodClosureLocal is { } outerLocal)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, outerLocal);
+            return;
+        }
+
         var closureLocal = ILGenerator.DeclareLocal(closure.TypeBuilder);
         ILGenerator.Emit(OpCodes.Newobj, closure.Constructor);
         ILGenerator.Emit(OpCodes.Stloc, closureLocal);

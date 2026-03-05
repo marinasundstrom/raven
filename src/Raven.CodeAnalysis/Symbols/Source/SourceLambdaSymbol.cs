@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Immutable;
-using System.Threading;
+using System.Linq;
+
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 {
-    private static int _fallbackLambdaOrdinal;
     private ImmutableArray<ISymbol> _capturedVariables = ImmutableArray<ISymbol>.Empty;
     private bool _hasAsyncReturnTypeError;
     private bool _containsAwait;
@@ -24,7 +25,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         bool isAsync = false)
         : base(
             SymbolKind.Method,
-            CreateLambdaName(locations),
+            CreateLambdaName(containingSymbol, locations),
             containingSymbol,
             containingType,
             containingNamespace,
@@ -44,7 +45,9 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     public bool IsConstructor => false;
 
-    public override bool IsStatic => !HasCaptures;
+    // Align with C# closure lowering: lambdas are emitted as instance methods on
+    // compiler-generated closure carrier types (including non-capturing lambdas).
+    public override bool IsStatic => false;
 
     public MethodKind MethodKind => MethodKind.LambdaMethod;
 
@@ -131,16 +134,89 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         throw new NotSupportedException("Lambdas cannot be constructed with type arguments.");
     }
 
-    private static string CreateLambdaName(Location[]? locations)
+    private static string CreateLambdaName(ISymbol containingSymbol, Location[]? locations)
     {
-        if (locations is { Length: > 0 } &&
-            locations[0] is { } first &&
-            first.SourceSpan.Start >= 0)
+        var containerName = GetLambdaContainerName(containingSymbol);
+        var ordinal = ComputeLambdaOrdinal(containingSymbol, locations);
+        var pathPrefix = GetEnclosingLambdaOrdinalPath(containingSymbol);
+        var ordinalPath = pathPrefix is null ? ordinal.ToString() : $"{pathPrefix}_{ordinal}";
+        return $"<{containerName}>b__{ordinalPath}";
+    }
+
+    private static string GetLambdaContainerName(ISymbol containingSymbol)
+    {
+        if (containingSymbol is not IMethodSymbol method)
+            return "lambda";
+
+        var name = method.Name;
+        if (string.IsNullOrWhiteSpace(name))
+            return "lambda";
+
+        if (method.MethodKind == MethodKind.LambdaMethod &&
+            name.Length > 2 &&
+            name[0] == '<')
         {
-            return $"<lambda_{first.SourceSpan.Start}>";
+            var closing = name.IndexOf('>');
+            if (closing > 1)
+                return name.Substring(1, closing - 1);
         }
 
-        var ordinal = Interlocked.Increment(ref _fallbackLambdaOrdinal);
-        return $"<lambda_{ordinal}>";
+        return name;
+    }
+
+    private static int ComputeLambdaOrdinal(ISymbol containingSymbol, Location[]? locations)
+    {
+        if (locations is not { Length: > 0 } ||
+            locations[0] is not { SourceSpan.Start: >= 0 } first)
+        {
+            return 0;
+        }
+
+        var targetStart = first.SourceSpan.Start;
+        if (containingSymbol is not IMethodSymbol method)
+            return 0;
+
+        foreach (var syntaxRef in method.DeclaringSyntaxReferences)
+        {
+            if (syntaxRef.GetSyntax() is not SyntaxNode root)
+                continue;
+
+            var starts = root
+                .DescendantNodesAndSelf()
+                .OfType<LambdaExpressionSyntax>()
+                .Select(static lambda => lambda.Span.Start)
+                .Distinct()
+                .OrderBy(static start => start)
+                .ToArray();
+
+            var index = Array.IndexOf(starts, targetStart);
+            if (index >= 0)
+                return index;
+        }
+
+        return 0;
+    }
+
+    private static string? GetEnclosingLambdaOrdinalPath(ISymbol containingSymbol)
+    {
+        if (containingSymbol is not IMethodSymbol { MethodKind: MethodKind.LambdaMethod } method)
+            return null;
+
+        var name = method.Name;
+        var marker = ">b__";
+        var markerIndex = name.IndexOf(marker, StringComparison.Ordinal);
+        if (markerIndex < 0)
+            return null;
+
+        var start = markerIndex + marker.Length;
+        if (start >= name.Length)
+            return null;
+
+        var end = name.IndexOf('>', start);
+        if (end < 0)
+            end = name.Length;
+
+        var path = name.Substring(start, end - start);
+        return string.IsNullOrWhiteSpace(path) ? null : path;
     }
 }

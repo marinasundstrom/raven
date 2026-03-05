@@ -3597,16 +3597,40 @@ internal class MethodBodyGenerator
         if (methodSymbol is null)
             return;
 
-        if (MethodGenerator.TypeGenerator.HasMethodGenerator(methodSymbol))
-            return;
-
-        var methodGenerator = new MethodGenerator(MethodGenerator.TypeGenerator, methodSymbol, MethodGenerator.ILBuilderFactory);
         var sourceMethod = methodSymbol switch
         {
             SourceMethodSymbol direct => direct,
             _ when methodSymbol.UnderlyingSymbol is SourceMethodSymbol underlying => underlying,
             _ => null
         };
+
+        if (MethodGenerator.TypeGenerator.HasMethodGenerator(methodSymbol))
+        {
+            // The MethodGenerator was pre-created by DefineMembers. Closure assignment was
+            // intentionally deferred so that DeclareLocals could create a single shared
+            // DisplayClass. Assign it now if it hasn't been set yet.
+            if (sourceMethod is not null)
+            {
+                var existingGen = MethodGenerator.TypeGenerator.GetMethodGenerator(methodSymbol);
+                if (existingGen is not null && existingGen.LambdaClosure is null)
+                {
+                    var capturedVariables = sourceMethod.CapturedVariables;
+                    if (capturedVariables.IsDefaultOrEmpty)
+                        capturedVariables = Compilation.GetSemanticModel(localFunctionStmt.SyntaxTree).GetCapturedVariables(localFunctionStmt);
+
+                    if (!capturedVariables.IsDefaultOrEmpty &&
+                        !Compilation.IsEntryPointCandidate(sourceMethod) &&
+                        !sourceMethod.IsImplicitlyDeclared)
+                    {
+                        var closure = MethodGenerator.TypeGenerator.EnsureMethodClosure(sourceMethod, capturedVariables);
+                        existingGen.SetLambdaClosure(closure);
+                    }
+                }
+            }
+            return;
+        }
+
+        var methodGenerator = new MethodGenerator(MethodGenerator.TypeGenerator, methodSymbol, MethodGenerator.ILBuilderFactory);
 
         if (sourceMethod is not null)
         {
@@ -3661,7 +3685,7 @@ internal class MethodBodyGenerator
                 var allCaptured = hoistCollector.CapturedSymbols.ToImmutableArray();
 
                 _outerMethodClosure = MethodGenerator.TypeGenerator.EnsureSharedMethodClosure(
-                    MethodSymbol, allCaptured, hoistCollector.LambdaSymbols);
+                    MethodSymbol, allCaptured, hoistCollector.LambdaSymbols, hoistCollector.LocalFunctionSymbols);
 
                 // Allocate the shared closure at the very start of the method body.
                 _outerMethodClosureLocal = ILGenerator.DeclareLocal(_outerMethodClosure.TypeBuilder);
@@ -3977,6 +4001,7 @@ internal class MethodBodyGenerator
     {
         public HashSet<ISymbol> CapturedSymbols { get; } = new(SymbolEqualityComparer.Default);
         public List<ILambdaSymbol> LambdaSymbols { get; } = new();
+        public List<SourceMethodSymbol> LocalFunctionSymbols { get; } = new();
 
         public override void VisitLambdaExpression(BoundLambdaExpression node)
         {
@@ -3991,6 +4016,21 @@ internal class MethodBodyGenerator
 
             // Intentionally do NOT recurse into the lambda body: its locals belong to a
             // separate generated method and must not be hoisted into the outer method's closure.
+        }
+
+        public override void VisitFunctionStatement(BoundFunctionStatement node)
+        {
+            if (node.Method is SourceMethodSymbol sourceMethod)
+            {
+                LocalFunctionSymbols.Add(sourceMethod);
+                foreach (var captured in sourceMethod.CapturedVariables)
+                {
+                    if (captured is not null)
+                        CapturedSymbols.Add(captured);
+                }
+            }
+
+            // Intentionally do NOT recurse into the local function body.
         }
     }
 

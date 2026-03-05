@@ -742,8 +742,12 @@ internal class TypeGenerator
                             var closure = EnsureLambdaClosure(sourceLambda);
                             methodGenerator.SetLambdaClosure(closure);
                         }
-                        else if ((methodSymbol as SourceMethodSymbol ?? methodSymbol.UnderlyingSymbol as SourceMethodSymbol) is { } sourceMethod)
+                        else if ((methodSymbol as SourceMethodSymbol ?? methodSymbol.UnderlyingSymbol as SourceMethodSymbol) is { } sourceMethod &&
+                                 methodSymbol.MethodKind != MethodKind.Function)
                         {
+                            // Local functions (MethodKind.Function) defer their closure assignment:
+                            // DeclareLocals will create a single shared DisplayClass for the entire
+                            // containing method scope and register it via EnsureSharedMethodClosure.
                             var capturedVariables = GetCapturedVariablesForMethod(sourceMethod);
                             if (!capturedVariables.IsDefaultOrEmpty &&
                                 !Compilation.IsEntryPointCandidate(sourceMethod) &&
@@ -1571,36 +1575,91 @@ internal class TypeGenerator
                 return hostGenerator.EnsureLambdaClosure(lambdaSymbol);
         }
 
+        var captures = lambdaSymbol.CapturedVariables;
+
+        // C#-style: the display class is keyed by the *declaring scope* of the captured locals.
+        // If the captured variables are declared in a method, all lambdas/local functions in that
+        // method share one closure.
+        var owner = GetCaptureOwnerSymbol(captures);
+
+        if (owner is IMethodSymbol ownerMethod &&
+            (ownerMethod as SourceMethodSymbol ?? ownerMethod.UnderlyingSymbol as SourceMethodSymbol) is { } ownerSourceMethod)
+        {
+            var methodClosure = EnsureMethodClosure(ownerSourceMethod, captures);
+            // Map this lambda to the method closure so future lookups are fast and consistent.
+            _lambdaClosures[lambdaSymbol] = methodClosure;
+            return methodClosure;
+        }
+
+        if (owner is ILambdaSymbol ownerLambda && ownerLambda is SourceLambdaSymbol ownerSourceLambda)
+        {
+            // Nested lambdas capturing locals declared in an outer lambda: one closure per outer-lambda scope.
+            var lambdaClosure = EnsureLambdaClosure(ownerSourceLambda);
+            lambdaClosure.EnsureFields(captures);
+            _lambdaClosures[lambdaSymbol] = lambdaClosure;
+            return lambdaClosure;
+        }
+
         if (_lambdaClosures.TryGetValue(lambdaSymbol, out var existing))
+        {
+            existing.EnsureFields(captures);
             return existing;
-        var closure = CreateClosure(lambdaSymbol, lambdaSymbol.CapturedVariables);
+        }
+
+        var closure = CreateClosure(lambdaSymbol, captures);
         _lambdaClosures[lambdaSymbol] = closure;
         return closure;
     }
 
-    internal LambdaClosure EnsureMethodClosure(SourceMethodSymbol methodSymbol, ImmutableArray<ISymbol>? capturedVariables = null)
+    internal LambdaClosure EnsureMethodClosure(SourceMethodSymbol methodSymbol, ImmutableArray<ISymbol>? capturedVariables2 = null)
     {
-        if (_methodClosures.TryGetValue(methodSymbol, out var existing))
-            return existing;
+        var capturedVariables = capturedVariables2 ?? methodSymbol.CapturedVariables;
+        var owner = GetCaptureOwnerSymbol(capturedVariables);
 
-        var captures = capturedVariables ?? methodSymbol.CapturedVariables;
-        var closure = CreateClosure(methodSymbol, captures);
+        if (owner is IMethodSymbol ownerMethod &&
+            (ownerMethod as SourceMethodSymbol ?? ownerMethod.UnderlyingSymbol as SourceMethodSymbol) is { } ownerSourceMethod &&
+            !SymbolEqualityComparer.Default.Equals(ownerSourceMethod, methodSymbol))
+        {
+            var ownerClosure = EnsureMethodClosure(ownerSourceMethod, capturedVariables);
+            _methodClosures[methodSymbol] = ownerClosure;
+            return ownerClosure;
+        }
+
+        if (_methodClosures.TryGetValue(methodSymbol, out var existing))
+        {
+            existing.EnsureFields(capturedVariables);
+            return existing;
+        }
+
+        if (methodSymbol.UnderlyingSymbol is IMethodSymbol underlying &&
+            !ReferenceEquals(underlying, methodSymbol) &&
+            _methodClosures.TryGetValue(underlying, out var existingUnderlying))
+        {
+            existingUnderlying.EnsureFields(capturedVariables);
+            // Cache under the wrapper symbol too, to avoid future misses.
+            _methodClosures[methodSymbol] = existingUnderlying;
+            return existingUnderlying;
+        }
+
+        var closure = CreateClosure(methodSymbol, capturedVariables);
         _methodClosures[methodSymbol] = closure;
         return closure;
     }
 
     /// <summary>
-    /// Creates a single shared closure for an outer method that contains lambdas capturing
-    /// outer locals. Registers the closure for every supplied lambda symbol so that
-    /// <see cref="EnsureLambdaClosure"/> returns the shared instance instead of allocating
-    /// a fresh per-lambda closure.
+    /// Creates a single shared closure for an outer method that contains lambdas and/or local
+    /// functions capturing outer locals. Registers the closure for every supplied lambda symbol
+    /// so that <see cref="EnsureLambdaClosure"/> returns the shared instance instead of
+    /// allocating a fresh per-lambda closure, and for every local function symbol so that
+    /// <see cref="EnsureMethodClosure"/> returns the shared instance.
     /// </summary>
     internal LambdaClosure EnsureSharedMethodClosure(
         IMethodSymbol hostMethod,
         ImmutableArray<ISymbol> allCapturedSymbols,
-        IReadOnlyList<ILambdaSymbol> lambdas)
+        IReadOnlyList<ILambdaSymbol> lambdas,
+        IReadOnlyList<SourceMethodSymbol>? localFunctions = null)
     {
-        var closure = CreateClosure(hostMethod, allCapturedSymbols);
+        var closure = EnsureMethodClosure((SourceMethodSymbol)hostMethod, allCapturedSymbols);
 
         // Pre-register the shared closure for every lambda so that EnsureLambdaClosure
         // returns the same object instead of creating a separate per-lambda closure.
@@ -1609,6 +1668,16 @@ internal class TypeGenerator
             if (lambda is SourceLambdaSymbol source)
                 _lambdaClosures[source] = closure;
         }
+
+        // Pre-register for every local function so that EnsureMethodClosure returns the
+        // shared closure rather than creating a separate per-function DisplayClass.
+        if (localFunctions is not null)
+        {
+            foreach (var localFunc in localFunctions)
+                _methodClosures[localFunc] = closure;
+        }
+
+        closure.EnsureFields(allCapturedSymbols);
 
         return closure;
     }
@@ -1649,6 +1718,23 @@ internal class TypeGenerator
         };
     }
 
+    private static ISymbol? GetCaptureOwnerSymbol(ImmutableArray<ISymbol> capturedVariables)
+    {
+        if (capturedVariables.IsDefaultOrEmpty)
+            return null;
+
+        foreach (var captured in capturedVariables)
+        {
+            if (captured is null)
+                continue;
+
+            if (captured.ContainingSymbol is { } containing)
+                return containing;
+        }
+
+        return null;
+    }
+
     private ImmutableArray<ISymbol> GetCapturedVariablesForMethod(SourceMethodSymbol methodSymbol)
     {
         var capturedVariables = methodSymbol.CapturedVariables;
@@ -1660,6 +1746,20 @@ internal class TypeGenerator
 
         var semanticModel = Compilation.GetSemanticModel(functionSyntax.SyntaxTree);
         return semanticModel.GetCapturedVariables(functionSyntax);
+    }
+
+    private FieldBuilder DefineClosureField(TypeBuilder closureBuilder, ISymbol captured, int ordinal)
+    {
+        var capturedTypeSymbol = GetCapturedSymbolTypeSymbol(captured);
+        var fieldType = ResolveClrType(capturedTypeSymbol);
+        var fieldName = CreateClosureFieldName(captured, ordinal);
+        var fieldBuilder = closureBuilder.DefineField(fieldName, fieldType, FieldAttributes.Public);
+
+        var tupleAttr = CodeGen.CreateTupleElementNamesAttribute(capturedTypeSymbol);
+        if (tupleAttr is not null)
+            fieldBuilder.SetCustomAttribute(tupleAttr);
+
+        return fieldBuilder;
     }
 
     private LambdaClosure CreateClosure(IMethodSymbol owner, ImmutableArray<ISymbol> capturedVariables)
@@ -1702,40 +1802,38 @@ internal class TypeGenerator
         var index = 0;
         foreach (var captured in capturedSymbols)
         {
-            var capturedTypeSymbol = GetCapturedSymbolTypeSymbol(captured);
-            var fieldType = ResolveClrType(capturedTypeSymbol);
-            var fieldName = CreateClosureFieldName(captured, index++);
-            var fieldBuilder = closureBuilder.DefineField(fieldName, fieldType, FieldAttributes.Public);
-
-            var tupleAttr = CodeGen.CreateTupleElementNamesAttribute(capturedTypeSymbol);
-            if (tupleAttr is not null)
-                fieldBuilder.SetCustomAttribute(tupleAttr);
-
+            var fieldBuilder = DefineClosureField(closureBuilder, captured, index++);
             fields[captured] = fieldBuilder;
         }
 
-        return new LambdaClosure(closureSymbol, closureBuilder, ctor, fields, capturedSymbols);
+        return new LambdaClosure(closureSymbol, this, closureBuilder, ctor, fields, capturedSymbols);
     }
 
     internal sealed class LambdaClosure
     {
+        private readonly TypeGenerator _typeGenerator;
         private readonly Dictionary<ISymbol, FieldBuilder> _fields;
+        private ImmutableArray<ISymbol> _capturedSymbols;
+        private int _nextFieldOrdinal;
         private Type? _createdType;
 
         public LambdaClosure(
             SourceNamedTypeSymbol symbol,
+            TypeGenerator typeGenerator,
             TypeBuilder typeBuilder,
             ConstructorBuilder constructor,
             Dictionary<ISymbol, FieldBuilder> fields,
             ImmutableArray<ISymbol> capturedSymbols)
         {
             Symbol = symbol ?? throw new ArgumentNullException(nameof(symbol));
+            _typeGenerator = typeGenerator;
             TypeBuilder = typeBuilder;
             Constructor = constructor;
             _fields = fields;
-            CapturedSymbols = capturedSymbols.IsDefault
+            _capturedSymbols = capturedSymbols.IsDefault
                 ? ImmutableArray<ISymbol>.Empty
                 : capturedSymbols;
+            _nextFieldOrdinal = _fields.Count;
         }
 
         public SourceNamedTypeSymbol Symbol { get; }
@@ -1743,11 +1841,42 @@ internal class TypeGenerator
 
         public ConstructorBuilder Constructor { get; }
 
-        public ImmutableArray<ISymbol> CapturedSymbols { get; }
+        public ImmutableArray<ISymbol> CapturedSymbols => _capturedSymbols;
 
         public bool TryGetField(ISymbol symbol, out FieldBuilder fieldBuilder) => _fields.TryGetValue(symbol, out fieldBuilder);
 
         public FieldBuilder GetField(ISymbol symbol) => _fields[symbol];
+
+        public void EnsureFields(ImmutableArray<ISymbol> capturedVariables)
+        {
+            if (capturedVariables.IsDefaultOrEmpty)
+                return;
+
+            if (_createdType is not null)
+                throw new InvalidOperationException("Cannot add closure fields after the closure type has been created.");
+
+            foreach (var symbol in capturedVariables)
+            {
+                if (symbol is null)
+                    continue;
+
+                if (_fields.ContainsKey(symbol))
+                    continue;
+
+                AddField(symbol);
+            }
+        }
+
+        private void AddField(ISymbol captured)
+        {
+            // The TypeBuilder stored in this closure is the authoritative builder we can still mutate.
+            // Field naming is ordinal-based to match CreateClosure's scheme.
+            var ordinal = _nextFieldOrdinal++;
+            var fieldBuilder = _typeGenerator.DefineClosureField(TypeBuilder, captured, ordinal);
+
+            _fields[captured] = fieldBuilder;
+            _capturedSymbols = _capturedSymbols.Add(captured);
+        }
 
         public Type EnsureCreatedType()
         {

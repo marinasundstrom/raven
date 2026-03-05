@@ -339,10 +339,10 @@ class Handler {
     // ─── DisplayClass structure ───────────────────────────────────────────────────
 
     [Fact]
-    public void Lambda_WithoutCaptures_DoesNotGenerateDisplayClass()
+    public void Lambda_WithoutCaptures_GeneratesDisplayClass()
     {
-        // A lambda that captures nothing should be emitted as a static method.
-        // No DisplayClass nested type should be generated inside the outer class.
+        // C#-aligned closure lowering emits non-capturing lambdas as instance methods
+        // on a compiler-generated closure carrier type.
         var code = """
 class Pure {
     func Run() -> int {
@@ -370,7 +370,14 @@ class Pure {
             .Where(t => t.Name.Contains("DisplayClass"))
             .ToArray();
 
-        Assert.Empty(displayClasses);
+        Assert.Single(displayClasses);
+
+        var lambdaMethods = displayClasses[0]
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Where(m => m.Name.Contains(">b__", StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(lambdaMethods);
+        Assert.All(lambdaMethods, method => Assert.False(method.IsStatic));
 
         // Correctness check: the lambda still executes.
         var instance = Activator.CreateInstance(type)!;
@@ -417,6 +424,15 @@ class Pair {
 
         // Exactly one DisplayClass for the whole method scope.
         Assert.Single(displayClasses);
+
+        var lambdaMethodNames = displayClasses[0]
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Select(m => m.Name)
+            .Where(static n => n.Contains(">b__", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Contains(lambdaMethodNames, static name => name.Contains(">b__0", StringComparison.Ordinal));
+        Assert.Contains(lambdaMethodNames, static name => name.Contains(">b__1", StringComparison.Ordinal));
 
         // Correctness check: shared reference semantics (0 + 10 - 3 + 10 = 17).
         var instance = Activator.CreateInstance(type)!;
@@ -578,6 +594,104 @@ class Pair {
 
         // 0 + 10 - 3 + 10 = 17
         Assert.Equal(17, (int)method.Invoke(instance, Array.Empty<object>())!);
+    }
+
+    // ─── Local functions sharing DisplayClass with lambdas ───────────────────────
+
+    [Fact]
+    public void LocalFunction_AndLambda_ShareSingleDisplayClass()
+    {
+        // A local function and a lambda in the same method both capture the same local.
+        // They must share a single DisplayClass (one DisplayClass per method scope).
+        var code = """
+class Counter {
+    func Run() -> int {
+        var count = 0
+
+        func Increment() {
+            count = count + 1
+        }
+
+        val read = () -> int => count
+
+        Increment()
+        Increment()
+        Increment()
+        return read()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Counter", throwOnError: true)!;
+
+        // Exactly one shared DisplayClass for the whole method scope.
+        var displayClasses = type.GetNestedTypes(BindingFlags.NonPublic)
+            .Where(t => t.Name.Contains("DisplayClass"))
+            .ToArray();
+        Assert.Single(displayClasses);
+
+        // Correctness: local function and lambda share the same closure, so
+        // writes from the local function are visible through the lambda.
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+        Assert.Equal(3, (int)method.Invoke(instance, Array.Empty<object>())!);
+    }
+
+    [Fact]
+    public void LocalFunction_OnlyCaptures_SingleDisplayClass()
+    {
+        // A method with only a local function (no lambdas) that captures a local
+        // should still generate exactly one DisplayClass.
+        var code = """
+class Counter {
+    func Run() -> int {
+        var x = 10
+
+        func Double() {
+            x = x * 2
+        }
+
+        Double()
+        Double()
+        return x
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Counter", throwOnError: true)!;
+
+        var displayClasses = type.GetNestedTypes(BindingFlags.NonPublic)
+            .Where(t => t.Name.Contains("DisplayClass"))
+            .ToArray();
+        Assert.Single(displayClasses);
+
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+        Assert.Equal(40, (int)method.Invoke(instance, Array.Empty<object>())!);
     }
 
 }
