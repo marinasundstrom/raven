@@ -145,9 +145,14 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllText(
             sourcePath,
             """
+            import System.Threading.Tasks.*
+
             val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
             val app = builder.Build()
-            app.MapGet("/", (name: string) => "Hello ${name} from Raven Minimal API")
+            app.MapGet("/", async (name: string) => {
+                await Task.Delay(1)
+                return "Hello ${name} from Raven Minimal API"
+            })
             app.Run()
             """);
 

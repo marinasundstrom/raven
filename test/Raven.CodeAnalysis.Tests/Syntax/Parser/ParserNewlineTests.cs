@@ -7,6 +7,7 @@ using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using Shouldly;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -783,9 +784,11 @@ public class ParserNewlineTests
         var syntaxTree = SyntaxTree.ParseText("[A]\npublic )");
         var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
 
-        var incompleteMember = Assert.IsType<IncompleteMemberDeclarationSyntax>(root.Members.Single());
+        var incompleteMember = Assert.IsType<IncompleteMemberDeclarationSyntax>(
+            root.Members.Single(member => member is IncompleteMemberDeclarationSyntax));
 
-        incompleteMember.AttributeLists.Count.ShouldBe(1);
+        Assert.Contains(root.Members, member => member is GlobalStatementSyntax);
+        incompleteMember.AttributeLists.Count.ShouldBe(0);
         incompleteMember.Modifiers.ShouldHaveSingleItem().Kind.ShouldBe(SyntaxKind.PublicKeyword);
 
         var skippedTrivia = incompleteMember.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
