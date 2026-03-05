@@ -8136,6 +8136,10 @@ partial class BlockBinder : Binder
         {
             elementType = arrayType.ElementType;
         }
+        else if (valueType.TypeKind != TypeKind.Error && IsSpreadEnumerable(valueType))
+        {
+            elementType = GetSpreadElementType(valueType);
+        }
         else if (valueType.TypeKind != TypeKind.Error)
         {
             _diagnostics.ReportPositionalDeconstructionRequiresDeconstructableType(

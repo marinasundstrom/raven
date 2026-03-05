@@ -3919,6 +3919,19 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
+        if (GetPatternValueType(tuplePattern.Type) is not ITupleTypeSymbol &&
+            GetPatternValueType(tuplePattern.Type) is not IArrayTypeSymbol)
+        {
+            var inferredElementType = tuplePattern.Elements
+                .Select(static element => element?.Type)
+                .Select(GetPatternValueType)
+                .FirstOrDefault(static t => t is not null && t.TypeKind != TypeKind.Error)
+                ?? Compilation.GetSpecialType(SpecialType.System_Object);
+
+            EmitCollectionPositionalPatternAssignment(tuplePattern, valueLocal, GetPatternValueType(valueType), inferredElementType);
+            return;
+        }
+
         if (GetPatternValueType(valueType) is not ITupleTypeSymbol tupleType)
             return;
 
@@ -3976,6 +3989,75 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Stloc, elementLocal);
             EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
         }
+    }
+
+    private void EmitCollectionPositionalPatternAssignment(
+        BoundPositionalPattern pattern,
+        IILocal valueLocal,
+        ITypeSymbol collectionType,
+        ITypeSymbol elementType)
+    {
+        var enumerable = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable");
+        if (enumerable is null)
+            return;
+
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+        if (collectionType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(collectionType));
+        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
+
+        var getEnumerator = enumerable
+            .GetMembers(nameof(IEnumerable.GetEnumerator))
+            .OfType<IMethodSymbol>()
+            .First();
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
+
+        var enumeratorType = getEnumerator.ReturnType;
+        var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
+        ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<IMethodSymbol>().First();
+        var currentGetter = enumeratorType
+            .GetMembers(nameof(IEnumerator.Current))
+            .OfType<IPropertySymbol>()
+            .First()
+            .GetMethod!;
+
+        var stopLabel = ILGenerator.DefineLabel();
+
+        for (var i = 0; i < pattern.Elements.Length; i++)
+        {
+            var elementPattern = pattern.Elements[i];
+
+            ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
+            ILGenerator.Emit(OpCodes.Brfalse, stopLabel);
+
+            if (elementPattern is null or BoundDiscardPattern)
+                continue;
+
+            ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(currentGetter));
+
+            var elementValueType = GetPatternValueType(elementPattern.Type) ?? GetPatternValueType(elementType);
+            if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
+            {
+                ILGenerator.Emit(OpCodes.Pop);
+                continue;
+            }
+
+            var clrElementType = ResolveClrType(elementValueType);
+            if (elementValueType.IsValueType)
+                ILGenerator.Emit(OpCodes.Unbox_Any, clrElementType);
+            else
+                ILGenerator.Emit(OpCodes.Castclass, clrElementType);
+
+            var elementLocal = ILGenerator.DeclareLocal(clrElementType);
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+            EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
+        }
+
+        ILGenerator.MarkLabel(stopLabel);
     }
 
     private void EmitDeconstructPatternAssignment(BoundDeconstructPattern deconstructPattern, IILocal valueLocal, ITypeSymbol valueType)

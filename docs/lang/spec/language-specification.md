@@ -2297,8 +2297,9 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   corresponding array element.
 
   * Collection patterns are currently supported for array scrutinees (`T[]`).
-  * The same bracketed shape can be used for collection deconstruction assignments
-    and declarations (`[val a, val b] = values`).
+  * The same bracketed shape is also used for collection deconstruction
+    assignments and declarations (`[val a, val b] = values`), which support
+    arrays and enumerable collections.
   * Each element is a full pattern; bindings still require `val`/`var`.
   * Length must match exactly.
 
@@ -3375,13 +3376,18 @@ var (val fifth, var sixth: double, _) = project()
 ```
 
 Collection deconstruction uses the same element-pattern rules but with bracket
-syntax. In assignments and declarations, collection deconstruction currently
-targets arrays (`T[]`), and elements are bound by index order.
+syntax. In assignments and declarations, collection deconstruction supports
+arrays (`T[]`) and enumerable collections (`IEnumerable<T>`), and elements are
+bound in sequence order.
 
 ```raven
 val values: int[] = [1, 2, 3]
 [val first, val second, _] = values
 [var head, var tail, _] = values
+
+import System.Collections.Generic.*
+val list: List<int> = [1, 2, 3]
+[val a, val b, _] = list
 ```
 
 Use `_` to discard unwanted elements. Nested positional patterns work the same way:
