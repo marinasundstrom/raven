@@ -7,8 +7,8 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using System.Text;
+using System.Threading;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -4932,8 +4932,20 @@ internal partial class ExpressionGenerator : Generator
     {
         if (receiverAlreadyLoaded)
             return;
-        if (receiver is not null && !symbol.IsStatic)
+
+        if (symbol.IsStatic)
+            return;
+
+        if (receiver is not null)
+        {
             EmitExpression(receiver);
+            return;
+        }
+
+        if (MethodSymbol.IsStatic)
+            throw new InvalidOperationException($"Instance member '{symbol.Name}' requires a receiver.");
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
     }
 
     private void EmitPropertyReceiver(BoundExpression? receiver, IPropertySymbol propertySymbol, bool receiverAlreadyLoaded)

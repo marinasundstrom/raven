@@ -404,4 +404,60 @@ class Counter {
         Assert.NotNull(getMethod);
         Assert.Equal(3, (int)getMethod!.Invoke(instance, null)!);
     }
+
+    [Fact]
+    public void PromotedPrimaryConstructorProperty_CompoundAssignment_EmitsValidIL()
+    {
+        var code = """
+import System.Console.*
+
+val service = ShipmentOrderService()
+service.RecordPending(2)
+service.RecordPending(3)
+WriteLine(service.PendingCount)
+
+class ShipmentOrderService(var pendingCount: int = 0) {
+    val PendingCount: int => pendingCount
+
+    func RecordPending(count: int) -> () {
+        pendingCount += count
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var entryPoint = loaded.Assembly.EntryPoint;
+        Assert.NotNull(entryPoint);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+            _ = entryPoint!.Invoke(null, [Array.Empty<string>()]);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        Assert.Equal("5", writer.ToString().Trim());
+    }
 }
