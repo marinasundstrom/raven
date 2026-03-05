@@ -8,6 +8,7 @@ public sealed class ConstructorParameterNamingAnalyzer : DiagnosticAnalyzer
 {
     public const string DiagnosticId = "RAV9023";
     internal const string SuggestedNameProperty = "SuggestedName";
+    internal const string SymbolKindProperty = "SymbolKindDisplay";
 
     private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
@@ -51,7 +52,10 @@ public sealed class ConstructorParameterNamingAnalyzer : DiagnosticAnalyzer
         if (string.IsNullOrEmpty(suggestedName) || string.Equals(suggestedName, parameterName, StringComparison.Ordinal))
             return;
 
-        var properties = ImmutableDictionary<string, string?>.Empty.Add(SuggestedNameProperty, suggestedName);
+        var symbolKindDisplay = GetSymbolKindDisplay(parameterList, parameterSyntax);
+        var properties = ImmutableDictionary<string, string?>.Empty
+            .Add(SuggestedNameProperty, suggestedName)
+            .Add(SymbolKindProperty, symbolKindDisplay);
 
         context.ReportDiagnostic(new Diagnostic(
             Descriptor,
@@ -79,6 +83,20 @@ public sealed class ConstructorParameterNamingAnalyzer : DiagnosticAnalyzer
         var bindingKeyword = parameterSyntax.BindingKeyword?.Kind ?? SyntaxKind.None;
         var isPromoted = isRecord || bindingKeyword is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
         return isPromoted ? NamingStyle.PascalCase : NamingStyle.CamelCase;
+    }
+
+    private static string GetSymbolKindDisplay(ParameterListSyntax parameterList, ParameterSyntax parameterSyntax)
+    {
+        if (parameterList.Parent is ConstructorDeclarationSyntax)
+            return "parameter";
+
+        if (parameterList.Parent is not TypeDeclarationSyntax typeDeclaration)
+            return "parameter";
+
+        var isRecord = typeDeclaration is RecordDeclarationSyntax;
+        var bindingKeyword = parameterSyntax.BindingKeyword?.Kind ?? SyntaxKind.None;
+        var isPromoted = isRecord || bindingKeyword is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+        return isPromoted ? "property" : "parameter";
     }
 
     private static bool IsCamelCase(string value) => value.Length > 0 && char.IsLower(value[0]);

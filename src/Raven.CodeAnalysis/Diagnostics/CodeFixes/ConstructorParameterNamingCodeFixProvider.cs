@@ -28,6 +28,13 @@ public sealed class ConstructorParameterNamingCodeFixProvider : CodeFixProvider
             return;
         }
 
+        var symbolKindDisplay = "parameter";
+        if (diagnostic.Properties.TryGetValue(ConstructorParameterNamingAnalyzer.SymbolKindProperty, out var kindFromDiagnostic) &&
+            !string.IsNullOrWhiteSpace(kindFromDiagnostic))
+        {
+            symbolKindDisplay = kindFromDiagnostic;
+        }
+
         var syntaxTree = context.Document.GetSyntaxTreeAsync(context.CancellationToken).GetAwaiter().GetResult();
         var root = syntaxTree?.GetRoot(context.CancellationToken);
         if (root is null)
@@ -67,7 +74,7 @@ public sealed class ConstructorParameterNamingCodeFixProvider : CodeFixProvider
 
         context.RegisterCodeFix(
             CodeAction.Create(
-                $"Rename parameter to '{suggestedName}'",
+                $"Rename {symbolKindDisplay} to '{suggestedName}'",
                 (solution, _) =>
                 {
                     var document = solution.GetDocument(context.Document.Id);
