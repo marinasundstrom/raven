@@ -240,6 +240,40 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void LambdaArgument_WithRequestDelegateAndSystemDelegateOverloads_PrefersSystemDelegateForSyncLambda()
+    {
+        var source = """
+        import System.*
+        import System.Threading.Tasks.*
+
+        namespace Microsoft.AspNetCore.Http {
+            public class HttpContext { }
+        }
+
+        class C {
+            static func map(handler: Func<Microsoft.AspNetCore.Http.HttpContext, Task>) -> int { 1 }
+            static func map(handler: Delegate) -> int { 2 }
+
+            func run() -> int {
+                return map((name: string) => "ok")
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(i => i.Expression is IdentifierNameSyntax { Identifier.Text: "map" });
+
+        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        Assert.Equal(SpecialType.System_Delegate, symbol.Parameters[0].Type.SpecialType);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1503");
+    }
+
+    [Fact]
     public void LambdaArgument_WithRequestDelegateLikeOverload_PrefersExplicitlyTypedLambdaMatch()
     {
         var source = """

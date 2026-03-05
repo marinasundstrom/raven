@@ -850,6 +850,9 @@ partial class BlockBinder
         BoundExpression? receiver,
         ITypeSymbol? pipeReceiverType)
     {
+        ITypeSymbol? firstConcreteDelegate = null;
+        var sawSystemDelegateLike = false;
+
         foreach (var method in methods)
         {
             if (method is null)
@@ -864,13 +867,23 @@ partial class BlockBinder
 
             var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, receiver, pipeReceiverType);
 
-            // Only return delegate types — other types (interfaces, structs …) cannot supply
-            // useful parameter-type information to a lambda.
-            if (type is INamedTypeSymbol namedType && namedType.TypeKind == TypeKind.Delegate)
-                return type;
+            if (type is INamedTypeSymbol namedType)
+            {
+                if (namedType.TypeKind == TypeKind.Delegate)
+                {
+                    firstConcreteDelegate ??= type;
+                    continue;
+                }
+
+                // Do not force the lambda into an arbitrary concrete delegate when overloads also
+                // include System.Delegate/MulticastDelegate handlers (e.g. ASP.NET MapGet with
+                // RequestDelegate + Delegate overloads). Let overload resolution choose first.
+                if (IsSystemDelegateLike(namedType))
+                    sawSystemDelegateLike = true;
+            }
         }
 
-        return null;
+        return sawSystemDelegateLike ? null : firstConcreteDelegate;
     }
 
     /// <summary>
