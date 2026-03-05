@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text;
 
 using Raven.CodeAnalysis.Text;
@@ -8,14 +9,14 @@ namespace Raven.CodeAnalysis.Diagnostics;
 public sealed class MergeStringLiteralConcatenationCodeFixProvider : CodeFixProvider
 {
     private static readonly ImmutableArray<string> FixableIds =
-        [MergeStringLiteralConcatenationAnalyzer.DiagnosticId];
+        [StringConcatenationAnalyzer.MergeDiagnosticId];
 
     public override IEnumerable<string> FixableDiagnosticIds => FixableIds;
 
     public override void RegisterCodeFixes(CodeFixContext context)
     {
         var diagnostic = context.Diagnostic;
-        if (!string.Equals(diagnostic.Id, MergeStringLiteralConcatenationAnalyzer.DiagnosticId, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(diagnostic.Id, StringConcatenationAnalyzer.MergeDiagnosticId, StringComparison.OrdinalIgnoreCase))
             return;
 
         if (!diagnostic.Location.IsInSource)
@@ -34,34 +35,31 @@ public sealed class MergeStringLiteralConcatenationCodeFixProvider : CodeFixProv
         if (concat is null || concat.Kind != SyntaxKind.AddExpression)
             return;
 
-        concat = GetTopmostConcat(concat);
-
         var parts = new List<ExpressionSyntax>();
         FlattenConcat(concat, parts);
-        if (parts.Count < 2 || !parts.All(IsStringLiteral))
+        if (parts.Count < 2)
             return;
 
-        var merged = string.Concat(parts.Cast<LiteralExpressionSyntax>().Select(static literal => literal.Token.ValueText));
-        var replacement = "\"" + EscapeStringLiteral(merged) + "\"";
+        var semanticModel = context.Document.GetSemanticModelAsync(context.CancellationToken).GetAwaiter().GetResult();
+        if (semanticModel is null)
+            return;
+
+        var mergedBuilder = new StringBuilder();
+        foreach (var part in parts)
+        {
+            if (!TryGetTextPart(part, semanticModel, out var text))
+                return;
+
+            mergedBuilder.Append(text);
+        }
+
+        var replacement = "\"" + EscapeStringLiteral(mergedBuilder.ToString()) + "\"";
 
         context.RegisterCodeFix(
             CodeAction.CreateTextChange(
-                "Merge string literals",
+                "Merge string concatenation",
                 context.Document.Id,
                 new TextChange(concat.Span, replacement)));
-    }
-
-    private static BinaryExpressionSyntax GetTopmostConcat(BinaryExpressionSyntax expression)
-    {
-        var current = expression;
-
-        while (current.Parent is BinaryExpressionSyntax parent &&
-               parent.Kind == SyntaxKind.AddExpression)
-        {
-            current = parent;
-        }
-
-        return current;
     }
 
     private static void FlattenConcat(ExpressionSyntax expression, List<ExpressionSyntax> parts)
@@ -77,9 +75,86 @@ public sealed class MergeStringLiteralConcatenationCodeFixProvider : CodeFixProv
         parts.Add(expression);
     }
 
-    private static bool IsStringLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal &&
-           literal.Kind == SyntaxKind.StringLiteralExpression;
+    private static bool TryGetTextPart(ExpressionSyntax expression, SemanticModel semanticModel, out string text)
+    {
+        if (expression is ParenthesizedExpressionSyntax parenthesized)
+            return TryGetTextPart(parenthesized.Expression, semanticModel, out text);
+
+        if (expression is LiteralExpressionSyntax literal)
+            return TryFormatConstant(literal.Token.Value, literal.Token.ValueText, out text);
+
+        var symbol = semanticModel.GetSymbolInfo(expression).Symbol;
+        symbol = symbol?.UnderlyingSymbol ?? symbol;
+
+        switch (symbol)
+        {
+            case ILocalSymbol { IsConst: true } local:
+                return TryFormatConstant(local.ConstantValue, null, out text);
+            case IFieldSymbol { IsConst: true } field:
+                return TryFormatConstant(field.GetConstantValue(), null, out text);
+            default:
+                text = string.Empty;
+                return false;
+        }
+    }
+
+    private static bool TryFormatConstant(object? value, string? stringValueText, out string text)
+    {
+        switch (value)
+        {
+            case null:
+                if (stringValueText is not null)
+                {
+                    text = stringValueText;
+                    return true;
+                }
+
+                text = string.Empty;
+                return true;
+            case string:
+                text = stringValueText ?? string.Empty;
+                return true;
+            case char c:
+                text = c.ToString();
+                return true;
+            case bool b:
+                text = b.ToString();
+                return true;
+            case sbyte i8:
+                text = i8.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case byte u8:
+                text = u8.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case short i16:
+                text = i16.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case ushort u16:
+                text = u16.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case int i32:
+                text = i32.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case uint u32:
+                text = u32.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case long i64:
+                text = i64.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case ulong u64:
+                text = u64.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case nint ni:
+                text = ni.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case nuint nui:
+                text = nui.ToString(CultureInfo.InvariantCulture);
+                return true;
+            default:
+                text = string.Empty;
+                return false;
+        }
+    }
 
     private static string EscapeStringLiteral(string text)
     {

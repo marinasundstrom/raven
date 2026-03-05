@@ -6,13 +6,23 @@ namespace Raven.CodeAnalysis.Diagnostics;
 public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
 {
     public const string DiagnosticId = "RAV9021";
+    public const string MergeDiagnosticId = "RAV9022";
 
-    private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+    private static readonly DiagnosticDescriptor InterpolationDescriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
         title: "String concatenation can be an interpolated string",
         description: null,
         helpLinkUri: string.Empty,
         messageFormat: "String concatenation can be simplified to an interpolated string.",
+        category: "Style",
+        defaultSeverity: DiagnosticSeverity.Info);
+
+    private static readonly DiagnosticDescriptor MergeDescriptor = DiagnosticDescriptor.Create(
+        id: MergeDiagnosticId,
+        title: "String concatenation can be merged",
+        description: null,
+        helpLinkUri: string.Empty,
+        messageFormat: "String concatenation can be simplified to a single string literal.",
         category: "Style",
         defaultSeverity: DiagnosticSeverity.Info);
 
@@ -36,25 +46,25 @@ public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
         if (!IsStringType(semanticModel.GetTypeInfo(add).Type))
             return;
 
-        // Only report on the topmost node in a chain: (a + b) + c
+        if (CanMergeIntoStringText(add.Left, semanticModel) &&
+            CanMergeIntoStringText(add.Right, semanticModel))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(MergeDescriptor, add.OperatorToken.GetLocation()));
+        }
+
+        // Interpolation fix applies to the full chain only.
         if (IsParentStringConcat(semanticModel, add))
             return;
 
-        // Flatten the chain into parts
         var parts = new List<ExpressionSyntax>();
         FlattenStringConcat(semanticModel, add, parts);
-
-        // If everything is a string literal, constant folding is better than interpolation.
-        if (parts.Count == 0 || parts.All(IsStringLiteral))
-            return;
-
-        // (Optional) if it’s only 1 part, nothing to rewrite
         if (parts.Count < 2)
             return;
 
-        // Place diagnostic on the operator token or the whole expression (choose what your API supports best)
-        var location = add.OperatorToken.GetLocation();
-        context.ReportDiagnostic(Diagnostic.Create(Descriptor, location));
+        if (!parts.Any(part => !CanMergeIntoStringText(part, semanticModel)))
+            return;
+
+        context.ReportDiagnostic(Diagnostic.Create(InterpolationDescriptor, add.GetLocation()));
     }
 
     private static void AnalyzeAddAssignment(SyntaxNodeAnalysisContext context)
@@ -75,10 +85,13 @@ public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
         // Optional: also ensure RHS participates (guards against weird operator overloads)
         // var rightType = semanticModel.GetTypeInfo(assignment.Right).Type;
 
-        // If RHS is itself a concat chain, the codefix can fold everything into one interpolated string.
-        // Even if RHS isn’t a chain, $"...{rhs}" may still be useful.
+        var parts = new List<ExpressionSyntax>();
+        FlattenStringConcat(semanticModel, assignment.Right, parts);
+        if (parts.Count < 2 || !parts.Any(part => !CanMergeIntoStringText(part, semanticModel)))
+            return;
+
         var location = assignment.OperatorToken.GetLocation();
-        context.ReportDiagnostic(Diagnostic.Create(Descriptor, location));
+        context.ReportDiagnostic(Diagnostic.Create(InterpolationDescriptor, location));
     }
 
     private static bool IsParentStringConcat(SemanticModel semanticModel, BinaryExpressionSyntax add)
@@ -138,5 +151,91 @@ public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    private static bool CanMergeIntoStringText(ExpressionSyntax expression, SemanticModel semanticModel)
+    {
+        if (IsStringLiteral(expression))
+            return true;
+
+        if (TryGetConstantText(expression, semanticModel, out _))
+            return true;
+
+        return false;
+    }
+
+    private static bool TryGetConstantText(ExpressionSyntax expression, SemanticModel semanticModel, out string text)
+    {
+        if (expression is ParenthesizedExpressionSyntax parenthesized)
+            return TryGetConstantText(parenthesized.Expression, semanticModel, out text);
+
+        if (expression is LiteralExpressionSyntax literal)
+            return TryFormatConstant(literal.Token.Value, out text);
+
+        var symbol = semanticModel.GetSymbolInfo(expression).Symbol;
+        symbol = symbol?.UnderlyingSymbol ?? symbol;
+
+        switch (symbol)
+        {
+            case ILocalSymbol { IsConst: true } local:
+                return TryFormatConstant(local.ConstantValue, out text);
+            case IFieldSymbol { IsConst: true } field:
+                return TryFormatConstant(field.GetConstantValue(), out text);
+            default:
+                text = string.Empty;
+                return false;
+        }
+    }
+
+    private static bool TryFormatConstant(object? value, out string text)
+    {
+        switch (value)
+        {
+            case null:
+                text = string.Empty;
+                return true;
+            case string s:
+                text = s;
+                return true;
+            case char c:
+                text = c.ToString();
+                return true;
+            case bool b:
+                text = b.ToString();
+                return true;
+            case sbyte i8:
+                text = i8.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            case byte u8:
+                text = u8.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            case short i16:
+                text = i16.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            case ushort u16:
+                text = u16.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            case int i32:
+                text = i32.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            case uint u32:
+                text = u32.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            case long i64:
+                text = i64.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            case ulong u64:
+                text = u64.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            case nint ni:
+                text = ni.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            case nuint nui:
+                text = nui.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            default:
+                text = string.Empty;
+                return false;
+        }
     }
 }

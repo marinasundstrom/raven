@@ -20,11 +20,12 @@ func message() -> string {
 }
 """;
 
-        var verifier = CreateCodeFixVerifier<MergeStringLiteralConcatenationAnalyzer, MergeStringLiteralConcatenationCodeFixProvider>(
+        var verifier = CreateCodeFixVerifier<StringConcatenationAnalyzer, MergeStringLiteralConcatenationCodeFixProvider>(
             code,
             fixedCode,
-            [new DiagnosticResult(MergeStringLiteralConcatenationAnalyzer.DiagnosticId).WithAnySpan()],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+            [new DiagnosticResult(StringConcatenationAnalyzer.MergeDiagnosticId).WithAnySpan()],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            expectedAppliedFixCount: 2);
 
         verifier.Verify();
     }

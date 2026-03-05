@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text;
 
 using Raven.CodeAnalysis.Text;
@@ -51,12 +52,13 @@ public sealed class StringConcatenationToInterpolatedStringCodeFixProvider : Cod
         if (parts.Count < 2)
             return;
 
-        // Optional: if everything is a string literal, skip (constant fold is better).
-        if (parts.All(IsStringLiteral))
+        var semanticModel = context.Document.GetSemanticModelAsync(context.CancellationToken).GetAwaiter().GetResult();
+        if (semanticModel is null)
             return;
 
         // 3) Build interpolation text
-        var replacementText = BuildInterpolatedString(parts);
+        if (!TryBuildInterpolatedString(parts, semanticModel, out var replacementText))
+            return;
 
         // 4) Replace whole expression span
         var change = new TextChange(concat.Span, replacementText);
@@ -95,29 +97,21 @@ public sealed class StringConcatenationToInterpolatedStringCodeFixProvider : Cod
         parts.Add(expr);
     }
 
-    private static bool IsStringLiteral(ExpressionSyntax expr)
+    private static bool TryBuildInterpolatedString(List<ExpressionSyntax> parts, SemanticModel semanticModel, out string replacement)
     {
-        return expr is LiteralExpressionSyntax lit &&
-               lit.Kind == SyntaxKind.StringLiteralExpression;
-    }
-
-    private static string BuildInterpolatedString(List<ExpressionSyntax> parts)
-    {
-        // This is text-based; later you can upgrade to building InterpolatedStringExpressionSyntax directly.
         var sb = new StringBuilder();
         sb.Append('"');
+        var hasInterpolation = false;
 
         foreach (var part in parts)
         {
-            if (part is LiteralExpressionSyntax lit && lit.Kind == SyntaxKind.StringLiteralExpression)
+            if (TryGetTextPart(part, semanticModel, out var text))
             {
-                // Assumption: lit.Token.Text includes quotes, like "\"hello\""
-                // If Raven exposes ValueText or similar, use that instead.
-                var text = GetStringLiteralContents(lit);
                 sb.Append(EscapeInterpolatedText(text));
             }
             else
             {
+                hasInterpolation = true;
                 sb.Append("${");
                 sb.Append(part.ToFullString().Trim());
                 sb.Append("}");
@@ -125,22 +119,89 @@ public sealed class StringConcatenationToInterpolatedStringCodeFixProvider : Cod
         }
 
         sb.Append("\"");
-        return sb.ToString();
+        replacement = sb.ToString();
+        return hasInterpolation;
     }
 
-    private static string GetStringLiteralContents(LiteralExpressionSyntax lit)
+    private static bool TryGetTextPart(ExpressionSyntax expression, SemanticModel semanticModel, out string text)
     {
-        // You likely have something like:
-        // - lit.Token.ValueText (Roslyn style)
-        // - or lit.Token.Text (includes quotes)
-        //
-        // This fallback strips surrounding quotes if present.
-        var tokenText = lit.Token.Text;
+        if (expression is ParenthesizedExpressionSyntax parenthesized)
+            return TryGetTextPart(parenthesized.Expression, semanticModel, out text);
 
-        if (tokenText.Length >= 2 && tokenText[0] == '"' && tokenText[^1] == '"')
-            return tokenText.Substring(1, tokenText.Length - 2);
+        if (expression is LiteralExpressionSyntax literal)
+            return TryFormatConstant(literal.Token.Value, literal.Token.ValueText, out text);
 
-        return tokenText;
+        var symbol = semanticModel.GetSymbolInfo(expression).Symbol;
+        symbol = symbol?.UnderlyingSymbol ?? symbol;
+
+        switch (symbol)
+        {
+            case ILocalSymbol { IsConst: true } local:
+                return TryFormatConstant(local.ConstantValue, null, out text);
+            case IFieldSymbol { IsConst: true } field:
+                return TryFormatConstant(field.GetConstantValue(), null, out text);
+            default:
+                text = string.Empty;
+                return false;
+        }
+    }
+
+    private static bool TryFormatConstant(object? value, string? stringValueText, out string text)
+    {
+        switch (value)
+        {
+            case null:
+                if (stringValueText is not null)
+                {
+                    text = stringValueText;
+                    return true;
+                }
+
+                text = string.Empty;
+                return true;
+            case string:
+                text = stringValueText ?? string.Empty;
+                return true;
+            case char c:
+                text = c.ToString();
+                return true;
+            case bool b:
+                text = b.ToString();
+                return true;
+            case sbyte i8:
+                text = i8.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case byte u8:
+                text = u8.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case short i16:
+                text = i16.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case ushort u16:
+                text = u16.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case int i32:
+                text = i32.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case uint u32:
+                text = u32.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case long i64:
+                text = i64.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case ulong u64:
+                text = u64.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case nint ni:
+                text = ni.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case nuint nui:
+                text = nui.ToString(CultureInfo.InvariantCulture);
+                return true;
+            default:
+                text = string.Empty;
+                return false;
+        }
     }
 
     private static string EscapeInterpolatedText(string text)
