@@ -136,6 +136,110 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void LambdaArgument_CanBindToSystemMulticastDelegateParameter()
+    {
+        var source = """
+        import System.*
+        class C {
+            static func takes(handler: MulticastDelegate) -> int { 1 }
+            func run() -> int {
+                return takes(() => 42)
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        Assert.Equal(SpecialType.System_MulticastDelegate, symbol.Parameters[0].Type.SpecialType);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
+    }
+
+    [Fact]
+    public void LambdaArgument_WithNamedLambdaArgument_InfersFromCompetingDelegateCandidates()
+    {
+        var source = """
+        import System.*
+        import System.Collections.Generic.*
+        import System.Linq.Expressions.*
+
+        class C {
+            static func Pick<T>(source: IEnumerable<T>, selector: Func<T, int>) -> int { 1 }
+            static func Pick<T>(source: IEnumerable<T>, selector: Expression<Func<T, string>>) -> int { 2 }
+
+            func run() -> int {
+                val values: IEnumerable<int> = [1, 2, 3]
+                return Pick(values, selector: x => x + 1)
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(i => i.Expression is IdentifierNameSyntax { Identifier.Text: "Pick" });
+
+        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        Assert.Equal("Func", symbol.Parameters[1].Type.Name);
+
+        var lambda = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var parameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void LambdaArgument_OverloadsWithOptionalTail_DoNotPolluteInference()
+    {
+        var source = """
+        import System.*
+
+        class C {
+            static func Transform(projector: Func<int, int>) -> int { 1 }
+            static func Transform(projector: Func<string, string>, fallback: string = "") -> int { 2 }
+
+            func run() -> int {
+                return Transform(x => x + 1)
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(i => i.Expression is IdentifierNameSyntax { Identifier.Text: "Transform" });
+
+        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        Assert.Equal("Transform", symbol.Name);
+        var projectorType = Assert.IsAssignableFrom<INamedTypeSymbol>(symbol.Parameters[0].Type);
+        Assert.Equal(SpecialType.System_Int32, projectorType.TypeArguments[0].SpecialType);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => ReferenceEquals(diagnostic.Descriptor, CompilerDiagnostics.LambdaParameterTypeCannotBeInferred));
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void LambdaArgument_WithRequestDelegateLikeOverload_PrefersExplicitlyTypedLambdaMatch()
     {
         var source = """

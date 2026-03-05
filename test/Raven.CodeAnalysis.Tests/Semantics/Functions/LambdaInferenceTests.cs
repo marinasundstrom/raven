@@ -854,6 +854,31 @@ func Main() {
         var yParam = Assert.Single(yLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, yParam.Type.SpecialType);
     }
+
+    [Fact]
+    public void GenericFunction_WithOpenDelegateInputType_ReportsInferenceDiagnostic()
+    {
+        const string code = """
+class Container {
+    static func Build<T>(projector: T -> int) -> int {
+        return 0
+    }
+
+    func Run() -> int {
+        return Build(x => x)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => ReferenceEquals(
+                diagnostic.Descriptor,
+                CompilerDiagnostics.LambdaParameterTypeCannotBeInferred));
+    }
 }
 
 public class LambdaInferenceDiagnosticsTests : DiagnosticTestBase
