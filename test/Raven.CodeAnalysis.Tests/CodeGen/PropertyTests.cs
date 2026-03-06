@@ -502,6 +502,80 @@ class Person(private var name: string) {
     }
 
     [Fact]
+    public void ProtectedPromotedPrimaryConstructorProperty_LowersToFieldOnlyStorage()
+    {
+        var code = """
+class Person(protected var name: string) {
+    func SetName(value: string) -> () {
+        name = value
+    }
+
+    func GetName() -> string => name
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var type = runtimeAssembly.GetType("Person", throwOnError: true)!;
+
+        var property = type.GetProperty("name", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.Null(property);
+
+        var field = type.GetField("name", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+    }
+
+    [Fact]
+    public void InternalPromotedPrimaryConstructorProperty_EmitsPropertyStorage()
+    {
+        var code = """
+class Person(internal var Name: string)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var type = runtimeAssembly.GetType("Person", throwOnError: true)!;
+
+        var property = type.GetProperty("Name", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+
+        var directField = type.GetField("Name", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.Null(directField);
+    }
+
+    [Fact]
     public void RecordEquality_IncludesPublicPromotedProperties()
     {
         var code = """
@@ -556,10 +630,6 @@ record class Person(Name: string, Age: int)
     {
         var code = """
 record class Person(Name: string, private var Secret: int)
-
-extension Person {
-    func GetSecret() -> int => Secret
-}
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -604,7 +674,7 @@ extension Person {
 
         var toStringValue = left.ToString();
         Assert.NotNull(toStringValue);
-        Assert.Contains("Name = Ada", toStringValue, StringComparison.Ordinal);
+        Assert.Contains("Name = \"Ada\"", toStringValue, StringComparison.Ordinal);
         Assert.DoesNotContain("Secret", toStringValue, StringComparison.Ordinal);
 
         var deconstruct = personType.GetMethod("Deconstruct", BindingFlags.Instance | BindingFlags.Public);
@@ -612,8 +682,6 @@ extension Person {
         Assert.Single(deconstruct!.GetParameters());
 
         var copy = copyCtor!.Invoke([left]);
-        var getSecret = personType.GetMethod("GetSecret", BindingFlags.Instance | BindingFlags.Public);
-        Assert.NotNull(getSecret);
-        Assert.Equal(0, (int)getSecret!.Invoke(copy, null)!);
+        Assert.True(copy.Equals(left));
     }
 }

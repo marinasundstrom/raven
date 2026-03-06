@@ -3445,7 +3445,7 @@ public partial class SemanticModel
         if (markRequired)
             propertySymbol.MarkAsRequired();
 
-        var lowerAsFieldOnly = declaredAccessibility == Accessibility.Private;
+        var lowerAsFieldOnly = declaredAccessibility is Accessibility.Private or Accessibility.ProtectedAndProtected;
         var backingField = new SourceFieldSymbol(
             lowerAsFieldOnly ? propertySymbol.Name : $"<{propertySymbol.Name}>k__BackingField",
             parameterType,

@@ -99,6 +99,44 @@ public class Exposer {
         verifier.Verify();
     }
 
+    [Fact]
+    public void ExtensionAccessingPrivatePromotedProperty_ReportsRAV0500()
+    {
+        const string source = """
+class Foo(private var Name: string)
+
+extension FooExtensions for Foo {
+    func Peek() -> string => self.Name
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult(CompilerDiagnostics.SymbolIsInaccessible.Id).WithAnySpan().WithArguments("property", "var Name: string")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ExtensionAccessingProtectedPromotedProperty_ReportsRAV0500()
+    {
+        const string source = """
+class Foo(protected var Name: string)
+
+extension FooExtensions for Foo {
+    func Peek() -> string => self.Name
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult(CompilerDiagnostics.SymbolIsInaccessible.Id).WithAnySpan().WithArguments("property", "var Name: string")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
     [Fact(Skip = "Metadata accessibility enforcement pending")]
     public void ReferencingInternalMetadataType_ReportsRAV0500()
     {

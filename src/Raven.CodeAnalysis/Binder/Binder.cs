@@ -66,6 +66,9 @@ internal abstract partial class Binder
     {
         for (var current = this; current is not null; current = current.ParentBinder)
         {
+            if (current.ContainingSymbol is IMethodSymbol { IsExtensionMethod: true })
+                return Compilation.Assembly;
+
             if (current.ContainingSymbol is not null)
                 return current.ContainingSymbol;
         }
