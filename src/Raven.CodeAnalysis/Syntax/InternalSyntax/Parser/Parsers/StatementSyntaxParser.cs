@@ -434,7 +434,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             var type = new NameSyntaxParser(this).ParseTypeName();
 
-            SyntaxToken? identifier = null;
+            var identifier = Token(SyntaxKind.None);
 
             if (CanTokenBeIdentifier(PeekToken()))
             {
@@ -685,11 +685,11 @@ internal class StatementSyntaxParser : SyntaxParser
                 var parameterStart = Position;
                 var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
-                SyntaxToken? refKindKeyword = null;
+                var refKindKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
                     refKindKeyword = ReadToken();
 
-                SyntaxToken? bindingKeyword = null;
+                var bindingKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
                     bindingKeyword = ReadToken();
 

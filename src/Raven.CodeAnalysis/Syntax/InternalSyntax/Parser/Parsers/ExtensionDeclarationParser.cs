@@ -433,7 +433,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             if (token.IsKind(SyntaxKind.GreaterThanToken))
                 break;
 
-            SyntaxToken? varianceKeyword = null;
+            var varianceKeyword = Token(SyntaxKind.None);
             if (token.IsKind(SyntaxKind.InKeyword) || token.IsKind(SyntaxKind.OutKeyword))
             {
                 varianceKeyword = ReadToken();
@@ -450,7 +450,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
                 identifier = ExpectToken(SyntaxKind.IdentifierToken);
             }
 
-            SyntaxToken? colonToken = null;
+            var colonToken = Token(SyntaxKind.None);
             SyntaxList constraints = SyntaxList.Empty;
 
             if (PeekToken().IsKind(SyntaxKind.ColonToken))

@@ -113,7 +113,7 @@ class FunctionBinder : Binder
         foreach (var p in _syntax.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation.Type;
-            var refKindTokenKind = p.RefKindKeyword?.Kind;
+            var refKindTokenKind = p.RefKindKeyword.Kind;
             var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
 
             var refKind = isByRefSyntax
@@ -137,7 +137,7 @@ class FunctionBinder : Binder
                 : typeSyntax;
             var type = methodBinder.BindTypeSyntaxDirect(boundTypeSyntax);
 
-            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
 
             var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                 p,

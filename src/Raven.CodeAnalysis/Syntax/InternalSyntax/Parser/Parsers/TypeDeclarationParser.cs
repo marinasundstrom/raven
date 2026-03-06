@@ -263,7 +263,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 }
 
                 var parameterStart = Position;
-                SyntaxToken? varianceKeyword = null;
+                var varianceKeyword = Token(SyntaxKind.None);
                 if (token.IsKind(SyntaxKind.InKeyword) || token.IsKind(SyntaxKind.OutKeyword))
                 {
                     varianceKeyword = ReadToken();
@@ -280,7 +280,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     identifier = ExpectToken(SyntaxKind.IdentifierToken);
                 }
 
-                SyntaxToken? colonToken = null;
+                var colonToken = Token(SyntaxKind.None);
                 SyntaxList constraints = SyntaxList.Empty;
 
                 if (PeekToken().IsKind(SyntaxKind.ColonToken))
@@ -1089,11 +1089,11 @@ internal class TypeDeclarationParser : SyntaxParser
                     accessibilityKeyword = ReadToken();
                 }
 
-                SyntaxToken? refKindKeyword = null;
+                var refKindKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
                     refKindKeyword = ReadToken();
 
-                SyntaxToken? bindingKeyword = null;
+                var bindingKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
                     bindingKeyword = ReadToken();
 
@@ -1382,11 +1382,11 @@ internal class TypeDeclarationParser : SyntaxParser
                 var parameterStart = Position;
                 var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
-                SyntaxToken? refKindKeyword = null;
+                var refKindKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
                     refKindKeyword = ReadToken();
 
-                SyntaxToken? bindingKeyword = null;
+                var bindingKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
                     bindingKeyword = ReadToken();
 

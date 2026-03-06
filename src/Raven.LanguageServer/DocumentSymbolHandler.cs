@@ -263,7 +263,8 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
     private static bool IsPromotedPropertyParameter(ParameterSyntax parameter, bool isRecord)
     {
-        if (parameter.BindingKeyword is { } bindingKeyword)
+        var bindingKeyword = parameter.BindingKeyword;
+        if (bindingKeyword.Kind != SyntaxKind.None)
             return bindingKeyword.Kind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
 
         return isRecord;
@@ -273,7 +274,9 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
     {
         var start = parameter.AccessibilityKeyword.Kind != SyntaxKind.None
             ? parameter.AccessibilityKeyword.Span.Start
-            : parameter.BindingKeyword?.Span.Start ?? parameter.Identifier.Span.Start;
+            : parameter.BindingKeyword.Kind != SyntaxKind.None
+                ? parameter.BindingKeyword.Span.Start
+                : parameter.Identifier.Span.Start;
 
         var end = parameter.Identifier.Span.End;
         return new TextSpan(start, end - start);

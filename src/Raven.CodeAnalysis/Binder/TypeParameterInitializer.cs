@@ -99,7 +99,7 @@ internal static class TypeParameterInitializer
     }
 
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)
-        => parameter.VarianceKeyword?.Kind switch
+        => parameter.VarianceKeyword.Kind switch
         {
             SyntaxKind.OutKeyword => VarianceKind.Out,
             SyntaxKind.InKeyword => VarianceKind.In,

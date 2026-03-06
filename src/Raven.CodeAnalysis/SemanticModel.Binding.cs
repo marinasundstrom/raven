@@ -1699,7 +1699,7 @@ public partial class SemanticModel
         static RefKind GetRefKind(ParameterSyntax parameter)
         {
             var typeSyntax = parameter.TypeAnnotation!.Type;
-            var refKindTokenKind = parameter.RefKindKeyword?.Kind;
+            var refKindTokenKind = parameter.RefKindKeyword.Kind;
             return typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
                 {
@@ -1986,7 +1986,7 @@ public partial class SemanticModel
                 foreach (var parameterSyntax in parameterList.Parameters)
                 {
                     var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
-                    var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
+                    var refKindTokenKind = parameterSyntax.RefKindKeyword.Kind;
                     var refKind = typeSyntax is ByRefTypeSyntax
                         ? refKindTokenKind switch
                         {
@@ -2023,7 +2023,7 @@ public partial class SemanticModel
                         unionBinder.Diagnostics,
                         ref seenOptionalParameter);
 
-                    var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+                    var isMutable = parameterSyntax.BindingKeyword.Kind == SyntaxKind.VarKeyword;
                     rawParameters.Add((parameterSyntax, parameterType, refKind, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue, isMutable));
                 }
             }
@@ -3159,7 +3159,7 @@ public partial class SemanticModel
 
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)
     {
-        return parameter.VarianceKeyword?.Kind switch
+        return parameter.VarianceKeyword.Kind switch
         {
             SyntaxKind.OutKeyword => VarianceKind.Out,
             SyntaxKind.InKeyword => VarianceKind.In,
@@ -3210,7 +3210,7 @@ public partial class SemanticModel
         foreach (var parameterSyntax in classDecl.ParameterList!.Parameters)
         {
             var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
-            var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
+            var refKindTokenKind = parameterSyntax.RefKindKeyword.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
                 {
@@ -3249,7 +3249,7 @@ public partial class SemanticModel
                 parameterSyntax.Identifier.ValueText,
                 classBinder.Diagnostics,
                 ref seenOptionalParameter);
-            var bindingKeywordKind = parameterSyntax.BindingKeyword?.Kind ?? SyntaxKind.None;
+            var bindingKeywordKind = parameterSyntax.BindingKeyword.Kind;
             var isMutable = bindingKeywordKind == SyntaxKind.VarKeyword;
             var accessibilityKeywordKind = parameterSyntax.AccessibilityKeyword.Kind;
             var parameterSymbol = new SourceParameterSymbol(

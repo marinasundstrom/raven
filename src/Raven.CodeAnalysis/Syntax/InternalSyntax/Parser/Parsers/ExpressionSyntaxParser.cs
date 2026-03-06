@@ -907,9 +907,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         lambda = ParenthesizedFunctionExpression(
-            staticKeyword,
-            asyncKeyword,
-            funcKeyword,
+            staticKeyword ?? Token(SyntaxKind.None),
+            asyncKeyword ?? Token(SyntaxKind.None),
+            funcKeyword ?? Token(SyntaxKind.None),
             parameterList,
             returnType,
             blockBody,
@@ -997,9 +997,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         lambda = ParenthesizedFunctionExpression(
-            staticKeyword,
-            asyncKeyword,
-            funcKeyword: null,
+            staticKeyword ?? Token(SyntaxKind.None),
+            asyncKeyword ?? Token(SyntaxKind.None),
+            funcKeyword: Token(SyntaxKind.None),
             parameterList,
             returnType,
             body,
@@ -1080,7 +1080,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         if (asyncKeyword is null && funcKeyword is null && ConsumeToken(SyntaxKind.AsyncKeyword, out var parsedAsync))
             asyncKeyword = parsedAsync;
 
-        SyntaxToken? refKindKeyword = null;
+        var refKindKeyword = Token(SyntaxKind.None);
         if (ConsumeToken(SyntaxKind.RefKeyword, out var modifier)
             || ConsumeToken(SyntaxKind.OutKeyword, out modifier)
             || ConsumeToken(SyntaxKind.InKeyword, out modifier))
@@ -1088,7 +1088,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             refKindKeyword = modifier;
         }
 
-        SyntaxToken? bindingKeyword = null;
+        var bindingKeyword = Token(SyntaxKind.None);
         if (ConsumeToken(SyntaxKind.LetKeyword, out var binding)
             || ConsumeToken(SyntaxKind.ValKeyword, out binding)
             || ConsumeToken(SyntaxKind.VarKeyword, out binding)
@@ -1145,7 +1145,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         var parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, identifier, typeAnnotation, defaultValue);
 
-        lambda = SimpleFunctionExpression(staticKeyword, asyncKeyword, funcKeyword, parameter, returnType, blockBody, expressionBody);
+        lambda = SimpleFunctionExpression(
+            staticKeyword ?? Token(SyntaxKind.None),
+            asyncKeyword ?? Token(SyntaxKind.None),
+            funcKeyword ?? Token(SyntaxKind.None),
+            parameter,
+            returnType,
+            blockBody,
+            expressionBody);
 
         return true;
     }

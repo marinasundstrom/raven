@@ -72,7 +72,7 @@ public sealed class ConstructorParameterNamingAnalyzer : DiagnosticAnalyzer
         if (parameterList.Parent is not TypeDeclarationSyntax typeDeclaration)
             return null;
 
-        var refKeywordKind = parameterSyntax.RefKindKeyword?.Kind ?? SyntaxKind.None;
+        var refKeywordKind = parameterSyntax.RefKindKeyword.Kind;
         var refKindIsNone = refKeywordKind is SyntaxKind.None;
         var typeIsByRef = parameterSyntax.TypeAnnotation?.Type is ByRefTypeSyntax;
         var isByRef = typeIsByRef || refKeywordKind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword;
@@ -80,7 +80,7 @@ public sealed class ConstructorParameterNamingAnalyzer : DiagnosticAnalyzer
             return NamingStyle.CamelCase;
 
         var isRecord = typeDeclaration is RecordDeclarationSyntax;
-        var bindingKeyword = parameterSyntax.BindingKeyword?.Kind ?? SyntaxKind.None;
+        var bindingKeyword = parameterSyntax.BindingKeyword.Kind;
         var isPromoted = isRecord || bindingKeyword is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
         if (!isPromoted)
             return NamingStyle.CamelCase;
@@ -99,7 +99,7 @@ public sealed class ConstructorParameterNamingAnalyzer : DiagnosticAnalyzer
             return "parameter";
 
         var isRecord = typeDeclaration is RecordDeclarationSyntax;
-        var bindingKeyword = parameterSyntax.BindingKeyword?.Kind ?? SyntaxKind.None;
+        var bindingKeyword = parameterSyntax.BindingKeyword.Kind;
         var isPromoted = isRecord || bindingKeyword is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
         return isPromoted ? "property" : "parameter";
     }

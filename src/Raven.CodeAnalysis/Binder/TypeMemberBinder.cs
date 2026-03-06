@@ -612,7 +612,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in methodDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation?.Type;
-            var refKindTokenKind = p.RefKindKeyword?.Kind;
+            var refKindTokenKind = p.RefKindKeyword.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
                 {
@@ -629,7 +629,7 @@ internal partial class TypeMemberBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
             paramInfos.Add((p.Identifier.ValueText, typeSyntax, refKind, p, isMutable));
         }
 
@@ -1082,7 +1082,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in operatorDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
-            var refKindTokenKind = p.RefKindKeyword?.Kind;
+            var refKindTokenKind = p.RefKindKeyword.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
                 {
@@ -1100,7 +1100,7 @@ internal partial class TypeMemberBinder : Binder
                 };
 
             var pType = ResolveParameterTypeSyntaxForSignature(operatorBinder, typeSyntax, refKind);
-            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
@@ -1215,7 +1215,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in conversionDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
-            var refKindTokenKind = p.RefKindKeyword?.Kind;
+            var refKindTokenKind = p.RefKindKeyword.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
                 {
@@ -1233,7 +1233,7 @@ internal partial class TypeMemberBinder : Binder
                 };
 
             var pType = ResolveParameterTypeSyntaxForSignature(conversionBinder, typeSyntax, refKind);
-            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
@@ -1480,7 +1480,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation?.Type;
-            var refKindTokenKind = p.RefKindKeyword?.Kind;
+            var refKindTokenKind = p.RefKindKeyword.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
                 {
@@ -1507,14 +1507,14 @@ internal partial class TypeMemberBinder : Binder
                     p.Identifier.GetLocation());
             }
 
-            var bindingKeywordKind = p.BindingKeyword?.Kind ?? SyntaxKind.None;
+            var bindingKeywordKind = p.BindingKeyword.Kind;
             if (refKind == RefKind.None && bindingKeywordKind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
             {
-                var bindingKeywordText = p.BindingKeyword?.Text ?? (bindingKeywordKind == SyntaxKind.ValKeyword ? "val" : "var");
+                var bindingKeywordText = p.BindingKeyword.Text;
                 _diagnostics.ReportConstructorParameterPromotionRequiresPrimaryConstructor(
                     p.Identifier.ValueText,
                     bindingKeywordText,
-                    p.BindingKeyword?.GetLocation() ?? p.Identifier.GetLocation());
+                    p.BindingKeyword.GetLocation());
             }
 
             var isMutable = bindingKeywordKind == SyntaxKind.VarKeyword;
@@ -1817,7 +1817,7 @@ internal partial class TypeMemberBinder : Binder
         static RefKind GetRefKind(ParameterSyntax parameter)
         {
             var typeSyntax = parameter.TypeAnnotation!.Type;
-            var refKindTokenKind = parameter.RefKindKeyword?.Kind;
+            var refKindTokenKind = parameter.RefKindKeyword.Kind;
             return typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
                 {
@@ -2515,7 +2515,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in indexerDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
-            var refKindTokenKind = p.RefKindKeyword?.Kind;
+            var refKindTokenKind = p.RefKindKeyword.Kind;
             var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
             var refKind = isByRefSyntax
                 ? refKindTokenKind switch
@@ -2542,7 +2542,7 @@ internal partial class TypeMemberBinder : Binder
                 _diagnostics,
                 ref seenOptionalParameter);
 
-            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
 
             indexerParametersBuilder.Add((p, type, refKind, isMutable, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue));
         }
@@ -3361,7 +3361,7 @@ internal partial class TypeMemberBinder : Binder
 
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)
     {
-        return parameter.VarianceKeyword?.Kind switch
+        return parameter.VarianceKeyword.Kind switch
         {
             SyntaxKind.OutKeyword => VarianceKind.Out,
             SyntaxKind.InKeyword => VarianceKind.In,

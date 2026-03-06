@@ -10,6 +10,7 @@ using Raven.Generators;
 var model = LoadSyntaxNodesFromXml("Model.xml");
 var tokens = LoadTokenKindsFromXml("Tokens.xml");
 var nodeKinds = LoadNodeKindsFromXml("NodeKinds.xml");
+ValidateModel(model);
 string hash = await GetHashAsync(model, tokens, nodeKinds);
 
 var force = args.Contains("-f");
@@ -286,6 +287,48 @@ List<NodeKindModel> LoadNodeKindsFromXml(string path)
     }
 
     return result;
+}
+
+void ValidateModel(List<SyntaxNodeModel> model)
+{
+    var errors = new List<string>();
+
+    foreach (var node in model)
+    {
+        foreach (var slot in node.Slots)
+        {
+            if (slot.Type == "Token")
+            {
+                if (slot.IsNullable)
+                {
+                    errors.Add(
+                        $"Node '{node.Name}', slot '{slot.Name}': token slots cannot use IsNullable=\"true\". Use IsOptionalToken=\"true\" for optional tokens.");
+                }
+            }
+            else
+            {
+                if (slot.IsOptionalToken)
+                {
+                    errors.Add(
+                        $"Node '{node.Name}', slot '{slot.Name}': IsOptionalToken=\"true\" is only valid for token slots (Type=\"Token\").");
+                }
+
+                if (!string.IsNullOrWhiteSpace(slot.DefaultToken))
+                {
+                    errors.Add(
+                        $"Node '{node.Name}', slot '{slot.Name}': DefaultToken is only valid for token slots (Type=\"Token\").");
+                }
+            }
+        }
+    }
+
+    if (errors.Count > 0)
+    {
+        var message =
+            "Invalid syntax model configuration detected:\n" +
+            string.Join(Environment.NewLine, errors.Select(e => $"  - {e}"));
+        throw new InvalidOperationException(message);
+    }
 }
 
 record TokenKindModel

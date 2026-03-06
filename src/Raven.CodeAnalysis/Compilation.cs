@@ -966,7 +966,7 @@ public partial class Compilation
             var invokeParameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(delegateDeclaration.ParameterList.Parameters.Count);
             foreach (var p in delegateDeclaration.ParameterList.Parameters)
             {
-                var refKindTokenKind = p.RefKindKeyword?.Kind;
+                var refKindTokenKind = p.RefKindKeyword.Kind;
                 var typeSyntax = p.TypeAnnotation!.Type;
                 var refKind = typeSyntax is ByRefTypeSyntax
                     ? refKindTokenKind switch
@@ -1991,7 +1991,7 @@ public partial class Compilation
 
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)
     {
-        return parameter.VarianceKeyword?.Kind switch
+        return parameter.VarianceKeyword.Kind switch
         {
             SyntaxKind.OutKeyword => VarianceKind.Out,
             SyntaxKind.InKeyword => VarianceKind.In,

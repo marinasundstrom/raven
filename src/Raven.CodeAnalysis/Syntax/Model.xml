@@ -38,9 +38,9 @@
     <Slot Name="GreaterThanToken" Type="Token" DefaultToken="GreaterThanToken" />
   </Node>
   <Node Name="TypeParameter" Inherits="Node">
-    <Slot Name="VarianceKeyword" Type="Token" IsNullable="true" />
+    <Slot Name="VarianceKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="Identifier" Type="Token" />
-    <Slot Name="ColonToken" Type="Token" IsNullable="true" />
+    <Slot Name="ColonToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Constraints" Type="SeparatedList" ElementType="TypeParameterConstraint"
       IsNullable="true" />
   </Node>
@@ -138,7 +138,7 @@
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="ExtensionKeyword" Type="Token" DefaultToken="ExtensionKeyword" />
-    <Slot Name="Identifier" Type="Token" IsOptional="true" />
+    <Slot Name="Identifier" Type="Token" IsOptionalToken="true" />
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword" />
     <Slot Name="ReceiverType" Type="Type" />
@@ -167,7 +167,7 @@
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Keyword" Type="Token" IsInherited="true" />
-    <Slot Name="ClassOrStructKeyword" Type="Token" IsOptional="true" />
+    <Slot Name="ClassOrStructKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" IsInherited="true" />
@@ -422,7 +422,7 @@
   <Node Name="CatchDeclaration" Inherits="Node">
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
     <Slot Name="Type" Type="Type" />
-    <Slot Name="Identifier" Type="Token" IsNullable="true" />
+    <Slot Name="Identifier" Type="Token" IsOptionalToken="true" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
   <Node Name="FinallyClause" Inherits="Node">
@@ -668,9 +668,9 @@
     <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
   </Node>
   <Node Name="SimpleFunctionExpression" Inherits="FunctionExpression">
-    <Slot Name="StaticKeyword" Type="Token" IsNullable="true" DefaultToken="StaticKeyword" />
-    <Slot Name="AsyncKeyword" Type="Token" IsNullable="true" DefaultToken="AsyncKeyword" />
-    <Slot Name="FuncKeyword" Type="Token" IsNullable="true" DefaultToken="FuncKeyword" />
+    <Slot Name="StaticKeyword" Type="Token" IsOptionalToken="true" DefaultToken="StaticKeyword" />
+    <Slot Name="AsyncKeyword" Type="Token" IsOptionalToken="true" DefaultToken="AsyncKeyword" />
+    <Slot Name="FuncKeyword" Type="Token" IsOptionalToken="true" DefaultToken="FuncKeyword" />
     <Slot Name="Parameter" Type="Parameter" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />
@@ -742,8 +742,8 @@
   <Node Name="Parameter" Inherits="Node">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="AccessibilityKeyword" Type="Token" IsOptionalToken="true" />
-    <Slot Name="RefKindKeyword" Type="Token" IsNullable="true" />
-    <Slot Name="BindingKeyword" Type="Token" IsNullable="true" />
+    <Slot Name="RefKindKeyword" Type="Token" IsOptionalToken="true" />
+    <Slot Name="BindingKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="TypeAnnotation" Type="TypeAnnotationClause" IsNullable="true" />
     <Slot Name="DefaultValue" Type="EqualsValueClause" IsNullable="true" />
@@ -970,9 +970,9 @@
     <Slot Name="Type" Type="Type" />
   </Node>
   <Node Name="ParenthesizedFunctionExpression" Inherits="FunctionExpression">
-    <Slot Name="StaticKeyword" Type="Token" IsNullable="true" DefaultToken="StaticKeyword" />
-    <Slot Name="AsyncKeyword" Type="Token" IsNullable="true" DefaultToken="AsyncKeyword" />
-    <Slot Name="FuncKeyword" Type="Token" IsNullable="true" DefaultToken="FuncKeyword" />
+    <Slot Name="StaticKeyword" Type="Token" IsOptionalToken="true" DefaultToken="StaticKeyword" />
+    <Slot Name="AsyncKeyword" Type="Token" IsOptionalToken="true" DefaultToken="AsyncKeyword" />
+    <Slot Name="FuncKeyword" Type="Token" IsOptionalToken="true" DefaultToken="FuncKeyword" />
     <Slot Name="ParameterList" Type="ParameterList" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />

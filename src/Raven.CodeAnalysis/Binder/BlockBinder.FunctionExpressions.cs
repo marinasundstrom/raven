@@ -111,7 +111,7 @@ partial class BlockBinder
             var annotation = parameterSyntax.TypeAnnotation;
             var typeSyntax = annotation?.Type;
             var refKind = RefKind.None;
-            var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
+            var refKindTokenKind = parameterSyntax.RefKindKeyword.Kind;
 
             if (typeSyntax is ByRefTypeSyntax)
             {
@@ -168,7 +168,7 @@ partial class BlockBinder
                 }
             }
 
-            var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var isMutable = parameterSyntax.BindingKeyword.Kind == SyntaxKind.VarKeyword;
 
             var hasExplicitDefaultValue = false;
             object explicitDefaultValue = null;
@@ -1367,7 +1367,7 @@ partial class BlockBinder
         {
             var parameterSyntax = parameterSyntaxes[index];
             var delegateParameter = invoke.Parameters[index];
-            var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var isMutable = parameterSyntax.BindingKeyword.Kind == SyntaxKind.VarKeyword;
 
             // Preserve any default values that were already extracted during the initial bind.
             // IMPORTANT: We still do NOT validate/convert these defaults during replay.
@@ -1385,7 +1385,7 @@ partial class BlockBinder
             // If it doesn't match the candidate delegate's parameter type (or ref-kind), the
             // candidate is not applicable. Do not report diagnostics during replay.
             var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
-            var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
+            var refKindTokenKind = parameterSyntax.RefKindKeyword.Kind;
 
             var refKind = delegateParameter.RefKind;
             ITypeSymbol parameterType;

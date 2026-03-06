@@ -473,12 +473,12 @@ internal sealed class HoverHandler : IHoverHandler
             if (parameterSyntax.Parent is not ParameterListSyntax { Parent: TypeDeclarationSyntax typeDeclaration })
                 continue;
 
-            var refKeywordKind = parameterSyntax.RefKindKeyword?.Kind ?? SyntaxKind.None;
+            var refKeywordKind = parameterSyntax.RefKindKeyword.Kind;
             var typeIsByRef = parameterSyntax.TypeAnnotation?.Type is ByRefTypeSyntax;
             if (refKeywordKind is not SyntaxKind.None || typeIsByRef)
                 return false;
 
-            var bindingKeyword = parameterSyntax.BindingKeyword?.Kind ?? SyntaxKind.None;
+            var bindingKeyword = parameterSyntax.BindingKeyword.Kind;
             var isRecord = typeDeclaration is RecordDeclarationSyntax;
             return isRecord || bindingKeyword is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
         }
