@@ -590,7 +590,7 @@ class Foo {
             source,
             options: new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
-        var binary = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
+        var binary = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
         var typeInfo = model.GetTypeInfo(binary);
 
         Assert.Equal(SpecialType.System_Boolean, typeInfo.Type?.SpecialType);
@@ -613,7 +613,7 @@ class Foo {
             source,
             options: new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
-        var binaries = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().ToArray();
+        var binaries = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().ToArray();
 
         Assert.Equal(2, binaries.Length);
         Assert.All(binaries, binary => Assert.Equal(SpecialType.System_Boolean, model.GetTypeInfo(binary).Type?.SpecialType));
@@ -639,7 +639,7 @@ class Foo {
             source,
             options: new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
-        var binaries = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().ToArray();
+        var binaries = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().ToArray();
 
         Assert.Equal(2, binaries.Length);
         Assert.All(binaries, binary => Assert.Equal(SpecialType.System_Boolean, model.GetTypeInfo(binary).Type?.SpecialType));

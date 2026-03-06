@@ -13,14 +13,14 @@ internal static class ConstantValueEvaluator
         {
             case LiteralExpressionSyntax literal:
                 return TryGetLiteralValue(literal, out value);
-            case UnaryExpressionSyntax unary when unary.Kind == SyntaxKind.UnaryMinusExpression:
+            case PrefixOperatorExpressionSyntax unary when unary.Kind == SyntaxKind.UnaryMinusExpression:
                 if (TryEvaluate(unary.Expression, out var operand) && TryNegate(operand, out var negated))
                 {
                     value = negated;
                     return true;
                 }
                 break;
-            case UnaryExpressionSyntax unary when unary.Kind == SyntaxKind.UnaryPlusExpression:
+            case PrefixOperatorExpressionSyntax unary when unary.Kind == SyntaxKind.UnaryPlusExpression:
                 return TryEvaluate(unary.Expression, out value);
             case ParenthesizedExpressionSyntax parenthesized:
                 return TryEvaluate(parenthesized.Expression, out value);

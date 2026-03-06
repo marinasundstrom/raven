@@ -146,7 +146,7 @@ public class ParserNewlineTests
         var value = statement.Declaration.Declarators[0].Initializer!.Value;
 
         // Assert
-        var multiply = Assert.IsType<BinaryExpressionSyntax>(value);
+        var multiply = Assert.IsType<InfixOperatorExpressionSyntax>(value);
         Assert.Equal(SyntaxKind.MultiplyExpression, multiply.Kind);
         Assert.Equal(SyntaxKind.StarToken, multiply.OperatorToken.Kind);
         multiply.OperatorToken.TrailingTrivia.Select(t => t.Kind).ShouldBe(new[]

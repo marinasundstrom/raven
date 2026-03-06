@@ -37,7 +37,7 @@ public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeAddExpression(SyntaxNodeAnalysisContext context)
     {
-        if (context.Node is not BinaryExpressionSyntax add)
+        if (context.Node is not InfixOperatorExpressionSyntax add)
             return;
 
         var semanticModel = context.SemanticModel;
@@ -94,10 +94,10 @@ public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(InterpolationDescriptor, location));
     }
 
-    private static bool IsParentStringConcat(SemanticModel semanticModel, BinaryExpressionSyntax add)
+    private static bool IsParentStringConcat(SemanticModel semanticModel, InfixOperatorExpressionSyntax add)
     {
         // If parent is also AddExpression and results in string, we’re not topmost.
-        if (add.Parent is BinaryExpressionSyntax parentAdd &&
+        if (add.Parent is InfixOperatorExpressionSyntax parentAdd &&
             parentAdd.Kind == SyntaxKind.AddExpression &&
             IsStringType(semanticModel.GetTypeInfo(parentAdd).Type))
         {
@@ -112,7 +112,7 @@ public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax expr,
         List<ExpressionSyntax> parts)
     {
-        if (expr is BinaryExpressionSyntax add &&
+        if (expr is InfixOperatorExpressionSyntax add &&
             add.Kind == SyntaxKind.AddExpression &&
             IsStringType(semanticModel.GetTypeInfo(add).Type))
         {

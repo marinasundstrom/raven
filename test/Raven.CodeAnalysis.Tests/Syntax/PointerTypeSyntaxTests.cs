@@ -27,7 +27,7 @@ public class PointerTypeSyntaxTests
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
         var initializer = local.Declaration.Declarators[0].Initializer!;
 
-        var dereference = Assert.IsType<UnaryExpressionSyntax>(initializer.Value);
+        var dereference = Assert.IsType<PrefixOperatorExpressionSyntax>(initializer.Value);
         Assert.Equal(SyntaxKind.DereferenceExpression, dereference.Kind);
         Assert.Equal(SyntaxKind.StarToken, dereference.OperatorToken.Kind);
     }
@@ -64,7 +64,7 @@ class Test {
         Assert.Equal(3, body.Statements.Count);
 
         var assignment = Assert.IsType<AssignmentStatementSyntax>(body.Statements[2]);
-        var left = Assert.IsType<UnaryExpressionSyntax>(assignment.Left);
+        var left = Assert.IsType<PrefixOperatorExpressionSyntax>(assignment.Left);
         Assert.Equal(SyntaxKind.DereferenceExpression, left.Kind);
     }
 

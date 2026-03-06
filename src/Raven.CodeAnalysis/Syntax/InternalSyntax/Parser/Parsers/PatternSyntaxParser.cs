@@ -693,7 +693,7 @@ internal class PatternSyntaxParser : SyntaxParser
             IdentifierNameSyntax => true,
             MemberAccessExpressionSyntax => true,
             LiteralExpressionSyntax => true,
-            UnaryExpressionSyntax unary
+            PrefixOperatorExpressionSyntax unary
                 when unary.OperatorToken.Kind == SyntaxKind.MinusToken &&
                      unary.Expression is LiteralExpressionSyntax => true,
             _ => false
@@ -722,7 +722,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
             var numericToken = ReadToken();
             var numeric = LiteralExpression(SyntaxKind.NumericLiteralExpression, numericToken);
-            return UnaryExpression(SyntaxKind.UnaryMinusExpression, minusToken, numeric);
+            return PrefixOperatorExpression(SyntaxKind.UnaryMinusExpression, minusToken, numeric);
         }
 
         if (!IsLiteralConstantStart(PeekToken()))

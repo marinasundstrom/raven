@@ -12,7 +12,7 @@ public class SyntaxFactoryEntryPointTests
     {
         var expression = SyntaxFactory.ParseExpression("1 + 2");
 
-        Assert.IsType<BinaryExpressionSyntax>(expression);
+        Assert.IsType<InfixOperatorExpressionSyntax>(expression);
     }
 
     [Fact]
@@ -20,7 +20,7 @@ public class SyntaxFactoryEntryPointTests
     {
         var expression = SyntaxFactory.ParseExpression("1 ^ 2");
 
-        var binary = Assert.IsType<BinaryExpressionSyntax>(expression);
+        var binary = Assert.IsType<InfixOperatorExpressionSyntax>(expression);
         Assert.Equal(SyntaxKind.BitwiseXorExpression, binary.Kind);
     }
 
@@ -29,7 +29,7 @@ public class SyntaxFactoryEntryPointTests
     {
         var expression = SyntaxFactory.ParseExpression("~1");
 
-        var unary = Assert.IsType<UnaryExpressionSyntax>(expression);
+        var unary = Assert.IsType<PrefixOperatorExpressionSyntax>(expression);
         Assert.Equal(SyntaxKind.BitwiseNotExpression, unary.Kind);
     }
 

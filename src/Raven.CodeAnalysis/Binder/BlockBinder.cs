@@ -758,7 +758,7 @@ partial class BlockBinder : Binder
             LiteralExpressionSyntax literal => BindLiteralExpression(literal),
             IdentifierNameSyntax identifier => BindIdentifierName(identifier),
             TypeSyntax type => BindTypeSyntaxAsExpression(type),
-            BinaryExpressionSyntax binary => BindBinaryExpression(binary),
+            InfixOperatorExpressionSyntax binary => BindBinaryExpression(binary),
             NullCoalesceExpressionSyntax coalesce => BindNullCoalesceExpression(coalesce),
             RangeExpressionSyntax rangeExpression => BindRangeExpression(rangeExpression),
             InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
@@ -788,8 +788,8 @@ partial class BlockBinder : Binder
             PropagateExpressionSyntax propagateExpression => BindPropagateExpression(propagateExpression),
             FunctionExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
-            UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
-            PostfixUnaryExpressionSyntax postfixUnary => BindPostfixUnaryExpression(postfixUnary),
+            PrefixOperatorExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
+            PostfixOperatorExpressionSyntax postfixUnary => BindPostfixUnaryExpression(postfixUnary),
             IndexExpressionSyntax indexExpression => BindIndexExpression(indexExpression),
             SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
             ReceiverBindingExpressionSyntax receiverBindingExpression => BindReceiverBindingExpression(receiverBindingExpression),
@@ -1023,7 +1023,7 @@ partial class BlockBinder : Binder
         );
     }
 
-    private BoundExpression BindUnaryExpression(UnaryExpressionSyntax unaryExpression)
+    private BoundExpression BindUnaryExpression(PrefixOperatorExpressionSyntax unaryExpression)
     {
         if (unaryExpression.Kind == SyntaxKind.AwaitExpression)
             return BindAwaitExpression(unaryExpression);
@@ -1074,7 +1074,7 @@ partial class BlockBinder : Binder
         }
     }
 
-    private BoundExpression BindPostfixUnaryExpression(PostfixUnaryExpressionSyntax postfixUnary)
+    private BoundExpression BindPostfixUnaryExpression(PostfixOperatorExpressionSyntax postfixUnary)
     {
         var binaryOperatorKind = postfixUnary.OperatorToken.Kind == SyntaxKind.PlusPlusToken
             ? SyntaxKind.PlusToken
@@ -1427,7 +1427,7 @@ partial class BlockBinder : Binder
         return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 1, intType);
     }
 
-    private BoundExpression BindAwaitExpression(UnaryExpressionSyntax awaitExpression)
+    private BoundExpression BindAwaitExpression(PrefixOperatorExpressionSyntax awaitExpression)
     {
         if (!IsAwaitExpressionAllowed())
         {
@@ -1520,7 +1520,7 @@ partial class BlockBinder : Binder
         };
     }
 
-    private BoundExpression BindAddressOfExpression(BoundExpression operand, UnaryExpressionSyntax syntax)
+    private BoundExpression BindAddressOfExpression(BoundExpression operand, PrefixOperatorExpressionSyntax syntax)
     {
         if (operand is BoundErrorExpression)
             return operand;
@@ -1547,7 +1547,7 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed /*,.InvalidAddressOfTarget */);
     }
 
-    private BoundExpression BindDereferenceExpression(BoundExpression operand, UnaryExpressionSyntax syntax)
+    private BoundExpression BindDereferenceExpression(BoundExpression operand, PrefixOperatorExpressionSyntax syntax)
     {
         if (operand is BoundErrorExpression)
             return operand;
@@ -4274,7 +4274,7 @@ partial class BlockBinder : Binder
         }
 
         // Target type from binary equality/inequality: `x == .Member` / `.Member == x`.
-        if (node.Parent is BinaryExpressionSyntax binary &&
+        if (node.Parent is InfixOperatorExpressionSyntax binary &&
             (binary.OperatorToken.Kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsExpression))
         {
             var other = ReferenceEquals(binary.Left, node) ? binary.Right : binary.Left;
@@ -5861,7 +5861,7 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
-    private BoundExpression BindBinaryExpression(BinaryExpressionSyntax syntax)
+    private BoundExpression BindBinaryExpression(InfixOperatorExpressionSyntax syntax)
     {
         var left = BindExpression(syntax.Left);
         var opKind = syntax.OperatorToken.Kind;
@@ -5994,7 +5994,7 @@ partial class BlockBinder : Binder
         return leftType is IPointerTypeSymbol || rightType is IPointerTypeSymbol;
     }
 
-    private BoundExpression BindPipeExpression(BoundExpression left, BinaryExpressionSyntax syntax)
+    private BoundExpression BindPipeExpression(BoundExpression left, InfixOperatorExpressionSyntax syntax)
     {
         if (left is BoundErrorExpression)
             return left;

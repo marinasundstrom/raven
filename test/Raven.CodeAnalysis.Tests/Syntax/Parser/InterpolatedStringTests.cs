@@ -194,7 +194,7 @@ public class InterpolatedStringTests
             second =>
             {
                 var interpolation = Assert.IsType<InterpolationSyntax>(second);
-                var binary = Assert.IsType<BinaryExpressionSyntax>(interpolation.Expression);
+                var binary = Assert.IsType<InfixOperatorExpressionSyntax>(interpolation.Expression);
 
                 var leftLiteral = Assert.IsType<LiteralExpressionSyntax>(binary.Left);
                 Assert.Equal("Hej", leftLiteral.Token.ValueText);
@@ -225,7 +225,7 @@ public class InterpolatedStringTests
             second =>
             {
                 var interpolation = Assert.IsType<InterpolationSyntax>(second);
-                var binary = Assert.IsType<BinaryExpressionSyntax>(interpolation.Expression);
+                var binary = Assert.IsType<InfixOperatorExpressionSyntax>(interpolation.Expression);
 
                 var leftLiteral = Assert.IsType<LiteralExpressionSyntax>(binary.Left);
                 Assert.Equal("Hej", leftLiteral.Token.ValueText);

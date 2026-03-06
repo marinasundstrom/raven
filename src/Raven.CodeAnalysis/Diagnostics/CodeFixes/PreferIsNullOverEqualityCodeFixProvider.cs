@@ -27,7 +27,7 @@ public sealed class PreferIsNullOverEqualityCodeFixProvider : CodeFixProvider
 
         var binary = root.FindNode(diagnostic.Location.SourceSpan)
             ?.AncestorsAndSelf()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .FirstOrDefault();
 
         if (binary is null)

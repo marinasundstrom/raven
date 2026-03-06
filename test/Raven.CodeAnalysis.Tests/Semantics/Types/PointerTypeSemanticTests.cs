@@ -200,7 +200,7 @@ class Test {
         var model = compilation.GetSemanticModel(tree);
         var dereference = tree.GetRoot()
             .DescendantNodes()
-            .OfType<UnaryExpressionSyntax>()
+            .OfType<PrefixOperatorExpressionSyntax>()
             .First(u => u.Kind == SyntaxKind.DereferenceExpression);
 
         var typeInfo = model.GetTypeInfo(dereference);
@@ -381,7 +381,7 @@ class Test {
 
         var returnExpression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(x => x.OperatorToken.Kind == SyntaxKind.MinusToken && x.Left.ToString() == "p3" && x.Right.ToString() == "pointer");
 
         var typeInfo = model.GetTypeInfo(returnExpression);

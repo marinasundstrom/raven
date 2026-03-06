@@ -403,8 +403,8 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return false;
         }
 
-        return token.Parent?.Kind is SyntaxKind.UnaryExpression
-            or SyntaxKind.PostfixUnaryExpression
+        return token.Parent?.Kind is SyntaxKind.PrefixOperatorExpression
+            or SyntaxKind.PostfixOperatorExpression
             or SyntaxKind.PreIncrementExpression
             or SyntaxKind.PreDecrementExpression
             or SyntaxKind.PostIncrementExpression

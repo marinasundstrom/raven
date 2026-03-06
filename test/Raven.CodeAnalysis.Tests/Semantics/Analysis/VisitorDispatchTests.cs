@@ -48,7 +48,7 @@ public sealed class VisitorDispatchTests : CompilationTestBase
     public void SyntaxVisitor_VisitExpression_DispatchesToBinaryHandler()
     {
         var tree = SyntaxTree.ParseText("val x = 1 + 2;");
-        var expression = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
         var visitor = new RecordingSyntaxVisitor();
 
         visitor.VisitExpression(expression);
@@ -101,7 +101,7 @@ public sealed class VisitorDispatchTests : CompilationTestBase
     {
         public bool SawBinaryExpression { get; private set; }
 
-        public override void VisitBinaryExpression(BinaryExpressionSyntax node)
+        public override void VisitInfixOperatorExpression(InfixOperatorExpressionSyntax node)
         {
             SawBinaryExpression = true;
         }

@@ -18,7 +18,7 @@ public class AwaitExpressionTests
         var parser = new ExpressionSyntaxParser(context);
 
         var expression = Assert.IsAssignableFrom<ExpressionSyntax>(parser.ParseExpression().CreateRed());
-        var awaitExpression = Assert.IsType<UnaryExpressionSyntax>(expression);
+        var awaitExpression = Assert.IsType<PrefixOperatorExpressionSyntax>(expression);
 
         Assert.Equal(SyntaxKind.AwaitExpression, awaitExpression.Kind);
         Assert.Equal(SyntaxKind.AwaitKeyword, awaitExpression.OperatorToken.Kind);

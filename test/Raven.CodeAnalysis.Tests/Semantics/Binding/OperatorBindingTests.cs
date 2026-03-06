@@ -94,7 +94,7 @@ namespace Sample {
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
 
         Assert.Null(model.GetSymbolInfo(expression).Symbol);
     }
@@ -116,7 +116,7 @@ val c = a + b
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
 
         var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(expression).Symbol);
 
@@ -140,7 +140,7 @@ val b = -a
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<UnaryExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<PrefixOperatorExpressionSyntax>().Single();
 
         var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(expression).Symbol);
 
@@ -196,7 +196,7 @@ val ne = a != b
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
-        var expressions = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().ToArray();
+        var expressions = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().ToArray();
 
         Assert.Equal(2, expressions.Length);
         Assert.All(expressions, expression => Assert.Equal(SpecialType.System_Boolean, model.GetTypeInfo(expression).Type?.SpecialType));

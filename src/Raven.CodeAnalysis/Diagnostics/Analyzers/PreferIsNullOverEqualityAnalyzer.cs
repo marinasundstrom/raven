@@ -24,7 +24,7 @@ public sealed class PreferIsNullOverEqualityAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeBinaryExpression(SyntaxNodeAnalysisContext context)
     {
-        if (context.Node is not BinaryExpressionSyntax binary)
+        if (context.Node is not InfixOperatorExpressionSyntax binary)
             return;
 
         if (binary.OperatorToken.Kind is not (SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken))

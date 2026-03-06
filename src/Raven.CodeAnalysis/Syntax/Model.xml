@@ -115,11 +115,11 @@
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
-  <Node Name="UnaryExpression" Inherits="Expression" HasExplicitKind="true">
+  <Node Name="PrefixOperatorExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
-  <Node Name="PostfixUnaryExpression" Inherits="Expression" HasExplicitKind="true">
+  <Node Name="PostfixOperatorExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="OperatorToken" Type="Token" />
   </Node>
@@ -936,7 +936,7 @@
     <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
-  <Node Name="BinaryExpression" Inherits="Expression" HasExplicitKind="true">
+  <Node Name="InfixOperatorExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="Left" Type="Expression" />
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Right" Type="Expression" />

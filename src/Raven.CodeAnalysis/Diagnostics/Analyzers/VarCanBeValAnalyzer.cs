@@ -228,21 +228,21 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
             Visit(node.Right);
         }
 
-        public override void VisitUnaryExpression(UnaryExpressionSyntax node)
+        public override void VisitPrefixOperatorExpression(PrefixOperatorExpressionSyntax node)
         {
             if (IsIncrementOrDecrement(node.OperatorToken))
                 MarkWrittenFromExpression(node.Expression);
 
             // If your base walker does nothing, replace with explicit Visit(...) calls.
-            base.VisitUnaryExpression(node);
+            base.VisitPrefixOperatorExpression(node);
         }
 
-        public override void VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
+        public override void VisitPostfixOperatorExpression(PostfixOperatorExpressionSyntax node)
         {
             if (IsIncrementOrDecrement(node.OperatorToken))
                 MarkWrittenFromExpression(node.Expression);
 
-            base.VisitPostfixUnaryExpression(node);
+            base.VisitPostfixOperatorExpression(node);
         }
 
         public override void VisitInvocationExpression(InvocationExpressionSyntax node)

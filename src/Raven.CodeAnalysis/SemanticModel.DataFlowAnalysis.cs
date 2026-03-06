@@ -243,11 +243,11 @@ internal sealed class DataFlowWalker : SyntaxWalker
         base.VisitVariableDeclarator(node);
     }
 
-    public override void VisitBinaryExpression(BinaryExpressionSyntax node)
+    public override void VisitInfixOperatorExpression(InfixOperatorExpressionSyntax node)
     {
         Visit(node.Left);
         Visit(node.Right);
-        base.VisitBinaryExpression(node);
+        base.VisitInfixOperatorExpression(node);
     }
 
     public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)

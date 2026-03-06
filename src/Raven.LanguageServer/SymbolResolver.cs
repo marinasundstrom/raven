@@ -383,7 +383,7 @@ internal static class SymbolResolver
         // resolves overloads using the piped value as an implicit first argument and
         // stores the constructed symbol on the BinaryExpression node, not on the
         // InvocationExpression itself.
-        if (invocation.Parent is BinaryExpressionSyntax { Kind: SyntaxKind.PipeExpression } pipeExpr &&
+        if (invocation.Parent is InfixOperatorExpressionSyntax { Kind: SyntaxKind.PipeExpression } pipeExpr &&
             pipeExpr.Right == invocation)
         {
             var pipeInfo = semanticModel.GetSymbolInfo(pipeExpr);
@@ -609,7 +609,7 @@ internal static class SymbolResolver
         // inside TryResolveInvocationTargetSymbol).
         var pipeExpr = node
             .AncestorsAndSelf()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .FirstOrDefault(b =>
                 b.Kind == SyntaxKind.PipeExpression &&
                 b.Right is not InvocationExpressionSyntax &&

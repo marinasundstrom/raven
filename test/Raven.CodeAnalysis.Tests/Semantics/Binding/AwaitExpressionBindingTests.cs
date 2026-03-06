@@ -23,7 +23,7 @@ async func outer() {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var awaitExpression = tree.GetRoot().DescendantNodes()
-            .OfType<UnaryExpressionSyntax>()
+            .OfType<PrefixOperatorExpressionSyntax>()
             .Single(e => e.Kind == SyntaxKind.AwaitExpression);
         var typeInfo = model.GetTypeInfo(awaitExpression);
         Assert.Equal(SpecialType.System_Int32, typeInfo.Type!.SpecialType);
@@ -43,7 +43,7 @@ async func outer() {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var awaitExpression = tree.GetRoot().DescendantNodes()
-            .OfType<UnaryExpressionSyntax>()
+            .OfType<PrefixOperatorExpressionSyntax>()
             .Single(e => e.Kind == SyntaxKind.AwaitExpression);
         var typeInfo = model.GetTypeInfo(awaitExpression);
         Assert.Equal(SpecialType.System_Unit, typeInfo.Type!.SpecialType);

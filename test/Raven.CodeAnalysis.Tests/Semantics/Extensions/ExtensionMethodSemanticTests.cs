@@ -1387,7 +1387,7 @@ static class NumberExtensions {
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -1420,7 +1420,7 @@ val filtered = [1, 2] |> Where(x => x > 2)
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
@@ -1484,7 +1484,7 @@ val result = 5 |> Inc(2)
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -1516,7 +1516,7 @@ val result = 5 |> Inc
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -1549,7 +1549,7 @@ static class MathHelpers {
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -1585,7 +1585,7 @@ static class MathHelpers {
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -1618,7 +1618,7 @@ val c = 5 |> Inc(2)
         var model = compilation.GetSemanticModel(tree);
         var pipelines = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Where(node => node.OperatorToken.Kind == SyntaxKind.PipeToken)
             .ToArray();
 
@@ -1668,7 +1668,7 @@ val result = value |> Abs()
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -1707,7 +1707,7 @@ static class MathHelpers {
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -1742,7 +1742,7 @@ func Increment(x: int, amount: int) -> int {
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -1774,7 +1774,7 @@ val result = 5 |> increment(2)
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -1938,7 +1938,7 @@ static class MathHelpers {
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -2037,7 +2037,7 @@ class Container {
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundPropertyAssignmentExpression>(model.GetBoundNode(pipeline));
@@ -2072,7 +2072,7 @@ class Container {
         var model = compilation.GetSemanticModel(tree);
         var pipeline = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BinaryExpressionSyntax>()
+            .OfType<InfixOperatorExpressionSyntax>()
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
 
         var boundPipeline = Assert.IsType<BoundPropertyAssignmentExpression>(model.GetBoundNode(pipeline));

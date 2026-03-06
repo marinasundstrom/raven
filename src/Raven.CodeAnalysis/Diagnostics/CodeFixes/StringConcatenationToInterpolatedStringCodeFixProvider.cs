@@ -34,9 +34,9 @@ public sealed class StringConcatenationToInterpolatedStringCodeFixProvider : Cod
         if (node is null)
             return;
 
-        // Walk up to a BinaryExpressionSyntax (+) if needed.
-        var concat = node as BinaryExpressionSyntax
-            ?? node.AncestorsAndSelf().OfType<BinaryExpressionSyntax>().FirstOrDefault();
+        // Walk up to a InfixOperatorExpressionSyntax (+) if needed.
+        var concat = node as InfixOperatorExpressionSyntax
+            ?? node.AncestorsAndSelf().OfType<InfixOperatorExpressionSyntax>().FirstOrDefault();
 
         if (concat is null || concat.Kind != SyntaxKind.AddExpression)
             return;
@@ -70,12 +70,12 @@ public sealed class StringConcatenationToInterpolatedStringCodeFixProvider : Cod
                 change));
     }
 
-    private static BinaryExpressionSyntax GetTopmostConcat(BinaryExpressionSyntax expr)
+    private static InfixOperatorExpressionSyntax GetTopmostConcat(InfixOperatorExpressionSyntax expr)
     {
         // If Raven has Parent typed as SyntaxNode, this works.
         var current = expr;
 
-        while (current.Parent is BinaryExpressionSyntax parent &&
+        while (current.Parent is InfixOperatorExpressionSyntax parent &&
                parent.Kind == SyntaxKind.AddExpression)
         {
             current = parent;
@@ -86,7 +86,7 @@ public sealed class StringConcatenationToInterpolatedStringCodeFixProvider : Cod
 
     private static void FlattenConcat(ExpressionSyntax expr, List<ExpressionSyntax> parts)
     {
-        if (expr is BinaryExpressionSyntax add &&
+        if (expr is InfixOperatorExpressionSyntax add &&
             add.Kind == SyntaxKind.AddExpression)
         {
             FlattenConcat(add.Left, parts);

@@ -141,7 +141,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         SyntaxToken token;
         while (ConsumeToken(SyntaxKind.BarBarToken, out token))
         {
-            ret = BinaryExpression(SyntaxKind.LogicalOrExpression, ret, token, ParseAndExpression());
+            ret = InfixOperatorExpression(SyntaxKind.LogicalOrExpression, ret, token, ParseAndExpression());
         }
         return ret;
     }
@@ -217,7 +217,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         SyntaxToken token;
         while (ConsumeToken(SyntaxKind.AmpersandAmpersandToken, out token))
         {
-            ret = BinaryExpression(SyntaxKind.LogicalAndExpression, ret, token, ParseAndExpression());
+            ret = InfixOperatorExpression(SyntaxKind.LogicalAndExpression, ret, token, ParseAndExpression());
         }
         return ret;
     }
@@ -226,7 +226,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     {
         if (ConsumeToken(SyntaxKind.ExclamationToken, out var token))
         {
-            ExpressionSyntax ret = UnaryExpression(SyntaxKind.LogicalNotExpression, token, ParseLogicalNotExpression());
+            ExpressionSyntax ret = PrefixOperatorExpression(SyntaxKind.LogicalNotExpression, token, ParseLogicalNotExpression());
             return ret;
         }
         else
@@ -278,7 +278,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     return expr;
             }
             ExpressionSyntax rhs = ParseComparisonExpression();
-            expr = BinaryExpression(GetBinaryExpressionKind(token), expr, token, rhs);
+            expr = InfixOperatorExpression(GetBinaryExpressionKind(token), expr, token, rhs);
         }
     }
 
@@ -328,7 +328,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     and not MemberBindingExpressionSyntax
                     and not ElementAccessExpressionSyntax
                     and not ConditionalAccessExpressionSyntax
-                    and not UnaryExpressionSyntax { Kind: SyntaxKind.DereferenceExpression })
+                    and not PrefixOperatorExpressionSyntax { Kind: SyntaxKind.DereferenceExpression })
                 {
                     AddDiagnostic(
                         DiagnosticInfo.Create(
@@ -382,7 +382,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             {
                 ReadToken();
                 var right = ParseExpressionCore(prec + 1);
-                expr = BinaryExpression(GetBinaryExpressionKind(operatorCandidate), expr!, operatorCandidate, right);
+                expr = InfixOperatorExpression(GetBinaryExpressionKind(operatorCandidate), expr!, operatorCandidate, right);
             }
             else
             {
@@ -557,43 +557,43 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.PlusToken:
                 ReadToken();
                 expr = ParseFactorExpression();
-                expr = UnaryExpression(SyntaxKind.UnaryPlusExpression, token, expr);
+                expr = PrefixOperatorExpression(SyntaxKind.UnaryPlusExpression, token, expr);
                 break;
 
             case SyntaxKind.PlusPlusToken:
                 ReadToken();
                 expr = ParseFactorExpression();
-                expr = UnaryExpression(SyntaxKind.PreIncrementExpression, token, expr);
+                expr = PrefixOperatorExpression(SyntaxKind.PreIncrementExpression, token, expr);
                 break;
 
             case SyntaxKind.MinusToken:
                 ReadToken();
                 expr = ParseFactorExpression();
-                expr = UnaryExpression(SyntaxKind.UnaryMinusExpression, token, expr);
+                expr = PrefixOperatorExpression(SyntaxKind.UnaryMinusExpression, token, expr);
                 break;
 
             case SyntaxKind.MinusMinusToken:
                 ReadToken();
                 expr = ParseFactorExpression();
-                expr = UnaryExpression(SyntaxKind.PreDecrementExpression, token, expr);
+                expr = PrefixOperatorExpression(SyntaxKind.PreDecrementExpression, token, expr);
                 break;
 
             case SyntaxKind.AmpersandToken:
                 ReadToken();
                 expr = ParseFactorExpression();
-                expr = UnaryExpression(SyntaxKind.AddressOfExpression, token, expr);
+                expr = PrefixOperatorExpression(SyntaxKind.AddressOfExpression, token, expr);
                 break;
 
             case SyntaxKind.StarToken:
                 ReadToken();
                 expr = ParseFactorExpression();
-                expr = UnaryExpression(SyntaxKind.DereferenceExpression, token, expr);
+                expr = PrefixOperatorExpression(SyntaxKind.DereferenceExpression, token, expr);
                 break;
 
             case SyntaxKind.TildeToken:
                 ReadToken();
                 expr = ParseFactorExpression();
-                expr = UnaryExpression(SyntaxKind.BitwiseNotExpression, token, expr);
+                expr = PrefixOperatorExpression(SyntaxKind.BitwiseNotExpression, token, expr);
                 break;
 
             case SyntaxKind.CaretToken:
@@ -636,7 +636,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.AwaitKeyword:
                 ReadToken();
                 expr = ParseFactorExpression();
-                expr = UnaryExpression(SyntaxKind.AwaitExpression, token, expr);
+                expr = PrefixOperatorExpression(SyntaxKind.AwaitExpression, token, expr);
                 break;
 
             case SyntaxKind.OpenBraceToken:
@@ -1317,12 +1317,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             else if (token.IsKind(SyntaxKind.PlusPlusToken)) // Post-increment
             {
                 var operatorToken = ReadToken();
-                expr = PostfixUnaryExpression(SyntaxKind.PostIncrementExpression, expr, operatorToken);
+                expr = PostfixOperatorExpression(SyntaxKind.PostIncrementExpression, expr, operatorToken);
             }
             else if (token.IsKind(SyntaxKind.MinusMinusToken)) // Post-decrement
             {
                 var operatorToken = ReadToken();
-                expr = PostfixUnaryExpression(SyntaxKind.PostDecrementExpression, expr, operatorToken);
+                expr = PostfixOperatorExpression(SyntaxKind.PostDecrementExpression, expr, operatorToken);
             }
             else
             {

@@ -391,8 +391,8 @@ public static class PrettySyntaxTreePrinter
     {
         return node switch
         {
-            UnaryExpressionSyntax ue => $"{ue.OperatorToken.Text} ",
-            BinaryExpressionSyntax be => $"{be.OperatorToken.Text} ",
+            PrefixOperatorExpressionSyntax ue => $"{ue.OperatorToken.Text} ",
+            InfixOperatorExpressionSyntax be => $"{be.OperatorToken.Text} ",
             LiteralExpressionSyntax { Kind: SyntaxKind.NullLiteralExpression } le => $"null ",
             LiteralExpressionSyntax { Kind: SyntaxKind.StringLiteralExpression } le => $"{le.Token.Text} ",
             LiteralExpressionSyntax { Kind: SyntaxKind.TrueLiteralExpression } le => $"{le.Token.Text} ",

@@ -647,9 +647,9 @@ internal sealed class BinaryOperation : Operation, IBinaryOperation
 
     internal BoundBinaryOperator Operator => _bound.Operator;
 
-    public IOperation? Left => _left ??= SemanticModel.GetOperation(((BinaryExpressionSyntax)Syntax).Left);
+    public IOperation? Left => _left ??= SemanticModel.GetOperation(((InfixOperatorExpressionSyntax)Syntax).Left);
 
-    public IOperation? Right => _right ??= SemanticModel.GetOperation(((BinaryExpressionSyntax)Syntax).Right);
+    public IOperation? Right => _right ??= SemanticModel.GetOperation(((InfixOperatorExpressionSyntax)Syntax).Right);
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
@@ -905,7 +905,7 @@ internal sealed class AwaitOperation : Operation, IAwaitOperation
         _bound = bound;
     }
 
-    public IOperation? Operation => _operation ??= SemanticModel.GetOperation(((UnaryExpressionSyntax)Syntax).Expression);
+    public IOperation? Operation => _operation ??= SemanticModel.GetOperation(((PrefixOperatorExpressionSyntax)Syntax).Expression);
 
     public IMethodSymbol GetAwaiterMethod => _bound.GetAwaiterMethod;
 

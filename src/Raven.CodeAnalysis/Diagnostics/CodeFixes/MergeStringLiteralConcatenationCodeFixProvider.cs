@@ -30,8 +30,8 @@ public sealed class MergeStringLiteralConcatenationCodeFixProvider : CodeFixProv
         if (node is null)
             return;
 
-        var concat = node as BinaryExpressionSyntax
-            ?? node.AncestorsAndSelf().OfType<BinaryExpressionSyntax>().FirstOrDefault();
+        var concat = node as InfixOperatorExpressionSyntax
+            ?? node.AncestorsAndSelf().OfType<InfixOperatorExpressionSyntax>().FirstOrDefault();
         if (concat is null || concat.Kind != SyntaxKind.AddExpression)
             return;
 
@@ -64,7 +64,7 @@ public sealed class MergeStringLiteralConcatenationCodeFixProvider : CodeFixProv
 
     private static void FlattenConcat(ExpressionSyntax expression, List<ExpressionSyntax> parts)
     {
-        if (expression is BinaryExpressionSyntax add &&
+        if (expression is InfixOperatorExpressionSyntax add &&
             add.Kind == SyntaxKind.AddExpression)
         {
             FlattenConcat(add.Left, parts);
