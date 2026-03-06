@@ -117,10 +117,25 @@ record class ShipmentRequest(
     val PromoCode: Option<string>
 )
 
-record class RatePlan(Carrier: string, BaseCents: int, PerKgCents: int)
-record class Quote(Id: string, Carrier: string, TotalCents: int, Note: string)
-record class QuoteSummary(Quote: Quote, Decision: Decision)
-record class QuoteError(Message: string)
+record class RatePlan(
+    val Carrier: string, 
+    val BaseCents: int, 
+    val PerKgCents: int
+)
+
+record class Quote(
+    val Id: string, 
+    val Carrier: string, 
+    val TotalCents: int, 
+    val Note: string
+)
+
+record class QuoteSummary(
+    val Quote: Quote, 
+    val Decision: Decision
+)
+    
+record class QuoteError(val Message: string)
 
 union Decision {
     Approve
