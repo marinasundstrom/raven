@@ -833,4 +833,8 @@
     Title="Property type annotation required"
     Message="Property '{propertyName}' requires an explicit type annotation unless it has a storage initializer."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0919" Identifier="VarPropertyWritableAccessorMustMatchPropertyAccessibility"
+    Title="var property writable accessor must match property accessibility"
+    Message="Property '{propertyName}' is declared 'var' and its '{accessorKind}' accessor must have the same accessibility as the property."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

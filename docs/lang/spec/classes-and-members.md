@@ -258,6 +258,8 @@ contract, while storage is an implementation detail.
 - `val`: publicly read-only after initialization.
 - `var`: publicly mutable after initialization.
 
+Raven treats `val`/`var` primarily as language-level state contracts, not just CLR property syntax sugar. The default ergonomic style is to rely on the declaration contract (`val`/`var`) and omit explicit accessors unless you need API-shaping control.
+
 `val` may still declare `set`/`init` accessors. A `set` accessor on `val` must
 be less accessible than the getter. `init` remains compatible with public
 object-initializer assignment.
@@ -299,6 +301,10 @@ Accessor defaults:
 | -------- | ------ | ------ |
 | `val`    | public | none   |
 | `var`    | public | public |
+
+When a storage property declares an accessor list that omits `get`, the compiler still synthesizes the getter to preserve the `val`/`var` contract. For example, `val Status: OrderStatus { private set; }` emits a public getter and a private setter.
+For `var`, writable access is part of the public contract: explicit `set`/`init` accessors must match the property's accessibility.
+Use explicit accessor lists mainly for API-facing scenarios where that control is intentional.
 
 #### Computed properties
 

@@ -348,6 +348,27 @@ public class PropertyBindingTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void VarProperty_WithLessAccessibleSetter_ProducesDiagnostic()
+    {
+        const string testCode =
+            """
+            class Shipment {
+                var Status: int { private set; }
+            }
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult(CompilerDiagnostics.VarPropertyWritableAccessorMustMatchPropertyAccessibility.Id)
+                    .WithSpan(2, 31, 2, 34)
+                    .WithArguments("Status", "set"),
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void ImplicitVarAutoProperty_MultipleProperties_InitAssignment_NoErrors()
     {
         // Regression: "Property Id does not have a setter" was thrown by the emitter

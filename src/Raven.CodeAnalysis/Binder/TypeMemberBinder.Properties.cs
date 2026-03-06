@@ -676,6 +676,35 @@ internal partial class TypeMemberBinder : Binder
                     setMethod = methodSymbol;
             }
 
+            if (getMethod is null &&
+                propertyDecl.BindingKeyword.Kind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword &&
+                sourcePropertySymbol?.BackingField is not null &&
+                !isAbstract &&
+                explicitInterfaceType is null)
+            {
+                // Preserve property contract defaults when explicit accessors only declare writable access.
+                var implicitGetter = new SourceMethodSymbol(
+                    "get_" + propertyName,
+                    propertyType,
+                    ImmutableArray<SourceParameterSymbol>.Empty,
+                    propertySymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [],
+                    [],
+                    isStatic: isStatic,
+                    methodKind: MethodKind.PropertyGet,
+                    isAsync: false,
+                    isVirtual: isVirtual,
+                    isOverride: isOverride,
+                    isSealed: isSealed,
+                    isAbstract: false,
+                    declaredAccessibility: propertyAccessibility);
+                implicitGetter.SetParameters([]);
+                getMethod = implicitGetter;
+                getterAccessibility ??= propertyAccessibility;
+            }
+
             if (declaredMutable == false)
             {
                 var effectiveGetterAccessibility = getterAccessibility ?? propertyAccessibility;
@@ -685,6 +714,19 @@ internal partial class TypeMemberBinder : Binder
                         continue;
 
                     _diagnostics.ReportValPropertyCannotDeclareWritableAccessor(
+                        propertyName,
+                        writableAccessor.Keyword.Text,
+                        writableAccessor.Keyword.GetLocation());
+                }
+            }
+            else if (declaredMutable == true)
+            {
+                foreach (var writableAccessor in writableAccessorInfo)
+                {
+                    if (!IsLessAccessible(writableAccessor.Accessibility, propertyAccessibility))
+                        continue;
+
+                    _diagnostics.ReportVarPropertyWritableAccessorMustMatchPropertyAccessibility(
                         propertyName,
                         writableAccessor.Keyword.Text,
                         writableAccessor.Keyword.GetLocation());

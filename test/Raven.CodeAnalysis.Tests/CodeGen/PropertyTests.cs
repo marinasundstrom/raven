@@ -262,6 +262,99 @@ class Point {
     }
 
     [Fact]
+    public void ValProperty_WithPrivateSetterOnly_SynthesizesGetter()
+    {
+        var code = """
+class Shipment {
+    val Status: int { private set; }
+
+    init() {
+        Status = 2
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSemanticModel(syntaxTree);
+        var compilationType = compilation.SourceGlobalNamespace.LookupType("Shipment");
+        Assert.NotNull(compilationType);
+
+        var propertySymbol = Assert.Single(
+            compilationType!.GetMembers().OfType<IPropertySymbol>(),
+            p => p.Name == "Status");
+        Assert.NotNull(propertySymbol.GetMethod);
+        Assert.NotNull(propertySymbol.SetMethod);
+        Assert.Equal(Accessibility.Private, propertySymbol.SetMethod!.DeclaredAccessibility);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Shipment", throwOnError: true)!;
+        var clrProperty = type.GetProperty("Status", BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(clrProperty);
+        Assert.NotNull(clrProperty!.GetMethod);
+        Assert.NotNull(clrProperty.SetMethod);
+        Assert.True(clrProperty.SetMethod!.IsPrivate);
+    }
+
+    [Fact]
+    public void VarProperty_WithInitOnlyAccessor_SynthesizesGetter()
+    {
+        var code = """
+class Shipment {
+    var Status: int { init; }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSemanticModel(syntaxTree);
+        var compilationType = compilation.SourceGlobalNamespace.LookupType("Shipment");
+        Assert.NotNull(compilationType);
+
+        var propertySymbol = Assert.Single(
+            compilationType!.GetMembers().OfType<IPropertySymbol>(),
+            p => p.Name == "Status");
+        Assert.NotNull(propertySymbol.GetMethod);
+        Assert.NotNull(propertySymbol.SetMethod);
+        Assert.Equal(MethodKind.InitOnly, propertySymbol.SetMethod!.MethodKind);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Shipment", throwOnError: true)!;
+        var clrProperty = type.GetProperty("Status", BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(clrProperty);
+        Assert.NotNull(clrProperty!.GetMethod);
+        Assert.NotNull(clrProperty.SetMethod);
+    }
+
+    [Fact]
     public void ImplicitVarAutoProperty_BoolProperty_RoundTrips()
     {
         // Regression test: get_IsPriority() raised InvalidProgramException before fix
