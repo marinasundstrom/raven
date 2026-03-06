@@ -35,8 +35,8 @@ public partial class SemanticModel
             return GetCapturedVariables(functionSymbol);
         }
 
-        if (node is LambdaExpressionSyntax lambdaSyntax &&
-            GetBoundNode(lambdaSyntax) is BoundLambdaExpression boundLambda)
+        if (node is FunctionExpressionSyntax lambdaSyntax &&
+            GetBoundNode(lambdaSyntax) is BoundFunctionExpression boundLambda)
         {
             return boundLambda.CapturedVariables
                 .Where(static symbol => symbol is not null)
@@ -77,7 +77,7 @@ public partial class SemanticModel
             }
         }
 
-        foreach (var lambda in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
+        foreach (var lambda in root.DescendantNodes().OfType<FunctionExpressionSyntax>())
         {
             var captures = GetCapturedVariables(lambda);
             if (!captures.IsDefaultOrEmpty &&

@@ -293,7 +293,7 @@ internal partial class ExpressionGenerator : Generator
                     info = EmitInfo.None;
                 break;
 
-            case BoundLambdaExpression lambdaExpression:
+            case BoundFunctionExpression lambdaExpression:
                 EmitLambdaExpression(lambdaExpression);
                 break;
 
@@ -1033,7 +1033,7 @@ internal partial class ExpressionGenerator : Generator
     }
 
     private void EmitCapturedLambda(
-        BoundLambdaExpression lambdaExpression,
+        BoundFunctionExpression lambdaExpression,
         TypeGenerator.LambdaClosure closure,
         MethodInfo methodInfo,
         ITypeSymbol delegateTypeSymbol,
@@ -1172,7 +1172,7 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private void EmitLambdaExpression(BoundLambdaExpression lambdaExpression)
+    private void EmitLambdaExpression(BoundFunctionExpression lambdaExpression)
     {
         if (lambdaExpression.Symbol is not ILambdaSymbol lambdaSymbol)
             throw new InvalidOperationException("Lambda symbol missing.");

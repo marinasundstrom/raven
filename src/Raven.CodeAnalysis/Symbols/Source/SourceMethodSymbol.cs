@@ -491,7 +491,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             {
                 MethodDeclarationSyntax method => method.ReturnType,
                 FunctionStatementSyntax function => function.ReturnType,
-                ParenthesizedLambdaExpressionSyntax lambda => lambda.ReturnType,
+                ParenthesizedFunctionExpressionSyntax lambda => lambda.ReturnType,
                 _ => null
             };
 

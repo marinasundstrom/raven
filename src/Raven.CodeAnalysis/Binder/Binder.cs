@@ -1681,7 +1681,7 @@ internal abstract partial class Binder
         if (TryGetCachedBoundNode(node) is BoundNode cached)
             return cached;
 
-        if (node is LambdaExpressionSyntax lambdaSyntax &&
+        if (node is FunctionExpressionSyntax lambdaSyntax &&
             lambdaSyntax.Parent is ArgumentSyntax argument &&
             argument.Parent is ArgumentListSyntax argumentList &&
             argumentList.Parent is InvocationExpressionSyntax invocation)

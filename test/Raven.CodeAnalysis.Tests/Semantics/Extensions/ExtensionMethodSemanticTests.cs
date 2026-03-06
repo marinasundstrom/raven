@@ -330,7 +330,7 @@ val result = numbers.Where(value => value == 2)
         Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         Assert.Contains(
             boundLambda.CandidateDelegates,
             candidate => candidate.Name == "Func" &&
@@ -1264,8 +1264,8 @@ namespace Sample.Extensions {
             .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Apply");
 
         var argument = invocation.ArgumentList.Arguments.Single();
-        var lambda = Assert.IsAssignableFrom<LambdaExpressionSyntax>(argument.Expression);
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var lambda = Assert.IsAssignableFrom<FunctionExpressionSyntax>(argument.Expression);
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
 
         Assert.NotEmpty(boundLambda.CandidateDelegates);
         Assert.Contains(
@@ -1424,7 +1424,7 @@ val filtered = [1, 2] |> Where(x => x > 2)
             .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
@@ -1433,7 +1433,7 @@ val filtered = [1, 2] |> Where(x => x > 2)
         Assert.NotNull(boundPipeline.ExtensionReceiver);
         Assert.Single(boundPipeline.Arguments);
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         Assert.Equal(SpecialType.System_Int32, Assert.Single(boundLambda.Parameters).Type.SpecialType);
     }
 
@@ -1807,10 +1807,10 @@ val result = 5 |> x => x.ToString()
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         Assert.Equal(SpecialType.System_Int32, Assert.Single(boundLambda.Parameters).Type.SpecialType);
         Assert.Equal(SpecialType.System_String, boundLambda.ReturnType.SpecialType);
     }
@@ -1836,10 +1836,10 @@ val result = 5 |> (x => x.ToString())
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         Assert.Equal(SpecialType.System_Int32, Assert.Single(boundLambda.Parameters).Type.SpecialType);
         Assert.Equal(SpecialType.System_String, boundLambda.ReturnType.SpecialType);
     }
@@ -1868,11 +1868,11 @@ val result =
         var model = compilation.GetSemanticModel(tree);
         var lambdas = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .ToDictionary(lambda => lambda.Parameter.Identifier.ValueText);
 
-        var outerLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["x"]));
-        var innerLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["y"]));
+        var outerLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas["x"]));
+        var innerLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas["y"]));
 
         Assert.Equal(SpecialType.System_Int32, Assert.Single(outerLambda.Parameters).Type.SpecialType);
         Assert.Equal(SpecialType.System_Int32, outerLambda.ReturnType.SpecialType);
@@ -1904,11 +1904,11 @@ val result =
         var model = compilation.GetSemanticModel(tree);
         var lambdas = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .ToDictionary(lambda => lambda.Parameter.Identifier.ValueText);
 
-        var firstStage = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["x"]));
-        var secondStage = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["y"]));
+        var firstStage = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas["x"]));
+        var secondStage = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas["y"]));
 
         Assert.Equal(SpecialType.System_Int32, Assert.Single(firstStage.Parameters).Type.SpecialType);
         Assert.Equal(SpecialType.System_String, firstStage.ReturnType.SpecialType);
@@ -1978,10 +1978,10 @@ func Filter(source: IEnumerable<int>, predicate: int -> bool) -> IEnumerable<int
         var model = compilation.GetSemanticModel(tree);
         var lambda = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
         var parameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }
@@ -2008,10 +2008,10 @@ func Filter<T>(source: IEnumerable<T>, predicate: T -> bool) -> IEnumerable<T> =
         var model = compilation.GetSemanticModel(tree);
         var lambda = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
         var parameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }

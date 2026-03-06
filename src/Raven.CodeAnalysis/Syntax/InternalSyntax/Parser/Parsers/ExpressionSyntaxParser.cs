@@ -678,7 +678,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return ThrowExpression(throwKeyword, expression);
     }
 
-    private bool TryParseLambdaExpression(out LambdaExpressionSyntax? lambda)
+    private bool TryParseLambdaExpression(out FunctionExpressionSyntax? lambda)
     {
         lambda = null;
 
@@ -688,29 +688,67 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         // Bracket-starting lambdas need a slower path because target-specifier attributes
         // (e.g. `[return: Attr]`) can confuse the cheap token scan.
         if (token.Kind != SyntaxKind.OpenBracketToken &&
+            token.Kind != SyntaxKind.FuncKeyword &&
+            token.Kind != SyntaxKind.AsyncKeyword &&
+            token.Kind != SyntaxKind.StaticKeyword &&
             !LooksLikeLambdaAhead(startOffset: 0))
             return false;
+
+        if (token.Kind == SyntaxKind.StaticKeyword)
+        {
+            var checkpoint = CreateCheckpoint("static-func-lambda");
+            var staticKeyword = ReadToken();
+            SyntaxToken? asyncKeyword = null;
+            if (ConsumeToken(SyntaxKind.AsyncKeyword, out var parsedAsyncKeyword))
+                asyncKeyword = parsedAsyncKeyword;
+
+            if (!ConsumeToken(SyntaxKind.FuncKeyword, out var funcKeyword))
+            {
+                checkpoint.Rewind();
+                return false;
+            }
+
+            if (PeekToken().Kind == SyntaxKind.OpenParenToken)
+            {
+                if (!IsParenthesizedCastAhead() &&
+                    TryParseParenthesizedLambdaExpression(staticKeyword, asyncKeyword, funcKeyword, out lambda))
+                    return true;
+            }
+            else if (CanTokenBeIdentifier(PeekToken()) &&
+                     TryParseSimpleLambdaExpression(staticKeyword, asyncKeyword, funcKeyword, out lambda))
+            {
+                return true;
+            }
+
+            checkpoint.Rewind();
+            return false;
+        }
 
         if (token.Kind == SyntaxKind.AsyncKeyword)
         {
             var checkpoint = CreateCheckpoint("async-lambda");
             var asyncKeyword = ReadToken();
+            SyntaxToken? funcKeyword = null;
+            if (ConsumeToken(SyntaxKind.FuncKeyword, out var parsedFuncKeyword))
+                funcKeyword = parsedFuncKeyword;
 
             if (PeekToken().Kind == SyntaxKind.OpenParenToken)
             {
-                if (!IsParenthesizedCastAhead() && TryParseParenthesizedLambdaExpression(asyncKeyword, out lambda))
+                if (!IsParenthesizedCastAhead() &&
+                    TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword, funcKeyword, out lambda))
                     return true;
             }
-            else if (CanTokenBeIdentifier(PeekToken()) && TryParseSimpleLambdaExpression(asyncKeyword, out lambda))
+            else if (CanTokenBeIdentifier(PeekToken()) &&
+                     TryParseSimpleLambdaExpression(staticKeyword: null, asyncKeyword, funcKeyword, out lambda))
             {
                 return true;
             }
             else if (PeekToken().Kind == SyntaxKind.OpenBracketToken)
             {
-                if (TryParseSimpleLambdaExpression(asyncKeyword, out lambda))
+                if (funcKeyword is null && TryParseSimpleLambdaExpression(staticKeyword: null, asyncKeyword, funcKeyword, out lambda))
                     return true;
 
-                if (TryParseAttributedParenthesizedLambdaExpression(asyncKeyword, out lambda))
+                if (funcKeyword is null && TryParseAttributedParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword, out lambda))
                     return true;
             }
 
@@ -723,21 +761,43 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (IsParenthesizedCastAhead())
                 return false;
 
-            if (TryParseParenthesizedLambdaExpression(asyncKeyword: null, out lambda))
+            if (TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword: null, out lambda))
                 return true;
         }
 
         if (token.Kind == SyntaxKind.OpenBracketToken)
         {
-            if (TryParseSimpleLambdaExpression(asyncKeyword: null, out lambda))
+            if (TryParseSimpleLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword: null, out lambda))
                 return true;
 
-            if (TryParseAttributedParenthesizedLambdaExpression(asyncKeyword: null, out lambda))
+            if (TryParseAttributedParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword: null, out lambda))
                 return true;
         }
 
-        if (CanTokenBeIdentifier(token) && TryParseSimpleLambdaExpression(asyncKeyword: null, out lambda))
+        if (CanTokenBeIdentifier(token) &&
+            TryParseSimpleLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword: null, out lambda))
             return true;
+
+        if (token.Kind == SyntaxKind.FuncKeyword)
+        {
+            var checkpoint = CreateCheckpoint("func-lambda");
+            var funcKeyword = ReadToken();
+
+            if (PeekToken().Kind == SyntaxKind.OpenParenToken)
+            {
+                if (!IsParenthesizedCastAhead() &&
+                    TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword, out lambda))
+                    return true;
+            }
+            else if (CanTokenBeIdentifier(PeekToken()) &&
+                     TryParseSimpleLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword, out lambda))
+            {
+                return true;
+            }
+
+            checkpoint.Rewind();
+            return false;
+        }
 
         return false;
     }
@@ -772,15 +832,21 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
     }
 
-    private bool TryParseParenthesizedLambdaExpression(SyntaxToken? asyncKeyword, out LambdaExpressionSyntax? lambda)
+    private bool TryParseParenthesizedLambdaExpression(
+        SyntaxToken? staticKeyword,
+        SyntaxToken? asyncKeyword,
+        SyntaxToken? funcKeyword,
+        out FunctionExpressionSyntax? lambda)
     {
         lambda = null;
+
+        var allowBlockBodyWithoutArrow = funcKeyword is { Kind: SyntaxKind.FuncKeyword };
 
         if (!PeekToken().IsKind(SyntaxKind.OpenParenToken))
             return false;
 
         // Fast-path: only speculate if we can see a `=>` ahead before newline/terminator.
-        if (!LooksLikeLambdaAhead(startOffset: 0))
+        if (!allowBlockBodyWithoutArrow && !LooksLikeLambdaAhead(startOffset: 0))
             return false;
 
         var checkpoint = CreateCheckpoint("parenthesized-lambda");
@@ -789,27 +855,52 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
-        if (returnType is null && !IsNextToken(SyntaxKind.FatArrowToken))
+        if (returnType is null &&
+            !IsNextToken(SyntaxKind.FatArrowToken) &&
+            !(allowBlockBodyWithoutArrow && PeekToken().IsKind(SyntaxKind.OpenBraceToken)))
         {
             checkpoint.Rewind();
             return false;
         }
+        BlockSyntax? blockBody;
+        ArrowExpressionClauseSyntax? expressionBody;
+        if (IsNextToken(SyntaxKind.FatArrowToken))
+        {
+            ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
+            var body = new ExpressionSyntaxParser(this).ParseExpression();
+            if (body is BlockSyntax block)
+            {
+                blockBody = block;
+                expressionBody = null;
+            }
+            else
+            {
+                blockBody = null;
+                expressionBody = ArrowExpressionClause(fatArrowToken, body);
+            }
+        }
+        else
+        {
+            blockBody = ParseBlockSyntax();
+            expressionBody = null;
+        }
 
-        ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
-
-        var body = new ExpressionSyntaxParser(this).ParseExpression();
-
-        lambda = ParenthesizedLambdaExpression(
+        lambda = ParenthesizedFunctionExpression(
+            staticKeyword,
             asyncKeyword,
+            funcKeyword,
             parameterList,
             returnType,
-            fatArrowToken,
-            body);
+            blockBody,
+            expressionBody);
 
         return true;
     }
 
-    private bool TryParseAttributedParenthesizedLambdaExpression(SyntaxToken? asyncKeyword, out LambdaExpressionSyntax? lambda)
+    private bool TryParseAttributedParenthesizedLambdaExpression(
+        SyntaxToken? staticKeyword,
+        SyntaxToken? asyncKeyword,
+        out FunctionExpressionSyntax? lambda)
     {
         lambda = null;
 
@@ -870,14 +961,28 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
 
-        var body = new ExpressionSyntaxParser(this).ParseExpression();
+        var parsedBody = new ExpressionSyntaxParser(this).ParseExpression();
+        BlockSyntax? body;
+        ArrowExpressionClauseSyntax? expressionBody;
+        if (parsedBody is BlockSyntax block)
+        {
+            body = block;
+            expressionBody = null;
+        }
+        else
+        {
+            body = null;
+            expressionBody = ArrowExpressionClause(fatArrowToken, parsedBody);
+        }
 
-        lambda = ParenthesizedLambdaExpression(
+        lambda = ParenthesizedFunctionExpression(
+            staticKeyword,
             asyncKeyword,
+            funcKeyword: null,
             parameterList,
             returnType,
-            fatArrowToken,
-            body);
+            body,
+            expressionBody);
 
         return true;
     }
@@ -933,19 +1038,25 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         returnAttributes = returnItems.Count == 0 ? SyntaxList.Empty : List(returnItems);
     }
 
-    private bool TryParseSimpleLambdaExpression(SyntaxToken? asyncKeyword, out LambdaExpressionSyntax? lambda)
+    private bool TryParseSimpleLambdaExpression(
+        SyntaxToken? staticKeyword,
+        SyntaxToken? asyncKeyword,
+        SyntaxToken? funcKeyword,
+        out FunctionExpressionSyntax? lambda)
     {
         lambda = null;
 
+        var allowBlockBodyWithoutArrow = funcKeyword is { Kind: SyntaxKind.FuncKeyword };
+
         // Fast-path: don't speculate unless we can see a `=>` before newline/terminator.
-        if (!LooksLikeLambdaAhead(startOffset: 0))
+        if (!allowBlockBodyWithoutArrow && !LooksLikeLambdaAhead(startOffset: 0))
             return false;
 
         var checkpoint = CreateCheckpoint("simple-lambda");
 
         var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
-        if (asyncKeyword is null && ConsumeToken(SyntaxKind.AsyncKeyword, out var parsedAsync))
+        if (asyncKeyword is null && funcKeyword is null && ConsumeToken(SyntaxKind.AsyncKeyword, out var parsedAsync))
             asyncKeyword = parsedAsync;
 
         SyntaxToken? refKindKeyword = null;
@@ -981,19 +1092,39 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
-        if (returnType is null && !IsNextToken(SyntaxKind.FatArrowToken))
+        if (returnType is null &&
+            !IsNextToken(SyntaxKind.FatArrowToken) &&
+            !(allowBlockBodyWithoutArrow && PeekToken().IsKind(SyntaxKind.OpenBraceToken)))
         {
             checkpoint.Rewind();
             return false;
         }
-
-        ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
-
-        var body = new ExpressionSyntaxParser(this).ParseExpression();
+        BlockSyntax? blockBody;
+        ArrowExpressionClauseSyntax? expressionBody;
+        if (IsNextToken(SyntaxKind.FatArrowToken))
+        {
+            ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
+            var body = new ExpressionSyntaxParser(this).ParseExpression();
+            if (body is BlockSyntax block)
+            {
+                blockBody = block;
+                expressionBody = null;
+            }
+            else
+            {
+                blockBody = null;
+                expressionBody = ArrowExpressionClause(fatArrowToken, body);
+            }
+        }
+        else
+        {
+            blockBody = ParseBlockSyntax();
+            expressionBody = null;
+        }
 
         var parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, identifier, typeAnnotation, defaultValue);
 
-        lambda = SimpleLambdaExpression(asyncKeyword, parameter, returnType, fatArrowToken, body);
+        lambda = SimpleFunctionExpression(staticKeyword, asyncKeyword, funcKeyword, parameter, returnType, blockBody, expressionBody);
 
         return true;
     }

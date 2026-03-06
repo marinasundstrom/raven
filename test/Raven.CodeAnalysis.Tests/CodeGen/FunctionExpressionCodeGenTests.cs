@@ -8,7 +8,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class LambdaCodeGenTests
+public class FunctionExpressionCodeGenTests
 {
     [Fact]
     public void Lambda_ExpressionBody_ReturnsSum()

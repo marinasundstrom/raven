@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Tests.CodeGen;
 
-public sealed class AsyncLambdaStateMachineTests
+public sealed class AsyncFunctionExpressionStateMachineTests
 {
     [Fact]
     public void TaskRun_async_lambda_executes_and_returns_value()

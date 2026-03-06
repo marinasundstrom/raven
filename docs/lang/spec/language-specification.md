@@ -425,13 +425,13 @@ val makeAdder = () => a + 3
 makeAdder() // returns 45, makeAdder : System.Func<int>
 ```
 
-Async lambda expressions mirror async functions: placing `async` before the parameter
-clause permits `await` inside the body. When the lambda's return type is not annotated
+Async function expressions mirror async functions: placing `async` before the parameter
+clause (or using `async func`) permits `await` inside the body. When the function expression return type is not annotated
 and no delegate supplies one, the compiler wraps the inferred result in
 `System.Threading.Tasks.Task<T>` (or `Task` when the body produces `unit`). A delegate
 annotation or target type may still specify a concrete `Task` shape, in which case the
-lambda body must evaluate to the awaited result type rather than the task itself.
-Annotating an async lambda with a non-`Task` return type is an error.
+function-expression body must evaluate to the awaited result type rather than the task itself.
+Annotating an async function expression with a non-`Task` return type is an error.
 
 ### Additional type inference rules (normative)
 
@@ -2996,12 +2996,14 @@ propagate directly to the caller. Once asynchronous execution begins, `await`
 unwrapped exceptions rethrow when the task is awaited, matching .NET's
 observable behaviour.
 
-### Lambda expressions and captured variables
+### Function expressions and captured variables
 
-Lambda expressions start with either a parenthesized parameter list or a single
-identifier, optionally followed by a return-type arrow, and then the `=>` token
-with either an expression or block body. Lambdas may appear wherever a function
-value is expected. When a lambda or nested function statement (`func`) references
+Function expressions start with either a parenthesized parameter list
+or a single identifier, optionally followed by a return-type arrow. Expression
+bodies use `=>`; `func`-introduced block bodies may omit `=>` and use
+`func (...) { ... }`. Function expressions may also use modifier forms
+`async func`, `static func`, and `static async func`. Function expressions may appear wherever a function value
+is expected. When a function expression or nested function statement (`func`) references
 a local defined in an outer scope, the compiler lifts that symbol into shared
 closure storage so both scopes observe the same value. Each capturing lambda or
 nested function materializes a synthesized closure class that stores the body as an
@@ -3016,31 +3018,33 @@ Non-capturing lambdas are emitted using the same closure-carrier convention
 (with zero capture fields) so lambda emission remains uniform across contexts.
 Synthesized lambda method names follow C#-style metadata naming (`<Method>b__...`).
 `static func` declarations do not capture enclosing state, and `self` is not
-available in static contexts (`RAV2801`).
+available in static contexts (`RAV2801`). Static function expressions are also
+non-capturing; attempting to capture an outer local or parameter reports
+`RAV2204`.
 
-Parenthesized lambdas may place attribute lists immediately before the
+Parenthesized function expressions may place attribute lists immediately before the
 parameter list as shorthand. Leading lists are applied contextually:
 non-targeted attributes are applied to the first parameter, while
-`[return: ...]` lists are applied to the lambda return type.
+`[return: ...]` lists are applied to the function expression return type.
 
 ```raven
 val parse = [FromBody](content: string) => content
 ```
 
-Lambda parameters may also declare default values using the same trailing
+Function-expression parameters may also declare default values using the same trailing
 optional-parameter rules as functions and methods.
 
 ```raven
 val format = (name: string, age: int = 1) => "$name:$age"
 ```
 
-Lambda parameter types are optional when the expression is converted to a known
+Function-expression parameter types are optional when the expression is converted to a known
 delegate type. The compiler infers the parameter types (and any `ref`/`out`
 modifiers) from the delegate's `Invoke` signature and converts the body to the
 delegate's return type. If no delegate context is available, diagnostic
 `RAV2200` is reported and explicit parameter annotations are required.
 
-Lambdas are target-typed: the same lambda expression may be assigned to, passed
+Function expressions are target-typed: the same function expression may be assigned to, passed
 to, or returned as any compatible delegate type. Compatibility is determined
 solely by the delegate's `Invoke` signature (parameter types, `ref`/`out`
 modifiers, and return type). Delegate types themselves are **not** implicitly
@@ -3060,7 +3064,7 @@ When no delegate context is available, diagnostic `RAV2201` is reported and the
 method must either be invoked directly or annotated with a delegate type.
 
 ```raven
-val writeLine: (string) -> () = Console.WriteLine
+val writeLine: func (string) -> () = Console.WriteLine
 writeLine("Hello from Raven!")
 ```
 
@@ -3075,10 +3079,10 @@ type.
 
 ```raven
 val writeLine = Console.WriteLine             // error: overloaded method group
-val writeLine: (string) -> () = Console.WriteLine // ok
+val writeLine: func (string) -> () = Console.WriteLine // ok
 ```
 
-Passing `Console.WriteLine` as an argument to a parameter of function type `(string) -> ()`
+Passing `Console.WriteLine` as an argument to a parameter of function type `func (string) -> ()`
 (equivalent to `System.Action<string>`) likewise selects the `string` overload without requiring
 an explicit annotation at the call site. If no overload matches the target
 delegate's signature, diagnostic `RAV2203` is produced.
@@ -3452,23 +3456,23 @@ participate in other type constructs such as unions or nullability.
 ### Function types
 
 Function types describe callable delegates directly in a type annotation. The
-syntax mirrors a lambda signature: a comma-separated parameter list enclosed in
-parentheses followed by `->` and the return type.
+syntax mirrors a lambda signature and starts with `func`: a comma-separated
+parameter list enclosed in parentheses followed by `->` and the return type.
 
 ```raven
-val applyTwice: (int -> int, int) -> int
-val thunk: () -> unit
-val comparer: (string, string) -> bool
+val applyTwice: func (func int -> int, int) -> int
+val thunk: func () -> unit
+val comparer: func (string, string) -> bool
 ```
 
 Single-parameter functions may omit the surrounding parentheses:
 
 ```raven
-val increment: int -> int
+val increment: func int -> int
 ```
 
-The return portion may itself be any Raven type. Nested arrows associate to the right, so `int -> string -> bool` is
-parsed as `int -> (string -> bool)`.
+The return portion may itself be any Raven type. Nested arrows associate to the right, so `func int -> func string -> bool` is
+parsed as `func int -> (func string -> bool)`.
 
 Function annotations are sugar over delegates. When the parameter and return
 types match an existing declaration (including the built-in `Func`/`Action`
@@ -3477,6 +3481,12 @@ internal delegate with the appropriate signature so interop with .NET remains
 transparent. Parameter modifiers and names are not permitted inside a function
 type; specify only the types that flow into and out of the delegate. A `unit`
 return represents an action with no meaningful result.
+
+Unnamed function expressions support explicit and shorthand forms:
+`func (x: int) => x + 1`, `func (x: int) { x + 1 }`, `async func (x: int) => x + 1`,
+`static func (x: int) => x + 1`, and `(x: int) => x + 1`
+(or `x => x + 1`). The shorthand form is intended as call-site convenience,
+especially for higher-order APIs such as LINQ methods.
 
 ### Nullability and `null`
 

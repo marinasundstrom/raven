@@ -1433,14 +1433,14 @@ internal sealed class TryExpressionOperation : Operation, ITryExpressionOperatio
 
 internal sealed class LambdaOperation : Operation, ILambdaOperation
 {
-    private readonly BoundLambdaExpression _bound;
+    private readonly BoundFunctionExpression _bound;
     private IOperation? _body;
     private ImmutableArray<IParameterSymbol>? _parameters;
     private ImmutableArray<ISymbol>? _capturedVariables;
 
     internal LambdaOperation(
         SemanticModel semanticModel,
-        BoundLambdaExpression bound,
+        BoundFunctionExpression bound,
         SyntaxNode syntax,
         bool isImplicit)
         : base(semanticModel, OperationKind.Lambda, syntax, bound.Type, isImplicit)
@@ -1459,8 +1459,8 @@ internal sealed class LambdaOperation : Operation, ILambdaOperation
             if (_body is not null)
                 return _body;
 
-            if (Syntax is LambdaExpressionSyntax lambda)
-                _body = SemanticModel.GetOperation(lambda.ExpressionBody);
+            if (Syntax is FunctionExpressionSyntax lambda)
+                _body = SemanticModel.GetOperation((SyntaxNode?)lambda.Body ?? lambda.ExpressionBody?.Expression);
 
             return _body;
         }

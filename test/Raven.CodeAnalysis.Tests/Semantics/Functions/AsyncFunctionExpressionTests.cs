@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class AsyncLambdaTests : CompilationTestBase
+public class AsyncFunctionExpressionTests : CompilationTestBase
 {
     [Fact]
     public void AsyncLambda_WithInferredResult_DefaultsToTaskOfResult()
@@ -36,10 +36,10 @@ class C {
         var lambdaSyntax = tree
             .GetRoot()
             .DescendantNodes()
-            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var lambdaSymbol = Assert.IsAssignableFrom<ILambdaSymbol>(boundLambda.Symbol);
 
         Assert.True(lambdaSymbol.IsAsync);
@@ -68,13 +68,13 @@ val projector = async () => 42
         var lambdaSyntax = tree
             .GetRoot()
             .DescendantNodes()
-            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var owner = boundLambda.Symbol?.ContainingSymbol ?? compilation.Assembly.GlobalNamespace;
 
-        var lowered = LambdaLowerer.Rewrite(boundLambda, owner);
+        var lowered = FunctionExpressionLowerer.Rewrite(boundLambda, owner);
 
         var invocation = Assert.IsType<BoundInvocationExpression>(lowered.Body);
         Assert.Equal("FromResult", invocation.Method.Name);
@@ -108,10 +108,10 @@ class C {
         var lambdaSyntax = tree
             .GetRoot()
             .DescendantNodes()
-            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var lambdaSymbol = Assert.IsAssignableFrom<ILambdaSymbol>(boundLambda.Symbol);
 
         Assert.True(lambdaSymbol.IsAsync);
@@ -174,11 +174,51 @@ val result = await handler()
         var lambdaSyntax = tree
             .GetRoot()
             .DescendantNodes()
-            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
         var model = compilation.GetSemanticModel(tree);
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaSymbol = Assert.IsAssignableFrom<ILambdaSymbol>(boundLambda.Symbol);
+
+        Assert.True(lambdaSymbol.IsAsync);
+
+        var expectedReturn = ((INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
+            .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, boundLambda.ReturnType));
+    }
+
+    [Fact]
+    public void AsyncFuncExpression_WithBlockBody_BindsAndInfersTaskResult()
+    {
+        const string source = """
+import System.*
+import System.Threading.Tasks.*
+
+class C {
+    func M() -> () {
+        val handler = async func (a: int, b: int) {
+            await Task.Delay(1)
+            return a + b
+        }
+
+        handler(1, 2)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .Single();
+
+        var model = compilation.GetSemanticModel(tree);
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var lambdaSymbol = Assert.IsAssignableFrom<ILambdaSymbol>(boundLambda.Symbol);
 
         Assert.True(lambdaSymbol.IsAsync);

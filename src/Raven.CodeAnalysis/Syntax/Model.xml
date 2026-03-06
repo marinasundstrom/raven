@@ -328,6 +328,7 @@
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
   <Node Name="FunctionType" Inherits="Type">
+    <Slot Name="FuncKeyword" Type="Token" DefaultToken="FuncKeyword" />
     <Slot Name="Parameter" Type="Type" IsNullable="true" />
     <Slot Name="ParameterList" Type="FunctionTypeParameterList" IsNullable="true" />
     <Slot Name="ArrowToken" Type="Token" DefaultToken="ArrowToken" />
@@ -666,12 +667,14 @@
     <Slot Name="Name" Type="IdentifierName" />
     <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
   </Node>
-  <Node Name="SimpleLambdaExpression" Inherits="LambdaExpression">
+  <Node Name="SimpleFunctionExpression" Inherits="FunctionExpression">
+    <Slot Name="StaticKeyword" Type="Token" IsNullable="true" DefaultToken="StaticKeyword" />
     <Slot Name="AsyncKeyword" Type="Token" IsNullable="true" DefaultToken="AsyncKeyword" />
+    <Slot Name="FuncKeyword" Type="Token" IsNullable="true" DefaultToken="FuncKeyword" />
     <Slot Name="Parameter" Type="Parameter" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
-    <Slot Name="ArrowToken" Type="Token" IsInherited="true" DefaultToken="ArrowToken" />
-    <Slot Name="ExpressionBody" Type="Expression" IsInherited="true" />
+    <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />
+    <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
   </Node>
   <Node Name="Statement" Inherits="Node" IsAbstract="true" />
   <Node Name="ImportDirective" Inherits="Node">
@@ -732,9 +735,9 @@
     <Slot Name="BindingKeyword" Type="Token" />
     <Slot Name="Declarators" Type="SeparatedList" ElementType="VariableDeclarator" />
   </Node>
-  <Node Name="LambdaExpression" Inherits="Expression" IsAbstract="true">
-    <Slot Name="ArrowToken" Type="Token" IsAbstract="true" DefaultToken="ArrowToken" />
-    <Slot Name="ExpressionBody" Type="Expression" IsAbstract="true" />
+  <Node Name="FunctionExpression" Inherits="Expression" IsAbstract="true">
+    <Slot Name="Body" Type="Block" IsNullable="true" IsAbstract="true" />
+    <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsAbstract="true" />
   </Node>
   <Node Name="Parameter" Inherits="Node">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
@@ -966,12 +969,14 @@
     <Slot Name="AsKeyword" Type="Token" DefaultToken="AsKeyword" />
     <Slot Name="Type" Type="Type" />
   </Node>
-  <Node Name="ParenthesizedLambdaExpression" Inherits="LambdaExpression">
+  <Node Name="ParenthesizedFunctionExpression" Inherits="FunctionExpression">
+    <Slot Name="StaticKeyword" Type="Token" IsNullable="true" DefaultToken="StaticKeyword" />
     <Slot Name="AsyncKeyword" Type="Token" IsNullable="true" DefaultToken="AsyncKeyword" />
+    <Slot Name="FuncKeyword" Type="Token" IsNullable="true" DefaultToken="FuncKeyword" />
     <Slot Name="ParameterList" Type="ParameterList" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
-    <Slot Name="ArrowToken" Type="Token" IsInherited="true" DefaultToken="ArrowToken" />
-    <Slot Name="ExpressionBody" Type="Expression" IsInherited="true" />
+    <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />
+    <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
   </Node>
   <Node Name="FunctionStatement" Inherits="Statement">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />

@@ -5,17 +5,17 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
-internal sealed class BoundUnboundLambda
+internal sealed class BoundUnboundFunctionExpression
 {
     public SourceLambdaSymbol LambdaSymbol { get; }
-    public LambdaExpressionSyntax Syntax { get; }
+    public FunctionExpressionSyntax Syntax { get; }
     public ImmutableArray<IParameterSymbol> Parameters { get; }
     public ImmutableArray<INamedTypeSymbol> CandidateDelegates { get; }
     public ImmutableArray<SuppressedLambdaDiagnostic> SuppressedDiagnostics { get; }
 
-    internal BoundUnboundLambda(
+    internal BoundUnboundFunctionExpression(
         SourceLambdaSymbol lambdaSymbol,
-        LambdaExpressionSyntax syntax,
+        FunctionExpressionSyntax syntax,
         ImmutableArray<IParameterSymbol> parameters,
         ImmutableArray<INamedTypeSymbol> candidateDelegates,
         ImmutableArray<SuppressedLambdaDiagnostic> suppressedDiagnostics)

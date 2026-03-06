@@ -193,14 +193,55 @@ record class RatePlan(val Carrier: string, val BaseCents: int, val PerKgCents: i
 
 ---
 
-## Functions and lambdas
+## Functions
 
 ```raven
 func Add(a: int, b: int) -> int => a + b
 
-val addA = (x: int) => x + 42
+val addA = func (x: int) => x + 42
+val addB = func (x: int) {
+    x + 42
+}
 val result = addA(1)
 ```
+
+Raven treats both forms as functions:
+
+- Named function declaration: `func Add(...) -> ...`
+- Unnamed function expression: `func (...) => ...`, `func (...) { ... }`, or shorthand `(...) => ...`
+
+In practice, the difference is binding shape:
+
+- Named declarations introduce a member/local function symbol.
+- Unnamed function expressions produce a function value that you bind to `val`/`var` or pass as an argument.
+
+Function type signatures always start with `func`:
+
+```raven
+val f: func (int, int) -> int
+val g = func (a: int, b: int) => a + b
+```
+
+Unnamed function expressions may omit `func` as shorthand. This is mainly a convenience for higher-order call sites such as LINQ-style APIs:
+
+```raven
+val projected = [1, 2, 3].Where(x => x > 1).Select(x => x * 2)
+```
+
+Function expressions also support `async`, `static`, and `static async` modifier forms:
+
+```raven
+val add = static func (a: int, b: int) {
+    a + b
+}
+
+val delayedAdd = async func (a: int, b: int) {
+    await Task.Delay(2)
+    return a + b
+}
+```
+
+`static` function expressions cannot capture outer locals or parameters.
 
 ---
 

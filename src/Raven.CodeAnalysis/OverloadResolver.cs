@@ -14,7 +14,7 @@ internal sealed class OverloadResolver
         BoundArgument[] arguments,
         Compilation compilation,
         BoundExpression? receiver = null,
-        Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda = null,
+        Func<IParameterSymbol, BoundFunctionExpression, bool>? canBindLambda = null,
         SyntaxNode? callSyntax = null,
         ImmutableArray<ITypeSymbol> explicitTypeArguments = default)
     {
@@ -308,7 +308,7 @@ internal sealed class OverloadResolver
 
             var expression = mapped.Value.Expression;
 
-            if (expression is BoundLambdaExpression lambda)
+            if (expression is BoundFunctionExpression lambda)
             {
                 if (!TryInferFromLambda(compilation, parameters[parameterIndex].Type, lambda, substitutions, method))
                     return null;
@@ -399,7 +399,7 @@ internal sealed class OverloadResolver
 
             var expression = mapped.Value.Expression;
 
-            if (expression is BoundLambdaExpression lambda)
+            if (expression is BoundFunctionExpression lambda)
             {
                 if (!TryInferFromLambda(compilation, parameters[parameterIndex].Type, lambda, substitutions, method))
                     return null;
@@ -444,7 +444,7 @@ internal sealed class OverloadResolver
     private static bool TryInferFromLambda(
         Compilation compilation,
         ITypeSymbol parameterType,
-        BoundLambdaExpression lambda,
+        BoundFunctionExpression lambda,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
         IMethodSymbol? inferenceMethod)
     {
@@ -945,7 +945,7 @@ internal sealed class OverloadResolver
         var candParams = candidate.Parameters;
         var currentParams = current.Parameters;
 
-        if (arguments.Any(static a => a.Expression is BoundLambdaExpression { Symbol: ILambdaSymbol { IsAsync: true } }))
+        if (arguments.Any(static a => a.Expression is BoundFunctionExpression { Symbol: ILambdaSymbol { IsAsync: true } }))
         {
             var candidateTaskDepth = GetTaskDepth(candidate.ReturnType);
             var currentTaskDepth = GetTaskDepth(current.ReturnType);
@@ -1048,7 +1048,7 @@ internal sealed class OverloadResolver
             // C# §12.6.4.4: when a lambda argument converts to both D and Expression<D>,
             // neither conversion is better. Skip this argument so the extension-receiver
             // distance (which correctly prefers IQueryable<T> over IEnumerable<T>) can decide.
-            if (arguments[i].Expression is BoundLambdaExpression &&
+            if (arguments[i].Expression is BoundFunctionExpression &&
                 candParamType is INamedTypeSymbol candParamNamed &&
                 currentParamType is INamedTypeSymbol currentParamNamed)
             {
@@ -1194,7 +1194,7 @@ internal sealed class OverloadResolver
         BoundExpression? receiver,
         bool treatAsExtension,
         Compilation compilation,
-        Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda,
+        Func<IParameterSymbol, BoundFunctionExpression, bool>? canBindLambda,
         List<OverloadArgumentComparisonLog>? comparisonLog,
         out int score)
     {
@@ -1343,7 +1343,7 @@ internal sealed class OverloadResolver
         IParameterSymbol parameter,
         BoundExpression argument,
         Compilation compilation,
-        Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda,
+        Func<IParameterSymbol, BoundFunctionExpression, bool>? canBindLambda,
         List<OverloadArgumentComparisonLog>? comparisonLog,
         ref int score)
     {
@@ -1413,7 +1413,7 @@ internal sealed class OverloadResolver
         }
 
         bool lambdaCompatible = false;
-        if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
+        if (argument is BoundFunctionExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
             // Unwrap Expression<TDelegate> — treat it like a delegate parameter for lambda compatibility,
             // using the inner delegate type for signature checking.
@@ -1541,7 +1541,7 @@ internal sealed class OverloadResolver
         return true;
 
         static bool IsAsyncDelegateCompatible(
-            BoundLambdaExpression lambda,
+            BoundFunctionExpression lambda,
             ITypeSymbol delegateReturnType,
             Compilation compilation,
             out string? failureDetail)

@@ -275,10 +275,10 @@ val anyPositive = numbers.Any((value: int) => value > 0)
         if (convertedArgument is BoundConversionExpression cast)
             Assert.Equal(predicateType, cast.Type);
         else
-            Assert.IsType<BoundLambdaExpression>(convertedArgument);
+            Assert.IsType<BoundFunctionExpression>(convertedArgument);
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var lambdaParameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
         Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
@@ -374,10 +374,10 @@ val projection = numbers.Select(value => value.ToString())
         if (convertedArgument is BoundConversionExpression cast)
             Assert.Equal(delegateType, cast.Type);
         else
-            Assert.IsType<BoundLambdaExpression>(convertedArgument);
+            Assert.IsType<BoundFunctionExpression>(convertedArgument);
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var lambdaParameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
         Assert.Equal(SpecialType.System_String, boundLambda.ReturnType.SpecialType);
@@ -425,7 +425,7 @@ val positives = numbers.Where(value => value > 0)
             argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var lambdaParameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
         Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
@@ -472,7 +472,7 @@ val result = numbers.Where(value => value == 2)
             argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var lambdaParameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
         Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
@@ -502,7 +502,7 @@ val result = numbers.Where(value => value > 0)
         var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         Assert.False(boundLambda.CandidateDelegates.IsDefaultOrEmpty);
 
         var hasPredicate = boundLambda.CandidateDelegates.Any(candidate =>
@@ -514,7 +514,7 @@ val result = numbers.Where(value => value > 0)
 
         Assert.True(hasPredicate);
 
-        var unbound = Assert.IsType<BoundUnboundLambda>(boundLambda.Unbound);
+        var unbound = Assert.IsType<BoundUnboundFunctionExpression>(boundLambda.Unbound);
         Assert.False(unbound.CandidateDelegates.IsDefaultOrEmpty);
         Assert.Empty(unbound.SuppressedDiagnostics);
 
@@ -581,10 +581,10 @@ val positives = numbers.Where(value => value > 0)
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
 
         Assert.False(boundLambda.CandidateDelegates.IsDefaultOrEmpty);
-        var unbound = Assert.IsType<BoundUnboundLambda>(boundLambda.Unbound);
+        var unbound = Assert.IsType<BoundUnboundFunctionExpression>(boundLambda.Unbound);
         Assert.False(unbound.CandidateDelegates.IsDefaultOrEmpty);
         Assert.Empty(unbound.SuppressedDiagnostics);
         Assert.Contains(
@@ -643,7 +643,7 @@ val positives = numbers.Where((value: int, index: int) => value > index)
             argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         Assert.Equal(2, boundLambda.Parameters.Count());
         Assert.All(boundLambda.Parameters.Take(2), parameter => Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType));
         Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
@@ -679,10 +679,10 @@ val result = properties.Where(pi => !pi.GetMethod.IsStatic)
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<LambdaExpressionSyntax>()
+            .OfType<FunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var lambdaParameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal("PropertyInfo", lambdaParameter.Type.Name);
         Assert.Equal("Reflection", lambdaParameter.Type.ContainingNamespace?.Name);

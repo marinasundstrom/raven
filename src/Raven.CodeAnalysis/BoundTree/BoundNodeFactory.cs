@@ -192,7 +192,7 @@ internal sealed partial class BoundNodeFactory
     public BoundLabeledStatement CreateLabeledStatement(ILabelSymbol label, BoundStatement statement)
         => new(label, statement);
 
-    public BoundLambdaExpression CreateLambdaExpression(
+    public BoundFunctionExpression CreateFunctionExpression(
         IEnumerable<IParameterSymbol> parameters,
         ITypeSymbol returnType,
         BoundExpression body,

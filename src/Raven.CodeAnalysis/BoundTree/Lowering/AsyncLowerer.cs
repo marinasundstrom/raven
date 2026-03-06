@@ -2653,7 +2653,7 @@ internal static class AsyncLowerer
                         return tupleExpression;
                     }
 
-                case BoundLambdaExpression:
+                case BoundFunctionExpression:
                     // Nested lambdas are lowered separately; avoid rewriting them with the enclosing
                     // async state machine's builder/awaiter fields.
                     return node;
@@ -3731,7 +3731,7 @@ internal static class AsyncLowerer
             CaptureCurrentLocals();
         }
 
-        public override void VisitLambdaExpression(BoundLambdaExpression node)
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
         {
             // Lambdas are lowered independently.
         }
@@ -4160,7 +4160,7 @@ internal static class AsyncLowerer
             FoundAwait = true;
         }
 
-        public override void VisitLambdaExpression(BoundLambdaExpression node)
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
         {
             // Nested lambdas are lowered independently.
         }

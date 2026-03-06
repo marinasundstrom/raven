@@ -107,10 +107,10 @@ class Program {
         // The lambda is the second argument to ForEach
         var lambda = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Last(); // last lambda; first is the y => y.Length inside ToDictionary
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
         var lambdaParam = Assert.Single(boundLambda.Parameters);
 
         var kvpDef = compilation.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2")!;

@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class LambdaCapturedVariablesTests
+public class FunctionExpressionCapturedVariablesTests
 {
     [Fact]
     public void Lambda_CapturingParameter_ReportsParameterAsCapture()
@@ -27,9 +27,9 @@ class Calculator {
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .First(node => node.Kind == SyntaxKind.ParenthesizedLambdaExpression);
+            .First(node => node.Kind == SyntaxKind.ParenthesizedFunctionExpression);
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
 
         Assert.Single(boundLambda.Parameters, p => p.Name == "offset");
         Assert.Empty(boundLambda.CapturedVariables);
@@ -56,9 +56,9 @@ class Calculator {
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .First(node => node.Kind == SyntaxKind.ParenthesizedLambdaExpression);
+            .First(node => node.Kind == SyntaxKind.ParenthesizedFunctionExpression);
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
 
         Assert.Empty(boundLambda.CapturedVariables);
     }

@@ -44,7 +44,7 @@ class C {
             .Single();
         var initializer = localDeclaration.Declarators.Single().Initializer;
         var conversion = Assert.IsType<BoundConversionExpression>(initializer);
-        Assert.IsType<BoundLambdaExpression>(conversion.Expression);
+        Assert.IsType<BoundFunctionExpression>(conversion.Expression);
 
         var lowered = Lowerer.LowerExpression(methodSymbol, conversion);
         var loweredBlock = Assert.IsType<BoundBlockExpression>(lowered);

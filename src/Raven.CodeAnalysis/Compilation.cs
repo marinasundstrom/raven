@@ -500,7 +500,7 @@ public partial class Compilation
 
         static bool ContainsAwaitExpressionOutsideNestedFunctionsCore(SyntaxNode current)
         {
-            if (current is FunctionStatementSyntax or LambdaExpressionSyntax)
+            if (current is FunctionStatementSyntax or FunctionExpressionSyntax)
                 return false;
 
             if (current.Kind == SyntaxKind.AwaitExpression)
@@ -514,7 +514,7 @@ public partial class Compilation
 
             foreach (var child in current.ChildNodes())
             {
-                if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
+                if (child is FunctionStatementSyntax or FunctionExpressionSyntax)
                     continue;
 
                 if (ContainsAwaitExpressionOutsideNestedFunctionsCore(child))
@@ -531,7 +531,7 @@ public partial class Compilation
 
         static bool ContainsNonUnitReturnOutsideNestedFunctions(SyntaxNode node)
         {
-            if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
+            if (node is FunctionStatementSyntax or FunctionExpressionSyntax)
                 return false;
 
             if (node is ReturnStatementSyntax returnStatement)
@@ -548,7 +548,7 @@ public partial class Compilation
 
             foreach (var child in node.ChildNodes())
             {
-                if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
+                if (child is FunctionStatementSyntax or FunctionExpressionSyntax)
                     continue;
 
                 if (ContainsNonUnitReturnOutsideNestedFunctions(child))

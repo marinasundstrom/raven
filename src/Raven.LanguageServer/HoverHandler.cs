@@ -268,6 +268,13 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is ITypeSymbol typeSymbol)
         {
+            if (typeSymbol is INamedTypeSymbol delegateType &&
+                delegateType.TypeKind == TypeKind.Delegate &&
+                TryFormatDelegateTypeSignature(delegateType, plainTypeFormat, out var delegateSignature))
+            {
+                return delegateSignature;
+            }
+
             var typeFormat = plainTypeFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
             var text = FormatType(typeSymbol, typeFormat);
 
@@ -322,6 +329,39 @@ internal sealed class HoverHandler : IHoverHandler
         return type is UnitTypeSymbol
             ? "unit"
             : type.ToDisplayString(format);
+    }
+
+    private static bool TryFormatDelegateTypeSignature(
+        INamedTypeSymbol delegateType,
+        SymbolDisplayFormat plainTypeFormat,
+        out string signature)
+    {
+        var invokeMethod = delegateType.GetDelegateInvokeMethod();
+        if (invokeMethod is null)
+        {
+            signature = string.Empty;
+            return false;
+        }
+
+        var parameters = string.Join(
+            ", ",
+            invokeMethod.Parameters.Select(parameter =>
+            {
+                var modifier = parameter.RefKind switch
+                {
+                    RefKind.In => "in ",
+                    RefKind.Ref => "ref ",
+                    RefKind.Out => "out ",
+                    RefKind.RefReadOnly => "ref readonly ",
+                    _ => string.Empty
+                };
+
+                return modifier + parameter.Type.ToDisplayString(plainTypeFormat);
+            }));
+
+        var returnType = invokeMethod.ReturnType.ToDisplayString(plainTypeFormat);
+        signature = $"func ({parameters}) -> {returnType}";
+        return true;
     }
 
     private static ImmutableArray<IParameterSymbol> GetDisplayParametersForMethod(
@@ -415,7 +455,7 @@ internal sealed class HoverHandler : IHoverHandler
             return "Function";
 
         if (symbol is IMethodSymbol { MethodKind: MethodKind.LambdaMethod })
-            return "Lambda";
+            return "Function expression";
 
         if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor })
             return "Constructor";

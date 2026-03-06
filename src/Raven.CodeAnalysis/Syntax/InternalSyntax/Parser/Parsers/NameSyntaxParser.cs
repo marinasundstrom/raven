@@ -30,11 +30,21 @@ internal class NameSyntaxParser : SyntaxParser
     public TypeSyntax ParseTypeName()
     {
         // Type union syntax (`A | B`) and literal type syntax (`"x"`, `42`, `true`) are intentionally disabled.
-        return ParseTypeNameElement();
+        return ParseTypeNameElement(allowImplicitFunctionTypeRecovery: true);
     }
 
-    private TypeSyntax ParseTypeNameElement()
+    public TypeSyntax ParseTypeNameWithoutFunctionRecovery()
     {
+        return ParseTypeNameElement(allowImplicitFunctionTypeRecovery: false);
+    }
+
+    private TypeSyntax ParseTypeNameElement(bool allowImplicitFunctionTypeRecovery)
+    {
+        if (ConsumeToken(SyntaxKind.FuncKeyword, out var funcKeyword))
+        {
+            return ParseFunctionType(funcKeyword);
+        }
+
         if (ConsumeToken(SyntaxKind.AmpersandToken, out var ampToken))
         {
             var elementType = ParseTypeName();
@@ -51,12 +61,7 @@ internal class NameSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            var functionType = TryParseFunctionType();
-            if (functionType is not null)
-            {
-                name = functionType;
-            }
-            else if (PeekToken(1).IsKind(SyntaxKind.CloseParenToken))
+            if (PeekToken(1).IsKind(SyntaxKind.CloseParenToken))
             {
                 var open = ReadToken();
                 var close = ReadToken();
@@ -79,61 +84,64 @@ internal class NameSyntaxParser : SyntaxParser
             name = NullableType(name, questionToken);
         }
 
-        if (ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
+        if (allowImplicitFunctionTypeRecovery && ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
         {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.FunctionTypeSignatureMustStartWithFuncKeyword,
+                    GetSpanOfLastToken()));
+
             var returnType = new NameSyntaxParser(this).ParseTypeName();
-            name = FunctionType(name, null, arrowToken, returnType);
+            name = FunctionType(MissingToken(SyntaxKind.FuncKeyword), name, null, arrowToken, returnType);
         }
 
         return name;
     }
 
-    private FunctionTypeSyntax? TryParseFunctionType()
+    private FunctionTypeSyntax ParseFunctionType(SyntaxToken funcKeyword)
     {
-        var checkpoint = CreateCheckpoint("function-type");
-
-        var openParenToken = ReadToken();
-
-        List<GreenNode> parameters = new List<GreenNode>();
-
-        while (true)
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            var next = PeekToken();
+            var openParenToken = ReadToken();
 
-            if (next.IsKind(SyntaxKind.CloseParenToken) || next.IsKind(SyntaxKind.EndOfFileToken))
+            List<GreenNode> parameters = new List<GreenNode>();
+
+            while (true)
+            {
+                var next = PeekToken();
+
+                if (next.IsKind(SyntaxKind.CloseParenToken) || next.IsKind(SyntaxKind.EndOfFileToken))
+                    break;
+
+                var parameterType = new NameSyntaxParser(this).ParseTypeName();
+                if (parameterType is null)
+                    break;
+
+                parameters.Add(parameterType);
+
+                if (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+                {
+                    parameters.Add(commaToken);
+                    continue;
+                }
+
                 break;
-
-            var parameterType = new NameSyntaxParser(this).ParseTypeName();
-            if (parameterType is null)
-            {
-                checkpoint.Rewind();
-                return null;
             }
 
-            parameters.Add(parameterType);
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+            ConsumeTokenOrMissing(SyntaxKind.ArrowToken, out var arrowToken);
 
-            if (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
-            {
-                parameters.Add(commaToken);
-                continue;
-            }
+            var returnType = new NameSyntaxParser(this).ParseTypeName();
+            var parameterList = FunctionTypeParameterList(openParenToken, List(parameters.ToArray()), closeParenToken);
 
-            break;
+            return FunctionType(funcKeyword, null, parameterList, arrowToken, returnType);
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var parameter = new NameSyntaxParser(this).ParseTypeNameWithoutFunctionRecovery();
+        ConsumeTokenOrMissing(SyntaxKind.ArrowToken, out var singleParameterArrowToken);
+        var singleParameterReturnType = new NameSyntaxParser(this).ParseTypeName();
 
-        if (!ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
-        {
-            checkpoint.Rewind();
-            return null;
-        }
-
-        var returnType = new NameSyntaxParser(this).ParseTypeName();
-
-        var parameterList = FunctionTypeParameterList(openParenToken, List(parameters.ToArray()), closeParenToken);
-
-        return FunctionType(null, parameterList, arrowToken, returnType);
+        return FunctionType(funcKeyword, parameter, null, singleParameterArrowToken, singleParameterReturnType);
     }
 
     private TypeSyntax ParseNameCore()

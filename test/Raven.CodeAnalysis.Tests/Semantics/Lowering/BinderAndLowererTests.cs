@@ -189,7 +189,7 @@ class C {
             .OfType<BoundLocalDeclarationStatement>()
             .SelectMany(s => s.Declarators)
             .Select(d => d.Initializer)
-            .OfType<BoundLambdaExpression>()
+            .OfType<BoundFunctionExpression>()
             .Single();
 
         var lambdaBlock = Assert.IsType<BoundBlockExpression>(lambda.Body);

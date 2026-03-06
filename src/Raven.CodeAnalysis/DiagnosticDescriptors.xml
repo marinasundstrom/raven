@@ -714,6 +714,10 @@
     Title="No overload matches delegate"
     Message="No overload for method '{methodName}' matches delegate type '{delegateType}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2204" Identifier="StaticFunctionExpressionCannotCapture"
+    Title="Static function expression cannot capture variables"
+    Message="Static function expression cannot capture '{name}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2500" Identifier="LabelAlreadyDefined" Title="Label already defined"
     Message="A label named '{name}' is already defined in this scope" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
@@ -837,4 +841,8 @@
     Title="var property writable accessor must match property accessibility"
     Message="Property '{propertyName}' is declared 'var' and its '{accessorKind}' accessor must have the same accessibility as the property."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0920" Identifier="FunctionTypeSignatureMustStartWithFuncKeyword"
+    Title="Function type signature must start with func"
+    Message="Function type signatures must start with the 'func' keyword."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

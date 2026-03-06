@@ -3,11 +3,11 @@ using System.Collections.Generic;
 
 namespace Raven.CodeAnalysis;
 
-class LambdaBinder : BlockBinder
+class FunctionExpressionBinder : BlockBinder
 {
     private readonly Dictionary<string, IParameterSymbol> _parameters = new();
 
-    public LambdaBinder(ISymbol containingSymbol, Binder parent) : base(containingSymbol, parent) { }
+    public FunctionExpressionBinder(ISymbol containingSymbol, Binder parent) : base(containingSymbol, parent) { }
 
     public void DeclareParameter(IParameterSymbol param)
     {
@@ -51,7 +51,7 @@ class LambdaBinder : BlockBinder
         if (_lambdaBody is null)
             return [];
 
-        return CapturedVariableWalker.Analyze(_lambdaBody, this);
+        return FunctionExpressionCapturedVariableWalker.Analyze(_lambdaBody, this);
     }
 
     public bool IsDeclaredInLambda(ISymbol symbol)
@@ -81,19 +81,19 @@ class LambdaBinder : BlockBinder
     public void SetLambdaBody(BoundExpression body) => _lambdaBody = body;
 }
 
-sealed class CapturedVariableWalker : BoundTreeWalker
+sealed class FunctionExpressionCapturedVariableWalker : BoundTreeWalker
 {
-    private readonly LambdaBinder _binder;
+    private readonly FunctionExpressionBinder _binder;
     private readonly HashSet<ISymbol> _accessedSymbols = new();
 
-    public CapturedVariableWalker(LambdaBinder binder)
+    public FunctionExpressionCapturedVariableWalker(FunctionExpressionBinder binder)
     {
         _binder = binder;
     }
 
-    public static IReadOnlyList<ISymbol> Analyze(BoundExpression body, LambdaBinder binder)
+    public static IReadOnlyList<ISymbol> Analyze(BoundExpression body, FunctionExpressionBinder binder)
     {
-        var walker = new CapturedVariableWalker(binder);
+        var walker = new FunctionExpressionCapturedVariableWalker(binder);
         walker.VisitExpression(body);
         return walker._accessedSymbols
             .Where(symbol => !binder.IsDeclaredInLambda(symbol))
@@ -132,12 +132,12 @@ sealed class CapturedVariableWalker : BoundTreeWalker
     }
 }
 
-sealed class LambdaSelfCaptureCollector : BoundTreeWalker
+sealed class FunctionExpressionSelfCaptureCollector : BoundTreeWalker
 {
     private readonly ISymbol _containingSymbol;
     private readonly HashSet<ISymbol> _captures = new(SymbolEqualityComparer.Default);
 
-    private LambdaSelfCaptureCollector(ISymbol containingSymbol)
+    private FunctionExpressionSelfCaptureCollector(ISymbol containingSymbol)
     {
         _containingSymbol = containingSymbol;
     }
@@ -147,12 +147,12 @@ sealed class LambdaSelfCaptureCollector : BoundTreeWalker
         if (body is null)
             return Array.Empty<ISymbol>();
 
-        var collector = new LambdaSelfCaptureCollector(containingSymbol);
+        var collector = new FunctionExpressionSelfCaptureCollector(containingSymbol);
         collector.VisitExpression(body);
         return collector._captures;
     }
 
-    public override void VisitLambdaExpression(BoundLambdaExpression node)
+    public override void VisitFunctionExpression(BoundFunctionExpression node)
     {
         foreach (var captured in node.CapturedVariables)
         {
@@ -169,7 +169,7 @@ sealed class LambdaSelfCaptureCollector : BoundTreeWalker
             }
         }
 
-        base.VisitLambdaExpression(node);
+        base.VisitFunctionExpression(node);
     }
 
     private bool ShouldPropagateCapture(ISymbol captured)

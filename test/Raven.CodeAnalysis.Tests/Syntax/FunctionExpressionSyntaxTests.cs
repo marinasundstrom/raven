@@ -4,14 +4,14 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
 
-public class LambdaExpressionSyntaxTests
+public class FunctionExpressionSyntaxTests
 {
     [Fact]
     public void SimpleLambda_WithIdentifierParameter_Parses()
     {
         var expression = ParseExpression("value => value");
 
-        var lambda = Assert.IsType<SimpleLambdaExpressionSyntax>(expression);
+        var lambda = Assert.IsType<SimpleFunctionExpressionSyntax>(expression);
         Assert.Equal("value", lambda.Parameter.Identifier.Text);
     }
 
@@ -20,7 +20,7 @@ public class LambdaExpressionSyntaxTests
     {
         var expression = ParseExpression("(left, right) => left + right");
 
-        var lambda = Assert.IsType<ParenthesizedLambdaExpressionSyntax>(expression);
+        var lambda = Assert.IsType<ParenthesizedFunctionExpressionSyntax>(expression);
         Assert.Collection(
             lambda.ParameterList.Parameters,
             parameter => Assert.Equal("left", parameter.Identifier.Text),
@@ -32,7 +32,7 @@ public class LambdaExpressionSyntaxTests
     {
         var expression = ParseExpression("async value => value");
 
-        var lambda = Assert.IsType<SimpleLambdaExpressionSyntax>(expression);
+        var lambda = Assert.IsType<SimpleFunctionExpressionSyntax>(expression);
         Assert.True(lambda.AsyncKeyword.HasValue);
         Assert.Equal(SyntaxKind.AsyncKeyword, lambda.AsyncKeyword!.Value.Kind);
     }
@@ -42,7 +42,7 @@ public class LambdaExpressionSyntaxTests
     {
         var expression = ParseExpression("async () => 42");
 
-        var lambda = Assert.IsType<ParenthesizedLambdaExpressionSyntax>(expression);
+        var lambda = Assert.IsType<ParenthesizedFunctionExpressionSyntax>(expression);
         Assert.True(lambda.AsyncKeyword.HasValue);
         Assert.Equal(SyntaxKind.AsyncKeyword, lambda.AsyncKeyword!.Value.Kind);
     }
@@ -52,7 +52,98 @@ public class LambdaExpressionSyntaxTests
     {
         var expression = ParseExpression("() => 42");
 
-        Assert.IsType<ParenthesizedLambdaExpressionSyntax>(expression);
+        Assert.IsType<ParenthesizedFunctionExpressionSyntax>(expression);
+    }
+
+    [Fact]
+    public void SimpleLambda_WithFuncKeyword_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val f = func x => x");
+        var root = tree.GetRoot();
+        var declarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var lambda = Assert.IsType<SimpleFunctionExpressionSyntax>(declarator.Initializer!.Value);
+        Assert.True(lambda.FuncKeyword.HasValue);
+        Assert.Equal(SyntaxKind.FuncKeyword, lambda.FuncKeyword!.Value.Kind);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithFuncKeyword_Parses()
+    {
+        var lambda = ParseLambdaInitializer("func (x) => x");
+        Assert.True(lambda.FuncKeyword.HasValue);
+        Assert.Equal(SyntaxKind.FuncKeyword, lambda.FuncKeyword!.Value.Kind);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithStaticFuncKeyword_Parses()
+    {
+        var lambda = ParseLambdaInitializer("static func (x: int) => x");
+        Assert.True(lambda.StaticKeyword.HasValue);
+        Assert.Equal(SyntaxKind.StaticKeyword, lambda.StaticKeyword!.Value.Kind);
+        Assert.True(lambda.FuncKeyword.HasValue);
+        Assert.Equal(SyntaxKind.FuncKeyword, lambda.FuncKeyword!.Value.Kind);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithAsyncFuncKeyword_Parses()
+    {
+        var lambda = ParseLambdaInitializer("async func (x: int) => x");
+        Assert.True(lambda.AsyncKeyword.HasValue);
+        Assert.Equal(SyntaxKind.AsyncKeyword, lambda.AsyncKeyword!.Value.Kind);
+        Assert.True(lambda.FuncKeyword.HasValue);
+        Assert.Equal(SyntaxKind.FuncKeyword, lambda.FuncKeyword!.Value.Kind);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithStaticAsyncFuncKeyword_Parses()
+    {
+        var lambda = ParseLambdaInitializer("static async func (x: int) => x");
+        Assert.True(lambda.StaticKeyword.HasValue);
+        Assert.Equal(SyntaxKind.StaticKeyword, lambda.StaticKeyword!.Value.Kind);
+        Assert.True(lambda.AsyncKeyword.HasValue);
+        Assert.Equal(SyntaxKind.AsyncKeyword, lambda.AsyncKeyword!.Value.Kind);
+        Assert.True(lambda.FuncKeyword.HasValue);
+        Assert.Equal(SyntaxKind.FuncKeyword, lambda.FuncKeyword!.Value.Kind);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithFuncKeywordAndBlockBody_Parses()
+    {
+        var lambda = ParseLambdaInitializer(
+            """
+            func (a: int, b: int) => {
+                a + b
+            }
+            """);
+
+        Assert.Equal(2, lambda.ParameterList.Parameters.Count);
+        Assert.NotNull(lambda.Body);
+        Assert.Null(lambda.ExpressionBody);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithFuncKeywordAndBlockBody_ParsesWithoutArrow()
+    {
+        var lambda = ParseLambdaInitializer(
+            """
+            func (a: int, b: int) {
+                a + b
+            }
+            """);
+
+        Assert.Equal(2, lambda.ParameterList.Parameters.Count);
+        Assert.NotNull(lambda.Body);
+        Assert.Null(lambda.ExpressionBody);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithFuncKeywordAndExpressionBody_Parses()
+    {
+        var lambda = ParseLambdaInitializer("func (a: int, b: int) => a + b");
+
+        Assert.Equal(2, lambda.ParameterList.Parameters.Count);
+        Assert.Null(lambda.Body);
+        Assert.NotNull(lambda.ExpressionBody);
     }
 
     [Fact]
@@ -114,7 +205,7 @@ public class LambdaExpressionSyntaxTests
     {
         var expression = ParseExpression("(name: string, age: int = 1) => age");
 
-        var lambda = Assert.IsType<ParenthesizedLambdaExpressionSyntax>(expression);
+        var lambda = Assert.IsType<ParenthesizedFunctionExpressionSyntax>(expression);
         Assert.Equal(2, lambda.ParameterList.Parameters.Count);
         Assert.Null(lambda.ParameterList.Parameters[0].DefaultValue);
         Assert.NotNull(lambda.ParameterList.Parameters[1].DefaultValue);
@@ -179,7 +270,7 @@ public class LambdaExpressionSyntaxTests
         return statement.Expression;
     }
 
-    private static ParenthesizedLambdaExpressionSyntax ParseLambdaInitializer(string initializer)
+    private static ParenthesizedFunctionExpressionSyntax ParseLambdaInitializer(string initializer)
     {
         var tree = SyntaxTree.ParseText($"val f = {initializer}");
         var root = tree.GetRoot();
@@ -188,7 +279,7 @@ public class LambdaExpressionSyntaxTests
         var globalStatement = Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
         var declarationStatement = Assert.IsType<LocalDeclarationStatementSyntax>(globalStatement.Statement);
         var declarator = Assert.Single(declarationStatement.Declaration.Declarators);
-        var lambda = Assert.IsType<ParenthesizedLambdaExpressionSyntax>(declarator.Initializer!.Value);
+        var lambda = Assert.IsType<ParenthesizedFunctionExpressionSyntax>(declarator.Initializer!.Value);
         return lambda;
     }
 }

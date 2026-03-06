@@ -69,7 +69,7 @@ internal static class ReturnTypeCollector
             base.VisitReturnStatement(node);
         }
 
-        public override void VisitLambdaExpression(BoundLambdaExpression node)
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
         {
             // Don't traverse into nested lambdas
         }

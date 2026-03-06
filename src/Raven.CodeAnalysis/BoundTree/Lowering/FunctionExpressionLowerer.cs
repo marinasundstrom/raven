@@ -2,9 +2,9 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal static class LambdaLowerer
+internal static class FunctionExpressionLowerer
 {
-    public static BoundLambdaExpression Rewrite(BoundLambdaExpression lambda, ISymbol containingSymbol)
+    public static BoundFunctionExpression Rewrite(BoundFunctionExpression lambda, ISymbol containingSymbol)
     {
         var owner = lambda.Symbol ?? containingSymbol;
 
@@ -17,7 +17,7 @@ internal static class LambdaLowerer
         if (ReferenceEquals(loweredBody, lambda.Body))
             return lambda;
 
-        var lowered = new BoundLambdaExpression(
+        var lowered = new BoundFunctionExpression(
             lambda.Parameters,
             lambda.ReturnType,
             loweredBody,

@@ -1297,7 +1297,7 @@ internal class CodeGenerator
                     semanticModel.GetBoundNode(accessor.ExpressionBody.Expression, BoundTreeView.Lowered);
             }
 
-            foreach (var lambda in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
+            foreach (var lambda in root.DescendantNodes().OfType<FunctionExpressionSyntax>())
                 semanticModel.GetBoundNode(lambda, BoundTreeView.Lowered);
         }
     }

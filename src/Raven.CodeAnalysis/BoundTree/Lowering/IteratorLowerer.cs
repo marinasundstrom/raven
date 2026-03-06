@@ -525,7 +525,7 @@ internal static class IteratorLowerer
             FoundYield = true;
         }
 
-        public override void VisitLambdaExpression(BoundLambdaExpression node)
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
         {
             // Nested lambdas are lowered independently.
         }

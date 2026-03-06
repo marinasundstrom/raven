@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundLambdaExpression : BoundExpression
+internal partial class BoundFunctionExpression : BoundExpression
 {
     public IEnumerable<IParameterSymbol> Parameters { get; }
     public BoundExpression Body { get; }
@@ -15,7 +15,7 @@ internal partial class BoundLambdaExpression : BoundExpression
     public IEnumerable<ISymbol> CapturedVariables { get; }
     public ImmutableArray<INamedTypeSymbol> CandidateDelegates { get; }
 
-    public BoundLambdaExpression(
+    public BoundFunctionExpression(
         IEnumerable<IParameterSymbol> parameters,
         ITypeSymbol returnType,
         BoundExpression body,

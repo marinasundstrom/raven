@@ -146,7 +146,7 @@ class TopLevelBinder : BlockBinder
         ref ITypeSymbol? errorType,
         ref bool foundResultReturn)
     {
-        if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
+        if (node is FunctionStatementSyntax or FunctionExpressionSyntax)
             return;
 
         if (node is ReturnStatementSyntax returnStatement)

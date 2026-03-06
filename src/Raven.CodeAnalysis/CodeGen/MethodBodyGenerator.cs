@@ -291,7 +291,7 @@ internal class MethodBodyGenerator
                 : (SyntaxNode?)function.ExpressionBody?.Expression ?? function,
             CompilationUnitSyntax compilationUnit => (SyntaxNode?)GetTopLevelStatements(compilationUnit).FirstOrDefault() ?? compilationUnit,
             ArrowExpressionClauseSyntax arrow => arrow.Expression,
-            LambdaExpressionSyntax lambda => lambda.ExpressionBody,
+            FunctionExpressionSyntax lambda => (SyntaxNode?)lambda.Body ?? lambda.ExpressionBody?.Expression ?? lambda,
             BlockSyntax block => block.Statements.Count > 0 ? block.Statements[0] : block,
             _ => syntax
         };
@@ -639,10 +639,11 @@ internal class MethodBodyGenerator
             FunctionStatementSyntax function => function.Body is { } functionBody
                 ? functionBody.Statements.FirstOrDefault()
                 : (SyntaxNode?)function.ExpressionBody?.Expression ?? function,
-            LambdaExpressionSyntax lambda => lambda.ExpressionBody switch
+            FunctionExpressionSyntax lambda => lambda.Body switch
             {
-                BlockSyntax block when block.Statements.Count > 0 => block.Statements[0],
-                _ => lambda.ExpressionBody
+                { Statements.Count: > 0 } block => block.Statements[0],
+                { } block => block,
+                _ => (SyntaxNode?)lambda.ExpressionBody?.Expression ?? lambda
             },
             CompilationUnitSyntax compilationUnit => (SyntaxNode?)GetTopLevelStatements(compilationUnit).FirstOrDefault() ?? compilationUnit,
             BlockStatementSyntax => null,
@@ -693,11 +694,11 @@ internal class MethodBodyGenerator
         return lambdaSyntax.Span.Contains(statementSyntax.Span);
     }
 
-    private bool TryGetCurrentLambdaSyntax(out LambdaExpressionSyntax lambdaSyntax)
+    private bool TryGetCurrentLambdaSyntax(out FunctionExpressionSyntax lambdaSyntax)
     {
         lambdaSyntax = MethodSymbol.DeclaringSyntaxReferences
             .Select(static r => r.GetSyntax())
-            .OfType<LambdaExpressionSyntax>()
+            .OfType<FunctionExpressionSyntax>()
             .FirstOrDefault()!;
 
         return lambdaSyntax is not null;
@@ -1889,7 +1890,7 @@ internal class MethodBodyGenerator
     }
 
     public void EmitLambda(
-        BoundLambdaExpression lambda,
+        BoundFunctionExpression lambda,
         TypeGenerator.LambdaClosure? closure,
         BoundBlockStatement? rewrittenBody = null)
     {
@@ -1915,7 +1916,7 @@ internal class MethodBodyGenerator
         }
     }
 
-    private static BoundBlockStatement CreateLambdaBody(BoundLambdaExpression lambda)
+    private static BoundBlockStatement CreateLambdaBody(BoundFunctionExpression lambda)
     {
         if (lambda.Body is BoundBlockExpression blockExpression)
             return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
@@ -3885,7 +3886,7 @@ internal class MethodBodyGenerator
                 ParameterlessConstructorDeclarationSyntax initDecl => (SyntaxNode?)initDecl.Body ?? (SyntaxNode?)initDecl.ExpressionBody?.Expression ?? initDecl,
                 FinallyDeclarationSyntax finalDecl => finalDecl.Body,
                 ArrowExpressionClauseSyntax arrow => arrow.Expression,
-                LambdaExpressionSyntax lambda => lambda.ExpressionBody,
+                FunctionExpressionSyntax lambda => (SyntaxNode?)lambda.Body ?? lambda.ExpressionBody?.Expression ?? lambda,
                 CompilationUnitSyntax compilationUnit => GetTopLevelStatements(compilationUnit).FirstOrDefault() is { } topLevelStatement
                     ? topLevelStatement
                     : compilationUnit,
@@ -4067,7 +4068,7 @@ internal class MethodBodyGenerator
         public List<ILambdaSymbol> LambdaSymbols { get; } = new();
         public List<SourceMethodSymbol> LocalFunctionSymbols { get; } = new();
 
-        public override void VisitLambdaExpression(BoundLambdaExpression node)
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
         {
             if (node.Symbol is ILambdaSymbol lambdaSymbol)
                 LambdaSymbols.Add(lambdaSymbol);

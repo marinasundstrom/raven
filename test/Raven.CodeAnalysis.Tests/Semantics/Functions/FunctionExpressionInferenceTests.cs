@@ -9,7 +9,7 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class LambdaInferenceTests : CompilationTestBase
+public class FunctionExpressionInferenceTests : CompilationTestBase
 {
     [Fact]
     public void Lambda_WithoutParameterTypes_UsesTargetDelegateSignature()
@@ -34,10 +34,10 @@ class Calculator {
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         Assert.False(boundLambda.CandidateDelegates.IsDefaultOrEmpty);
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
@@ -94,10 +94,10 @@ class Container {
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         Assert.NotNull(boundLambda.Unbound);
     }
 
@@ -129,10 +129,10 @@ class Container {
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var parameter = Assert.Single(boundLambda.Parameters);
@@ -159,15 +159,116 @@ class Container {
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var lambdaSymbol = Assert.IsAssignableFrom<IMethodSymbol>(boundLambda.Symbol);
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, boundLambda.ReturnType));
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, lambdaSymbol.ReturnType));
+    }
+
+    [Fact]
+    public void FuncLambda_WithoutReturnType_InferredFromExpressionBody()
+    {
+        const string code = """
+import System.*
+class Container {
+    func Provide() -> unit {
+        val f = func (a: int, b: int) => a + b
+        f(1, 2)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, boundLambda.ReturnType));
+    }
+
+    [Fact]
+    public void FuncLambda_WithoutReturnType_InferredFromBlockBody()
+    {
+        const string code = """
+import System.*
+class Container {
+    func Provide() -> unit {
+        val f = func (a: int, b: int) => {
+            a + b
+        }
+        f(1, 2)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, boundLambda.ReturnType));
+    }
+
+    [Fact]
+    public void FuncLambda_BlockBodyWithoutArrow_CapturesOuterVariable()
+    {
+        const string code = """
+import System.*
+class Container {
+    func Provide() -> int {
+        val offset = 2
+        val f = func (value: int) {
+            value + offset
+        }
+        f(3)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var captures = model.GetCapturedVariables(lambdaSyntax);
+        Assert.Contains(captures, symbol => symbol.Name == "offset");
+    }
+
+    [Fact]
+    public void FuncLambda_AssignedToFunctionTypeSignature_Binds()
+    {
+        const string code = """
+import System.*
+class Container {
+    func Provide() -> unit {
+        val f: func (int, int) -> int = func (a: int, b: int) => a + b
+        f(1, 2)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        Assert.Equal("func (int, int) -> int", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -189,10 +290,10 @@ class Container {
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var parameters = boundLambda.Parameters.ToArray();
         Assert.Equal(2, parameters.Length);
         Assert.False(parameters[0].HasExplicitDefaultValue);
@@ -220,13 +321,13 @@ class Container {
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
         var syntaxParameter = Assert.Single(lambdaSyntax.ParameterList.Parameters);
         Assert.Single(syntaxParameter.AttributeLists);
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         Assert.Single(boundLambda.Parameters);
     }
 
@@ -507,7 +608,7 @@ class Container {
             .First(d => d.Identifier.Text == "projector");
         var lambdaSyntax = declarator
             .DescendantNodes()
-            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
         var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
@@ -530,7 +631,7 @@ class Container {
         INamedTypeSymbol lambdaType = Assert.IsAssignableFrom<INamedTypeSymbol>(lambdaTypeInfo.Type);
         Assert.Equal(expectedDisplay, lambdaType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         INamedTypeSymbol boundDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.DelegateType);
         Assert.Equal(expectedDisplay, boundDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
     }
@@ -557,7 +658,7 @@ val result = projector(1)
             .First(d => d.Identifier.Text == "projector");
         var lambdaSyntax = declarator
             .DescendantNodes()
-            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
         var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
@@ -576,7 +677,7 @@ val result = projector(1)
         INamedTypeSymbol lambdaType = Assert.IsAssignableFrom<INamedTypeSymbol>(lambdaTypeInfo.Type);
         Assert.Equal(expectedDisplay, lambdaType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         INamedTypeSymbol boundDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.DelegateType);
         Assert.Equal(expectedDisplay, boundDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
     }
@@ -626,7 +727,7 @@ class Container {
             expectedDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
             projectorParameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
-        var lambdaArgument = Assert.IsAssignableFrom<BoundLambdaExpression>(invocation.Arguments.First());
+        var lambdaArgument = Assert.IsAssignableFrom<BoundFunctionExpression>(invocation.Arguments.First());
         Assert.NotNull(lambdaArgument.Unbound);
         Assert.False(lambdaArgument.CandidateDelegates.IsDefaultOrEmpty);
         var lambdaParameter = Assert.Single(lambdaArgument.Parameters);
@@ -672,7 +773,7 @@ class Calculator {
         const string code = """
 import System.*
 
-val makeAdder = (x: int) -> (int -> int) => (a: int) => x + a
+val makeAdder = (x: int) -> (func int -> int) => (a: int) => x + a
 """;
 
         var (compilation, _) = CreateCompilation(code, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -733,7 +834,7 @@ import System.Collections.Generic.*
 
 ForEach([1, 2], no => {})
 
-func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
+func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () { }
 """;
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -742,8 +843,8 @@ func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
         Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var model = compilation.GetSemanticModel(tree);
-        var lambda = tree.GetRoot().DescendantNodes().OfType<SimpleLambdaExpressionSyntax>().Single();
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var lambda = tree.GetRoot().DescendantNodes().OfType<SimpleFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
         var parameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }
@@ -759,7 +860,7 @@ import System.Collections.Generic.*
 val items: List<int> = [1, 2, 3]
 ForEach(items, WriteLine)
 
-func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
+func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () { }
 """;
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -795,7 +896,7 @@ import System.Collections.Generic.*
 val items: IEnumerable<int> = [1, 2, 3]
 ForEach(items, x => {})
 
-func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
+func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () { }
 """;
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -804,8 +905,8 @@ func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
         Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var model = compilation.GetSemanticModel(tree);
-        var lambda = tree.GetRoot().DescendantNodes().OfType<SimpleLambdaExpressionSyntax>().Single();
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var lambda = tree.GetRoot().DescendantNodes().OfType<SimpleFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
         var parameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }
@@ -843,14 +944,14 @@ func Main() {
 
         var lambdas = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .ToDictionary(lambda => lambda.Parameter.Identifier.ValueText);
 
-        var xLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["x"]));
+        var xLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas["x"]));
         var xParam = Assert.Single(xLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, xParam.Type.SpecialType);
 
-        var yLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdas["y"]));
+        var yLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas["y"]));
         var yParam = Assert.Single(yLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, yParam.Type.SpecialType);
     }
@@ -860,7 +961,7 @@ func Main() {
     {
         const string code = """
 class Container {
-    static func Build<T>(projector: T -> int) -> int {
+    static func Build<T>(projector: func T -> int) -> int {
         return 0
     }
 
@@ -879,15 +980,41 @@ class Container {
                 diagnostic.Descriptor,
                 CompilerDiagnostics.LambdaParameterTypeCannotBeInferred));
     }
+
+    [Fact]
+    public void StaticFuncExpression_CapturingOuterLocal_ReportsDiagnostic()
+    {
+        const string code = """
+class C {
+    func M() -> int {
+        val offset = 2
+        val f = static func (x: int) {
+            x + offset
+        }
+
+        return f(1)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => ReferenceEquals(
+                diagnostic.Descriptor,
+                CompilerDiagnostics.StaticFunctionExpressionCannotCapture));
+    }
 }
 
-public class LambdaInferenceDiagnosticsTests : DiagnosticTestBase
+public class FunctionExpressionInferenceDiagnosticsTests : DiagnosticTestBase
 {
     [Fact]
     public void Lambda_WithErrorTypeArgument_DoesNotReportConversionError()
     {
         const string code = """
-func apply(value: int, transform: int -> int) -> int {
+func apply(value: int, transform: func int -> int) -> int {
     transform(value)
 }
 

@@ -11,7 +11,7 @@ internal sealed partial class Lowerer
 {
     private bool TryLowerExpressionTreeConversion(
         BoundConversionExpression conversion,
-        BoundLambdaExpression lambda,
+        BoundFunctionExpression lambda,
         out BoundExpression lowered)
     {
         lowered = conversion;

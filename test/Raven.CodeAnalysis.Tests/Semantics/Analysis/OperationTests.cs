@@ -248,7 +248,7 @@ var result = Apply(1, v => v + 1)
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
 
         var operation = Assert.IsAssignableFrom<ILambdaOperation>(model.GetOperation(lambdaSyntax));

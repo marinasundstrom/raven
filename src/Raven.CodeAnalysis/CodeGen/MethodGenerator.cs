@@ -671,7 +671,7 @@ internal class MethodGenerator
         _bodyEmitted = true;
     }
 
-    internal void EmitLambdaBody(BoundLambdaExpression lambda, TypeGenerator.LambdaClosure? closure)
+    internal void EmitLambdaBody(BoundFunctionExpression lambda, TypeGenerator.LambdaClosure? closure)
     {
         if (_bodyEmitted)
             return;

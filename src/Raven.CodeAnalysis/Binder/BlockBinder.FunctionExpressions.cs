@@ -10,12 +10,12 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder
 {
-    private BoundExpression BindLambdaExpression(LambdaExpressionSyntax syntax)
+    private BoundExpression BindLambdaExpression(FunctionExpressionSyntax syntax)
     {
         var parameterSyntaxes = syntax switch
         {
-            SimpleLambdaExpressionSyntax s => new[] { s.Parameter },
-            ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters.ToArray(),
+            SimpleFunctionExpressionSyntax s => new[] { s.Parameter },
+            ParenthesizedFunctionExpressionSyntax p => p.ParameterList.Parameters.ToArray(),
             _ => throw new NotSupportedException("Unknown lambda syntax")
         };
 
@@ -23,14 +23,23 @@ partial class BlockBinder
 
         SyntaxToken? asyncKeywordToken = syntax switch
         {
-            SimpleLambdaExpressionSyntax simple => simple.AsyncKeyword,
-            ParenthesizedLambdaExpressionSyntax parenthesized => parenthesized.AsyncKeyword,
+            SimpleFunctionExpressionSyntax simple => simple.AsyncKeyword,
+            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.AsyncKeyword,
+            _ => null
+        };
+        SyntaxToken? staticKeywordToken = syntax switch
+        {
+            SimpleFunctionExpressionSyntax simple => simple.StaticKeyword,
+            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.StaticKeyword,
             _ => null
         };
 
         var isAsyncLambda = asyncKeywordToken.HasValue &&
             asyncKeywordToken.Value.Kind == SyntaxKind.AsyncKeyword &&
             !asyncKeywordToken.Value.IsMissing;
+        var isStaticLambda = staticKeywordToken.HasValue &&
+            staticKeywordToken.Value.Kind == SyntaxKind.StaticKeyword &&
+            !staticKeywordToken.Value.IsMissing;
 
         var targetType = GetTargetType(syntax);
         if (targetType is NullableTypeSymbol nullableTargetType)
@@ -194,8 +203,8 @@ partial class BlockBinder
 
         TypeSyntax? returnTypeSyntax = syntax switch
         {
-            SimpleLambdaExpressionSyntax s => s.ReturnType?.Type,
-            ParenthesizedLambdaExpressionSyntax p => p.ReturnType?.Type,
+            SimpleFunctionExpressionSyntax s => s.ReturnType?.Type,
+            ParenthesizedFunctionExpressionSyntax p => p.ReturnType?.Type,
             _ => null
         };
 
@@ -229,7 +238,7 @@ partial class BlockBinder
         if (hasInvalidAsyncReturnType)
             lambdaSymbol.MarkAsyncReturnTypeError();
 
-        var lambdaBinder = new LambdaBinder(lambdaSymbol, this);
+        var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
 
         foreach (var param in parameterSymbols)
             lambdaBinder.DeclareParameter(param);
@@ -238,15 +247,18 @@ partial class BlockBinder
         if (isAsyncLambda && lambdaBodyTargetType is not null)
             lambdaBodyTargetType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, lambdaBodyTargetType) ?? lambdaBodyTargetType;
 
+        var lambdaBodySyntax = GetLambdaBodyExpression(syntax);
+        var lambdaBodySyntaxNode = GetLambdaBodySyntaxNode(syntax);
+
         BoundExpression bodyExpr;
         if (lambdaBodyTargetType is not null)
         {
             using var _ = lambdaBinder.PushTargetType(lambdaBodyTargetType);
-            bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+            bodyExpr = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
         }
         else
         {
-            bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+            bodyExpr = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
         }
         ReportLambdaBodyDiagnostics(lambdaBinder);
 
@@ -564,17 +576,26 @@ partial class BlockBinder
                 _diagnostics.ReportCannotConvertFromTypeToType(
                     inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     expectedBodyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    syntax.ExpressionBody.GetLocation());
+                    lambdaBodySyntaxNode.GetLocation());
             }
             else
             {
-                bodyExpr = ApplyConversion(bodyExpr, expectedBodyType, conversion, syntax.ExpressionBody);
+                bodyExpr = ApplyConversion(bodyExpr, expectedBodyType, conversion, lambdaBodySyntax);
             }
         }
 
         lambdaBinder.SetLambdaBody(bodyExpr);
 
         var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
+
+        if (isStaticLambda)
+        {
+            foreach (var captured in capturedVariables)
+            {
+                var location = captured.Locations.FirstOrDefault() ?? syntax.GetLocation();
+                _diagnostics.ReportStaticFunctionExpressionCannotCapture(captured.Name, location);
+            }
+        }
 
         if (lambdaSymbol is SourceLambdaSymbol sourceLambdaSymbol)
             sourceLambdaSymbol.SetCapturedVariables(capturedVariables);
@@ -612,7 +633,7 @@ partial class BlockBinder
         if (isAsyncLambda && lambdaSymbol is SourceLambdaSymbol asyncLambda)
         {
             var containsAwait = AsyncLowerer.ContainsAwait(bodyExpr) ||
-                Compilation.ContainsAwaitExpressionOutsideNestedFunctions(syntax.ExpressionBody);
+                Compilation.ContainsAwaitExpressionOutsideNestedFunctions(lambdaBodySyntaxNode);
             asyncLambda.SetContainsAwait(containsAwait);
 
             if (!containsAwait)
@@ -623,13 +644,13 @@ partial class BlockBinder
             }
         }
 
-        var boundLambda = new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables, candidateDelegates);
+        var boundLambda = new BoundFunctionExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables, candidateDelegates);
 
         var suppressed = suppressedDiagnostics.ToImmutable();
         if (lambdaSymbol is SourceLambdaSymbol source)
         {
             var parameters = parameterSymbols.ToImmutableArray();
-            var unbound = new BoundUnboundLambda(source, syntax, parameters, candidateDelegates, suppressed);
+            var unbound = new BoundUnboundFunctionExpression(source, syntax, parameters, candidateDelegates, suppressed);
             boundLambda.AttachUnbound(unbound);
         }
 
@@ -637,7 +658,7 @@ partial class BlockBinder
     }
 
     private bool TryGetLambdaTargetDelegateFromContext(
-        LambdaExpressionSyntax syntax,
+        FunctionExpressionSyntax syntax,
         ITypeSymbol? contextualTargetType,
         out INamedTypeSymbol delegateType)
     {
@@ -685,13 +706,13 @@ partial class BlockBinder
         return false;
     }
 
-    private void ReportLambdaBodyDiagnostics(LambdaBinder lambdaBinder)
+    private void ReportLambdaBodyDiagnostics(FunctionExpressionBinder lambdaBinder)
     {
         foreach (var diagnostic in lambdaBinder.Diagnostics.AsEnumerable())
             _diagnostics.Report(diagnostic);
     }
 
-    private ImmutableArray<INamedTypeSymbol> GetLambdaDelegateTargets(LambdaExpressionSyntax syntax)
+    private ImmutableArray<INamedTypeSymbol> GetLambdaDelegateTargets(FunctionExpressionSyntax syntax)
     {
         if (_lambdaDelegateTargets.TryGetValue(syntax, out var targets))
             return targets;
@@ -699,7 +720,7 @@ partial class BlockBinder
         return ImmutableArray<INamedTypeSymbol>.Empty;
     }
 
-    private ImmutableArray<INamedTypeSymbol> ComputeLambdaDelegateTargets(LambdaExpressionSyntax syntax)
+    private ImmutableArray<INamedTypeSymbol> ComputeLambdaDelegateTargets(FunctionExpressionSyntax syntax)
     {
         if (syntax.Parent is not ArgumentSyntax argument ||
             argument.Parent is not ArgumentListSyntax argumentList)
@@ -864,9 +885,9 @@ partial class BlockBinder
         ITypeSymbol? receiverType = null,
         bool pipeReceiverImplicit = false)
     {
-        if (argumentExpression is not LambdaExpressionSyntax lambda)
+        if (argumentExpression is not FunctionExpressionSyntax lambda)
         {
-            if (argumentExpression is LambdaExpressionSyntax lambdaExpression)
+            if (argumentExpression is FunctionExpressionSyntax lambdaExpression)
                 _lambdaDelegateTargets.Remove(lambdaExpression);
             return;
         }
@@ -1169,13 +1190,13 @@ partial class BlockBinder
         if (methods.IsDefaultOrEmpty)
             return methods;
 
-        if (argumentExpression is not LambdaExpressionSyntax lambda)
+        if (argumentExpression is not FunctionExpressionSyntax lambda)
             return methods;
 
         int parameterCount = lambda switch
         {
-            SimpleLambdaExpressionSyntax => 1,
-            ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters.Count,
+            SimpleFunctionExpressionSyntax => 1,
+            ParenthesizedFunctionExpressionSyntax p => p.ParameterList.Parameters.Count,
             _ => 0
         };
 
@@ -1244,7 +1265,7 @@ partial class BlockBinder
         return builder.Count == methods.Length ? methods : builder.ToImmutable();
     }
 
-    private bool EnsureLambdaCompatible(IParameterSymbol parameter, BoundLambdaExpression lambda)
+    private bool EnsureLambdaCompatible(IParameterSymbol parameter, BoundFunctionExpression lambda)
     {
         if (parameter.Type is not INamedTypeSymbol delegateType)
             return false;
@@ -1252,7 +1273,7 @@ partial class BlockBinder
         return ReplayLambda(lambda, delegateType) is not null;
     }
 
-    private BoundLambdaExpression? ReplayLambda(BoundLambdaExpression lambda, INamedTypeSymbol delegateType)
+    private BoundFunctionExpression? ReplayLambda(BoundFunctionExpression lambda, INamedTypeSymbol delegateType)
     {
         var instrumentation = Compilation.PerformanceInstrumentation.LambdaReplay;
         instrumentation.RecordReplayAttempt();
@@ -1273,7 +1294,7 @@ partial class BlockBinder
 
         if (syntax is not null)
         {
-            var key = new LambdaRebindKey(syntax, delegateType);
+            var key = new FunctionExpressionRebindKey(syntax, delegateType);
             if (_reboundLambdaCache.TryGetValue(key, out var cached))
             {
                 instrumentation.RecordCacheHit();
@@ -1284,7 +1305,7 @@ partial class BlockBinder
             instrumentation.RecordCacheMiss();
         }
 
-        BoundLambdaExpression? rebound;
+        BoundFunctionExpression? rebound;
         if (lambda.Unbound is { } unbound)
         {
             rebound = ReplayLambda(unbound, delegateType);
@@ -1308,12 +1329,12 @@ partial class BlockBinder
         }
 
         if (syntax is not null && rebound is not null)
-            _reboundLambdaCache[new LambdaRebindKey(syntax, delegateType)] = rebound;
+            _reboundLambdaCache[new FunctionExpressionRebindKey(syntax, delegateType)] = rebound;
 
         return rebound;
     }
 
-    private BoundLambdaExpression? ReplayLambda(BoundUnboundLambda unbound, INamedTypeSymbol delegateType)
+    private BoundFunctionExpression? ReplayLambda(BoundUnboundFunctionExpression unbound, INamedTypeSymbol delegateType)
     {
         var instrumentation = Compilation.PerformanceInstrumentation.LambdaReplay;
         instrumentation.RecordBindingInvocation();
@@ -1328,8 +1349,8 @@ partial class BlockBinder
         var syntax = unbound.Syntax;
         var parameterSyntaxes = syntax switch
         {
-            SimpleLambdaExpressionSyntax simple => new[] { simple.Parameter },
-            ParenthesizedLambdaExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.ToArray(),
+            SimpleFunctionExpressionSyntax simple => new[] { simple.Parameter },
+            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.ToArray(),
             _ => Array.Empty<ParameterSyntax>()
         };
 
@@ -1452,19 +1473,20 @@ partial class BlockBinder
             [syntax.GetReference()],
             isAsync: unbound.LambdaSymbol.IsAsync);
 
-        var lambdaBinder = new LambdaBinder(lambdaSymbol, this);
+        var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
 
         foreach (var parameter in parameterSymbols)
             lambdaBinder.DeclareParameter(parameter);
 
-        var body = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+        var lambdaBodySyntax = GetLambdaBodyExpression(syntax);
+        var body = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
 
         // If the lambda has an explicit return type annotation, it must match the delegate candidate.
         // Do not report diagnostics during replay; just treat the candidate as not applicable.
         TypeSyntax? annotatedReturnTypeSyntax = syntax switch
         {
-            SimpleLambdaExpressionSyntax s => s.ReturnType?.Type,
-            ParenthesizedLambdaExpressionSyntax p => p.ReturnType?.Type,
+            SimpleFunctionExpressionSyntax s => s.ReturnType?.Type,
+            ParenthesizedFunctionExpressionSyntax p => p.ReturnType?.Type,
             _ => null
         };
 
@@ -1580,14 +1602,14 @@ partial class BlockBinder
                 return null;
             }
 
-            body = ApplyConversion(body, expectedBodyType, conversion, syntax.ExpressionBody);
+            body = ApplyConversion(body, expectedBodyType, conversion, lambdaBodySyntax);
         }
 
         lambdaBinder.SetLambdaBody(body);
         var captured = lambdaBinder.AnalyzeCapturedVariables();
 
         var capturedSet = new HashSet<ISymbol>(captured, SymbolEqualityComparer.Default);
-        foreach (var nestedCapture in LambdaSelfCaptureCollector.Collect(body, lambdaSymbol))
+        foreach (var nestedCapture in FunctionExpressionSelfCaptureCollector.Collect(body, lambdaSymbol))
             capturedSet.Add(nestedCapture);
 
         var capturedVariables = capturedSet.ToImmutableArray();
@@ -1608,7 +1630,7 @@ partial class BlockBinder
 
         _lambdaDelegateTargets[syntax] = candidateDelegates;
 
-        var rebound = new BoundLambdaExpression(
+        var rebound = new BoundFunctionExpression(
             parameterSymbols,
             returnType,
             body,
@@ -1622,7 +1644,7 @@ partial class BlockBinder
         return rebound;
     }
 
-    private LambdaExpressionSyntax? GetLambdaSyntax(BoundLambdaExpression lambda)
+    private FunctionExpressionSyntax? GetLambdaSyntax(BoundFunctionExpression lambda)
     {
         if (lambda.Unbound is { Syntax: { } syntax })
             return syntax;
@@ -1631,7 +1653,7 @@ partial class BlockBinder
         {
             foreach (var reference in lambdaSymbol.DeclaringSyntaxReferences)
             {
-                if (reference.GetSyntax() is LambdaExpressionSyntax lambdaSyntax)
+                if (reference.GetSyntax() is FunctionExpressionSyntax lambdaSyntax)
                     return lambdaSyntax;
             }
         }
@@ -1639,11 +1661,18 @@ partial class BlockBinder
         return null;
     }
 
+    private static ExpressionSyntax GetLambdaBodyExpression(FunctionExpressionSyntax syntax)
+        => syntax.Body ?? syntax.ExpressionBody?.Expression
+            ?? throw new InvalidOperationException("Function expression is missing both block and expression bodies.");
+
+    private static SyntaxNode GetLambdaBodySyntaxNode(FunctionExpressionSyntax syntax)
+        => (SyntaxNode?)syntax.Body ?? (SyntaxNode?)syntax.ExpressionBody ?? syntax;
+
     private void ReportSuppressedLambdaDiagnostics(IEnumerable<BoundArgument> arguments)
     {
         foreach (var argument in arguments)
         {
-            if (argument.Expression is BoundLambdaExpression { Unbound: { } unbound })
+            if (argument.Expression is BoundFunctionExpression { Unbound: { } unbound })
                 unbound.ReportSuppressedDiagnostics(_diagnostics);
         }
     }

@@ -181,7 +181,7 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
             ExitClosure();
         }
 
-        public override void VisitLambdaExpression(LambdaExpressionSyntax node)
+        public override void VisitFunctionExpression(FunctionExpressionSyntax node)
         {
             // Lambda forms a closure boundary.
             EnterClosure();

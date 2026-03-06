@@ -327,7 +327,7 @@ partial class BlockBinder
             // handles cases like [1,2,3].ToDictionary(x => x, y => y) where overloads agree
             // on input parameter types but differ on return-type type parameters
             // (e.g. Func<int,TKey1> vs Func<int,TKey2>).
-            if (targetType is null && arg.Expression is LambdaExpressionSyntax)
+            if (targetType is null && arg.Expression is FunctionExpressionSyntax)
                 targetType = TryGetFirstDelegateParameterType(methods, i, receiver, pipeReceiverType);
 
             // Apply pre-inferred type-parameter substitutions to the target type, then
@@ -342,7 +342,7 @@ partial class BlockBinder
             // inferring the return type from the body (see BlockBinder.Lambda.cs line ~541).
             if (targetType is not null)
             {
-                var hasUnresolved = arg.Expression is LambdaExpressionSyntax
+                var hasUnresolved = arg.Expression is FunctionExpressionSyntax
                     ? ContainsAnyTypeParameterInDelegateInputParams(targetType, allMethodTypeParams)
                     : ContainsAnyTypeParameter(targetType, allMethodTypeParams);
                 if (hasUnresolved)
@@ -788,7 +788,7 @@ partial class BlockBinder
             var arg = arguments[i];
 
             // Skip lambda arguments — they consume the inferred types, not the other way around.
-            if (arg.Expression is LambdaExpressionSyntax)
+            if (arg.Expression is FunctionExpressionSyntax)
                 continue;
 
             int parameterIndex;

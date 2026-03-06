@@ -10,9 +10,9 @@ internal sealed partial class Lowerer
 {
     public override BoundNode? VisitConversionExpression(BoundConversionExpression node)
     {
-        var lambda = node.Expression as BoundLambdaExpression;
+        var lambda = node.Expression as BoundFunctionExpression;
         if (lambda is null &&
-            node.Expression is BoundConversionExpression { Expression: BoundLambdaExpression convertedLambda, IsExplicit: false })
+            node.Expression is BoundConversionExpression { Expression: BoundFunctionExpression convertedLambda, IsExplicit: false })
         {
             lambda = convertedLambda;
         }

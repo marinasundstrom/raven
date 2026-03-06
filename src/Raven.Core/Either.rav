@@ -2,7 +2,7 @@ namespace System
 
 import System.*
 
-public union Either<L, R> {
+union Either<L, R> {
     Left(value: L)
     Right(value: R)
 }

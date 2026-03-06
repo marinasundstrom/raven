@@ -40,7 +40,7 @@ import System.Text.Json.Serialization.*
 /// }
 /// ```
 [JsonConverter(typeof(ResultJsonConverterFactory))]
-public union Result<T, E> {
+union Result<T, E> {
     /// Represents a result value
     Ok(value: T)
 
@@ -48,9 +48,9 @@ public union Result<T, E> {
     Error(data: E)
 }
 
-public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
+class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
 
-    public override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E> {
+    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 
@@ -74,7 +74,7 @@ public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
         }
     }
 
-    public override func Write(writer: Utf8JsonWriter, value: Result<T, E>, options: JsonSerializerOptions) -> () {
+    override func Write(writer: Utf8JsonWriter, value: Result<T, E>, options: JsonSerializerOptions) -> () {
         writer.WriteStartObject()
 
         if value is Ok(val okValue) {
@@ -91,14 +91,14 @@ public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
     }
 }
 
-public class ResultJsonConverterFactory : JsonConverterFactory {
+class ResultJsonConverterFactory : JsonConverterFactory {
 
-    public override func CanConvert(typeToConvert: Type) -> bool {
+    override func CanConvert(typeToConvert: Type) -> bool {
         return typeToConvert.IsGenericType
             && typeToConvert.GetGenericTypeDefinition() == typeof(Result<,>)
     }
 
-    public override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
+    override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
         val tArgs = typeToConvert.GetGenericArguments()
         val converterType = typeof(ResultJsonConverter<,>).MakeGenericType([tArgs[0], tArgs[1]])
         return (JsonConverter)Activator.CreateInstance(converterType)!
@@ -106,16 +106,16 @@ public class ResultJsonConverterFactory : JsonConverterFactory {
 }
 
 /// Contains extensions for the Result<T, E> type
-public extension ResultExtensions<T, E> for Result<T, E> {
+extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Gets a value indicating whether the Result was Ok
-    public val HasOk: bool => self is Ok(val message)
+    val HasOk: bool => self is Ok(val message)
 
     /// Gets a value indicating whether the Result was Error
-    public val HasError: bool => self is Error(val message)
+    val HasError: bool => self is Error(val message)
 
     /// Converts the Result to an Option
-    public val IsOk: Option<T> {
+    val IsOk: Option<T> {
         get {
             if self is Ok(val value) {
                 return Some(value)
@@ -125,7 +125,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Converts the Result error channel to an Option
-    public val IsError: Option<E> {
+    val IsError: Option<E> {
         get {
             if self is Error(val e) {
                 return Some(e)
@@ -135,7 +135,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Projects the value inside `Ok` using `mapper`. `Error` stays `Error`.
-    public func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
+    func Map<TResult>(mapper: func T -> TResult) -> Result<TResult, E> {
         self match {
             Ok(val value) => Ok(mapper(value))
             Error(val error) => Error(error)
@@ -143,7 +143,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Monadic bind / flatMap: chains a `Result`-producing function.
-    public func Then<TResult>(binder: T -> Result<TResult, E>) -> Result<TResult, E> {
+    func Then<TResult>(binder: func T -> Result<TResult, E>) -> Result<TResult, E> {
         self match {
             Ok(val value) => binder(value)
             Error(val error) => Error(error)
@@ -151,7 +151,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Maps the error channel.
-    public func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
+    func MapError<E2>(mapper: func E -> E2) -> Result<T, E2> {
         self match {
             Ok(val value) => Ok(value)
             Error(val error) => Error(mapper(error))
@@ -159,7 +159,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Matches the result and produces a value.
-    public func Match<TResult>(ok: T -> TResult, error: E -> TResult) -> TResult {
+    func Match<TResult>(ok: func T -> TResult, error: func E -> TResult) -> TResult {
         self match {
             Ok(val value) => ok(value)
             Error(val e) => error(e)
@@ -167,7 +167,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Runs `action` if this is `Ok`, returning the original result.
-    public func Tap(action: T -> ()) -> Result<T, E> {
+    func Tap(action: func T -> ()) -> Result<T, E> {
         if self is Ok(val value) {
             action(value)
         }
@@ -175,7 +175,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Runs `action` if this is `Error`, returning the original result.
-    public func TapError(action: E -> ()) -> Result<T, E> {
+    func TapError(action: func E -> ()) -> Result<T, E> {
         if self is Error(val e) {
             action(e)
         }
@@ -183,7 +183,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Recovers from an error by mapping it to a new result.
-    public func OrElse(recover: E -> Result<T, E>) -> Result<T, E> {
+    func OrElse(recover: func E -> Result<T, E>) -> Result<T, E> {
         self match {
             Ok(val value) => Ok(value)
             Error(val e) => recover(e)
@@ -191,7 +191,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Unwrap the value if Ok, otherwise return the value from `factory()`.
-    public func UnwrapOrElse(factory: () -> T) -> T {
+    func UnwrapOrElse(factory: func () -> T) -> T {
         self match {
             Ok(val value) => value
             Error(_) => factory()
@@ -199,7 +199,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Converts `Ok(x)` to a single-item sequence and `Error` to an empty sequence.
-    public func ToEnumerable() -> IEnumerable<T> {
+    func ToEnumerable() -> IEnumerable<T> {
         val list = List<T>()
         if self is Ok(val value) {
             list.Add(value)
@@ -207,12 +207,12 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         list
     }
 
-    public func GetEnumerator() -> IEnumerator<T> {
+    func GetEnumerator() -> IEnumerator<T> {
         self.ToEnumerable().GetEnumerator()
     }
     
     /// Unwrap the value if Ok, otherwise return the default value
-    public func UnwrapOrDefault() -> T {
+    func UnwrapOrDefault() -> T {
         if self is Ok(val value) {
             return value
         }
@@ -220,7 +220,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Unwrap the value if Ok, otherwise throw an exception
-    public func UnwrapOrThrow() -> T {
+    func UnwrapOrThrow() -> T {
         var error: E = default
         if self is Ok(val value) {
             return value
@@ -231,7 +231,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Unwrap the value if Ok, otherwise return the specified value
-    public func UnwrapOr(defaultValue: T) -> T {
+    func UnwrapOr(defaultValue: T) -> T {
         if self is Ok(val value) {
             return value
         }
@@ -239,7 +239,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Unwrap the Error, or throw an exception
-    public func UnwrapError() -> E {
+    func UnwrapError() -> E {
         if self is Error(val message) {
             return message
         }

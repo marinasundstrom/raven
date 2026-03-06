@@ -95,7 +95,7 @@ internal static class SymbolResolver
             return semanticModel.GetDeclaredSymbol(functionStatement);
         }
 
-        if (node is LambdaExpressionSyntax lambdaExpression &&
+        if (node is FunctionExpressionSyntax lambdaExpression &&
             token.Span.IntersectsWith(lambdaExpression.Span))
         {
             var lambdaSymbolInfo = semanticModel.GetSymbolInfo(lambdaExpression);

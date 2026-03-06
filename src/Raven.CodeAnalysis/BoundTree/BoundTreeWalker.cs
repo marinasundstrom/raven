@@ -47,8 +47,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundInvocationExpression call:
                 VisitInvocationExpression(call);
                 break;
-            case BoundLambdaExpression lambda:
-                VisitLambdaExpression(lambda);
+            case BoundFunctionExpression lambda:
+                VisitFunctionExpression(lambda);
                 break;
             case BoundBlockExpression block:
                 VisitBlockExpression(block);
@@ -333,7 +333,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Expression);
     }
 
-    public override void VisitLambdaExpression(BoundLambdaExpression node)
+    public override void VisitFunctionExpression(BoundFunctionExpression node)
     {
         VisitExpression(node.Body);
     }

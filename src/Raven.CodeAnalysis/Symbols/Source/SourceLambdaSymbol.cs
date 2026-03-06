@@ -183,7 +183,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
             var starts = root
                 .DescendantNodesAndSelf()
-                .OfType<LambdaExpressionSyntax>()
+                .OfType<FunctionExpressionSyntax>()
                 .Select(static lambda => lambda.Span.Start)
                 .Distinct()
                 .OrderBy(static start => start)

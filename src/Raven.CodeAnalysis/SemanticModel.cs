@@ -773,7 +773,7 @@ public partial class SemanticModel
         {
             if (parentBinder is not null &&
                 !ReferenceEquals(existingBinder.ParentBinder, parentBinder) &&
-                (parentBinder is LambdaBinder || parentBinder.ContainingSymbol is ILambdaSymbol))
+                (parentBinder is FunctionExpressionBinder || parentBinder.ContainingSymbol is ILambdaSymbol))
             {
                 // Lambda rebinds must not reuse cached binders from other scopes,
                 // or lambda parameters may resolve incorrectly.

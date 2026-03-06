@@ -194,9 +194,9 @@ public class MethodOverloadTests : CompilationTestBase
 
         var lambda = tree.GetRoot()
             .DescendantNodes()
-            .OfType<SimpleLambdaExpressionSyntax>()
+            .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
-        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
         var parameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
 

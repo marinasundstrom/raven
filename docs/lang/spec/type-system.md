@@ -82,21 +82,21 @@ use explicit syntax such as `T[,]` when supported by the grammar.
 
 ### Function types
 
-Function types provide a delegate-like type literal. The syntax mirrors a lambda
-signature: write the parameter types inside parentheses, then `->`, then the
+Function types provide a delegate-like type literal. The syntax mirrors a function
+signature and starts with `func`: write `func`, then the parameter types inside parentheses, then `->`, then the
 return type. A single parameter may omit its parentheses, while zero parameters
 use the empty tuple `()`.
 
 ```raven
-val logger: string -> unit
-val reducer: (int, int) -> int
-val factory: () -> Task<string>
+val logger: func string -> unit
+val reducer: func (int, int) -> int
+val factory: func () -> Task<string>
 ```
 
 In a function parameter:
 
 ```raven
-func do(op: (int, int) -> int) -> int {
+func do(op: func (int, int) -> int) -> int {
   return op(2, 3)
 }
 ```
@@ -109,8 +109,15 @@ match the function type literal. These synthesized delegates participate in
 metadata emission so that consumers written in C# or other .NET languages can
 invoke them normally.
 
-Nested arrows associate to the right: `int -> string -> bool` means a delegate
-that accepts an `int` and returns another delegate of type `string -> bool`.
+In expression position, unnamed function expressions may use `func (...) => ...`,
+`func (...) { ... }`, or shorthand `(...) => ...` / `x => ...`. Function expressions
+also allow modifier forms before `func`: `async func`, `static func`, and
+`static async func`. Static function expressions cannot capture enclosing locals
+or parameters. The shorthand form is primarily for ergonomic higher-order call sites;
+it does not change the resulting function value.
+
+Nested arrows associate to the right: `func int -> func string -> bool` means a delegate
+that accepts an `int` and returns another delegate of type `func string -> bool`.
 Return types may be any Raven type, including unions. Function types themselves
 may appear anywhere a normal type is expected—alias declarations, parameter
 annotations, local bindings, generics, and so on.
@@ -300,7 +307,7 @@ captured. Synthesized delegates participate in metadata emission just like
 framework `Func<>`/`Action<>` types, allowing reflection or interop scenarios to
 discover the generated `MulticastDelegate` definitions at runtime.
 
-Lambda expressions are implicitly convertible to any compatible delegate type
+Function expressions are implicitly convertible to any compatible delegate type
 provided by their target-typed context (assignment, return, or argument
 position). Compatibility checks use the delegate's `Invoke` signature. Delegate
 types themselves remain distinct; Raven does not perform implicit conversions

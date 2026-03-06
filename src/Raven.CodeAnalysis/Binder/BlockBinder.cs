@@ -20,8 +20,8 @@ partial class BlockBinder : Binder
     private readonly Dictionary<LabeledStatementSyntax, ILabelSymbol> _labelsBySyntax = new();
     private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _syntaxByLabel = new(SymbolEqualityComparer.Default);
     private readonly HashSet<SyntaxNode> _labelDeclarationNodes = new();
-    private readonly Dictionary<LambdaExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<LambdaRebindKey, BoundLambdaExpression> _reboundLambdaCache = new();
+    private readonly Dictionary<FunctionExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
     private int _scopeDepth;
@@ -786,7 +786,7 @@ partial class BlockBinder : Binder
             ReturnExpressionSyntax returnExpression => BindReturnExpression(returnExpression),
             ThrowExpressionSyntax throwExpression => BindThrowExpression(throwExpression),
             PropagateExpressionSyntax propagateExpression => BindPropagateExpression(propagateExpression),
-            LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
+            FunctionExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
             PostfixUnaryExpressionSyntax postfixUnary => BindPostfixUnaryExpression(postfixUnary),
@@ -5751,12 +5751,12 @@ partial class BlockBinder : Binder
         {
             switch (current)
             {
-                case SimpleLambdaExpressionSyntax simpleLambda:
+                case SimpleFunctionExpressionSyntax simpleLambda:
                     if (string.Equals(simpleLambda.Parameter.Identifier.ValueText, name, StringComparison.Ordinal))
                         return true;
                     break;
 
-                case ParenthesizedLambdaExpressionSyntax parenthesizedLambda:
+                case ParenthesizedFunctionExpressionSyntax parenthesizedLambda:
                     foreach (var parameter in parenthesizedLambda.ParameterList.Parameters)
                     {
                         if (string.Equals(parameter.Identifier.ValueText, name, StringComparison.Ordinal))
@@ -6158,7 +6158,7 @@ partial class BlockBinder : Binder
         while (expression is ParenthesizedExpressionSyntax parenthesized)
             expression = parenthesized.Expression;
 
-        if (expression is not LambdaExpressionSyntax lambda)
+        if (expression is not FunctionExpressionSyntax lambda)
             return;
 
         var pipelineType = pipelineValue.Type?.UnwrapLiteralType() ?? pipelineValue.Type;
@@ -6167,8 +6167,8 @@ partial class BlockBinder : Binder
 
         var parameters = lambda switch
         {
-            SimpleLambdaExpressionSyntax simple => new[] { simple.Parameter },
-            ParenthesizedLambdaExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.ToArray(),
+            SimpleFunctionExpressionSyntax simple => new[] { simple.Parameter },
+            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.ToArray(),
             _ => Array.Empty<ParameterSyntax>(),
         };
 
@@ -7935,7 +7935,7 @@ partial class BlockBinder : Binder
         if (IsErrorExpression(expression))
             return true;
 
-        if (expression is BoundLambdaExpression)
+        if (expression is BoundFunctionExpression)
             return false;
 
         return expression.Type?.ContainsErrorType() == true;
@@ -8660,9 +8660,9 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindLambdaToDelegateIfNeeded(BoundExpression expression, ITypeSymbol targetType)
     {
-        var lambda = expression as BoundLambdaExpression;
+        var lambda = expression as BoundFunctionExpression;
         if (lambda is null &&
-            expression is BoundConversionExpression { Expression: BoundLambdaExpression convertedLambda, IsExplicit: false })
+            expression is BoundConversionExpression { Expression: BoundFunctionExpression convertedLambda, IsExplicit: false })
         {
             lambda = convertedLambda;
         }
@@ -8816,14 +8816,14 @@ partial class BlockBinder : Binder
 
             // Shape lambdas to a concrete delegate type when possible.
             // This mirrors local-initializer behavior and enables passing lambdas to `System.Delegate` parameters.
-            if (expression is BoundLambdaExpression lambda)
+            if (expression is BoundFunctionExpression lambda)
             {
                 // First: if the parameter itself is a concrete delegate type, replay the lambda against it.
                 expression = BindLambdaToDelegateIfNeeded(expression, parameter.Type);
 
                 // Second: if the parameter is `System.Delegate` / `System.MulticastDelegate`,
                 // keep the lambda's inferred delegate type and rely on implicit reference conversion.
-                if (IsSystemDelegateLike(parameter.Type) && expression is BoundLambdaExpression stillLambda)
+                if (IsSystemDelegateLike(parameter.Type) && expression is BoundFunctionExpression stillLambda)
                 {
                     var inferred = stillLambda.DelegateType as INamedTypeSymbol;
                     if (inferred is not null && inferred.TypeKind == TypeKind.Delegate)
@@ -9141,18 +9141,18 @@ partial class BlockBinder : Binder
         }
     }
 
-    private readonly struct LambdaRebindKey : IEquatable<LambdaRebindKey>
+    private readonly struct FunctionExpressionRebindKey : IEquatable<FunctionExpressionRebindKey>
     {
-        public LambdaRebindKey(LambdaExpressionSyntax syntax, INamedTypeSymbol delegateType)
+        public FunctionExpressionRebindKey(FunctionExpressionSyntax syntax, INamedTypeSymbol delegateType)
         {
             Syntax = syntax;
             DelegateType = delegateType;
         }
 
-        public LambdaExpressionSyntax Syntax { get; }
+        public FunctionExpressionSyntax Syntax { get; }
         public INamedTypeSymbol DelegateType { get; }
 
-        public bool Equals(LambdaRebindKey other)
+        public bool Equals(FunctionExpressionRebindKey other)
         {
             return ReferenceEquals(Syntax, other.Syntax) &&
                    SymbolEqualityComparer.Default.Equals(DelegateType, other.DelegateType);
@@ -9160,7 +9160,7 @@ partial class BlockBinder : Binder
 
         public override bool Equals(object? obj)
         {
-            return obj is LambdaRebindKey other && Equals(other);
+            return obj is FunctionExpressionRebindKey other && Equals(other);
         }
 
         public override int GetHashCode()
@@ -10160,7 +10160,7 @@ partial class BlockBinder : Binder
                 {
                     pastBoundary = true;
                 }
-                else if (current is TopLevelBinder or LambdaBinder)
+                else if (current is TopLevelBinder or FunctionExpressionBinder)
                 {
                     pastBoundary = true;
                 }
@@ -10197,7 +10197,7 @@ partial class BlockBinder : Binder
                         yield return param;
             }
 
-            if (allowLocalsAndParams && current is LambdaBinder lambdaBinder)
+            if (allowLocalsAndParams && current is FunctionExpressionBinder lambdaBinder)
             {
                 foreach (var param in lambdaBinder.GetParameters())
                     if (param.Name == name && seen.Add(param))
