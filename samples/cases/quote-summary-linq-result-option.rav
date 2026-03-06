@@ -100,9 +100,9 @@ func HasTag(tags: string[], tag: string) -> bool {
 
 func FormatSummary(summary: QuoteSummary) -> string {
     val decisionText = summary.Decision match {
-        .Approve => "Approved"
-        .ManualReview(val reason) => "Review: $reason"
-        .Reject(val reason) => "Rejected: $reason"
+        Approve => "Approved"
+        ManualReview(val reason) => "Review: $reason"
+        Reject(val reason) => "Rejected: $reason"
     }
 
     return "Quote ${summary.Quote.Id} via ${summary.Quote.Carrier}: ${summary.Quote.TotalCents} cents ($decisionText)"
