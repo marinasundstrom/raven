@@ -845,4 +845,12 @@
     Title="Function type signature must start with func"
     Message="Function type signatures must start with the 'func' keyword."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0921" Identifier="ParameterTypeAnnotationRequired"
+    Title="Parameter type annotation required"
+    Message="Parameter '{parameterName}' requires an explicit type annotation."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0922" Identifier="ConstructorParameterPromotionRequiresPrimaryConstructor"
+    Title="Constructor parameter promotion requires primary constructor"
+    Message="Constructor parameter '{parameterName}' cannot use '{bindingKeyword}'. Parameter promotion is only supported in primary constructors."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

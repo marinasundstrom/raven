@@ -3230,6 +3230,9 @@ public partial class SemanticModel
             ITypeSymbol parameterType;
             if (typeSyntax is null)
             {
+                classBinder.Diagnostics.ReportParameterTypeAnnotationRequired(
+                    parameterSyntax.Identifier.ValueText,
+                    parameterSyntax.Identifier.GetLocation());
                 parameterType = Compilation.ErrorTypeSymbol;
             }
             else

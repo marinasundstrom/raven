@@ -1479,7 +1479,7 @@ internal partial class TypeMemberBinder : Binder
         var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
-            var typeSyntax = p.TypeAnnotation!.Type;
+            var typeSyntax = p.TypeAnnotation?.Type;
             var refKindTokenKind = p.RefKindKeyword?.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
@@ -1497,8 +1497,27 @@ internal partial class TypeMemberBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var pType = ResolveParameterTypeSyntaxForSignature(this, typeSyntax, refKind);
-            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var pType = typeSyntax is null
+                ? Compilation.ErrorTypeSymbol
+                : ResolveParameterTypeSyntaxForSignature(this, typeSyntax, refKind);
+            if (typeSyntax is null)
+            {
+                _diagnostics.ReportParameterTypeAnnotationRequired(
+                    p.Identifier.ValueText,
+                    p.Identifier.GetLocation());
+            }
+
+            var bindingKeywordKind = p.BindingKeyword?.Kind ?? SyntaxKind.None;
+            if (refKind == RefKind.None && bindingKeywordKind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            {
+                var bindingKeywordText = p.BindingKeyword?.Text ?? (bindingKeywordKind == SyntaxKind.ValKeyword ? "val" : "var");
+                _diagnostics.ReportConstructorParameterPromotionRequiresPrimaryConstructor(
+                    p.Identifier.ValueText,
+                    bindingKeywordText,
+                    p.BindingKeyword?.GetLocation() ?? p.Identifier.GetLocation());
+            }
+
+            var isMutable = bindingKeywordKind == SyntaxKind.VarKeyword;
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
@@ -1510,7 +1529,7 @@ internal partial class TypeMemberBinder : Binder
                 "constructor",
                 GetMemberDisplayName(".ctor"),
                 $"parameter '{paramName}'",
-                syntax.TypeAnnotation!.Type.GetLocation());
+                syntax.TypeAnnotation?.Type.GetLocation() ?? syntax.Identifier.GetLocation());
         }
 
         var constructorMetadataName = isStatic ? ".cctor" : ".ctor";
