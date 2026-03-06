@@ -726,12 +726,12 @@ internal abstract class Generator
         ILGenerator.Emit(OpCodes.Ldloca, fromLocal);
         var hasValue = fromClr.GetProperty("HasValue")!.GetGetMethod()!;
         ILGenerator.Emit(OpCodes.Call, hasValue);
-        ILGenerator.Emit(OpCodes.Brtrue_S, hasValueLabel);
+        ILGenerator.Emit(OpCodes.Brtrue, hasValueLabel);
 
         ILGenerator.Emit(OpCodes.Ldloca, toLocal);
         ILGenerator.Emit(OpCodes.Initobj, toClr);
         ILGenerator.Emit(OpCodes.Ldloc, toLocal);
-        ILGenerator.Emit(OpCodes.Br_S, doneLabel);
+        ILGenerator.Emit(OpCodes.Br, doneLabel);
 
         ILGenerator.MarkLabel(hasValueLabel);
         ILGenerator.Emit(OpCodes.Ldloca, fromLocal);

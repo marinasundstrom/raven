@@ -1484,7 +1484,7 @@ internal class MethodBodyGenerator
             EmitLoadInstanceReceiver(resultLocal, resultClrType);
             ILGenerator.Emit(OpCodes.Ldloca, okCaseLocal);
             ILGenerator.Emit(GetCallOpCode(okMethod, okMethodInfo), okMethodInfo);
-            ILGenerator.Emit(OpCodes.Brfalse_S, nextLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, nextLabel);
             EmitLoadCasePayload(okCaseLocal, okCaseRuntimeType, okMethod.Parameters[0].Type, "Value");
             ILGenerator.Emit(OpCodes.Ret);
             ILGenerator.MarkLabel(nextLabel);
@@ -1501,7 +1501,7 @@ internal class MethodBodyGenerator
             EmitLoadInstanceReceiver(resultLocal, resultClrType);
             ILGenerator.Emit(OpCodes.Ldloca, errorCaseLocal);
             ILGenerator.Emit(GetCallOpCode(errorMethod, errorMethodInfo), errorMethodInfo);
-            ILGenerator.Emit(OpCodes.Brfalse_S, nextLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, nextLabel);
             EmitWriteCasePayloadToStderr(errorCaseLocal, errorCaseRuntimeType, errorMethod.Parameters[0].Type, "Error");
 
             if (isIntBridge)
@@ -1511,7 +1511,7 @@ internal class MethodBodyGenerator
             }
             else
             {
-                ILGenerator.Emit(OpCodes.Br_S, doneLabel);
+                ILGenerator.Emit(OpCodes.Br, doneLabel);
             }
 
             ILGenerator.MarkLabel(nextLabel);
@@ -2202,7 +2202,7 @@ internal class MethodBodyGenerator
 
             ILGenerator.Emit(OpCodes.Ldarg_1);
             ILGenerator.Emit(OpCodes.Isinst, recordClrType);
-            ILGenerator.Emit(OpCodes.Brtrue_S, compareFieldsLabelValue);
+            ILGenerator.Emit(OpCodes.Brtrue, compareFieldsLabelValue);
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
             ILGenerator.Emit(OpCodes.Ret);
 
@@ -2234,7 +2234,7 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Isinst, recordClrType);
         ILGenerator.Emit(OpCodes.Stloc, otherLocal);
         ILGenerator.Emit(OpCodes.Ldloc, otherLocal);
-        ILGenerator.Emit(OpCodes.Brtrue_S, compareFieldsLabel);
+        ILGenerator.Emit(OpCodes.Brtrue, compareFieldsLabel);
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
         ILGenerator.Emit(OpCodes.Ret);
 
@@ -2245,7 +2245,7 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ldarg_0);
         ILGenerator.Emit(OpCodes.Ldloc, otherLocal);
         ILGenerator.Emit(OpCodes.Call, referenceEquals);
-        ILGenerator.Emit(OpCodes.Brfalse_S, fieldComparisonLabel);
+        ILGenerator.Emit(OpCodes.Brfalse, fieldComparisonLabel);
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
         ILGenerator.Emit(OpCodes.Ret);
 
@@ -2294,7 +2294,7 @@ internal class MethodBodyGenerator
         var returnFalseLabel = ILGenerator.DefineLabel();
 
         ILGenerator.Emit(OpCodes.Ldarg_1);
-        ILGenerator.Emit(OpCodes.Brtrue_S, compareFieldsLabel);
+        ILGenerator.Emit(OpCodes.Brtrue, compareFieldsLabel);
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
         ILGenerator.Emit(OpCodes.Ret);
 
@@ -2305,7 +2305,7 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ldarg_0);
         ILGenerator.Emit(OpCodes.Ldarg_1);
         ILGenerator.Emit(OpCodes.Call, referenceEquals);
-        ILGenerator.Emit(OpCodes.Brfalse_S, fieldComparisonLabel);
+        ILGenerator.Emit(OpCodes.Brfalse, fieldComparisonLabel);
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
         ILGenerator.Emit(OpCodes.Ret);
 
@@ -2352,20 +2352,20 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ldarg_0);
         ILGenerator.Emit(OpCodes.Ldarg_1);
         ILGenerator.Emit(OpCodes.Call, referenceEquals);
-        ILGenerator.Emit(OpCodes.Brfalse_S, compareFieldsLabel);
+        ILGenerator.Emit(OpCodes.Brfalse, compareFieldsLabel);
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
         ILGenerator.Emit(OpCodes.Ret);
 
         ILGenerator.MarkLabel(compareFieldsLabel);
         ILGenerator.Emit(OpCodes.Ldarg_0);
-        ILGenerator.Emit(OpCodes.Brtrue_S, leftNotNullLabel);
+        ILGenerator.Emit(OpCodes.Brtrue, leftNotNullLabel);
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
         ILGenerator.Emit(OpCodes.Ret);
 
         ILGenerator.MarkLabel(leftNotNullLabel);
         var rightNotNullLabel = ILGenerator.DefineLabel();
         ILGenerator.Emit(OpCodes.Ldarg_1);
-        ILGenerator.Emit(OpCodes.Brtrue_S, rightNotNullLabel);
+        ILGenerator.Emit(OpCodes.Brtrue, rightNotNullLabel);
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
         ILGenerator.Emit(OpCodes.Ret);
 
@@ -2413,15 +2413,15 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ldarg_0);
         ILGenerator.Emit(OpCodes.Ldarg_1);
         ILGenerator.Emit(OpCodes.Call, referenceEquals);
-        ILGenerator.Emit(OpCodes.Brfalse_S, compareFieldsLabel);
+        ILGenerator.Emit(OpCodes.Brfalse, compareFieldsLabel);
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
         ILGenerator.Emit(OpCodes.Ret);
 
         ILGenerator.MarkLabel(compareFieldsLabel);
         ILGenerator.Emit(OpCodes.Ldarg_0);
-        ILGenerator.Emit(OpCodes.Brfalse_S, returnTrueLabel);
+        ILGenerator.Emit(OpCodes.Brfalse, returnTrueLabel);
         ILGenerator.Emit(OpCodes.Ldarg_1);
-        ILGenerator.Emit(OpCodes.Brfalse_S, returnTrueLabel);
+        ILGenerator.Emit(OpCodes.Brfalse, returnTrueLabel);
 
         EmitRecordFieldComparisons(
             recordType,
@@ -2671,7 +2671,7 @@ internal class MethodBodyGenerator
             loadRight();
             ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
             ILGenerator.Emit(OpCodes.Callvirt, equalsMethod);
-            ILGenerator.Emit(OpCodes.Brfalse_S, returnFalseLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, returnFalseLabel);
         }
     }
 
@@ -2706,7 +2706,7 @@ internal class MethodBodyGenerator
             loadRightAddress();
             ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
             ILGenerator.Emit(OpCodes.Callvirt, equalsMethod);
-            ILGenerator.Emit(OpCodes.Brfalse_S, returnFalseLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, returnFalseLabel);
         }
     }
 
@@ -2915,7 +2915,7 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ldarg_0);
         ILGenerator.Emit(OpCodes.Ldfld, discriminatorField);
         ILGenerator.Emit(OpCodes.Ldc_I4, caseSymbol.Ordinal);
-        ILGenerator.Emit(OpCodes.Bne_Un_S, failLabel);
+        ILGenerator.Emit(OpCodes.Bne_Un, failLabel);
 
         EmitStoreDiscriminatedUnionPayload(targetParameter, payloadFieldSymbol.Type, payloadField);
 
@@ -3024,7 +3024,7 @@ internal class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Ldarg_0);
             ILGenerator.Emit(OpCodes.Ldfld, discriminatorField);
             ILGenerator.Emit(OpCodes.Ldc_I4, caseSymbol.Ordinal);
-            ILGenerator.Emit(OpCodes.Bne_Un_S, nextLabel);
+            ILGenerator.Emit(OpCodes.Bne_Un, nextLabel);
 
             var payloadFieldSymbol = (SourceFieldSymbol)DiscriminatedUnionFieldUtilities.GetRequiredPayloadField(
                 unionSymbol,
@@ -3116,7 +3116,7 @@ internal class MethodBodyGenerator
                 {
                     var skipParameterComma = ILGenerator.DefineLabel();
                     ILGenerator.Emit(OpCodes.Ldloc, firstParameterLocal!);
-                    ILGenerator.Emit(OpCodes.Brtrue_S, skipParameterComma);
+                    ILGenerator.Emit(OpCodes.Brtrue, skipParameterComma);
                     ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
                     ILGenerator.Emit(OpCodes.Ldstr, ", ");
                     ILGenerator.Emit(OpCodes.Callvirt, appendString);

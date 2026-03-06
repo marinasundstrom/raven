@@ -1822,7 +1822,7 @@ internal partial class ExpressionGenerator : Generator
             var invalidOpCtor = typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })
                 ?? throw new InvalidOperationException("Missing InvalidOperationException(string) constructor.");
 
-            ILGenerator.Emit(OpCodes.Brtrue_S, haveErrorCase);
+            ILGenerator.Emit(OpCodes.Brtrue, haveErrorCase);
             ILGenerator.Emit(OpCodes.Ldstr, $"Failed to extract '{expr.ErrorCaseName}' case from '{expr.Operand.Type}'.");
             ILGenerator.Emit(OpCodes.Newobj, invalidOpCtor);
             ILGenerator.Emit(OpCodes.Throw);
@@ -4615,11 +4615,11 @@ internal partial class ExpressionGenerator : Generator
             case BinaryOperatorKind.LogicalAnd:
                 // if (!left) result = false; else result = right;
                 EmitExpression(left);                      // stack: [left]
-                ILGenerator.Emit(OpCodes.Brfalse_S, skipLabel);
+                ILGenerator.Emit(OpCodes.Brfalse, skipLabel);
 
                 // left == true → evaluate right, result = right
                 EmitExpression(right);                     // stack: [right]
-                ILGenerator.Emit(OpCodes.Br_S, endLabel);
+                ILGenerator.Emit(OpCodes.Br, endLabel);
 
                 // left == false → push false
                 ILGenerator.MarkLabel(skipLabel);
@@ -4631,11 +4631,11 @@ internal partial class ExpressionGenerator : Generator
             case BinaryOperatorKind.LogicalOr:
                 // if (left) result = true; else result = right;
                 EmitExpression(left);                      // stack: [left]
-                ILGenerator.Emit(OpCodes.Brtrue_S, skipLabel);
+                ILGenerator.Emit(OpCodes.Brtrue, skipLabel);
 
                 // left == false → evaluate right, result = right
                 EmitExpression(right);                     // stack: [right]
-                ILGenerator.Emit(OpCodes.Br_S, endLabel);
+                ILGenerator.Emit(OpCodes.Br, endLabel);
 
                 // left == true → push true
                 ILGenerator.MarkLabel(skipLabel);

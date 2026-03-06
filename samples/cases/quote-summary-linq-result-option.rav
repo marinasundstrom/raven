@@ -109,12 +109,12 @@ func FormatSummary(summary: QuoteSummary) -> string {
 }
 
 record class ShipmentRequest(
-    Id: string,
-    Carrier: string,
-    WeightKg: int,
-    OnTime: bool,
-    Tags: string[],
-    PromoCode: Option<string>
+    val Id: string,
+    val Carrier: string,
+    val WeightKg: int,
+    val OnTime: bool,
+    val Tags: string[],
+    val PromoCode: Option<string>
 )
 
 record class RatePlan(Carrier: string, BaseCents: int, PerKgCents: int)
