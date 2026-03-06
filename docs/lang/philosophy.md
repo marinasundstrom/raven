@@ -1,6 +1,6 @@
 # Raven Language Philosophy
 
-Raven is a modern programming language designed with clarity, expressiveness, and composability at its core. It draws inspiration from C#, F#, Swift, and Python — but is not bound by their conventions. Raven's guiding philosophy is to prioritize conceptual integrity, minimize syntactic noise, and empower developers to write code that reads like intention, not ceremony. It values simplicity that keeps syntax honest, symmetry that aligns how constructs relate to one another, and flow that allows ideas to move through code without unnecessary friction.
+Raven is a modern general-purpose programming language designed with clarity, expressiveness, and composability at its core. It draws inspiration from C#, F#, Swift, and Python — but is not bound by their conventions. Raven's guiding philosophy is to prioritize conceptual integrity, minimize syntactic noise, and empower developers to write code that reads like intention, not ceremony. It values simplicity that keeps syntax honest, symmetry that aligns how constructs relate to one another, and flow that allows ideas to move through code without unnecessary friction.
 
 This document captures the non-negotiable beliefs that shape every layer of the project—from syntax and semantics to the architecture of the compiler itself. They act as a compass when making trade-offs, evaluating features, or deciding how tooling should feel.
 
@@ -15,14 +15,14 @@ Raven embraces a declarative, expression-first design where nearly every constru
 Raven eliminates redundant syntax where it doesn’t add value. Familiar patterns are respected when they communicate intent, but tradition alone is never a sufficient reason to carry ceremony forward. Object construction does not require repeating type names, and type instantiation stays low-ceremony even as APIs grow more complex:
 
 ```raven
-val user = User(name: "Anna")  // Not new User(...)
+val user = User("Anna")  // Not new User(...)
 ```
 
-Constructors keep object creation explicit while staying low-ceremony: constructor overloads use `init(...)`, and types with a primary constructor can define their primary constructor body with a bare block (`{ ... }`) as the first member. This keeps creation flow readable without blurring constructor roles.
+Constructors keep object creation explicit while staying low-ceremony: constructor overloads use `init(...)`, and types with a primary constructor can define shared initialization with `init { ... }` as the first member.
 
 ```raven
 class User(name: string) {
-    {
+    init {
         self.name = name
     }
 }
@@ -31,7 +31,7 @@ class User(name: string) {
 If an API wants a more descriptive creation entry point, use a regular static method:
 
 ```raven
-public static WithName(name: string) -> User {
+static func WithName(name: string) -> User {
     return User(name)
 }
 ```
@@ -45,8 +45,8 @@ Symmetry is a design tool, not a slogan, and Raven applies it directly to syntax
 That syntactic sameness extends to the shapes we use for values and functions. The unit value `()` is the empty tuple, the simplest list of values. Annotated tuples use the same parentheses as expressions: `(a: int, b: int)` declares the shape; `(2, 3)` realizes it. Parameter lists reuse the same surface syntax — `(a: int, b: int) -> int` reads just like a tuple that happens to feed a return value — and function type signatures follow the same rule: `(int, int) -> int` is the tuple of inputs flowing into an output. Even an empty parameter list stays honest: `() -> int` makes it explicit that nothing flows in and a value flows out. The language deliberately avoids inventing new sigils for these closely-related concepts so that every set of parentheses tells the same structural truth.
 
 ```raven
-public self(x: int) -> string { ... }    // Callable object
-public self[x: int] : string { ... }     // Indexer
+func self(x: int) -> string { ... }    // Callable object
+var self[x: int]: string { get; }      // Indexer
 ```
 
 This symmetry improves reasoning and avoids special cases. Everything flows: the same conceptual pipeline moves from function invocation to indexers to member access, so the mental overhead of switching contexts vanishes. That sameness also makes tuple construction and argument passing visually mirror each other, reinforcing the idea that data moves through the system in familiar shapes. A full function signature keeps the correspondence visible end to end:
@@ -94,8 +94,8 @@ import System.Linq.*
 
 val latePickup = requests.Where(r => !r.OnTime).FirstOrNone()
 val lateMessage = latePickup match {
-    .Some(val req) => "Late pickup: ${req.Id}"
-    .None => "No late pickups today"
+    Some(val req) => "Late pickup: ${req.Id}"
+    None => "No late pickups today"
 }
 ```
 
@@ -139,7 +139,7 @@ This is intentional language identity, not just library style:
 val promo = promoCode
   .Map(code => code.Trim().ToUpperInvariant())
   .Then(code => ValidatePromo(code).IsOkOr(PromoError.Invalid))
-  .UnwrapOr(.None)
+  .UnwrapOr(None)
 
 val request = requests.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found: REQ-1002"))?
 ```
@@ -148,14 +148,14 @@ The same pattern applies to collection pipelines: query with LINQ, convert to
 `Option`/`Result` at the decision point, then continue with carrier-aware
 transforms.
 
-The `?` operator is the flow counterpart: it forwards `.None` / `.Error(...)` without forcing nested `match` blocks, keeping the “happy path” linear while still making early-exit behavior visible.
+The `?` operator is the flow counterpart: it forwards `None` / `Error(...)` without forcing nested `match` blocks, keeping the “happy path” linear while still making early-exit behavior visible.
 
 ```raven
 func BuildQuoteSummary(requests: IEnumerable<ShipmentRequest>, plans: IEnumerable<RatePlan>) -> Result<QuoteSummary, QuoteError> {
     val request = requests.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found: REQ-1002"))?
     val quote = QuoteShipment(request, plans)?
     val decision = DecideQuote(quote, request)
-    return .Ok(QuoteSummary(quote, decision))
+    return Ok(QuoteSummary(quote, decision))
 }
 ```
 
@@ -163,8 +163,8 @@ When you *do* want to branch, `match` keeps it honest and ergonomic:
 
 ```raven
 val message = summaryResult match {
-    .Ok(val summary) => FormatSummary(summary)
-    .Error(val error) => "Quote failed: ${error.Message}"
+    Ok(val summary) => FormatSummary(summary)
+    Error(val error) => "Quote failed: ${error.Message}"
 }
 ```
 
@@ -216,8 +216,8 @@ This enables more concise and predictive IntelliSense experiences and binds expr
 Target typing pairs naturally with union cases, especially for `Option<T>` and `Result<T, E>`. When the expected type is known, you can write the case directly and let the compiler fill in the receiver.
 
 ```raven
-val promo: Option<string> = .Some("SAVE5")
-val missing: Option<string> = .None
+val promo: Option<string> = Some("SAVE5")
+val missing: Option<string> = None
 ```
 
 This makes APIs feel fluent and keeps “what matters” (the case) in focus rather than the container type.
@@ -239,6 +239,7 @@ var counter = 0     // Mutable
 This distinction aligns with Raven’s declarative nature: it expresses *intent* in the syntax. You don't just declare a variable — you declare whether it should change. That clarity helps avoid bugs, makes code easier to reason about, and aligns with functional best practices without enforcing them dogmatically.
 
 > Mutability is not forbidden — but it should always be obvious.
+> Visibility follows the same philosophy: members are public by default, and access modifiers are used to intentionally narrow that default.
 
 ---
 
@@ -252,15 +253,15 @@ Raven values approachability. Simple programs should look simple; advanced featu
 
 Raven pursues correctness through the type system, diagnostics, and analyzers. Safety features are designed to prevent sharp edges without introducing ritualistic syntax. Compiler errors prefer actionable guidance over cryptic jargon, and warnings are invitations to better patterns—not arbitrary punishments.
 
-Error handling follows the same philosophy: `try` is an expression, but Raven also embraces typed outcomes through `Result<T, E>` and absence through `Option<T>`. The propagation operator `?` keeps happy-path code clean by forwarding `.Error(...)`/`.None` automatically when the surrounding context expects it, while `match` makes recovery explicit when you choose to handle failures locally.
+Error handling follows the same philosophy: `try` is an expression, but Raven also embraces typed outcomes through `Result<T, E>` and absence through `Option<T>`. The propagation operator `?` keeps happy-path code clean by forwarding `Error(...)`/`None` automatically when the surrounding context expects it, while `match` makes recovery explicit when you choose to handle failures locally.
 
 ```raven
-val profile = try fetchProfile(for: userId)
+val profile = try fetchProfile(userId)
 
 val theme = loadSettings("prefs.json")? match {
-  .Ok(val settings) => settings.theme,
-  .Error(FileError.NotFound) => "light",
-  .Error(val error) => throw error
+  Ok(val settings) => settings.theme,
+  Error(FileError.NotFound) => "light",
+  Error(val error) => throw error
 }
 ```
 
@@ -282,13 +283,13 @@ Raven’s core “flow types” make control paths readable without ceremony: `O
 val items = fetchItems()
 val active = items.Where(item => item.isActive).FirstOrNone()
 val filtered = items.Where(item => item.isActive)
-val report: Report = .from(filtered)  // Explicit only when the story needs a cast
+val report = Report.From(filtered)  // Explicit only when the story needs a cast
 ```
 
 ```raven
 val decisionText = QuoteShipment(request, plans)
   .Map(q => DecideQuote(q, request))
-  .UnwrapOr(.ManualReview("No quote"))
+  .UnwrapOr(ManualReview("No quote"))
   .ToString()
 ```
 

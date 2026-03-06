@@ -1,21 +1,48 @@
 # Influences
 
+Raven draws from several languages, but combines them into its own model and style.
+
 ## C#
+
+- Roslyn-inspired compiler architecture (syntax trees, binding, semantic model, diagnostics).
+- Deep .NET runtime interop and IL emission.
+- Familiar type/member model adapted to Raven conventions (members are public by default).
 
 ## F#
 
-Functional programming language in the ML language family. Based on OCaml, it marries functional programming paradigm with .NET.
+- Expression-first programming and practical functional composition.
+- Pattern matching as a central control-flow mechanism.
+- Strong preference for explicit data modeling of success/failure.
 
 ## Kotlin
 
-General-purpose programming language primarily on the Java Platform. Influence by C# and many other languages. Explicit mutable and immutable bindings.
+- Explicit mutability (`val` and `var`).
+- Primary-constructor ergonomics that influenced promoted constructor parameters.
+- Pragmatic blend of OO and functional styles.
 
 ## Swift
 
+- Readable, low-ceremony syntax.
+- API-focused design with clear declaration forms.
+- Emphasis on clarity over boilerplate.
+
 ## Rust
 
-A systems programming language with an explicit memory management model based on borrowing. Bindings are immutable by default. Errors are explicitly handled. (or ignored)
+- Explicit handling of fallible flow as data.
+- Immutable-by-default mindset (mirrored by idiomatic `val` usage in Raven).
+- Lightweight propagation patterns (`?`) for linear success paths.
 
 ## Beef
 
-A systems programming language intended for game programming that borrows a lot from C# and .NET when it comes to syntax and standard library. It's meant to be as powerful as C/C++ in memory management, but C# devs will be comfortable. It also adds features from other languages, such as discriminate unions and error handling in a way similar to in Rust.
+- Pragmatic, modern language design for .NET-adjacent ecosystems.
+- C#-friendly syntax surface with room for richer type constructs (e.g., unions).
+
+## Summary
+
+Raven is not a clone of any single language. Its current style intentionally combines:
+
+- C#/.NET tooling and runtime pragmatism,
+- F#/Rust-like explicit flow modeling (`Result`/`Option`),
+- Kotlin/Swift-like syntax ergonomics and mutability clarity.
+
+That combination results in Raven's own identity: expression-first code, public-by-default members, explicit `val`/`var`, and carrier-based control flow.

@@ -7,12 +7,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-available-brightgreen.svg)](docs/)
 
-**Raven** is a modern programming language and experimental compiler inspired by the [.NET Roslyn](https://github.com/dotnet/roslyn) architecture.
+**Raven** is a modern general-purpose programming language and compiler inspired by the [.NET Roslyn](https://github.com/dotnet/roslyn) architecture.
 
 ✨ **Key traits**:
-- **Familiar yet fresh syntax** — looks like Swift, with ideas borrowed from Rust, F#, and C#  
-- **Targets the .NET runtime** — compiles directly to IL and integrates with the .NET ecosystem  
-- **Immutable, service-oriented design** — a compiler built as an API, following the "Compiler-as-a-Service" philosophy  
+- **Expression-first Raven syntax** — explicit `val`/`var`, `match`, `record class`, and `Result`/`Option`-centric flow
+- **Targets the .NET runtime** — compiles directly to IL and interoperates with .NET libraries
+- **Compiler-as-a-Service architecture** — immutable, service-oriented compiler APIs
 
 Raven is primarily a **learning and exploration project**, aimed at:
 - Understanding modern compiler construction
@@ -22,58 +22,56 @@ Raven is primarily a **learning and exploration project**, aimed at:
 
 ## 🔰 Language Overview
 
-Raven is a general-purpose, expression-oriented language with an expression-first design that blends functional and imperative paradigms. Its type system supports union and literal types with flow-sensitive typing similar to TypeScript, and it uses `unit` instead of `void`. As a .NET language, Raven interops seamlessly with C#, even shipping a C# analyzer for type unions. The compiler follows the Roslyn "compiler-as-a-service" architecture.
+Raven is expression-oriented and blends functional and imperative styles. It uses `()` (`unit`) instead of `void`, models recoverable failure with `Result<T, E>` and absence with `Option<T>`, and uses explicit mutability (`val` vs `var`). As a .NET language, Raven interops directly with existing .NET APIs while keeping Raven-native syntax and semantics.
+Type members are public by default; add access modifiers only when you intentionally narrow visibility.
 
 ### Example
 
 ```raven
+import System.*
 import System.Console.*
-import System.Collections.Generic.List<int>
 import System.Linq.*
+import System.Collections.Generic.*
 
-alias LedgerEntry = (label: string, value: int)
-
-func shape(values: List<int>) -> List<LedgerEntry> {
-    val result = List<LedgerEntry>()
-    for each value in values {
-        val label = if value < 0 "debit" else "credit"
-        result.Add((label: label, value: value))
-    }
-    return result
+val plans = List<RatePlan> {
+    RatePlan("NorthStar", 500, 120)
+    RatePlan("Oceanic", 450, 150)
 }
 
-func summarize(readings: List<int>) -> string {
-    val shaped = shape(readings)
-    val total = shaped.Aggregate(0, (acc, entry) => acc + entry.value)
-
-    val verdict = if total > 0
-        "net positive"
-    else if total < 0
-        "net negative"
-    else
-        "balanced"
-
-    return $"processed ${shaped.Count()} items -> ${verdict} (${total})"
+val requests = List<ShipmentRequest> {
+    ShipmentRequest("REQ-1001", "NorthStar", 10)
+    ShipmentRequest("REQ-1002", "Oceanic", 3)
 }
 
-var ledger = List<int>()
-ledger.Add(25)
-ledger.Add(-10)
-ledger.Add(5)
-ledger.Add(0)
+func BuildQuoteSummary(items: IEnumerable<ShipmentRequest>, rates: IEnumerable<RatePlan>) -> Result<QuoteSummary, QuoteError> {
+    val request = items.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found"))?
+    val plan = rates.FirstOrError(r => r.Carrier == request.Carrier, () => QuoteError("Rate plan not found"))?
+    val total = plan.BaseCents + (request.WeightKg * plan.PerKgCents)
+    return Ok(QuoteSummary(request.Id, request.Carrier, total))
+}
 
-WriteLine(summarize(ledger))
+val summary = BuildQuoteSummary(requests, plans) match {
+    Ok(val item) => "Quote ${item.Id}: ${item.TotalCents} cents"
+    Error(val error) => "Quote failed: ${error.Message}"
+}
+
+WriteLine(summary)
+
+record class ShipmentRequest(val Id: string, val Carrier: string, val WeightKg: int)
+record class RatePlan(val Carrier: string, val BaseCents: int, val PerKgCents: int)
+record class QuoteSummary(val Id: string, val Carrier: string, val TotalCents: int)
+record class QuoteError(val Message: string)
 ```
 
 **Highlights**:
 
-* Expression-first control flow and file-scope functions
-* `val` vs `var` (immutable vs mutable) with tuple-shaped data
-* Lambdas and LINQ interop against .NET collection types
-* String interpolation with tuple element access
-* Direct interop with .NET libraries
+* `Result`/`Option` composition with `?` propagation
+* `match` as a first-class expression
+* `record class` + promoted constructor parameters
+* `val`/`var` mutability made explicit
+* Direct interop with .NET libraries and LINQ
 
-Read the full [Introduction](docs/introduction.md) for a more detailed overview.
+Read the full [Introduction](docs/introduction.md) and [Getting Started](docs/getting-started.md) for the complete flow.
 
 ---
 
@@ -122,22 +120,33 @@ More [samples](samples/).
 ## 🚀 Quick Start
 
 ```bash
-# Restore packages
-dotnet restore
+# Build essentials
+scripts/codex-build.sh
 
-# Generate syntax nodes (run from the Syntax directory)
-cd src/Raven.CodeAnalysis/Syntax
-dotnet run --project ../../../tools/NodeGenerator   # add `-- -f` to force regeneration
-cd ../../..
-
-# Build the compiler, tests, and Raven.Core (the Option/Result standard library built with ravc)
-dotnet build Raven.sln
-dotnet test
+# Run baseline tests (runtime/emission-heavy suites excluded)
+scripts/test-baseline.sh
 ```
 
-### End-to-end getting started (project workflow)
+Compile and run a sample case:
 
-Create and run a Raven app project in the current directory:
+```bash
+dotnet run -f net9.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
+  samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-sample.dll --run
+```
+
+Useful debug flags:
+
+```bash
+-s            # syntax tree
+-d pretty     # pretty syntax dump
+-bt           # binder + bound tree
+--no-emit     # analysis only
+--run         # execute after successful compile
+```
+
+### End-to-end project workflow
+
+Create and run a Raven app project:
 
 ```bash
 mkdir hello-raven
@@ -164,7 +173,7 @@ Project-system and NuGet details:
 - [Compiler project system docs](docs/compiler/project-system.md)
 - [NuGet project-file sample](samples/project-files/nuget-demo/README.md)
 
-### Run the compiler
+### Run the compiler manually
 
 Command:
 
@@ -190,7 +199,7 @@ Options:
 - `--symbols [list|hierarchy]` &ndash; inspect source symbols (`list` dumps properties, `hierarchy` prints the tree)
 - `-h`, `--help` &ndash; show help
 
-`ravc` now ships with and references `Raven.Core.dll` by default. The library is copied next to `ravc` during build, and any compilation also copies it to the output directory of the produced assembly. Use `--raven-core` to point to a different build of Raven.Core, or `--emit-core-types-only` to embed the shimmed core types instead of referencing the DLL.
+`ravc` references `Raven.Core.dll` by default. Use `--raven-core` to point to a different build of Raven.Core, or `--emit-core-types-only` to embed shimmed core types instead of referencing the DLL.
 
 Creating a `.debug/` directory in the current or parent folder causes the
 compiler to emit per-file dumps (syntax tree, highlighted syntax, raw source,

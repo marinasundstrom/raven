@@ -92,6 +92,14 @@ If you change any flags, **rebuild the compiler** before running again.
 3. Use `-ps` → diagnose parsing problems  
 4. Only enable emit when analysis looks correct
 
+#### 5. Debug loop (preferred)
+
+1. Reproduce with a tiny `.rav` file.
+2. Run with `-d pretty -bt --no-emit` first (separates binder/semantic issues from IL issues).
+3. If analysis is clean, run again with emit/`--run`.
+4. Reduce the sample until only the failing construct remains.
+5. Lock it with a focused test in `test/Raven.CodeAnalysis.Tests`.
+
 ---
 
 **Coding guidelines:** follow idiomatic .NET style; treat compiler components as immutable; prefer diagnostics over exceptions; keep services loosely coupled via interfaces/DI.

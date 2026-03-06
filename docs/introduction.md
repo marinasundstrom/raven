@@ -1,30 +1,21 @@
 # Raven
 
-Raven is a modern, expression-oriented programming language for the .NET platform.  
-It keeps everyday code **compact, explicit, and safe**, while still feeling familiar to developers coming from **C#**, **Swift**, **Kotlin**, and **F#**.
+Raven is a modern, expression-oriented programming language for .NET.
+It favors explicit flow, clear mutability, and low-ceremony syntax while preserving strong interoperability with the .NET ecosystem.
 
-Raven is built around a few simple ideas:
+Raven is built around a few core ideas:
 
-- **Expressions first** — most constructs produce values.  
-- **Declarative composition** — build values and object graphs directly in code.  
-- **Pattern matching** — matching is a first-class way to test and extract structure.  
-- **Explicit failure** — recoverable errors are modeled as data.  
-- **Propagation** — unwrap `Result` and `Option` with `?` to short-circuit on failure.
-- **Carrier-first pipelines** — LINQ-style helpers over `Option`/`Result` keep flows linear.
+- Expressions first
+- Explicit mutability (`val` vs `var`)
+- Explicit recoverable flow (`Result`/`Option`)
+- Pattern matching as a first-class branching tool
+- Public-by-default type members
 
-Raven encourages you to make mutability, flow, and error handling explicit. The compiler helps keep code honest with built-in diagnostics and analyzers.
-
-> ℹ️ **Note:** Raven has no `void`. Instead it uses `unit`, a real type with the single value `()`.  
-> When a `unit`-returning function is emitted to .NET, it becomes `void`.
-
-This page is a quick tour of Raven’s style and core features.
+> Raven has no `void`; it uses `()` (`unit`).
 
 ---
 
-## Hello, World!
-
-Raven doesn’t require a specific entry-point shape like C#’s `static void Main`.  
-You can write file-scope code (top-level statements), and the compiler synthesizes the correct .NET entry point.
+## Hello, World
 
 ```raven
 import System.Console.*
@@ -32,15 +23,11 @@ import System.Console.*
 WriteLine("Hello, World!")
 ```
 
-> ℹ️ **Note:** In a file, executable top-level statements must appear **before** type declarations.  
-> Top-level `func` declarations are treated as statements too, but they are **hoisted**, so you may call them before their textual declaration within the file-scope region.
+Top-level statements are supported. Executable file-scope code must appear before type declarations.
 
 ---
 
 ## A quick taste
-
-Here’s a small sample that shows Raven in its natural style:  
-**expressions everywhere, explicit failure with `Result`, and lightweight propagation using `?`.**
 
 ```raven
 import System.*
@@ -49,196 +36,179 @@ import System.Console.*
 func Main() -> () {
     val inputs = ["10", "3", "abc", "42"]
 
-    ProcessNumbers(inputs)
-        .Map(_ => "All numbers processed")
-        .UnwrapOrElse(err => "Failed: $err")
-        |> WriteLine
+    val message = ProcessNumbers(inputs) match {
+        Ok(_) => "All numbers processed"
+        Error(val err) => "Failed: $err"
+    }
+
+    WriteLine(message)
 }
 
 func ProcessNumbers(inputs: string[]) -> Result<(), string> {
     for text in inputs {
-        // Propagate on failure using `?`
-        val no = parseInt(text)?
+        val no = ParseInt(text)?
 
-        // Pattern matching as an expression
-        val message = no match {
+        val line = no match {
             10 => "Ten exactly!"
             val value => "Parsed: $value"
         }
 
-        WriteLine(message)
+        WriteLine(line)
     }
 
-    return .Ok(())
+    return Ok
 }
 
-func parseInt(text: string) -> Result<int, string> {
-    return try int.Parse(text)
-        .Map(v => v)                     // carrier-aware transform
-        .OrElse(_ => .Error("\"$text\" is not a number"))
+func ParseInt(text: string) -> Result<int, string> {
+    return try int.Parse(text) match {
+        Ok(val v) => Ok(v)
+        Error(_) => Error("\"$text\" is not a number")
+    }
 }
 ```
-
-This short example highlights several core ideas:
-
-- **`?` propagation** — failures return early without ceremony  
-- **`Map` / `OrElse`** — transform or recover without leaving expression world  
-- **Pattern matching** — clean branching on values  
-- **No exceptions for flow control** — errors are just data  
-
-Raven code tends to read like a pipeline of intent rather than nested control structures.
 
 ---
 
-## Expressions
+## Bindings and mutability
 
-Raven supports both block expressions and block statements.
-
-- A **block expression** evaluates to the value of its last expression.
-- A **block statement** is effect-only; any expression values inside it are discarded.
-
-```raven
-val x = {
-    val a = 10
-    val b = 20
-    a + b
-}
-// x = 30
-```
-
-An empty block evaluates to `()`.
-
-### Bindings and mutability
-
-Bindings are explicit:
-
-- `val` — **immutable** binding  
-- `var` — **mutable** binding
+- `val` is immutable.
+- `var` is mutable.
 
 ```raven
 val name = "Raven"
-// name = "Other"   // error
-
 var count = 0
 count = count + 1
 ```
 
-### `if` as an expression
+---
 
-`if` returns a value in expression position.
+## Expressions and matching
 
-```raven
-val pet = if flag { Dog() } else { Cat() }
-// pet : Dog | Cat
-```
-
-When used as a statement, `if` is effect-only:
+`if` and `match` are commonly used in expression position.
 
 ```raven
-func tap<T>(opt: Option<T>, action: T -> ()) -> Option<T> {
-    if opt is .Some(val value) {
-        action(value)   // value discarded in statement context
-    }
-    return opt
+val label = value match {
+    0 => "zero"
+    _ => "non-zero"
 }
 ```
 
-When branches yield different types, Raven infers a **union** instead of collapsing to a base type.
-
-### Collection expressions and spread
-
-Collection expressions use brackets with `..` spreads to inline sequences.
-
 ```raven
-val xs = [1, 2, 3]
-val ys = [0, ..xs, 4]
-// ys = [0, 1, 2, 3, 4]
+val message = if isAnonymous {
+    "Welcome"
+} else {
+    "Welcome back"
+}
 ```
 
-Collections are **target-typed**:
+---
 
-- If the context expects an **array** (`T[]`), the expression produces an array.  
-- If it expects a **collection type** (such as `List<T>`), Raven constructs that collection.  
-- With **no target type**, Raven defaults to an array.
+## Result and Option
+
+Raven encourages recoverable flow as data.
 
 ```raven
+func Divide(a: int, b: int) -> Result<int, string> {
+    if b == 0 {
+        return Error("Division by zero")
+    }
+    return Ok(a / b)
+}
+
+val value = Divide(10, 2)?
+```
+
+```raven
+func FindFirstEven(values: int[]) -> Option<int> {
+    for value in values {
+        if value % 2 == 0 {
+            return Some(value)
+        }
+    }
+    return None
+}
+```
+
+### Propagation expressions (`?`)
+
+Use `?` to forward failure/absence and keep the happy path linear.
+
+```raven
+func BuildLabel(values: int[]) -> Result<string, string> {
+    val firstEven = FindFirstEven(values)?
+    val quotient = Divide(100, firstEven)?
+    return Ok("Result: $quotient")
+}
+```
+
+### Railroad-style flow with carrier methods
+
+Raven supports pipeline-friendly methods on `Result` and `Option` so transformations and fallbacks stay in one straight line:
+
+```raven
+import System.Linq.*
 import System.Collections.Generic.*
 
-val values: List<int> = [1, 2, 3]
-```
-
-> ❗ **Tip:** `[]` needs a target type so Raven knows what to construct.
-
----
-
-## Type system
-
-Raven’s type system is practical and safe-by-default, designed for smooth .NET interop.
-
-- **Built-in types** — `int`, `long`, `byte`, `double`, `char`, `bool`, `string`, and more  
-- **Arrays** — fixed-size contiguous collections  
-- **User-defined types** — classes, interfaces, records, enums, unions  
-- **Nullability** — unified and enabled by default with flow analysis  
-
-> ❗ **Prefer `Result` and `Option`** — model failure and optional values explicitly; use `T?` mainly for .NET interop.
-
----
-
-## Functions
-
-Functions are first-class values: you can declare them, pass them around, and store them in variables.
-
-Raven distinguishes between:
-
-- **Function declarations** (`func`) — named functions  
-- **Function expressions** (lambdas) — values created inline
-
-Behind the scenes, function values map to .NET delegates.
-
-> ℹ️ **Note:** Function statements (`func` inside another body) can capture locals,
-> parameters, and `self` from enclosing scopes.
-> Use `static func` to explicitly opt out of capture.
->
-> Hover in language-service clients shows capture info for both lambdas and
-> function statements, and marks captured locals/parameters as captured.
-
-### Function declarations
-
-```raven
-func add(a: int, b: int) -> int => a + b
-
-func greet(name: string, punct: string = "!") {
-    WriteLine("Hello $name$punct")
+val plans = List<RatePlan> {
+    RatePlan("NorthStar", 500, 120)
+    RatePlan("Oceanic", 450, 150)
 }
-```
 
-### Lambdas
+val requests = List<ShipmentRequest> {
+    ShipmentRequest("REQ-1001", "NorthStar", 10, Some("SAVE5"))
+    ShipmentRequest("REQ-1002", "Oceanic", 3, None)
+}
 
-```raven
-val a = 42
-val addA = (x: int) => x + a
+val summary = BuildQuoteSummary(requests, plans) match {
+    Ok(val message) => message
+    Error(val err) => "Quote failed: $err"
+}
 
-addA(1) // 43
-```
+func BuildQuoteSummary(requests: IEnumerable<ShipmentRequest>, plans: IEnumerable<RatePlan>) -> Result<string, string> {
+    val request = requests
+        .FirstOrError(r => r.Id == "REQ-1002", () => "Request not found")?
 
-### Passing functions
+    val total = plans
+        .FirstOrError(p => p.Carrier == request.Carrier, () => "Rate plan not found")
+        .Map(plan => plan.BaseCents + (request.WeightKg * plan.PerKgCents))?
 
-```raven
-func applyTwice(f: int -> int, x: int) -> int => f(f(x))
+    val promoDiscount = PromoCents(request.PromoCode).UnwrapOr(0)
 
-val plusOne = (x: int) => x + 1
-applyTwice(plusOne, 10) // 12
+    return Ok("Quote ${request.Id}: ${total - promoDiscount} cents")
+}
+
+func PromoCents(code: Option<string>) -> Option<int> {
+    val raw = code?
+    val normalized = raw.Trim().ToUpperInvariant()
+
+    return normalized match {
+        "SAVE5" => Some(500)
+        _ => None
+    }
+}
+
+record class ShipmentRequest(val Id: string, val Carrier: string, val WeightKg: int, val PromoCode: Option<string>)
+record class RatePlan(val Carrier: string, val BaseCents: int, val PerKgCents: int)
 ```
 
 ---
 
-## Extensions and traits
+## Functions and lambdas
 
-Extensions add members to existing types.
+```raven
+func Add(a: int, b: int) -> int => a + b
+
+val addA = (x: int) => x + 42
+val result = addA(1)
+```
+
+---
+
+## Extensions
 
 ```raven
 extension StringExt for string {
-    ToSlug() -> string =>
+    func ToSlug() -> string =>
         self.Trim().ToLowerInvariant().Replace(" ", "-")
 }
 
@@ -247,123 +217,49 @@ import MyApp.StringExt.*
 val slug = "Hello World".ToSlug()
 ```
 
-Extensions can also provide **static** members and DSL-style APIs without modifying the original type.
+---
+
+## Records and primary constructors
+
+```raven
+record class ShipmentRequest(
+    val Id: string,
+    val Carrier: string,
+    val WeightKg: int,
+)
+```
+
+For classes and structs, primary-constructor parameters become properties only when declared with `val`/`var`.
+For records, positional parameters are promoted by default.
 
 ---
 
-## Pattern matching
+## Accessibility defaults
 
-Patterns test structure and extract data at the same time.
+Raven members are public by default. Use access modifiers (`private`, `internal`, `protected`) when you intentionally narrow visibility.
 
 ```raven
-val label = character match {
-    { Species: .Dog } => "Dog"
-    { Species: .Human } => "Human"
-    _ => "Other"
+class Counter(private var count: int = 0) {
+    func Increment() -> () {
+        count += 1
+    }
+
+    val Count: int => count
 }
 ```
-
-### Binding values
-
-```raven
-if result is .Ok(val value) {
-    WriteLine(value)
-}
-```
-
----
-
-## Result and Option
-
-Raven models recoverable failure as data. In practice, `Option<T>` and
-`Result<T, E>` are not isolated features; they are the primary carriers for
-flow-oriented APIs and extension-method pipelines.
-
-### Result
-
-```raven
-func Divide(a: int, b: int) -> Result<int, string> {
-    if b == 0 { return .Error("Division by zero") }
-    return .Ok(a / b)
-}
-```
-
-Propagation with `?` returns early on error:
-
-```raven
-val value = Divide(a, b)?
-```
-
-### Option
-
-```raven
-func FindFirstEven(values: int[]) -> Option<int> { ... }
-```
-
-`?` also propagates `.None`.
-
-### LINQ-style helpers on flow carriers
-
-Raven encourages extension methods that make `Option`/`Result` feel like native
-pipeline types. Typical helpers include `Map`, `Then`, `OrElse`, `UnwrapOr`,
-`FirstOrNone`, and `FirstOrError`.
-
-```raven
-import System.Linq.*
-
-func ResolvePrimaryEmail(users: User[]) -> Result<string, string> {
-    return users
-        .Where(u => u.IsActive)
-        .Select(u => u.Email)
-        .FirstOrError(() => "No active users")?
-        .Trim()
-        .ToLowerInvariant()
-}
-```
-
-This style keeps success and failure paths explicit while avoiding nested
-control flow.
-
----
-
-## Exception handling
-
-`try expr` converts exceptions to `Result<T, Exception>`.
-
-```raven
-val value = try int.Parse(text) match {
-    .Ok(val v) => v
-    .Error(_) => 0
-}
-```
-
-`try?` combines `try` with propagation.
 
 ---
 
 ## Async and await
 
 ```raven
+import System.Net.Http.*
+import System.Threading.Tasks.*
+
 async func DownloadLength(url: string) -> Task<int> {
     use http = HttpClient()
     val text = await http.GetStringAsync(url)
-    text.Length
-}
-```
-
----
-
-## Declarative programming
-
-### Object initializer trailers
-
-```raven
-val window = Window {
-    Title = "Main"
-    Width = 800
-
-    Button { Text = "OK" }
-    Button { Text = "Cancel" }
+    return text.Length
 }
 ```
 
@@ -381,16 +277,11 @@ WriteLine(numbers.Count)
 
 ---
 
-## Object-oriented programming
-
-Raven supports classes, interfaces, methods, properties, and events alongside unions and pattern matching.
-
----
-
 ## Where to go next
 
-- **Language specification:** `docs/lang/spec/language-specification.md`  
-- **Samples:** `samples/`  
-- **.NET mapping:** `docs/lang/dotnet-implementation.md`
+- [Getting started](getting-started.md)
+- [Language spec](lang/spec/language-specification.md)
+- [Classes and members](lang/spec/classes-and-members.md)
+- `samples/cases/`
 
-> ⚠️ This is a living document and may change.
+> This is a living document and may evolve with the language.
