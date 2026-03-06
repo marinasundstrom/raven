@@ -14,10 +14,10 @@ class Program
     private const string TargetFramework = "net9.0";
     static void Main()
     {
-        //QuoterTest();
+        QuoterTest();
         //PrintMembers();
         //ReadType();
-        Operations();
+        //Operations();
         //Docs();
     }
 

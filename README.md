@@ -196,6 +196,7 @@ Options:
 - `-r` &ndash; print the raw source (single file only)
 - `-b` &ndash; print the binder tree (single file only)
 - `-bt` &ndash; print the binder and bound tree (single file only)
+- `-q`, `--quote` &ndash; print the parsed syntax as compilable C# `SyntaxFactory` code using RavenQuoter defaults (includes trivia, static factory import, and named arguments)
 - `--symbols [list|hierarchy]` &ndash; inspect source symbols (`list` dumps properties, `hierarchy` prints the tree)
 - `-h`, `--help` &ndash; show help
 

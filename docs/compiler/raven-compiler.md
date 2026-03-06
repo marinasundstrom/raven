@@ -35,6 +35,7 @@ dotnet run --project src/Raven.Compiler -- init [--name <project-name>] [--frame
 - `-r` &ndash; print the raw source (single file only)
 - `-b` &ndash; print the binder tree (single file only)
 - `-bt` &ndash; print the binder and bound tree (single file only)
+- `-q`, `--quote` &ndash; print parsed syntax as compilable C# `SyntaxFactory` code via RavenQuoter (includes trivia, emits `using` directives, uses static `SyntaxFactory` import, and named arguments)
 - `--no-emit` &ndash; analyze only; skip assembly emission
 - `-h`, `--help` &ndash; show help
 

@@ -39,7 +39,7 @@ var stopwatch = Stopwatch.StartNew();
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
 // -bt               - print binder and bound tree (single file only)
-// -q                - print AST as C# compilable code
+// -q, --quote       - print AST as C# compilable code
 // --symbols [list|hierarchy] - inspect symbols produced from source
 // --doc-tool [ravendoc|comments] - documentation generator
 // --doc-format [md|xml] - documentation format (comment emission only)
@@ -93,7 +93,6 @@ var hasInvalidOption = false;
 var highlightDiagnostics = false;
 var showSuggestions = false;
 var quote = false;
-var quoteWithNamedArgs = false;
 var runIlVerify = false;
 string? ilVerifyPath = null;
 var enableAsyncInvestigation = false;
@@ -211,8 +210,6 @@ for (int i = 0; i < args.Length; i++)
         case "--quote":
         case "-q":
             quote = true;
-            if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
-                quoteWithNamedArgs = args[++i] == "1";
             break;
         case "--doc":
         case "--emit-docs":
@@ -1206,15 +1203,14 @@ if (symbolDumpMode != SymbolDumpMode.None)
 
 if (quote)
 {
-    var root = compilation.SyntaxTrees.First().GetRoot();
-    var quoted = RavenQuoter.Quote(root, new RavenQuoterOptions
+    var code = compilation.SyntaxTrees.First().GetText().ToString();
+    var quoted = RavenQuoter.QuoteText(code, new RavenQuoterOptions
     {
         IncludeTrivia = true,
         GenerateUsingDirectives = true,
         UseStaticSyntaxFactoryImport = true,
-        UseNamedArguments = quoteWithNamedArgs,
+        UseNamedArguments = true,
         IgnoreNullValue = true,
-        InlineSingleArg = false,
         UseFactoryPropsForSimpleTokens = true
     });
 
@@ -1689,7 +1685,7 @@ static void PrintHelp()
     Console.WriteLine("                     Log overload resolution details to the console or the provided file.");
     Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
     Console.WriteLine("  --suggestions    Display educational rewrite suggestions for diagnostics that provide them");
-    Console.WriteLine("  -q                 Display AST as compilable C# code");
+    Console.WriteLine("  -q, --quote        Display AST as compilable C# code.");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  --publish        Emit runtime artifacts; for .ravenproj defaults output to <project-dir>/bin/<Configuration>/publish");
     Console.WriteLine("  --fix            Apply supported code fixes to source files before compiling");
