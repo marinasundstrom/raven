@@ -220,7 +220,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
     private static DocumentSymbol CreateTypeSymbol(TypeDeclarationSyntax declaration, SymbolKind kind, SourceText text)
     {
-        var children = BuildMemberSymbols(declaration.Members, text).ToArray();
+        var children = BuildTypeChildSymbols(declaration, text).ToArray();
         return CreateSymbol(
             declaration.Identifier.Text,
             kind,
@@ -228,6 +228,55 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             declaration.Identifier.Span,
             text,
             children);
+    }
+
+    private static IEnumerable<DocumentSymbol> BuildTypeChildSymbols(TypeDeclarationSyntax declaration, SourceText text)
+    {
+        foreach (var symbol in BuildPromotedPrimaryConstructorPropertySymbols(declaration, text))
+            yield return symbol;
+
+        foreach (var symbol in BuildMemberSymbols(declaration.Members, text))
+            yield return symbol;
+    }
+
+    private static IEnumerable<DocumentSymbol> BuildPromotedPrimaryConstructorPropertySymbols(TypeDeclarationSyntax declaration, SourceText text)
+    {
+        var parameterList = declaration.ParameterList;
+        if (parameterList is null)
+            yield break;
+
+        var isRecord = declaration is RecordDeclarationSyntax;
+        foreach (var parameter in parameterList.Parameters)
+        {
+            if (!IsPromotedPropertyParameter(parameter, isRecord))
+                continue;
+
+            var outlineSpan = GetPromotedPropertyOutlineSpan(parameter);
+            yield return CreateSymbol(
+                parameter.Identifier.Text,
+                SymbolKind.Property,
+                outlineSpan,
+                outlineSpan,
+                text);
+        }
+    }
+
+    private static bool IsPromotedPropertyParameter(ParameterSyntax parameter, bool isRecord)
+    {
+        if (parameter.BindingKeyword is { } bindingKeyword)
+            return bindingKeyword.Kind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+
+        return isRecord;
+    }
+
+    private static TextSpan GetPromotedPropertyOutlineSpan(ParameterSyntax parameter)
+    {
+        var start = parameter.AccessibilityKeyword.Kind != SyntaxKind.None
+            ? parameter.AccessibilityKeyword.Span.Start
+            : parameter.BindingKeyword?.Span.Start ?? parameter.Identifier.Span.Start;
+
+        var end = parameter.Identifier.Span.End;
+        return new TextSpan(start, end - start);
     }
 
     private static DocumentSymbol CreateSymbol(
