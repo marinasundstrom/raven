@@ -15,8 +15,7 @@ Modifiers are C#-like but validated by the binder (e.g., `abstract` members
 require an `abstract` type; `override` requires a virtual base member).
 
 ```raven
-class Counter(name: string)
-{
+class Counter(name: string) {
     val Name: string => name
     private field _value: int = 0
 
@@ -52,8 +51,7 @@ Delegate declarations introduce callable types by naming the `Invoke` signature.
 ```raven
 delegate Transformer(value: int) -> string
 
-class Pipeline
-{
+class Pipeline {
     delegate Stage<T>(ref value: T) -> bool
 }
 ```
@@ -103,8 +101,7 @@ type name. The parameters become part of the type's identity and are available
 throughout the member list.
 
 ```raven
-class Box<T>
-{
+class Box<T> {
     val Value: T { get; }
 
     init(value: T) { Value = value }
@@ -125,8 +122,7 @@ specify `class`, `struct`, and/or nominal types that the argument must derive
 from or implement. Constraints are comma-separated and may appear in any order.
 
 ```raven
-class Repository<TContext: class, IDisposable>
-{
+class Repository<TContext: class, IDisposable> {
     init(context: TContext) { /* ... */ }
 }
 ```
@@ -204,8 +200,7 @@ For `class` / `struct`, parameter promotion is explicit:
 * semantic model note: unqualified identifier access to captured/promoted primary-constructor members resolves to the originating parameter symbol.
 
 ```raven
-class Person(val name: string, var age: int)
-{
+class Person(val name: string, var age: int) {
     func GetName() -> string => name
     func GetAge() -> int => age
 }
@@ -291,8 +286,8 @@ The compiler synthesizes backing storage. You can still provide accessors to
 refine behavior:
 
 ```raven
-public val Status: OrderStatus { private set; }
-public var Score: int {
+val Status: OrderStatus { private set; }
+var Score: int {
     get => field
     set => field = max(0, value)
 }
@@ -426,8 +421,7 @@ class Child : Parent {}
 If the base list contains additional types after the base class, each of those entries must be an interface that the class implements. When no base class is provided, the compiler implicitly uses `object` and treats the first entry as an interface instead:
 
 ```raven
-class Worker : IDisposable, ILogger
-{
+class Worker : IDisposable, ILogger {
     func Dispose() -> () { /* ... */ }
     func Log(message: string) -> () { /* ... */ }
 }
@@ -557,14 +551,12 @@ reassigned inside the body—for example, to reuse a scratch variable or to
 satisfy an `out` contract.
 
 ```raven
-func clamp(min: int, value: int, max: int) -> int
-{
+func clamp(min: int, value: int, max: int) -> int {
     // value = ...    // error: parameters are immutable by default
     return Math.Max(min, Math.Min(value, max))
 }
 
-func TryParse(text: string, out var result: &int) -> bool
-{
+func TryParse(text: string, out var result: &int) -> bool {
     result = 0      // ok: the parameter explicitly opts into mutation
     /* ... */
 }
@@ -579,8 +571,7 @@ location. Ordinary by-reference parameters omit `out` and behave like `ref`
 arguments in other languages.
 
 ```raven
-func Increment(var value: &int) -> ()
-{
+func Increment(var value: &int) -> () {
     value = value + 1
 }
 
@@ -597,8 +588,7 @@ types, `out`/by-ref modifiers, and nullability. Ambiguous calls produce a
 diagnostic.
 
 ```raven
-class Printer
-{
+class Printer {
     func Print(x: int) -> () => Console.WriteLine(x)
     func Print(x: string) -> () => Console.WriteLine(x)
 }
@@ -632,10 +622,9 @@ are supported in classes, structs, and extensions; extension operators follow
 the same `public static` requirements as type members.
 
 ```raven
-class Vector
-{
-    public static operator +(left: Vector, right: Vector) -> Vector => Add(left, right)
-    public static operator -(value: Vector) -> Vector { /* ... */ }
+class Vector {
+    static operator +(left: Vector, right: Vector) -> Vector => Add(left, right)
+    static operator -(value: Vector) -> Vector { /* ... */ }
 }
 ```
 
@@ -655,8 +644,7 @@ Declaring a method named `self` makes instances of the type invocable with the
 call operator `()`.
 
 ```raven
-class Adder
-{
+class Adder {
     func self(x: int, y: int) -> int => x + y
 }
 
@@ -672,8 +660,7 @@ methods with different parameter signatures.
 `interface` declarations describe a contract that other types may implement. Interfaces are reference types; they emit as abstract CLR interfaces and cannot be instantiated directly.
 
 ```raven
-interface ILogger
-{
+interface ILogger {
     func Log(message: string) -> ()
 }
 ```
@@ -695,12 +682,10 @@ interface IAsyncLogger : ILogger, IDisposable {}
 Classes and structs implement interfaces by listing them in their base list. The optional class base (if any) must appear first, followed by one or more interfaces. Implementing types must provide members whose signatures match every required interface member—name, parameter count, parameter types (including by-reference modifiers), and return type must align. Raven records the matching methods as final overrides and emits the necessary `InterfaceImpl` metadata so the CLR recognises the implementation.
 
 ```raven
-class FileLogger : ILogger, IDisposable
-{
+class FileLogger : ILogger, IDisposable {
     func Dispose() -> () { /* release resources */ }
 
-    func Log(message: string) -> ()
-    {
+    func Log(message: string) -> () {
         Console.WriteLine(message)
     }
 }
@@ -709,10 +694,8 @@ class FileLogger : ILogger, IDisposable
 An **explicit interface implementation** qualifies the member name with the interface type: `ILogger.Log`. Explicit members are always instance members, ignore `virtual`/`override` modifiers, and are not accessible through the implementing type by name; callers must reference the containing interface. The compiler emits these methods with metadata names like `Namespace.ILogger.Log` and wires them directly into the interface map.
 
 ```raven
-class QuietLogger : ILogger
-{
-    func ILogger.Log(message: string) -> string
-    {
+class QuietLogger : ILogger {
+    func ILogger.Log(message: string) -> string {
         return "[quiet]"
     }
 }

@@ -1183,8 +1183,7 @@ val window = Window() {
 Init-only accessors are treated as initializer-only members, so they may be assigned in object initializers:
 
 ```raven
-class Settings
-{
+class Settings {
     val Theme: string { init; }
     val FontSize: int { init; }
 }
@@ -1244,10 +1243,9 @@ If more than one content entry is provided for a type that uses the Content prop
 Members marked as **required** must be definitely assigned during object construction. A required member may be a field or property. Required members participate in object initializer checking and influence which constructors are considered complete.
 
 ```raven
-class Person
-{
-    public required val Name: string { init; }
-    public required val Age: int { init; }
+class Person {
+    required val Name: string { init; }
+    required val Age: int { init; }
 }
 
 val p = Person { Name = "Ada", Age = 36 }   // ok
@@ -1364,8 +1362,7 @@ Examples:
 
 ```raven
 // Named extension: can be imported and referenced by name.
-public extension StringExt for string
-{
+extension StringExt for string {
     func ToSlug() -> string => self.Trim().ToLowerInvariant().Replace(" ", "-")
 }
 
@@ -1376,8 +1373,7 @@ val slug = " Hello World ".ToSlug()
 ```raven
 // Unnamed extension: identifier omitted; the compiler synthesizes a mangled container name.
 // Intended for internal / assembly-local augmentation (and cannot be imported by name).
-extension for string
-{
+extension for string {
     func IsNullOrWhiteSpace() -> bool => self.Trim().Length == 0
 }
 
@@ -1387,9 +1383,8 @@ val empty = "   ".IsNullOrWhiteSpace()
 
 ```raven
 // Constrained extension: applicable only when the receiver satisfies the constraints.
-public trait ValueSequenceExt<T> for System.Collections.Generic.IEnumerable<T>
-    where T: struct
-{
+trait ValueSequenceExt<T> for System.Collections.Generic.IEnumerable<T>
+    where T: struct {
     func Sum() -> T { /* ... */ }
 }
 
@@ -1398,10 +1393,8 @@ public trait ValueSequenceExt<T> for System.Collections.Generic.IEnumerable<T>
 
 ```raven
 // Extension property: participates in member lookup like an instance property.
-extension ListIntExt for System.Collections.Generic.List<int>
-{
-    CountPlusOne: int
-    {
+extension ListIntExt for System.Collections.Generic.List<int> {
+    var CountPlusOne: int {
         get => self.Count + 1
         set => self.Add(value)
     }
@@ -1419,8 +1412,7 @@ items.CountPlusOne = 5          // invokes setter
 
 ```raven
 // Static extension members: accessed through the receiver type when no real static member matches.
-public extension ListStatics for System.Collections.Generic.List<int>
-{
+extension ListStatics for System.Collections.Generic.List<int> {
     static func Empty() -> System.Collections.Generic.List<int> => System.Collections.Generic.List<int>()
     static DefaultCapacity: int { get => 4 }
 }
@@ -1451,10 +1443,8 @@ Extension methods add callable helpers to the receiver type. They are declared
 inside an `extension` container as function members:
 
 ```raven
-extension StringExt for string
-{
-    func ToSlug() -> string
-    {
+extension StringExt for string {
+    func ToSlug() -> string {
         // inside the body, `self` is a synthesized parameter of type string
         return self.Trim().ToLowerInvariant().Replace(" ", "-")
     }
@@ -1486,8 +1476,8 @@ val items = List<int>()
 items.Add(1)
 items.Add(2)
 
-public extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T> {
-    public CountItems<B>(arg: T) -> B {
+extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T> {
+    func CountItems<B>(arg: T) -> B {
         return default(B)
     }
 }
@@ -1541,10 +1531,8 @@ they cannot declare backing storage, and both accessors must be implemented
 with bodies or expression clauses.
 
 ```raven
-extension ListExt for List<int>
-{
-    var CountPlusOne: int
-    {
+extension ListExt for List<int> {
+    var CountPlusOne: int {
         get => self.Count + 1
         set => self.Add(value)
     }
@@ -1582,7 +1570,7 @@ When the pipeline targets an invocation, the syntax mirrors a regular call:
 ```raven
 val result = 5 |> MathHelpers.Increment(2)
 
-public static class MathHelpers {
+static class MathHelpers {
     static func Increment(x: int, amount: int) -> int {
         return x + amount
     }
@@ -1648,9 +1636,9 @@ val container = Container()
 val _ = 42 |> container.Value
 val _ = 42 |> Container.Count
 
-public class Container {
-    Value: int { get; set; }
-    static Count: int { get; set; }
+class Container {
+    var Value: int { get; set; }
+    var static Count: int { get; set; }
 }
 ```
 
@@ -2506,28 +2494,23 @@ block scopes:
 ```raven
 // Members in the global namespace
 
-namespace A1
-{
+namespace A1 {
     import System.*
     import System.IO.*
 
     // Members here
 
-    namespace B1
-    {
+    namespace B1 {
         // Members here
     }
 }
 
-namespace A.B
-{
+namespace A.B {
     // Members here
 }
 ```
 
 The outermost undeclared namespace is the **global namespace**.
-
-## Entry points
 
 ## Enum declarations
 
@@ -2632,6 +2615,8 @@ instance field named `value__` whose type is the enum’s underlying type. Each
 enum member is emitted as a public static literal field whose constant value is
 stored using the underlying type.
 
+## Entry points
+
 ### Supported entry-point forms
 
 Console applications may start in any of the following shapes, all of which obey
@@ -2725,8 +2710,7 @@ Delegate declarations introduce named callable types. The declaration lists a pa
 ```raven
 delegate Transformer(value: int) -> string
 
-class Pipeline
-{
+class Pipeline {
     delegate Stage<T>(ref value: T) -> bool
 }
 ```
@@ -2741,8 +2725,7 @@ If the return type clause is omitted, the delegate returns `unit`. Delegate decl
 ## Functions
 
 ```raven
-func Foo(a: int, b: int) -> int
-{
+func Foo(a: int, b: int) -> int {
     a + b
 }
 ```
@@ -2796,8 +2779,7 @@ Only trailing parameters may be optional; omitting an argument fixes the default
 for that position and all following parameters must also declare defaults.
 
 ```raven
-func greet(name: string, punctuation: string = "!")
-{
+func greet(name: string, punctuation: string = "!") {
     Console.WriteLine("Hello, ${name}${punctuation}")
 }
 
@@ -2939,8 +2921,7 @@ Method declarations use the same syntax, and local functions follow the exact
 rules when they introduce type parameters inside another body:
 
 ```raven
-class Cache
-{
+class Cache {
     static store<T: class>(value: T) { /* ... */ }
 }
 
@@ -3242,7 +3223,7 @@ import System.Runtime.InteropServices.*
 
 class Native {
     [DllImport("kernel32", EntryPoint: "GetTickCount")]
-    public extern static GetTickCount() -> uint;
+    extern static GetTickCount() -> uint;
 }
 ```
 
