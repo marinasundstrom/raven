@@ -756,7 +756,7 @@ public class ParserNewlineTests
 
         var catchClause = statement.CatchClauses[0];
         Assert.NotNull(catchClause.Declaration);
-        Assert.Equal("ex", catchClause.Declaration!.Identifier?.Text);
+        Assert.Equal("ex", catchClause.Declaration!.Identifier.Text);
         Assert.NotNull(statement.FinallyClause);
     }
 

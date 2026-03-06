@@ -889,16 +889,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
             var body = new ExpressionSyntaxParser(this).ParseExpression();
-            if (body is BlockSyntax block)
-            {
-                blockBody = block;
-                expressionBody = null;
-            }
-            else
-            {
-                blockBody = null;
-                expressionBody = ArrowExpressionClause(fatArrowToken, body);
-            }
+            blockBody = null;
+            expressionBody = ArrowExpressionClause(fatArrowToken, body);
         }
         else
         {
@@ -1126,16 +1118,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
             var body = new ExpressionSyntaxParser(this).ParseExpression();
-            if (body is BlockSyntax block)
-            {
-                blockBody = block;
-                expressionBody = null;
-            }
-            else
-            {
-                blockBody = null;
-                expressionBody = ArrowExpressionClause(fatArrowToken, body);
-            }
+            blockBody = null;
+            expressionBody = ArrowExpressionClause(fatArrowToken, body);
         }
         else
         {

@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -170,11 +171,88 @@ public partial class SemanticModel
 
         SymbolInfo info;
 
-        if (node is ExpressionSyntax expression)
+        if (node is IdentifierNameSyntax identifier &&
+            identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
+            ReferenceEquals(memberAccess.Name, identifier))
         {
             EnsureDiagnosticsCollected();
-            var boundExpression = GetBoundNode(expression);
-            info = boundExpression.GetSymbolInfo();
+            var boundMemberAccess = (BoundExpression)GetBoundNode(memberAccess);
+            info = boundMemberAccess.GetSymbolInfo();
+        }
+        else if (node is IdentifierNameSyntax receiverIdentifier &&
+                 receiverIdentifier.Parent is MemberAccessExpressionSyntax receiverMemberAccess &&
+                 ReferenceEquals(receiverMemberAccess.Expression, receiverIdentifier))
+        {
+            EnsureDiagnosticsCollected();
+            var boundMemberAccess = (BoundExpression)GetBoundNode(receiverMemberAccess);
+            var receiverInfo = boundMemberAccess switch
+            {
+                BoundMemberAccessExpression memberAccessExpression => memberAccessExpression.Receiver.GetSymbolInfo(),
+                _ => boundMemberAccess.GetSymbolInfo()
+            };
+
+            if (receiverInfo.Symbol is not null || !receiverInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                info = receiverInfo;
+            }
+            else if (TryFindBoundNodeBySyntax(boundMemberAccess, receiverIdentifier, out var boundReceiverNode))
+            {
+                var resolvedFromChild = boundReceiverNode switch
+                {
+                    BoundExpression boundExpression => boundExpression.GetSymbolInfo(),
+                    BoundStatement boundStatement => boundStatement.GetSymbolInfo(),
+                    _ => default
+                };
+                if (resolvedFromChild.Symbol is not null || !resolvedFromChild.CandidateSymbols.IsDefaultOrEmpty)
+                {
+                    info = resolvedFromChild;
+                }
+                else
+                {
+                    var binder = GetBinder(node);
+                    info = binder.BindSymbol(node);
+                }
+            }
+            else
+            {
+                var binder = GetBinder(node);
+                info = binder.BindSymbol(node);
+            }
+        }
+        else if (node is IdentifierNameSyntax memberBindingIdentifier &&
+                 memberBindingIdentifier.Parent is MemberBindingExpressionSyntax memberBinding &&
+                 ReferenceEquals(memberBinding.Name, memberBindingIdentifier))
+        {
+            EnsureDiagnosticsCollected();
+            var boundMemberBinding = (BoundExpression)GetBoundNode(memberBinding);
+            info = boundMemberBinding.GetSymbolInfo();
+        }
+        else if (node is ExpressionSyntax expression)
+        {
+            EnsureDiagnosticsCollected();
+            var operation = GetOperation(expression, cancellationToken);
+            var operationSymbol = operation switch
+            {
+                IFieldReferenceOperation fieldReference => fieldReference.Field,
+                IPropertyReferenceOperation propertyReference => propertyReference.Property,
+                IMethodReferenceOperation methodReference => methodReference.Method,
+                IMemberReferenceOperation memberReference => memberReference.Symbol,
+                IInvocationOperation invocation => invocation.TargetMethod,
+                IParameterReferenceOperation parameterReference => parameterReference.Parameter,
+                ILocalReferenceOperation localReference => localReference.Local,
+                IVariableReferenceOperation variableReference => variableReference.Variable,
+                _ => null
+            };
+
+            if (operationSymbol is not null)
+            {
+                info = new SymbolInfo(operationSymbol);
+            }
+            else
+            {
+                var boundExpression = GetBoundNode(expression);
+                info = boundExpression.GetSymbolInfo();
+            }
         }
         else if (node is StatementSyntax statement)
         {
@@ -327,9 +405,7 @@ public partial class SemanticModel
         // null because those locals haven't been bound yet.
         EnsureDiagnosticsCollected();
 
-        var binder = GetBinder(expr);
-
-        var boundExpr = binder.BindExpression(expr);
+        var boundExpr = GetBoundNode(expr) as BoundExpression;
 
         if (boundExpr is null)
             return new TypeInfo(null, null);
@@ -443,6 +519,57 @@ public partial class SemanticModel
 
         if (view is BoundTreeView.Original)
         {
+            if (TryGetContextualBindingRoot(node, out var contextualRoot) &&
+                !ReferenceEquals(contextualRoot, node))
+            {
+                if (TryGetCachedBoundNode(contextualRoot) is not { } contextualBoundRoot)
+                {
+                    if (contextualRoot is CompilationUnitSyntax contextualCompilationUnit)
+                    {
+                        EnsureTopLevelCompilationUnitBound(contextualCompilationUnit);
+                        contextualBoundRoot = TryGetCachedBoundNode(contextualCompilationUnit)
+                            ?? CreateSyntheticTopLevelBlock(contextualCompilationUnit);
+                    }
+                    else
+                    {
+                        var contextualBinder = GetBinder(contextualRoot);
+                        contextualBoundRoot = contextualBinder.GetOrBind(contextualRoot);
+                    }
+                }
+
+                if (TryGetCachedBoundNode(node) is { } contextCachedNode)
+                    return contextCachedNode;
+
+                if (TryFindBoundNodeBySyntax(contextualBoundRoot, node, out var contextualBoundNode))
+                {
+                    CacheBoundNode(node, contextualBoundNode, GetBinder(node));
+                    return contextualBoundNode;
+                }
+            }
+
+            if (TryGetEnclosingFunctionExpression(node, out var enclosingFunctionExpression))
+            {
+                var cachedInFunctionBody = TryGetCachedBoundNode(node);
+                if (cachedInFunctionBody is null || IsLikelyStaleFunctionBodyNode(cachedInFunctionBody))
+                {
+                    var rebindRoot = GetFunctionExpressionRebindRoot(enclosingFunctionExpression);
+                    ClearCachedBoundNodes(rebindRoot);
+                    var reboundRoot = GetBoundNode(rebindRoot, view);
+                    if (TryGetCachedBoundNode(node) is { } reboundFromFunction)
+                        return reboundFromFunction;
+
+                    if (TryFindBoundNodeBySyntax(reboundRoot, node, out var reboundFromRoot))
+                    {
+                        CacheBoundNode(node, reboundFromRoot, GetBinder(node));
+                        return reboundFromRoot;
+                    }
+                }
+                else
+                {
+                    return cachedInFunctionBody;
+                }
+            }
+
             if (TryGetCachedBoundNode(node) is { } cachedNode)
                 return cachedNode;
 
@@ -503,6 +630,80 @@ public partial class SemanticModel
         return loweredNode;
     }
 
+    private static bool TryGetContextualBindingRoot(SyntaxNode node, out SyntaxNode root)
+    {
+        if (node is CompilationUnitSyntax)
+        {
+            root = node;
+            return false;
+        }
+
+        // Binding a node in isolation can drop scope/flow context (locals, overload shape).
+        // Prefer binding the enclosing executable scope first.
+        root = node.AncestorsAndSelf().OfType<BlockStatementSyntax>().FirstOrDefault()
+               ?? node.AncestorsAndSelf().OfType<ArrowExpressionClauseSyntax>().FirstOrDefault()
+               ?? node.AncestorsAndSelf().OfType<CompilationUnitSyntax>().FirstOrDefault()
+               ?? node;
+
+        return !ReferenceEquals(root, node);
+    }
+
+    private void ClearCachedBoundNodes(SyntaxNode node)
+    {
+        RemoveCachedBoundNode(node);
+        foreach (var child in node.DescendantNodes())
+            RemoveCachedBoundNode(child);
+    }
+
+    private static bool IsLikelyStaleFunctionBodyNode(BoundNode node)
+    {
+        return node switch
+        {
+            BoundErrorExpression => true,
+            BoundBlockExpression blockExpression when blockExpression.Type?.TypeKind == TypeKind.Error => true,
+            BoundExpression expression when expression.Type?.TypeKind == TypeKind.Error => true,
+            _ => false
+        };
+    }
+
+    private static SyntaxNode GetFunctionExpressionRebindRoot(FunctionExpressionSyntax functionExpression)
+    {
+        ExpressionSyntax? enclosingExpression = null;
+
+        for (var current = functionExpression.Parent; current is not null; current = current.Parent)
+        {
+            if (current is FunctionExpressionSyntax)
+                continue;
+
+            if (current is StatementSyntax statement)
+                return statement;
+
+            if (enclosingExpression is null && current is ExpressionSyntax expression)
+                enclosingExpression = expression;
+        }
+
+        return (SyntaxNode?)enclosingExpression ?? functionExpression;
+    }
+
+    private static bool TryGetEnclosingFunctionExpression(SyntaxNode node, out FunctionExpressionSyntax enclosingFunctionExpression)
+    {
+        for (var current = node.Parent; current is not null; current = current.Parent)
+        {
+            if (current is not FunctionExpressionSyntax functionExpression)
+                continue;
+
+            var body = (SyntaxNode?)functionExpression.Body ?? functionExpression.ExpressionBody;
+            if (body is not null && body.Span.Contains(node.Span))
+            {
+                enclosingFunctionExpression = functionExpression;
+                return true;
+            }
+        }
+
+        enclosingFunctionExpression = null!;
+        return false;
+    }
+
     /// <summary>
     /// Get the bound expression for a specific expression syntax node.
     /// </summary>
@@ -512,6 +713,43 @@ public partial class SemanticModel
     internal BoundExpression GetBoundNode(ExpressionSyntax expression)
     {
         return (BoundExpression)GetBoundNode((SyntaxNode)expression);
+    }
+
+    private bool TryFindBoundNodeBySyntax(BoundNode root, SyntaxNode targetSyntax, out BoundNode boundNode)
+    {
+        var stack = new Stack<BoundNode>();
+        var visited = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);
+        stack.Push(root);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            if (!visited.Add(current))
+                continue;
+
+            var currentSyntax = GetSyntax(current);
+            if (currentSyntax is null)
+                continue;
+
+            if (ReferenceEquals(currentSyntax, targetSyntax))
+            {
+                boundNode = current;
+                return true;
+            }
+
+            if (currentSyntax.Kind == targetSyntax.Kind &&
+                currentSyntax.Span == targetSyntax.Span)
+            {
+                boundNode = current;
+                return true;
+            }
+
+            foreach (var child in EnumerateBoundChildren(current))
+                stack.Push(child);
+        }
+
+        boundNode = null!;
+        return false;
     }
 
     private BoundNode LowerBoundNode(SyntaxNode syntaxNode, Binder binder, BoundNode boundNode)

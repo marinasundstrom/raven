@@ -33,7 +33,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var parameter = Assert.Single(declaration.ParameterList!.Parameters);
 
         Assert.Equal(SyntaxKind.PrivateKeyword, parameter.AccessibilityKeyword.Kind);
-        Assert.Equal(SyntaxKind.VarKeyword, parameter.BindingKeyword?.Kind);
+        Assert.Equal(SyntaxKind.VarKeyword, parameter.BindingKeyword.Kind);
         Assert.Empty(tree.GetDiagnostics());
     }
 
@@ -61,10 +61,8 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var declaration = Assert.IsType<InterfaceDeclarationSyntax>(Assert.Single(root.Members));
         var parameters = declaration.TypeParameterList!.Parameters;
 
-        Assert.True(parameters[0].VarianceKeyword.HasValue);
-        Assert.Equal(SyntaxKind.OutKeyword, parameters[0].VarianceKeyword!.Value.Kind);
-        Assert.True(parameters[1].VarianceKeyword.HasValue);
-        Assert.Equal(SyntaxKind.InKeyword, parameters[1].VarianceKeyword!.Value.Kind);
+        Assert.Equal(SyntaxKind.OutKeyword, parameters[0].VarianceKeyword.Kind);
+        Assert.Equal(SyntaxKind.InKeyword, parameters[1].VarianceKeyword.Kind);
         Assert.Empty(tree.GetDiagnostics());
     }
 

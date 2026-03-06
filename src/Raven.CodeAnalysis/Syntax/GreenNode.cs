@@ -99,7 +99,13 @@ public abstract class GreenNode
             var child = GetSlot(i);
             if (child == null) continue;
 
-            if (child is InternalSyntax.SyntaxToken t) return t;
+            if (child is InternalSyntax.SyntaxToken t)
+            {
+                if (t.Kind != SyntaxKind.None)
+                    return t;
+
+                continue;
+            }
 
             var tok = child.GetFirstToken();
             if (tok != null) return tok; // keep scanning siblings if null
@@ -114,7 +120,13 @@ public abstract class GreenNode
             var child = GetSlot(i);
             if (child == null) continue;
 
-            if (child is InternalSyntax.SyntaxToken t) return t;
+            if (child is InternalSyntax.SyntaxToken t)
+            {
+                if (t.Kind != SyntaxKind.None)
+                    return t;
+
+                continue;
+            }
 
             var tok = child.GetLastToken();
             if (tok != null) return tok; // keep scanning siblings if null

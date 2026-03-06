@@ -3963,12 +3963,55 @@ public partial class SemanticModel
 
     internal void CacheBoundNode(SyntaxNode node, BoundNode bound, Binder? binder = null)
     {
-        _boundNodeCache[node] = bound;
-        _syntaxCache[bound] = node;
+        BoundNode selectedBound = bound;
+        _boundNodeCache.AddOrUpdate(
+            node,
+            _ => bound,
+            (_, existing) =>
+            {
+                if (ShouldReplaceCachedBoundNode(existing, bound))
+                    return bound;
+
+                selectedBound = existing;
+                return existing;
+            });
+
+        _syntaxCache[selectedBound] = node;
         if (IsDebuggingEnabled && binder is not null)
         {
-            _boundNodeCache2.TryAdd(node, (binder, bound));
+            _boundNodeCache2.AddOrUpdate(
+                node,
+                _ => (binder, selectedBound),
+                (_, existing) =>
+                {
+                    if (ShouldReplaceCachedBoundNode(existing.Item2, bound))
+                        return (binder, bound);
+
+                    return existing;
+                });
         }
+    }
+
+    private static bool ShouldReplaceCachedBoundNode(BoundNode existing, BoundNode incoming)
+    {
+        var existingIsError = IsErrorBoundNode(existing);
+        var incomingIsError = IsErrorBoundNode(incoming);
+
+        if (existingIsError != incomingIsError)
+            return existingIsError;
+
+        return true;
+    }
+
+    private static bool IsErrorBoundNode(BoundNode node)
+    {
+        if (node is BoundErrorExpression)
+            return true;
+
+        if (node is BoundExpression expression)
+            return expression.Type?.TypeKind == TypeKind.Error;
+
+        return false;
     }
 
     internal void CacheLoweredBoundNode(SyntaxNode node, BoundNode bound, Binder? binder = null)
@@ -4112,6 +4155,8 @@ public partial class SemanticModel
             _syntaxCache.TryRemove(bound, out _);
 
         _boundNodeCache.TryRemove(node, out _);
+        _symbolMappings.TryRemove(node, out _);
+        _operationCache.TryRemove(node, out _);
         if (_loweredBoundNodeCache.TryGetValue(node, out var loweredBound))
             _loweredSyntaxCache.TryRemove(loweredBound, out _);
 
@@ -4122,6 +4167,14 @@ public partial class SemanticModel
             _boundNodeCache2.TryRemove(node, out _);
             _loweredBoundNodeCache2.TryRemove(node, out _);
         }
+    }
+
+    internal void RemoveCachedBinder(SyntaxNode node)
+    {
+        _binderCache.TryRemove(node, out _);
+
+        if (CanUseStructuralBinderCache(node))
+            _binderCacheByKey.TryRemove(GetSyntaxNodeMapKey(node), out _);
     }
 
     internal SyntaxNode? GetSyntax(BoundNode node)

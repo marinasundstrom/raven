@@ -1676,6 +1676,11 @@ internal abstract partial class Binder
         SemanticModel?.RemoveCachedBoundNode(node);
     }
 
+    protected void RemoveCachedBinder(SyntaxNode node)
+    {
+        SemanticModel?.RemoveCachedBinder(node);
+    }
+
     public virtual BoundNode GetOrBind(SyntaxNode node)
     {
         if (TryGetCachedBoundNode(node) is BoundNode cached)
@@ -1699,6 +1704,8 @@ internal abstract partial class Binder
 
             _ => throw new NotSupportedException($"Unsupported node kind: {node.Kind}")
         };
+
+        CacheBoundNode(node, result);
         return result;
     }
 

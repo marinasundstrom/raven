@@ -654,6 +654,16 @@ partial class BlockBinder
             boundLambda.AttachUnbound(unbound);
         }
 
+        // This bind can be provisional while overload resolution is still exploring delegate candidates.
+        // Avoid leaking stale body-node bindings (e.g. x: Error) into the semantic cache; selected replay
+        // will rebind and repopulate body nodes with the final delegate shape.
+        var isProvisionalCandidateBind =
+            syntax.Parent is ArgumentSyntax &&
+            !candidateDelegates.IsDefaultOrEmpty &&
+            candidateDelegates.Length > 1;
+        if (isProvisionalCandidateBind)
+            ClearCachedLambdaBodyNodes(lambdaBodySyntaxNode);
+
         return boundLambda;
     }
 
@@ -1297,9 +1307,16 @@ partial class BlockBinder
             var key = new FunctionExpressionRebindKey(syntax, delegateType);
             if (_reboundLambdaCache.TryGetValue(key, out var cached))
             {
+                if (!HasCachedLambdaBodyBindings(syntax))
+                {
+                    _reboundLambdaCache.Remove(key);
+                }
+                else
+                {
                 instrumentation.RecordCacheHit();
                 instrumentation.RecordReplaySuccess();
                 return cached;
+                }
             }
 
             instrumentation.RecordCacheMiss();
@@ -1667,6 +1684,37 @@ partial class BlockBinder
 
     private static SyntaxNode GetLambdaBodySyntaxNode(FunctionExpressionSyntax syntax)
         => (SyntaxNode?)syntax.Body ?? (SyntaxNode?)syntax.ExpressionBody ?? syntax;
+
+    private bool HasCachedLambdaBodyBindings(FunctionExpressionSyntax syntax)
+    {
+        var bodyNode = GetLambdaBodySyntaxNode(syntax);
+        if (TryGetCachedBoundNode(bodyNode) is null)
+            return false;
+
+        // Ensure semantic queries for leaf expressions (like `x` in `x.Result`) can
+        // resolve from cache after replay cache hits.
+        foreach (var child in bodyNode.DescendantNodes())
+        {
+            if (child is IdentifierNameSyntax or MemberAccessExpressionSyntax)
+            {
+                if (TryGetCachedBoundNode(child) is null)
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void ClearCachedLambdaBodyNodes(SyntaxNode bodyNode)
+    {
+        RemoveCachedBoundNode(bodyNode);
+        RemoveCachedBinder(bodyNode);
+        foreach (var child in bodyNode.DescendantNodes())
+        {
+            RemoveCachedBoundNode(child);
+            RemoveCachedBinder(child);
+        }
+    }
 
     private void ReportSuppressedLambdaDiagnostics(IEnumerable<BoundArgument> arguments)
     {

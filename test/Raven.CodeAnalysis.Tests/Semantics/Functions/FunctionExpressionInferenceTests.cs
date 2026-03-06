@@ -1002,9 +1002,51 @@ class C {
 
         Assert.Contains(
             diagnostics,
-            diagnostic => ReferenceEquals(
+                diagnostic => ReferenceEquals(
                 diagnostic.Descriptor,
                 CompilerDiagnostics.StaticFunctionExpressionCannotCapture));
+    }
+
+    [Fact]
+    public void ContinueWith_FunctionExpressionBody_ResolvesReceiverAndResultMember()
+    {
+        const string code = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Main() -> Task {
+    val f = async func (a: int, b: int) {
+        await Task.FromResult(a + b)
+    }
+
+    val x = f(2, 3).ContinueWith(x => {
+        x.Result
+    })
+
+    WriteLine(await f(2, 3))
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(access => access.Name is IdentifierNameSyntax { Identifier.ValueText: "Result" });
+
+        var resultSymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(memberAccess).Symbol);
+        Assert.Equal("Result", resultSymbol.Name);
+        Assert.Equal(SpecialType.System_Int32, resultSymbol.Type.SpecialType);
+
+        var receiverIdentifier = Assert.IsType<IdentifierNameSyntax>(memberAccess.Expression);
+        var receiverSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(receiverIdentifier).Symbol);
+        var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverSymbol.Type);
+        Assert.Equal("Task", receiverType.Name);
+        Assert.Equal(1, receiverType.TypeArguments.Length);
+        Assert.Equal(SpecialType.System_Int32, receiverType.TypeArguments[0].SpecialType);
     }
 }
 

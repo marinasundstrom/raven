@@ -13,19 +13,47 @@ internal static class SymbolResolver
     {
         foreach (var candidate in GetCandidateNodes(root, offset))
         {
+            if (TryResolveMemberTokenFastPath(semanticModel, candidate.Token, out var memberTokenSymbol))
+                return new SymbolResolutionResult(
+                    memberTokenSymbol.UnderlyingSymbol,
+                    candidate.Token.Parent ?? candidate.Node);
+
             if (ShouldSkipCandidateNode(candidate.Node, candidate.Token))
                 continue;
 
             var symbol = ResolveSymbolFromNode(semanticModel, candidate.Node, candidate.Token);
             if (symbol is not null)
-                return new SymbolResolutionResult(symbol.UnderlyingSymbol, candidate.Node);
+                return new SymbolResolutionResult(symbol.UnderlyingSymbol, candidate.Token.Parent ?? candidate.Node);
         }
 
         return null;
     }
 
+    private static bool TryResolveMemberTokenFastPath(
+        SemanticModel semanticModel,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        if (token.Parent is not IdentifierNameSyntax identifier ||
+            identifier.Parent is not MemberAccessExpressionSyntax memberAccess ||
+            !ReferenceEquals(memberAccess.Name, identifier))
+        {
+            return false;
+        }
+
+        if (!TryResolveMemberFromReceiverType(semanticModel, memberAccess, out var resolved))
+            return false;
+
+        symbol = ProjectSymbolForDisplay(resolved);
+        return symbol is not null;
+    }
+
     private static IEnumerable<CandidateNode> GetCandidateNodes(SyntaxNode root, int offset)
     {
+        TextSpan? primaryTokenSpan = null;
+
         foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
             SyntaxToken token;
@@ -35,6 +63,17 @@ internal static class SymbolResolver
             }
             catch
             {
+                continue;
+            }
+
+            if (primaryTokenSpan is null)
+            {
+                primaryTokenSpan = token.Span;
+            }
+            else if (primaryTokenSpan.Value.Contains(offset))
+            {
+                // Original offset already maps to a concrete token; don't let fallback
+                // offsets (for boundary handling) hijack resolution to adjacent symbols.
                 continue;
             }
 
@@ -82,6 +121,9 @@ internal static class SymbolResolver
         if (TryResolveMemberSegmentSymbol(semanticModel, node, token, out var memberSegmentSymbol))
             return memberSegmentSymbol;
 
+        if (TryResolveMemberReceiverSymbol(semanticModel, node, token, out var receiverSymbol))
+            return receiverSymbol;
+
         if (node is ParameterSyntax parameterDeclaration && token == parameterDeclaration.Identifier)
             return semanticModel.GetDeclaredSymbol(parameterDeclaration);
 
@@ -96,8 +138,14 @@ internal static class SymbolResolver
         }
 
         if (node is FunctionExpressionSyntax lambdaExpression &&
-            token.Span.IntersectsWith(lambdaExpression.Span))
+            IsFunctionExpressionDeclarationToken(lambdaExpression, token) &&
+            !IsInsideFunctionExpressionBody(lambdaExpression, token))
         {
+            var lambdaTypeInfo = semanticModel.GetTypeInfo(lambdaExpression);
+            var lambdaTargetType = lambdaTypeInfo.ConvertedType ?? lambdaTypeInfo.Type;
+            if (lambdaTargetType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
+                return delegateType;
+
             var lambdaSymbolInfo = semanticModel.GetSymbolInfo(lambdaExpression);
             if (lambdaSymbolInfo.Symbol is not null || !lambdaSymbolInfo.CandidateSymbols.IsDefaultOrEmpty)
                 return ChoosePreferredSymbol(lambdaSymbolInfo.Symbol, lambdaSymbolInfo.CandidateSymbols, lambdaExpression);
@@ -132,6 +180,44 @@ internal static class SymbolResolver
         };
 
         return ProjectSymbolForDisplay(operationSymbol);
+    }
+
+    private static bool TryResolveMemberReceiverSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        if (node is not IdentifierNameSyntax identifier ||
+            identifier.Parent is not MemberAccessExpressionSyntax memberAccess ||
+            !ReferenceEquals(memberAccess.Expression, identifier) ||
+            !identifier.Span.Contains(token.Span))
+        {
+            return false;
+        }
+
+        // Prime member-access binding first so receiver symbols are resolved in the
+        // final overload-selected lambda scope.
+        _ = semanticModel.GetSymbolInfo(memberAccess);
+
+        var receiverInfo = semanticModel.GetSymbolInfo(identifier);
+        var receiverCandidate = ChoosePreferredSymbol(receiverInfo.Symbol, receiverInfo.CandidateSymbols, identifier);
+        if (receiverCandidate is IParameterSymbol parameter &&
+            parameter.Type?.TypeKind != TypeKind.Error)
+        {
+            symbol = ProjectSymbolForDisplay(parameter);
+            return symbol is not null;
+        }
+
+        var operation = semanticModel.GetOperation(memberAccess);
+        var referenced = FindReferencedSymbolAtToken(operation, identifier.Identifier.Span);
+        if (referenced is null)
+            return false;
+
+        symbol = ProjectSymbolForDisplay(referenced);
+        return symbol is not null;
     }
 
     private static bool IsTypeContext(SyntaxNode node)
@@ -171,6 +257,37 @@ internal static class SymbolResolver
         if (targetNode is null)
             return false;
 
+        if (targetNode is MemberAccessExpressionSyntax memberAccessTarget)
+        {
+            if (TryResolveMemberFromReceiverType(semanticModel, memberAccessTarget, out var typeMember))
+            {
+                symbol = ProjectSymbolForDisplay(typeMember);
+                if (symbol is not null)
+                    return true;
+            }
+
+            var nameInfo = semanticModel.GetSymbolInfo(memberAccessTarget.Name);
+            if (nameInfo.Symbol is not null || !nameInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                symbol = ChoosePreferredSymbol(nameInfo.Symbol, nameInfo.CandidateSymbols, memberAccessTarget.Name);
+                symbol = ProjectSymbolForDisplay(symbol);
+                if (symbol is not null)
+                    return true;
+            }
+        }
+
+        if (targetNode is MemberBindingExpressionSyntax memberBindingTarget)
+        {
+            var nameInfo = semanticModel.GetSymbolInfo(memberBindingTarget.Name);
+            if (nameInfo.Symbol is not null || !nameInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                symbol = ChoosePreferredSymbol(nameInfo.Symbol, nameInfo.CandidateSymbols, memberBindingTarget.Name);
+                symbol = ProjectSymbolForDisplay(symbol);
+                if (symbol is not null)
+                    return true;
+            }
+        }
+
         var directInfo = semanticModel.GetSymbolInfo(targetNode);
         if (directInfo.Symbol is not null || !directInfo.CandidateSymbols.IsDefaultOrEmpty)
         {
@@ -199,6 +316,20 @@ internal static class SymbolResolver
         {
             symbol = ProjectSymbolForDisplay(fallbackSymbol);
             return true;
+        }
+
+        // Last-chance fallback: bind at statement scope and find the symbol by token span.
+        // This helps when node-local symbol caches are stale for function-expression bodies.
+        var containingStatement = targetNode.AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault();
+        if (containingStatement is not null)
+        {
+            var statementOperation = semanticModel.GetOperation(containingStatement);
+            var statementSymbol = FindReferencedSymbolAtToken(statementOperation, token.Span);
+            if (statementSymbol is not null)
+            {
+                symbol = ProjectSymbolForDisplay(statementSymbol);
+                return true;
+            }
         }
 
         return false;
@@ -407,6 +538,196 @@ internal static class SymbolResolver
             }
         }
 
+        return false;
+    }
+
+    private static bool TryResolveMemberFromReceiverType(
+        SemanticModel semanticModel,
+        MemberAccessExpressionSyntax memberAccess,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        if (memberAccess.Name is not IdentifierNameSyntax identifierName)
+            return false;
+
+        var memberName = identifierName.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(memberName))
+            return false;
+
+        var receiverType = semanticModel.GetTypeInfo(memberAccess.Expression).Type;
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+        {
+            var receiverSymbol = semanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
+            receiverType = receiverSymbol switch
+            {
+                ILocalSymbol local => local.Type,
+                IParameterSymbol parameter => parameter.Type,
+                IPropertySymbol property => property.Type,
+                IFieldSymbol field => field.Type,
+                _ => null
+            };
+        }
+
+        if ((receiverType is null || receiverType.TypeKind == TypeKind.Error) &&
+            memberAccess.Expression is IdentifierNameSyntax receiverIdentifier &&
+            TryGetEnclosingFunctionExpression(memberAccess, out var enclosingFunctionExpression))
+        {
+            if (TryInferFunctionParameterTypeFromInvocationContext(
+                    semanticModel,
+                    enclosingFunctionExpression,
+                    receiverIdentifier.Identifier.ValueText,
+                    memberName,
+                    out var inferredFromInvocation))
+            {
+                receiverType = inferredFromInvocation;
+            }
+
+            var functionType = semanticModel.GetTypeInfo(enclosingFunctionExpression).ConvertedType ??
+                               semanticModel.GetTypeInfo(enclosingFunctionExpression).Type;
+            if (functionType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
+                delegateType.GetDelegateInvokeMethod() is { } invokeMethod)
+            {
+                IParameterSymbol? matchedParameter = null;
+
+                if (invokeMethod.Parameters.Length == 1)
+                {
+                    matchedParameter = invokeMethod.Parameters[0];
+                }
+                else
+                {
+                    matchedParameter = invokeMethod.Parameters.FirstOrDefault(
+                        p => string.Equals(p.Name, receiverIdentifier.Identifier.ValueText, StringComparison.Ordinal));
+                }
+
+                if (matchedParameter is not null)
+                    receiverType = matchedParameter.Type;
+            }
+
+            var functionInfo = semanticModel.GetSymbolInfo(enclosingFunctionExpression);
+            if (functionInfo.Symbol is IMethodSymbol lambdaMethod)
+            {
+                var parameter = lambdaMethod.Parameters.FirstOrDefault(
+                    p => string.Equals(p.Name, receiverIdentifier.Identifier.ValueText, StringComparison.Ordinal));
+
+                if (parameter is not null)
+                    receiverType = parameter.Type;
+            }
+        }
+
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return false;
+
+        var namedReceiverType = receiverType as INamedTypeSymbol;
+        if (namedReceiverType is null)
+            return false;
+
+        foreach (var candidate in namedReceiverType.GetMembers(memberName))
+        {
+            if (candidate is IPropertySymbol or IFieldSymbol or IEventSymbol or IMethodSymbol)
+            {
+                symbol = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryInferFunctionParameterTypeFromInvocationContext(
+        SemanticModel semanticModel,
+        FunctionExpressionSyntax functionExpression,
+        string receiverIdentifierName,
+        string requiredMemberName,
+        out ITypeSymbol? inferredType)
+    {
+        inferredType = null;
+
+        if (functionExpression.Parent is not ArgumentSyntax argument ||
+            argument.Parent is not ArgumentListSyntax argumentList ||
+            argumentList.Parent is not InvocationExpressionSyntax invocation)
+        {
+            return false;
+        }
+
+        var argumentIndex = 0;
+        foreach (var candidate in argumentList.Arguments)
+        {
+            if (ReferenceEquals(candidate, argument))
+                break;
+
+            argumentIndex++;
+        }
+
+        IEnumerable<IMethodSymbol> candidateMethods;
+        if (invocation.Expression is MemberAccessExpressionSyntax invocationMemberAccess &&
+            invocationMemberAccess.Name is IdentifierNameSyntax memberIdentifier)
+        {
+            var invocationReceiverType = semanticModel.GetTypeInfo(invocationMemberAccess.Expression).Type;
+            if (invocationReceiverType is not INamedTypeSymbol invocationReceiverNamed)
+                return false;
+
+            candidateMethods = invocationReceiverNamed
+                .GetMembers(memberIdentifier.Identifier.ValueText)
+                .OfType<IMethodSymbol>();
+        }
+        else
+        {
+            return false;
+        }
+
+        ITypeSymbol? fallback = null;
+        foreach (var method in candidateMethods)
+        {
+            if (method.Parameters.Length <= argumentIndex)
+                continue;
+
+            var delegateType = method.Parameters[argumentIndex].Type as INamedTypeSymbol;
+            if (delegateType?.TypeKind != TypeKind.Delegate)
+                continue;
+
+            var invokeMethod = delegateType.GetDelegateInvokeMethod();
+            if (invokeMethod is null || invokeMethod.Parameters.IsDefaultOrEmpty)
+                continue;
+
+            IParameterSymbol? lambdaParameter = invokeMethod.Parameters.Length == 1
+                ? invokeMethod.Parameters[0]
+                : invokeMethod.Parameters.FirstOrDefault(
+                    p => string.Equals(p.Name, receiverIdentifierName, StringComparison.Ordinal));
+
+            if (lambdaParameter is null)
+                continue;
+
+            var parameterType = lambdaParameter.Type is NullableTypeSymbol nullable
+                ? nullable.UnderlyingType
+                : lambdaParameter.Type;
+
+            fallback ??= parameterType;
+
+            if (parameterType is INamedTypeSymbol named &&
+                named.GetMembers(requiredMemberName).Length > 0)
+            {
+                inferredType = parameterType;
+                return true;
+            }
+        }
+
+        inferredType = fallback;
+        return inferredType is not null;
+    }
+
+    private static bool TryGetEnclosingFunctionExpression(SyntaxNode node, out FunctionExpressionSyntax functionExpression)
+    {
+        for (var current = node.Parent; current is not null; current = current.Parent)
+        {
+            if (current is FunctionExpressionSyntax candidate)
+            {
+                functionExpression = candidate;
+                return true;
+            }
+        }
+
+        functionExpression = null!;
         return false;
     }
 
@@ -651,6 +972,9 @@ internal static class SymbolResolver
             VariableDeclarationSyntax => true,
             VariableDeclaratorSyntax declarator => token != declarator.Identifier,
             FunctionStatementSyntax functionStatement => !IsFunctionDeclarationToken(functionStatement, token),
+            FunctionExpressionSyntax functionExpression =>
+                !IsFunctionExpressionDeclarationToken(functionExpression, token) ||
+                IsInsideFunctionExpressionBody(functionExpression, token),
             MethodDeclarationSyntax methodDeclaration => token != methodDeclaration.Identifier,
             BaseTypeDeclarationSyntax typeDeclaration => token != typeDeclaration.Identifier,
             UnionCaseClauseSyntax unionCaseClause => token != unionCaseClause.Identifier,
@@ -678,6 +1002,36 @@ internal static class SymbolResolver
             return token.SpanStart < expressionBody.Span.Start;
 
         return true;
+    }
+
+    private static bool IsFunctionExpressionDeclarationToken(FunctionExpressionSyntax functionExpression, SyntaxToken token)
+    {
+        if (!token.Span.IntersectsWith(functionExpression.Span))
+            return false;
+
+        if (functionExpression.Body is { } body)
+        {
+            if (token == body.OpenBraceToken || token == body.CloseBraceToken)
+                return true;
+
+            return token.SpanStart < body.Span.Start;
+        }
+
+        if (functionExpression.ExpressionBody is { } expressionBody)
+            return token.SpanStart < expressionBody.Expression.Span.Start;
+
+        return true;
+    }
+
+    private static bool IsInsideFunctionExpressionBody(FunctionExpressionSyntax functionExpression, SyntaxToken token)
+    {
+        if (functionExpression.Body?.Span.Contains(token.Span) == true)
+            return true;
+
+        if (functionExpression.ExpressionBody?.Expression.Span.Contains(token.Span) == true)
+            return true;
+
+        return false;
     }
 
     private static bool TryResolvePatternDeclaredSymbol(SemanticModel semanticModel, SyntaxNode node, SyntaxToken token, out ISymbol? symbol)
