@@ -201,4 +201,23 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         Assert.Equal(Accessibility.Private, property.DeclaredAccessibility);
         Assert.Equal("name", property.Name);
     }
+
+    [Fact]
+    public void PrimaryConstructor_SynthesizesPublicConstructor()
+    {
+        var source = """
+            class Foo(value: int) {
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var typeDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(typeDeclaration));
+        var constructor = Assert.Single(type.InstanceConstructors.Where(c => c.MethodKind == MethodKind.Constructor));
+
+        Assert.Equal(Accessibility.Public, constructor.DeclaredAccessibility);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }

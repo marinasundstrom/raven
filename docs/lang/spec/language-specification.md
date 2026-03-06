@@ -1277,7 +1277,7 @@ val p = Person("Ada", 36)   // ok
 Primary-constructor behavior is intentionally split:
 
 1. `class`/`struct`: parameters marked with `val` or `var` are promoted to properties; parameters without a binding keyword are captured in compiler-generated private storage for member access, but are not promoted to public properties. Promoted parameters may include an access modifier (`public`/`internal`/`protected`/`private`) before `val`/`var` to set synthesized property accessibility (default `public`).
-2. `record class`/`record struct`: positional parameters define the record's public data shape via synthesized properties and value members. When no binding keyword is present, record parameters are promoted as `val` properties by default.
+2. `record class`/`record struct`: positional parameters define the record's public data shape via synthesized properties and value members. When no binding keyword is present, record parameters are promoted as `val` properties by default. Value-shape synthesis (`Equals`, `GetHashCode`, `Deconstruct`, `ToString`, record copy/with flow, and equality operators) includes only **public** promoted properties; non-public promoted properties are excluded and produce a compiler warning.
 3. Constructor calls require invocation syntax (`Foo(...)` or `Foo()`); a standalone type name (`Foo`) is not a value expression, while `Foo { ... }` remains a valid object initializer form.
 4. Member declarations cannot reuse the immediate containing type's name.
 
@@ -1331,6 +1331,8 @@ record Point(X: int, Y: int)
 val origin = Point { X = 0, Y = 0 }
 val moved = origin with { X = 10 }
 ```
+
+For records, synthesized copy/clone behavior follows the record value shape and therefore includes only public promoted properties; non-public promoted properties are not copied by synthesized record copy semantics.
 
 When binding a with expression, the compiler selects the first applicable strategy in the following order:
 
@@ -2352,13 +2354,13 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
 
 * `RecordType(pattern1, pattern2, …)` — **record pattern**. Matches when the
   scrutinee can be treated as `RecordType` and each positional subpattern matches
-  the corresponding record property in primary-constructor order.
+  the corresponding record value-shape property in deconstruct order.
 
   * Record patterns are only valid on `record` types.
   * Record patterns use the record’s `Deconstruct` method to obtain positional
     values.
   * Each positional element is a pattern, so bindings still require `val`/`var`.
-  * The number of positional elements must match the record’s primary-constructor
+  * The number of positional elements must match the record’s `Deconstruct`
     parameters; mismatches are errors.
   * When the scrutinee is a discriminated union, `CaseName(...)` in record-pattern
     syntax is interpreted as a discriminated-union case pattern and binds the case

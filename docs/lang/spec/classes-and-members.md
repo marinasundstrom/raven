@@ -242,7 +242,7 @@ record struct Point(x: int, y: int);          // explicit record struct
 Primary-constructor semantics differ between nominal types and records:
 
 * `class` / `struct`: only `val`/`var` parameters are promoted to properties; parameters without a binding keyword are captured in synthesized private instance storage for member access. Access modifiers on primary-constructor parameters are valid only when the parameter is promoted.
-* `record class` / `record struct`: positional parameters are promoted to public auto-properties by default (as `val` when no binding keyword is specified, or `var` when `var` is specified). The compiler synthesizes value-based members such as `Equals`, `GetHashCode`, deconstruction, and record equality operators.
+* `record class` / `record struct`: positional parameters are promoted to public auto-properties by default (as `val` when no binding keyword is specified, or `var` when `var` is specified). The compiler synthesizes value-based members from the record's **public** promoted properties (`Equals`, `GetHashCode`, deconstruction, `ToString`, copy/with behavior, and record equality operators). Non-public promoted properties are not part of that value shape, and the compiler reports a warning when such a parameter is declared.
 
 ```raven
 record class Person(name: string, age: int);

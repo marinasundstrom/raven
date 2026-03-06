@@ -3194,7 +3194,7 @@ public partial class SemanticModel
             [classDecl.GetReference()],
             isStatic: false,
             methodKind: MethodKind.Constructor,
-            declaredAccessibility: classSymbol.DeclaredAccessibility);
+            declaredAccessibility: Accessibility.Public);
 
         if (isRecord)
         {
@@ -3292,6 +3292,7 @@ public partial class SemanticModel
                         continue;
                     }
 
+                    var promotedPropertyAccessibility = GetPrimaryConstructorPropertyAccessibility(accessibilityKeywordKind);
                     var propertySymbol = CreatePrimaryConstructorProperty(
                         classSymbol,
                         parameterSymbol,
@@ -3299,12 +3300,21 @@ public partial class SemanticModel
                         parameterType,
                         namespaceSymbol,
                         classBinder,
-                        GetPrimaryConstructorPropertyAccessibility(accessibilityKeywordKind),
+                        promotedPropertyAccessibility,
                         applyRecordInheritanceSemantics: isRecord,
                         markRequired: isRecord);
 
                     if (isRecord && propertySymbol is not null)
+                    {
                         recordProperties?.Add(propertySymbol);
+
+                        if (promotedPropertyAccessibility is not Accessibility.Public)
+                        {
+                            classBinder.Diagnostics.ReportNonPublicRecordPrimaryConstructorPropertyExcludedFromValueSemantics(
+                                propertySymbol.Name,
+                                parameterSyntax.Identifier.GetLocation());
+                        }
+                    }
                 }
                 else
                 {
@@ -3714,8 +3724,9 @@ public partial class SemanticModel
                 methodKind: MethodKind.Ordinary,
                 declaredAccessibility: Accessibility.Public);
 
-            var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(recordSymbol.RecordProperties.Length);
-            foreach (var property in recordSymbol.RecordProperties)
+            var deconstructProperties = GetPublicRecordValueProperties(recordSymbol);
+            var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(deconstructProperties.Length);
+            foreach (var property in deconstructProperties)
             {
                 var parameter = new SourceParameterSymbol(
                     property.Name,
@@ -3793,6 +3804,8 @@ public partial class SemanticModel
 
     private static bool HasDeconstruct(SourceNamedTypeSymbol typeSymbol)
     {
+        var deconstructProperties = GetPublicRecordValueProperties(typeSymbol);
+
         foreach (var method in typeSymbol.GetMembers("Deconstruct").OfType<IMethodSymbol>())
         {
             if (method.MethodKind != MethodKind.Ordinary || method.IsStatic)
@@ -3804,13 +3817,28 @@ public partial class SemanticModel
             if (method.Parameters.Any(parameter => parameter.RefKind != RefKind.Out))
                 continue;
 
-            if (method.Parameters.Length != typeSymbol.RecordProperties.Length)
+            if (method.Parameters.Length != deconstructProperties.Length)
                 continue;
 
             return true;
         }
 
         return false;
+    }
+
+    private static ImmutableArray<SourcePropertySymbol> GetPublicRecordValueProperties(SourceNamedTypeSymbol typeSymbol)
+    {
+        if (typeSymbol.RecordProperties.IsDefaultOrEmpty)
+            return ImmutableArray<SourcePropertySymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<SourcePropertySymbol>(typeSymbol.RecordProperties.Length);
+        foreach (var property in typeSymbol.RecordProperties)
+        {
+            if (property.DeclaredAccessibility == Accessibility.Public)
+                builder.Add(property);
+        }
+
+        return builder.ToImmutable();
     }
 
     private static bool HasCopyConstructor(SourceNamedTypeSymbol typeSymbol)

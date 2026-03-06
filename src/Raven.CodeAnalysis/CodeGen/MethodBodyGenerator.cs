@@ -2175,7 +2175,7 @@ internal class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Call, baseCtor);
         }
 
-        foreach (var property in recordType.RecordProperties)
+        foreach (var property in GetRecordValueProperties(recordType))
         {
             if (property.BackingField is not SourceFieldSymbol backingField)
                 continue;
@@ -2439,7 +2439,7 @@ internal class MethodBodyGenerator
 
     private void EmitRecordGetHashCode(SourceNamedTypeSymbol recordType)
     {
-        var recordProperties = recordType.RecordProperties;
+        var recordProperties = GetRecordValueProperties(recordType);
         var hashCodeType = typeof(HashCode);
         var addMethod = hashCodeType.GetMethods()
             .First(m => m.Name == nameof(HashCode.Add) && m.IsGenericMethodDefinition && m.GetParameters().Length == 1);
@@ -2470,7 +2470,7 @@ internal class MethodBodyGenerator
 
     private void EmitRecordToString(SourceNamedTypeSymbol recordType)
     {
-        var recordProperties = recordType.RecordProperties;
+        var recordProperties = GetRecordValueProperties(recordType);
         var builderType = typeof(StringBuilder);
         var builderCtor = builderType.GetConstructor(Type.EmptyTypes)!;
         var appendString = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(string) })!;
@@ -2592,7 +2592,7 @@ internal class MethodBodyGenerator
 
     private void EmitRecordDeconstruct(SourceNamedTypeSymbol recordType)
     {
-        var recordProperties = recordType.RecordProperties;
+        var recordProperties = GetRecordValueProperties(recordType);
         var parameterCount = Math.Min(recordProperties.Length, MethodSymbol.Parameters.Length);
 
         for (var i = 0; i < parameterCount; i++)
@@ -2646,7 +2646,7 @@ internal class MethodBodyGenerator
         Action loadRight,
         ILLabel returnFalseLabel)
     {
-        var recordProperties = recordType.RecordProperties;
+        var recordProperties = GetRecordValueProperties(recordType);
         foreach (var property in recordProperties)
         {
             if (property.BackingField is not SourceFieldSymbol backingField)
@@ -2681,7 +2681,7 @@ internal class MethodBodyGenerator
         Action loadRightAddress,
         ILLabel returnFalseLabel)
     {
-        var recordProperties = recordType.RecordProperties;
+        var recordProperties = GetRecordValueProperties(recordType);
         foreach (var property in recordProperties)
         {
             if (property.BackingField is not SourceFieldSymbol backingField)
@@ -2742,14 +2742,70 @@ internal class MethodBodyGenerator
         }
 
         // Regular runtime types: bind by name + parameter types.
+        // For methods declared on a generic type definition (for example
+        // EqualityComparer<T>.Equals), rebind generic parameters to the concrete
+        // constructed type arguments before lookup.
+        static Type RebindGenericType(Type parameterType, Type genericTypeDefinition, Type[] concreteTypeArguments)
+        {
+            if (parameterType.IsGenericParameter &&
+                parameterType.DeclaringType == genericTypeDefinition)
+            {
+                return concreteTypeArguments[parameterType.GenericParameterPosition];
+            }
+
+            if (parameterType.IsByRef)
+                return RebindGenericType(parameterType.GetElementType()!, genericTypeDefinition, concreteTypeArguments).MakeByRefType();
+
+            if (parameterType.IsPointer)
+                return RebindGenericType(parameterType.GetElementType()!, genericTypeDefinition, concreteTypeArguments).MakePointerType();
+
+            if (parameterType.IsArray)
+            {
+                var element = RebindGenericType(parameterType.GetElementType()!, genericTypeDefinition, concreteTypeArguments);
+                return parameterType.GetArrayRank() == 1
+                    ? element.MakeArrayType()
+                    : element.MakeArrayType(parameterType.GetArrayRank());
+            }
+
+            if (parameterType.IsGenericType)
+            {
+                var genericDefinition = parameterType.GetGenericTypeDefinition();
+                var reboundArgs = parameterType
+                    .GetGenericArguments()
+                    .Select(arg => RebindGenericType(arg, genericTypeDefinition, concreteTypeArguments))
+                    .ToArray();
+                return genericDefinition.MakeGenericType(reboundArgs);
+            }
+
+            return parameterType;
+        }
+
+        var concreteArguments = declaring is { IsGenericTypeDefinition: true } && constructedType.IsGenericType
+            ? constructedType.GetGenericArguments()
+            : Array.Empty<Type>();
+
         var parameterTypes = methodDefinition
             .GetParameters()
-            .Select(p => p.ParameterType)
+            .Select(p => declaring is { IsGenericTypeDefinition: true } && concreteArguments.Length > 0
+                ? RebindGenericType(p.ParameterType, declaring, concreteArguments)
+                : p.ParameterType)
             .ToArray();
 
         const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
 
         return constructedType.GetMethod(methodDefinition.Name, flags, binder: null, types: parameterTypes, modifiers: null);
+    }
+
+    private static SourcePropertySymbol[] GetRecordValueProperties(SourceNamedTypeSymbol recordType)
+    {
+        var builder = new List<SourcePropertySymbol>();
+        foreach (var property in recordType.RecordProperties)
+        {
+            if (property.DeclaredAccessibility == Accessibility.Public)
+                builder.Add(property);
+        }
+
+        return builder.ToArray();
     }
 
     private void EmitUnionCasePropertyGetter(SourcePropertySymbol propertySymbol, SourceFieldSymbol backingField)

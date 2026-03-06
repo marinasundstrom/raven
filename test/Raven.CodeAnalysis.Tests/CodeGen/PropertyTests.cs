@@ -500,4 +500,120 @@ class Person(private var name: string) {
         var field = type.GetField("name", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(field);
     }
+
+    [Fact]
+    public void RecordEquality_IncludesPublicPromotedProperties()
+    {
+        var code = """
+record class Person(Name: string, Age: int)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var personType = loaded.Assembly.GetType("Person", throwOnError: true)!;
+        var constructor = personType
+            .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Single(c =>
+            {
+                var parameters = c.GetParameters();
+                return parameters.Length == 2 &&
+                       parameters[0].ParameterType == typeof(string) &&
+                       parameters[1].ParameterType == typeof(int);
+            });
+
+        var left = constructor.Invoke(["Ada", 1]);
+        var right = constructor.Invoke(["Ada", 2]);
+
+        Assert.False(left.Equals(right));
+
+        var opEquality = personType.GetMethod(
+            "op_Equality",
+            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            [personType, personType],
+            modifiers: null);
+        Assert.NotNull(opEquality);
+        Assert.False((bool)opEquality!.Invoke(null, [left, right])!);
+    }
+
+    [Fact]
+    public void RecordEquality_ExcludesNonPublicPromotedProperties()
+    {
+        var code = """
+record class Person(Name: string, private var Secret: int)
+
+extension Person {
+    func GetSecret() -> int => Secret
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var personType = loaded.Assembly.GetType("Person", throwOnError: true)!;
+        var constructors = personType.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        var primaryCtor = constructors.SingleOrDefault(c =>
+        {
+            var parameters = c.GetParameters();
+            return parameters.Length == 2 &&
+                   parameters[0].ParameterType == typeof(string) &&
+                   parameters[1].ParameterType == typeof(int);
+        });
+        var copyCtor = constructors.SingleOrDefault(c =>
+        {
+            var parameters = c.GetParameters();
+            return parameters.Length == 1 &&
+                   parameters[0].ParameterType == personType;
+        });
+        Assert.NotNull(primaryCtor);
+        Assert.NotNull(copyCtor);
+
+        var left = primaryCtor!.Invoke(["Ada", 1]);
+        var right = primaryCtor.Invoke(["Ada", 2]);
+        Assert.True(left.Equals(right));
+        Assert.Equal(left.GetHashCode(), right.GetHashCode());
+
+        var toStringValue = left.ToString();
+        Assert.NotNull(toStringValue);
+        Assert.Contains("Name = Ada", toStringValue, StringComparison.Ordinal);
+        Assert.DoesNotContain("Secret", toStringValue, StringComparison.Ordinal);
+
+        var deconstruct = personType.GetMethod("Deconstruct", BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(deconstruct);
+        Assert.Single(deconstruct!.GetParameters());
+
+        var copy = copyCtor!.Invoke([left]);
+        var getSecret = personType.GetMethod("GetSecret", BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(getSecret);
+        Assert.Equal(0, (int)getSecret!.Invoke(copy, null)!);
+    }
 }

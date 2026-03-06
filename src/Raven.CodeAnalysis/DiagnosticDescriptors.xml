@@ -215,6 +215,10 @@
     Title="Permits clause requires sealed modifier"
     Message="The 'permits' clause is only valid on sealed classes"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0341" Identifier="NonPublicRecordPrimaryConstructorPropertyExcludedFromValueSemantics"
+    Title="Non-public record property excluded from value semantics"
+    Message="Promoted record property '{propertyName}' is non-public and will not participate in synthesized record value semantics."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0608" Identifier="AbstractMemberCannotHaveBody"
     Title="Abstract member cannot have a body"
     Message="'{memberName}' cannot declare a body because it is marked abstract" Category="compiler"

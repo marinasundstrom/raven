@@ -191,6 +191,36 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void RecordClass_NonPublicPromotedParameter_ReportsValueSemanticsWarning()
+    {
+        var source = """
+            record class Person(Name: string, private var Secret: int);
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NonPublicRecordPrimaryConstructorPropertyExcludedFromValueSemantics);
+    }
+
+    [Fact]
+    public void RecordClass_PublicPromotedParameters_DoNotReportValueSemanticsWarning()
+    {
+        var source = """
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NonPublicRecordPrimaryConstructorPropertyExcludedFromValueSemantics);
+    }
+
+    [Fact]
     public void RecordClass_PascalCaseNamedArgs_AlsoWorkAsAlternative()
     {
         // PascalCase named args should also work (exact match on parameter names).
