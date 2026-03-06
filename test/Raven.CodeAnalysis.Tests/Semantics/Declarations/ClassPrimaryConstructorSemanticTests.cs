@@ -131,7 +131,7 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
     public void PrimaryConstructor_PromotedParameterAccessibility_AppliesToSynthesizedProperty()
     {
         var source = """
-            class Person(private var Name: string)
+            class Person(internal var Name: string)
             {
                 func GetName() -> string => Name
             }
@@ -143,9 +143,9 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Person"));
         var property = Assert.IsAssignableFrom<IPropertySymbol>(Assert.Single(type.GetMembers("Name")));
 
-        Assert.Equal(Accessibility.Private, property.DeclaredAccessibility);
-        Assert.Equal(Accessibility.Private, property.GetMethod?.DeclaredAccessibility);
-        Assert.Equal(Accessibility.Private, property.SetMethod?.DeclaredAccessibility);
+        Assert.Equal(Accessibility.Internal, property.DeclaredAccessibility);
+        Assert.Equal(Accessibility.Internal, property.GetMethod?.DeclaredAccessibility);
+        Assert.Equal(Accessibility.Internal, property.SetMethod?.DeclaredAccessibility);
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -178,5 +178,27 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.ModifierNotValidOnMember);
+    }
+
+    [Fact]
+    public void PrivatePromotedPrimaryConstructorParameter_MemberAccess_ResolvesToPropertySymbol()
+    {
+        var source = """
+            class Foo(private var name: string) {
+                func Test() -> string => self.name
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var memberAccess = tree.GetRoot().DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single();
+
+        var symbol = model.GetSymbolInfo(memberAccess).Symbol;
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(symbol);
+        Assert.Equal(Accessibility.Private, property.DeclaredAccessibility);
+        Assert.Equal("name", property.Name);
     }
 }

@@ -3435,8 +3435,9 @@ public partial class SemanticModel
         if (markRequired)
             propertySymbol.MarkAsRequired();
 
+        var lowerAsFieldOnly = declaredAccessibility == Accessibility.Private;
         var backingField = new SourceFieldSymbol(
-            $"<{propertySymbol.Name}>k__BackingField",
+            lowerAsFieldOnly ? propertySymbol.Name : $"<{propertySymbol.Name}>k__BackingField",
             parameterType,
             isStatic: false,
             isMutable: parameterSymbol.IsMutable,
@@ -3451,6 +3452,8 @@ public partial class SemanticModel
             declaredAccessibility: Accessibility.Private);
 
         propertySymbol.SetBackingField(backingField);
+        if (lowerAsFieldOnly)
+            propertySymbol.MarkEmitAsFieldOnly();
 
         var getMethod = new SourceMethodSymbol(
             $"get_{propertySymbol.Name}",
