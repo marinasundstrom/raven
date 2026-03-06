@@ -21,37 +21,37 @@
   <NodeKind Name="InterpolatedStringExpression" Type="Expression" />
   <NodeKind Name="InterpolatedStringText" Type="InterpolatedStringContent" />
   <NodeKind Name="Interpolation" Type="InterpolatedStringContent" />
-  <NodeKind Name="UnaryPlusExpression" Type="UnaryExpression" />
-  <NodeKind Name="UnaryMinusExpression" Type="UnaryExpression" />
-  <NodeKind Name="LogicalNotExpression" Type="UnaryExpression" />
-  <NodeKind Name="BitwiseNotExpression" Type="UnaryExpression" />
-  <NodeKind Name="AddressOfExpression" Type="UnaryExpression" />
-  <NodeKind Name="DereferenceExpression" Type="UnaryExpression" />
-  <NodeKind Name="PreIncrementExpression" Type="UnaryExpression" />
-  <NodeKind Name="PreDecrementExpression" Type="UnaryExpression" />
-  <NodeKind Name="PostIncrementExpression" Type="PostfixUnaryExpression" />
-  <NodeKind Name="PostDecrementExpression" Type="PostfixUnaryExpression" />
-  <NodeKind Name="AwaitExpression" Type="UnaryExpression" />
-  <NodeKind Name="AddExpression" Type="BinaryExpression" />
-  <NodeKind Name="SubtractExpression" Type="BinaryExpression" />
-  <NodeKind Name="MultiplyExpression" Type="BinaryExpression" />
-  <NodeKind Name="DivideExpression" Type="BinaryExpression" />
-  <NodeKind Name="ModuloExpression" Type="BinaryExpression" />
-  <NodeKind Name="BitwiseAndExpression" Type="BinaryExpression" />
-  <NodeKind Name="BitwiseOrExpression" Type="BinaryExpression" />
-  <NodeKind Name="BitwiseXorExpression" Type="BinaryExpression" />
-  <NodeKind Name="ShiftLeftExpression" Type="BinaryExpression" />
-  <NodeKind Name="ShiftRightExpression" Type="BinaryExpression" />
-  <NodeKind Name="PowerExpression" Type="BinaryExpression" />
-  <NodeKind Name="PipeExpression" Type="BinaryExpression" />
-  <NodeKind Name="EqualsExpression" Type="BinaryExpression" />
-  <NodeKind Name="NotEqualsExpression" Type="BinaryExpression" />
-  <NodeKind Name="LessThanExpression" Type="BinaryExpression" />
-  <NodeKind Name="GreaterThanExpression" Type="BinaryExpression" />
-  <NodeKind Name="LessThanOrEqualsExpression" Type="BinaryExpression" />
-  <NodeKind Name="GreaterThanOrEqualsExpression" Type="BinaryExpression" />
-  <NodeKind Name="LogicalAndExpression" Type="BinaryExpression" />
-  <NodeKind Name="LogicalOrExpression" Type="BinaryExpression" />
+  <NodeKind Name="UnaryPlusExpression" Type="PrefixOperatorExpression" />
+  <NodeKind Name="UnaryMinusExpression" Type="PrefixOperatorExpression" />
+  <NodeKind Name="LogicalNotExpression" Type="PrefixOperatorExpression" />
+  <NodeKind Name="BitwiseNotExpression" Type="PrefixOperatorExpression" />
+  <NodeKind Name="AddressOfExpression" Type="PrefixOperatorExpression" />
+  <NodeKind Name="DereferenceExpression" Type="PrefixOperatorExpression" />
+  <NodeKind Name="PreIncrementExpression" Type="PrefixOperatorExpression" />
+  <NodeKind Name="PreDecrementExpression" Type="PrefixOperatorExpression" />
+  <NodeKind Name="PostIncrementExpression" Type="PostfixOperatorExpression" />
+  <NodeKind Name="PostDecrementExpression" Type="PostfixOperatorExpression" />
+  <NodeKind Name="AwaitExpression" Type="PrefixOperatorExpression" />
+  <NodeKind Name="AddExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="SubtractExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="MultiplyExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="DivideExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="ModuloExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="BitwiseAndExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="BitwiseOrExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="BitwiseXorExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="ShiftLeftExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="ShiftRightExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="PowerExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="PipeExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="EqualsExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="NotEqualsExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="LessThanExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="GreaterThanExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="LessThanOrEqualsExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="GreaterThanOrEqualsExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="LogicalAndExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="LogicalOrExpression" Type="InfixOperatorExpression" />
   <NodeKind Name="SimpleAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="AddAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="SubtractAssignmentExpression" Type="AssignmentExpression" />
