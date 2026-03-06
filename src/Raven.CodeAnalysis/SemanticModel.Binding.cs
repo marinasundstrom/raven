@@ -550,7 +550,8 @@ public partial class SemanticModel
             extensionDecl.Modifiers,
             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
 
-        if (extensionAccessibility == Accessibility.Public &&
+        var hasExplicitPublicModifier = extensionDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PublicKeyword);
+        if (hasExplicitPublicModifier &&
             extensionDecl.Identifier.Kind == SyntaxKind.None)
         {
             _declarationDiagnostics.ReportPublicExtensionRequiresIdentifier(

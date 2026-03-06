@@ -63,10 +63,10 @@ internal static class AccessibilityUtilities
     public static Accessibility GetDefaultTypeAccessibility(ISymbol? containingSymbol)
     {
         if (containingSymbol is null)
-            return Accessibility.Internal;
+            return Accessibility.Public;
 
         if (containingSymbol is INamespaceSymbol)
-            return Accessibility.Internal;
+            return Accessibility.Public;
 
         if (containingSymbol is INamedTypeSymbol containingType)
         {
