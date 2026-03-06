@@ -48,4 +48,24 @@ public class RecordDeclarationParserTests : DiagnosticTestBase
         Assert.Equal(2, declaration.ParameterList!.Parameters.Count);
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void RecordClassDeclaration_WithMissingParameterTypeAfterColon_ReportsIdentifierExpected()
+    {
+        var source = """
+            record class Foo(
+                val A: ,
+                val B: int
+            )
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.IsType<RecordDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
+
+        Assert.NotNull(declaration.ParameterList);
+        Assert.Equal(2, declaration.ParameterList!.Parameters.Count);
+
+        var diagnostic = Assert.Single(tree.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.IdentifierExpected.Id, diagnostic.Descriptor.Id);
+    }
 }

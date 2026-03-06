@@ -11,6 +11,13 @@ internal class TypeAnnotationClauseSyntaxParser : SyntaxParser
         if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
         {
             TypeSyntax type = new NameSyntaxParser(this).ParseTypeName();
+            if (type.IsMissing)
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.IdentifierExpected,
+                        GetSpanOfPeekedToken()));
+            }
 
             return SyntaxFactory.TypeAnnotationClause(colonToken, type);
         }
