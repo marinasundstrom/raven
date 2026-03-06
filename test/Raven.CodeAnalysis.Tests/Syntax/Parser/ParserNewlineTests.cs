@@ -638,6 +638,74 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Statement_SingleNewlineBeforeBinaryOperator_ContinuesExpression()
+    {
+        var source = "x\n+ 2\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = Assert.IsType<ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+        var expression = Assert.IsType<InfixOperatorExpressionSyntax>(statement.Expression);
+
+        Assert.Equal(SyntaxKind.AddExpression, expression.Kind);
+        Assert.Equal(SyntaxKind.IdentifierName, expression.Left.Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralExpression, expression.Right.Kind);
+    }
+
+    [Fact]
+    public void Statement_BlankLineBeforeBinaryOperator_BreaksExpressionContinuation()
+    {
+        var source = "x\n\n+ 2\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var first = Assert.IsType<ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+        var second = Assert.IsType<ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+
+        Assert.Equal(SyntaxKind.IdentifierName, first.Expression.Kind);
+
+        var unary = Assert.IsType<PrefixOperatorExpressionSyntax>(second.Expression);
+        Assert.Equal(SyntaxKind.UnaryPlusExpression, unary.Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralExpression, unary.Expression.Kind);
+    }
+
+    [Fact]
+    public void Statement_SingleNewlineBeforeDot_ContinuesMemberAccess()
+    {
+        var source = "x\n.Foo()\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = Assert.IsType<ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(statement.Expression);
+        var memberAccess = Assert.IsType<MemberAccessExpressionSyntax>(invocation.Expression);
+
+        Assert.Equal("x", ((IdentifierNameSyntax)memberAccess.Expression).Identifier.ValueText);
+        Assert.Equal("Foo", memberAccess.Name.GetLastToken().ValueText);
+    }
+
+    [Fact]
+    public void Statement_BlankLineBeforeDot_StartsMemberBindingExpression()
+    {
+        var source = "x\n\n.Foo()\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var first = Assert.IsType<ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+        var second = Assert.IsType<ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+
+        Assert.Equal(SyntaxKind.IdentifierName, first.Expression.Kind);
+
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(second.Expression);
+        var memberBinding = Assert.IsType<MemberBindingExpressionSyntax>(invocation.Expression);
+        Assert.Equal("Foo", memberBinding.Name.GetLastToken().ValueText);
+    }
+
+    [Fact]
     public void ExpressionFollowedByNewlineBlock_ParsesAsSeparateBlockStatement()
     {
         var syntaxTree = SyntaxTree.ParseText(
@@ -725,6 +793,46 @@ public class ParserNewlineTests
         var diagnostic = syntaxTree.GetDiagnostics().Single();
 
         diagnostic.Descriptor.ShouldBe(CompilerDiagnostics.UnmatchedCharacter);
+    }
+
+    [Theory]
+    [InlineData("val x = + 3", "+")]
+    [InlineData("val x = - 2", "-")]
+    public void UnaryPlusOrMinus_WithWhitespaceBeforeOperand_ReportsDiagnostic(string source, string operatorToken)
+    {
+        var syntaxTree = SyntaxTree.ParseText(source);
+
+        var diagnostic = Assert.Single(syntaxTree.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.UnaryOperatorRequiresAdjacentOperand));
+        Assert.Contains($"'{operatorToken}'", diagnostic.GetMessage());
+    }
+
+    [Theory]
+    [InlineData("val x = +3")]
+    [InlineData("val x = -2")]
+    public void UnaryPlusOrMinus_WithoutWhitespaceBeforeOperand_DoesNotReportDiagnostic(string source)
+    {
+        var syntaxTree = SyntaxTree.ParseText(source);
+        Assert.DoesNotContain(syntaxTree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.UnaryOperatorRequiresAdjacentOperand);
+    }
+
+    [Theory]
+    [InlineData("val x = 1 + - 2", "-")]
+    [InlineData("val x = 1 - + 2", "+")]
+    public void UnaryPlusOrMinus_InInfixRhs_WithWhitespaceBeforeOperand_ReportsDiagnostic(string source, string operatorToken)
+    {
+        var syntaxTree = SyntaxTree.ParseText(source);
+
+        var diagnostic = Assert.Single(syntaxTree.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.UnaryOperatorRequiresAdjacentOperand));
+        Assert.Contains($"'{operatorToken}'", diagnostic.GetMessage());
+    }
+
+    [Theory]
+    [InlineData("val x = 1 + -2")]
+    [InlineData("val x = 1 - +2")]
+    public void UnaryPlusOrMinus_InInfixRhs_WithoutWhitespaceBeforeOperand_DoesNotReportDiagnostic(string source)
+    {
+        var syntaxTree = SyntaxTree.ParseText(source);
+        Assert.DoesNotContain(syntaxTree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.UnaryOperatorRequiresAdjacentOperand);
     }
 
     [Fact]

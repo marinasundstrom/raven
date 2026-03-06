@@ -761,6 +761,10 @@
   <Descriptor Id="RAV3601" Identifier="UnmatchedCharacter" Title="Unmatched character"
     Message="Unmatched '{character}'" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV3602" Identifier="UnaryOperatorRequiresAdjacentOperand"
+    Title="Unary operator requires adjacent operand"
+    Message="Unary operator '{operatorToken}' must be directly adjacent to its operand."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1605" Identifier="RelationalPatternNotSupported"
     Title="Relational pattern not supported for type"
     Message="Relational pattern operator '{operatorToken}' is not supported for type '{typeName}'"

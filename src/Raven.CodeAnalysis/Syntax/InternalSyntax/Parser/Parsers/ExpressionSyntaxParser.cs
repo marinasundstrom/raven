@@ -125,9 +125,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         // `??` has lower precedence than `||` / `&&` and is right-associative.
         ExpressionSyntax left = ParseOrExpression();
 
-        if (ConsumeToken(SyntaxKind.QuestionQuestionToken, out var operatorToken))
+        var token = PeekToken();
+        if (token.IsKind(SyntaxKind.QuestionQuestionToken) && !HasLeadingBlankLine(token))
         {
             // Right-associative: a ?? b ?? c == a ?? (b ?? c)
+            var operatorToken = ReadToken();
             var right = ParseNullCoalesceExpression();
             return NullCoalesceExpression(left, operatorToken, right);
         }
@@ -138,9 +140,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private ExpressionSyntax ParseOrExpression()
     {
         ExpressionSyntax ret = ParseAndExpression();
-        SyntaxToken token;
-        while (ConsumeToken(SyntaxKind.BarBarToken, out token))
+        while (true)
         {
+            var token = PeekToken();
+            if (!token.IsKind(SyntaxKind.BarBarToken) || HasLeadingBlankLine(token))
+                break;
+
+            ReadToken();
             ret = InfixOperatorExpression(SyntaxKind.LogicalOrExpression, ret, token, ParseAndExpression());
         }
         return ret;
@@ -214,9 +220,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private ExpressionSyntax ParseAndExpression()
     {
         ExpressionSyntax ret = ParseLogicalNotExpression();
-        SyntaxToken token;
-        while (ConsumeToken(SyntaxKind.AmpersandAmpersandToken, out token))
+        while (true)
         {
+            var token = PeekToken();
+            if (!token.IsKind(SyntaxKind.AmpersandAmpersandToken) || HasLeadingBlankLine(token))
+                break;
+
+            ReadToken();
             ret = InfixOperatorExpression(SyntaxKind.LogicalAndExpression, ret, token, ParseAndExpression());
         }
         return ret;
@@ -247,6 +257,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             var token = PeekToken();
 
             if (_stopOnOpenBrace && token.IsKind(SyntaxKind.OpenBraceToken))
+                return expr;
+
+            if (HasLeadingBlankLine(token))
                 return expr;
 
             switch (token.Kind)
@@ -348,6 +361,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             var operatorCandidate = PeekToken();
 
             if (operatorCandidate.IsKind(SyntaxKind.EndOfFileToken))
+                return expr ?? new ExpressionSyntax.Missing();
+
+            if (HasLeadingBlankLine(operatorCandidate))
                 return expr ?? new ExpressionSyntax.Missing();
 
             if (operatorCandidate.IsKind(SyntaxKind.DotDotToken))
@@ -486,7 +502,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private bool TryConsumeAssignmentOperator(out SyntaxToken token)
     {
-        if (IsAssignmentOperator(PeekToken().Kind))
+        var candidate = PeekToken();
+        if (IsAssignmentOperator(candidate.Kind) && !HasLeadingBlankLine(candidate))
         {
             token = ReadToken();
             return true;
@@ -556,6 +573,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             case SyntaxKind.PlusToken:
                 ReadToken();
+                if (token.TrailingTrivia.Width != 0)
+                    AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnaryOperatorRequiresAdjacentOperand, GetSpanOfLastToken(), token.Text));
                 expr = ParseFactorExpression();
                 expr = PrefixOperatorExpression(SyntaxKind.UnaryPlusExpression, token, expr);
                 break;
@@ -568,6 +587,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             case SyntaxKind.MinusToken:
                 ReadToken();
+                if (token.TrailingTrivia.Width != 0)
+                    AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnaryOperatorRequiresAdjacentOperand, GetSpanOfLastToken(), token.Text));
                 expr = ParseFactorExpression();
                 expr = PrefixOperatorExpression(SyntaxKind.UnaryMinusExpression, token, expr);
                 break;

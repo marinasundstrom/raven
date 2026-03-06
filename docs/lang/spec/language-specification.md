@@ -3688,6 +3688,7 @@ Lowest → highest (all left-associative unless noted):
 > * The LHS of assignment must be either an **assignable expression** (identifier, member access, element access, etc.) or a
 >   **pattern** such as a positional deconstruction.
 > * `^` index expressions are parsed as an adjacent prefix form (`^expr`); whitespace between `^` and the operand is not allowed.
+> * Prefix unary `+`/`-` are also adjacent forms (`+3`, `-2`); whitespace between the operator and operand is not allowed.
 
 ## Outstanding questions and suggested follow-ups
 
