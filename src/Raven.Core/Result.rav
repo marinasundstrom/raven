@@ -117,20 +117,20 @@ extension ResultExtensions<T, E> for Result<T, E> {
     /// Converts the Result to an Option
     val IsOk: Option<T> {
         get {
-            if self is Ok(val value) {
-                return Some(value)
+            self match {
+                Ok(val value) => Some(value)
+                Error(_) => None
             }
-            None
         }
     }
 
     /// Converts the Result error channel to an Option
     val IsError: Option<E> {
         get {
-            if self is Error(val e) {
-                return Some(e)
+            self match {
+                Error(val e) => Some(e)
+                Ok(_) => None
             }
-            None
         }
     }
 
