@@ -18,7 +18,7 @@ public sealed class ForEachDictionaryTypeInferenceTests : CompilationTestBase
     [Fact]
     public void ForEach_WithDictionaryArgument_InfersKeyValuePairTypeArgument()
     {
-        // ForEach<T>(source: IEnumerable<T>, callback: T -> ()) called with
+        // ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) called with
         // Dictionary<string, int> should infer T = KeyValuePair<string, int>.
         // This exercises the AllInterfaces substitution: Dictionary<string, int>.AllInterfaces
         // must expose IEnumerable<KeyValuePair<string, int>> (not the open KVP<TKey,TValue>).
@@ -32,7 +32,7 @@ class Program {
         ForEach(o, item => ())
     }
 
-    static func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
+    static func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () {
         for item in source {
             callback(item)
         }
@@ -88,7 +88,7 @@ class Program {
         ForEach(o, item => ())
     }
 
-    static func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
+    static func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () {
         for item in source {
             callback(item)
         }
@@ -140,7 +140,7 @@ func Main() -> () {
     ForEach(o, WriteLine)
 }
 
-func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
+func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () {
     for item in source {
         callback(item)
     }

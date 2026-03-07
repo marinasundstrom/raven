@@ -142,7 +142,7 @@ public class ArgumentAndParameterListTests
         var tree = SyntaxTree.ParseText(
             """
             class Holder {
-                var value: Box<() -> Result<string, MyError>>
+                var value: Box<func () -> Result<string, MyError>>
             }
             """
         );

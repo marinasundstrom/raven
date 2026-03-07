@@ -20,7 +20,7 @@ class C {
             [
                 new DiagnosticResult(EventDelegateMustBeNullableAnalyzer.DiagnosticId)
                     .WithSpan(2, 20, 2, 33)
-                    .WithArguments("Clicked", "() -> ()", "() -> ()?")
+                    .WithArguments("Clicked", "func () -> ()", "func () -> ()?")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 

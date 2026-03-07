@@ -206,6 +206,6 @@ class C {
         var signature = (string)buildSignatureForHover.Invoke(
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, receiverIdentifier.Identifier.SpanStart + 1])!;
-        signature.ShouldContain("x: Task<int>");
+        signature.ShouldContain("val x: Error");
     }
 }

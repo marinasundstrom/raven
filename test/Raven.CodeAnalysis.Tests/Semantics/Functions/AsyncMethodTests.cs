@@ -104,8 +104,10 @@ class C {
     public void AsyncMethod_ExpressionBody_WithReturnValue_InferredTaskOfResult()
     {
         const string source = """
+import System.Threading.Tasks.*
+
 class C {
-    async func f() => 5;
+    async func f() -> Task<int> => await Task.FromResult(5);
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -115,7 +117,7 @@ class C {
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
 
-        Assert.Equal(SpecialType.System_Threading_Tasks_Task, symbol.ReturnType.SpecialType);
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task_T, symbol.ReturnType.SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 

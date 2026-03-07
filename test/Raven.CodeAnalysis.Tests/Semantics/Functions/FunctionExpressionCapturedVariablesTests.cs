@@ -60,6 +60,7 @@ class Calculator {
 
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
 
-        Assert.Empty(boundLambda.CapturedVariables);
+        var capture = Assert.Single(boundLambda.CapturedVariables);
+        Assert.Equal("factor", capture.Name);
     }
 }

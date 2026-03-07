@@ -58,7 +58,7 @@ val value = instance.secret;
     public void PublicMethodReturningInternalType_ReportsRAV0501()
     {
         const string source = """
-union Result<T, E> {
+internal union Result<T, E> {
     Ok(value: T)
     Error(message: E)
 }
