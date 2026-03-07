@@ -4264,13 +4264,9 @@ partial class BlockBinder : Binder
         // Target type from `return <expr>`.
         if (node.Parent is ReturnStatementSyntax)
         {
-            // Walk up to nearest containing method symbol.
-            var container = ContainingSymbol;
-            while (container is { } && container is not IMethodSymbol)
-                container = container.ContainingSymbol;
-
-            if (container is IMethodSymbol m)
-                return GetReturnTargetType(m);
+            var returnTargetType = GetContainingReturnTargetType();
+            if (returnTargetType is not null)
+                return returnTargetType;
         }
 
         // Target type from binary equality/inequality: `x == .Member` / `.Member == x`.
@@ -4392,6 +4388,20 @@ partial class BlockBinder : Binder
         }
 
         return returnType;
+    }
+
+    private ITypeSymbol? GetContainingReturnTargetType()
+    {
+        if (_containingSymbol is IMethodSymbol method)
+            return GetReturnTargetType(method);
+
+        if (_containingSymbol is ILambdaSymbol lambda)
+            return GetReturnTargetType(lambda);
+
+        if (_containingSymbol is IPropertySymbol property)
+            return property.Type;
+
+        return null;
     }
 
     protected BoundExpression BindTypeSyntaxAsExpression(TypeSyntax syntax)
@@ -7081,6 +7091,20 @@ partial class BlockBinder : Binder
             var symbol = LookupSymbol(id.Identifier.ValueText);
             if (symbol is null)
             {
+                var unionCaseCandidates = LookupUnionCaseTypeCandidates(id.Identifier.ValueText);
+                if (unionCaseCandidates.Length > 1)
+                {
+                    var (first, second) = GetAmbiguousCaseDisplayNames(unionCaseCandidates[0], unionCaseCandidates[1]);
+                    _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
+                    return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+                }
+
+                if (unionCaseCandidates.Length == 1 &&
+                    BindDiscriminatedUnionCaseType(unionCaseCandidates[0]) is BoundUnionCaseExpression unionCaseFromLookup)
+                {
+                    return BindConstructorInvocation(unionCaseFromLookup.CaseType, syntax, receiverSyntax: syntax.Expression, receiver: null);
+                }
+
                 receiver = null;
                 methodName = id.Identifier.ValueText;
                 return BindInvocationExpressionCore(receiver, methodName, syntax.ArgumentList, syntax.Expression, syntax);
@@ -7103,7 +7127,19 @@ partial class BlockBinder : Binder
                         ? boundError
                         : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
 
-                methodName = "Invoke";
+                    methodName = "Invoke";
+            }
+            else if (boundIdentifier is BoundUnionCaseExpression unionCaseCallee)
+            {
+                var caseCandidates = LookupUnionCaseTypeCandidates(id.Identifier.ValueText);
+                if (caseCandidates.Length > 1)
+                {
+                    var (first, second) = GetAmbiguousCaseDisplayNames(caseCandidates[0], caseCandidates[1]);
+                    _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
+                    return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+                }
+
+                return BindConstructorInvocation(unionCaseCallee.CaseType, syntax, receiverSyntax: syntax.Expression, receiver: null);
             }
             else if (boundIdentifier is BoundLocalAccess or BoundParameterAccess or BoundFieldAccess or BoundPropertyAccess)
             {

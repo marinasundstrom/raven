@@ -45,6 +45,9 @@ partial class BlockBinder
         var elseEntryState = entryState;
         var thenExits = IsEarlyExitStatement(ifStmt.ThenStatement);
         var elseExits = ifStmt.ElseClause is not null && IsEarlyExitStatement(ifStmt.ElseClause.Statement);
+        var patternLocals = CollectPatternDesignatorLocals(condition);
+        var patternDepth = _scopeDepth + 1;
+        var shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
 
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
@@ -71,7 +74,23 @@ partial class BlockBinder
 
         _nonNullSymbols.Clear();
         _nonNullSymbols.UnionWith(thenEntryState);
+        foreach (var local in patternLocals)
+        {
+            if (!shadowedLocals.ContainsKey(local.Name))
+                shadowedLocals[local.Name] = _locals.TryGetValue(local.Name, out var existing) ? existing : null;
+
+            _locals[local.Name] = (local, patternDepth);
+        }
+
         var thenBound = BindStatement(ifStmt.ThenStatement);
+        foreach (var local in patternLocals)
+        {
+            if (!shadowedLocals.TryGetValue(local.Name, out var shadowed) || shadowed is null)
+                _locals.Remove(local.Name);
+            else
+                _locals[local.Name] = shadowed.Value;
+        }
+
         var thenExitState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
         BoundStatement? elseBound = null;
         HashSet<ISymbol> elseExitState = elseEntryState;
@@ -138,6 +157,21 @@ partial class BlockBinder
         }
 
         return new BoundIfStatement(condition, thenBound, elseBound);
+
+        static ImmutableArray<ILocalSymbol> CollectPatternDesignatorLocals(BoundExpression condition)
+        {
+            if (condition is not BoundIsPatternExpression isPattern)
+                return ImmutableArray<ILocalSymbol>.Empty;
+
+            var builder = ImmutableArray.CreateBuilder<ILocalSymbol>();
+            foreach (var designator in isPattern.Pattern.GetDesignators())
+            {
+                if (designator is BoundSingleVariableDesignator single)
+                    builder.Add(single.Local);
+            }
+
+            return builder.ToImmutable();
+        }
     }
 
     private bool IsIfStatementImplicitReturn(IfStatementSyntax ifStmt)
@@ -1520,18 +1554,7 @@ partial class BlockBinder
 
         if (expressionSyntax is not null)
         {
-            ITypeSymbol? targetType = null;
-
-            if (_containingSymbol is IMethodSymbol targetMethod)
-            {
-                targetType = GetReturnTargetType(targetMethod);
-            }
-            else if (_containingSymbol is ILambdaSymbol targetLambda)
-            {
-                // Lambdas also support target-typed returns (e.g. `return .None`).
-                // Use the effective return type (async unwrapped if needed).
-                targetType = GetReturnTargetType(targetLambda);
-            }
+            var targetType = GetContainingReturnTargetType();
 
             // Return payloads are context-sensitive; ensure stale non-target-typed cache entries
             // do not block target-typed member bindings like `.Error(...)`.
@@ -1608,6 +1631,41 @@ partial class BlockBinder
                     method,
                     expr,
                     expressionSyntax as SyntaxNode ?? returnSyntax);
+
+            return expr;
+        }
+
+        if (_containingSymbol is IPropertySymbol property)
+        {
+            var propertyType = property.Type;
+            if (propertyType is null)
+                return expr;
+
+            if (expr is null)
+            {
+                var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+                if (!IsAssignable(propertyType, unit, out _))
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        unit.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        returnSyntax.GetLocation());
+            }
+            else if (ShouldAttemptConversion(expr) && propertyType.TypeKind != TypeKind.Error)
+            {
+                expr = BindLambdaToDelegateIfNeeded(expr, propertyType);
+
+                if (!IsAssignable(propertyType, expr.Type, out var conversion))
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        expressionSyntax!.GetLocation());
+                }
+                else
+                {
+                    expr = ApplyConversion(expr, propertyType, conversion, expressionSyntax!);
+                }
+            }
         }
 
         return expr;

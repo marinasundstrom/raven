@@ -638,6 +638,13 @@ public partial class SemanticModel
             return false;
         }
 
+        var enclosingIf = node.AncestorsAndSelf().OfType<IfStatementSyntax>().FirstOrDefault();
+        if (enclosingIf is not null)
+        {
+            root = enclosingIf;
+            return true;
+        }
+
         // Binding a node in isolation can drop scope/flow context (locals, overload shape).
         // Prefer binding the enclosing executable scope first.
         root = node.AncestorsAndSelf().OfType<BlockStatementSyntax>().FirstOrDefault()

@@ -155,6 +155,79 @@ public class ResultMetadataSymbolTests
         }
     }
 
+    [Fact]
+    public void ResultFromMetadata_ExtensionPropertyGetter_BindsInvokedUnionCaseIdentifier()
+    {
+        var (reference, path) = CreateRavenCoreResultReference();
+        try
+        {
+            const string source = """
+import System.*
+
+extension ResultExt<T, E> for Result<T, E> {
+    val Probe: Option<T> {
+        get {
+            if self is Ok(val value) {
+                return Some(value)
+            }
+
+            None
+        }
+    }
+}
+
+class Container {
+    static func ProbeValue<T, E>(value: T) -> Option<T> {
+        val result: Result<T, E> = Ok(value)
+        return result.Probe
+    }
+}
+""";
+
+            var tree = SyntaxTree.ParseText(source);
+            var compilation = Compilation.Create(
+                    "metadata-result-property-union-invoke",
+                    [tree],
+                    [.. TestMetadataReferences.Default, reference],
+                    new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            compilation.EnsureSetup();
+            var diagnostics = compilation.GetDiagnostics();
+            Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+            var invocation = tree.GetRoot()
+                .DescendantNodes()
+                .OfType<InvocationExpressionSyntax>()
+                .Single(node => node.Expression is IdentifierNameSyntax id && id.Identifier.ValueText == "Some");
+
+            var model = compilation.GetSemanticModel(tree);
+            var bound = model.GetBoundNode(invocation);
+
+            Assert.IsNotType<BoundErrorExpression>(bound);
+
+            switch (bound)
+            {
+                case BoundUnionCaseExpression unionCase:
+                    Assert.Equal("Option", unionCase.UnionType.Name);
+                    Assert.Equal("Some", unionCase.CaseType.Name);
+                    Assert.Single(unionCase.Arguments);
+                    break;
+                case BoundObjectCreationExpression objectCreation:
+                    Assert.Equal("Some", objectCreation.Constructor.ContainingType.Name);
+                    Assert.Single(objectCreation.Arguments);
+                    break;
+                default:
+                    Assert.True(false, $"Unexpected bound node for Some(value): {bound.GetType().Name}");
+                    break;
+            }
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
     private static (MetadataReference Reference, string Path) CreateRavenCoreResultReference()
     {
         var coreDirectory = Path.GetFullPath(Path.Combine(
