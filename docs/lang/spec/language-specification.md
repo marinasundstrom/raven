@@ -626,7 +626,7 @@ extension ErrorConverters for ParserError {
 }
 
 func Parse(text: string) -> Result<int, ParserError> {
-    return .Error(ParserError())
+    return Error(ParserError())
 }
 
 func Execute(text: string) -> Result<int, DomainError> {
