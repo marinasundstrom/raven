@@ -58,7 +58,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 }
                 else
                 {
-                    var openBraceToken = SyntaxToken.Missing(SyntaxKind.OpenBraceToken);
+                    var openBraceToken = Token(SyntaxKind.None);
 
                     i++; // skip $
                     int start = i;
@@ -69,7 +69,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
                     var exprText = inner.Substring(start, i - start);
                     var exprSyntax = ParseExpressionFromText(exprText);
-                    var closeBraceToken = SyntaxToken.Missing(SyntaxKind.CloseBraceToken);
+                    var closeBraceToken = Token(SyntaxKind.None);
                     contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
                 }
 
@@ -384,7 +384,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 }
                 else
                 {
-                    var openBraceToken = SyntaxToken.Missing(SyntaxKind.OpenBraceToken);
+                    var openBraceToken = Token(SyntaxKind.None);
 
                     i++; // skip $
                     int start = i;
@@ -395,7 +395,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
                     var exprText = inner.Substring(start, i - start);
                     var exprSyntax = ParseExpressionFromText(exprText);
-                    var closeBraceToken = SyntaxToken.Missing(SyntaxKind.CloseBraceToken);
+                    var closeBraceToken = Token(SyntaxKind.None);
                     contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
                 }
 
