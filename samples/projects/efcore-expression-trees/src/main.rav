@@ -32,7 +32,12 @@ func Main() -> () {
     Console.WriteLine("Matched users count: ${names.Count.ToString()}")
 }
 
-record class User(Id: int, Name: string, Age: int, IsActive: bool)
+class User(
+    var Id: int, 
+    var Name: string, 
+    var Age: int, 
+    var IsActive: bool
+)
 
 class AppDbContext : DbContext {
     var Users: DbSet<User>
