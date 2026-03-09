@@ -64,7 +64,7 @@ dotnet run -f net9.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
 - Members are `public` by default; use `private`/`internal`/`protected` only to narrow access.
 - Use `match` for explicit branching over values, `Option`, and `Result`.
 - Use `Ok(...)` / `Error(...)` and `Some(...)` / `None` for carrier-based flow.
-- Function type signatures start with `func` (for example `val op: func (int, int) -> int`).
+- Function type signatures use arrow notation (for example `val op: (int, int) -> int`).
 - Functions come in two forms: named declarations (`func Add(...)`) and unnamed function expressions (`func (...) => ...`, `func (...) { ... }`, or `(...) => ...`).
 - Function expressions may include modifiers before `func`: `async func (...) ...`, `static func (...) ...`, or `static async func (...) ...`.
 - Shorthand without `func` is mostly an ergonomic call-site form for higher-order methods (for example `items.Where(x => x > 0)`).

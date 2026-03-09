@@ -51,12 +51,12 @@ class Foo(private var name: string) {
     {
         const string code = """
 class Functions {
-    func Apply(value: int, transform: func (int) -> int) -> int {
+    func Apply(value: int, transform: (int) -> int) -> int {
         transform(value)
     }
 
     func Test() -> int {
-        val increment: func (int) -> int = x => x + 1
+        val increment: (int) -> int = x => x + 1
         increment(1)
     }
 }
@@ -85,7 +85,7 @@ class Functions {
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         var signature = (string)buildSignature.Invoke(null, [delegateType, functionTypeSyntax, semanticModel])!;
-        signature.ShouldStartWith("func (");
+        signature.ShouldStartWith("(");
         signature.ShouldContain("->");
         signature.ShouldNotContain("Func(");
     }
@@ -99,7 +99,7 @@ class Payload()
 class ContinuationContext(var Result: Payload)
 
 class Computation(var Value: ContinuationContext) {
-    func ContinueWith(continuationFunction: func (ContinuationContext) -> Payload) -> Payload {
+    func ContinueWith(continuationFunction: (ContinuationContext) -> Payload) -> Payload {
         continuationFunction(Value)
     }
 }

@@ -86,13 +86,8 @@ internal class NameSyntaxParser : SyntaxParser
 
         if (allowImplicitFunctionTypeRecovery && ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
         {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.FunctionTypeSignatureMustStartWithFuncKeyword,
-                    GetSpanOfLastToken()));
-
             var returnType = new NameSyntaxParser(this).ParseTypeName();
-            name = FunctionType(MissingToken(SyntaxKind.FuncKeyword), name, null, arrowToken, returnType);
+            name = CreateImplicitFunctionType(name, arrowToken, returnType);
         }
 
         return name;
@@ -142,6 +137,39 @@ internal class NameSyntaxParser : SyntaxParser
         var singleParameterReturnType = new NameSyntaxParser(this).ParseTypeName();
 
         return FunctionType(funcKeyword, parameter, null, singleParameterArrowToken, singleParameterReturnType);
+    }
+
+    private FunctionTypeSyntax CreateImplicitFunctionType(TypeSyntax candidateParameter, SyntaxToken arrowToken, TypeSyntax returnType)
+    {
+        if (candidateParameter is UnitTypeSyntax unitType)
+        {
+            var parameterList = FunctionTypeParameterList(unitType.OpenParenToken, SyntaxList.Empty, unitType.CloseParenToken);
+            return FunctionType(Token(SyntaxKind.None), null, parameterList, arrowToken, returnType);
+        }
+
+        if (candidateParameter is TupleTypeSyntax tupleType)
+        {
+            var parameters = new List<GreenNode>();
+
+            for (var i = 0; i < tupleType.Elements.SlotCount; i++)
+            {
+                var element = tupleType.Elements[i];
+                switch (element)
+                {
+                    case TupleElementSyntax tupleElement:
+                        parameters.Add(tupleElement.Type);
+                        break;
+                    case SyntaxToken commaToken when commaToken.Kind == SyntaxKind.CommaToken:
+                        parameters.Add(commaToken);
+                        break;
+                }
+            }
+
+            var parameterList = FunctionTypeParameterList(tupleType.OpenParenToken, List(parameters.ToArray()), tupleType.CloseParenToken);
+            return FunctionType(Token(SyntaxKind.None), null, parameterList, arrowToken, returnType);
+        }
+
+        return FunctionType(Token(SyntaxKind.None), candidateParameter, null, arrowToken, returnType);
     }
 
     private TypeSyntax ParseNameCore()

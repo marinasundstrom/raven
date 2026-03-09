@@ -83,20 +83,20 @@ use explicit syntax such as `T[,]` when supported by the grammar.
 ### Function types
 
 Function types provide a delegate-like type literal. The syntax mirrors a function
-signature and starts with `func`: write `func`, then the parameter types inside parentheses, then `->`, then the
-return type. A single parameter may omit its parentheses, while zero parameters
+signature: write parameter types, then `->`, then the return type. A single
+parameter may omit its parentheses, while zero parameters
 use the empty tuple `()`.
 
 ```raven
-val logger: func string -> unit
-val reducer: func (int, int) -> int
-val factory: func () -> Task<string>
+val logger: string -> unit
+val reducer: (int, int) -> int
+val factory: () -> Task<string>
 ```
 
 In a function parameter:
 
 ```raven
-func do(op: func (int, int) -> int) -> int {
+func do(op: (int, int) -> int) -> int {
   return op(2, 3)
 }
 ```
@@ -116,8 +116,8 @@ also allow modifier forms before `func`: `async func`, `static func`, and
 or parameters. The shorthand form is primarily for ergonomic higher-order call sites;
 it does not change the resulting function value.
 
-Nested arrows associate to the right: `func int -> func string -> bool` means a delegate
-that accepts an `int` and returns another delegate of type `func string -> bool`.
+Nested arrows associate to the right: `int -> string -> bool` means a delegate
+that accepts an `int` and returns another delegate of type `string -> bool`.
 Return types may be any Raven type, including unions. Function types themselves
 may appear anywhere a normal type is expected—alias declarations, parameter
 annotations, local bindings, generics, and so on.

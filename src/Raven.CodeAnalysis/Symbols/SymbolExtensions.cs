@@ -983,7 +983,7 @@ public static partial class SymbolExtensions
             returnDisplay = $"({returnDisplay})";
         }
 
-        return $"func {parameterText} -> {returnDisplay}";
+        return $"{parameterText} -> {returnDisplay}";
     }
 
     private static string FormatFunctionParameter(ITypeSymbol type, RefKind refKind, SymbolDisplayFormat format)

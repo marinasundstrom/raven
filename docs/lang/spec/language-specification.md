@@ -3064,7 +3064,7 @@ When no delegate context is available, diagnostic `RAV2201` is reported and the
 method must either be invoked directly or annotated with a delegate type.
 
 ```raven
-val writeLine: func (string) -> () = Console.WriteLine
+val writeLine: (string) -> () = Console.WriteLine
 writeLine("Hello from Raven!")
 ```
 
@@ -3079,10 +3079,10 @@ type.
 
 ```raven
 val writeLine = Console.WriteLine             // error: overloaded method group
-val writeLine: func (string) -> () = Console.WriteLine // ok
+val writeLine: (string) -> () = Console.WriteLine // ok
 ```
 
-Passing `Console.WriteLine` as an argument to a parameter of function type `func (string) -> ()`
+Passing `Console.WriteLine` as an argument to a parameter of function type `(string) -> ()`
 (equivalent to `System.Action<string>`) likewise selects the `string` overload without requiring
 an explicit annotation at the call site. If no overload matches the target
 delegate's signature, diagnostic `RAV2203` is produced.
@@ -3456,23 +3456,23 @@ participate in other type constructs such as unions or nullability.
 ### Function types
 
 Function types describe callable delegates directly in a type annotation. The
-syntax mirrors a lambda signature and starts with `func`: a comma-separated
+syntax mirrors a lambda signature: a comma-separated
 parameter list enclosed in parentheses followed by `->` and the return type.
 
 ```raven
-val applyTwice: func (func int -> int, int) -> int
-val thunk: func () -> unit
-val comparer: func (string, string) -> bool
+val applyTwice: ((int -> int), int) -> int
+val thunk: () -> unit
+val comparer: (string, string) -> bool
 ```
 
 Single-parameter functions may omit the surrounding parentheses:
 
 ```raven
-val increment: func int -> int
+val increment: int -> int
 ```
 
-The return portion may itself be any Raven type. Nested arrows associate to the right, so `func int -> func string -> bool` is
-parsed as `func int -> (func string -> bool)`.
+The return portion may itself be any Raven type. Nested arrows associate to the right, so `int -> string -> bool` is
+parsed as `int -> (string -> bool)`.
 
 Function annotations are sugar over delegates. When the parameter and return
 types match an existing declaration (including the built-in `Func`/`Action`

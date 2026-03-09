@@ -4,13 +4,13 @@
 
 import System.Console.*
 
-func apply(value: int, transform: func int -> int) -> int {
+func apply(value: int, transform: int -> int) -> int {
     transform(value)
 }
 
 val doubled = (x: int) => x * 2
-val increment: func (int) -> int = x => x + 1
-val reducer: func (int, int) -> int = (a: int, b: int) -> int => a + b
+val increment: (int) -> int = x => x + 1
+val reducer: (int, int) -> int = (a: int, b: int) -> int => a + b
 
 val result = apply(5, doubled)
 val chained = apply(result, increment)

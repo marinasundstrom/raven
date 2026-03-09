@@ -53,7 +53,7 @@ class Sample {
         const string source = """
 class Sample {
     func test() -> unit {
-        val groupedNullable: (func () -> ())? = null
+        val groupedNullable: (() -> ())? = null
     }
 }
 """;
@@ -63,7 +63,7 @@ class Sample {
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
 
-        Assert.Equal("(func () -> ())?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("(() -> ())?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -72,7 +72,7 @@ class Sample {
         const string source = """
 class Sample {
     func test() -> unit {
-        val nullableReturn: func () -> ()? = () => ()
+        val nullableReturn: () -> ()? = () => ()
     }
 }
 """;
@@ -82,7 +82,7 @@ class Sample {
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
 
-        Assert.Contains("func () -> ()?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), StringComparison.Ordinal);
+        Assert.Contains("() -> ()?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), StringComparison.Ordinal);
     }
 
     [Fact]

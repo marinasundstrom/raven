@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Operations;
@@ -32,7 +33,7 @@ internal static class SymbolResolver
     private static bool TryResolveMemberTokenFastPath(
         SemanticModel semanticModel,
         SyntaxToken token,
-        out ISymbol? symbol)
+        [NotNullWhen(true)] out ISymbol? symbol)
     {
         symbol = null;
 

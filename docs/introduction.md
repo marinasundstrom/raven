@@ -215,10 +215,10 @@ In practice, the difference is binding shape:
 - Named declarations introduce a member/local function symbol.
 - Unnamed function expressions produce a function value that you bind to `val`/`var` or pass as an argument.
 
-Function type signatures always start with `func`:
+Function type signatures use arrow notation:
 
 ```raven
-val f: func (int, int) -> int
+val f: (int, int) -> int
 val g = func (a: int, b: int) => a + b
 ```
 

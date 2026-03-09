@@ -10,13 +10,13 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void FunctionType_SingleParameter_OmitsParentheses()
     {
-        var code = "val f: func string -> int = s => 0";
+        var code = "val f: string -> int = s => 0";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
         var functionType = Assert.IsType<FunctionTypeSyntax>(local.Declaration.Declarators[0].TypeAnnotation!.Type);
 
-        Assert.Equal(SyntaxKind.FuncKeyword, functionType.FuncKeyword.Kind);
+        Assert.Equal(SyntaxKind.None, functionType.FuncKeyword.Kind);
         Assert.NotNull(functionType.Parameter);
         Assert.Null(functionType.ParameterList);
         Assert.Equal("string", functionType.Parameter!.ToString());
@@ -26,13 +26,13 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void FunctionType_WithParameterList_ParsesAllParameters()
     {
-        var code = "val f: func (int, string) -> bool = (i, s) => true";
+        var code = "val f: (int, string) -> bool = (i, s) => true";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
         var functionType = Assert.IsType<FunctionTypeSyntax>(local.Declaration.Declarators[0].TypeAnnotation!.Type);
 
-        Assert.Equal(SyntaxKind.FuncKeyword, functionType.FuncKeyword.Kind);
+        Assert.Equal(SyntaxKind.None, functionType.FuncKeyword.Kind);
         Assert.Null(functionType.Parameter);
         Assert.NotNull(functionType.ParameterList);
         Assert.Equal(2, functionType.ParameterList!.Parameters.Count);
@@ -44,13 +44,13 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void FunctionType_Parameterless_Parses()
     {
-        var code = "val f: func () -> unit = () => ()";
+        var code = "val f: () -> unit = () => ()";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
         var functionType = Assert.IsType<FunctionTypeSyntax>(local.Declaration.Declarators[0].TypeAnnotation!.Type);
 
-        Assert.Equal(SyntaxKind.FuncKeyword, functionType.FuncKeyword.Kind);
+        Assert.Equal(SyntaxKind.None, functionType.FuncKeyword.Kind);
         Assert.Null(functionType.Parameter);
         Assert.NotNull(functionType.ParameterList);
         Assert.Empty(functionType.ParameterList!.Parameters);
@@ -60,13 +60,13 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void FunctionType_Parameterless_WithNullableReturn_Parses()
     {
-        var code = "val f: func () -> ()? = () => ()";
+        var code = "val f: () -> ()? = () => ()";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
         var functionType = Assert.IsType<FunctionTypeSyntax>(local.Declaration.Declarators[0].TypeAnnotation!.Type);
 
-        Assert.Equal(SyntaxKind.FuncKeyword, functionType.FuncKeyword.Kind);
+        Assert.Equal(SyntaxKind.None, functionType.FuncKeyword.Kind);
         Assert.Null(functionType.Parameter);
         Assert.NotNull(functionType.ParameterList);
         Assert.Empty(functionType.ParameterList!.Parameters);
@@ -76,7 +76,7 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void NullableFunctionType_WithGroupedFunctionType_Parses()
     {
-        var code = "val f: (func () -> ())? = null";
+        var code = "val f: (() -> ())? = null";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;

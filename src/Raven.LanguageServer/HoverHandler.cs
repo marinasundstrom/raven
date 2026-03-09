@@ -199,7 +199,7 @@ internal sealed class HoverHandler : IHoverHandler
         {
             var parameters = FormatParameters(lambda.Parameters, plainTypeFormat);
             var returnType = lambda.ReturnType.ToDisplayString(plainTypeFormat);
-            return $"func ({parameters}) -> {returnType}";
+            return $"({parameters}) -> {returnType}";
         }
 
         if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
@@ -478,7 +478,7 @@ internal sealed class HoverHandler : IHoverHandler
             }));
 
         var returnType = invokeMethod.ReturnType.ToDisplayString(plainTypeFormat);
-        signature = $"func ({parameters}) -> {returnType}";
+        signature = $"({parameters}) -> {returnType}";
         return true;
     }
 

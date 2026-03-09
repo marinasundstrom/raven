@@ -55,7 +55,7 @@ class Logger {
     static func Log(value: double) -> unit {}
 }
 
-val callback: func int -> () = Logger.Log
+val callback: int -> () = Logger.Log
 """;
 
         var verifier = CreateVerifier(source, []);
@@ -78,7 +78,7 @@ val callback: System.Action<string> = Logger.Log
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult("RAV2203").WithSpan(7, 39, 7, 49).WithArguments("Logger.Log(int)", "func string -> ()")]);
+            [new DiagnosticResult("RAV2203").WithSpan(7, 39, 7, 49).WithArguments("Logger.Log(int)", "string -> ()")]);
 
         verifier.Verify();
     }

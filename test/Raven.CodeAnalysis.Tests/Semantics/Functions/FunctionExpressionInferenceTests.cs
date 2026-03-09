@@ -255,7 +255,7 @@ class Container {
 import System.*
 class Container {
     func Provide() -> unit {
-        val f: func (int, int) -> int = func (a: int, b: int) => a + b
+        val f: (int, int) -> int = func (a: int, b: int) => a + b
         f(1, 2)
     }
 }
@@ -268,7 +268,7 @@ class Container {
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        Assert.Equal("func (int, int) -> int", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("(int, int) -> int", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -834,7 +834,7 @@ import System.Collections.Generic.*
 
 ForEach([1, 2], no => {})
 
-func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () { }
+func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
 """;
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -860,7 +860,7 @@ import System.Collections.Generic.*
 val items: List<int> = [1, 2, 3]
 ForEach(items, WriteLine)
 
-func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () { }
+func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
 """;
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -896,7 +896,7 @@ import System.Collections.Generic.*
 val items: IEnumerable<int> = [1, 2, 3]
 ForEach(items, x => {})
 
-func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () { }
+func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
 """;
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -961,7 +961,7 @@ func Main() {
     {
         const string code = """
 class Container {
-    static func Build<T>(projector: func T -> int) -> int {
+    static func Build<T>(projector: T -> int) -> int {
         return 0
     }
 
@@ -1045,7 +1045,7 @@ async func Main() -> Task {
         var receiverSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(receiverIdentifier).Symbol);
         var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverSymbol.Type);
         Assert.Equal("Task", receiverType.Name);
-        Assert.Equal(1, receiverType.TypeArguments.Length);
+        Assert.Single(receiverType.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, receiverType.TypeArguments[0].SpecialType);
     }
 }
@@ -1056,7 +1056,7 @@ public class FunctionExpressionInferenceDiagnosticsTests : DiagnosticTestBase
     public void Lambda_WithErrorTypeArgument_DoesNotReportConversionError()
     {
         const string code = """
-func apply(value: int, transform: func int -> int) -> int {
+func apply(value: int, transform: int -> int) -> int {
     transform(value)
 }
 
