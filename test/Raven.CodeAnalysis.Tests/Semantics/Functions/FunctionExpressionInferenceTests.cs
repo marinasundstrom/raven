@@ -308,7 +308,7 @@ class Container {
         const string code = """
 class Container {
     func Provide() -> unit {
-        val f: func int -> int = func Fib(n: int) => Fib(n)
+        val f: (int) -> int = func Fib(n: int) => Fib(n)
     }
 }
 """;
@@ -325,6 +325,56 @@ class Container {
 
         var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(fibInvocation).Symbol);
         Assert.Equal(MethodKind.LambdaMethod, symbol.MethodKind);
+    }
+
+    [Fact]
+    public void FuncLambda_WithIdentifier_IsNotVisibleOutsideBody()
+    {
+        const string code = """
+class Container {
+    func Provide() -> unit {
+        val f: (int) -> int = func Fib(n: int) => Fib(n)
+        Fib(1)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Id == "RAV0103");
+    }
+
+    [Fact]
+    public void FuncLambda_AssignedToDelegateType_BindsAndProjectsBuiltInDelegates()
+    {
+        const string code = """
+import System.*
+class Container {
+    public delegate MyHandler(value: int) -> unit
+
+    func Provide() -> unit {
+        val action: Action<int> = func (x: int) {
+        }
+
+        val handler: Container.MyHandler = func (x: int) {
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+        Assert.Equal(2, declarators.Length);
+
+        var actionLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators[0]));
+        var handlerLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators[1]));
+
+        Assert.Equal("int -> ()", actionLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.StartsWith("MyHandler(", handlerLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
