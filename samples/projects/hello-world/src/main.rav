@@ -6,7 +6,7 @@ func Main() -> Result<(), Err> {
     
     match userOrError {
         Ok(val user) => {
-            user.Foo += (s, args) => WriteLine(args.Arg)
+            user.Foo += func (s, args) => WriteLine(args.Arg)
             user.RaiseEvent("Test")
         }
         Error(var error) => WriteLine(error)
@@ -29,9 +29,7 @@ record class User(Name: string, IsActive: bool) {
     override func ToString() -> string => Name
 }
 
-class CustomEventArgs(arg: string) : EventArgs {
-    val Arg: string => arg
-}
+class CustomEventArgs(val Arg: string) : EventArgs
 
 union Err {
     MissingUser
