@@ -8,6 +8,9 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 {
+    private ImmutableArray<IParameterSymbol> _parameters;
+    private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
     private ImmutableArray<ISymbol> _capturedVariables = ImmutableArray<ISymbol>.Empty;
     private bool _hasAsyncReturnTypeError;
     private bool _containsAwait;
@@ -32,14 +35,14 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
             locations ?? Array.Empty<Location>(),
             declaringSyntaxReferences ?? Array.Empty<SyntaxReference>())
     {
-        Parameters = parameters.ToImmutableArray();
+        _parameters = parameters.ToImmutableArray();
         ReturnType = returnType;
         IsAsync = isAsync;
     }
 
     public bool IsLambda => true;
 
-    public ImmutableArray<IParameterSymbol> Parameters { get; }
+    public ImmutableArray<IParameterSymbol> Parameters => _parameters;
 
     public ITypeSymbol ReturnType { get; private set; }
 
@@ -53,13 +56,13 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     internal bool HasAsyncReturnTypeError => _hasAsyncReturnTypeError;
 
-    public IMethodSymbol? OriginalDefinition => null;
+    public IMethodSymbol? OriginalDefinition => this;
 
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => ImmutableArray<ITypeParameterSymbol>.Empty;
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;
 
-    public ImmutableArray<ITypeSymbol> TypeArguments => ImmutableArray<ITypeSymbol>.Empty;
+    public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
 
-    public IMethodSymbol? ConstructedFrom => null;
+    public IMethodSymbol? ConstructedFrom => this;
 
     public bool IsAbstract => false;
     public bool IsAsync { get; }
@@ -68,7 +71,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public bool IsExtensionMethod => false;
     public bool IsExtern => false;
     public bool IsUnsafe => false;
-    public bool IsGenericMethod => false;
+    public bool IsGenericMethod => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0;
     public bool IsOverride => false;
     public bool IsReadOnly => false;
     public bool IsFinal => false;
@@ -84,6 +87,19 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public void SetReturnType(ITypeSymbol returnType)
     {
         ReturnType = returnType;
+    }
+
+    internal void SetParameters(IEnumerable<IParameterSymbol> parameters)
+    {
+        _parameters = parameters.ToImmutableArray();
+    }
+
+    internal void SetTypeParameters(IEnumerable<ITypeParameterSymbol> typeParameters)
+    {
+        _typeParameters = typeParameters.ToImmutableArray();
+        _typeArguments = _typeParameters.IsDefaultOrEmpty
+            ? ImmutableArray<ITypeSymbol>.Empty
+            : _typeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
     }
 
     public bool ContainsAwait => _containsAwait;
@@ -131,7 +147,10 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
     {
-        throw new NotSupportedException("Lambdas cannot be constructed with type arguments.");
+        if (typeArguments is null)
+            throw new ArgumentNullException(nameof(typeArguments));
+
+        return new ConstructedMethodSymbol(this, typeArguments.ToImmutableArray());
     }
 
     private static string CreateLambdaName(ISymbol containingSymbol, Location[]? locations)

@@ -973,8 +973,11 @@
     <Slot Name="StaticKeyword" Type="Token" IsOptionalToken="true" DefaultToken="StaticKeyword" />
     <Slot Name="AsyncKeyword" Type="Token" IsOptionalToken="true" DefaultToken="AsyncKeyword" />
     <Slot Name="FuncKeyword" Type="Token" IsOptionalToken="true" DefaultToken="FuncKeyword" />
+    <Slot Name="Identifier" Type="Token" IsOptionalToken="true" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
     <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
   </Node>

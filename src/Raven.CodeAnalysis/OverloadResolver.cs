@@ -846,6 +846,10 @@ internal sealed class OverloadResolver
         if (typeParameters.Length != typeArguments.Length)
             return true;
 
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        for (int i = 0; i < typeParameters.Length; i++)
+            substitutions[typeParameters[i]] = typeArguments[i];
+
         for (int i = 0; i < typeParameters.Length; i++)
         {
             var typeParameter = typeParameters[i];
@@ -881,10 +885,12 @@ internal sealed class OverloadResolver
 
             foreach (var constraintType in typeParameter.ConstraintTypes)
             {
-                if (constraintType is IErrorTypeSymbol)
+                var substitutedConstraint = SubstituteConstraintType(constraintType, substitutions);
+
+                if (substitutedConstraint is IErrorTypeSymbol)
                     continue;
 
-                if (constraintType is INamedTypeSymbol namedConstraint)
+                if (substitutedConstraint is INamedTypeSymbol namedConstraint)
                 {
                     if (!SemanticFacts.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
                         return false;
@@ -892,7 +898,7 @@ internal sealed class OverloadResolver
                     continue;
                 }
 
-                if (!SemanticFacts.SatisfiesTypeConstraint(typeArgument, constraintType))
+                if (!SemanticFacts.SatisfiesTypeConstraint(typeArgument, substitutedConstraint))
                     return false;
             }
         }
@@ -921,6 +927,52 @@ internal sealed class OverloadResolver
         }
 
         return typeParameter;
+    }
+
+    private static ITypeSymbol SubstituteConstraintType(
+        ITypeSymbol type,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol typeParameter:
+                if (substitutions.TryGetValue(typeParameter, out var substitutedType))
+                    return substitutedType;
+
+                return type;
+
+            case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+                {
+                    var typeArguments = named.TypeArguments;
+                    var rewritten = new ITypeSymbol[typeArguments.Length];
+                    var changed = false;
+
+                    for (int i = 0; i < typeArguments.Length; i++)
+                    {
+                        var substitutedArg = SubstituteConstraintType(typeArguments[i], substitutions);
+                        rewritten[i] = substitutedArg;
+                        changed |= !ReferenceEquals(substitutedArg, typeArguments[i]);
+                    }
+
+                    if (!changed)
+                        return type;
+
+                    try
+                    {
+                        var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
+                        if (definition.Arity == rewritten.Length)
+                            return definition.Construct(rewritten);
+                    }
+                    catch
+                    {
+                        // Keep the original constraint type if reconstruction fails.
+                    }
+
+                    return type;
+                }
+        }
+
+        return type;
     }
 
     private static void AddCandidateIfMissing(ImmutableArray<IMethodSymbol>.Builder builder, IMethodSymbol candidate)

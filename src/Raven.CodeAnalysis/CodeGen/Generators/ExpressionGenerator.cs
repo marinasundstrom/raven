@@ -1207,6 +1207,9 @@ internal partial class ExpressionGenerator : Generator
         if (!lambdaGenerator.HasEmittedBody)
             lambdaGenerator.EmitLambdaBody(lambdaExpression, closure);
 
+        if (!_preserveResult)
+            return;
+
         if (lambdaGenerator.MethodBase is not MethodInfo methodInfo)
             throw new InvalidOperationException("Expected a method-backed lambda.");
 

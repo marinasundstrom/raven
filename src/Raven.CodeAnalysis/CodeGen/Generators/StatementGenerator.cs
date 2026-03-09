@@ -1127,8 +1127,16 @@ internal class StatementGenerator : Generator
 
             var initType2 = declarator.Initializer.Type;
             var discardValue = localBuilder is null && initType2?.SpecialType is (SpecialType.System_Void or SpecialType.System_Unit);
+            var preserveResult = !discardValue;
+            if (localBuilder is null &&
+                localSymbol is SourceFunctionValueSymbol &&
+                declarator.Initializer is BoundFunctionExpression)
+            {
+                // Function-value aliases keep method semantics and avoid delegate materialization.
+                preserveResult = false;
+            }
 
-            new ExpressionGenerator(this, declarator.Initializer, preserveResult: !discardValue).Emit2();
+            new ExpressionGenerator(this, declarator.Initializer, preserveResult).Emit2();
 
             var expressionType = declarator.Initializer.Type;
 

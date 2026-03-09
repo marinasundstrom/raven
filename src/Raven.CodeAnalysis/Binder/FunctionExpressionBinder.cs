@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Raven.CodeAnalysis;
 
 class FunctionExpressionBinder : BlockBinder
 {
     private readonly Dictionary<string, IParameterSymbol> _parameters = new();
+    private readonly Dictionary<string, IMethodSymbol> _functions = new();
 
     public FunctionExpressionBinder(ISymbol containingSymbol, Binder parent) : base(containingSymbol, parent) { }
 
@@ -16,12 +18,32 @@ class FunctionExpressionBinder : BlockBinder
 
     public IEnumerable<IParameterSymbol> GetParameters() => _parameters.Values;
 
+    public void DeclareFunction(string name, IMethodSymbol method)
+    {
+        _functions[name] = method;
+    }
+
     public override ISymbol? LookupSymbol(string name)
     {
         if (_parameters.TryGetValue(name, out var param))
             return param;
 
+        if (_functions.TryGetValue(name, out var function))
+            return function;
+
         return base.LookupSymbol(name);
+    }
+
+    public override ITypeSymbol? LookupType(string name)
+    {
+        if (ContainingSymbol is IMethodSymbol method)
+        {
+            var methodTypeParameter = method.TypeParameters.FirstOrDefault(tp => tp.Name == name);
+            if (methodTypeParameter is not null)
+                return methodTypeParameter;
+        }
+
+        return base.LookupType(name);
     }
 
     public override BoundExpression BindExpression(ExpressionSyntax expression)

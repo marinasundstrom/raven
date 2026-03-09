@@ -3788,6 +3788,9 @@ internal class MethodBodyGenerator
 
         foreach (var localSymbol in collector.Locals)
         {
+            if (localSymbol is SourceFunctionValueSymbol)
+                continue;
+
             // Skip locals without a type. This can occur when the initializer
             // contains an early return, making the declaration unreachable.
             if (localSymbol.Type is null)

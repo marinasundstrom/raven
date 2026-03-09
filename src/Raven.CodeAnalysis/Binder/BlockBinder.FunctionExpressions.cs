@@ -103,6 +103,73 @@ partial class BlockBinder
         INamedTypeSymbol? primaryDelegate = targetDelegate;
         var targetSignature = primaryDelegate?.GetDelegateInvokeMethod();
 
+        TypeParameterListSyntax? lambdaTypeParameterList = syntax switch
+        {
+            ParenthesizedFunctionExpressionSyntax p => p.TypeParameterList,
+            _ => null
+        };
+
+        var lambdaConstraintClauses = syntax switch
+        {
+            ParenthesizedFunctionExpressionSyntax p => p.ConstraintClauses,
+            _ => SyntaxList<TypeParameterConstraintClauseSyntax>.Empty
+        };
+
+        var initialReturnType = Compilation.ErrorTypeSymbol;
+        var lambdaSymbol = new SourceLambdaSymbol(
+            parameters: [],
+            initialReturnType,
+            _containingSymbol,
+            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol.ContainingNamespace,
+            [syntax.GetLocation()],
+            [syntax.GetReference()],
+            isAsync: isAsyncLambda);
+        var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
+
+        if (syntax is ParenthesizedFunctionExpressionSyntax
+            {
+                Identifier: { Kind: not SyntaxKind.None } identifierToken
+            })
+        {
+            lambdaBinder.DeclareFunction(identifierToken.ValueText, lambdaSymbol);
+        }
+
+        var hasScopedFunctionName = false;
+        string? scopedFunctionName = null;
+        var hadPreviousScopedFunction = false;
+        IMethodSymbol? previousScopedFunction = null;
+
+        if (syntax is ParenthesizedFunctionExpressionSyntax
+            {
+                Identifier: { Kind: not SyntaxKind.None } scopedIdentifierToken
+            })
+        {
+            hasScopedFunctionName = true;
+            scopedFunctionName = scopedIdentifierToken.ValueText;
+            hadPreviousScopedFunction = _functions.TryGetValue(scopedFunctionName, out previousScopedFunction);
+            _functions[scopedFunctionName] = lambdaSymbol;
+        }
+
+        if (lambdaTypeParameterList is not null && lambdaTypeParameterList.Parameters.Count > 0)
+        {
+            var containingType = _containingSymbol.ContainingType as INamedTypeSymbol
+                ?? Compilation.GetSpecialType(SpecialType.System_Object) as INamedTypeSymbol;
+
+            if (containingType is not null)
+            {
+                TypeParameterInitializer.InitializeLambdaTypeParameters(
+                    lambdaSymbol,
+                    containingType,
+                    lambdaTypeParameterList,
+                    lambdaConstraintClauses,
+                    syntax.SyntaxTree,
+                    _diagnostics);
+
+                lambdaBinder.EnsureTypeParameterConstraintTypesResolved(lambdaSymbol.TypeParameters);
+            }
+        }
+
         var parameterSymbols = new List<IParameterSymbol>();
         var seenOptionalParameter = false;
         for (int index = 0; index < parameterSyntaxes.Length; index++)
@@ -134,7 +201,7 @@ partial class BlockBinder
                 var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
                     ? byRefType.ElementType
                     : typeSyntax;
-                parameterType = ResolveTypeSyntaxOrError(boundTypeSyntax);
+                parameterType = lambdaBinder.ResolveTypeSyntaxOrError(boundTypeSyntax);
             }
             else if (targetParam is not null)
             {
@@ -187,9 +254,9 @@ partial class BlockBinder
             var symbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 parameterType,
-                _containingSymbol,
-                _containingSymbol.ContainingType as INamedTypeSymbol,
-                _containingSymbol.ContainingNamespace,
+                lambdaSymbol,
+                lambdaSymbol.ContainingType,
+                lambdaSymbol.ContainingNamespace,
                 [parameterSyntax.Identifier.GetLocation()],
                 [parameterSyntax.GetReference()],
                 refKind,
@@ -201,6 +268,8 @@ partial class BlockBinder
             parameterSymbols.Add(symbol);
         }
 
+        lambdaSymbol.SetParameters(parameterSymbols);
+
         TypeSyntax? returnTypeSyntax = syntax switch
         {
             SimpleFunctionExpressionSyntax s => s.ReturnType?.Type,
@@ -209,7 +278,7 @@ partial class BlockBinder
         };
 
         ITypeSymbol? annotatedReturnType = returnTypeSyntax is not null
-            ? ResolveTypeSyntaxOrError(returnTypeSyntax)
+            ? lambdaBinder.ResolveTypeSyntaxOrError(returnTypeSyntax)
             : null;
 
         var hasInvalidAsyncReturnType = false;
@@ -223,22 +292,11 @@ partial class BlockBinder
             hasInvalidAsyncReturnType = true;
         }
 
-        var initialReturnType = annotatedReturnType ?? Compilation.ErrorTypeSymbol;
-
-        var lambdaSymbol = new SourceLambdaSymbol(
-            parameterSymbols,
-            initialReturnType,
-            _containingSymbol,
-            _containingSymbol.ContainingType as INamedTypeSymbol,
-            _containingSymbol.ContainingNamespace,
-            [syntax.GetLocation()],
-            [syntax.GetReference()],
-            isAsync: isAsyncLambda);
+        initialReturnType = annotatedReturnType ?? Compilation.ErrorTypeSymbol;
+        lambdaSymbol.SetReturnType(initialReturnType);
 
         if (hasInvalidAsyncReturnType)
             lambdaSymbol.MarkAsyncReturnTypeError();
-
-        var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
 
         foreach (var param in parameterSymbols)
             lambdaBinder.DeclareParameter(param);
@@ -251,16 +309,30 @@ partial class BlockBinder
         var lambdaBodySyntaxNode = GetLambdaBodySyntaxNode(syntax);
 
         BoundExpression bodyExpr;
-        if (lambdaBodyTargetType is not null)
+        try
         {
-            using var _ = lambdaBinder.PushTargetType(lambdaBodyTargetType);
-            bodyExpr = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
+            if (lambdaBodyTargetType is not null)
+            {
+                using var _ = lambdaBinder.PushTargetType(lambdaBodyTargetType);
+                bodyExpr = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
+            }
+            else
+            {
+                bodyExpr = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
+            }
+
+            ReportLambdaBodyDiagnostics(lambdaBinder);
         }
-        else
+        finally
         {
-            bodyExpr = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
+            if (hasScopedFunctionName && scopedFunctionName is not null)
+            {
+                if (hadPreviousScopedFunction && previousScopedFunction is not null)
+                    _functions[scopedFunctionName] = previousScopedFunction;
+                else
+                    _functions.Remove(scopedFunctionName);
+            }
         }
-        ReportLambdaBodyDiagnostics(lambdaBinder);
 
         var inferred = bodyExpr.Type;
         var collectedReturn = ReturnTypeCollector.Infer(bodyExpr);
@@ -1313,9 +1385,9 @@ partial class BlockBinder
                 }
                 else
                 {
-                instrumentation.RecordCacheHit();
-                instrumentation.RecordReplaySuccess();
-                return cached;
+                    instrumentation.RecordCacheHit();
+                    instrumentation.RecordReplaySuccess();
+                    return cached;
                 }
             }
 
@@ -1492,11 +1564,49 @@ partial class BlockBinder
 
         var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
 
+        if (syntax is ParenthesizedFunctionExpressionSyntax
+            {
+                Identifier: { Kind: not SyntaxKind.None } identifierToken
+            })
+        {
+            lambdaBinder.DeclareFunction(identifierToken.ValueText, lambdaSymbol);
+        }
+
+        var hasScopedReplayFunctionName = false;
+        string? scopedReplayFunctionName = null;
+        var hadPreviousReplayFunction = false;
+        IMethodSymbol? previousReplayFunction = null;
+
+        if (syntax is ParenthesizedFunctionExpressionSyntax
+            {
+                Identifier: { Kind: not SyntaxKind.None } replayIdentifierToken
+            })
+        {
+            hasScopedReplayFunctionName = true;
+            scopedReplayFunctionName = replayIdentifierToken.ValueText;
+            hadPreviousReplayFunction = _functions.TryGetValue(scopedReplayFunctionName, out previousReplayFunction);
+            _functions[scopedReplayFunctionName] = lambdaSymbol;
+        }
+
         foreach (var parameter in parameterSymbols)
             lambdaBinder.DeclareParameter(parameter);
 
         var lambdaBodySyntax = GetLambdaBodyExpression(syntax);
-        var body = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
+        BoundExpression body;
+        try
+        {
+            body = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
+        }
+        finally
+        {
+            if (hasScopedReplayFunctionName && scopedReplayFunctionName is not null)
+            {
+                if (hadPreviousReplayFunction && previousReplayFunction is not null)
+                    _functions[scopedReplayFunctionName] = previousReplayFunction;
+                else
+                    _functions.Remove(scopedReplayFunctionName);
+            }
+        }
 
         // If the lambda has an explicit return type annotation, it must match the delegate candidate.
         // Do not report diagnostics during replay; just treat the candidate as not applicable.

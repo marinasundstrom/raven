@@ -137,6 +137,29 @@ public class FunctionExpressionSyntaxTests
     }
 
     [Fact]
+    public void ParenthesizedLambda_WithFuncKeywordTypeParametersAndConstraints_Parses()
+    {
+        var lambda = ParseLambdaInitializer(
+            """
+            func<T>(a: T, b: T) where T: INumber<T> {
+                a + b
+            }
+            """);
+
+        Assert.NotNull(lambda.TypeParameterList);
+        var typeParameter = Assert.Single(lambda.TypeParameterList!.Parameters);
+        Assert.Equal("T", typeParameter.Identifier.Text);
+        Assert.Single(lambda.ConstraintClauses);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithFuncKeywordIdentifier_Parses()
+    {
+        var lambda = ParseLambdaInitializer("func Fib(n: int) => n");
+        Assert.Equal("Fib", lambda.Identifier.Text);
+    }
+
+    [Fact]
     public void SimpleLambda_WithArrowBlockBody_ParsesAsExpressionBody()
     {
         var expression = ParseExpression("x => { x }");

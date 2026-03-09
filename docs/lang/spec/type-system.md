@@ -314,6 +314,12 @@ types themselves remain distinct; Raven does not perform implicit conversions
 between delegate types that merely share the same signature, so converting
 between delegate types requires an explicit cast.
 
+`func` expressions also support generic signatures and optional local names:
+`func<T>(...) where ... { ... }` and `func Fib(...) { ... }`. Generic and named
+function expressions are bound as function values first, while projection to a
+delegate happens when they flow into parameter or property signatures that
+require a delegate type.
+
 ## Interoperability
 
 Because Raven reuses .NET types, existing libraries can be consumed seamlessly:

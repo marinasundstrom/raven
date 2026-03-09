@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 
 using Raven.CodeAnalysis.Symbols;
@@ -6,6 +8,78 @@ namespace Raven.CodeAnalysis;
 
 internal static class TypeParameterInitializer
 {
+    public static void InitializeLambdaTypeParameters(
+        SourceLambdaSymbol lambdaSymbol,
+        INamedTypeSymbol containingType,
+        TypeParameterListSyntax? typeParameterList,
+        SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
+        SyntaxTree syntaxTree,
+        DiagnosticBag? diagnostics = null)
+    {
+        if (typeParameterList is null || typeParameterList.Parameters.Count == 0)
+            return;
+
+        Dictionary<string, List<TypeParameterConstraintClauseSyntax>>? clausesByName = null;
+        if (constraintClauses.Count > 0)
+        {
+            clausesByName = new(StringComparer.Ordinal);
+
+            foreach (var clause in constraintClauses)
+            {
+                var name = clause.TypeParameter.Identifier.ValueText;
+
+                if (!clausesByName.TryGetValue(name, out var list))
+                    clausesByName[name] = list = new List<TypeParameterConstraintClauseSyntax>();
+
+                list.Add(clause);
+            }
+        }
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
+        int ordinal = 0;
+
+        foreach (var parameter in typeParameterList.Parameters)
+        {
+            var identifier = parameter.Identifier;
+            var location = syntaxTree.GetLocation(identifier.Span);
+            var reference = parameter.GetReference();
+
+            var (inlineKind, inlineRefs) = TypeParameterConstraintAnalyzer.AnalyzeInline(parameter);
+
+            var clauseKind = TypeParameterConstraintKind.None;
+            var clauseRefsBuilder = ImmutableArray.CreateBuilder<SyntaxReference>();
+
+            if (clausesByName is not null &&
+                clausesByName.TryGetValue(identifier.ValueText, out var matchingClauses))
+            {
+                foreach (var clause in matchingClauses)
+                {
+                    var (k, refs) = TypeParameterConstraintAnalyzer.AnalyzeClause(clause);
+                    clauseKind |= k;
+                    clauseRefsBuilder.AddRange(refs);
+                }
+            }
+
+            var mergedKind = inlineKind | clauseKind;
+            var mergedRefs = inlineRefs.AddRange(clauseRefsBuilder.ToImmutable());
+            var variance = GetDeclaredVariance(parameter);
+
+            builder.Add(new SourceTypeParameterSymbol(
+                identifier.ValueText,
+                lambdaSymbol,
+                containingType,
+                lambdaSymbol.ContainingNamespace,
+                [location],
+                [reference],
+                ordinal++,
+                mergedKind,
+                mergedRefs,
+                variance));
+        }
+
+        lambdaSymbol.SetTypeParameters(builder);
+    }
+
     public static void InitializeMethodTypeParameters(
         SourceMethodSymbol methodSymbol,
         INamedTypeSymbol containingType, // container used as "declaring type context" in your symbols

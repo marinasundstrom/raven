@@ -203,6 +203,8 @@ partial class BlockBinder : Binder
         BoundExpression? boundInitializer = null;
         ITypeSymbol? initializerValueType = null;
         ITypeSymbol? annotatedType = null;
+        IMethodSymbol? functionValueTargetMethod = null;
+        var isFunctionValueAlias = false;
         var typeLocation = variableDeclarator.TypeAnnotation?.Type.GetLocation()
             ?? bindingKeyword.GetLocation();
         object? constantValue = null;
@@ -233,29 +235,56 @@ partial class BlockBinder : Binder
         }
         else if (variableDeclarator.TypeAnnotation is null)
         {
-            if (boundInitializer is BoundMethodGroupExpression methodGroup)
-            {
-                var inferredDelegate = methodGroup.DelegateType ?? methodGroup.DelegateTypeFactory?.Invoke();
-                if (inferredDelegate is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            if (boundInitializer is BoundFunctionExpression lambdaInitializer &&
+                lambdaInitializer.Symbol is IMethodSymbol lambdaMethod &&
+                !lambdaMethod.TypeParameters.IsDefaultOrEmpty &&
+                initializer?.Value is FunctionExpressionSyntax functionSyntax &&
+                functionSyntax switch
                 {
-                    boundInitializer = ConvertMethodGroupToDelegate(methodGroup, delegateType, initializer.Value);
-                    CacheBoundNode(initializer.Value, boundInitializer);
-                    type = delegateType;
+                    ParenthesizedFunctionExpressionSyntax p => p.FuncKeyword.Kind == SyntaxKind.FuncKeyword,
+                    SimpleFunctionExpressionSyntax s => s.FuncKeyword.Kind == SyntaxKind.FuncKeyword,
+                    _ => false
+                })
+            {
+                isFunctionValueAlias = true;
+                functionValueTargetMethod = lambdaMethod;
+
+                if (lambdaMethod.TypeParameters.IsDefaultOrEmpty)
+                {
+                    type = lambdaInitializer.DelegateType;
                 }
                 else
                 {
-                    boundInitializer = ReportMethodGroupRequiresDelegate(methodGroup, initializer.Value);
-                    CacheBoundNode(initializer.Value, boundInitializer);
-                    type = Compilation.ErrorTypeSymbol;
+                    // Generic function values are method aliases, not runtime delegate instances.
+                    type = Compilation.GetSpecialType(SpecialType.System_Object);
                 }
-            }
-            else if (boundInitializer?.Type is { } initType)
-            {
-                type = TypeSymbolNormalization.NormalizeForInference(initType);
             }
             else
             {
-                type = Compilation.ErrorTypeSymbol;
+                if (boundInitializer is BoundMethodGroupExpression methodGroup)
+                {
+                    var inferredDelegate = methodGroup.DelegateType ?? methodGroup.DelegateTypeFactory?.Invoke();
+                    if (inferredDelegate is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+                    {
+                        boundInitializer = ConvertMethodGroupToDelegate(methodGroup, delegateType, initializer.Value);
+                        CacheBoundNode(initializer.Value, boundInitializer);
+                        type = delegateType;
+                    }
+                    else
+                    {
+                        boundInitializer = ReportMethodGroupRequiresDelegate(methodGroup, initializer.Value);
+                        CacheBoundNode(initializer.Value, boundInitializer);
+                        type = Compilation.ErrorTypeSymbol;
+                    }
+                }
+                else if (boundInitializer?.Type is { } initType)
+                {
+                    type = TypeSymbolNormalization.NormalizeForInference(initType);
+                }
+                else
+                {
+                    type = Compilation.ErrorTypeSymbol;
+                }
             }
         }
         else
@@ -268,6 +297,7 @@ partial class BlockBinder : Binder
         if (type.TypeKind != TypeKind.Error &&
             initializer is not null &&
             boundInitializer is not null &&
+            !isFunctionValueAlias &&
             ShouldAttemptConversion(boundInitializer))
         {
             boundInitializer = BindLambdaToDelegateIfNeeded(boundInitializer, type);
@@ -355,7 +385,11 @@ partial class BlockBinder : Binder
             }
         }
 
-        var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue), boundInitializer);
+        ILocalSymbol localSymbol = isFunctionValueAlias && functionValueTargetMethod is not null
+            ? CreateFunctionValueSymbol(variableDeclarator, name, isMutable, type, functionValueTargetMethod)
+            : CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue);
+
+        var declarator = new BoundVariableDeclarator(localSymbol, boundInitializer);
 
         if (shouldDispose)
             _localsToDispose.Add((declarator.Local, _scopeDepth));
@@ -520,6 +554,28 @@ partial class BlockBinder : Binder
             [declaringSyntax.GetReference()],
             isConst,
             constantValue);
+
+        _locals[name] = (symbol, _scopeDepth);
+        return symbol;
+    }
+
+    private SourceFunctionValueSymbol CreateFunctionValueSymbol(
+        SyntaxNode declaringSyntax,
+        string name,
+        bool isMutable,
+        ITypeSymbol type,
+        IMethodSymbol targetMethod)
+    {
+        var symbol = new SourceFunctionValueSymbol(
+            name,
+            type,
+            isMutable,
+            _containingSymbol,
+            _containingSymbol?.ContainingType as INamedTypeSymbol,
+            _containingSymbol?.ContainingNamespace,
+            [declaringSyntax.GetLocation()],
+            [declaringSyntax.GetReference()],
+            targetMethod);
 
         _locals[name] = (symbol, _scopeDepth);
         return symbol;
@@ -5537,6 +5593,16 @@ partial class BlockBinder : Binder
         // and we emit `base(this.Left, this.Right)` instead of `base(Left, Right)`.
         if (symbol is ILocalSymbol localEarly)
         {
+            if (localEarly is SourceFunctionValueSymbol functionValue)
+            {
+                var methods = ImmutableArray.Create(functionValue.TargetMethod);
+                var receiver = BindImplicitMethodGroupReceiver(methods);
+                if (receiver is BoundErrorExpression error)
+                    return error;
+
+                return BindMethodGroup(receiver, methods, syntax.Identifier.GetLocation());
+            }
+
             var b = new BoundLocalAccess(localEarly);
             return UnwrapNullableIfKnownNonNull(b, localEarly);
         }
@@ -7127,7 +7193,7 @@ partial class BlockBinder : Binder
                         ? boundError
                         : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
 
-                    methodName = "Invoke";
+                methodName = "Invoke";
             }
             else if (boundIdentifier is BoundUnionCaseExpression unionCaseCallee)
             {

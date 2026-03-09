@@ -272,6 +272,62 @@ class Container {
     }
 
     [Fact]
+    public void FuncLambda_WithTypeParametersAndConstraints_Binds()
+    {
+        const string code = """
+import System.Numerics.*
+
+class Container {
+    func Provide() -> int {
+        val f = func<T>(a: T, b: T) where T: INumber<T> {
+            a
+        }
+
+        f(2, 3)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaSymbol = Assert.IsAssignableFrom<IMethodSymbol>(boundLambda.Symbol);
+
+        Assert.True(lambdaSymbol.IsGenericMethod);
+        Assert.Single(lambdaSymbol.TypeParameters);
+        Assert.NotEmpty(lambdaSymbol.TypeParameters[0].ConstraintTypes);
+    }
+
+    [Fact]
+    public void FuncLambda_WithIdentifier_BindsSelfReferenceInsideBody()
+    {
+        const string code = """
+class Container {
+    func Provide() -> unit {
+        val f: func int -> int = func Fib(n: int) => Fib(n)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var fibInvocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First(inv => inv.Expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == "Fib");
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(fibInvocation).Symbol);
+        Assert.Equal(MethodKind.LambdaMethod, symbol.MethodKind);
+    }
+
+    [Fact]
     public void Lambda_ParameterWithDefaultValue_BindsAsOptionalParameter()
     {
         const string code = """
