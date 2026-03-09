@@ -170,10 +170,13 @@ Rule of thumb for statement-form control flow:
 
 * Statement-form control flow may contain value-producing expressions in its
   branches/arms.
+* Statement-form `if` accepts either braced block statements or a single
+  statement branch without braces.
 * Those values are discarded unless the construct participates in tail implicit
   return rewriting and appears as the final statement of a value-returning
   member.
-* Today, that tail implicit-return behavior applies to statement-form `match`.
+* Today, that tail implicit-return behavior applies to statement-form `match`
+  and statement-form `if` with an `else` branch.
 
 In value-returning functions, Raven warns when statement-form control flow
 produces branch values that are discarded instead of returned:
@@ -191,6 +194,11 @@ Statement-form `match` (`match expr { ... }`) is a control-flow statement. Its
 arms are evaluated for effects, and arm values are discarded by default. When a
 statement-form `match` is the final statement in a value-returning member, it
 is treated as an implicit tail return.
+
+Statement-form `if` follows the same tail rule when it has an `else` branch:
+if it is the final statement in a value-returning member (including a
+function-expression block body), branch values are treated as an implicit tail
+return.
 
 When a statement-form `match` produces values but is not in implicit-return
 position, the compiler reports warning `RAV2107`.

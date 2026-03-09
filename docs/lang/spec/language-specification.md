@@ -1789,6 +1789,14 @@ value of the overall expression is the value produced by the executed branch. If
 both branches produce values, the result participates in type inference as
 described in [Type inference](#type-inference).
 
+Branches may be written either as block expressions (`{ ... }`) or as a single
+expression without braces:
+
+```raven
+val a = if cond { 10 } else { 20 }
+val b = if cond 10 else 20
+```
+
 ```raven
 val res =
     if cond {
@@ -2112,8 +2120,11 @@ checking and unreachable-arm detection.
 In expression form, the `match` result is the selected arm expression value. In
 statement form, the selected arm expression is evaluated and its resulting value
 is discarded.
-Statement-form `match` participates only in statement control flow and never
-contributes an implicit return value to the enclosing function.
+When statement-form `match` is the final statement in a value-returning body,
+its selected arm value contributes an implicit tail return.
+
+Likewise, statement-form `if` with an `else` branch contributes an implicit tail
+return when it is the final statement in a value-returning body.
 
 In statement form, arm block expressions are interpreted in statement context.
 That means explicit `return`/`throw` statements inside those arm blocks are

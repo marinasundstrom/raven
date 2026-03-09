@@ -34,4 +34,18 @@ val value = if true {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void IfExpressionWithoutBraces_AllowsAssignment()
+    {
+        const string code = """
+val value = if true
+    42
+else
+    0
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
 }

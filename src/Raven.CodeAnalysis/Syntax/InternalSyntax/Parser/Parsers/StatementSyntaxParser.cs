@@ -333,15 +333,6 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var condition = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
 
-        var p = PeekToken();
-
-        if (!p.IsKind(SyntaxKind.OpenBraceToken))
-        {
-            AddDiagnostic(DiagnosticInfo.Create(
-                CompilerDiagnostics.CharacterExpected,
-                GetEndOfLastToken(1), '{'));
-        }
-
         var thenStatement = ParseStatement();
 
         SyntaxToken? elseKeyword = null;
@@ -352,15 +343,6 @@ internal class StatementSyntaxParser : SyntaxParser
         if (ConsumeToken(SyntaxKind.ElseKeyword, out var elseTok))
         {
             elseKeyword = elseTok;
-
-            p = PeekToken();
-
-            if (!p.IsKind(SyntaxKind.OpenBraceToken) && !p.IsKind(SyntaxKind.IfKeyword))
-            {
-                AddDiagnostic(DiagnosticInfo.Create(
-                    CompilerDiagnostics.CharacterExpected,
-                    GetEndOfLastToken(1), '{'));
-            }
 
             elseStatement = ParseStatement();
 

@@ -249,6 +249,67 @@ class Container {
     }
 
     [Fact]
+    public void FuncLambda_BlockBodyTailIfElse_ContributesImplicitReturn()
+    {
+        const string code = """
+class Container {
+    func Provide() -> int {
+        val f = func Fib(n: int) -> int {
+            if n < 2 {
+                n
+            } else {
+                Fib(n - 1) + Fib(n - 2)
+            }
+        }
+
+        f(10)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, boundLambda.ReturnType));
+    }
+
+    [Fact]
+    public void FuncLambda_BlockBodyTailIfElseWithoutBraces_ContributesImplicitReturn()
+    {
+        const string code = """
+class Container {
+    func Provide() -> int {
+        val f = func Fib(n: int) -> int {
+            if n < 2
+                n
+            else
+                Fib(n - 1) + Fib(n - 2)
+        }
+
+        f(10)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, boundLambda.ReturnType));
+    }
+
+    [Fact]
     public void FuncLambda_AssignedToFunctionTypeSignature_Binds()
     {
         const string code = """

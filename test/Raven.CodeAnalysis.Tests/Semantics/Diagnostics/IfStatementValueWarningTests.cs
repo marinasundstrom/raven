@@ -44,4 +44,25 @@ func evaluate(flag: bool) -> int {
         var verifier = CreateVerifier(code);
         verifier.Verify();
     }
+
+    [Fact]
+    public void IfStatement_TailInFunctionExpressionBody_DoesNotReportIgnoredValueWarning()
+    {
+        const string code = """
+func evaluate(flag: bool) -> int {
+    val chooser = func (value: bool) -> int {
+        if value {
+            1
+        } else {
+            0
+        }
+    }
+
+    return chooser(flag)
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
 }

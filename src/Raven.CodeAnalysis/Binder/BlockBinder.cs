@@ -1572,6 +1572,22 @@ partial class BlockBinder : Binder
             BaseMethodDeclarationSyntax => true,
             FunctionStatementSyntax => true,
             AccessorDeclarationSyntax => true,
+            FunctionExpressionSyntax => true,
+            _ => false,
+        };
+    }
+
+    private static bool IsImplicitReturnTarget(BlockSyntax block, ExpressionStatementSyntax expressionStatement)
+    {
+        if (block.Statements.Count == 0 || block.Statements.LastOrDefault() != expressionStatement)
+            return false;
+
+        return block.Parent switch
+        {
+            BaseMethodDeclarationSyntax => true,
+            FunctionStatementSyntax => true,
+            AccessorDeclarationSyntax => true,
+            FunctionExpressionSyntax => true,
             _ => false,
         };
     }
@@ -2200,19 +2216,37 @@ partial class BlockBinder : Binder
             returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
             return false;
 
-        if (matchStatement.Parent is not BlockStatementSyntax block)
-            return false;
-
-        if (block.Statements.Count == 0 || block.Statements.LastOrDefault() != matchStatement)
-            return false;
-
-        return block.Parent switch
+        if (matchStatement.Parent is BlockStatementSyntax blockStatement)
         {
-            BaseMethodDeclarationSyntax => true,
-            FunctionStatementSyntax => true,
-            AccessorDeclarationSyntax => true,
-            _ => false,
-        };
+            if (blockStatement.Statements.Count == 0 || blockStatement.Statements.LastOrDefault() != matchStatement)
+                return false;
+
+            return blockStatement.Parent switch
+            {
+                BaseMethodDeclarationSyntax => true,
+                FunctionStatementSyntax => true,
+                AccessorDeclarationSyntax => true,
+                FunctionExpressionSyntax => true,
+                _ => false,
+            };
+        }
+
+        if (matchStatement.Parent is BlockSyntax blockExpression)
+        {
+            if (blockExpression.Statements.Count == 0 || blockExpression.Statements.LastOrDefault() != matchStatement)
+                return false;
+
+            return blockExpression.Parent switch
+            {
+                BaseMethodDeclarationSyntax => true,
+                FunctionStatementSyntax => true,
+                AccessorDeclarationSyntax => true,
+                FunctionExpressionSyntax => true,
+                _ => false,
+            };
+        }
+
+        return false;
     }
 
     private static bool IsAbruptMatchArmExpression(BoundExpression expression)

@@ -52,4 +52,21 @@ public class IfStatementSyntaxTest : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void IfStatement_WithoutBraces_ParsesWithoutBraceDiagnostic()
+    {
+        const string testCode = """
+if x
+    return 0
+else
+    return 1
+""";
+
+        var verifier = CreateVerifier(
+            testCode,
+            disabledDiagnostics: [CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id]);
+
+        verifier.Verify();
+    }
 }

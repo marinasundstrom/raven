@@ -12,9 +12,14 @@ partial class BlockBinder
 {
     private BoundStatement BindExpressionStatement(ExpressionStatementSyntax expressionStmt)
     {
-        var isImplicitReturnTarget = expressionStmt.Parent is BlockStatementSyntax block &&
-            IsImplicitReturnTarget(block, expressionStmt) &&
-            _containingSymbol is IMethodSymbol;
+        var isImplicitReturnTarget =
+            _containingSymbol is IMethodSymbol &&
+            expressionStmt.Parent switch
+            {
+                BlockStatementSyntax blockStatement => IsImplicitReturnTarget(blockStatement, expressionStmt),
+                BlockSyntax blockExpression => IsImplicitReturnTarget(blockExpression, expressionStmt),
+                _ => false
+            };
 
         if (isImplicitReturnTarget)
         {
@@ -184,19 +189,37 @@ partial class BlockBinder
             returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
             return false;
 
-        if (ifStmt.Parent is not BlockStatementSyntax block)
-            return false;
-
-        if (block.Statements.Count == 0 || block.Statements.LastOrDefault() != ifStmt)
-            return false;
-
-        return block.Parent switch
+        if (ifStmt.Parent is BlockStatementSyntax blockStatement)
         {
-            BaseMethodDeclarationSyntax => true,
-            FunctionStatementSyntax => true,
-            AccessorDeclarationSyntax => true,
-            _ => false,
-        };
+            if (blockStatement.Statements.Count == 0 || blockStatement.Statements.LastOrDefault() != ifStmt)
+                return false;
+
+            return blockStatement.Parent switch
+            {
+                BaseMethodDeclarationSyntax => true,
+                FunctionStatementSyntax => true,
+                AccessorDeclarationSyntax => true,
+                FunctionExpressionSyntax => true,
+                _ => false,
+            };
+        }
+
+        if (ifStmt.Parent is BlockSyntax blockExpression)
+        {
+            if (blockExpression.Statements.Count == 0 || blockExpression.Statements.LastOrDefault() != ifStmt)
+                return false;
+
+            return blockExpression.Parent switch
+            {
+                BaseMethodDeclarationSyntax => true,
+                FunctionStatementSyntax => true,
+                AccessorDeclarationSyntax => true,
+                FunctionExpressionSyntax => true,
+                _ => false,
+            };
+        }
+
+        return false;
     }
 
     private static bool IsEarlyExitStatement(StatementSyntax statement)
