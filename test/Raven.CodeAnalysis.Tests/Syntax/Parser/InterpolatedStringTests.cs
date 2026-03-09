@@ -37,9 +37,9 @@ public class InterpolatedStringTests
             second =>
             {
                 var interpolation = Assert.IsType<InterpolationSyntax>(second);
-                Assert.True(interpolation.OpenBraceToken.IsMissing);
+                Assert.Equal(SyntaxKind.None, interpolation.OpenBraceToken.Kind);
                 Assert.Equal("name", interpolation.Expression.ToString());
-                Assert.True(interpolation.CloseBraceToken.IsMissing);
+                Assert.Equal(SyntaxKind.None, interpolation.CloseBraceToken.Kind);
             },
             third =>
             {
@@ -328,9 +328,9 @@ val result = describe(null)
             second =>
             {
                 var interpolation = Assert.IsType<InterpolationSyntax>(second);
-                Assert.True(interpolation.OpenBraceToken.IsMissing);
+                Assert.Equal(SyntaxKind.None, interpolation.OpenBraceToken.Kind);
                 Assert.Equal("name", interpolation.Expression.ToString());
-                Assert.True(interpolation.CloseBraceToken.IsMissing);
+                Assert.Equal(SyntaxKind.None, interpolation.CloseBraceToken.Kind);
             },
             third =>
             {
@@ -340,9 +340,9 @@ val result = describe(null)
             fourth =>
             {
                 var interpolation = Assert.IsType<InterpolationSyntax>(fourth);
-                Assert.False(interpolation.OpenBraceToken.IsMissing);
+                Assert.Equal(SyntaxKind.OpenBraceToken, interpolation.OpenBraceToken.Kind);
                 Assert.Equal("count + 1", interpolation.Expression.ToString());
-                Assert.False(interpolation.CloseBraceToken.IsMissing);
+                Assert.Equal(SyntaxKind.CloseBraceToken, interpolation.CloseBraceToken.Kind);
             },
             fifth =>
             {

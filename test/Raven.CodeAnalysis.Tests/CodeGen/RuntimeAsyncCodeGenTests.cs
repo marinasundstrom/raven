@@ -236,9 +236,12 @@ class Program {
             computeCalls,
             static member => member.Contains("System.Threading.Tasks.Task::FromResult", StringComparison.Ordinal));
 
-        var lambdaMethod = Array.Find(
-            programType.GetMethods(methodFlags),
-            static method => method.Name.Contains("<lambda_", StringComparison.Ordinal));
+        var lambdaMethod = loaded.Assembly
+            .GetTypes()
+            .SelectMany(type => type.GetMethods(methodFlags))
+            .FirstOrDefault(static method =>
+                method.Name.Contains("<lambda_", StringComparison.Ordinal) ||
+                method.Name.Contains("<Compute>b__", StringComparison.Ordinal));
         Assert.NotNull(lambdaMethod);
 
         var lambdaCalls = ILReader.GetCalledMembers(lambdaMethod!);

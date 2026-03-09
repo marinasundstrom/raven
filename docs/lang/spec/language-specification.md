@@ -3488,6 +3488,17 @@ Unnamed function expressions support explicit and shorthand forms:
 (or `x => x + 1`). The shorthand form is intended as call-site convenience,
 especially for higher-order APIs such as LINQ methods.
 
+Function expressions may optionally declare a local identifier:
+`func Fib(n: int) => Fib(n - 1)`. This identifier is visible only inside the
+function-expression body. It does not declare a surrounding local/member name;
+the emitted backing method name remains compiler-generated.
+
+When a function expression is target-typed by a delegate requirement (for
+example, assignment to `Action<int>` or passing to a delegate-typed parameter),
+Raven projects the function value to a compatible delegate. Built-in
+`Func`/`Action` delegate shapes are displayed as function signatures in Raven
+type displays, while custom delegate types remain visibly named delegates.
+
 ### Nullability and `null`
 
 Nullability is **explicit** in Raven. Reference types are non-nullable by

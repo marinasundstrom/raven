@@ -984,8 +984,14 @@ public partial class SemanticModel
 
         foreach (var global in GetTopLevelGlobalStatements(compilationUnit))
         {
-            if (GetBoundNode(global.Statement, BoundTreeView.Original) is BoundStatement boundStatement)
+            if (TryGetCachedBoundNode(global.Statement) is BoundStatement cachedStatement)
+            {
+                statements.Add(cachedStatement);
+            }
+            else if (GetBinder(global.Statement).GetOrBind(global.Statement) is BoundStatement boundStatement)
+            {
                 statements.Add(boundStatement);
+            }
 
             if (global.Statement is UseDeclarationStatementSyntax useDeclaration)
             {

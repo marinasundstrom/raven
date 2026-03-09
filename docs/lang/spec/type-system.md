@@ -320,6 +320,14 @@ function expressions are bound as function values first, while projection to a
 delegate happens when they flow into parameter or property signatures that
 require a delegate type.
 
+For named function expressions, the optional identifier (for example `Fib`) is
+scoped to the function-expression body only. It is intended for self-reference
+and is not introduced into the enclosing scope.
+
+In Raven-facing type displays, built-in `System.Func`/`System.Action` delegate
+shapes are projected as arrow function signatures. User-defined delegates keep
+their declared delegate names in displays.
+
 ## Interoperability
 
 Because Raven reuses .NET types, existing libraries can be consumed seamlessly:
