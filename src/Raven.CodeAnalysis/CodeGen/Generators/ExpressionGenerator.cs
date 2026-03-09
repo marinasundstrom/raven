@@ -1100,6 +1100,26 @@ internal partial class ExpressionGenerator : Generator
                 }
             case IParameterSymbol parameterSymbol:
                 {
+                    if (string.Equals(parameterSymbol.Name, "self", StringComparison.Ordinal))
+                    {
+                        if (MethodSymbol.IsStatic)
+                            ILGenerator.Emit(OpCodes.Ldnull);
+                        else
+                            ILGenerator.Emit(OpCodes.Ldarg_0);
+                        break;
+                    }
+
+                    var isDeclaredParameter = MethodSymbol.Parameters.Any(
+                        parameter => SymbolEqualityComparer.Default.Equals(parameter, parameterSymbol));
+                    if (!isDeclaredParameter)
+                    {
+                        if (MethodSymbol.IsStatic)
+                            ILGenerator.Emit(OpCodes.Ldnull);
+                        else
+                            ILGenerator.Emit(OpCodes.Ldarg_0);
+                        break;
+                    }
+
                     var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
                     var position = parameterBuilder.Position;
                     if (MethodSymbol.IsStatic)
@@ -5220,6 +5240,18 @@ internal partial class ExpressionGenerator : Generator
     {
         var target = GetInvocationTarget(invocationExpression);
         var receiver = invocationExpression.Receiver;
+
+        if (target is SourceLambdaSymbol { IsStatic: false } lambdaTarget)
+        {
+            var inferredReceiverType = receiver?.Type?.UnwrapLiteralType() ?? receiver?.Type;
+            if (receiver is BoundSelfExpression ||
+                (inferredReceiverType is not null &&
+                 lambdaTarget.ContainingType is not null &&
+                 !SymbolEqualityComparer.Default.Equals(inferredReceiverType, lambdaTarget.ContainingType)))
+            {
+                receiver = null;
+            }
+        }
 
         var isExtensionCall =
             target.IsStatic &&

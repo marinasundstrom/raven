@@ -35,6 +35,8 @@ internal static class MethodSymbolCodeGenResolver
         {
             SourceMethodSymbol sourceMethod
                 => (MethodInfo)codeGen.GetMemberBuilder(sourceMethod),
+            SourceLambdaSymbol sourceLambda
+                => (MethodInfo)codeGen.GetMemberBuilder(sourceLambda),
             SubstitutedMethodSymbol substitutedMethod
                 => substitutedMethod.GetMethodInfo(codeGen),
             ConstructedMethodSymbol constructedMethod

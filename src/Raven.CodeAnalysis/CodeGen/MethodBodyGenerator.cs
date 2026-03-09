@@ -3768,13 +3768,26 @@ internal class MethodBodyGenerator
                     switch (captured)
                     {
                         case IParameterSymbol paramSymbol:
+                            if (string.Equals(paramSymbol.Name, "self", StringComparison.Ordinal))
+                            {
+                                if (MethodSymbol.IsStatic)
+                                    ILGenerator.Emit(OpCodes.Ldnull);
+                                else
+                                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                                break;
+                            }
+
                             var paramBuilder = MethodGenerator.GetParameterBuilder(paramSymbol);
                             var position = paramBuilder.Position;
-                            if (MethodSymbol.IsStatic) position -= 1;
+                            if (MethodSymbol.IsStatic)
+                                position -= 1;
                             ILGenerator.Emit(OpCodes.Ldarg, position);
                             break;
                         case ITypeSymbol: // self / this
-                            ILGenerator.Emit(OpCodes.Ldarg_0);
+                            if (MethodSymbol.IsStatic)
+                                ILGenerator.Emit(OpCodes.Ldnull);
+                            else
+                                ILGenerator.Emit(OpCodes.Ldarg_0);
                             break;
                     }
                     var runtimeField = runtimeClosureType == _outerMethodClosure.TypeBuilder

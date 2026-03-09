@@ -694,4 +694,39 @@ class Counter {
         Assert.Equal(40, (int)method.Invoke(instance, Array.Empty<object>())!);
     }
 
+    [Fact]
+    public void FuncLambda_WithBodyLocalName_EmitsSelfInvocation()
+    {
+        var code = """
+func Main() -> int {
+    val f = func Fib(n: int) -> int {
+        if n < 2 {
+            return n
+        }
+
+        return Fib(n - 1) + Fib(n - 2)
+    }
+
+    return f(10)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var main = programType.GetMethod("Main", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+        var value = (int)main.Invoke(null, Array.Empty<object>())!;
+        Assert.Equal(55, value);
+    }
+
 }
