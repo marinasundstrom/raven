@@ -142,14 +142,18 @@ internal static class SymbolResolver
             IsFunctionExpressionDeclarationToken(lambdaExpression, token) &&
             !IsInsideFunctionExpressionBody(lambdaExpression, token))
         {
+            var lambdaSymbolInfo = semanticModel.GetSymbolInfo(lambdaExpression);
+            var lambdaSymbol = ChoosePreferredSymbol(lambdaSymbolInfo.Symbol, lambdaSymbolInfo.CandidateSymbols, lambdaExpression);
+            if (IsFunctionExpressionIdentifierToken(lambdaExpression, token) && lambdaSymbol is not null)
+                return ProjectSymbolForDisplay(lambdaSymbol);
+
             var lambdaTypeInfo = semanticModel.GetTypeInfo(lambdaExpression);
             var lambdaTargetType = lambdaTypeInfo.ConvertedType ?? lambdaTypeInfo.Type;
             if (lambdaTargetType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
                 return delegateType;
 
-            var lambdaSymbolInfo = semanticModel.GetSymbolInfo(lambdaExpression);
-            if (lambdaSymbolInfo.Symbol is not null || !lambdaSymbolInfo.CandidateSymbols.IsDefaultOrEmpty)
-                return ChoosePreferredSymbol(lambdaSymbolInfo.Symbol, lambdaSymbolInfo.CandidateSymbols, lambdaExpression);
+            if (lambdaSymbol is not null)
+                return ProjectSymbolForDisplay(lambdaSymbol);
         }
 
         var symbolInfo = semanticModel.GetSymbolInfo(node);
@@ -1023,6 +1027,10 @@ internal static class SymbolResolver
 
         return true;
     }
+
+    private static bool IsFunctionExpressionIdentifierToken(FunctionExpressionSyntax functionExpression, SyntaxToken token)
+        => functionExpression is ParenthesizedFunctionExpressionSyntax { Identifier.IsMissing: false } parenthesized &&
+           token == parenthesized.Identifier;
 
     private static bool IsInsideFunctionExpressionBody(FunctionExpressionSyntax functionExpression, SyntaxToken token)
     {

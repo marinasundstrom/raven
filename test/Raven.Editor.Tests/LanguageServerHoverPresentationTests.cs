@@ -208,4 +208,59 @@ class C {
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, receiverIdentifier.Identifier.SpanStart + 1])!;
         signature.ShouldContain("val x: Error");
     }
+
+    [Fact]
+    public void NamedFunctionExpressionIdentifier_HoverUsesLambdaSignature()
+    {
+        const string code = """
+class C {
+    func Run() -> int {
+        val seed = 1
+        val compute = func Step(n: int) -> int {
+            if n < 1
+                seed
+            else
+                Step(n - 1)
+        }
+
+        compute(3)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var references = TargetFrameworkResolver
+            .GetReferenceAssemblies(targetFramework)
+            .Select(MetadataReference.CreateFromFile);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in references)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var lambda = root.DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(
+            semanticModel,
+            root,
+            lambda.Identifier.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        var resolvedMethod = resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        resolvedMethod.MethodKind.ShouldBe(MethodKind.LambdaMethod);
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignatureForHover.Invoke(
+            null,
+            [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, lambda.Identifier.SpanStart + 1])!;
+
+        signature.ShouldStartWith("(");
+        signature.ShouldContain("->");
+        signature.ShouldNotContain("Func(");
+    }
 }
