@@ -275,10 +275,17 @@ public class Workspace
             return ImmutableArray<CodeFix>.Empty;
 
         var providerMap = new Dictionary<string, List<CodeFixProvider>>(StringComparer.OrdinalIgnoreCase);
+        var wildcardProviders = new List<CodeFixProvider>();
         foreach (var provider in providerList)
         {
             foreach (var id in provider.FixableDiagnosticIds)
             {
+                if (string.Equals(id, "*", StringComparison.Ordinal))
+                {
+                    wildcardProviders.Add(provider);
+                    continue;
+                }
+
                 if (!providerMap.TryGetValue(id, out var list))
                 {
                     list = [];
@@ -297,13 +304,25 @@ public class Workspace
 
         foreach (var diagnostic in diagnostics)
         {
-            if (!providerMap.TryGetValue(diagnostic.Id, out var matchingProviders))
+            var hasSpecificProviders = providerMap.TryGetValue(diagnostic.Id, out var specificProviders);
+            if (!hasSpecificProviders && wildcardProviders.Count == 0)
                 continue;
 
             if (!TryGetDiagnosticDocument(project, diagnostic, out var document))
                 continue;
 
-            foreach (var provider in matchingProviders)
+            var seenProviders = new HashSet<CodeFixProvider>();
+
+            if (hasSpecificProviders && specificProviders is not null)
+            {
+                foreach (var provider in specificProviders)
+                    seenProviders.Add(provider);
+            }
+
+            foreach (var provider in wildcardProviders)
+                seenProviders.Add(provider);
+
+            foreach (var provider in seenProviders)
             {
                 var actionBucket = new List<CodeAction>();
                 var context = new CodeFixContext(

@@ -11,6 +11,10 @@ namespace Raven.CodeAnalysis;
 internal sealed class SourceDiagnosticSuppressionMap
 {
     private static readonly char[] DirectiveSeparators = [',', ' ', '\t'];
+    private static readonly ImmutableHashSet<string> NonSuppressibleIds =
+    [
+        CompilerDiagnostics.UnreachableCodeDetected.Id
+    ];
     private readonly ImmutableArray<Directive> _directives;
     private readonly SourceText _sourceText;
 
@@ -41,6 +45,10 @@ internal sealed class SourceDiagnosticSuppressionMap
     public bool IsSuppressed(Diagnostic diagnostic)
     {
         if (_directives.IsDefaultOrEmpty)
+            return false;
+        if (diagnostic.Severity == DiagnosticSeverity.Error)
+            return false;
+        if (NonSuppressibleIds.Contains(diagnostic.Id))
             return false;
 
         var sourceTree = diagnostic.Location.SourceTree;

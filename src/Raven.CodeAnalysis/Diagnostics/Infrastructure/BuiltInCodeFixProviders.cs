@@ -26,6 +26,7 @@ public static class BuiltInCodeFixProviders
             new ConstructorParameterNamingCodeFixProvider(),
             new ConversionCastCodeFixProvider(),
             new SingleStatementBlockBodyCodeFixProvider(),
+            new PragmaWarningSuppressionCodeFixProvider(),
         ];
 }
 }

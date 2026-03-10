@@ -101,8 +101,17 @@ internal sealed class DocumentStore
             Code = diagnostic.Id,
             Severity = MapSeverity(diagnostic.Severity),
             Source = "raven",
-            Range = range
+            Range = range,
+            Tags = MapTags(diagnostic)
         };
+    }
+
+    internal static Container<DiagnosticTag>? MapTags(CodeDiagnostic diagnostic)
+    {
+        if (string.Equals(diagnostic.Id, CompilerDiagnostics.UnreachableCodeDetected.Id, StringComparison.OrdinalIgnoreCase))
+            return new Container<DiagnosticTag>(DiagnosticTag.Unnecessary);
+
+        return null;
     }
 
     private static LspDiagnosticSeverity? MapSeverity(CodeDiagnosticSeverity severity)
