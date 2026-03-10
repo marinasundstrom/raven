@@ -1007,6 +1007,15 @@ partial class BlockBinder
             return BindConstructorInvocation(earlyInferred, boundArguments, callSyntax, receiverSyntax, receiver);
         }
 
+        // If constructor-argument inference cannot infer type arguments (for example on parameterless
+        // constructors), use target typing from the surrounding context, e.g. `val x: Box<int> = Box()`.
+        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol)
+            && TryInferConstructedTypeFromTargetType(typeSymbol, callSyntax, out var targetTypedInferred)
+            && !SymbolEqualityComparer.Default.Equals(targetTypedInferred, typeSymbol))
+        {
+            return BindConstructorInvocation(targetTypedInferred, boundArguments, callSyntax, receiverSyntax, receiver);
+        }
+
         var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
         if (resolution.Success)
         {
@@ -1089,6 +1098,68 @@ partial class BlockBinder
         }
 
         return false;
+    }
+
+    private bool TryInferConstructedTypeFromTargetType(
+        INamedTypeSymbol typeSymbol,
+        SyntaxNode callSyntax,
+        out INamedTypeSymbol inferredType)
+    {
+        inferredType = typeSymbol;
+
+        if (!typeSymbol.IsGenericType || typeSymbol.TypeParameters.IsDefaultOrEmpty)
+            return false;
+
+        var targetType = GetTargetType(callSyntax);
+        if (targetType is null || targetType.TypeKind == TypeKind.Error)
+            return false;
+
+        targetType = UnwrapAlias(targetType);
+        targetType = UnwrapTaskLikeTargetType(targetType);
+
+        if (targetType is not INamedTypeSymbol targetNamedType)
+            return false;
+
+        var typeDefinition = (typeSymbol.OriginalDefinition as INamedTypeSymbol) ?? typeSymbol;
+        var targetDefinition = (targetNamedType.OriginalDefinition as INamedTypeSymbol) ?? targetNamedType;
+
+        if (!SymbolEqualityComparer.Default.Equals(typeDefinition, targetDefinition))
+            return false;
+
+        if (targetNamedType.TypeArguments.IsDefaultOrEmpty ||
+            targetNamedType.TypeArguments.Length != typeSymbol.TypeParameters.Length)
+        {
+            return false;
+        }
+
+        var currentTypeArguments = typeSymbol.TypeArguments;
+        if (currentTypeArguments.IsDefaultOrEmpty)
+            currentTypeArguments = typeSymbol.TypeParameters.Cast<ITypeSymbol>().ToImmutableArray();
+
+        var projected = new ITypeSymbol[typeSymbol.TypeParameters.Length];
+        var changed = false;
+        var hasConcreteTargetArgument = false;
+
+        for (var i = 0; i < projected.Length; i++)
+        {
+            var targetArgument = targetNamedType.TypeArguments[i];
+            if (targetArgument.TypeKind == TypeKind.Error)
+                return false;
+
+            projected[i] = targetArgument;
+
+            if (targetArgument is not ITypeParameterSymbol)
+                hasConcreteTargetArgument = true;
+
+            if (!SymbolEqualityComparer.Default.Equals(projected[i], currentTypeArguments[i]))
+                changed = true;
+        }
+
+        if (!changed || !hasConcreteTargetArgument)
+            return false;
+
+        inferredType = (INamedTypeSymbol)typeDefinition.Construct(projected);
+        return true;
     }
 
     private bool TryInferConstructedTypeForConstructor(
@@ -1377,6 +1448,18 @@ partial class BlockBinder
 
         if (hasErrors)
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+
+        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol)
+            && TryInferConstructedTypeFromTargetType(typeSymbol, syntax, out var targetTypedInferred)
+            && !SymbolEqualityComparer.Default.Equals(targetTypedInferred, typeSymbol))
+        {
+            typeSymbol = targetTypedInferred;
+
+            ctorsForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(typeSymbol.Constructors, syntax.ArgumentList.Arguments);
+            boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(ctorsForArgumentBinding, syntax.ArgumentList.Arguments, out hasErrors);
+            if (hasErrors)
+                return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+        }
 
         // Overload resolution
         var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);

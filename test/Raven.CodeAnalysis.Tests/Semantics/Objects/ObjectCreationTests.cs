@@ -170,6 +170,67 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void GenericTypeInvocation_InfersTypeArgumentsFromTargetType()
+    {
+        string testCode =
+            """
+            func Main() -> () {
+                val box: Box<int> = Box()
+            }
+
+            class Box<T> {
+                init() {}
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void NewObjectCreation_InfersTypeArgumentsFromTargetType()
+    {
+        string testCode =
+            """
+            func Main() -> () {
+                val box: Box<int> = new Box()
+            }
+
+            class Box<T> {
+                init() {}
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void GenericTypeInvocation_InfersTypeArgumentsFromReturnTargetType()
+    {
+        string testCode =
+            """
+            func Main() -> () {
+                val box = Create()
+            }
+
+            func Create() -> Box<int> {
+                return Box()
+            }
+
+            class Box<T> {
+                init() {}
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void PrimaryConstructor_ValParameter_PromotesToInstanceProperty()
     {
         string testCode =
