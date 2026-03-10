@@ -1030,9 +1030,30 @@ internal sealed class MatchExhaustivenessEvaluator
                     var low = range.LowerBound is not null
                         ? TryExtractNumericValue(range.LowerBound, out var lo) ? lo : domain.Low
                         : domain.Low;
-                    var high = range.UpperBound is not null
-                        ? TryExtractNumericValue(range.UpperBound, out var hi) ? hi : domain.High
-                        : domain.High;
+                    var high = domain.High;
+
+                    if (range.UpperBound is not null)
+                    {
+                        if (!TryExtractNumericValue(range.UpperBound, out var hi))
+                        {
+                            high = domain.High;
+                        }
+                        else if (range.IsUpperExclusive)
+                        {
+                            if (hi == long.MinValue)
+                            {
+                                intervals = Array.Empty<NumericInterval>();
+                                return true;
+                            }
+
+                            high = hi - 1;
+                        }
+                        else
+                        {
+                            high = hi;
+                        }
+                    }
+
                     intervals = new[] { new NumericInterval(Math.Max(low, domain.Low), Math.Min(high, domain.High)) };
                     return true;
                 }

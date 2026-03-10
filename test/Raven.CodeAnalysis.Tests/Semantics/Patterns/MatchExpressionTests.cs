@@ -1263,4 +1263,31 @@ func Evaluate(expr: Expr) -> int {
             Assert.True(SymbolEqualityComparer.Default.Equals(exprType, symbol.Type));
         }
     }
+
+    [Fact]
+    public void MatchExpression_WithExclusiveRangePattern_BindsExclusiveUpperBound()
+    {
+        const string code = """
+val value: int = 9
+
+val result = value match {
+    2..<10 => 1
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var rangePattern = Assert.IsType<BoundRangePattern>(bound.Arms[0].Pattern);
+        Assert.True(rangePattern.IsUpperExclusive);
+    }
 }

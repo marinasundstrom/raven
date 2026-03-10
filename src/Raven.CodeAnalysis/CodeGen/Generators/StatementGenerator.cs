@@ -481,8 +481,9 @@ internal class StatementGenerator : Generator
                 ?? throw new InvalidOperationException("Range iteration requires an end value.");
             var step = iteration.RangeStep
                 ?? throw new InvalidOperationException("Range iteration requires a step value.");
+            var upperExclusive = iteration.RangeUpperExclusive;
 
-            EmitRangeForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, start, end, step);
+            EmitRangeForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, start, end, step, upperExclusive);
             return;
         }
 
@@ -520,7 +521,8 @@ internal class StatementGenerator : Generator
         ILLabel endLabel,
         BoundExpression rangeStart,
         BoundExpression rangeEnd,
-        BoundExpression rangeStep)
+        BoundExpression rangeStep,
+        bool upperExclusive)
     {
         var elementType = forStatement.Iteration.ElementType.UnwrapLiteralType() ?? forStatement.Iteration.ElementType;
         var elementClrType = ResolveClrType(elementType);
@@ -562,11 +564,11 @@ internal class StatementGenerator : Generator
         ILGenerator.Emit(OpCodes.Br, endLabel);
 
         ILGenerator.MarkLabel(positiveStepLabel);
-        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, endLabel, positiveStep: true);
+        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, endLabel, positiveStep: true, upperExclusive);
         ILGenerator.Emit(OpCodes.Br, bodyLabel);
 
         ILGenerator.MarkLabel(negativeStepLabel);
-        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, endLabel, positiveStep: false);
+        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, endLabel, positiveStep: false, upperExclusive);
 
         ILGenerator.MarkLabel(bodyLabel);
         ILGenerator.Emit(OpCodes.Ldloc, startLocal);
@@ -583,7 +585,13 @@ internal class StatementGenerator : Generator
         ILGenerator.MarkLabel(endLabel);
     }
 
-    private void EmitRangeLoopBreakCondition(ITypeSymbol elementType, IILocal currentLocal, IILocal endLocal, ILLabel endLabel, bool positiveStep)
+    private void EmitRangeLoopBreakCondition(
+        ITypeSymbol elementType,
+        IILocal currentLocal,
+        IILocal endLocal,
+        ILLabel endLabel,
+        bool positiveStep,
+        bool upperExclusive)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
 
@@ -602,7 +610,10 @@ internal class StatementGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Call, compareMethod);
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
-            ILGenerator.Emit(positiveStep ? OpCodes.Bgt : OpCodes.Blt, endLabel);
+            if (positiveStep)
+                ILGenerator.Emit(upperExclusive ? OpCodes.Bge : OpCodes.Bgt, endLabel);
+            else
+                ILGenerator.Emit(upperExclusive ? OpCodes.Ble : OpCodes.Blt, endLabel);
             return;
         }
 
@@ -610,11 +621,19 @@ internal class StatementGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, endLocal);
         if (positiveStep)
         {
-            ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Bgt_Un : OpCodes.Bgt, endLabel);
+            ILGenerator.Emit(
+                IsUnsignedIntegralType(specialType)
+                    ? (upperExclusive ? OpCodes.Bge_Un : OpCodes.Bgt_Un)
+                    : (upperExclusive ? OpCodes.Bge : OpCodes.Bgt),
+                endLabel);
         }
         else
         {
-            ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Blt_Un : OpCodes.Blt, endLabel);
+            ILGenerator.Emit(
+                IsUnsignedIntegralType(specialType)
+                    ? (upperExclusive ? OpCodes.Ble_Un : OpCodes.Blt_Un)
+                    : (upperExclusive ? OpCodes.Ble : OpCodes.Blt),
+                endLabel);
         }
     }
 

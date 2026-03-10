@@ -777,6 +777,7 @@
   <Node Name="RangePattern" Inherits="Pattern">
     <Slot Name="LowerBound" Type="Expression" IsNullable="true" IsOptional="true" />
     <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotToken" />
+    <Slot Name="LessThanToken" Type="Token" IsOptionalToken="true" DefaultToken="LessThanToken" />
     <Slot Name="UpperBound" Type="Expression" IsNullable="true" IsOptional="true" />
   </Node>
   <Node Name="MemberPattern" Inherits="Pattern">
@@ -948,6 +949,7 @@
   <Node Name="RangeExpression" Inherits="Expression">
     <Slot Name="LeftExpression" Type="Expression" IsNullable="true" />
     <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotToken" />
+    <Slot Name="LessThanToken" Type="Token" IsOptionalToken="true" DefaultToken="LessThanToken" />
     <Slot Name="RightExpression" Type="Expression" IsNullable="true" />
   </Node>
   <Node Name="IndexExpression" Inherits="Expression">

@@ -1182,7 +1182,8 @@ partial class BlockBinder : Binder
         return new BoundRangeExpression(
             start as BoundIndexExpression,
             end as BoundIndexExpression,
-            GetRangeType());
+            GetRangeType(),
+            rangeExpression.LessThanToken.Kind == SyntaxKind.LessThanToken);
     }
 
     private BoundExpression? BindRangeEndpoint(ExpressionSyntax? endpointSyntax)

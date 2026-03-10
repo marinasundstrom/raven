@@ -170,6 +170,27 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
+    public void ParseForExclusiveRangeWithByClause()
+    {
+        var code = """
+                   for x in 0..<10 by 2 {
+                       x
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.ByKeyword.Kind.ShouldBe(SyntaxKind.ByKeyword);
+        forStmt.StepExpression.ShouldNotBeNull();
+
+        var range = Assert.IsType<RangeExpressionSyntax>(forStmt.Expression);
+        range.LessThanToken.Kind.ShouldBe(SyntaxKind.LessThanToken);
+    }
+
+    [Fact]
     public void ParseAwaitForInExpression()
     {
         var code = """

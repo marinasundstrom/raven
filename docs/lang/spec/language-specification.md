@@ -1687,12 +1687,14 @@ operand is rejected, so `^1` is valid while `^ 1` is not.
 
 ### Range expressions
 
-`..` produces a `Range` value that can be stored, passed to APIs, or used for
+`..` produces an inclusive-notation `Range` form, and `..<` produces a half-open
+form with an exclusive upper bound. Both can be stored, passed to APIs, or used for
 slicing receivers that understand .NET ranges. Both endpoints are optional, and
 either endpoint may be written as a **from-end** index by prefixing it with `^`.
 
 ```raven
 val r = 3..^5
+val halfOpen = 3..<10
 val head = ..3
 val tail = 3..
 val all  = ..
@@ -1902,7 +1904,8 @@ is the canonical form.
 
 When the collection is a range with explicit, from-start bounds, the loop
 iterates over integral, floating-point, `char`, or `decimal` values beginning
-at the range's lower bound and continuing through the upper bound (inclusive).
+at the range's lower bound and continuing through the upper bound. `..` uses an
+inclusive upper bound, while `..<` uses an exclusive upper bound.
 Omitting the start defaults it to `0`, while omitting the end or using
 from-end bounds in a `for` expression reports a diagnostic.
 
@@ -1910,14 +1913,16 @@ Range-based `for` statements may include an optional `by` clause:
 
 ```raven
 for x in 0..10 by 2 { }
+for x in 0..<10 by 2 { }
 for x in 10..0 by -3 { }
 for x in 0..10.0 by 0.1 { }
 ```
 
-The step must be non-zero. If the step is positive, iteration continues while
-the current value is less than or equal to the end bound; if the step is
-negative, iteration continues while the current value is greater than or equal
-to the end bound. The `by` clause is only valid for range-based `for` loops.
+The step must be non-zero. With `..`, if the step is positive iteration
+continues while the current value is less than or equal to the end bound; if
+the step is negative, iteration continues while the current value is greater
+than or equal to the end bound. With `..<`, the comparisons are strict (`<` and
+`>` respectively). The `by` clause is only valid for range-based `for` loops.
 
 ### `break` and `continue`
 
@@ -2268,12 +2273,17 @@ Patterns compose from the following primitives.
 
 ### Range patterns
 
-A **range pattern** matches values that fall within a lower and/or upper bound using the `..` operator. Range patterns are valid when the scrutinee type is **orderable** (for example numeric types, `char`, or other types that support relational comparison).
+A **range pattern** matches values that fall within a lower and/or upper bound
+using `..` (inclusive upper bound) or `..<` (exclusive upper bound). Range
+patterns are valid when the scrutinee type is **orderable** (for example
+numeric types, `char`, or other types that support relational comparison).
 
 Both bounds are optional:
 
 * `lo..hi` — matches values greater than or equal to `lo` and less than or equal to `hi`.
+* `lo..<hi` — matches values greater than or equal to `lo` and less than `hi`.
 * `..hi` — matches values less than or equal to `hi`.
+* `..<hi` — matches values less than `hi`.
 * `lo..` — matches values greater than or equal to `lo`.
 
 Bounds are written as expressions, but the binder may restrict them to constant‑like values depending on context.

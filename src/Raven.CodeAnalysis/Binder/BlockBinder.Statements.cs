@@ -668,9 +668,18 @@ partial class BlockBinder
         var range = new BoundRangeExpression(
             new BoundIndexExpression(convertedStart, isFromEnd: false, GetIndexType()),
             new BoundIndexExpression(convertedEnd, isFromEnd: false, GetIndexType()),
-            GetRangeType());
+            GetRangeType(),
+            rangeSyntax.LessThanToken.Kind == SyntaxKind.LessThanToken);
 
-        return (range, ForIterationInfo.ForRange(elementType, convertedStart, convertedEnd, convertedStep, range));
+        return (
+            range,
+            ForIterationInfo.ForRange(
+                elementType,
+                convertedStart,
+                convertedEnd,
+                convertedStep,
+                range,
+                rangeUpperExclusive: range.IsUpperExclusive));
     }
 
     private ForIterationInfo ClassifyForIteration(BoundExpression collection, ExpressionSyntax iterationSyntax)
@@ -924,7 +933,7 @@ partial class BlockBinder
         }
 
         var normalizedRange = range.Left is null
-            ? new BoundRangeExpression(start, end, range.Type)
+            ? new BoundRangeExpression(start, end, range.Type, range.IsUpperExclusive)
             : range;
 
         return ForIterationInfo.ForRange(
@@ -932,7 +941,8 @@ partial class BlockBinder
             normalizedRange.Left!.Value,
             normalizedRange.Right!.Value,
             CreateOneForRangeLoop(Compilation.GetSpecialType(SpecialType.System_Int32)),
-            normalizedRange);
+            normalizedRange,
+            rangeUpperExclusive: normalizedRange.IsUpperExclusive);
     }
 
     private BoundExpression? BindForRangeBoundary(ExpressionSyntax? endpointSyntax)

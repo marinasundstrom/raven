@@ -131,6 +131,25 @@ for x in 0..1.0 by 0.5 {
     }
 
     [Fact]
+    public void ForRange_WithExclusiveUpperBound_IsHalfOpen()
+    {
+        var code = """
+import System.Console.*
+
+for x in 2..<6 {
+    WriteLine(x)
+}
+
+for x in 6..<2 by -2 {
+    WriteLine(x)
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["2", "3", "4", "5", "6", "4"], output);
+    }
+
+    [Fact]
     public void ForEach_BreakAndContinue_Work()
     {
         var code = """

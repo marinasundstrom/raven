@@ -540,7 +540,7 @@ internal partial class BlockBinder
         inputType = inputType.GetPlainType();
 
         if (inputType.TypeKind == TypeKind.Error)
-            return new BoundRangePattern(inputType, null, null, BoundExpressionReason.TypeMismatch);
+            return new BoundRangePattern(inputType, null, null, reason: BoundExpressionReason.TypeMismatch);
 
         if (!IsOrderableType(inputType))
         {
@@ -551,7 +551,7 @@ internal partial class BlockBinder
                 inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.GetLocation());
 
-            return new BoundRangePattern(inputType, null, null, BoundExpressionReason.TypeMismatch);
+            return new BoundRangePattern(inputType, null, null, reason: BoundExpressionReason.TypeMismatch);
         }
 
         BoundExpression? lowerBound = null;
@@ -569,7 +569,7 @@ internal partial class BlockBinder
                         lowerBound.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         syntax.LowerBound.GetLocation());
-                    return new BoundRangePattern(inputType, lowerBound, null, BoundExpressionReason.TypeMismatch);
+                    return new BoundRangePattern(inputType, lowerBound, null, reason: BoundExpressionReason.TypeMismatch);
                 }
             }
         }
@@ -586,12 +586,16 @@ internal partial class BlockBinder
                         upperBound.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         syntax.UpperBound.GetLocation());
-                    return new BoundRangePattern(inputType, lowerBound, upperBound, BoundExpressionReason.TypeMismatch);
+                    return new BoundRangePattern(inputType, lowerBound, upperBound, reason: BoundExpressionReason.TypeMismatch);
                 }
             }
         }
 
-        return new BoundRangePattern(inputType, lowerBound, upperBound);
+        return new BoundRangePattern(
+            inputType,
+            lowerBound,
+            upperBound,
+            isUpperExclusive: syntax.LessThanToken.Kind == SyntaxKind.LessThanToken);
     }
 
     private static bool IsOrderableType(ITypeSymbol type)
@@ -2101,18 +2105,22 @@ internal sealed class BoundRangePattern : BoundPattern
         ITypeSymbol inputType,
         BoundExpression? lowerBound,
         BoundExpression? upperBound,
+        bool isUpperExclusive = false,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(inputType, reason)
     {
         LowerBound = lowerBound;
         UpperBound = upperBound;
+        IsUpperExclusive = isUpperExclusive;
     }
 
     /// <summary>Lower inclusive bound expression, or null for open-ended lower bound.</summary>
     public BoundExpression? LowerBound { get; }
 
-    /// <summary>Upper inclusive bound expression, or null for open-ended upper bound.</summary>
+    /// <summary>Upper bound expression, or null for open-ended upper bound.</summary>
     public BoundExpression? UpperBound { get; }
+
+    public bool IsUpperExclusive { get; }
 
     public override IEnumerable<BoundDesignator> GetDesignators() => [];
 

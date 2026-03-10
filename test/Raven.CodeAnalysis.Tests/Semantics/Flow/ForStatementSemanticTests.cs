@@ -103,6 +103,30 @@ for i in 2..5 {
     }
 
     [Fact]
+    public void ForRange_WithExclusiveUpperBound_UsesExclusiveIteration()
+    {
+        const string source = """
+for i in 2..<5 {
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+        boundFor.Iteration.Kind.ShouldBe(ForIterationKind.Range);
+        boundFor.Iteration.RangeUpperExclusive.ShouldBeTrue();
+        boundFor.Iteration.Range.ShouldNotBeNull();
+        boundFor.Iteration.Range!.IsUpperExclusive.ShouldBeTrue();
+    }
+
+    [Fact]
     public void ForRange_FromEndBoundaryNotSupported()
     {
         const string source = """

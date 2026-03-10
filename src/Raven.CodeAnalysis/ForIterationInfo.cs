@@ -25,7 +25,8 @@ internal sealed record ForIterationInfo(
     BoundRangeExpression? Range = null,
     BoundExpression? RangeStart = null,
     BoundExpression? RangeEnd = null,
-    BoundExpression? RangeStep = null)
+    BoundExpression? RangeStep = null,
+    bool RangeUpperExclusive = false)
 {
     public static ForIterationInfo ForArray(IArrayTypeSymbol arrayType) =>
         new(ForIterationKind.Array, arrayType.ElementType, arrayType);
@@ -75,6 +76,14 @@ internal sealed record ForIterationInfo(
         BoundExpression start,
         BoundExpression end,
         BoundExpression step,
-        BoundRangeExpression? range = null) =>
-        new(ForIterationKind.Range, elementType, Range: range, RangeStart: start, RangeEnd: end, RangeStep: step);
+        BoundRangeExpression? range = null,
+        bool rangeUpperExclusive = false) =>
+        new(
+            ForIterationKind.Range,
+            elementType,
+            Range: range,
+            RangeStart: start,
+            RangeEnd: end,
+            RangeStep: step,
+            RangeUpperExclusive: rangeUpperExclusive);
 }

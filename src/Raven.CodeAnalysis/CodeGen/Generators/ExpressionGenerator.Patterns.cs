@@ -723,9 +723,11 @@ internal partial class ExpressionGenerator
 
     private void EmitRangePattern(BoundRangePattern pattern, ITypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
     {
-        // Desugar `lo..hi` → `(scrutinee >= lo) && (scrutinee <= hi)`
+        // Desugar `lo..hi`  → `(scrutinee >= lo) && (scrutinee <= hi)`
+        // Desugar `lo..<hi` → `(scrutinee >= lo) && (scrutinee <  hi)`
         // Desugar `lo..`   → `scrutinee >= lo`
         // Desugar `..hi`   → `scrutinee <= hi`
+        // Desugar `..<hi`  → `scrutinee < hi`
 
         if (inputType.TypeKind == TypeKind.Error)
         {
@@ -757,7 +759,9 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
             EmitRelationalRhs(pattern.UpperBound!, inputType, scope);
             EmitCompare(inputType);
-            EmitRelationalOperator(BoundRelationalPatternOperator.LessThanOrEqual);
+            EmitRelationalOperator(pattern.IsUpperExclusive
+                ? BoundRelationalPatternOperator.LessThan
+                : BoundRelationalPatternOperator.LessThanOrEqual);
             ILGenerator.Emit(OpCodes.Br, labelDone);
 
             ILGenerator.MarkLabel(labelFail);
@@ -777,7 +781,9 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
             EmitRelationalRhs(pattern.UpperBound, inputType, scope);
             EmitCompare(inputType);
-            EmitRelationalOperator(BoundRelationalPatternOperator.LessThanOrEqual);
+            EmitRelationalOperator(pattern.IsUpperExclusive
+                ? BoundRelationalPatternOperator.LessThan
+                : BoundRelationalPatternOperator.LessThanOrEqual);
         }
         else
         {

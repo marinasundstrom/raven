@@ -377,8 +377,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     return expr ?? new ExpressionSyntax.Missing();
 
                 ReadToken();
+                var lessThanToken = ParseExclusiveRangeToken();
                 var right = ParseRangeBoundaryExpression();
-                expr = RangeExpression(expr, operatorCandidate, right);
+                expr = RangeExpression(expr, operatorCandidate, lessThanToken, right);
                 continue;
             }
 
@@ -421,6 +422,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return ParseExpressionCore(RangeOperatorPrecedence + 1);
+    }
+
+    private SyntaxToken ParseExclusiveRangeToken()
+    {
+        if (ConsumeToken(SyntaxKind.LessThanToken, out var lessThanToken))
+            return lessThanToken;
+
+        return Token(SyntaxKind.None);
     }
 
     private bool TryParseAssignmentPattern(out PatternSyntax pattern)

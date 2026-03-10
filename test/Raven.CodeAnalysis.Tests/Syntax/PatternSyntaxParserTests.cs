@@ -194,6 +194,21 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void RangePattern_WithExclusiveUpperBound_Parses()
+    {
+        var (pattern, tree) = ParsePattern("2..<10");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var rangePattern = Assert.IsType<RangePatternSyntax>(pattern);
+        Assert.Equal("2..<10", sourceText.ToString(rangePattern.Span));
+        Assert.Equal(SyntaxKind.LessThanToken, rangePattern.LessThanToken.Kind);
+        Assert.NotNull(rangePattern.LowerBound);
+        Assert.NotNull(rangePattern.UpperBound);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void BinaryPattern_WithAndHasHigherPrecedenceThanOr()
     {
         var (pattern, tree) = ParsePattern("let left and let right or let fallback");

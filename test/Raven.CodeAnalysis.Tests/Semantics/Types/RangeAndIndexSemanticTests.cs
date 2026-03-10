@@ -61,6 +61,25 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void RangeExpression_WithExclusiveUpperBound_MarksExclusiveFlag()
+    {
+        const string source = "val range = 2..<10";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var rangeSyntax = tree.GetRoot().DescendantNodes().OfType<RangeExpressionSyntax>().Single();
+        var boundRange = model.GetBoundNode(rangeSyntax).ShouldBeOfType<BoundRangeExpression>();
+
+        boundRange.IsUpperExclusive.ShouldBeTrue();
+        rangeSyntax.LessThanToken.Kind.ShouldBe(SyntaxKind.LessThanToken);
+    }
+
+    [Fact]
     public void ArrayAccess_UsesIndexExpression()
     {
         const string source = """

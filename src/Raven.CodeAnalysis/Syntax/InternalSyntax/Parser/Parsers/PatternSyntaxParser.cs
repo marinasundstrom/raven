@@ -597,6 +597,7 @@ internal class PatternSyntaxParser : SyntaxParser
     private PatternSyntax ParseRangePattern(ExpressionSyntax? lowerBound)
     {
         var dotDotToken = ReadToken(); // consume `..`
+        var lessThanToken = ParseExclusiveRangeToken();
 
         // Parse upper bound if present (any primary expression that isn't another pattern start)
         ExpressionSyntax? upperBound = null;
@@ -605,7 +606,15 @@ internal class PatternSyntaxParser : SyntaxParser
             upperBound = new ExpressionSyntaxParser(this, allowLambdaExpressions: false).ParseExpression();
         }
 
-        return RangePattern(lowerBound, dotDotToken, upperBound);
+        return RangePattern(lowerBound, dotDotToken, lessThanToken, upperBound);
+    }
+
+    private SyntaxToken ParseExclusiveRangeToken()
+    {
+        if (ConsumeToken(SyntaxKind.LessThanToken, out var lessThanToken))
+            return lessThanToken;
+
+        return Token(SyntaxKind.None);
     }
 
     private static bool CanStartRangeBoundExpression(SyntaxToken token)
@@ -664,7 +673,7 @@ internal class PatternSyntaxParser : SyntaxParser
                 return false;
             }
 
-            constantPattern = RangePattern(rangeExpr.LeftExpression, rangeExpr.DotDotToken, rangeExpr.RightExpression);
+            constantPattern = RangePattern(rangeExpr.LeftExpression, rangeExpr.DotDotToken, rangeExpr.LessThanToken, rangeExpr.RightExpression);
             return true;
         }
 
