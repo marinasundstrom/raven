@@ -8272,7 +8272,7 @@ partial class BlockBinder : Binder
         {
             var deconstructMethod = FindDeconstructMethod(valueType, elementCount);
             if (deconstructMethod is not null)
-                return BindDeconstructPatternForAssignment(elements, deconstructMethod, valueType);
+                return BindDeconstructPatternForAssignment(elements, deconstructMethod, valueType, declarationBindingKeywordKind);
         }
 
         var elementTypes = ImmutableArray<ITypeSymbol>.Empty;
@@ -8613,7 +8613,8 @@ partial class BlockBinder : Binder
     private BoundPattern BindDeconstructPatternForAssignment(
         SeparatedSyntaxList<PositionalPatternElementSyntax> elements,
         IMethodSymbol deconstructMethod,
-        ITypeSymbol valueType)
+        ITypeSymbol valueType,
+        SyntaxKind declarationBindingKeywordKind)
     {
         var fallbackLocation = elements.Count > 0 ? elements[0].GetLocation() : Location.None;
         var parameterOffset = GetDeconstructParameterOffset(deconstructMethod);
@@ -8626,7 +8627,11 @@ partial class BlockBinder : Binder
         {
             var elementSyntax = elements[i];
             var expectedType = EnsureTypeAccessible(parameters[i + parameterOffset].Type, elementSyntax.GetLocation());
-            var boundElement = BindPatternForAssignment(elementSyntax.Pattern, expectedType, elementSyntax.Pattern);
+            var boundElement = BindPatternForAssignment(
+                elementSyntax.Pattern,
+                expectedType,
+                elementSyntax.Pattern,
+                declarationBindingKeywordKind);
             boundElements.Add(boundElement);
         }
 
@@ -8637,7 +8642,11 @@ partial class BlockBinder : Binder
         }
 
         for (var i = elementCount; i < elements.Count; i++)
-            _ = BindPatternForAssignment(elements[i].Pattern, Compilation.ErrorTypeSymbol, elements[i].Pattern);
+            _ = BindPatternForAssignment(
+                elements[i].Pattern,
+                Compilation.ErrorTypeSymbol,
+                elements[i].Pattern,
+                declarationBindingKeywordKind);
 
         return new BoundDeconstructPattern(
             inputType: valueType,

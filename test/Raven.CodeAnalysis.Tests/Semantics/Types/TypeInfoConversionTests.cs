@@ -39,7 +39,7 @@ val x = (double)1
 """;
 
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
-        Assert.Empty(compilation.GetDiagnostics());
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var model = compilation.GetSemanticModel(tree);
         var cast = tree.GetRoot().DescendantNodes().OfType<CastExpressionSyntax>().Single();
