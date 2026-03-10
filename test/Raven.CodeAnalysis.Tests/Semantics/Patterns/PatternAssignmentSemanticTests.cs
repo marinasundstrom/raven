@@ -35,7 +35,7 @@ first + second
 
         var assignment = tree.GetRoot()
             .DescendantNodes()
-            .OfType<AssignmentStatementSyntax>()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
             .Single();
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
@@ -177,7 +177,7 @@ first + second
 
         var assignment = tree.GetRoot()
             .DescendantNodes()
-            .OfType<AssignmentStatementSyntax>()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
             .Last();
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
@@ -217,7 +217,7 @@ first + second
 
         var assignment = tree.GetRoot()
             .DescendantNodes()
-            .OfType<AssignmentStatementSyntax>()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
             .First();
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
@@ -255,7 +255,7 @@ first + middle[0] + last
 
         var assignment = tree.GetRoot()
             .DescendantNodes()
-            .OfType<AssignmentStatementSyntax>()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
             .Single();
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));

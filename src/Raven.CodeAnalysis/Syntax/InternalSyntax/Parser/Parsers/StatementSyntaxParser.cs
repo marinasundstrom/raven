@@ -832,6 +832,12 @@ internal class StatementSyntaxParser : SyntaxParser
                     return ParseCollectionPatternDeclarationAssignmentStatement();
                 }
 
+                if (PeekToken(1).Kind == SyntaxKind.OpenParenToken &&
+                    token.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                {
+                    return ParseCollectionPatternDeclarationAssignmentStatement();
+                }
+
                 if (PeekToken(1).Kind != SyntaxKind.OpenParenToken)
                 {
                     var declaration = ParseVariableDeclarationSyntax();
@@ -881,16 +887,13 @@ internal class StatementSyntaxParser : SyntaxParser
         return ExpressionStatement(expression, terminatorToken);
     }
 
-    private AssignmentStatementSyntax ParseCollectionPatternDeclarationAssignmentStatement()
+    private PatternDeclarationAssignmentStatementSyntax ParseCollectionPatternDeclarationAssignmentStatement()
     {
         var bindingKeyword = ReadToken();
 
         SetTreatNewlinesAsTokens(false);
 
-        var parsedLeft = new PatternSyntaxParser(this).ParsePattern();
-        var left = parsedLeft is PositionalPatternSyntax positionalPattern
-            ? ApplyCollectionBindingKeywordShorthand(positionalPattern, bindingKeyword)
-            : parsedLeft;
+        var left = new PatternSyntaxParser(this).ParsePattern();
 
         ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out var operatorToken);
 
@@ -900,91 +903,12 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var terminatorToken = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
 
-        return AssignmentStatement(
-            SyntaxKind.SimpleAssignmentStatement,
+        return PatternDeclarationAssignmentStatement(
+            bindingKeyword,
             left,
             operatorToken,
             right,
             terminatorToken);
-    }
-
-    private static PositionalPatternSyntax ApplyCollectionBindingKeywordShorthand(
-        PositionalPatternSyntax pattern,
-        SyntaxToken bindingKeyword)
-    {
-        var changed = false;
-        var updatedElements = new GreenNode[pattern.Elements.SlotCount];
-
-        for (var i = 0; i < pattern.Elements.SlotCount; i++)
-        {
-            var elementOrSeparator = pattern.Elements[i];
-            if (elementOrSeparator is PositionalPatternElementSyntax element)
-            {
-                var rewrittenPattern = ApplyCollectionBindingKeywordShorthand(element.Pattern, bindingKeyword, ref changed);
-                if (!ReferenceEquals(rewrittenPattern, element.Pattern))
-                    elementOrSeparator = PositionalPatternElement(element.NameColon, rewrittenPattern);
-            }
-
-            updatedElements[i] = elementOrSeparator;
-        }
-
-        if (!changed)
-            return pattern;
-
-        return PositionalPattern(pattern.OpenParenToken, List(updatedElements), pattern.CloseParenToken);
-    }
-
-    private static PatternSyntax ApplyCollectionBindingKeywordShorthand(
-        PatternSyntax pattern,
-        SyntaxToken bindingKeyword,
-        ref bool changed)
-    {
-        switch (pattern)
-        {
-            case VariablePatternSyntax variablePattern:
-                if (!variablePattern.BindingKeyword.IsMissing &&
-                    variablePattern.BindingKeyword.Kind != SyntaxKind.None)
-                {
-                    return pattern;
-                }
-
-                changed = true;
-                return VariablePattern(bindingKeyword, variablePattern.Designation);
-
-            case DiscardPatternSyntax:
-                return pattern;
-
-            case PositionalPatternSyntax nested:
-                {
-                    var rewritten = ApplyCollectionBindingKeywordShorthand(nested, bindingKeyword);
-                    if (!ReferenceEquals(rewritten, nested))
-                        changed = true;
-
-                    return rewritten;
-                }
-
-            case ConstantPatternSyntax { Expression: IdentifierNameSyntax identifierName }:
-                changed = true;
-                return VariablePattern(
-                    bindingKeyword,
-                    SingleVariableDesignation(Token(SyntaxKind.None), identifierName.Identifier));
-
-            case DeclarationPatternSyntax
-                {
-                    Type: IdentifierNameSyntax identifierName,
-                    Designation: SingleVariableDesignationSyntax designation
-                }:
-                if (!designation.Identifier.IsMissing && designation.Identifier.Kind != SyntaxKind.None)
-                    return pattern;
-
-                changed = true;
-                return VariablePattern(
-                    bindingKeyword,
-                    SingleVariableDesignation(Token(SyntaxKind.None), identifierName.Identifier));
-
-            default:
-                return pattern;
-        }
     }
 
     private StatementSyntax ParseMatchStatementSyntax()

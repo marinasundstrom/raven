@@ -2540,6 +2540,25 @@ partial class BlockBinder
         return new BoundExpressionStatement(bound);
     }
 
+    private BoundStatement BindPatternDeclarationAssignmentStatement(PatternDeclarationAssignmentStatementSyntax syntax)
+    {
+        if (syntax.BindingKeyword.Kind is not (SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword))
+        {
+            _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(syntax.BindingKeyword.GetLocation());
+            return new BoundExpressionStatement(ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation));
+        }
+
+        var right = BindExpression(syntax.Right);
+        var bound = BindPatternAssignment(syntax.Left, right, syntax, syntax.BindingKeyword.Kind);
+        if (bound is BoundAssignmentExpression assignment)
+        {
+            ClearNullableFlowOnAssignment(assignment);
+            return new BoundAssignmentStatement(assignment);
+        }
+
+        return new BoundExpressionStatement(bound);
+    }
+
     private BoundExpression BindAssignment(ExpressionOrPatternSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node, SyntaxKind operatorTokenKind)
     {
         if (leftSyntax is ExpressionSyntax leftExpression)

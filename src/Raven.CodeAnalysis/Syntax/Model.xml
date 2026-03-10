@@ -236,6 +236,13 @@
     <Slot Name="Right" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
+  <Node Name="PatternDeclarationAssignmentStatement" Inherits="Statement">
+    <Slot Name="BindingKeyword" Type="Token" />
+    <Slot Name="Left" Type="Pattern" />
+    <Slot Name="OperatorToken" Type="Token" DefaultToken="EqualsToken" />
+    <Slot Name="Right" Type="Expression" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
+  </Node>
   <Node Name="IfStatement" Inherits="Statement">
     <Slot Name="IfKeyword" Type="Token" DefaultToken="IfKeyword" />
     <Slot Name="Condition" Type="Expression" />

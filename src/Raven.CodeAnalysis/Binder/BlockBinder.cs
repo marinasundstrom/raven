@@ -609,6 +609,7 @@ partial class BlockBinder : Binder
             LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclarationStatement(localDeclaration),
             UseDeclarationStatementSyntax useDeclaration => BindUseDeclarationStatement(useDeclaration),
             AssignmentStatementSyntax assignmentStatement => BindAssignmentStatement(assignmentStatement),
+            PatternDeclarationAssignmentStatementSyntax patternDeclarationAssignment => BindPatternDeclarationAssignmentStatement(patternDeclarationAssignment),
             MatchStatementSyntax matchStatement => BindMatchStatement(matchStatement),
             ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
@@ -8114,10 +8115,14 @@ partial class BlockBinder : Binder
                 BoundExpressionReason.OtherError);
     }
 
-    private BoundExpression BindPatternAssignment(PatternSyntax patternSyntax, BoundExpression right, SyntaxNode node)
+    private BoundExpression BindPatternAssignment(
+        PatternSyntax patternSyntax,
+        BoundExpression right,
+        SyntaxNode node,
+        SyntaxKind declarationBindingKeywordKind = SyntaxKind.None)
     {
         var valueType = right.Type ?? Compilation.ErrorTypeSymbol;
-        var boundPattern = BindPatternForAssignment(patternSyntax, valueType, node);
+        var boundPattern = BindPatternForAssignment(patternSyntax, valueType, node, declarationBindingKeywordKind);
 
         if (boundPattern.Reason == BoundExpressionReason.UnsupportedOperation)
         {
@@ -8136,16 +8141,22 @@ partial class BlockBinder : Binder
         return type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat);
     }
 
-    private BoundPattern BindPatternForAssignment(PatternSyntax patternSyntax, ITypeSymbol valueType, SyntaxNode node)
+    private BoundPattern BindPatternForAssignment(
+        PatternSyntax patternSyntax,
+        ITypeSymbol valueType,
+        SyntaxNode node,
+        SyntaxKind declarationBindingKeywordKind = SyntaxKind.None)
     {
         valueType ??= Compilation.ErrorTypeSymbol;
 
         BoundPattern bound = patternSyntax switch
         {
-            VariablePatternSyntax variablePattern => BindVariablePatternForAssignment(variablePattern, valueType),
-            PositionalPatternSyntax tuplePattern => BindPositionalPatternForAssignment(tuplePattern, valueType),
+            VariablePatternSyntax variablePattern => BindVariablePatternForAssignment(variablePattern, valueType, declarationBindingKeywordKind),
+            PositionalPatternSyntax tuplePattern => BindPositionalPatternForAssignment(tuplePattern, valueType, declarationBindingKeywordKind),
             DiscardPatternSyntax => new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType),
-            DeclarationPatternSyntax declaration => BindDeclarationPatternForAssignment(declaration, valueType, node),
+            ConstantPatternSyntax { Expression: IdentifierNameSyntax identifierName } when IsDeclarationBindingKeyword(declarationBindingKeywordKind)
+                => BindIdentifierPatternForDeclarationAssignment(identifierName, valueType, declarationBindingKeywordKind),
+            DeclarationPatternSyntax declaration => BindDeclarationPatternForAssignment(declaration, valueType, node, declarationBindingKeywordKind),
             _ => Misc(node)
         };
 
@@ -8159,19 +8170,26 @@ partial class BlockBinder : Binder
         return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
     }
 
-    private BoundPattern BindVariablePatternForAssignment(VariablePatternSyntax pattern, ITypeSymbol valueType)
+    private BoundPattern BindVariablePatternForAssignment(
+        VariablePatternSyntax pattern,
+        ITypeSymbol valueType,
+        SyntaxKind declarationBindingKeywordKind)
     {
-        var isMutable = pattern.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
+        var isMutable = pattern.BindingKeyword.IsKind(SyntaxKind.VarKeyword) ||
+                        (pattern.BindingKeyword.Kind == SyntaxKind.None && declarationBindingKeywordKind == SyntaxKind.VarKeyword);
         return BindVariableDesignationForAssignment(pattern.Designation, valueType, isMutable);
     }
 
     private BoundPattern BindDeclarationPatternForAssignment(
         DeclarationPatternSyntax pattern,
         ITypeSymbol valueType,
-        SyntaxNode node)
+        SyntaxNode node,
+        SyntaxKind declarationBindingKeywordKind)
     {
         if (pattern.Type is IdentifierNameSyntax identifier &&
-            pattern.Designation is SingleVariableDesignationSyntax { Identifier.IsMissing: true })
+            (pattern.Designation is null ||
+             pattern.Designation is SingleVariableDesignationSyntax { Identifier.IsMissing: true } ||
+             pattern.Designation is SingleVariableDesignationSyntax { Identifier.Kind: SyntaxKind.None }))
         {
             var name = identifier.Identifier.ValueText;
 
@@ -8183,6 +8201,14 @@ partial class BlockBinder : Binder
 
             if (name == "_")
                 return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
+
+            if (IsDeclarationBindingKeyword(declarationBindingKeywordKind))
+            {
+                return BindIdentifierTokenForDeclarationAssignment(
+                    identifier.Identifier,
+                    valueType,
+                    IsMutableBindingKeyword(declarationBindingKeywordKind));
+            }
 
             ILocalSymbol? local = null;
             if (_locals.TryGetValue(name, out var existingLocal))
@@ -8234,10 +8260,13 @@ partial class BlockBinder : Binder
         return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
     }
 
-    private BoundPattern BindPositionalPatternForAssignment(PositionalPatternSyntax pattern, ITypeSymbol valueType)
+    private BoundPattern BindPositionalPatternForAssignment(
+        PositionalPatternSyntax pattern,
+        ITypeSymbol valueType,
+        SyntaxKind declarationBindingKeywordKind)
     {
         if (pattern.OpenParenToken.IsKind(SyntaxKind.OpenBracketToken))
-            return BindCollectionPatternForAssignment(pattern, valueType);
+            return BindCollectionPatternForAssignment(pattern, valueType, declarationBindingKeywordKind);
 
         var elements = pattern.Elements;
         var elementCount = elements.Count;
@@ -8294,7 +8323,11 @@ partial class BlockBinder : Binder
         {
             var elementSyntax = elements[i];
             var elementType = elementTypes.Length > i ? elementTypes[i] : Compilation.ErrorTypeSymbol;
-            var boundElement = BindPatternForAssignment(elementSyntax.Pattern, elementType, elementSyntax.Pattern);
+            var boundElement = BindPatternForAssignment(
+                elementSyntax.Pattern,
+                elementType,
+                elementSyntax.Pattern,
+                declarationBindingKeywordKind);
             boundElements.Add(boundElement);
         }
 
@@ -8309,7 +8342,10 @@ partial class BlockBinder : Binder
         return new BoundPositionalPattern(tupleType, boundElements.ToImmutable());
     }
 
-    private BoundPattern BindCollectionPatternForAssignment(PositionalPatternSyntax pattern, ITypeSymbol valueType)
+    private BoundPattern BindCollectionPatternForAssignment(
+        PositionalPatternSyntax pattern,
+        ITypeSymbol valueType,
+        SyntaxKind declarationBindingKeywordKind)
     {
         var elements = pattern.Elements;
         var elementCount = elements.Count;
@@ -8351,7 +8387,11 @@ partial class BlockBinder : Binder
             var expectedType = hasRest && i == restIndex
                 ? Compilation.CreateArrayTypeSymbol(elementType)
                 : elementType;
-            var boundElement = BindPatternForAssignment(elementSyntax.Pattern, expectedType, elementSyntax.Pattern);
+            var boundElement = BindPatternForAssignment(
+                elementSyntax.Pattern,
+                expectedType,
+                elementSyntax.Pattern,
+                declarationBindingKeywordKind);
             boundElements.Add(boundElement);
         }
 
@@ -8377,6 +8417,44 @@ partial class BlockBinder : Binder
 
     private static bool IsCollectionRestElement(PositionalPatternElementSyntax element)
         => element.NameColon is { ColonToken.Kind: SyntaxKind.DotDotToken };
+
+    private BoundPattern BindIdentifierPatternForDeclarationAssignment(
+        IdentifierNameSyntax identifierName,
+        ITypeSymbol valueType,
+        SyntaxKind declarationBindingKeywordKind)
+    {
+        var name = identifierName.Identifier.ValueText;
+        if (string.IsNullOrEmpty(name) || name == "_")
+            return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
+
+        return BindIdentifierTokenForDeclarationAssignment(
+            identifierName.Identifier,
+            valueType,
+            IsMutableBindingKeyword(declarationBindingKeywordKind));
+    }
+
+    private BoundPattern BindIdentifierTokenForDeclarationAssignment(
+        SyntaxToken identifier,
+        ITypeSymbol valueType,
+        bool isMutable)
+    {
+        var normalizedType = TypeSymbolNormalization.NormalizeForInference(valueType);
+        if (identifier.IsMissing || identifier.ValueText == "_")
+            return new BoundDiscardPattern(normalizedType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedType);
+
+        var type = normalizedType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedType;
+        type = EnsureTypeAccessible(type, identifier.GetLocation());
+
+        var local = DeclarePatternLocal(identifier.Parent ?? throw new InvalidOperationException("Identifier token must have a parent syntax node."), identifier.ValueText, isMutable, type);
+        var designator = new BoundSingleVariableDesignator(local);
+        return new BoundDeclarationPattern(type, designator);
+    }
+
+    private static bool IsDeclarationBindingKeyword(SyntaxKind kind)
+        => kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+
+    private static bool IsMutableBindingKeyword(SyntaxKind kind)
+        => kind == SyntaxKind.VarKeyword;
 
     private BoundPattern BindVariableDesignationForAssignment(
         VariableDesignationSyntax designation,
