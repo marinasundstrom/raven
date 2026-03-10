@@ -64,6 +64,11 @@ internal abstract partial class Binder
 
         _diagnostics.ReportCannotConvertFromTypeToType(fromArg, toArg, location);
 
+        ReportExplicitConversionHint(fromType, toType, location);
+    }
+
+    protected void ReportExplicitConversionHint(object? fromType, object? toType, Location location)
+    {
         if (fromType is not ITypeSymbol fromTypeSymbol || toType is not ITypeSymbol toTypeSymbol)
             return;
 

@@ -50,4 +50,26 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
         var verifier = CreateVerifier(code);
         verifier.Verify();
     }
+
+    [Fact]
+    public void AssignmentConversionFailure_WithExplicitConversionAvailable_ReportsHintDiagnostic()
+    {
+        const string code = """
+        class Foo {
+            static func explicit(value: Foo) -> string { return "" }
+        }
+
+        func Main() -> () {
+            val foo = Foo()
+            val text: string = foo
+        }
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("'Foo'", "'string'"),
+            new DiagnosticResult(CompilerDiagnostics.ExplicitConversionExists.Id).WithAnySpan().WithArguments("Foo", "string"),
+        ]);
+
+        verifier.Verify();
+    }
 }

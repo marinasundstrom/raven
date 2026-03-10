@@ -325,6 +325,7 @@ partial class BlockBinder : Binder
                         boundInitializer.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         initializer.Value.GetLocation());
+                    ReportExplicitConversionHint(boundInitializer.Type, type, initializer.Value.GetLocation());
                     boundInitializer = new BoundErrorExpression(type, null, BoundExpressionReason.TypeMismatch);
                 }
             }
