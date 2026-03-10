@@ -2978,10 +2978,9 @@ partial class BlockBinder : Binder
                 }
             case BoundPositionalPattern tuplePattern:
                 {
-                    if (patternSyntax is PositionalPatternSyntax collectionSyntax &&
-                        collectionSyntax.OpenParenToken.IsKind(SyntaxKind.OpenBracketToken))
+                    if (patternSyntax is SequencePatternSyntax collectionSyntax)
                     {
-                        if (!TryGetCollectionPatternElementType(scrutineeType, out var elementType))
+                        if (!TryGetSequencePatternElementType(scrutineeType, out var elementType))
                             return;
 
                         var patternElements = tuplePattern.Elements;
@@ -8153,6 +8152,7 @@ partial class BlockBinder : Binder
         {
             VariablePatternSyntax variablePattern => BindVariablePatternForAssignment(variablePattern, valueType, declarationBindingKeywordKind),
             PositionalPatternSyntax tuplePattern => BindPositionalPatternForAssignment(tuplePattern, valueType, declarationBindingKeywordKind),
+            SequencePatternSyntax sequencePattern => BindSequencePatternForAssignment(sequencePattern, valueType, declarationBindingKeywordKind),
             DiscardPatternSyntax => new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType),
             ConstantPatternSyntax { Expression: IdentifierNameSyntax identifierName } when IsDeclarationBindingKeyword(declarationBindingKeywordKind)
                 => BindIdentifierPatternForDeclarationAssignment(identifierName, valueType, declarationBindingKeywordKind),
@@ -8265,9 +8265,6 @@ partial class BlockBinder : Binder
         ITypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
-        if (pattern.OpenParenToken.IsKind(SyntaxKind.OpenBracketToken))
-            return BindCollectionPatternForAssignment(pattern, valueType, declarationBindingKeywordKind);
-
         var elements = pattern.Elements;
         var elementCount = elements.Count;
 
@@ -8342,8 +8339,8 @@ partial class BlockBinder : Binder
         return new BoundPositionalPattern(tupleType, boundElements.ToImmutable());
     }
 
-    private BoundPattern BindCollectionPatternForAssignment(
-        PositionalPatternSyntax pattern,
+    private BoundPattern BindSequencePatternForAssignment(
+        SequencePatternSyntax pattern,
         ITypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
@@ -8352,7 +8349,7 @@ partial class BlockBinder : Binder
         var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(elementCount);
         var elementType = Compilation.ErrorTypeSymbol;
         var patternType = valueType;
-        var restIndex = GetCollectionRestElementIndex(elements);
+        var restIndex = GetSequenceRestElementIndex(elements);
         var hasRest = restIndex >= 0;
 
         if (valueType is IArrayTypeSymbol arrayType)
@@ -8398,12 +8395,12 @@ partial class BlockBinder : Binder
         return new BoundPositionalPattern(patternType, boundElements.ToImmutable(), restIndex: restIndex);
     }
 
-    private static int GetCollectionRestElementIndex(SeparatedSyntaxList<PositionalPatternElementSyntax> elements)
+    private static int GetSequenceRestElementIndex(SeparatedSyntaxList<SequencePatternElementSyntax> elements)
     {
         var index = -1;
         for (var i = 0; i < elements.Count; i++)
         {
-            if (!IsCollectionRestElement(elements[i]))
+            if (!IsSequenceRestElement(elements[i]))
                 continue;
 
             if (index >= 0)
@@ -8415,8 +8412,8 @@ partial class BlockBinder : Binder
         return index;
     }
 
-    private static bool IsCollectionRestElement(PositionalPatternElementSyntax element)
-        => element.NameColon is { ColonToken.Kind: SyntaxKind.DotDotToken };
+    private static bool IsSequenceRestElement(SequencePatternElementSyntax element)
+        => element.DotDotToken.IsKind(SyntaxKind.DotDotToken);
 
     private BoundPattern BindIdentifierPatternForDeclarationAssignment(
         IdentifierNameSyntax identifierName,

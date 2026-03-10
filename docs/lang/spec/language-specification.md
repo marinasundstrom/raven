@@ -2337,6 +2337,9 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   * The same bracketed shape is also used for collection deconstruction
     assignments and declarations (`[val a, val b] = values`), which support
     arrays and enumerable collections.
+  * In the syntax tree, bracketed patterns are represented as `SequencePatternSyntax`
+    (with `SequencePatternElementSyntax`), distinct from parenthesized positional
+    patterns (`PositionalPatternSyntax`).
   * Each element is a full pattern; bindings still require `val`/`var`.
   * Length must match exactly.
 
@@ -3413,6 +3416,10 @@ Collection deconstruction uses the same element-pattern rules but with bracket
 syntax. In assignments and declarations, collection deconstruction supports
 arrays (`T[]`) and enumerable collections (`IEnumerable<T>`), and elements are
 bound in sequence order.
+
+In compiler APIs, this bracketed form is surfaced as `SequencePatternSyntax`
+rather than `PositionalPatternSyntax`, so tuple/positional and sequence forms
+can evolve independently.
 
 For declaration-style deconstruction, Raven supports both:
 

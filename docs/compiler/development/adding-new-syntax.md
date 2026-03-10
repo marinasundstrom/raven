@@ -42,6 +42,11 @@ The following steps need to be followed in order to add a new `SyntaxNode`:
     
 * Add methods to `SyntaxFactory`, both for Red and Green tree.
 
+When two surface syntaxes may diverge semantically over time, prefer distinct
+syntax node types instead of multiplexing through one node with token checks.
+For example, Raven models parenthesized positional patterns and bracketed
+sequence patterns as separate nodes.
+
 ### Handled by the generator
 
 The rest will be dealt with by the [generator](source-generation.md), including:

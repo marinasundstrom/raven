@@ -454,6 +454,7 @@ internal partial class BlockBinder
             VariablePatternSyntax variable => BindVariablePattern(variable, inputType),
             DeclarationPatternSyntax d => BindDeclarationPattern(d, inputType),
             PositionalPatternSyntax t => BindPositionalPattern(t, inputType),
+            SequencePatternSyntax s => BindSequencePattern(s, inputType),
             UnaryPatternSyntax u => BindUnaryPattern(u, inputType),
             BinaryPatternSyntax b => BindBinaryPattern(b, inputType),
             MemberPatternSyntax c => BindCasePattern(c, inputType),
@@ -720,9 +721,6 @@ internal partial class BlockBinder
 
     private BoundPattern BindPositionalPattern(PositionalPatternSyntax syntax, ITypeSymbol? inputType)
     {
-        if (syntax.OpenParenToken.IsKind(SyntaxKind.OpenBracketToken))
-            return BindCollectionPattern(syntax, inputType);
-
         if (inputType is not null)
         {
             var deconstructMethod = FindDeconstructMethod(inputType, syntax.Elements.Count);
@@ -770,14 +768,14 @@ internal partial class BlockBinder
         return new BoundPositionalPattern(tupleType, elementPatterns.ToImmutable());
     }
 
-    private BoundPattern BindCollectionPattern(PositionalPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindSequencePattern(SequencePatternSyntax syntax, ITypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
         var elementPatterns = ImmutableArray.CreateBuilder<BoundPattern>(syntax.Elements.Count);
         var patternType = inputType;
         var reason = BoundExpressionReason.None;
-        var restIndex = GetCollectionRestElementIndex(syntax.Elements);
+        var restIndex = GetSequenceRestElementIndex(syntax.Elements);
         var hasRest = restIndex >= 0;
         var elementType = Compilation.ErrorTypeSymbol;
 
@@ -791,7 +789,7 @@ internal partial class BlockBinder
             elementType = Compilation.ErrorTypeSymbol;
             reason = BoundExpressionReason.TypeMismatch;
         }
-        else if (!TryGetCollectionPatternElementType(inputType, out elementType))
+        else if (!TryGetSequencePatternElementType(inputType, out elementType))
         {
             if (inputType.TypeKind != TypeKind.Error)
             {
@@ -812,14 +810,13 @@ internal partial class BlockBinder
                 ? Compilation.CreateArrayTypeSymbol(elementType)
                 : elementType;
             var boundElement = BindPositionalPatternElement(elementSyntax.Pattern, expectedType);
-            boundElement = BindPositionalPatternElementDesignation(elementSyntax, boundElement);
             elementPatterns.Add(boundElement);
         }
 
         return new BoundPositionalPattern(patternType, elementPatterns.ToImmutable(), reason, restIndex);
     }
 
-    private bool TryGetCollectionPatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)
+    private bool TryGetSequencePatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)
     {
         elementType = Compilation.ErrorTypeSymbol;
 

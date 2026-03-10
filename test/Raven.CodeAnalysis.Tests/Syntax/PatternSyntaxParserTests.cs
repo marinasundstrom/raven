@@ -156,15 +156,15 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void CollectionPattern_WithBracketSyntax_Parses()
+    public void SequencePattern_WithBracketSyntax_Parses()
     {
         var (pattern, tree) = ParsePattern("[let first, _]");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
-        var collectionPattern = Assert.IsType<PositionalPatternSyntax>(pattern);
+        var collectionPattern = Assert.IsType<SequencePatternSyntax>(pattern);
         Assert.Equal("[let first, _]", sourceText.ToString(collectionPattern.Span));
-        Assert.Equal(SyntaxKind.OpenBracketToken, collectionPattern.OpenParenToken.Kind);
-        Assert.Equal(SyntaxKind.CloseBracketToken, collectionPattern.CloseParenToken.Kind);
+        Assert.Equal(SyntaxKind.OpenBracketToken, collectionPattern.OpenBracketToken.Kind);
+        Assert.Equal(SyntaxKind.CloseBracketToken, collectionPattern.CloseBracketToken.Kind);
         Assert.Equal(2, collectionPattern.Elements.Count);
         Assert.IsType<VariablePatternSyntax>(collectionPattern.Elements[0].Pattern);
         Assert.IsType<DiscardPatternSyntax>(collectionPattern.Elements[1].Pattern);
@@ -173,18 +173,17 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void CollectionPattern_WithRestElement_Parses()
+    public void SequencePattern_WithRestElement_Parses()
     {
         var (pattern, tree) = ParsePattern("[let first, ..rest, _]");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
-        var collectionPattern = Assert.IsType<PositionalPatternSyntax>(pattern);
+        var collectionPattern = Assert.IsType<SequencePatternSyntax>(pattern);
         Assert.Equal("[let first, ..rest, _]", sourceText.ToString(collectionPattern.Span));
         Assert.Equal(3, collectionPattern.Elements.Count);
 
         var restElement = collectionPattern.Elements[1];
-        Assert.NotNull(restElement.NameColon);
-        Assert.Equal(SyntaxKind.DotDotToken, restElement.NameColon!.ColonToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, restElement.DotDotToken.Kind);
 
         var restPattern = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
         var restDesignation = Assert.IsType<SingleVariableDesignationSyntax>(restPattern.Designation);

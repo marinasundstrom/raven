@@ -34,27 +34,27 @@ public class AssignmentStatementSyntaxTest
     }
 
     [Fact]
-    public void ParsesCollectionPatternAssignmentStatement()
+    public void ParsesSequencePatternAssignmentStatement()
     {
         var tree = SyntaxTree.ParseText("[val first, val second, _] = numbers");
         var assignment = tree.GetRoot().DescendantNodes().OfType<AssignmentStatementSyntax>().Single();
 
         Assert.Equal(SyntaxKind.SimpleAssignmentStatement, assignment.Kind);
 
-        var pattern = Assert.IsType<PositionalPatternSyntax>(assignment.Left);
-        Assert.Equal(SyntaxKind.OpenBracketToken, pattern.OpenParenToken.Kind);
+        var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
+        Assert.Equal(SyntaxKind.OpenBracketToken, pattern.OpenBracketToken.Kind);
         Assert.Equal(3, pattern.Elements.Count);
     }
 
     [Fact]
-    public void ParsesCollectionPatternDeclarationShorthandAssignmentStatement()
+    public void ParsesSequencePatternDeclarationShorthandAssignmentStatement()
     {
         var tree = SyntaxTree.ParseText("val [first, second, _] = numbers");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
         Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
-        var pattern = Assert.IsType<PositionalPatternSyntax>(assignment.Left);
-        Assert.Equal(SyntaxKind.OpenBracketToken, pattern.OpenParenToken.Kind);
+        var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
+        Assert.Equal(SyntaxKind.OpenBracketToken, pattern.OpenBracketToken.Kind);
         Assert.Equal(3, pattern.Elements.Count);
 
         Assert.True(pattern.Elements[0].Pattern is ConstantPatternSyntax or DeclarationPatternSyntax);
@@ -63,19 +63,18 @@ public class AssignmentStatementSyntaxTest
     }
 
     [Fact]
-    public void ParsesCollectionPatternDeclarationShorthand_WithMiddleRest()
+    public void ParsesSequencePatternDeclarationShorthand_WithMiddleRest()
     {
         var tree = SyntaxTree.ParseText("val [first, ..middle, last] = numbers");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
         Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
-        var pattern = Assert.IsType<PositionalPatternSyntax>(assignment.Left);
+        var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
         Assert.Equal(3, pattern.Elements.Count);
 
         Assert.True(pattern.Elements[0].Pattern is ConstantPatternSyntax or DeclarationPatternSyntax);
 
         var restElement = pattern.Elements[1];
-        Assert.NotNull(restElement.NameColon);
-        Assert.Equal(SyntaxKind.DotDotToken, restElement.NameColon!.ColonToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, restElement.DotDotToken.Kind);
         var middle = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
         Assert.Equal(SyntaxKind.None, middle.BindingKeyword.Kind);
 

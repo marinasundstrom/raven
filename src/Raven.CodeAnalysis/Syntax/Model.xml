@@ -811,8 +811,17 @@
     <Slot Name="Elements" Type="SeparatedList" ElementType="PositionalPatternElement" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
+  <Node Name="SequencePattern" Inherits="Pattern">
+    <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken" />
+    <Slot Name="Elements" Type="SeparatedList" ElementType="SequencePatternElement" />
+    <Slot Name="CloseBracketToken" Type="Token" DefaultToken="CloseBracketToken" />
+  </Node>
   <Node Name="PositionalPatternElement" Inherits="Node">
     <Slot Name="NameColon" Type="NameColon" IsNullable="true" />
+    <Slot Name="Pattern" Type="Pattern" />
+  </Node>
+  <Node Name="SequencePatternElement" Inherits="Node">
+    <Slot Name="DotDotToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Pattern" Type="Pattern" />
   </Node>
   <Node Name="MemberPatternPath" Inherits="Node">
