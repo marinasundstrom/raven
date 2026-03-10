@@ -703,7 +703,13 @@ internal partial class ExpressionGenerator : Generator
         }
 
         var caseCreation = new BoundObjectCreationExpression(ctor, args);
-        var conversion = new Conversion(isImplicit: true, isDiscriminatedUnion: true);
+        var conversion = Compilation.ClassifyConversion(node.CaseType, node.UnionType);
+        if (!conversion.Exists)
+        {
+            throw new InvalidOperationException(
+                $"EmitUnionCaseExpression: no conversion found from '{node.CaseType}' to '{node.UnionType}'.");
+        }
+
         var conversionExpr = new BoundConversionExpression(caseCreation, node.UnionType, conversion);
         EmitConversionExpression(conversionExpr);
     }
@@ -1910,23 +1916,18 @@ internal partial class ExpressionGenerator : Generator
     private void EmitPropagateErrorCaseConversion(ITypeSymbol enclosingResultType, ITypeSymbol errorCaseType)
     {
         // The enclosing error-case type may be a nested case struct (e.g. Result<T,E>.Error)
-        // that is not IL-assignable to the enclosing result type. Convert via an implicit
-        // operator (user-defined conversion) so the return stack type matches exactly.
+        // that is not IL-assignable to the enclosing result type. Materialize the carrier
+        // directly through its case-typed constructor.
         if (SymbolEqualityComparer.Default.Equals(enclosingResultType, errorCaseType))
             return;
 
-        var conversion = Compilation.ClassifyConversion(errorCaseType, enclosingResultType);
+        if (enclosingResultType is not INamedTypeSymbol enclosingCarrier)
+            throw new InvalidOperationException($"Missing union carrier type for '{enclosingResultType}'.");
 
-        if (!conversion.Exists || !conversion.IsImplicit || !conversion.IsUserDefined || conversion.MethodSymbol is null)
-        {
-            // We intentionally do not fall back to reflection-based enumeration here because
-            // `TypeBuilderInstantiation.GetMethods(...)` is not supported for open constructed
-            // types produced during async state machine emission.
-            throw new InvalidOperationException($"Missing implicit conversion from '{errorCaseType}' to '{enclosingResultType}'.");
-        }
+        if (!enclosingCarrier.TryGetUnionCarrierConstructor(errorCaseType, out var carrierCtor))
+            throw new InvalidOperationException($"Missing union constructor from '{errorCaseType}' to '{enclosingResultType}'.");
 
-        // Emit the implicit conversion operator call.
-        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(conversion.MethodSymbol));
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(carrierCtor));
     }
 
     private void EmitPropagateReturn(Type resultClrType)
@@ -3312,8 +3313,17 @@ internal partial class ExpressionGenerator : Generator
             SourceMethodSymbol sm => sm,
             PEMethodSymbol a => a,
             SubstitutedMethodSymbol b => b,
+            ConstructedMethodSymbol c => c,
             _ => throw new Exception("Unsupported constructor symbol")
         };
+
+        if (constructorSymbol is not SubstitutedMethodSymbol and not ConstructedMethodSymbol &&
+            objectCreationExpression.Type is ConstructedNamedTypeSymbol constructedType &&
+            constructorSymbol.ContainingType is INamedTypeSymbol containingType &&
+            !SymbolEqualityComparer.Default.Equals(containingType, constructedType))
+        {
+            constructorSymbol = new SubstitutedMethodSymbol(constructorSymbol, constructedType);
+        }
 
         var parameters = constructorSymbol.Parameters.ToArray();
         var arguments = objectCreationExpression.Arguments.ToArray();
@@ -3364,6 +3374,7 @@ internal partial class ExpressionGenerator : Generator
         }
 
         var constructorInfo = GetConstructorInfo(constructorSymbol);
+        constructorInfo = CloseConstructorForObjectCreation(constructorInfo, constructorSymbol, objectCreationExpression.Type);
 
         if (objectCreationExpression.Receiver is not null)
         {
@@ -3372,6 +3383,54 @@ internal partial class ExpressionGenerator : Generator
         else
         {
             ILGenerator.Emit(OpCodes.Newobj, constructorInfo);
+        }
+    }
+
+    private ConstructorInfo CloseConstructorForObjectCreation(
+        ConstructorInfo constructorInfo,
+        IMethodSymbol constructorSymbol,
+        ITypeSymbol? targetType)
+    {
+        if (targetType is null)
+            return constructorInfo;
+
+        var targetRuntimeType = Generator.InstantiateType(ResolveClrType(targetType));
+        var declaringType = constructorInfo.DeclaringType;
+        if (declaringType is null)
+            return constructorInfo;
+
+        if (ReferenceEquals(targetRuntimeType, declaringType))
+            return constructorInfo;
+
+        // Reflection.Emit generic instantiations need constructor remapping through TypeBuilder APIs.
+        if (declaringType is TypeBuilder && targetRuntimeType.GetType().FullName == "System.Reflection.Emit.TypeBuilderInstantiation")
+        {
+            var mapped = TypeBuilder.GetConstructor(targetRuntimeType, constructorInfo);
+            if (mapped is not null)
+                return mapped;
+        }
+
+        var parameterTypes = constructorSymbol.Parameters
+            .Select(parameter => ResolveClrType(parameter.Type))
+            .ToArray();
+
+        var resolved = TryResolveRuntimeConstructor(targetRuntimeType, parameterTypes);
+        return resolved ?? constructorInfo;
+    }
+
+    private ConstructorInfo? TryResolveRuntimeConstructor(Type targetRuntimeType, Type[] parameterTypes)
+    {
+        try
+        {
+            return targetRuntimeType.GetConstructor(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                binder: null,
+                types: parameterTypes,
+                modifiers: null);
+        }
+        catch (NotSupportedException)
+        {
+            return null;
         }
     }
 

@@ -88,7 +88,7 @@ public class ResultMetadataSymbolTests
     }
 
     [Fact]
-    public void ResultFromMetadata_ImplicitConversions_UseCaseTypes()
+    public void ResultFromMetadata_Constructors_UseCaseTypes()
     {
         var (reference, path) = CreateRavenCoreResultReference();
         try
@@ -106,11 +106,13 @@ public class ResultMetadataSymbolTests
             var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Cases.Single(c => c.Name == "Ok"));
             var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Cases.Single(c => c.Name == "Error"));
 
-            var conversions = resultDefinition.GetMembers("op_Implicit").OfType<IMethodSymbol>().ToArray();
-            Assert.NotEmpty(conversions);
+            var constructors = resultDefinition.Constructors
+                .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
+                .ToArray();
+            Assert.NotEmpty(constructors);
 
-            Assert.Contains(conversions, conversion => HasParameterType(conversion, okCase));
-            Assert.Contains(conversions, conversion => HasParameterType(conversion, errorCase));
+            Assert.Contains(constructors, constructor => HasParameterType(constructor, okCase));
+            Assert.Contains(constructors, constructor => HasParameterType(constructor, errorCase));
         }
         finally
         {
@@ -120,7 +122,7 @@ public class ResultMetadataSymbolTests
     }
 
     [Fact]
-    public void ConstructedResultFromMetadata_ImplicitConversions_UseCaseTypes()
+    public void ConstructedResultFromMetadata_Constructors_UseCaseTypes()
     {
         var (reference, path) = CreateRavenCoreResultReference();
         try
@@ -142,11 +144,13 @@ public class ResultMetadataSymbolTests
             var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Cases.Single(c => c.Name == "Ok"));
             var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Cases.Single(c => c.Name == "Error"));
 
-            var conversions = constructedResult.GetMembers("op_Implicit").OfType<IMethodSymbol>().ToArray();
-            Assert.NotEmpty(conversions);
+            var constructors = constructedResult.Constructors
+                .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
+                .ToArray();
+            Assert.NotEmpty(constructors);
 
-            Assert.Contains(conversions, conversion => HasParameterType(conversion, okCase));
-            Assert.Contains(conversions, conversion => HasParameterType(conversion, errorCase));
+            Assert.Contains(constructors, constructor => HasParameterType(constructor, okCase));
+            Assert.Contains(constructors, constructor => HasParameterType(constructor, errorCase));
         }
         finally
         {

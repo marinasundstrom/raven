@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -25,8 +25,13 @@ internal sealed partial class Lowerer
 
         var rewrittenExpression = (BoundExpression?)Visit(node.Expression) ?? node.Expression;
 
-        if (node.Conversion.IsDiscriminatedUnion && node.Conversion.MethodSymbol is null)
-            return LowerDiscriminatedUnionConversion(node, rewrittenExpression);
+        if (node.Conversion.IsDiscriminatedUnion)
+        {
+            if (ReferenceEquals(rewrittenExpression, node.Expression))
+                return node;
+
+            return new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion);
+        }
 
         if (ReferenceEquals(rewrittenExpression, node.Expression))
             return node;
@@ -36,8 +41,6 @@ internal sealed partial class Lowerer
 
     private BoundExpression LowerDiscriminatedUnionConversion(BoundConversionExpression node, BoundExpression rewrittenExpression)
     {
-        var compilation = GetCompilation();
-        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
         var caseDefinition = rewrittenExpression.Type?.TryGetDiscriminatedUnionCase()
             ?? throw new InvalidOperationException("Missing discriminated union case information.");
         var unionType = (INamedTypeSymbol)node.Type!;
@@ -52,55 +55,17 @@ internal sealed partial class Lowerer
             ? projectedUnion.Cases.FirstOrDefault(c => c.Ordinal == caseDefinition.Ordinal) ?? caseDefinition
             : caseDefinition;
 
-        var discriminatorField = GetRequiredUnionField(unionType, DiscriminatedUnionFieldUtilities.TagFieldName);
-        var payloadField = DiscriminatedUnionFieldUtilities.GetRequiredPayloadField(unionType, projectedCase);
-
-        var caseType = rewrittenExpression.Type;
-        if (caseType is null || caseType.TypeKind == TypeKind.Error)
-            caseType = (ITypeSymbol)projectedCase;
-        var caseLocal = CreateTempLocal("case", caseType, isMutable: true);
-        var unionLocal = CreateTempLocal("union", unionType, isMutable: true);
-
-        var unionLocalLocalAccess = new BoundLocalAccess(unionLocal);
-
-        var statements = new List<BoundStatement>
+        var projectedCaseType = (INamedTypeSymbol)projectedCase;
+        var unionCtor = node.Conversion.ConstructorSymbol;
+        if (unionCtor is null &&
+            !unionType.TryGetUnionCarrierConstructor(projectedCaseType, out unionCtor))
         {
-            new BoundLocalDeclarationStatement(new[] { new BoundVariableDeclarator(caseLocal, rewrittenExpression) }),
-            new BoundLocalDeclarationStatement(new[] { new BoundVariableDeclarator(unionLocal, null) }),
-            new BoundExpressionStatement(new BoundLocalAssignmentExpression(
-                unionLocal,
-                unionLocalLocalAccess,
-                new BoundDefaultValueExpression(unionType),
-                unitType)),
-            new BoundExpressionStatement(new BoundFieldAssignmentExpression(
-                new BoundLocalAccess(unionLocal),
-                discriminatorField,
-                new BoundLiteralExpression(
-                    BoundLiteralExpressionKind.NumericLiteral,
-                    projectedCase.Ordinal,
-                    discriminatorField.Type),
-                unitType,
-                requiresReceiverAddress: true)),
-            new BoundExpressionStatement(new BoundFieldAssignmentExpression(
-                new BoundLocalAccess(unionLocal),
-                payloadField,
-                new BoundLocalAccess(caseLocal),
-                unitType,
-                requiresReceiverAddress: true)),
-            new BoundExpressionStatement(new BoundLocalAccess(unionLocal))
-        };
-
-        return new BoundBlockExpression(statements, unitType);
-    }
-
-    private static IFieldSymbol GetRequiredUnionField(INamedTypeSymbol unionType, string fieldName)
-    {
-        foreach (var member in unionType.GetMembers(fieldName))
-        {
-            if (member is IFieldSymbol field)
-                return field;
+            throw new InvalidOperationException(
+                $"Missing union constructor for DU conversion from '{projectedCaseType.Name}' to '{unionType.Name}'.");
         }
 
-        throw new InvalidOperationException($"Union '{unionType.Name}' is missing backing field '{fieldName}'.");
+        return new BoundObjectCreationExpression(
+            unionCtor,
+            ImmutableArray.Create(rewrittenExpression));
     }
 }

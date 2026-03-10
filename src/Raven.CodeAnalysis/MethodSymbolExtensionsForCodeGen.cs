@@ -606,7 +606,7 @@ internal static class MethodSymbolCodeGenResolver
         if (codeGen.TryGetRuntimeConstructor(constructorSymbol, out var cached))
             return cached;
 
-        return constructorSymbol switch
+        var resolved = constructorSymbol switch
         {
             IMethodSymbol wrapper when wrapper.UnderlyingSymbol is IMethodSymbol underlying && !ReferenceEquals(underlying, wrapper)
                 => codeGen.CacheRuntimeConstructor(constructorSymbol, GetClrConstructorInfo(underlying, codeGen)),
@@ -621,6 +621,169 @@ internal static class MethodSymbolCodeGenResolver
             PEMethodSymbol peConstructor => codeGen.CacheRuntimeConstructor(constructorSymbol, ResolveRuntimeConstructorInfo(peConstructor, codeGen)),
             _ => throw new InvalidOperationException($"Unsupported constructor symbol type '{constructorSymbol.GetType()}'.")
         };
+
+        resolved = EnsureClosedConstructedConstructorInfo(constructorSymbol, resolved, codeGen);
+        return codeGen.CacheRuntimeConstructor(constructorSymbol, resolved);
+    }
+
+    private static ConstructorInfo EnsureClosedConstructedConstructorInfo(
+        IMethodSymbol constructorSymbol,
+        ConstructorInfo resolved,
+        CodeGenerator codeGen)
+    {
+        if (!NeedsGenericClosureFix(resolved))
+            return resolved;
+
+        if (constructorSymbol.ContainingType is null)
+            return resolved;
+
+        Type targetDeclaringType;
+        try
+        {
+            targetDeclaringType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(
+                constructorSymbol.ContainingType,
+                codeGen);
+        }
+        catch
+        {
+            return resolved;
+        }
+
+        if (resolved.DeclaringType == targetDeclaringType && !NeedsGenericClosureFix(resolved))
+            return resolved;
+
+        var definitionConstructor = resolved;
+        if (definitionConstructor.DeclaringType is { IsGenericType: true, IsGenericTypeDefinition: false } resolvedDeclaringType)
+        {
+            var definitionType = resolvedDeclaringType.GetGenericTypeDefinition();
+            definitionConstructor = definitionType
+                .GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+                .FirstOrDefault(candidate => ConstructorShapeEquals(candidate, resolved))
+                ?? definitionConstructor;
+        }
+
+        try
+        {
+            if (targetDeclaringType.GetType().FullName == "System.Reflection.Emit.TypeBuilderInstantiation" ||
+                (targetDeclaringType.IsGenericType && targetDeclaringType.ContainsGenericParameters))
+            {
+                var mapped = TypeBuilder.GetConstructor(targetDeclaringType, definitionConstructor);
+                if (mapped is not null)
+                    return mapped;
+            }
+        }
+        catch
+        {
+            // Fall through to direct resolution.
+        }
+
+        try
+        {
+            var runtimeParameterTypes = constructorSymbol.Parameters
+                .Select(parameter => ResolveRuntimeConstructorParameterType(parameter, codeGen))
+                .ToArray();
+
+            var direct = targetDeclaringType.GetConstructor(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                binder: null,
+                types: runtimeParameterTypes,
+                modifiers: null);
+
+            if (direct is not null)
+                return direct;
+        }
+        catch (NotSupportedException)
+        {
+            // Reflection over TypeBuilderInstantiation can throw here.
+        }
+        catch (ArgumentException)
+        {
+            // Generic placeholder mismatch - try shape-based fallback.
+        }
+
+        try
+        {
+            var fallback = targetDeclaringType
+                .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .FirstOrDefault(candidate => ConstructorShapeEquals(candidate, definitionConstructor));
+
+            if (fallback is not null)
+                return fallback;
+        }
+        catch
+        {
+            // Keep original constructor info as a last resort.
+        }
+
+        return resolved;
+    }
+
+    private static bool NeedsGenericClosureFix(ConstructorInfo constructor)
+    {
+        if (constructor.DeclaringType is { IsGenericType: true } declaringType)
+        {
+            foreach (var argument in declaringType.GetGenericArguments())
+            {
+                if (argument.IsGenericParameter && argument.DeclaringMethod is not null)
+                    return true;
+            }
+        }
+
+        foreach (var parameter in constructor.GetParameters())
+        {
+            if (HasInvalidGenericScopeInType(parameter.ParameterType, allowMethodGeneric: false))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool ConstructorShapeEquals(ConstructorInfo candidate, ConstructorInfo reference)
+    {
+        var candidateParameters = candidate.GetParameters();
+        var referenceParameters = reference.GetParameters();
+        if (candidateParameters.Length != referenceParameters.Length)
+            return false;
+
+        for (var i = 0; i < candidateParameters.Length; i++)
+        {
+            if (candidateParameters[i].ParameterType.IsByRef != referenceParameters[i].ParameterType.IsByRef)
+                return false;
+
+            if (candidateParameters[i].IsOut != referenceParameters[i].IsOut)
+                return false;
+
+            if (!candidateParameters[i].ParameterType.IsByRef &&
+                !string.Equals(candidateParameters[i].ParameterType.Name, referenceParameters[i].ParameterType.Name, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static Type ResolveRuntimeConstructorParameterType(IParameterSymbol parameter, CodeGenerator codeGen)
+    {
+        var parameterType = parameter.Type;
+
+        if (parameterType is ITypeParameterSymbol typeParameter &&
+            codeGen.TryResolveRuntimeTypeParameter(typeParameter, RuntimeTypeUsage.MethodBody, out var resolved))
+        {
+            return resolved;
+        }
+
+        if (parameter.IsByRefParameter())
+        {
+            var byRefElementType = parameter.GetByRefElementType();
+            if (byRefElementType is ITypeParameterSymbol byRefTypeParameter &&
+                codeGen.TryResolveRuntimeTypeParameter(byRefTypeParameter, RuntimeTypeUsage.MethodBody, out var resolvedByRef))
+            {
+                return resolvedByRef.MakeByRefType();
+            }
+        }
+
+        return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(parameterType, codeGen);
     }
 
     private static IMethodSymbol EnsureConstructedConstructor(IMethodSymbol constructorSymbol)

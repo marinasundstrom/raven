@@ -13,11 +13,13 @@ public struct Conversion
     public bool IsUnboxing { get; }
     public bool IsPointer { get; }
     public bool IsDiscriminatedUnion { get; }
+    public bool IsUnion => IsDiscriminatedUnion;
     public bool IsLifted { get; }
 
     public bool IsUserDefined { get; }
     public bool IsAlias { get; }
     public IMethodSymbol? MethodSymbol { get; }
+    public IMethodSymbol? ConstructorSymbol { get; }
 
     public Conversion(
         bool isImplicit = false,
@@ -31,7 +33,8 @@ public struct Conversion
         bool isLifted = false,
         bool isUserDefined = false,
         bool isAlias = false,
-        IMethodSymbol? methodSymbol = null)
+        IMethodSymbol? methodSymbol = null,
+        IMethodSymbol? constructorSymbol = null)
     {
         Exists = true;
         IsImplicit = isImplicit;
@@ -46,6 +49,7 @@ public struct Conversion
         IsUserDefined = isUserDefined;
         IsAlias = isAlias;
         MethodSymbol = methodSymbol;
+        ConstructorSymbol = constructorSymbol;
     }
 
     public Conversion()
@@ -71,7 +75,8 @@ public struct Conversion
            IsUserDefined == other.IsUserDefined &&
            IsAlias == other.IsAlias &&
            IsPointer == other.IsPointer &&
-           SymbolEqualityComparer.Default.Equals(MethodSymbol, other.MethodSymbol);
+           SymbolEqualityComparer.Default.Equals(MethodSymbol, other.MethodSymbol) &&
+           SymbolEqualityComparer.Default.Equals(ConstructorSymbol, other.ConstructorSymbol);
 
     public override int GetHashCode()
     {
@@ -89,6 +94,7 @@ public struct Conversion
         hash.Add(IsUserDefined);
         hash.Add(IsAlias);
         hash.Add(MethodSymbol, SymbolEqualityComparer.Default);
+        hash.Add(ConstructorSymbol, SymbolEqualityComparer.Default);
         return hash.ToHashCode();
     }
 
@@ -113,7 +119,8 @@ public struct Conversion
             isLifted: IsLifted,
             isUserDefined: IsUserDefined,
             isAlias: combined,
-            methodSymbol: MethodSymbol);
+            methodSymbol: MethodSymbol,
+            constructorSymbol: ConstructorSymbol);
     }
 
     public static bool IsNullable(ITypeSymbol? typeSymbol)

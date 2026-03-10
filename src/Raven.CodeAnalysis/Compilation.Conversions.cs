@@ -218,12 +218,30 @@ public partial class Compilation
               // Error<E> → Result<T[], E> (type params) and Ok<int> → Result<int, string> (E open).
               ConcreteTypeArgumentsAreCompatible(sourceUnionForCase, (ITypeSymbol)destinationUnion))))
         {
-            var conversionMethod = FindDiscriminatedUnionConversionMethod(source, destination);
-            return Finalize(new Conversion(
-                isImplicit: true,
-                isDiscriminatedUnion: true,
-                isUserDefined: conversionMethod is not null,
-                methodSymbol: conversionMethod));
+            var unionConstructor = FindUnionCarrierConstructor(source, destination);
+            if (unionConstructor is not null)
+            {
+                return Finalize(new Conversion(
+                    isImplicit: true,
+                    isDiscriminatedUnion: true,
+                    isUserDefined: false,
+                    methodSymbol: null,
+                    constructorSymbol: unionConstructor));
+            }
+        }
+
+        if (destinationUnion is not null)
+        {
+            var fallbackUnionConstructor = FindUnionCarrierConstructor(source, destination);
+            if (fallbackUnionConstructor is not null)
+            {
+                return Finalize(new Conversion(
+                    isImplicit: true,
+                    isDiscriminatedUnion: true,
+                    isUserDefined: false,
+                    methodSymbol: null,
+                    constructorSymbol: fallbackUnionConstructor));
+            }
         }
 
         bool ElementTypesAreCompatible(ITypeSymbol sourceElement, ITypeSymbol destinationElement)
@@ -1215,6 +1233,62 @@ public partial class Compilation
             }
 
             return null;
+        }
+    }
+
+    private static IMethodSymbol? FindUnionCarrierConstructor(ITypeSymbol source, ITypeSymbol destination)
+    {
+        if (destination is not INamedTypeSymbol destinationNamed)
+            return null;
+
+        if (destinationNamed.TryGetUnionCarrierConstructor(source, out var constructor))
+            return EnsureConstructedConstructor(constructor, destinationNamed);
+
+        var sourceCase = source.TryGetDiscriminatedUnionCase();
+        var sourceDefinition = source.OriginalDefinition ?? source;
+        var sourceCaseDefinition = (sourceCase as ITypeSymbol)?.OriginalDefinition ?? sourceCase as ITypeSymbol;
+
+        foreach (var candidate in destinationNamed.Constructors)
+        {
+            if (candidate.IsStatic || candidate.Parameters.Length != 1)
+                continue;
+
+            var parameterType = candidate.Parameters[0].Type;
+            if (SymbolEqualityComparer.Default.Equals(parameterType, source))
+                return EnsureConstructedConstructor(candidate, destinationNamed);
+
+            var parameterDefinition = parameterType.OriginalDefinition ?? parameterType;
+            if (SymbolEqualityComparer.Default.Equals(parameterDefinition, sourceDefinition))
+                return EnsureConstructedConstructor(candidate, destinationNamed);
+
+            if (sourceCaseDefinition is not null &&
+                SymbolEqualityComparer.Default.Equals(parameterDefinition, sourceCaseDefinition))
+            {
+                return EnsureConstructedConstructor(candidate, destinationNamed);
+            }
+        }
+
+        return null;
+
+        static IMethodSymbol EnsureConstructedConstructor(IMethodSymbol constructorSymbol, INamedTypeSymbol targetUnionType)
+        {
+            if (constructorSymbol is SubstitutedMethodSymbol or ConstructedMethodSymbol)
+                return constructorSymbol;
+
+            if (targetUnionType is not ConstructedNamedTypeSymbol constructedType)
+                return constructorSymbol;
+
+            if (constructedType.ConstructedFrom is not INamedTypeSymbol constructedDefinition)
+                return constructorSymbol;
+
+            if (constructorSymbol.ContainingType is not INamedTypeSymbol constructorContainingType)
+                return constructorSymbol;
+
+            var constructorContainingDefinition = constructorContainingType.OriginalDefinition as INamedTypeSymbol ?? constructorContainingType;
+            if (!SymbolEqualityComparer.Default.Equals(constructorContainingDefinition, constructedDefinition))
+                return constructorSymbol;
+
+            return new SubstitutedMethodSymbol(constructorSymbol, constructedType);
         }
     }
 

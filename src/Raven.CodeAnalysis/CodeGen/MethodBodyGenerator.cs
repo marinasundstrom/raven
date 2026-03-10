@@ -879,23 +879,20 @@ internal class MethodBodyGenerator
             MethodSymbol.ReturnType.TryGetDiscriminatedUnion() is not null &&
             MethodSymbol.Parameters.Length == 1 &&
             MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is not null &&
-            TryGetSourceDiscriminatedUnionDefinition(MethodSymbol.ContainingType) is { } conversionUnion)
+            TryGetSourceDiscriminatedUnionDefinition(MethodSymbol.ContainingType) is not null)
         {
-            EmitDiscriminatedUnionConversion(conversionUnion);
+            EmitDiscriminatedUnionConversion();
             return;
         }
 
-        // Static factory method Create(CaseType) -> UnionType — same body as op_Implicit.
-        if (MethodSymbol.MethodKind == MethodKind.Ordinary &&
-            MethodSymbol.IsStatic &&
-            MethodSymbol.Name == "Create" &&
-            MethodSymbol.ReturnType.TryGetDiscriminatedUnion() is not null &&
+        if (MethodSymbol.MethodKind == MethodKind.Constructor &&
+            MethodSymbol.ContainingType.TryGetDiscriminatedUnion() is not null &&
             MethodSymbol.Parameters.Length == 1 &&
             MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is not null &&
             MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
-            TryGetSourceDiscriminatedUnionDefinition(MethodSymbol.ContainingType) is { } createUnion)
+            TryGetSourceDiscriminatedUnionDefinition(MethodSymbol.ContainingType) is { } constructorUnion)
         {
-            EmitDiscriminatedUnionConversion(createUnion);
+            EmitDiscriminatedUnionCaseConstructor(constructorUnion);
             return;
         }
 
@@ -2826,7 +2823,7 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ret);
     }
 
-    private void EmitDiscriminatedUnionConversion(SourceDiscriminatedUnionSymbol unionSymbol)
+    private void EmitDiscriminatedUnionConversion()
     {
         if (MethodSymbol.Parameters.Length != 1)
         {
@@ -2844,31 +2841,94 @@ internal class MethodBodyGenerator
             return;
         }
 
+        var containingUnion = MethodSymbol.ContainingType as INamedTypeSymbol;
+        var unionCtor = containingUnion is not null &&
+                        containingUnion.TryGetUnionCarrierConstructor(caseSymbol, out var resolvedCtor)
+            ? resolvedCtor
+            : null;
+
+        if (unionCtor is null)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        var constructorInfo = MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetConstructorInfo(unionCtor);
+        constructorInfo = CloseConstructorOnCurrentRuntimeCarrier(constructorInfo, unionCtor.Parameters[0].Type);
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Newobj, constructorInfo);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private ConstructorInfo CloseConstructorOnCurrentRuntimeCarrier(
+        ConstructorInfo constructorInfo,
+        ITypeSymbol parameterType)
+    {
+        var containingRuntimeType = MethodGenerator.TypeGenerator.TypeBuilder
+            ?? ResolveClrType(MethodSymbol.ContainingType!);
+        var instantiatedCarrier = Generator.InstantiateType(containingRuntimeType);
+
+        if (!instantiatedCarrier.ContainsGenericParameters)
+            return constructorInfo;
+
+        var parameterRuntimeType = MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetType(parameterType);
+        var resolved = instantiatedCarrier.GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            types: [parameterRuntimeType],
+            modifiers: null);
+
+        if (resolved is not null)
+            return resolved;
+
+        if (constructorInfo.DeclaringType is TypeBuilder definitionType &&
+            instantiatedCarrier.GetType().FullName == "System.Reflection.Emit.TypeBuilderInstantiation")
+        {
+            var mapped = TypeBuilder.GetConstructor(instantiatedCarrier, constructorInfo);
+            if (mapped is not null)
+                return mapped;
+        }
+
+        return constructorInfo;
+    }
+
+    private void EmitDiscriminatedUnionCaseConstructor(SourceDiscriminatedUnionSymbol unionSymbol)
+    {
+        if (MethodSymbol.Parameters.Length != 1)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        var parameterType = MethodSymbol.Parameters[0].Type;
+        var caseSymbol = parameterType.TryGetDiscriminatedUnionCase();
+        if (caseSymbol is null)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
         var unionClrType = Generator.InstantiateType(
             MethodGenerator.TypeGenerator.TypeBuilder
                 ?? ResolveClrType(MethodSymbol.ContainingType!));
-        var unionLocal = ILGenerator.DeclareLocal(unionClrType);
-
-        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
-        ILGenerator.Emit(OpCodes.Initobj, unionClrType);
-
         var discriminatorField = ((SourceFieldSymbol)unionSymbol.DiscriminatorField)
             .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
-
-        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
-        ILGenerator.Emit(OpCodes.Ldc_I4, caseSymbol.Ordinal);
-        ILGenerator.Emit(OpCodes.Stfld, discriminatorField);
-
         var payloadFieldSymbol = (SourceFieldSymbol)DiscriminatedUnionFieldUtilities.GetRequiredPayloadField(
             unionSymbol,
             caseSymbol);
         var payloadField = payloadFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
 
-        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
         ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Initobj, unionClrType);
 
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldc_I4, caseSymbol.Ordinal);
+        ILGenerator.Emit(OpCodes.Stfld, discriminatorField);
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldarg_1);
         ILGenerator.Emit(OpCodes.Stfld, payloadField);
-        ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
         ILGenerator.Emit(OpCodes.Ret);
     }
 

@@ -2,7 +2,7 @@
 
 > ✅ The syntax described here is implemented in the parser and semantic model
 > (including member pattern binding and exhaustiveness). Code generation lowers
-> case construction to union factory calls (`Union.Create(new Union_Case(...))`)
+> case construction to union constructors (`new Union(new Union_Case(...))`)
 > and emits `TryGet*` helpers for the union cases.
 
 Discriminated unions are value types that represent a fixed set of alternative shapes. Each alternative is modeled as a distinct nested struct type whose constructor is declared inline with the union definition. The compiler emits `TryGet*` helpers for each case and pattern matching is expressed in terms of these helpers, ensuring exhaustiveness.
@@ -19,7 +19,8 @@ union Token {
 
 * `union` introduces a discriminated union declaration.
 * Each clause declares a case. A case name followed by a parameter list defines a constructor. A bare case name (e.g. `Unknown`) produces a parameterless constructor.
-* The compiler emits one nested `struct` per case with a constructor and implicit conversion back to the outer union struct.
+* The compiler emits one nested `struct` per case with a constructor.
+* The outer union struct exposes one constructor per case (`.ctor(CaseType)`), used for case-to-union conversion.
 * The outer union struct exposes `TryGetIdentifier(ref Identifier?)`, `TryGetNumber(ref Number?)`, etc. to interrogate the active case.
 
 ### Case construction
@@ -31,12 +32,12 @@ let id1 = Token.Identifier("foo")
 let id2 : Token = .Identifier("test")
 ```
 
-Each case struct exposes the payload values via immutable fields or properties and defines an implicit conversion operator to the union. Assigning a case to the union converts implicitly; member-qualified case construction (`Union.Case(...)`) lowers through `Union.Create(new Union_Case(...))` so the union-wrapping signature is explicit in generated code.
+Each case struct exposes the payload values via immutable fields or properties. Assigning a case to the union still converts implicitly at the language level, but the conversion is implemented by calling the matching union constructor (`.ctor(CaseType)`), not by synthesizing `op_Implicit`.
 
 Invariant:
 
 * Case constructors stay independent case-type constructors.
-* Union wrapping is explicit via `Union.Create(...)`.
+* Union wrapping is explicit via union constructors (`new Union(caseValue)`).
 * Case compatibility with unions is handled by conversion rules, not by
   rebinding constructors to target union types.
 
@@ -147,7 +148,8 @@ reason about unions declared in source or supplied via metadata:
 
 * Each union is compiled into a sealed `struct` that stores an integer discriminator alongside an `object` payload reference. Case values are boxed before being stored in the payload slot.
 * The outer struct is annotated with a synthesized `[DiscriminatedUnion]` attribute so metadata consumers can distinguish union declarations from ordinary structs. Case structs are not annotated.
-* Each case becomes a nested `struct` containing only its payload and an implicit conversion back to the outer union.
+* Each case becomes a nested `struct` containing only its payload.
+* The outer union struct contains case-wrapper constructors (`.ctor(CaseType)`), and no union-specific implicit conversion operators are synthesized by default.
 * For reference types the language will eventually support closed class hierarchies. Until then unions remain structs.
 * Helper methods such as `bool TryGetIdentifier(ref Identifier?)` or `bool TryGetOk(ref Ok<T>?)` are generated to enable low-level inspection and facilitate exhaustiveness analysis in contexts outside of pattern matching.
 

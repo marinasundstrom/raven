@@ -80,7 +80,7 @@ public union Result<T> {
     }
 
     [Fact]
-    public void LocalUnionCases_UseLocalConversionOperatorsWhenMetadataTypeIsImported()
+    public void LocalUnionCases_UseLocalUnionConstructorsWhenMetadataTypeIsImported()
     {
         const string metadataSource = """
 namespace System {
@@ -136,20 +136,19 @@ public union Result<T> {
         var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedUnion.LookupType("Ok"));
         Assert.NotNull(okCase.TryGetDiscriminatedUnionCase());
         Assert.NotNull(constructedUnion.TryGetDiscriminatedUnion());
-        var implicitOperators = constructedUnion.GetMembers("op_Implicit").OfType<IMethodSymbol>().ToArray();
-        Assert.NotEmpty(implicitOperators);
-
-        var conversionOperator = implicitOperators.Single(op =>
-            SymbolEqualityComparer.Default.Equals(op.Parameters.Single().Type, okCase));
-        Assert.True(SymbolEqualityComparer.Default.Equals(conversionOperator.Parameters[0].Type, okCase));
-        Assert.True(SymbolEqualityComparer.Default.Equals(conversionOperator.ReturnType, constructedUnion));
+        var unionConstructors = constructedUnion.Constructors
+            .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
+            .ToArray();
+        Assert.NotEmpty(unionConstructors);
+        Assert.Contains(unionConstructors, ctor => SymbolEqualityComparer.Default.Equals(ctor.Parameters.Single().Type, okCase));
 
         var conversion = compilation.ClassifyConversion(okCase, constructedUnion);
 
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsDiscriminatedUnion);
-        Assert.True(conversion.IsUserDefined);
-        Assert.NotNull(conversion.MethodSymbol);
+        Assert.False(conversion.IsUserDefined);
+        Assert.Null(conversion.MethodSymbol);
+        Assert.NotNull(conversion.ConstructorSymbol);
 
     }
 }

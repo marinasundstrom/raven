@@ -2261,59 +2261,30 @@ public partial class SemanticModel
             RegisterUnionCaseSymbol(caseClause, caseSymbol);
             caseSymbols.Add(caseSymbol);
 
-            var conversionMethod = new SourceMethodSymbol(
-                "op_Implicit",
-                unionSymbol,
+            var unionConstructor = new SourceMethodSymbol(
+                ".ctor",
+                unitType,
                 ImmutableArray<SourceParameterSymbol>.Empty,
                 unionSymbol,
                 unionSymbol,
                 namespaceSymbol,
                 new[] { caseClause.GetLocation() },
                 Array.Empty<SyntaxReference>(),
-                isStatic: true,
-                methodKind: MethodKind.Conversion,
+                isStatic: false,
+                methodKind: MethodKind.Constructor,
                 declaredAccessibility: Accessibility.Public);
 
-            var conversionParameter = new SourceParameterSymbol(
+            var unionConstructorParameter = new SourceParameterSymbol(
                 "value",
                 caseTypeForUnionMembers,
-                conversionMethod,
+                unionConstructor,
                 unionSymbol,
                 namespaceSymbol,
                 new[] { caseClause.GetLocation() },
                 Array.Empty<SyntaxReference>());
 
-            conversionMethod.SetParameters(new[] { conversionParameter });
-
-            RegisterCaseMember(conversionMethod);
-
-            // Static factory method: UnionType.Create(CaseType value) -> UnionType
-            // Distinct from op_Implicit — conversion is separate from creation.
-            var createMethod = new SourceMethodSymbol(
-                "Create",
-                unionSymbol,
-                ImmutableArray<SourceParameterSymbol>.Empty,
-                unionSymbol,
-                unionSymbol,
-                namespaceSymbol,
-                new[] { caseClause.GetLocation() },
-                Array.Empty<SyntaxReference>(),
-                isStatic: true,
-                methodKind: MethodKind.Ordinary,
-                declaredAccessibility: Accessibility.Public);
-
-            var createParameter = new SourceParameterSymbol(
-                "value",
-                caseTypeForUnionMembers,
-                createMethod,
-                unionSymbol,
-                namespaceSymbol,
-                new[] { caseClause.GetLocation() },
-                Array.Empty<SyntaxReference>());
-
-            createMethod.SetParameters(new[] { createParameter });
-
-            RegisterCaseMember(createMethod);
+            unionConstructor.SetParameters(new[] { unionConstructorParameter });
+            RegisterMember(unionSymbol, unionConstructor);
 
             var tryGetMethod = new SourceMethodSymbol(
                 "TryGetValue",

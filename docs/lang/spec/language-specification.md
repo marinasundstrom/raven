@@ -3678,16 +3678,17 @@ Binding model:
 * For an unqualified identifier in expression position, ordinary lexical lookup
   wins before union-case lookup: locals and parameters first, then visible
   instance/static members and imported symbols, then unqualified union cases.
-* If a union value is required, case-to-union conversion applies implicitly.
+* If a union value is required, case-to-union conversion applies implicitly by
+  selecting the matching union constructor (`.ctor(CaseType)`).
 * For member-qualified construction (`Union.Case(...)` / `.Case(...)`), lowering
-  emits an explicit factory call:
-  `Union.Create(new Union_Case(...))`.
+  emits nested constructor calls:
+  `new Union(new Union_Case(...))`.
 
 DU invariant:
 
 * Case constructors are independent case-type constructors; they are not
   rebound as union constructors.
-* Union wrapping is represented by `Create(...)`.
+* Union wrapping is represented by union constructors (`.ctor(CaseType)`).
 * Compatibility is decided by case-to-union conversion rules (including
   payload subtype-to-supertype widening where valid).
 
@@ -3699,13 +3700,14 @@ Type argument behavior:
   (`Result<int, MyError>.Ok(2)`) or from target typing
   (`val r: Result<int, MyError> = .Ok(2)`).
 
-For every case `Case`, the compiler synthesizes an implicit conversion
-`Case -> Union`. Assigning, returning, or passing a case value therefore
-automatically produces the union instance. In lowered form, member-qualified
-case construction wraps via `Create`:
+For every case `Case`, the compiler synthesizes a corresponding union
+constructor overload `Union(Case value)`. Assigning, returning, or passing a
+case value therefore automatically produces the union instance through
+constructor-based conversion classification. In lowered form, member-qualified
+case construction wraps via constructors:
 
 ```raven
-val ok: Result<int, string> = Ok(99)          // implicit Case -> Result<int, string> conversion
+val ok: Result<int, string> = Ok(99)          // implicit case-to-union conversion via Result(Result_Ok<int>)
 val err = Result<int, string>.Error("boom")
 Console.WriteLine(ok)
 ```
@@ -3713,7 +3715,7 @@ Console.WriteLine(ok)
 Lowering shape:
 
 ```text
-Result<int, string>.Create(new Result_Ok<int>(99))
+new Result<int, string>(new Result_Ok<int>(99))
 ```
 
 Each case struct also exposes its payload via `get`-only properties and a

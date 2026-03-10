@@ -208,9 +208,20 @@ internal class StatementGenerator : Generator
 
         var isVoidLikeReturn = returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
         var hasExceptionExit = TryGetExceptionExitLabel(out _);
+        var forceDiscriminatedUnionReturnConversion = false;
+        ITypeSymbol? forcedConversionSourceType = null;
 
         if (expression is not null)
         {
+            if (expression is BoundConversionExpression { Conversion.IsDiscriminatedUnion: true } duConversion &&
+                !isVoidLikeReturn)
+            {
+                expression = duConversion.Expression;
+                expressionType = expression.Type;
+                forceDiscriminatedUnionReturnConversion = true;
+                forcedConversionSourceType = expressionType;
+            }
+
             var preserveResult = !isVoidLikeReturn;
             expressionEmitInfo = new ExpressionGenerator(this, expression, preserveResult).Emit2();
 
@@ -228,8 +239,18 @@ internal class StatementGenerator : Generator
             if (resultTemp is not null)
                 ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
 
-            if (expressionType is not null &&
-                !SymbolEqualityComparer.Default.Equals(expressionType, returnType))
+            if (forceDiscriminatedUnionReturnConversion &&
+                forcedConversionSourceType is not null)
+            {
+                var conversion = Compilation.ClassifyConversion(forcedConversionSourceType, returnType);
+                if (conversion.Exists && !conversion.IsIdentity)
+                {
+                    EmitConversion(forcedConversionSourceType, returnType, conversion);
+                    expressionType = returnType;
+                }
+            }
+            else if (expressionType is not null &&
+                     !SymbolEqualityComparer.Default.Equals(expressionType, returnType))
             {
                 var conversion = Compilation.ClassifyConversion(expressionType, returnType);
                 if (conversion.Exists && !conversion.IsIdentity)

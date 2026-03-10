@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -835,7 +836,7 @@ union Result<T, E> {
     }
 
     [Fact]
-    public void Union_DeclaresImplicitConversionPerCase()
+    public void Union_DoesNotDeclareImplicitConversionPerCase()
     {
         const string source = """
 union Option {
@@ -856,16 +857,7 @@ union Option {
             .OfType<IMethodSymbol>()
             .ToArray();
 
-        Assert.Equal(unionSymbol.Cases.Length, conversionMethods.Length);
-
-        foreach (var caseSymbol in unionSymbol.Cases) {
-            var matchingConversion = conversionMethods.Single(m =>
-                m.Parameters.Length == 1 &&
-                SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, caseSymbol));
-
-            Assert.Equal(unionSymbol, matchingConversion.ReturnType);
-            Assert.True(matchingConversion.IsStatic);
-        }
+        Assert.Empty(conversionMethods);
     }
 
     [Fact]
@@ -1015,13 +1007,6 @@ union Option {
         var caseToString = Assert.Single(caseSymbol.GetMembers("ToString").OfType<IMethodSymbol>());
         Assert.Contains(unionSymbol.GetMembers("ToString"), m => SymbolEqualityComparer.Default.Equals(m, caseToString));
 
-        var conversion = unionSymbol
-            .GetMembers("op_Implicit")
-            .OfType<IMethodSymbol>()
-            .Single(m => SymbolEqualityComparer.Default.Equals(m.Parameters.Single().Type, caseSymbol));
-
-        Assert.DoesNotContain(caseSymbol.GetMembers("op_Implicit"), m => SymbolEqualityComparer.Default.Equals(m, conversion));
-
         var tryGet = unionSymbol
             .GetMembers("TryGetValue")
             .OfType<IMethodSymbol>()
@@ -1058,13 +1043,13 @@ class Container {
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsDiscriminatedUnion);
-        Assert.True(conversion.IsUserDefined);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(conversion.MethodSymbol);
-        Assert.Equal("op_Implicit", method.Name);
+        Assert.False(conversion.IsUserDefined);
+        Assert.Null(conversion.MethodSymbol);
+        Assert.NotNull(conversion.ConstructorSymbol);
     }
 
     [Fact]
-    public void Lowerer_LowersUnionCaseToCreateFactoryInvocation()
+    public void Lowerer_LowersUnionCaseToConstructorAndConversion()
     {
         const string source = """
 union Option {
@@ -1094,11 +1079,39 @@ class Container {
         Assert.Equal("Some", unionCaseExpression.CaseType.Name);
 
         var loweredBody = Lowerer.LowerBlock(methodSymbol, boundBody);
-        var loweredReturn = loweredBody.Statements.OfType<BoundReturnStatement>().Single();
-        var createCall = Assert.IsType<BoundInvocationExpression>(loweredReturn.Expression);
-        Assert.Equal("Create", createCall.Method.Name);
-        Assert.Single(createCall.Arguments);
-        Assert.IsType<BoundObjectCreationExpression>(createCall.Arguments.Single());
+        var invocations = CollectInvocationExpressions(loweredBody);
+        Assert.DoesNotContain(invocations, invocation => invocation.Method.Name == "Create");
+    }
+
+    [Fact]
+    public void UnionSymbol_ExposesCaseTypedConstructors()
+    {
+        const string source = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        foreach (var caseSymbol in unionSymbol.Cases)
+        {
+            Assert.Contains(
+                unionSymbol.Constructors,
+                constructor => constructor.Parameters.Length == 1 &&
+                               string.Equals(
+                                   constructor.Parameters[0].Type.TryGetDiscriminatedUnionCase()?.Name,
+                                   caseSymbol.Name,
+                                   StringComparison.Ordinal));
+        }
     }
 
     [Fact]
@@ -1418,5 +1431,28 @@ union Result<T, E> {
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
         Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
+    }
+
+    private static IReadOnlyList<BoundInvocationExpression> CollectInvocationExpressions(BoundNode node)
+    {
+        var collector = new InvocationCollector();
+        collector.Visit(node);
+        return collector.Invocations;
+    }
+
+    private sealed class InvocationCollector : BoundTreeWalker
+    {
+        private readonly List<BoundInvocationExpression> _invocations = new();
+
+        public IReadOnlyList<BoundInvocationExpression> Invocations => _invocations;
+
+        public override void VisitInvocationExpression(BoundInvocationExpression node)
+        {
+            if (node is null)
+                return;
+
+            _invocations.Add(node);
+            base.VisitInvocationExpression(node);
+        }
     }
 }

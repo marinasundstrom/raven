@@ -49,15 +49,13 @@ internal partial class ExpressionGenerator
             expr.ResultErrorCaseType is null ||
             expr.ResultOkCtor is null ||
             expr.ResultErrorCtor is null ||
-            expr.ResultImplicitFromOk is null ||
-            expr.ResultImplicitFromError is null ||
             expr.ReceiverResultOkCaseType is null ||
             expr.ReceiverResultErrorCaseType is null ||
             expr.ReceiverResultOkValueGetter is null ||
             expr.ReceiverResultErrorDataGetter is null)
         {
             throw new InvalidOperationException(
-                "Missing carrier symbols for Result conditional access (TryGetValue/Ok/Error/ctors/op_Implicit/receiver symbols).");
+                "Missing carrier symbols for Result conditional access (TryGetValue/Ok/Error/constructors/receiver symbols).");
         }
 
         var resultClrType = Generator.InstantiateType(ResolveClrType(expr.Type));
@@ -108,10 +106,12 @@ internal partial class ExpressionGenerator
         try { EmitExpression(expr.WhenPresent); }
         finally { _carrierPayloadSymbol = prevSym; _carrierPayloadLocal = prevLoc; }
 
-        // Wrap as Result<U,E>.Ok then implicit convert to Result<U,E>
+        // Wrap as Result<U,E>.Ok then construct Result<U,E>.
         var okCtor = GetConstructorInfo(expr.ResultOkCtor!);
         ILGenerator.Emit(OpCodes.Newobj, okCtor);
-        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(expr.ResultImplicitFromOk!));
+        if (!((INamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.ResultOkCaseType!, out var okCarrierCtor))
+            throw new InvalidOperationException($"Missing carrier constructor for case '{expr.ResultOkCaseType!.Name}'.");
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(okCarrierCtor));
 
         ILGenerator.MarkLabel(endLabel);
     }
@@ -125,8 +125,7 @@ internal partial class ExpressionGenerator
         // Build Result<U,E>.Error from the receiver's error payload.
         if (expr.ResultTryGetValueForErrorCaseMethod is null ||
             expr.ResultErrorCaseType is null ||
-            expr.ResultErrorCtor is null ||
-            expr.ResultImplicitFromError is null)
+            expr.ResultErrorCtor is null)
         {
             throw new InvalidOperationException("Missing result error symbols for carrier conditional access.");
         }
@@ -151,7 +150,9 @@ internal partial class ExpressionGenerator
         if (ctor.Parameters.Length == 0)
         {
             ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(ctor));
-            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(expr.ResultImplicitFromError));
+            if (!((INamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.ResultErrorCaseType, out var carrierCtor))
+                throw new InvalidOperationException($"Missing carrier constructor for case '{expr.ResultErrorCaseType.Name}'.");
+            ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(carrierCtor));
             return;
         }
 
@@ -193,7 +194,9 @@ internal partial class ExpressionGenerator
         ILGenerator.MarkLabel(doneLabel);
 
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(expr.ResultErrorCtor)!);
-        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(expr.ResultImplicitFromError));
+        if (!((INamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.ResultErrorCaseType, out var errorCarrierCtor))
+            throw new InvalidOperationException($"Missing carrier constructor for case '{expr.ResultErrorCaseType.Name}'.");
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(errorCarrierCtor));
     }
 
     private static Type? TryGetOutLocalElementType(MethodInfo methodInfo)
@@ -447,14 +450,14 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Call, tryGetSome);
         ILGenerator.Emit(OpCodes.Brtrue, someLabel);
 
-        // NONE PATH: push Option<U>.None on stack
+        // NONE PATH: push Option<U>.None on stack, then construct Option<U>.
         var noneCtorSym = expr.OptionNoneCtorOrFactory
             ?? throw new InvalidOperationException("Missing None ctor/factory symbol");
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(noneCtorSym)!);
-
-        var implNoneSym = expr.OptionImplicitFromNone
-            ?? throw new InvalidOperationException("Missing implicit conversion from None");
-        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(implNoneSym)); ILGenerator.Emit(OpCodes.Br, endLabel);
+        if (!((INamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(noneCtorSym.ContainingType, out var noneCarrierCtor))
+            throw new InvalidOperationException($"Missing carrier constructor for case '{noneCtorSym.ContainingType.Name}'.");
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(noneCarrierCtor));
+        ILGenerator.Emit(OpCodes.Br, endLabel);
 
         // SOME PATH:
         ILGenerator.MarkLabel(someLabel);
@@ -486,14 +489,13 @@ internal partial class ExpressionGenerator
         try { EmitExpression(expr.WhenPresent); }
         finally { _carrierPayloadSymbol = prevSym; _carrierPayloadLocal = prevLoc; }
 
-        // Stack now has U. Wrap into Option<U>.Some and convert to Option<U>.
+        // Stack now has U. Wrap into Option<U>.Some and then construct Option<U>.
         var someCtorSym = expr.OptionSomeCtor
             ?? throw new InvalidOperationException("Missing Some ctor symbol");
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(someCtorSym)!);
-
-        var implSomeSym = expr.OptionImplicitFromSome
-            ?? throw new InvalidOperationException("Missing implicit conversion from Some");
-        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(implSomeSym));
+        if (!((INamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.OptionSomeCaseType!, out var someCarrierCtor))
+            throw new InvalidOperationException($"Missing carrier constructor for case '{expr.OptionSomeCaseType!.Name}'.");
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(someCarrierCtor));
 
         ILGenerator.MarkLabel(endLabel);
     }
@@ -773,4 +775,5 @@ internal partial class ExpressionGenerator
         else
             ILGenerator.Emit(OpCodes.Ldloc, receiverTmp);
     }
+
 }

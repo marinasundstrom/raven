@@ -148,4 +148,42 @@ internal static class DiscriminatedUnionSymbolExtensions
 
         return null;
     }
+
+    public static bool TryGetUnionCarrierConstructor(
+        this INamedTypeSymbol unionType,
+        ITypeSymbol caseType,
+        out IMethodSymbol constructor)
+    {
+        var caseDefinition = caseType.OriginalDefinition;
+
+        foreach (var candidate in unionType.Constructors)
+        {
+            if (candidate.IsStatic || candidate.Parameters.Length != 1)
+                continue;
+
+            if (SymbolEqualityComparer.Default.Equals(candidate.Parameters[0].Type.OriginalDefinition, caseDefinition))
+            {
+                if (unionType is ConstructedNamedTypeSymbol constructedUnion)
+                {
+                    var definition = candidate switch
+                    {
+                        SubstitutedMethodSymbol substituted => substituted.OriginalDefinition ?? candidate,
+                        ConstructedMethodSymbol constructed => constructed.Definition,
+                        _ => candidate,
+                    };
+
+                    constructor = new SubstitutedMethodSymbol(definition, constructedUnion);
+                }
+                else
+                {
+                    constructor = candidate;
+                }
+
+                return true;
+            }
+        }
+
+        constructor = null!;
+        return false;
+    }
 }

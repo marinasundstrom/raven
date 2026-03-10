@@ -57,6 +57,37 @@ class Container {
     }
 
     [Fact]
+    public void Union_DoesNotEmitImplicitConversionOperators()
+    {
+        const string code = """
+union Option {
+    Some(value: int)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "union-conversion-ctor",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var optionType = assembly.GetType("Option", throwOnError: true)!;
+        var conversionMethods = optionType
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(method => method.Name == "op_Implicit")
+            .ToArray();
+
+        Assert.Empty(conversionMethods);
+    }
+
+    [Fact]
     public void PublicUnionCases_AreEmittedAsPublicNestedStructs()
     {
         const string code = """
@@ -94,7 +125,7 @@ public union Result<T> {
     }
 
     [Fact]
-    public void GenericOptionNoneCase_CreateMethod_IsEmittedWithConstructedCarrier()
+    public void GenericOptionNoneCase_UsesDirectUnionConstructorOnConstructedCarrier()
     {
         const string code = """
 class Runner {
@@ -130,13 +161,15 @@ union Option<T> {
         var runMethod = runnerType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
         var calledMembers = ILReader.GetCalledMembers(runMethod);
 
-        Assert.Contains(
-            calledMembers,
-            member => member.Contains("Option`1[[System.Int32", StringComparison.Ordinal) &&
-                      member.EndsWith("::Create", StringComparison.Ordinal));
         Assert.DoesNotContain(
             calledMembers,
             member => member.Contains("System.Option`1::Create", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            calledMembers,
+            member => member.EndsWith("::Create", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            calledMembers,
+            member => member.EndsWith("::op_Implicit", StringComparison.Ordinal));
 
         var fromSome = runMethod.Invoke(null, [true]);
         var fromNone = runMethod.Invoke(null, [false]);
@@ -284,7 +317,8 @@ union Option {
             .ToArray();
         Assert.NotEmpty(caseTypes);
 
-        foreach (var caseType in caseTypes) {
+        foreach (var caseType in caseTypes)
+        {
             var attribute = Assert.Single(caseType
                 .GetCustomAttributesData()
                 .Where(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.UnionCaseAttribute"));
@@ -393,7 +427,7 @@ class Container {
     }
 
     [Fact]
-    public void DiscriminatedUnion_EmitsImplicitConversionOperators()
+    public void DiscriminatedUnion_UsesCaseTypedConstructors()
     {
         var code = """
 union Option {
@@ -423,17 +457,12 @@ union Option {
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
         var caseType = runtimeAssembly.GetType("Option_Some", throwOnError: true)!;
 
-        var conversionMethod = unionType.GetMethod(
-            "op_Implicit",
-            BindingFlags.Public | BindingFlags.Static,
-            binder: null,
-            types: new[] { caseType },
-            modifiers: null)!;
+        var unionCtor = unionType.GetConstructor(new[] { caseType })!;
 
         var ctor = caseType.GetConstructor(new[] { typeof(int) })!;
         var caseInstance = ctor.Invoke(new object?[] { 7 });
 
-        var unionValue = conversionMethod.Invoke(null, new[] { caseInstance });
+        var unionValue = unionCtor.Invoke(new[] { caseInstance });
         Assert.NotNull(unionValue);
 
         var tagField = unionType.GetField("<Tag>", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -547,15 +576,11 @@ union Option {
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
         var caseType = runtimeAssembly.GetType("Option_Some", throwOnError: true)!;
-        var conversionMethod = unionType.GetMethod(
-            "op_Implicit",
-            BindingFlags.Public | BindingFlags.Static,
-            binder: null,
-            types: new[] { caseType },
-            modifiers: null)!;
+        var unionCtor = unionType.GetConstructor(new[] { caseType })!;
 
-        var opcodes = ILReader.GetOpCodes(conversionMethod);
-        Assert.DoesNotContain(opcodes, opcode => opcode == OpCodes.Box);
+        var ilBytes = unionCtor.GetMethodBody()!.GetILAsByteArray();
+        Assert.NotNull(ilBytes);
+        Assert.DoesNotContain(unchecked((byte)OpCodes.Box.Value), ilBytes!);
     }
 
     [Fact]
@@ -812,17 +837,12 @@ class Container {
 
         Assert.Equal(closedUnionType, unionValue!.GetType());
 
-        var conversionMethod = closedUnionType.GetMethod(
-            "op_Implicit",
-            BindingFlags.Public | BindingFlags.Static,
-            binder: null,
-            types: new[] { closedCaseType },
-            modifiers: null)!;
+        var conversionCtor = closedUnionType.GetConstructor(new[] { closedCaseType })!;
 
         var ctor = closedCaseType.GetConstructor(new[] { typeof(int) })!;
         var caseInstance = ctor.Invoke(new object?[] { 7 });
 
-        var converted = conversionMethod.Invoke(null, new[] { caseInstance });
+        var converted = conversionCtor.Invoke(new[] { caseInstance });
         Assert.NotNull(converted);
         Assert.Equal(closedUnionType, converted!.GetType());
     }

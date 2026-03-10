@@ -281,26 +281,30 @@ internal abstract class Generator
                 return;
             }
 
-            if (conversion.MethodSymbol is IMethodSymbol methodSymbol)
+            ConstructorInfo? runtimeConstructor = null;
+            try
             {
-                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(methodSymbol));
+                runtimeConstructor = toClrType.GetConstructor(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    binder: null,
+                    types: new[] { fromClrType },
+                    modifiers: null);
+            }
+            catch (NotSupportedException)
+            {
+                runtimeConstructor = null;
+            }
+
+            if (runtimeConstructor is not null)
+            {
+                ILGenerator.Emit(OpCodes.Newobj, runtimeConstructor);
                 return;
             }
 
-            if (to is INamedTypeSymbol toNamed)
+            if (conversion.ConstructorSymbol is not null)
             {
-                var symbolMatch = toNamed
-                    .GetMembers("op_Implicit")
-                    .OfType<IMethodSymbol>()
-                    .FirstOrDefault(m =>
-                        m.Parameters.Length == 1 &&
-                        ParameterMatchesSource(m.Parameters[0].Type, from));
-
-                if (symbolMatch is not null)
-                {
-                    ILGenerator.Emit(OpCodes.Call, GetMethodInfo(symbolMatch));
-                    return;
-                }
+                ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(conversion.ConstructorSymbol));
+                return;
             }
 
             if (IsDynamicBuilderType(toClrType) || IsDynamicBuilderType(fromClrType))
@@ -308,26 +312,7 @@ internal abstract class Generator
                 if (fromClrType == toClrType)
                     return;
 
-                throw new NotSupportedException("Discriminated-union conversion method not found.");
-            }
-
-            var candidate = toClrType.GetMethod(
-                               "op_Implicit",
-                               BindingFlags.Public | BindingFlags.Static,
-                               binder: null,
-                               types: new[] { fromClrType },
-                               modifiers: null)
-                           ?? fromClrType.GetMethod(
-                               "op_Implicit",
-                               BindingFlags.Public | BindingFlags.Static,
-                               binder: null,
-                               types: new[] { fromClrType },
-                               modifiers: null);
-
-            if (candidate is not null)
-            {
-                ILGenerator.Emit(OpCodes.Call, candidate);
-                return;
+                throw new NotSupportedException("Discriminated-union constructor not found.");
             }
 
             if (fromClrType == toClrType)

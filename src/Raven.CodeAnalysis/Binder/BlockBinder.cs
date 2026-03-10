@@ -7368,8 +7368,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindInvokedUnionCaseExpression(BoundUnionCaseExpression unionCaseCallee, InvocationExpressionSyntax syntax)
     {
-        var caseTypeForBinding = ResolveCaseTypeFromUnionCreateSignature(unionCaseCallee.UnionType, unionCaseCallee.CaseType);
-        var caseCreation = BindConstructorInvocation(caseTypeForBinding, syntax, receiverSyntax: syntax.Expression, receiver: null);
+        var caseCreation = BindConstructorInvocation(unionCaseCallee.CaseType, syntax, receiverSyntax: syntax.Expression, receiver: null);
         if (caseCreation is not BoundObjectCreationExpression creationExpr)
             return caseCreation;
 
@@ -7381,31 +7380,6 @@ partial class BlockBinder : Binder
             caseType,
             creationExpr.Constructor,
             ImmutableArray.CreateRange(creationExpr.Arguments));
-    }
-
-    private static INamedTypeSymbol ResolveCaseTypeFromUnionCreateSignature(INamedTypeSymbol unionType, INamedTypeSymbol fallbackCaseType)
-    {
-        var fallbackCase = fallbackCaseType.TryGetDiscriminatedUnionCase();
-        if (fallbackCase is null)
-            return fallbackCaseType;
-
-        foreach (var create in unionType.GetMembers("Create").OfType<IMethodSymbol>())
-        {
-            if (!create.IsStatic || create.Parameters.Length != 1)
-                continue;
-
-            if (create.Parameters[0].Type is not INamedTypeSymbol createCaseType)
-                continue;
-
-            var createCase = createCaseType.TryGetDiscriminatedUnionCase();
-            if (createCase is null)
-                continue;
-
-            if (string.Equals(createCase.Name, fallbackCase.Name, StringComparison.Ordinal))
-                return createCaseType;
-        }
-
-        return fallbackCaseType;
     }
 
     private INamedTypeSymbol ResolveInvokedUnionCaseUnionType(
