@@ -86,6 +86,7 @@ Function types provide a delegate-like type literal. The syntax mirrors a functi
 signature: write parameter types, then `->`, then the return type. A single
 parameter may omit its parentheses, while zero parameters
 use the empty tuple `()`.
+Function type signatures are arrow-only and do not use the `func` keyword.
 
 ```raven
 val logger: string -> unit

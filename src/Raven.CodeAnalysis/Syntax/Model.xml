@@ -328,7 +328,6 @@
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
   <Node Name="FunctionType" Inherits="Type">
-    <Slot Name="FuncKeyword" Type="Token" DefaultToken="FuncKeyword" />
     <Slot Name="Parameter" Type="Type" IsNullable="true" />
     <Slot Name="ParameterList" Type="FunctionTypeParameterList" IsNullable="true" />
     <Slot Name="ArrowToken" Type="Token" DefaultToken="ArrowToken" />

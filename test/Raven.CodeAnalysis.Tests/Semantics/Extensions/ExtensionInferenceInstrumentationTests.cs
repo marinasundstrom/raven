@@ -68,7 +68,7 @@ union Result<T, E> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    func MapError<E2>(mapper: func E -> E2) -> Result<T, E2> {
+    func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
             .Ok(val value) => .Ok(value)
             .Error(val error) => .Error(mapper(error))
@@ -91,7 +91,7 @@ extension EnumerableExt<T> for IEnumerable<T> {
         self.ToArrayOrException()
     }
 
-    func Step2<E>(errorFactory: func Exception -> E) -> Result<T[], E> {
+    func Step2<E>(errorFactory: Exception -> E) -> Result<T[], E> {
         self.Step1().MapError(errorFactory)
     }
 }
@@ -128,7 +128,7 @@ union Result<T, E> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    func MapError<E2>(mapper: func E -> E2) -> Result<T, E2> {
+    func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
             .Ok(val value) => .Ok(value)
             .Error(val error) => .Error(mapper(error))
@@ -151,11 +151,11 @@ extension EnumerableExt<T> for IEnumerable<T> {
         try Dictionary<string, T>()
     }
 
-    func ListStep<E>(errorFactory: func Exception -> E) -> Result<List<T>, E> {
+    func ListStep<E>(errorFactory: Exception -> E) -> Result<List<T>, E> {
         self.ToListOrException().MapError(errorFactory)
     }
 
-    func DictionaryStep<E>(errorFactory: func Exception -> E) -> Result<Dictionary<string, T>, E> {
+    func DictionaryStep<E>(errorFactory: Exception -> E) -> Result<Dictionary<string, T>, E> {
         self.ToDictionaryOrException().MapError(errorFactory)
     }
 }

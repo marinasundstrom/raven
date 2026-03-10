@@ -11,17 +11,17 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 /// Regression tests for the bug where ForEach&lt;T&gt;(source: IEnumerable&lt;T&gt;, ...)
 /// failed to infer T = KeyValuePair&lt;string, int&gt; when called with a Dictionary&lt;string, int&gt;
 /// argument, because ConstructedNamedTypeSymbol.AllInterfaces was not substituting concrete
-/// types into nested generic type arguments (e.g. KeyValuePair&lt;TKey,TValue&gt;).
+/// types into nested generic type arguments (e.g. KeyValuePair&lt;TKey, TValue&gt;).
 /// </summary>
 public sealed class ForEachDictionaryTypeInferenceTests : CompilationTestBase
 {
     [Fact]
     public void ForEach_WithDictionaryArgument_InfersKeyValuePairTypeArgument()
     {
-        // ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) called with
+        // ForEach<T>(source: IEnumerable<T>, callback: T -> ()) called with
         // Dictionary<string, int> should infer T = KeyValuePair<string, int>.
         // This exercises the AllInterfaces substitution: Dictionary<string, int>.AllInterfaces
-        // must expose IEnumerable<KeyValuePair<string, int>> (not the open KVP<TKey,TValue>).
+        // must expose IEnumerable<KeyValuePair<string, int>> (not the open KVP<TKey, TValue>).
         const string source = """
 import System.Collections.Generic.*
 import System.Linq.*
@@ -32,7 +32,7 @@ class Program {
         ForEach(o, item => ())
     }
 
-    static func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () {
+    static func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
         for item in source {
             callback(item)
         }
@@ -88,7 +88,7 @@ class Program {
         ForEach(o, item => ())
     }
 
-    static func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () {
+    static func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
         for item in source {
             callback(item)
         }
@@ -140,7 +140,7 @@ func Main() -> () {
     ForEach(o, WriteLine)
 }
 
-func ForEach<T>(source: IEnumerable<T>, callback: func T -> ()) -> () {
+func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
     for item in source {
         callback(item)
     }

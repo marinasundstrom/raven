@@ -1960,7 +1960,7 @@ import System.Collections.Generic.*
 val items: IEnumerable<int> = [1, 2, 3, 4, 5]
 val r = items |> Filter(x => x == 2)
 
-func Filter(source: IEnumerable<int>, predicate: func int -> bool) -> IEnumerable<int> => source
+func Filter(source: IEnumerable<int>, predicate: int -> bool) -> IEnumerable<int> => source
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1990,7 +1990,7 @@ import System.Collections.Generic.*
 val items: IEnumerable<int> = [1, 2, 3, 4, 5]
 val r = items |> Filter(x => x == 2)
 
-func Filter<T>(source: IEnumerable<T>, predicate: func T -> bool) -> IEnumerable<T> => source
+func Filter<T>(source: IEnumerable<T>, predicate: T -> bool) -> IEnumerable<T> => source
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -2156,7 +2156,7 @@ union Result<T, E> {
 }
 
 extension OptionExtensions<T> for Option<T> {
-    func Map<TResult>(mapper: func T -> TResult) -> Option<TResult> {
+    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
         return self match {
             .Some(val value) => .Some(mapper(value))
             .None => .None
@@ -2165,7 +2165,7 @@ extension OptionExtensions<T> for Option<T> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    func Map<TResult>(mapper: func T -> TResult) -> Result<TResult, E> {
+    func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
         return self match {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
@@ -2215,7 +2215,7 @@ union Result<T, E> {
 }
 
 extension OptionExtensions<T> for Option<T> {
-    func Map<TResult>(mapper: func T -> TResult) -> Option<TResult> {
+    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
         return self match {
             .Some(val value) => .Some(mapper(value))
             .None => .None
@@ -2224,7 +2224,7 @@ extension OptionExtensions<T> for Option<T> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    func Map<TResult>(mapper: func T -> TResult) -> Result<TResult, E> {
+    func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
         return self match {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
@@ -2272,7 +2272,7 @@ union Result<T, E> {
 }
 
 extension OptionExtensions<T> for Option<T> {
-    func Map<TResult>(mapper: func T -> TResult) -> Option<TResult> {
+    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
         return self match {
             .Some(val value) => .Some(mapper(value))
             .None => .None
@@ -2281,7 +2281,7 @@ extension OptionExtensions<T> for Option<T> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    func Map<TResult>(mapper: func T -> TResult) -> Result<TResult, E> {
+    func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
         return self match {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)

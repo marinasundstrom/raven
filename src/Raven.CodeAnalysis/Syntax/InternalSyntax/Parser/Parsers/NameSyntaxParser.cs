@@ -40,11 +40,6 @@ internal class NameSyntaxParser : SyntaxParser
 
     private TypeSyntax ParseTypeNameElement(bool allowImplicitFunctionTypeRecovery)
     {
-        if (ConsumeToken(SyntaxKind.FuncKeyword, out var funcKeyword))
-        {
-            return ParseFunctionType(funcKeyword);
-        }
-
         if (ConsumeToken(SyntaxKind.AmpersandToken, out var ampToken))
         {
             var elementType = ParseTypeName();
@@ -93,58 +88,12 @@ internal class NameSyntaxParser : SyntaxParser
         return name;
     }
 
-    private FunctionTypeSyntax ParseFunctionType(SyntaxToken funcKeyword)
-    {
-        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
-        {
-            var openParenToken = ReadToken();
-
-            List<GreenNode> parameters = new List<GreenNode>();
-
-            while (true)
-            {
-                var next = PeekToken();
-
-                if (next.IsKind(SyntaxKind.CloseParenToken) || next.IsKind(SyntaxKind.EndOfFileToken))
-                    break;
-
-                var parameterType = new NameSyntaxParser(this).ParseTypeName();
-                if (parameterType is null)
-                    break;
-
-                parameters.Add(parameterType);
-
-                if (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
-                {
-                    parameters.Add(commaToken);
-                    continue;
-                }
-
-                break;
-            }
-
-            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
-            ConsumeTokenOrMissing(SyntaxKind.ArrowToken, out var arrowToken);
-
-            var returnType = new NameSyntaxParser(this).ParseTypeName();
-            var parameterList = FunctionTypeParameterList(openParenToken, List(parameters.ToArray()), closeParenToken);
-
-            return FunctionType(funcKeyword, null, parameterList, arrowToken, returnType);
-        }
-
-        var parameter = new NameSyntaxParser(this).ParseTypeNameWithoutFunctionRecovery();
-        ConsumeTokenOrMissing(SyntaxKind.ArrowToken, out var singleParameterArrowToken);
-        var singleParameterReturnType = new NameSyntaxParser(this).ParseTypeName();
-
-        return FunctionType(funcKeyword, parameter, null, singleParameterArrowToken, singleParameterReturnType);
-    }
-
     private FunctionTypeSyntax CreateImplicitFunctionType(TypeSyntax candidateParameter, SyntaxToken arrowToken, TypeSyntax returnType)
     {
         if (candidateParameter is UnitTypeSyntax unitType)
         {
             var parameterList = FunctionTypeParameterList(unitType.OpenParenToken, SyntaxList.Empty, unitType.CloseParenToken);
-            return FunctionType(Token(SyntaxKind.None), null, parameterList, arrowToken, returnType);
+            return FunctionType(null, parameterList, arrowToken, returnType);
         }
 
         if (candidateParameter is TupleTypeSyntax tupleType)
@@ -166,10 +115,10 @@ internal class NameSyntaxParser : SyntaxParser
             }
 
             var parameterList = FunctionTypeParameterList(tupleType.OpenParenToken, List(parameters.ToArray()), tupleType.CloseParenToken);
-            return FunctionType(Token(SyntaxKind.None), null, parameterList, arrowToken, returnType);
+            return FunctionType(null, parameterList, arrowToken, returnType);
         }
 
-        return FunctionType(Token(SyntaxKind.None), candidateParameter, null, arrowToken, returnType);
+        return FunctionType(candidateParameter, null, arrowToken, returnType);
     }
 
     private TypeSyntax ParseNameCore()

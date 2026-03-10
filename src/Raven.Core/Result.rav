@@ -135,7 +135,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Projects the value inside `Ok` using `mapper`. `Error` stays `Error`.
-    func Map<TResult>(mapper: func T -> TResult) -> Result<TResult, E> {
+    func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
         self match {
             Ok(val value) => Ok(mapper(value))
             Error(val error) => Error(error)
@@ -143,7 +143,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Monadic bind / flatMap: chains a `Result`-producing function.
-    func Then<TResult>(binder: func T -> Result<TResult, E>) -> Result<TResult, E> {
+    func Then<TResult>(binder: T -> Result<TResult, E>) -> Result<TResult, E> {
         self match {
             Ok(val value) => binder(value)
             Error(val error) => Error(error)
@@ -151,7 +151,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Maps the error channel.
-    func MapError<E2>(mapper: func E -> E2) -> Result<T, E2> {
+    func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
             Ok(val value) => Ok(value)
             Error(val error) => Error(mapper(error))
@@ -159,7 +159,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Matches the result and produces a value.
-    func Match<TResult>(ok: func T -> TResult, error: func E -> TResult) -> TResult {
+    func Match<TResult>(ok: T -> TResult, error: E -> TResult) -> TResult {
         self match {
             Ok(val value) => ok(value)
             Error(val e) => error(e)
@@ -167,7 +167,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Runs `action` if this is `Ok`, returning the original result.
-    func Tap(action: func T -> ()) -> Result<T, E> {
+    func Tap(action: T -> ()) -> Result<T, E> {
         if self is Ok(val value) {
             action(value)
         }
@@ -175,7 +175,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Runs `action` if this is `Error`, returning the original result.
-    func TapError(action: func E -> ()) -> Result<T, E> {
+    func TapError(action: E -> ()) -> Result<T, E> {
         if self is Error(val e) {
             action(e)
         }
@@ -183,7 +183,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Recovers from an error by mapping it to a new result.
-    func OrElse(recover: func E -> Result<T, E>) -> Result<T, E> {
+    func OrElse(recover: E -> Result<T, E>) -> Result<T, E> {
         self match {
             Ok(val value) => Ok(value)
             Error(val e) => recover(e)
@@ -191,7 +191,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
     }
 
     /// Unwrap the value if Ok, otherwise return the value from `factory()`.
-    func UnwrapOrElse(factory: func () -> T) -> T {
+    func UnwrapOrElse(factory: () -> T) -> T {
         self match {
             Ok(val value) => value
             Error(_) => factory()

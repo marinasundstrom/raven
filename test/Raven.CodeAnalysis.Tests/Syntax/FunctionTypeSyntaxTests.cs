@@ -16,7 +16,6 @@ public class FunctionTypeSyntaxTests
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
         var functionType = Assert.IsType<FunctionTypeSyntax>(local.Declaration.Declarators[0].TypeAnnotation!.Type);
 
-        Assert.Equal(SyntaxKind.None, functionType.FuncKeyword.Kind);
         Assert.NotNull(functionType.Parameter);
         Assert.Null(functionType.ParameterList);
         Assert.Equal("string", functionType.Parameter!.ToString());
@@ -32,7 +31,6 @@ public class FunctionTypeSyntaxTests
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
         var functionType = Assert.IsType<FunctionTypeSyntax>(local.Declaration.Declarators[0].TypeAnnotation!.Type);
 
-        Assert.Equal(SyntaxKind.None, functionType.FuncKeyword.Kind);
         Assert.Null(functionType.Parameter);
         Assert.NotNull(functionType.ParameterList);
         Assert.Equal(2, functionType.ParameterList!.Parameters.Count);
@@ -50,7 +48,6 @@ public class FunctionTypeSyntaxTests
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
         var functionType = Assert.IsType<FunctionTypeSyntax>(local.Declaration.Declarators[0].TypeAnnotation!.Type);
 
-        Assert.Equal(SyntaxKind.None, functionType.FuncKeyword.Kind);
         Assert.Null(functionType.Parameter);
         Assert.NotNull(functionType.ParameterList);
         Assert.Empty(functionType.ParameterList!.Parameters);
@@ -66,7 +63,6 @@ public class FunctionTypeSyntaxTests
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
         var functionType = Assert.IsType<FunctionTypeSyntax>(local.Declaration.Declarators[0].TypeAnnotation!.Type);
 
-        Assert.Equal(SyntaxKind.None, functionType.FuncKeyword.Kind);
         Assert.Null(functionType.Parameter);
         Assert.NotNull(functionType.ParameterList);
         Assert.Empty(functionType.ParameterList!.Parameters);
@@ -87,5 +83,18 @@ public class FunctionTypeSyntaxTests
         Assert.NotNull(functionType.ParameterList);
         Assert.Empty(functionType.ParameterList!.Parameters);
         Assert.Equal("()", functionType.ReturnType.ToString());
+    }
+
+    [Fact]
+    public void FunctionType_WithFuncPrefix_NoLongerParsesAsFunctionType()
+    {
+        var code = "val f: func () -> int = () => 0";
+        var tree = SyntaxTree.ParseText(code);
+        var diagnostics = tree.GetDiagnostics();
+        Assert.NotEmpty(diagnostics);
+
+        var root = tree.GetRoot();
+        var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
+        Assert.IsNotType<FunctionTypeSyntax>(local.Declaration.Declarators[0].TypeAnnotation!.Type);
     }
 }

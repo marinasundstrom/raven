@@ -112,7 +112,7 @@ extension OptionExtensions<T> for Option<T> {
     val HasNone: bool => self is None
 
     /// Projects the value inside `Some` using `mapper`. `None` stays `None`.
-    func Map<TResult>(mapper: func T -> TResult) -> Option<TResult> {
+    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
         self match {
             Some(val value) => Some(mapper(value))
             None => None
@@ -120,7 +120,7 @@ extension OptionExtensions<T> for Option<T> {
     }
 
     /// Monadic bind / flatMap: chains an `Option`-producing function.
-    func Then<TResult>(binder: func T -> Option<TResult>) -> Option<TResult> {
+    func Then<TResult>(binder: T -> Option<TResult>) -> Option<TResult> {
         self match {
             Some(val value) => binder(value)
             None => None
@@ -128,7 +128,7 @@ extension OptionExtensions<T> for Option<T> {
     }
 
     /// Keeps the value only if `predicate` returns true.
-    func Where(predicate: func T -> bool) -> Option<T> {
+    func Where(predicate: T -> bool) -> Option<T> {
         self match {
             Some(val value) => if predicate(value) { Some(value) } else { None }
             None => None
@@ -136,12 +136,12 @@ extension OptionExtensions<T> for Option<T> {
     }
 
     /// Alias for `Where`.
-    func Filter(predicate: func T -> bool) -> Option<T> {
+    func Filter(predicate: T -> bool) -> Option<T> {
         self.Where(predicate)
     }
 
     /// Returns this option if it is `Some`, otherwise returns `alternative()`.
-    func OrElse(alternative: func () -> Option<T>) -> Option<T> {
+    func OrElse(alternative: () -> Option<T>) -> Option<T> {
         self match {
             Some(_) => self
             None => alternative()
@@ -149,7 +149,7 @@ extension OptionExtensions<T> for Option<T> {
     }
 
     /// Returns the contained value or evaluates `factory()`.
-    func UnwrapOrElse(factory: func () -> T) -> T {
+    func UnwrapOrElse(factory: () -> T) -> T {
         self match {
             Some(val value) => value
             None => factory()
@@ -157,7 +157,7 @@ extension OptionExtensions<T> for Option<T> {
     }
 
     /// Matches the option and produces a value.
-    func Match<TResult>(some: func T -> TResult, none: func () -> TResult) -> TResult {
+    func Match<TResult>(some: T -> TResult, none: () -> TResult) -> TResult {
         self match {
             Some(val value) => some(value)
             None => none()
@@ -165,7 +165,7 @@ extension OptionExtensions<T> for Option<T> {
     }
 
     /// Runs `action` if this is `Some`, returning the original option.
-    func Tap(action: func T -> ()) -> Option<T> {
+    func Tap(action: T -> ()) -> Option<T> {
         if self is Some(val value) {
             action(value)
         }
@@ -173,7 +173,7 @@ extension OptionExtensions<T> for Option<T> {
     }
 
     /// Runs `action` if this is `None`, returning the original option.
-    func TapNone(action: func () -> ()) -> Option<T> {
+    func TapNone(action: () -> ()) -> Option<T> {
         if self is None {
             action()
         }
@@ -195,7 +195,7 @@ extension OptionExtensions<T> for Option<T> {
 
     /// Bridges `Option` into a `Result`-producing pipeline.
     /// If this is `None`, returns `Error(noneError())`.
-    func ThenResult<TResult, E>(binder: func T -> Result<TResult, E>, noneError: func () -> E) -> Result<TResult, E> {
+    func ThenResult<TResult, E>(binder: T -> Result<TResult, E>, noneError: () -> E) -> Result<TResult, E> {
         self match {
             Some(val value) => binder(value)
             None => Error(noneError())
@@ -203,7 +203,7 @@ extension OptionExtensions<T> for Option<T> {
     }
 
     /// Maps the contained value into a `Result`. If this is `None`, returns `Error(noneError())`.
-    func MapResult<TResult, E>(mapper: func T -> TResult, noneError: func () -> E) -> Result<TResult, E> {
+    func MapResult<TResult, E>(mapper: T -> TResult, noneError: () -> E) -> Result<TResult, E> {
         self match {
             Some(val value) => Ok(mapper(value))
             None => Error(noneError())
@@ -219,7 +219,7 @@ extension OptionExtensions<T> for Option<T> {
     }
 
     // Converts Option into a Result
-    func IsOkOr<E>(errorFactory: func () -> E) -> Result<T, E> {
+    func IsOkOr<E>(errorFactory: () -> E) -> Result<T, E> {
         if self is Some(val value) {
             return Ok(value)
         }
