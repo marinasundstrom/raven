@@ -316,6 +316,20 @@ internal class Lexer : ILexer
 
                         return new Token(SyntaxKind.SlashToken, chStr);
 
+                    case '#':
+                        _stringBuilder.Append('#');
+
+                        while (PeekChar(out var c))
+                        {
+                            if (IsEndOfLine(c))
+                                break;
+
+                            ReadChar();
+                            _stringBuilder.Append(c);
+                        }
+
+                        return new Token(SyntaxKind.DirectiveTrivia, GetStringBuilderValue());
+
                     case '*':
                         if (PeekChar(out ch2) && ch2 == '=')
                         {

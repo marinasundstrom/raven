@@ -433,6 +433,20 @@ internal partial class BaseParseContext : ParseContext
                 trivia.Add(commentTrivia);
                 continue;
             }
+            else if (token.Kind == SyntaxKind.DirectiveTrivia)
+            {
+                _lexer.ReadToken();
+                var directiveTrivia = new SyntaxTrivia(SyntaxKind.DirectiveTrivia, token.Text);
+
+                if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
+                {
+                    _pendingTrivia.Add(directiveTrivia);
+                    break;
+                }
+
+                trivia.Add(directiveTrivia);
+                continue;
+            }
 
             switch (token.Kind)
             {

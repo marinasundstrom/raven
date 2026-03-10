@@ -38,6 +38,35 @@
         "comments": {
             "patterns": [
                 {
+                    "name": "meta.preprocessor.raven",
+                    "begin": "^(\\s*)(#)(\\s*pragma\\b)(\\s+warning\\b)?(\\s+(?:disable-next-line|disable|restore)\\b)?",
+                    "beginCaptures": {
+                        "2": {
+                            "name": "punctuation.definition.preprocessor.raven"
+                        },
+                        "3": {
+                            "name": "keyword.control.preprocessor.raven"
+                        },
+                        "4": {
+                            "name": "keyword.control.preprocessor.raven"
+                        },
+                        "5": {
+                            "name": "keyword.control.preprocessor.raven"
+                        }
+                    },
+                    "end": "$",
+                    "patterns": [
+                        {
+                            "name": "constant.numeric.decimal.raven",
+                            "match": "\\b[A-Z]{2,}\\d{3,5}\\b"
+                        }
+                    ]
+                },
+                {
+                    "name": "meta.preprocessor.raven",
+                    "match": "^\\s*#.*$"
+                },
+                {
                     "name": "comment.line.double-slash.raven",
                     "match": "//.*$"
                 },

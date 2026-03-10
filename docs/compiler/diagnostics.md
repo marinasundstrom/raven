@@ -22,6 +22,18 @@ Return/throw context note:
 - `RAV1900` and `RAV1907` apply to inline expression contexts.
 - Explicit `return <value>` and `throw` statements are valid in statement contexts (including statement-form `match` arms and supported block-expression early-exit regions).
 
+## In-source suppression
+
+Diagnostics can also be suppressed directly in source with comment-based pragmas:
+
+```rav
+#pragma warning disable RAV0103
+missing
+#pragma warning restore RAV0103
+```
+
+Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `disable-next-line` suppresses only the next line. `// pragma warning ...` is also accepted.
+
 ## Diagnostics catalog
 
 | ID | Severity | Title | Message template | Related samples |

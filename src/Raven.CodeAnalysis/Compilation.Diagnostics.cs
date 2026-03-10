@@ -46,7 +46,7 @@ public partial class Compilation
 
         void Add(Diagnostic diagnostic)
         {
-            var mapped = ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false);
+            var mapped = ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false, cancellationToken);
             if (mapped is not null)
                 diagnostics.Add(mapped);
         }
@@ -88,7 +88,10 @@ public partial class Compilation
         }
     }
 
-    internal Diagnostic? ApplyCompilationOptions(Diagnostic diagnostic, bool reportSuppressedDiagnostics = false)
+    internal Diagnostic? ApplyCompilationOptions(
+        Diagnostic diagnostic,
+        bool reportSuppressedDiagnostics = false,
+        CancellationToken cancellationToken = default)
     {
         if (!Options.EnableSuggestions &&
             diagnostic.Properties.ContainsKey(Diagnostics.SuggestionsDiagnosticProperties.OriginalCodeKey) &&
@@ -97,12 +100,15 @@ public partial class Compilation
             return null;
         }
 
+        var mappedDiagnostic = diagnostic;
+        var isSuppressed = false;
+
         if (TryGetReportDiagnostic(diagnostic.Descriptor.Id, out var report))
         {
             if (report == ReportDiagnostic.Suppress)
-                return reportSuppressedDiagnostics ? diagnostic.WithSuppression(true) : null;
+                isSuppressed = true;
 
-            if (report != ReportDiagnostic.Default)
+            if (!isSuppressed && report != ReportDiagnostic.Default)
             {
                 var severity = report switch
                 {
@@ -110,15 +116,34 @@ public partial class Compilation
                     ReportDiagnostic.Warn => DiagnosticSeverity.Warning,
                     ReportDiagnostic.Info => DiagnosticSeverity.Info,
                     ReportDiagnostic.Hidden => DiagnosticSeverity.Hidden,
-                    _ => diagnostic.Severity
+                    _ => mappedDiagnostic.Severity
                 };
 
-                if (severity != diagnostic.Severity)
-                    return diagnostic.WithSeverity(severity);
+                if (severity != mappedDiagnostic.Severity)
+                    mappedDiagnostic = mappedDiagnostic.WithSeverity(severity);
             }
         }
 
-        return diagnostic;
+        if (IsSuppressedInSource(mappedDiagnostic))
+            isSuppressed = true;
+
+        if (isSuppressed)
+            return reportSuppressedDiagnostics ? mappedDiagnostic.WithSuppression(true) : null;
+
+        return mappedDiagnostic;
+
+        bool IsSuppressedInSource(Diagnostic candidate)
+        {
+            var sourceTree = candidate.Location.SourceTree;
+            if (sourceTree is null)
+                return false;
+
+            var suppressionMap = _sourceDiagnosticSuppressionMaps.GetOrAdd(
+                sourceTree,
+                static syntaxTree => SourceDiagnosticSuppressionMap.Create(syntaxTree));
+
+            return suppressionMap.IsSuppressed(candidate);
+        }
 
         bool TryGetReportDiagnostic(string diagnosticId, out ReportDiagnostic mappedReport)
         {

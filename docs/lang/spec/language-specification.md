@@ -119,6 +119,25 @@ them. The lexer preserves the original spelling (other than omitting the
 terminator), so encodings such as UTF-8 or UTF-16 must supply valid code units
 for the desired characters.
 
+#### Diagnostic suppression comments
+
+Raven supports C#-style warning pragmas as directive trivia to suppress diagnostics in source:
+
+* `#pragma warning disable RAV0103`
+* `#pragma warning restore RAV0103`
+* `#pragma warning disable-next-line RAV0103`
+* `#pragma warning disable` (suppresses all diagnostics until restore)
+* `#pragma warning restore` (restores all diagnostics)
+* `// pragma warning disable ...` and `// pragma warning restore ...` are also accepted.
+
+Rules:
+
+* Directives are evaluated in source order.
+* A `disable` directive affects diagnostics on that line and subsequent lines.
+* A matching `restore` re-enables the specified diagnostic IDs (or all IDs when no IDs are provided).
+* `disable-next-line` suppresses the specified diagnostic IDs (or all IDs) for only the following source line.
+* These directives are trivia-only; they do not introduce syntax tokens.
+
 ```raven
 val answer = 42  // the ultimate answer
 val greeting = "hello"  // 😀 emoji and other symbols are fine

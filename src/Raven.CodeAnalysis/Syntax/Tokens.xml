@@ -169,6 +169,7 @@
   <TokenKind Name="CarriageReturnLineFeedTrivia" Text="\r\n" IsTrivia="true" />
   <TokenKind Name="EndOfLineTrivia" Text="\n" IsTrivia="true" />
   <TokenKind Name="SingleLineCommentTrivia" Text="//" IsTrivia="true" />
+  <TokenKind Name="DirectiveTrivia" Text="#" IsTrivia="true" />
   <TokenKind Name="MultiLineCommentTrivia" Text="/*" IsTrivia="true" />
   <TokenKind Name="DocumentationCommentTrivia" Text="///" IsTrivia="true" />
 

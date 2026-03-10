@@ -26,6 +26,7 @@ public partial class Compilation
     private readonly ConcurrentDictionary<string, string> _assemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<Assembly, Assembly> _metadataToRuntimeAssemblyMap = new();
     private readonly ConcurrentDictionary<string, Assembly> _runtimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<SyntaxTree, SourceDiagnosticSuppressionMap> _sourceDiagnosticSuppressionMaps = new();
     private static readonly ConcurrentDictionary<string, string> s_globalAssemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, Assembly> s_globalRuntimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
     private static int s_trustedPlatformAssembliesInitialized;
