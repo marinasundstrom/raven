@@ -119,6 +119,16 @@ them. The lexer preserves the original spelling (other than omitting the
 terminator), so encodings such as UTF-8 or UTF-16 must supply valid code units
 for the desired characters.
 
+```raven
+val answer = 42  // the ultimate answer
+val greeting = "hello"  // 😀 emoji and other symbols are fine
+
+/*
+ Multi-line comments can document larger blocks of code.
+ The first */ encountered closes the comment.
+*/
+```
+
 #### Diagnostic suppression comments
 
 Raven supports C#-style warning pragmas as directive trivia to suppress diagnostics in source:
@@ -137,16 +147,6 @@ Rules:
 * A matching `restore` re-enables the specified diagnostic IDs (or all IDs when no IDs are provided).
 * `disable-next-line` suppresses the specified diagnostic IDs (or all IDs) for only the following source line.
 * These directives are trivia-only; they do not introduce syntax tokens.
-
-```raven
-val answer = 42  // the ultimate answer
-val greeting = "hello"  // 😀 emoji and other symbols are fine
-
-/*
- Multi-line comments can document larger blocks of code.
- The first */ encountered closes the comment.
-*/
-```
 
 ### Documentation comments
 
@@ -1657,7 +1657,7 @@ val _ = 42 |> Container.Count
 
 class Container {
     var Value: int { get; set; }
-    var static Count: int { get; set; }
+    static var Count: int { get; set; }
 }
 ```
 
