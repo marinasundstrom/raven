@@ -256,7 +256,7 @@
                 },
                 {
                     "name": "keyword.operator.word.raven",
-                    "match": "\\b(and|or|not|default|notnull|unmanaged|where|permits|ref|out|in)\\b"
+                    "match": "\\b(and|or|not|default|notnull|unmanaged|where|permits|ref|out|in|implicit|explicit)\\b"
                 },
                 {
                     "name": "constant.language.raven",
