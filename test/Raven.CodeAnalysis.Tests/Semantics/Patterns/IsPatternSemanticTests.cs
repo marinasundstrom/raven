@@ -60,4 +60,49 @@ val result = member is System.Reflection.MethodInfo method
         Assert.NotNull(localAssembly);
         Assert.Equal(declaredAssembly, localAssembly);
     }
+
+    [Fact]
+    public void IsPattern_WithOpenGenericDeclarationType_InfersTypeArgumentsFromInput()
+    {
+        const string source = """
+class Box<T> {}
+
+func test(maybe: Box<int>) -> bool {
+    if maybe is Box box {
+        return true
+    }
+
+    return false
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+        Assert.DoesNotContain(
+            result.Compilation.GetDiagnostics(),
+            d => d.Descriptor == CompilerDiagnostics.TypeRequiresTypeArguments);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var isPattern = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IsPatternExpressionSyntax>()
+            .First();
+
+        var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
+        var declaration = Assert.IsType<BoundDeclarationPattern>(bound.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+
+        var declaredDisplay = declaration.DeclaredType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var localDisplay = designator.Local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        Assert.Equal("Box<int>", declaredDisplay);
+        Assert.Equal("Box<int>", localDisplay);
+        Assert.Equal("box", designator.Local.Name);
+        Assert.False(designator.Local.IsMutable);
+    }
 }

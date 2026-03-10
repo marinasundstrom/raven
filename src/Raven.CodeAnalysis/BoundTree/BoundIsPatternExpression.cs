@@ -696,27 +696,113 @@ internal partial class BlockBinder
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax, ITypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+        inputType = inputType.GetPlainType();
 
-        var type = BindTypeSyntaxAsExpression(syntax.Type);
+        var typeExpression = BindTypeSyntaxAsExpression(syntax.Type);
+        var declaredType = TryInferDeclarationPatternTypeFromIdentifierSyntax(syntax.Type, inputType, out var inferredType)
+            ? inferredType
+            : InferDeclarationPatternTypeFromInput(typeExpression.Type, inputType);
+        declaredType = EnsureTypeAccessible(declaredType, syntax.Type.GetLocation());
 
-        BoundDesignator designator = syntax.Designation switch
+        BoundDesignator designator;
+        if (syntax.Designation is SingleVariableDesignationSyntax single &&
+            !single.Identifier.IsMissing &&
+            single.Identifier.Kind != SyntaxKind.None &&
+            !string.IsNullOrEmpty(single.Identifier.ValueText) &&
+            single.Identifier.ValueText != "_")
         {
-            SingleVariableDesignationSyntax single when !single.Identifier.IsMissing &&
-                                                      single.Identifier.Kind != SyntaxKind.None &&
-                                                      !string.IsNullOrEmpty(single.Identifier.ValueText) &&
-                                                      single.Identifier.ValueText != "_"
-                => BindSingleVariableDesignation(single)!,
-            _ => new BoundDiscardDesignator(type.Type)
-        };
+            var isMutable = !single.BindingKeyword.IsMissing && single.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
+            var localType = EnsureTypeAccessible(declaredType, single.Identifier.GetLocation());
+            var local = DeclarePatternLocal(single, single.Identifier.ValueText, isMutable, localType);
+            var singleDesignator = new BoundSingleVariableDesignator(local);
+            CacheBoundNode(single, singleDesignator);
+            designator = singleDesignator;
+        }
+        else
+        {
+            designator = new BoundDiscardDesignator(declaredType);
+        }
 
-        if (type is BoundTypeExpression { TypeSymbol: NullTypeSymbol } &&
+        if (typeExpression is BoundTypeExpression { TypeSymbol: NullTypeSymbol } &&
             designator is BoundDiscardDesignator)
         {
             var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol);
             return new BoundConstantPattern(nullLiteral);
         }
 
-        return new BoundDeclarationPattern(type.Type, designator);
+        return new BoundDeclarationPattern(declaredType, designator);
+    }
+
+    private bool TryInferDeclarationPatternTypeFromIdentifierSyntax(
+        TypeSyntax syntax,
+        ITypeSymbol inputType,
+        out ITypeSymbol inferredType)
+    {
+        inferredType = Compilation.ErrorTypeSymbol;
+
+        if (syntax is not IdentifierNameSyntax identifier ||
+            inputType is not INamedTypeSymbol inputNamed)
+        {
+            return false;
+        }
+
+        var candidateSymbol = LookupType(identifier.Identifier.ValueText);
+        if (candidateSymbol is not INamedTypeSymbol candidateNamed)
+            return false;
+
+        var candidateDefinition = NormalizeDefinition(candidateNamed);
+        var inputDefinition = (inputNamed.OriginalDefinition as INamedTypeSymbol) ?? inputNamed;
+
+        if (!SymbolEqualityComparer.Default.Equals(candidateDefinition, inputDefinition))
+            return false;
+
+        if (candidateDefinition.Arity == 0 ||
+            inputNamed.TypeArguments.IsDefaultOrEmpty ||
+            inputNamed.TypeArguments.Length != candidateDefinition.Arity)
+        {
+            return false;
+        }
+
+        inferredType = inputNamed;
+        return true;
+    }
+
+    private ITypeSymbol InferDeclarationPatternTypeFromInput(ITypeSymbol declaredType, ITypeSymbol inputType)
+    {
+        if (declaredType is not INamedTypeSymbol declaredNamed ||
+            inputType is not INamedTypeSymbol inputNamed)
+        {
+            return declaredType;
+        }
+
+        var declaredDefinition = (declaredNamed.OriginalDefinition as INamedTypeSymbol) ?? declaredNamed;
+        var inputDefinition = (inputNamed.OriginalDefinition as INamedTypeSymbol) ?? inputNamed;
+
+        if (!CanInferDeclarationPatternTypeArguments(declaredNamed, declaredDefinition))
+            return declaredType;
+
+        if (!SymbolEqualityComparer.Default.Equals(declaredDefinition, inputDefinition))
+            return declaredType;
+
+        if (inputNamed.TypeArguments.IsDefaultOrEmpty ||
+            inputNamed.TypeArguments.Length != declaredDefinition.Arity)
+            return declaredType;
+
+        return inputNamed;
+    }
+
+    private static bool CanInferDeclarationPatternTypeArguments(INamedTypeSymbol type, INamedTypeSymbol definition)
+    {
+        if (definition.Arity == 0)
+            return false;
+
+        if (type.TypeArguments.IsDefaultOrEmpty)
+            return true;
+
+        if (type.TypeArguments.Length != definition.Arity)
+            return false;
+
+        return type.TypeArguments.All(static argument => argument is ITypeParameterSymbol);
     }
 
     private BoundPattern BindPositionalPattern(PositionalPatternSyntax syntax, ITypeSymbol? inputType)

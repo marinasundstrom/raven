@@ -115,4 +115,38 @@ func ping(name: string) -> PingStatus {
         var verifier = CreateVerifier(code);
         verifier.Verify();
     }
+
+    [Fact]
+    public void MatchStatement_WithOpenGenericDeclarationPattern_InfersTypeArgumentsFromScrutinee()
+    {
+        const string code = """
+class Box<T> {}
+
+val value: Box<int> = Box<int>()
+
+match value {
+    Box box => 1
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+        Assert.DoesNotContain(
+            run.Compilation.GetDiagnostics(),
+            d => d.Descriptor == CompilerDiagnostics.TypeRequiresTypeArguments);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var statement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchStatement>(model.GetBoundNode(statement));
+
+        var declaration = Assert.IsType<BoundDeclarationPattern>(bound.Arms[0].Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+
+        Assert.Equal("Box<int>", declaration.DeclaredType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Box<int>", designator.Local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
 }

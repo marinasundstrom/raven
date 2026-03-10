@@ -2206,6 +2206,27 @@ Patterns compose from the following primitives.
   `Type`, then binds the converted value to `name` as an immutable local in the
   success scope.
 
+  When `Type` is an open generic type name written without explicit type arguments
+  (for example `Box` where `Box<T>` exists), Raven infers type arguments from the
+  scrutinee when possible.
+
+  This inference applies uniformly in:
+
+  * `is` patterns (`if value is Box box { ... }`)
+  * `match` expression arms (`value match { Box box => ... }`)
+  * `match` statement arms (`match value { Box box => ... }`)
+
+  Example:
+
+  ```raven
+  class Box<T> {}
+  val value: Box<int> = Box<int>()
+
+  if value is Box box {
+      // box : Box<int>
+  }
+  ```
+
 * `val name` / `var name` / `let name` — **variable pattern**. Always matches and
   introduces a binding. `val`/`let` produce an immutable local; `var` produces a
   mutable one.

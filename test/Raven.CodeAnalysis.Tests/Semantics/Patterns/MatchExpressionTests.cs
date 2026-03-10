@@ -55,6 +55,40 @@ val result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithOpenGenericDeclarationPattern_InfersTypeArgumentsFromScrutinee()
+    {
+        const string code = """
+class Box<T> {}
+
+val value: Box<int> = Box<int>()
+
+val result = value match {
+    Box box => 1
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+        Assert.DoesNotContain(
+            run.Compilation.GetDiagnostics(),
+            d => d.Descriptor == CompilerDiagnostics.TypeRequiresTypeArguments);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var declaration = Assert.IsType<BoundDeclarationPattern>(bound.Arms[0].Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+
+        Assert.Equal("Box<int>", declaration.DeclaredType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Box<int>", designator.Local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
     public void MatchExpression_WithDefaultArm_AllowsAssignment()
     {
         const string code = """
