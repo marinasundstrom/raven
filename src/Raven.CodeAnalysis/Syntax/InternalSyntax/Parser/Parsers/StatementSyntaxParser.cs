@@ -826,6 +826,12 @@ internal class StatementSyntaxParser : SyntaxParser
             case SyntaxKind.ValKeyword:
             case SyntaxKind.VarKeyword:
             case SyntaxKind.ConstKeyword:
+                if (PeekToken(1).Kind == SyntaxKind.OpenBracketToken &&
+                    token.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                {
+                    return ParseCollectionPatternDeclarationAssignmentStatement();
+                }
+
                 if (PeekToken(1).Kind != SyntaxKind.OpenParenToken)
                 {
                     var declaration = ParseVariableDeclarationSyntax();
@@ -873,6 +879,90 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return ExpressionStatement(expression, terminatorToken);
+    }
+
+    private AssignmentStatementSyntax ParseCollectionPatternDeclarationAssignmentStatement()
+    {
+        var bindingKeyword = ReadToken();
+
+        SetTreatNewlinesAsTokens(false);
+
+        var parsedLeft = new PatternSyntaxParser(this).ParsePattern();
+        var left = parsedLeft is PositionalPatternSyntax positionalPattern
+            ? ApplyCollectionBindingKeywordShorthand(positionalPattern, bindingKeyword)
+            : parsedLeft;
+
+        ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out var operatorToken);
+
+        var right = new ExpressionSyntaxParser(this).ParseExpression();
+
+        SetTreatNewlinesAsTokens(true);
+
+        var terminatorToken = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
+
+        return AssignmentStatement(
+            SyntaxKind.SimpleAssignmentStatement,
+            left,
+            operatorToken,
+            right,
+            terminatorToken);
+    }
+
+    private static PositionalPatternSyntax ApplyCollectionBindingKeywordShorthand(
+        PositionalPatternSyntax pattern,
+        SyntaxToken bindingKeyword)
+    {
+        var changed = false;
+        var updatedElements = new GreenNode[pattern.Elements.SlotCount];
+
+        for (var i = 0; i < pattern.Elements.SlotCount; i++)
+        {
+            var elementOrSeparator = pattern.Elements[i];
+            if (elementOrSeparator is PositionalPatternElementSyntax element)
+            {
+                var rewrittenPattern = ApplyCollectionBindingKeywordShorthand(element.Pattern, bindingKeyword, ref changed);
+                if (!ReferenceEquals(rewrittenPattern, element.Pattern))
+                    elementOrSeparator = PositionalPatternElement(element.NameColon, rewrittenPattern);
+            }
+
+            updatedElements[i] = elementOrSeparator;
+        }
+
+        if (!changed)
+            return pattern;
+
+        return PositionalPattern(pattern.OpenParenToken, List(updatedElements), pattern.CloseParenToken);
+    }
+
+    private static PatternSyntax ApplyCollectionBindingKeywordShorthand(
+        PatternSyntax pattern,
+        SyntaxToken bindingKeyword,
+        ref bool changed)
+    {
+        switch (pattern)
+        {
+            case VariablePatternSyntax:
+            case DiscardPatternSyntax:
+                return pattern;
+
+            case PositionalPatternSyntax nested:
+                {
+                    var rewritten = ApplyCollectionBindingKeywordShorthand(nested, bindingKeyword);
+                    if (!ReferenceEquals(rewritten, nested))
+                        changed = true;
+
+                    return rewritten;
+                }
+
+            case ConstantPatternSyntax { Expression: IdentifierNameSyntax identifierName }:
+                changed = true;
+                return VariablePattern(
+                    bindingKeyword,
+                    SingleVariableDesignation(Token(SyntaxKind.None), identifierName.Identifier));
+
+            default:
+                return pattern;
+        }
     }
 
     private StatementSyntax ParseMatchStatementSyntax()

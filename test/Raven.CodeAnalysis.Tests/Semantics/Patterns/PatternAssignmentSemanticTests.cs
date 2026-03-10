@@ -158,6 +158,84 @@ first + second
     }
 
     [Fact]
+    public void CollectionPatternDeclarationShorthand_WithVal_BindsImmutableLocals()
+    {
+        const string source = """
+val values: int[] = [1, 2, 3]
+val [first, second, _] = values
+first + second
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Last();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        var firstPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[0]);
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstPattern.Designator);
+        Assert.Equal("first", firstDesignator.Local.Name);
+        Assert.False(firstDesignator.Local.IsMutable);
+
+        var secondPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var secondDesignator = Assert.IsType<BoundSingleVariableDesignator>(secondPattern.Designator);
+        Assert.Equal("second", secondDesignator.Local.Name);
+        Assert.False(secondDesignator.Local.IsMutable);
+    }
+
+    [Fact]
+    public void CollectionPatternDeclarationShorthand_WithVar_BindsMutableLocals()
+    {
+        const string source = """
+val values: int[] = [1, 2, 3]
+var [first, second, _] = values
+first = 42
+second = 21
+first + second
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .First();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        var firstPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[0]);
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstPattern.Designator);
+        Assert.Equal("first", firstDesignator.Local.Name);
+        Assert.True(firstDesignator.Local.IsMutable);
+
+        var secondPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var secondDesignator = Assert.IsType<BoundSingleVariableDesignator>(secondPattern.Designator);
+        Assert.Equal("second", secondDesignator.Local.Name);
+        Assert.True(secondDesignator.Local.IsMutable);
+    }
+
+    [Fact]
     public void DiscardAssignmentStatement_BindsDiscardPattern()
     {
         const string source = "_ = 1";

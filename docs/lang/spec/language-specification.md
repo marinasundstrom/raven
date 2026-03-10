@@ -3404,14 +3404,26 @@ syntax. In assignments and declarations, collection deconstruction supports
 arrays (`T[]`) and enumerable collections (`IEnumerable<T>`), and elements are
 bound in sequence order.
 
+For declaration-style deconstruction, Raven supports both:
+
+* explicit per-element binding keywords: `[val a, val b, _] = values`
+* shorthand outer binding keyword: `val [a, b, _] = values`
+
+The shorthand is equivalent to applying the same binding keyword to each
+identifier element (`val`, `var`, or `let`), matching tuple deconstruction forms
+like `val (a, b) = expr`.
+
 ```raven
 val values: int[] = [1, 2, 3]
 [val first, val second, _] = values
 [var head, var tail, _] = values
+val [first2, second2, _] = values
+var [head2, tail2, _] = values
 
 import System.Collections.Generic.*
 val list: List<int> = [1, 2, 3]
 [val a, val b, _] = list
+let [c, d, _] = list
 ```
 
 Use `_` to discard unwanted elements. Nested positional patterns work the same way:

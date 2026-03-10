@@ -45,4 +45,25 @@ public class AssignmentStatementSyntaxTest
         Assert.Equal(SyntaxKind.OpenBracketToken, pattern.OpenParenToken.Kind);
         Assert.Equal(3, pattern.Elements.Count);
     }
+
+    [Fact]
+    public void ParsesCollectionPatternDeclarationShorthandAssignmentStatement()
+    {
+        var tree = SyntaxTree.ParseText("val [first, second, _] = numbers");
+        var assignment = tree.GetRoot().DescendantNodes().OfType<AssignmentStatementSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.SimpleAssignmentStatement, assignment.Kind);
+
+        var pattern = Assert.IsType<PositionalPatternSyntax>(assignment.Left);
+        Assert.Equal(SyntaxKind.OpenBracketToken, pattern.OpenParenToken.Kind);
+        Assert.Equal(3, pattern.Elements.Count);
+
+        var first = Assert.IsType<VariablePatternSyntax>(pattern.Elements[0].Pattern);
+        Assert.Equal(SyntaxKind.ValKeyword, first.BindingKeyword.Kind);
+
+        var second = Assert.IsType<VariablePatternSyntax>(pattern.Elements[1].Pattern);
+        Assert.Equal(SyntaxKind.ValKeyword, second.BindingKeyword.Kind);
+
+        Assert.IsType<DiscardPatternSyntax>(pattern.Elements[2].Pattern);
+    }
 }
