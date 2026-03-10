@@ -23,6 +23,7 @@ public static class BuiltInAnalyzers
         project = AddAnalyzerIfMissing<UnusedMethodAnalyzer>(project);
         project = AddAnalyzerIfMissing<PreferDuLinqExtensionsAnalyzer>(project);
         project = AddAnalyzerIfMissing<RedundantAccessorDeclarationAnalyzer>(project);
+        project = AddAnalyzerIfMissing<SingleStatementBlockBodyAnalyzer>(project);
         project = AddAnalyzerIfMissing<StringConcatenationAnalyzer>(project);
         project = AddAnalyzerIfMissing<ConstructorParameterNamingAnalyzer>(project);
 
