@@ -246,8 +246,8 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         return ConversionOperatorDeclaration(
             attributeLists,
             modifiers,
-            conversionKindKeyword,
             funcKeyword,
+            conversionKindKeyword,
             parameterList,
             returnType,
             body,

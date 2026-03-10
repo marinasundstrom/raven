@@ -1052,8 +1052,8 @@
   <Node Name="ConversionOperatorDeclaration" Inherits="BaseMethodDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
-    <Slot Name="ConversionKindKeyword" Type="Token" />
     <Slot Name="FuncKeyword" Type="Token" DefaultToken="FuncKeyword" />
+    <Slot Name="ConversionKindKeyword" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />

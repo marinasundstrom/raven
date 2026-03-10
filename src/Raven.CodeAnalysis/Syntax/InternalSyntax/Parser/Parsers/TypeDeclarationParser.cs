@@ -619,8 +619,8 @@ internal class TypeDeclarationParser : SyntaxParser
         return ConversionOperatorDeclaration(
             attributeLists,
             modifiers,
-            conversionKindKeyword,
             funcKeyword,
+            conversionKindKeyword,
             parameterList,
             returnType,
             body,
