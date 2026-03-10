@@ -171,6 +171,34 @@ class Program {
     }
 
     [Fact]
+    public void MatchExpression_WithArrayCollectionPatternMiddleRest_EmitsAndRuns()
+    {
+        const string code = """
+class Formatter {
+    public func Describe(values: int[]) -> string {
+        return values match {
+            [val first, ..middle, val last] => (first + middle[0] + last).ToString()
+            _ => "none"
+        }
+    }
+}
+
+class Program {
+    static func Main() {
+        val formatter = Formatter()
+        System.Console.WriteLine(formatter.Describe([2, 3, 4]))
+    }
+}
+""";
+
+        var output = EmitAndRun(code, "match_array_collection_pattern_middle_rest");
+        if (output is null)
+            return;
+
+        Assert.Equal("9", output);
+    }
+
+    [Fact]
     public void MatchExpression_WithDiscriminatedUnion_UsesTryGetAndCaseProperties()
     {
         const string code = """

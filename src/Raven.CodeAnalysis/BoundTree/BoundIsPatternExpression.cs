@@ -172,13 +172,16 @@ internal sealed class BoundPositionalPattern : BoundPattern
     public BoundPositionalPattern(
         ITypeSymbol tupleType,
         ImmutableArray<BoundPattern> elements,
-        BoundExpressionReason reason = BoundExpressionReason.None)
+        BoundExpressionReason reason = BoundExpressionReason.None,
+        int restIndex = -1)
         : base(tupleType, reason)
     {
         Elements = elements;
+        RestIndex = restIndex;
     }
 
     public ImmutableArray<BoundPattern> Elements { get; }
+    public int RestIndex { get; }
 
     public override IEnumerable<BoundDesignator> GetDesignators()
     {
@@ -770,8 +773,21 @@ internal partial class BlockBinder
         var elementPatterns = ImmutableArray.CreateBuilder<BoundPattern>(syntax.Elements.Count);
         var patternType = inputType;
         var reason = BoundExpressionReason.None;
+        var restIndex = GetCollectionRestElementIndex(syntax.Elements);
+        var hasRest = restIndex >= 0;
+        var elementType = Compilation.ErrorTypeSymbol;
 
-        if (!TryGetCollectionPatternElementType(inputType, out var elementType))
+        if (hasRest && inputType is not IArrayTypeSymbol && inputType.TypeKind != TypeKind.Error)
+        {
+            _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                "for a collection slice pattern",
+                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.GetLocation());
+
+            elementType = Compilation.ErrorTypeSymbol;
+            reason = BoundExpressionReason.TypeMismatch;
+        }
+        else if (!TryGetCollectionPatternElementType(inputType, out elementType))
         {
             if (inputType.TypeKind != TypeKind.Error)
             {
@@ -788,12 +804,15 @@ internal partial class BlockBinder
         for (var i = 0; i < syntax.Elements.Count; i++)
         {
             var elementSyntax = syntax.Elements[i];
-            var boundElement = BindPositionalPatternElement(elementSyntax.Pattern, elementType);
+            var expectedType = hasRest && i == restIndex
+                ? Compilation.CreateArrayTypeSymbol(elementType)
+                : elementType;
+            var boundElement = BindPositionalPatternElement(elementSyntax.Pattern, expectedType);
             boundElement = BindPositionalPatternElementDesignation(elementSyntax, boundElement);
             elementPatterns.Add(boundElement);
         }
 
-        return new BoundPositionalPattern(patternType, elementPatterns.ToImmutable(), reason);
+        return new BoundPositionalPattern(patternType, elementPatterns.ToImmutable(), reason, restIndex);
     }
 
     private bool TryGetCollectionPatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)

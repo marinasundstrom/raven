@@ -941,7 +941,16 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         switch (pattern)
         {
-            case VariablePatternSyntax:
+            case VariablePatternSyntax variablePattern:
+                if (!variablePattern.BindingKeyword.IsMissing &&
+                    variablePattern.BindingKeyword.Kind != SyntaxKind.None)
+                {
+                    return pattern;
+                }
+
+                changed = true;
+                return VariablePattern(bindingKeyword, variablePattern.Designation);
+
             case DiscardPatternSyntax:
                 return pattern;
 
@@ -955,6 +964,19 @@ internal class StatementSyntaxParser : SyntaxParser
                 }
 
             case ConstantPatternSyntax { Expression: IdentifierNameSyntax identifierName }:
+                changed = true;
+                return VariablePattern(
+                    bindingKeyword,
+                    SingleVariableDesignation(Token(SyntaxKind.None), identifierName.Identifier));
+
+            case DeclarationPatternSyntax
+                {
+                    Type: IdentifierNameSyntax identifierName,
+                    Designation: SingleVariableDesignationSyntax designation
+                }:
+                if (!designation.Identifier.IsMissing && designation.Identifier.Kind != SyntaxKind.None)
+                    return pattern;
+
                 changed = true;
                 return VariablePattern(
                     bindingKeyword,

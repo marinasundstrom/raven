@@ -3991,7 +3991,44 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitArrayPositionalPatternAssignment(BoundPositionalPattern pattern, IILocal arrayLocal, ITypeSymbol elementType)
     {
-        for (var i = 0; i < pattern.Elements.Length; i++)
+        var restIndex = pattern.RestIndex;
+        if (restIndex < 0)
+        {
+            for (var i = 0; i < pattern.Elements.Length; i++)
+            {
+                var elementPattern = pattern.Elements[i];
+                if (elementPattern is null or BoundDiscardPattern)
+                    continue;
+
+                ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+                ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                EmitLoadElement(elementType);
+
+                var elementValueType = GetPatternValueType(elementType);
+                if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
+                {
+                    ILGenerator.Emit(OpCodes.Pop);
+                    continue;
+                }
+
+                var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementValueType));
+                ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+                EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
+            }
+
+            return;
+        }
+
+        var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+        ILGenerator.Emit(OpCodes.Ldlen);
+        ILGenerator.Emit(OpCodes.Conv_I4);
+        ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
+
+        var prefixCount = restIndex;
+        var suffixCount = pattern.Elements.Length - restIndex - 1;
+
+        for (var i = 0; i < prefixCount; i++)
         {
             var elementPattern = pattern.Elements[i];
             if (elementPattern is null or BoundDiscardPattern)
@@ -3999,6 +4036,66 @@ internal partial class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
             ILGenerator.Emit(OpCodes.Ldc_I4, i);
+            EmitLoadElement(elementType);
+
+            var elementValueType = GetPatternValueType(elementType);
+            if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
+            {
+                ILGenerator.Emit(OpCodes.Pop);
+                continue;
+            }
+
+            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementValueType));
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+            EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
+        }
+
+        var restPattern = pattern.Elements[restIndex];
+        if (restPattern is not null and not BoundDiscardPattern)
+        {
+            var restLengthLocal = ILGenerator.DeclareLocal(typeof(int));
+            ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4, prefixCount);
+            ILGenerator.Emit(OpCodes.Sub);
+            ILGenerator.Emit(OpCodes.Ldc_I4, suffixCount);
+            ILGenerator.Emit(OpCodes.Sub);
+            ILGenerator.Emit(OpCodes.Stloc, restLengthLocal);
+
+            var clrElementType = ResolveClrType(elementType);
+            var restArrayType = Compilation.CreateArrayTypeSymbol(elementType);
+            var restArrayLocal = ILGenerator.DeclareLocal(ResolveClrType(restArrayType));
+
+            ILGenerator.Emit(OpCodes.Ldloc, restLengthLocal);
+            ILGenerator.Emit(OpCodes.Newarr, clrElementType);
+            ILGenerator.Emit(OpCodes.Stloc, restArrayLocal);
+
+            var arrayCopyMethod = typeof(Array).GetMethod(
+                "Copy",
+                [typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int)])
+                ?? throw new InvalidOperationException("Unable to resolve System.Array.Copy overload.");
+
+            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4, prefixCount);
+            ILGenerator.Emit(OpCodes.Ldloc, restArrayLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Ldloc, restLengthLocal);
+            ILGenerator.Emit(OpCodes.Call, arrayCopyMethod);
+
+            EmitPatternAssignment(restPattern, restArrayLocal, restArrayType);
+        }
+
+        for (var i = 0; i < suffixCount; i++)
+        {
+            var elementPattern = pattern.Elements[restIndex + 1 + i];
+            if (elementPattern is null or BoundDiscardPattern)
+                continue;
+
+            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4, suffixCount);
+            ILGenerator.Emit(OpCodes.Sub);
+            ILGenerator.Emit(OpCodes.Ldc_I4, i);
+            ILGenerator.Emit(OpCodes.Add);
             EmitLoadElement(elementType);
 
             var elementValueType = GetPatternValueType(elementType);
@@ -4020,6 +4117,9 @@ internal partial class ExpressionGenerator : Generator
         ITypeSymbol collectionType,
         ITypeSymbol elementType)
     {
+        if (pattern.RestIndex >= 0)
+            return;
+
         var enumerable = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable");
         if (enumerable is null)
             return;

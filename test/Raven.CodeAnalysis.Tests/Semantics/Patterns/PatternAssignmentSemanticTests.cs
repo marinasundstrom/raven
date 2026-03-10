@@ -236,6 +236,42 @@ first + second
     }
 
     [Fact]
+    public void CollectionPatternDeclarationShorthand_WithMiddleRest_BindsArraySlice()
+    {
+        const string source = """
+val values: int[] = [1, 2, 3, 4]
+val [first, ..middle, last] = values
+first + middle[0] + last
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Single();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        Assert.Equal(1, collectionPattern.RestIndex);
+
+        var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
+        Assert.Equal("middle", restDesignator.Local.Name);
+        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+        Assert.False(restDesignator.Local.IsMutable);
+    }
+
+    [Fact]
     public void DiscardAssignmentStatement_BindsDiscardPattern()
     {
         const string source = "_ = 1";

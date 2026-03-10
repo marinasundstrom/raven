@@ -3432,6 +3432,16 @@ Use `_` to discard unwanted elements. Nested positional patterns work the same w
 var ((x, y), val magnitude, _) = samples()
 ```
 
+Collection patterns also support a rest segment with `..name`:
+
+```raven
+val [first, second, ..rest] = values
+val [first, ..middle, last] = values
+```
+
+`..name` captures the remaining elements as an array slice. `.._` discards the
+remaining segment.
+
 The discard identifier also appears in ordinary assignment statements. Writing
 `_ = Compute()` produces a discard assignment statement whose left-hand side is a
 dedicated discard expression. The assignment still evaluates the right-hand

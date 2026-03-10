@@ -2984,9 +2984,19 @@ partial class BlockBinder : Binder
 
                         var patternElements = tuplePattern.Elements;
                         var elementCount = Math.Min(patternElements.Length, collectionSyntax.Elements.Count);
+                        var restIndex = tuplePattern.RestIndex;
+                        var hasRest = restIndex >= 0;
+                        var restType = hasRest
+                            ? Compilation.CreateArrayTypeSymbol(elementType)
+                            : Compilation.ErrorTypeSymbol;
 
                         for (var i = 0; i < elementCount; i++)
-                            EnsureMatchArmPatternValid(elementType, collectionSyntax.Elements[i].Pattern, patternElements[i]);
+                        {
+                            var expectedType = hasRest && i == restIndex
+                                ? restType
+                                : elementType;
+                            EnsureMatchArmPatternValid(expectedType, collectionSyntax.Elements[i].Pattern, patternElements[i]);
+                        }
 
                         return;
                     }
@@ -8305,10 +8315,21 @@ partial class BlockBinder : Binder
         var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(elementCount);
         var elementType = Compilation.ErrorTypeSymbol;
         var patternType = valueType;
+        var restIndex = GetCollectionRestElementIndex(elements);
+        var hasRest = restIndex >= 0;
 
         if (valueType is IArrayTypeSymbol arrayType)
         {
             elementType = arrayType.ElementType;
+        }
+        else if (hasRest && valueType.TypeKind != TypeKind.Error)
+        {
+            _diagnostics.ReportPositionalDeconstructionRequiresDeconstructableType(
+                GetPatternTypeDisplay(valueType),
+                pattern.GetLocation());
+
+            patternType = Compilation.ErrorTypeSymbol;
+            elementType = Compilation.ErrorTypeSymbol;
         }
         else if (valueType.TypeKind != TypeKind.Error && IsSpreadEnumerable(valueType))
         {
@@ -8326,12 +8347,35 @@ partial class BlockBinder : Binder
         for (var i = 0; i < elementCount; i++)
         {
             var elementSyntax = elements[i];
-            var boundElement = BindPatternForAssignment(elementSyntax.Pattern, elementType, elementSyntax.Pattern);
+            var expectedType = hasRest && i == restIndex
+                ? Compilation.CreateArrayTypeSymbol(elementType)
+                : elementType;
+            var boundElement = BindPatternForAssignment(elementSyntax.Pattern, expectedType, elementSyntax.Pattern);
             boundElements.Add(boundElement);
         }
 
-        return new BoundPositionalPattern(patternType, boundElements.ToImmutable());
+        return new BoundPositionalPattern(patternType, boundElements.ToImmutable(), restIndex: restIndex);
     }
+
+    private static int GetCollectionRestElementIndex(SeparatedSyntaxList<PositionalPatternElementSyntax> elements)
+    {
+        var index = -1;
+        for (var i = 0; i < elements.Count; i++)
+        {
+            if (!IsCollectionRestElement(elements[i]))
+                continue;
+
+            if (index >= 0)
+                return index;
+
+            index = i;
+        }
+
+        return index;
+    }
+
+    private static bool IsCollectionRestElement(PositionalPatternElementSyntax element)
+        => element.NameColon is { ColonToken.Kind: SyntaxKind.DotDotToken };
 
     private BoundPattern BindVariableDesignationForAssignment(
         VariableDesignationSyntax designation,

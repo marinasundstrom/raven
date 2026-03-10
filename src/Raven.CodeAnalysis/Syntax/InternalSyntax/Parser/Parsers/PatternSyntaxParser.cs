@@ -354,7 +354,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (!PeekToken().IsKind(SyntaxKind.CloseBracketToken))
         {
-            elementList.Add(ParsePositionalPatternElement());
+            elementList.Add(ParseCollectionPatternElement());
 
             while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
             {
@@ -363,13 +363,51 @@ internal class PatternSyntaxParser : SyntaxParser
                 if (PeekToken().IsKind(SyntaxKind.CloseBracketToken))
                     break;
 
-                elementList.Add(ParsePositionalPatternElement());
+                elementList.Add(ParseCollectionPatternElement());
             }
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
 
         return PositionalPattern(openBracketToken, List(elementList.ToArray()), closeBracketToken);
+    }
+
+    private PositionalPatternElementSyntax ParseCollectionPatternElement()
+    {
+        if (!ConsumeToken(SyntaxKind.DotDotToken, out var dotDotToken))
+            return ParsePositionalPatternElement();
+
+        PatternSyntax restPattern;
+        if (PeekToken().IsKind(SyntaxKind.UnderscoreToken))
+        {
+            restPattern = DiscardPattern(ReadToken());
+        }
+        else if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+        {
+            restPattern = ParseVariablePattern();
+        }
+        else if (CanTokenBeIdentifier(PeekToken()))
+        {
+            var identifier = ReadIdentifierToken();
+            restPattern = VariablePattern(
+                Token(SyntaxKind.None),
+                SingleVariableDesignation(Token(SyntaxKind.None), identifier));
+        }
+        else
+        {
+            restPattern = CreateMissingPattern();
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.IdentifierExpected,
+                    GetEndOfLastToken()));
+        }
+
+        // Reuse NameColon as an internal marker that this positional element represents `..rest`.
+        var marker = NameColon(
+            IdentifierName(MissingToken(SyntaxKind.IdentifierToken)),
+            dotDotToken);
+
+        return PositionalPatternElement(marker, restPattern);
     }
 
     private MemberPatternSyntax ParseMemberPattern(TypeSyntax? qualifier, SyntaxToken dotToken)

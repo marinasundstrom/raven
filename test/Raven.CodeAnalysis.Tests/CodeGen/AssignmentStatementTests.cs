@@ -140,4 +140,39 @@ class Foo {
 
         Assert.Null(model.GetDeclaredSymbol(declarator));
     }
+
+    [Fact]
+    public void CollectionPatternDeclaration_WithMiddleRest_EmitsAndRuns()
+    {
+        var code = """
+class Foo {
+    func Run() -> int {
+        val values: int[] = [1, 2, 3, 4]
+        val [first, ..middle, last] = values
+        return first + middle[0] + last
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
+        var value = (int)method!.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal(7, value);
+    }
 }

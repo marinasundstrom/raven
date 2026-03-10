@@ -173,6 +173,27 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void CollectionPattern_WithRestElement_Parses()
+    {
+        var (pattern, tree) = ParsePattern("[let first, ..rest, _]");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var collectionPattern = Assert.IsType<PositionalPatternSyntax>(pattern);
+        Assert.Equal("[let first, ..rest, _]", sourceText.ToString(collectionPattern.Span));
+        Assert.Equal(3, collectionPattern.Elements.Count);
+
+        var restElement = collectionPattern.Elements[1];
+        Assert.NotNull(restElement.NameColon);
+        Assert.Equal(SyntaxKind.DotDotToken, restElement.NameColon!.ColonToken.Kind);
+
+        var restPattern = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
+        var restDesignation = Assert.IsType<SingleVariableDesignationSyntax>(restPattern.Designation);
+        Assert.Equal("rest", restDesignation.Identifier.ValueText);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void BinaryPattern_WithAndHasHigherPrecedenceThanOr()
     {
         var (pattern, tree) = ParsePattern("let left and let right or let fallback");

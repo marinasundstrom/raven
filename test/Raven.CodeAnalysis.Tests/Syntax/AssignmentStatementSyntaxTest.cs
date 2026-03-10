@@ -66,4 +66,28 @@ public class AssignmentStatementSyntaxTest
 
         Assert.IsType<DiscardPatternSyntax>(pattern.Elements[2].Pattern);
     }
+
+    [Fact]
+    public void ParsesCollectionPatternDeclarationShorthand_WithMiddleRest()
+    {
+        var tree = SyntaxTree.ParseText("val [first, ..middle, last] = numbers");
+        var assignment = tree.GetRoot().DescendantNodes().OfType<AssignmentStatementSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.SimpleAssignmentStatement, assignment.Kind);
+
+        var pattern = Assert.IsType<PositionalPatternSyntax>(assignment.Left);
+        Assert.Equal(3, pattern.Elements.Count);
+
+        var first = Assert.IsType<VariablePatternSyntax>(pattern.Elements[0].Pattern);
+        Assert.Equal(SyntaxKind.ValKeyword, first.BindingKeyword.Kind);
+
+        var restElement = pattern.Elements[1];
+        Assert.NotNull(restElement.NameColon);
+        Assert.Equal(SyntaxKind.DotDotToken, restElement.NameColon!.ColonToken.Kind);
+        var middle = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
+        Assert.Equal(SyntaxKind.ValKeyword, middle.BindingKeyword.Kind);
+
+        var last = Assert.IsType<VariablePatternSyntax>(pattern.Elements[2].Pattern);
+        Assert.Equal(SyntaxKind.ValKeyword, last.BindingKeyword.Kind);
+    }
 }
