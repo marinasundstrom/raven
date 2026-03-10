@@ -11469,7 +11469,9 @@ partial class BlockBinder : Binder
 
             if (setMethod is null)
             {
-                // report no setter (existing behavior)
+                _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(
+                    property.Name,
+                    assignment.Name.GetLocation());
                 return null;
             }
             else if (setMethod.MethodKind == MethodKind.InitOnly)
@@ -11519,7 +11521,10 @@ partial class BlockBinder : Binder
                 return null;
 
             if (field.IsConst || field.IsReadOnly)
+            {
+                _diagnostics.ReportReadOnlyFieldCannotBeAssignedTo(assignment.Name.GetLocation());
                 return null;
+            }
 
             var right = BindExpressionWithTargetType(assignment.Expression, field.Type, allowReturn: false);
             if (right is BoundErrorExpression)

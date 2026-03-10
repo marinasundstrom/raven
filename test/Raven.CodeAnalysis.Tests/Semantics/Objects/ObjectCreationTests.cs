@@ -268,4 +268,67 @@ public class ObjectCreationTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void ObjectInitializer_AssigningValProperty_ReportsReadOnlyDiagnostic()
+    {
+        const string testCode =
+            """
+            class Foo {
+                val Name: string = ""
+            }
+
+            val foo = Foo {
+                Name = "updated"
+            }
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            expectedDiagnostics: [
+                new DiagnosticResult(CompilerDiagnostics.PropertyOrIndexerCannotBeAssignedIsReadOnly.Id)
+                    .WithAnySpan()
+                    .WithArguments("Name")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ObjectInitializer_AssigningVarProperty_BindsWithoutDiagnostics()
+    {
+        const string testCode =
+            """
+            class Foo {
+                var Name: string = ""
+            }
+
+            val foo = Foo {
+                Name = "updated"
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ObjectInitializer_AssigningInitOnlyProperty_BindsWithoutDiagnostics()
+    {
+        const string testCode =
+            """
+            class Foo {
+                val Name: string { init; }
+            }
+
+            val foo = Foo {
+                Name = "updated"
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }
