@@ -230,8 +230,8 @@ public class ConversionsTests : CompilationTestBase
     {
         const string source = """
         class Box {
-            public static implicit operator(value: Box) -> string { return "" }
-            public static explicit operator(value: Box) -> int { return 0 }
+            static func implicit(value: Box) -> string { return "" }
+            static func explicit(value: Box) -> int { return 0 }
         }
         """;
 

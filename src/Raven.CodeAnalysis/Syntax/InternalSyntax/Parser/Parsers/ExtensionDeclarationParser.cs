@@ -104,12 +104,13 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             funcKeyword = ReadToken();
         }
 
-        if ((PeekToken().IsKind(SyntaxKind.ExplicitKeyword) || PeekToken().IsKind(SyntaxKind.ImplicitKeyword))
-            && PeekToken(1).IsKind(SyntaxKind.OperatorKeyword))
-            return ParseConversionOperatorMember(attributeLists, modifiers);
+        if (!funcKeyword.IsMissing &&
+            (PeekToken().IsKind(SyntaxKind.ExplicitKeyword) || PeekToken().IsKind(SyntaxKind.ImplicitKeyword)) &&
+            PeekToken(1).IsKind(SyntaxKind.OpenParenToken))
+            return ParseConversionOperatorMemberFromFunc(attributeLists, modifiers, funcKeyword);
 
-        if (PeekToken().IsKind(SyntaxKind.OperatorKeyword))
-            return ParseOperatorMember(attributeLists, modifiers);
+        if (!funcKeyword.IsMissing && SyntaxFacts.IsOverloadableOperatorToken(PeekToken().Kind))
+            return ParseOperatorMemberFromFunc(attributeLists, modifiers, funcKeyword);
 
         if (PeekToken().IsKind(SyntaxKind.EventKeyword))
             return ParseEventMember(attributeLists, modifiers);
@@ -175,9 +176,8 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             terminatorToken);
     }
 
-    private MemberDeclarationSyntax ParseOperatorMember(SyntaxList attributeLists, SyntaxList modifiers)
+    private MemberDeclarationSyntax ParseOperatorMemberFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken declarationKeyword)
     {
-        var operatorKeyword = ReadToken();
         var operatorToken = ParseOverloadableOperatorToken();
 
         ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
@@ -201,7 +201,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         return OperatorDeclaration(
             attributeLists,
             modifiers,
-            operatorKeyword,
+            declarationKeyword,
             operatorToken,
             parameterList,
             returnType,
@@ -210,11 +210,21 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             terminatorToken);
     }
 
-    private MemberDeclarationSyntax ParseConversionOperatorMember(SyntaxList attributeLists, SyntaxList modifiers)
+    private MemberDeclarationSyntax ParseConversionOperatorMemberFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)
     {
-        var conversionKindKeyword = ReadToken();
-        var operatorKeyword = ExpectToken(SyntaxKind.OperatorKeyword);
-
+        SyntaxToken conversionKindKeyword;
+        if (ConsumeToken(SyntaxKind.ImplicitKeyword, out var implicitKeyword))
+        {
+            conversionKindKeyword = implicitKeyword;
+        }
+        else if (ConsumeToken(SyntaxKind.ExplicitKeyword, out var explicitKeyword))
+        {
+            conversionKindKeyword = explicitKeyword;
+        }
+        else
+        {
+            conversionKindKeyword = MissingToken(SyntaxKind.ImplicitKeyword);
+        }
         ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
         var parameterList = new StatementSyntaxParser(this).ParseParameterList(openParenToken);
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
@@ -237,7 +247,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             attributeLists,
             modifiers,
             conversionKindKeyword,
-            operatorKeyword,
+            funcKeyword,
             parameterList,
             returnType,
             body,

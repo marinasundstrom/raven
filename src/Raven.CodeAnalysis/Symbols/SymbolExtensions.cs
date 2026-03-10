@@ -592,11 +592,11 @@ public static partial class SymbolExtensions
         IMethodSymbol { IsConstructor: true, MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor }
             => "init",
 
-        // User-defined operators: `operator +`, `operator ==`, etc.
+        // User-defined operators: `func +`, `func ==`, etc.
         IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } op
-            => "operator " + GetOperatorToken(op),
+            => "func " + GetOperatorToken(op),
 
-        // User-defined conversions: `implicit operator`, `explicit operator`
+        // User-defined conversions: `func implicit`, `func explicit`
         IMethodSymbol { MethodKind: MethodKind.Conversion } conv
             => GetConversionDisplayName(conv),
 
@@ -617,9 +617,9 @@ public static partial class SymbolExtensions
         // op_Implicit / op_Explicit
         return method.Name switch
         {
-            "op_Implicit" => "implicit operator",
-            "op_Explicit" => "explicit operator",
-            _ => "operator"
+            "op_Implicit" => "func implicit",
+            "op_Explicit" => "func explicit",
+            _ => "func"
         };
     }
 

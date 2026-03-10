@@ -16,8 +16,8 @@ public sealed class ConversionOperatorCodeGenTests
     {
         const string code = """
 class NumberBox {
-    public val Value: int { get { return 42; } }
-    public static explicit operator(value: NumberBox) -> int { return value.Value }
+    val Value: int { get { return 42; } }
+    static func explicit(value: NumberBox) -> int { return value.Value }
 }
 """;
 
@@ -53,13 +53,13 @@ class NumberBox {
         import System.*
 
         class OptionConversionRunner {
-            public static func RunReference() -> string? {
+            static func RunReference() -> string? {
                 val opt1 = Option<string>.Some("OK")
                 val opt12: string? = opt1
                 return opt12
             }
 
-            public static func RunValue() -> int? {
+            static func RunValue() -> int? {
                 val opt2 = Option<int>.Some(42)
                 val opt22: int? = opt2
                 return opt22
@@ -110,7 +110,7 @@ public union Option<T> {
 }
 
 public extension OptionExtensions1<T : class> for Option<T> {
-    public static implicit operator(opt: Option<T>) -> T? {
+    static func implicit(opt: Option<T>) -> T? {
         if opt is .Some(val value) {
             return value
         }
@@ -119,7 +119,7 @@ public extension OptionExtensions1<T : class> for Option<T> {
 }
 
 public extension OptionExtensions2<T : struct> for Option<T> {
-    public static implicit operator(opt: Option<T>) -> T? {
+    static func implicit(opt: Option<T>) -> T? {
         if opt is .Some(val value) {
             return value
         }

@@ -264,14 +264,14 @@ extension OptionExtensionsNested<T> for Option<Option<T>> {
 
 extension OptionExtensions1<T : class> for Option<T> {
 
-    static implicit operator(opt: Option<T>) -> T? {
+    static func implicit(opt: Option<T>) -> T? {
         if opt is Some(val value) {
             return value
         }
         null
     }
 
-    static implicit operator(value: T?) -> Option<T> {
+    static func implicit(value: T?) -> Option<T> {
         if value is not null {
             return Some(value)
         }
@@ -281,14 +281,14 @@ extension OptionExtensions1<T : class> for Option<T> {
 
 extension OptionExtensions2<T : struct> for Option<T> {
 
-    static implicit operator(opt: Option<T>) -> T? {
+    static func implicit(opt: Option<T>) -> T? {
         if opt is Some(val value) {
             return value
         }
         null
     }
 
-    static implicit operator(value: T?) -> Option<T> {
+    static func implicit(value: T?) -> Option<T> {
         // TODO: Handle so that value type in "value" gets unwrapped
         if value is not null {
             return Some(value)

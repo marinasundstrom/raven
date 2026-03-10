@@ -188,9 +188,6 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.EnumKeyword or
             SyntaxKind.UnionKeyword or
             SyntaxKind.DelegateKeyword or
-            SyntaxKind.OperatorKeyword or
-            SyntaxKind.ExplicitKeyword or
-            SyntaxKind.ImplicitKeyword or
             SyntaxKind.EventKeyword or
             SyntaxKind.FieldKeyword or
             SyntaxKind.ValKeyword or
@@ -495,17 +492,6 @@ internal class TypeDeclarationParser : SyntaxParser
         if (keywordOrIdentifier.IsKind(SyntaxKind.FinallyKeyword))
             return ParseFinallyDeclaration(attributeLists, modifiers);
 
-        if ((keywordOrIdentifier.IsKind(SyntaxKind.ExplicitKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ImplicitKeyword))
-            && PeekToken(1).IsKind(SyntaxKind.OperatorKeyword))
-        {
-            return ParseConversionOperatorDeclaration(attributeLists, modifiers);
-        }
-
-        if (keywordOrIdentifier.IsKind(SyntaxKind.OperatorKeyword))
-        {
-            return ParseOperatorDeclaration(attributeLists, modifiers);
-        }
-
         if (keywordOrIdentifier.IsKind(SyntaxKind.EventKeyword))
         {
             return ParseEventDeclaration(attributeLists, modifiers);
@@ -542,6 +528,13 @@ internal class TypeDeclarationParser : SyntaxParser
         if (keywordOrIdentifier.IsKind(SyntaxKind.FuncKeyword))
         {
             var funcKeyword = ReadToken();
+            if ((PeekToken().IsKind(SyntaxKind.ImplicitKeyword) || PeekToken().IsKind(SyntaxKind.ExplicitKeyword)) &&
+                PeekToken(1).IsKind(SyntaxKind.OpenParenToken))
+                return ParseConversionOperatorDeclarationFromFunc(attributeLists, modifiers, funcKeyword);
+
+            if (SyntaxFacts.IsOverloadableOperatorToken(PeekToken().Kind))
+                return ParseOperatorDeclarationFromFunc(attributeLists, modifiers, funcKeyword);
+
             return ParseMethodOrIndexerDeclaration(attributeLists, modifiers, funcKeyword);
         }
 
@@ -550,9 +543,8 @@ internal class TypeDeclarationParser : SyntaxParser
         return IncompleteMemberDeclaration(attributeLists, modifiers, skippedMember, skippedTerminator);
     }
 
-    private MemberDeclarationSyntax ParseOperatorDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
+    private MemberDeclarationSyntax ParseOperatorDeclarationFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken declarationKeyword)
     {
-        var operatorKeyword = ReadToken();
         var operatorToken = ParseOverloadableOperatorToken();
 
         ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
@@ -579,7 +571,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return OperatorDeclaration(
             attributeLists,
             modifiers,
-            operatorKeyword,
+            declarationKeyword,
             operatorToken,
             parameterList,
             returnType,
@@ -588,11 +580,21 @@ internal class TypeDeclarationParser : SyntaxParser
             terminatorToken);
     }
 
-    private MemberDeclarationSyntax ParseConversionOperatorDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
+    private MemberDeclarationSyntax ParseConversionOperatorDeclarationFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)
     {
-        var conversionKindKeyword = ReadToken();
-        var operatorKeyword = ExpectToken(SyntaxKind.OperatorKeyword);
-
+        SyntaxToken conversionKindKeyword;
+        if (ConsumeToken(SyntaxKind.ImplicitKeyword, out var implicitKeyword))
+        {
+            conversionKindKeyword = implicitKeyword;
+        }
+        else if (ConsumeToken(SyntaxKind.ExplicitKeyword, out var explicitKeyword))
+        {
+            conversionKindKeyword = explicitKeyword;
+        }
+        else
+        {
+            conversionKindKeyword = MissingToken(SyntaxKind.ImplicitKeyword);
+        }
         ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
         var parameterList = ParseParameterList(openParenToken);
 
@@ -618,7 +620,7 @@ internal class TypeDeclarationParser : SyntaxParser
             attributeLists,
             modifiers,
             conversionKindKeyword,
-            operatorKeyword,
+            funcKeyword,
             parameterList,
             returnType,
             body,

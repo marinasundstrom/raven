@@ -15,7 +15,7 @@ public class OperatorBindingTests : CompilationTestBase
         var source = """
 class Number
 {
-    public static operator +(left: Number, right: Number) -> Number { return left }
+    static func +(left: Number, right: Number) -> Number { return left }
 }
 """;
 
@@ -42,7 +42,7 @@ class Number
         var source = """
 class Number
 {
-    public operator +(left: Number, right: Number) -> Number { return left }
+    func +(left: Number, right: Number) -> Number { return left }
 }
 """;
 
@@ -61,7 +61,7 @@ class Number
         var source = """
 class Counter
 {
-    public static operator ++(left: Counter, right: Counter) -> Counter { return left }
+    static func ++(left: Counter, right: Counter) -> Counter { return left }
 }
 """;
 
@@ -82,7 +82,7 @@ namespace Sample {
     class Number { }
 
     extension NumberOps for Number {
-        public static operator +(left: Number, right: Number) -> Number { return left }
+        static func +(left: Number, right: Number) -> Number { return left }
     }
 
     val a = Number()
@@ -105,7 +105,7 @@ namespace Sample {
         var source = """
 class Number
 {
-    public static operator +(left: Number, right: Number) -> Number { return left }
+    static func +(left: Number, right: Number) -> Number { return left }
 }
 
 val a = Number()
@@ -130,7 +130,7 @@ val c = a + b
         var source = """
 class Number
 {
-    public static operator -(value: Number) -> Number { return value }
+    static func -(value: Number) -> Number { return value }
 }
 
 val a = Number()
@@ -154,9 +154,9 @@ val b = -a
         var source = """
 class Bits
 {
-    public static operator ~(value: Bits) -> Bits { return value }
-    public static operator <<(left: Bits, right: int) -> Bits { return left }
-    public static operator >>(left: Bits, right: int) -> Bits { return left }
+    static func ~(value: Bits) -> Bits { return value }
+    static func <<(left: Bits, right: int) -> Bits { return left }
+    static func >>(left: Bits, right: int) -> Bits { return left }
 }
 """;
 
@@ -183,8 +183,8 @@ class Bits
         var source = """
 class Number
 {
-    public static operator ==(left: Number, right: Number) -> bool { return true }
-    public static operator !=(left: Number, right: Number) -> bool { return false }
+    static func ==(left: Number, right: Number) -> bool { return true }
+    static func !=(left: Number, right: Number) -> bool { return false }
 }
 
 val a: Number? = null
@@ -206,15 +206,38 @@ val ne = a != b
     }
 
     [Fact]
+    public void FuncStyleOperatorDeclaration_BindsUserDefinedOperatorSymbol()
+    {
+        var source = """
+class Number
+{
+    static func +(left: Number, right: Number) -> Number { return left }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<OperatorDeclarationSyntax>().Single();
+
+        var symbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(declaration));
+
+        Assert.Equal(MethodKind.UserDefinedOperator, symbol.MethodKind);
+        Assert.Equal("op_Addition", symbol.Name);
+        Assert.True(symbol.IsStatic);
+    }
+
+    [Fact]
     public void NullCheck_WithUserDefinedEquality_DoesNotNarrow()
     {
         var source = """
 class Number
 {
-    public func Ping() -> unit { }
+    func Ping() -> unit { }
 
-    public static operator ==(left: Number?, right: Number?) -> bool { return true }
-    public static operator !=(left: Number?, right: Number?) -> bool { return false }
+    static func ==(left: Number?, right: Number?) -> bool { return true }
+    static func !=(left: Number?, right: Number?) -> bool { return false }
 }
 
 class C

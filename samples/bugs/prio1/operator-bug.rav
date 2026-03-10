@@ -16,7 +16,7 @@ union Option<T: struct> {
 extension OptionExtensions3<T> for T
     where T : struct {
 
-    static implicit operator(value: T?) -> Option<T> {
+    static func implicit(value: T?) -> Option<T> {
         if value is not null {
             return Some(value)
         }

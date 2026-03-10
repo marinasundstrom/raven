@@ -620,7 +620,7 @@ class ParserError { }
 class DomainError { }
 
 extension ErrorConverters for ParserError {
-    static implicit operator(value: ParserError) -> DomainError {
+    static func implicit(value: ParserError) -> DomainError {
         return DomainError()
     }
 }

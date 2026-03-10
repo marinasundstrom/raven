@@ -617,27 +617,28 @@ parameter as required.
 
 ### Operator declarations
 
-Classes and structs can declare overloadable operators using the `operator`
-contextual keyword followed by one of the supported operator tokens (`+`, `-`,
-`*`, `/`, `%`, `^`, `&`, `&&`, `and`, `|`, `||`, `or`, `<<`, `>>`, `==`, `!=`,
-`<`, `<=`, `>`, `>=`, `!`, `~`, `++`, `--`). Operators mirror methods: they take a
-parenthesized parameter list, optional return-type arrow, and either a block
-body or expression body. Operators must be `public static`, and the parameter
+Classes and structs can declare overloadable operators using function-style
+syntax where the operator token is the function name:
+`static func <operator>(...) -> ...`.
+Supported tokens are `+`, `-`, `*`, `/`, `%`, `^`, `&`, `&&`, `and`, `|`, `||`,
+`or`, `<<`, `>>`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `!`, `~`, `++`, `--`.
+Operators mirror methods: they take a parenthesized parameter list, optional
+return-type arrow, and either a block body or expression body. The parameter
 count must match the chosen operator (unary or binary). Operator declarations
-are supported in classes, structs, and extensions; extension operators follow
-the same `public static` requirements as type members.
+are supported in classes, structs, and extensions.
 
 ```raven
 class Vector {
-    static operator +(left: Vector, right: Vector) -> Vector => Add(left, right)
-    static operator -(value: Vector) -> Vector { /* ... */ }
+    static func +(left: Vector, right: Vector) -> Vector => Add(left, right)
+    static func -(value: Vector) -> Vector { /* ... */ }
 }
 ```
 
-Extensions may also declare `implicit operator` and `explicit operator`
-conversion members. These conversion operators are `public static` and are
-resolved using the same extension lookup rules as other static extension
-members.
+Conversions follow the same style:
+`static func implicit(value: SourceType) -> TargetType` and
+`static func explicit(value: SourceType) -> TargetType`.
+These conversion members are resolved using the same lookup rules as other
+static members.
 
 For null checks, prefer `is null` / `is not null` when you need strict
 nullability narrowing. Raven's analyzer recommends these forms over

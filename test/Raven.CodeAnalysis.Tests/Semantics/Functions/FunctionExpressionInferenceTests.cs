@@ -724,11 +724,11 @@ import System.*
 import System.Linq.*
 
 class A {
-    public static implicit operator(value: A) -> string { return "a" }
+    static func implicit(value: A) -> string { return "a" }
 }
 
 class B {
-    public static implicit operator(value: B) -> string { return "b" }
+    static func implicit(value: B) -> string { return "b" }
 }
 
 class Container {

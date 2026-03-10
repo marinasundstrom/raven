@@ -17,8 +17,8 @@ public class ConversionOperatorBindingTests : CompilationTestBase
     {
         const string source = """
         class Box {
-            public static implicit operator(value: Box) -> string { return "" }
-            public static explicit operator(value: Box) -> int { return 0 }
+            static func implicit(value: Box) -> string { return "" }
+            static func explicit(value: Box) -> int { return 0 }
         }
 
         func takesString(value: string) -> () { }
@@ -50,7 +50,7 @@ public union Option<T> {
 }
 
 public extension OptionExtensions1<T : class> for Option<T> {
-    public static implicit operator(opt: Option<T>) -> T? {
+    static func implicit(opt: Option<T>) -> T? {
         if opt is .Some(val value) {
             return value
         }
@@ -59,7 +59,7 @@ public extension OptionExtensions1<T : class> for Option<T> {
 }
 
 public extension OptionExtensions2<T : struct> for Option<T> {
-    public static implicit operator(opt: Option<T>) -> T? {
+    static func implicit(opt: Option<T>) -> T? {
         if opt is .Some(val value) {
             return value
         }
@@ -100,5 +100,31 @@ val result: int? = value
             Assert.True(conversion.IsUserDefined);
             Assert.NotNull(conversion.MethodSymbol);
             Assert.Equal("OptionExtensions2", conversion.MethodSymbol?.ContainingType?.Name);
+    }
+
+    [Fact]
+    public void FuncStyleConversionOperator_AllowsOverloadResolutionAndExplicitCast()
+    {
+        const string source = """
+        class Box {
+            static func implicit(value: Box) -> string { return "" }
+            static func explicit(value: Box) -> int { return 0 }
+        }
+
+        func takesString(value: string) -> () { }
+
+        func test() -> () {
+            val box: Box = default
+            takesString(box)
+            val number: int = (int)box
+        }
+        """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(
+            diagnostics,
+            d => d.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
     }
 }

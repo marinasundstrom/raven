@@ -1031,14 +1031,14 @@ internal partial class TypeMemberBinder : Binder
         var hasStaticModifier = operatorDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
 
         if (_containingType.TypeKind is not TypeKind.Class and not TypeKind.Struct)
-            _diagnostics.ReportOperatorDeclarationMustBeInClassOrStruct(operatorText, operatorDecl.OperatorKeyword.GetLocation());
+            _diagnostics.ReportOperatorDeclarationMustBeInClassOrStruct(operatorText, operatorDecl.FuncKeyword.GetLocation());
 
         if (!hasStaticModifier)
-            _diagnostics.ReportOperatorMustBeStatic(operatorText, operatorDecl.OperatorKeyword.GetLocation());
+            _diagnostics.ReportOperatorMustBeStatic(operatorText, operatorDecl.FuncKeyword.GetLocation());
 
         if (operatorAccessibility != Accessibility.Public)
         {
-            _diagnostics.ReportOperatorMustBePublic(operatorText, operatorDecl.OperatorKeyword.GetLocation());
+            _diagnostics.ReportOperatorMustBePublic(operatorText, operatorDecl.FuncKeyword.GetLocation());
             operatorAccessibility = Accessibility.Public;
         }
 

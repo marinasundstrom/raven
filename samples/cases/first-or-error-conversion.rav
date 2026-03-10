@@ -31,7 +31,7 @@ record AppError(Message: string) {
 }
 
 extension ErrorConverters for AppError {
-    static implicit operator(value: DomainError) -> AppError {
+    static func implicit(value: DomainError) -> AppError {
         return AppError(value.Message)
     }
 }

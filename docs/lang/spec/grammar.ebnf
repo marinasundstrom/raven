@@ -200,17 +200,15 @@ MethodDeclaration        ::= MemberModifiers?
 
 ConversionOperatorDeclaration
                          ::= MemberModifiers?
-                             ( 'explicit' | 'implicit' ) 'operator' TypeParameterList?
+                             'func' ( 'explicit' | 'implicit' )
                              '(' ParameterList? ')'
                              ReturnTypeClause?
-                             WhereClauseList?
                              ( Block | '=>' Expression ) ;
 
 OperatorDeclaration      ::= MemberModifiers?
-                             'operator' OverloadableOperator TypeParameterList?
+                             'func' OverloadableOperator
                              '(' ParameterList? ')'
                              ReturnTypeClause?
-                             WhereClauseList?
                              ( Block | '=>' Expression ) ;
 
 OverloadableOperator     ::= '+' | '-' | '*' | '/' | '%' | '^' | '&' | '&&' | 'and'
