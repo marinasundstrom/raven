@@ -56,9 +56,9 @@ partial class BlockBinder
 
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
-        if (!conversion.Exists)
+        if (!conversion.Exists || !conversion.IsImplicit)
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(condition.Type, boolType, ifStmt.Condition.GetLocation());
+            ReportCannotConvertFromTypeToType(condition.Type, boolType, ifStmt.Condition.GetLocation());
         }
 
         if (TryGetNullCheckFlow(condition, out var symbol, out var nonNullWhenTrue, out var nonNullWhenFalse))
@@ -596,7 +596,7 @@ partial class BlockBinder
 
         if (!TryInferBestCommonType(startType, endType, out var elementType))
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 startType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 endType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 rangeSyntax.GetLocation());
@@ -607,7 +607,7 @@ partial class BlockBinder
         elementType = elementType.UnwrapLiteralType() ?? elementType;
         if (!IsSupportedForRangeLoopType(elementType))
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 elementType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 Compilation.GetSpecialType(SpecialType.System_Int32).ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 rangeSyntax.GetLocation());
@@ -696,7 +696,7 @@ partial class BlockBinder
         }
 
         var enumerableType = Compilation.GetSpecialType(SpecialType.System_Collections_IEnumerable);
-        _diagnostics.ReportCannotConvertFromTypeToType(
+        ReportCannotConvertFromTypeToType(
             collectionType ?? Compilation.ErrorTypeSymbol,
             enumerableType,
             iterationSyntax.GetLocation());
@@ -722,7 +722,7 @@ partial class BlockBinder
             ? (ITypeSymbol)asyncEnumerableDefinition.Construct(objectType)
             : Compilation.ErrorTypeSymbol;
 
-        _diagnostics.ReportCannotConvertFromTypeToType(
+        ReportCannotConvertFromTypeToType(
             collectionType ?? Compilation.ErrorTypeSymbol,
             asyncEnumerableType,
             iterationSyntax.GetLocation());
@@ -971,7 +971,7 @@ partial class BlockBinder
 
         if (!IsAssignable(targetType, boundary, out var conversion))
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 (boundary.Type ?? Compilation.ErrorTypeSymbol).ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 targetType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 diagnosticNode.GetLocation());
@@ -1605,7 +1605,7 @@ partial class BlockBinder
                 {
                     var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
                     if (!IsAssignable(methodReturnType, unit, out _))
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             unit.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             methodReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             returnSyntax.GetLocation());
@@ -1636,7 +1636,7 @@ partial class BlockBinder
 
                         if (!IsAssignable(targetType, expr.Type, out var conversion))
                         {
-                            _diagnostics.ReportCannotConvertFromTypeToType(
+                            ReportCannotConvertFromTypeToType(
                                 expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                                 targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                                 expressionSyntax!.GetLocation());
@@ -1668,7 +1668,7 @@ partial class BlockBinder
             {
                 var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
                 if (!IsAssignable(propertyType, unit, out _))
-                    _diagnostics.ReportCannotConvertFromTypeToType(
+                    ReportCannotConvertFromTypeToType(
                         unit.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         returnSyntax.GetLocation());
@@ -1679,7 +1679,7 @@ partial class BlockBinder
 
                 if (!IsAssignable(propertyType, expr.Type, out var conversion))
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
+                    ReportCannotConvertFromTypeToType(
                         expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         expressionSyntax!.GetLocation());

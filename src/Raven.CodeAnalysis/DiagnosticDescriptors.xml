@@ -506,6 +506,14 @@
     Title="Result propagation applies implicit error conversion"
     Message="Result propagation converts errors from '{fromType}' to '{toType}' via implicit conversion '{conversion}'."
     Category="compiler" Severity="Info" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1507" Identifier="ExplicitConversionExists"
+    Title="Explicit conversion exists"
+    Message="An explicit conversion from '{fromType}' to '{toType}' exists. Add an explicit cast."
+    Category="compiler" Severity="Info" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1508" Identifier="RedundantExplicitCast"
+    Title="Redundant explicit cast"
+    Message="Explicit cast from '{fromType}' to '{toType}' is unnecessary because an implicit conversion exists."
+    Category="compiler" Severity="Info" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1504" Identifier="CannotAssignFromTypeToType" Title="Cannot assign to type"
     Message="Cannot assign {fromType} to {toType}" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />

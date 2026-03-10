@@ -368,7 +368,7 @@ partial class BlockBinder : Binder
 
                 if (!initializerSupportsDispose && initializerValueType is not null && initializerValueType.TypeKind != TypeKind.Error)
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
+                    ReportCannotConvertFromTypeToType(
                         initializerValueType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         disposableType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         initializer?.Value.GetLocation() ?? variableDeclarator.Identifier.GetLocation());
@@ -376,7 +376,7 @@ partial class BlockBinder : Binder
                 }
                 else if (type.TypeKind != TypeKind.Error && !IsAssignable(disposableType, type, out _))
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
+                    ReportCannotConvertFromTypeToType(
                         type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         disposableType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         variableDeclarator.Identifier.GetLocation());
@@ -1039,7 +1039,7 @@ partial class BlockBinder : Binder
                 {
                     if (!IsAssignable(expected, boundExpr.Type!, out var conversion))
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             boundExpr.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             expected.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             arg.GetLocation());
@@ -1154,7 +1154,7 @@ partial class BlockBinder : Binder
 
             if (!IsAssignable(intType, sourceType, out var conversion))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
+                ReportCannotConvertFromTypeToType(
                     sourceType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     intType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     indexExpression.Expression.GetLocation());
@@ -1205,7 +1205,7 @@ partial class BlockBinder : Binder
 
             if (!IsAssignable(intType, sourceType, out var conversion))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
+                ReportCannotConvertFromTypeToType(
                     sourceType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     intType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     endpointSyntax.GetLocation());
@@ -1678,11 +1678,16 @@ partial class BlockBinder : Binder
         var conversion = Compilation.ClassifyConversion(expression.Type!, targetType);
         if (!conversion.Exists)
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(expression.Type!, targetType, castExpression.GetLocation());
+            return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
+        }
+
+        if (conversion.IsImplicit)
+        {
+            _diagnostics.ReportRedundantExplicitCast(
                 expression.Type!.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 castExpression.GetLocation());
-            return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
         }
 
         return new BoundConversionExpression(expression, targetType, conversion);
@@ -2133,7 +2138,7 @@ partial class BlockBinder : Binder
 
         if (expression.Type!.IsValueType || targetType.IsValueType)
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 expression.Type!.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 asExpression.GetLocation());
@@ -2144,7 +2149,7 @@ partial class BlockBinder : Binder
         var conversion = Compilation.ClassifyConversion(expression.Type!, targetType);
         if (!conversion.Exists || conversion.IsNumeric || conversion.IsUserDefined)
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 expression.Type!.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 asExpression.GetLocation());
@@ -2386,7 +2391,7 @@ partial class BlockBinder : Binder
                 {
                     if (!IsAssignable(expressionTargetType, sourceType, out var conversion))
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             expressionTargetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             arm.Expression.GetLocation());
@@ -2564,7 +2569,7 @@ partial class BlockBinder : Binder
 
             if (enclosingReturnType is not null && enclosingReturnType.TypeKind != TypeKind.Error)
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
+                ReportCannotConvertFromTypeToType(
                     enclosingReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     operandInfo.UnionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     questionToken.GetLocation());
@@ -2581,7 +2586,7 @@ partial class BlockBinder : Binder
                 operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 questionToken.GetLocation());
 
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 operandInfo.UnionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 enclosingReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 questionToken.GetLocation());
@@ -2610,7 +2615,7 @@ partial class BlockBinder : Binder
             errorConversion = Compilation.ClassifyConversion(operandInfo.ErrorPayloadType, enclosingInfo.ErrorPayloadType);
             if (!errorConversion.Exists)
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
+                ReportCannotConvertFromTypeToType(
                     operandInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     enclosingInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     questionToken.GetLocation());
@@ -4206,9 +4211,9 @@ partial class BlockBinder : Binder
         {
             var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
             var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
-            if (!conversion.Exists)
+            if (!conversion.Exists || !conversion.IsImplicit)
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(condition.Type, boolType, ifExpression.Condition.GetLocation());
+                ReportCannotConvertFromTypeToType(condition.Type, boolType, ifExpression.Condition.GetLocation());
             }
         }
 
@@ -4287,7 +4292,7 @@ partial class BlockBinder : Binder
 
             if (!IsAssignable(target, sourceType, out var conversion))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
+                ReportCannotConvertFromTypeToType(
                     sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     target.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     syntax.GetLocation());
@@ -8999,7 +9004,7 @@ partial class BlockBinder : Binder
 
                 if (location is not null)
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
+                    ReportCannotConvertFromTypeToType(
                         expression.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         location);
@@ -9215,7 +9220,7 @@ partial class BlockBinder : Binder
 
         if (!IsAssignable(parameter.Type, argument.Type, out var conversion))
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 argument.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.GetLocation());
@@ -9406,7 +9411,7 @@ partial class BlockBinder : Binder
                     var sourceType = GetSpreadElementType(spread.Expression.Type!);
                     if (!IsAssignable(elementType, sourceType, out _))
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             syntax.GetLocation());
@@ -9421,7 +9426,7 @@ partial class BlockBinder : Binder
                 {
                     if (!IsAssignable(elementType, element.Type!, out var conversion))
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             syntax.GetLocation());
@@ -9459,7 +9464,7 @@ partial class BlockBinder : Binder
                     var sourceType = GetSpreadElementType(spread.Expression.Type!);
                     if (!IsAssignable(arrayElementType, sourceType, out _))
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             arrayElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             syntax.GetLocation());
@@ -9474,7 +9479,7 @@ partial class BlockBinder : Binder
                 {
                     if (!IsAssignable(arrayElementType, element.Type!, out var conversion2))
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             arrayElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             syntax.GetLocation());
@@ -9526,7 +9531,7 @@ partial class BlockBinder : Binder
                     var sourceType = GetSpreadElementType(spread.Expression.Type!);
                     if (!IsAssignable(elementType, sourceType, out _))
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             syntax.GetLocation());
@@ -9541,7 +9546,7 @@ partial class BlockBinder : Binder
                 {
                     if (!IsAssignable(elementType, element.Type!, out var conversion))
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             syntax.GetLocation());
@@ -9647,7 +9652,7 @@ partial class BlockBinder : Binder
                 {
                     if (!IsAssignable(boolType, condition.Type, out var conversion))
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             condition.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             boolType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             syntax.Condition.GetLocation());
@@ -9727,7 +9732,7 @@ partial class BlockBinder : Binder
 
         if (!TryInferBestCommonType(startType, endType, out var elementType))
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 startType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 endType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 rangeSyntax.GetLocation());
@@ -9737,7 +9742,7 @@ partial class BlockBinder : Binder
         elementType = elementType.UnwrapLiteralType() ?? elementType;
         if (!IsSupportedForRangeLoopType(elementType))
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 elementType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 Compilation.GetSpecialType(SpecialType.System_Int32).ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 rangeSyntax.GetLocation());
@@ -11063,7 +11068,7 @@ partial class BlockBinder : Binder
                     var valueType = assignment.Value.Type ?? Compilation.ErrorTypeSymbol;
                     if (valueType.TypeKind != TypeKind.Error && expectedType.TypeKind != TypeKind.Error)
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
+                        ReportCannotConvertFromTypeToType(
                             valueType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             expectedType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             syntax.Assignments[i++].Expression.GetLocation());

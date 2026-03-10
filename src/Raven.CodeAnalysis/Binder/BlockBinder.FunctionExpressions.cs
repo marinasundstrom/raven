@@ -645,7 +645,7 @@ partial class BlockBinder
         {
             if (!IsAssignable(expectedBodyType, inferred, out var conversion))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
+                ReportCannotConvertFromTypeToType(
                     inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     expectedBodyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     lambdaBodySyntaxNode.GetLocation());
@@ -690,7 +690,7 @@ partial class BlockBinder
             targetSignature is not null &&
             targetSignature.Parameters.Length != parameterSymbols.Count)
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 delegateType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 targetDelegate.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.GetLocation());

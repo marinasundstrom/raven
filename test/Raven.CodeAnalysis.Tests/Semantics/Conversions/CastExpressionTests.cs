@@ -5,13 +5,15 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class CastExpressionTests : DiagnosticTestBase
 {
     [Fact]
-    public void ExplicitCast_Numeric_NoDiagnostic()
+    public void ExplicitCast_Numeric_ReportsRedundantCastDiagnostic()
     {
         string code = """
         val x = (double)1
         """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.RedundantExplicitCast.Id).WithAnySpan().WithArguments("int", "double")
+        ]);
         verifier.Verify();
     }
 
@@ -59,13 +61,15 @@ public class CastExpressionTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void ExplicitCast_WithAdditionalParentheses_NoDiagnostic()
+    public void ExplicitCast_WithAdditionalParentheses_ReportsRedundantCastDiagnostic()
     {
         string code = """
         val value = ((double)1)
         """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.RedundantExplicitCast.Id).WithAnySpan().WithArguments("int", "double")
+        ]);
         verifier.Verify();
     }
 }

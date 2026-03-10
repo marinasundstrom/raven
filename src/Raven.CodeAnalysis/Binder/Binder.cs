@@ -53,6 +53,33 @@ internal abstract partial class Binder
         ImmutableArray<ISymbol> candidates = default)
         => BoundFactory.ErrorExpression(type, symbol, reason, candidates);
 
+    protected void ReportCannotConvertFromTypeToType(object? fromType, object? toType, Location location)
+    {
+        var fromArg = fromType is ITypeSymbol fromTypeSymbolForDisplay
+            ? fromTypeSymbolForDisplay.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat)
+            : fromType;
+        var toArg = toType is ITypeSymbol toTypeSymbolForDisplay
+            ? toTypeSymbolForDisplay.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat)
+            : toType;
+
+        _diagnostics.ReportCannotConvertFromTypeToType(fromArg, toArg, location);
+
+        if (fromType is not ITypeSymbol fromTypeSymbol || toType is not ITypeSymbol toTypeSymbol)
+            return;
+
+        if (fromTypeSymbol.ContainsErrorType() || toTypeSymbol.ContainsErrorType())
+            return;
+
+        var conversion = Compilation.ClassifyConversion(fromTypeSymbol, toTypeSymbol);
+        if (!conversion.Exists || conversion.IsImplicit)
+            return;
+
+        _diagnostics.ReportExplicitConversionExists(
+            fromTypeSymbol.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            toTypeSymbol.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            location);
+    }
+
     protected internal bool IsSymbolAccessible(ISymbol symbol)
     {
         if (symbol is null)

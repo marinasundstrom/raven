@@ -1730,7 +1730,7 @@ partial class BlockBinder
 
         if (!TryGetPropagationInfo(enclosingReturnType, out var enclosingInfo))
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 resultType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 enclosingReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.OperatorToken.GetLocation());
@@ -1740,7 +1740,7 @@ partial class BlockBinder
         if ((kind == BoundCarrierKind.Result && enclosingInfo.Kind != PropagationKind.Result) ||
             (kind == BoundCarrierKind.Option && enclosingInfo.Kind != PropagationKind.Option))
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 resultType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 enclosingInfo.UnionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.OperatorToken.GetLocation());
@@ -1757,7 +1757,7 @@ partial class BlockBinder
         var errorConversion = Compilation.ClassifyConversion(resultErrorType, enclosingInfo.ErrorPayloadType);
         if (!errorConversion.Exists)
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
+            ReportCannotConvertFromTypeToType(
                 resultErrorType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 enclosingInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.OperatorToken.GetLocation());
@@ -2111,7 +2111,7 @@ partial class BlockBinder
         {
             if (!IsAssignable(rangeType, rangeExpression.Type, out var conversion))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
+                ReportCannotConvertFromTypeToType(
                     rangeExpression.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     rangeType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     rangeSyntax.GetLocation());

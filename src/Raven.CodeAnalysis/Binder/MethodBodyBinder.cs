@@ -68,7 +68,7 @@ class MethodBodyBinder : BlockBinder
             {
                 if (!IsAssignable(targetType, sourceType, out var conversion))
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
+                    ReportCannotConvertFromTypeToType(
                         sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         clause.Expression.GetLocation());
@@ -121,7 +121,7 @@ class MethodBodyBinder : BlockBinder
                     ArrowExpressionClauseSyntax arrow => arrow.Expression.GetLocation(),
                     _ => bodySyntax.GetLocation()
                 };
-                _diagnostics.ReportCannotConvertFromTypeToType(
+                ReportCannotConvertFromTypeToType(
                     t.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     GetTrailingExpressionTargetType(_methodSymbol).ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     exprLocation);

@@ -24,6 +24,7 @@ public static class BuiltInCodeFixProviders
             new StringConcatenationToInterpolatedStringCodeFixProvider(),
             new MergeStringLiteralConcatenationCodeFixProvider(),
             new ConstructorParameterNamingCodeFixProvider(),
+            new ConversionCastCodeFixProvider(),
         ];
-    }
+}
 }
