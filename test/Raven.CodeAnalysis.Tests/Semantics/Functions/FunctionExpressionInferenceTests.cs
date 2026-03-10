@@ -389,6 +389,34 @@ class Container {
     }
 
     [Fact]
+    public void FuncLambda_WithIdentifierRecursiveCall_DoesNotCaptureContainingType()
+    {
+        const string code = """
+class Container {
+    func Provide() -> int {
+        val f: (int) -> int = func Fib(n: int) -> int {
+            if n < 2
+                n
+            else
+                Fib(n - 1) + Fib(n - 2)
+        }
+        f(5)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var captures = model.GetCapturedVariables(lambdaSyntax);
+
+        Assert.DoesNotContain(captures, static symbol => symbol is ITypeSymbol { Name: "Container" });
+    }
+
+    [Fact]
     public void FuncLambda_WithIdentifier_IsNotVisibleOutsideBody()
     {
         const string code = """

@@ -274,6 +274,39 @@ class Program {
     }
 
     [Fact]
+    public void FunctionStatement_DoesNotCaptureLocalsDeclaredInNestedFunctionExpression()
+    {
+        const string source = """
+class Program {
+    static func Run() -> () {
+        val f = func Fib(n: int) -> int {
+            val x = if n < 2
+                n
+            else
+                Fib(n - 1) + Fib(n - 2)
+            x
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var run = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(f => f.Identifier.ValueText == "Run");
+        var runSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(run));
+
+        var captures = model.GetCapturedVariables(runSymbol);
+        Assert.DoesNotContain(captures, static s => s is ILocalSymbol { Name: "x" });
+    }
+
+    [Fact]
     public void CapturedLocal_InMethodBody_IsReportedAsCapturedVariable()
     {
         const string source = """

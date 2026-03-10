@@ -16,10 +16,50 @@ public partial class SemanticModel
 
         return symbol switch
         {
-            SourceLambdaSymbol lambda => lambda.CapturedVariables,
-            SourceMethodSymbol method => GetOrComputeFunctionCapturedVariables(method),
+            IMethodSymbol method => GetCapturedVariablesFromMethodSymbol(method),
+            ILocalSymbol local => GetCapturedVariablesFromLocalSymbol(local),
             _ => ImmutableArray<ISymbol>.Empty
         };
+    }
+
+    private ImmutableArray<ISymbol> GetCapturedVariablesFromMethodSymbol(IMethodSymbol method)
+    {
+        if (method is SourceLambdaSymbol sourceLambda)
+            return sourceLambda.CapturedVariables;
+
+        if (method is SourceMethodSymbol sourceMethod)
+            return GetOrComputeFunctionCapturedVariables(sourceMethod);
+
+        if (method.OriginalDefinition is { } originalDefinition &&
+            !SymbolEqualityComparer.Default.Equals(originalDefinition, method))
+        {
+            return GetCapturedVariablesFromMethodSymbol(originalDefinition);
+        }
+
+        if (method.ConstructedFrom is { } constructedFrom &&
+            !SymbolEqualityComparer.Default.Equals(constructedFrom, method))
+        {
+            return GetCapturedVariablesFromMethodSymbol(constructedFrom);
+        }
+
+        return ImmutableArray<ISymbol>.Empty;
+    }
+
+    private ImmutableArray<ISymbol> GetCapturedVariablesFromLocalSymbol(ILocalSymbol local)
+    {
+        if (local is SourceFunctionValueSymbol functionValue)
+            return GetCapturedVariables(functionValue.TargetMethod);
+
+        if (local.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return ImmutableArray<ISymbol>.Empty;
+
+        foreach (var syntaxRef in local.DeclaringSyntaxReferences)
+        {
+            if (syntaxRef.GetSyntax() is VariableDeclaratorSyntax { Initializer.Value: FunctionExpressionSyntax functionExpression })
+                return GetCapturedVariables(functionExpression);
+        }
+
+        return ImmutableArray<ISymbol>.Empty;
     }
 
     public ImmutableArray<ISymbol> GetCapturedVariables(SyntaxNode node)

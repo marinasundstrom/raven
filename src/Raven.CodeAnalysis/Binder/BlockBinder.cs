@@ -5959,7 +5959,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression? BindImplicitMethodGroupReceiver(ImmutableArray<IMethodSymbol> methods)
     {
-        if (!methods.Any(static method => !method.IsStatic))
+        if (!methods.Any(static method => RequiresImplicitInstanceReceiver(method)))
             return null;
 
         if (_containingSymbol is IMethodSymbol method && !method.IsStatic)
@@ -5969,6 +5969,17 @@ partial class BlockBinder : Binder
         }
 
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private static bool RequiresImplicitInstanceReceiver(IMethodSymbol method)
+    {
+        if (method.IsStatic)
+            return false;
+
+        // Only type members use implicit `self`/`this` receivers.
+        // Local functions and lambdas are instance-like during lowering, but they do
+        // not require an implicit receiver at call sites.
+        return method.ContainingSymbol is INamedTypeSymbol;
     }
 
     private BoundExpression BindBinaryExpression(InfixOperatorExpressionSyntax syntax)
@@ -10624,6 +10635,11 @@ partial class BlockBinder : Binder
                 if (SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, _functionSymbol))
                     return;
 
+                // Skip variables declared inside nested lambdas/functions.
+                // They are not captures from the outer scope of _functionSymbol.
+                if (IsNestedWithin(symbol.ContainingSymbol, _functionSymbol))
+                    return;
+
                 _captured.Add(symbol);
                 return;
             }
@@ -10634,6 +10650,18 @@ partial class BlockBinder : Binder
             {
                 _captured.Add(typeSymbol);
             }
+        }
+
+        private static bool IsNestedWithin(ISymbol? scope, ISymbol parent)
+        {
+            var current = scope;
+            while (current is not null)
+            {
+                if (SymbolEqualityComparer.Default.Equals(current, parent))
+                    return true;
+                current = current.ContainingSymbol;
+            }
+            return false;
         }
     }
 
