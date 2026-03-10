@@ -968,7 +968,7 @@ class Calculator {
         const string code = """
 import System.*
 
-val makeAdder = (x: int) -> (func int -> int) => (a: int) => x + a
+val makeAdder = (x: int) -> (int -> int) => (a: int) => x + a
 """;
 
         var (compilation, _) = CreateCompilation(code, options: new CompilationOptions(OutputKind.ConsoleApplication));
