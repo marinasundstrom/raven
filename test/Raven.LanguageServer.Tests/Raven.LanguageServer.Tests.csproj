@@ -18,6 +18,6 @@
     <Using Include="Shouldly" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Raven.Editor\Raven.Editor.csproj" />
+    <ProjectReference Include="..\..\src\Raven.LanguageServer\Raven.LanguageServer.csproj" />
   </ItemGroup>
 </Project>

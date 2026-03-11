@@ -312,4 +312,212 @@ class C {
             [parameterSymbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
         signature.ShouldContain("x:");
     }
+
+    [Fact]
+    public void DeconstructionPatternDeclaration_HoverResolvesBoundLocal()
+    {
+        const string code = """
+class C {
+    func Run() -> int {
+        val [a, b] = [1, 2]
+        a + b
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var references = TargetFrameworkResolver
+            .GetReferenceAssemblies(targetFramework)
+            .Select(MetadataReference.CreateFromFile);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in references)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var declarationIdentifier = root
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(id => id.Identifier.ValueText == "a" &&
+                         id.Ancestors().Any(static n => n is SequencePatternSyntax));
+        var usageIdentifier = root
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(id => id.Identifier.ValueText == "a" &&
+                         !id.Ancestors().Any(static n => n is SequencePatternSyntax));
+
+        var hoverOffset = declarationIdentifier.Identifier.SpanStart + 1;
+        var usageSymbol = semanticModel.GetSymbolInfo(usageIdentifier).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        usageSymbol.DeclaringSyntaxReferences.Any(reference =>
+            reference.SyntaxTree == declarationIdentifier.SyntaxTree &&
+            reference.Span.Contains(declarationIdentifier.Identifier.SpanStart)).ShouldBeTrue();
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("a");
+        usageSymbol.Name.ShouldBe("a");
+    }
+
+    [Fact]
+    public void PositionalDeconstructionPatternDeclaration_HoverResolvesBoundLocals()
+    {
+        const string code = """
+class C {
+    func Run() -> int {
+        val obj = (3, "test")
+        val (id, name) = obj
+        id
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var references = TargetFrameworkResolver
+            .GetReferenceAssemblies(targetFramework)
+            .Select(MetadataReference.CreateFromFile);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in references)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+
+        var tokens = new[]
+        {
+            root.DescendantTokens().First(t =>
+                t.Kind == SyntaxKind.IdentifierToken &&
+                t.ValueText == "id" &&
+                t.Parent?.AncestorsAndSelf().Any(static n => n is PositionalPatternSyntax) == true),
+            root.DescendantTokens().First(t =>
+                t.Kind == SyntaxKind.IdentifierToken &&
+                t.ValueText == "name" &&
+                t.Parent?.AncestorsAndSelf().Any(static n => n is PositionalPatternSyntax) == true)
+        };
+
+        foreach (var token in tokens)
+        {
+            var hoverOffset = token.SpanStart + Math.Min(1, token.Span.Length - 1);
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+            if (resolution is not null)
+            {
+                resolution.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe(token.ValueText);
+                continue;
+            }
+
+            var tryBuildPatternDeclarationHover = typeof(HoverHandler)
+                .GetMethod("TryBuildPatternDeclarationHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+            var hover = tryBuildPatternDeclarationHover.Invoke(
+                null,
+                [syntaxTree.GetText(), semanticModel, root, hoverOffset]);
+            hover.ShouldNotBeNull();
+        }
+    }
+
+    [Fact]
+    public void LambdaDeconstructionPatternDeclaration_HoverResolvesBoundLocal()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+
+class C {
+    func Run() -> () {
+        val tuples = [(1, "x")]
+        val rows = [[1, 2, 3]]
+
+        val s = tuples.Select(((a, b)) => b)
+        val t = rows.Select(([head, ..rest]) => rest)
+
+        _ = [s, t]
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var references = TargetFrameworkResolver
+            .GetReferenceAssemblies(targetFramework)
+            .Select(MetadataReference.CreateFromFile);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in references)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+
+        var tokens = new[]
+        {
+            root.DescendantTokens().First(t =>
+                t.Kind == SyntaxKind.IdentifierToken &&
+                t.ValueText == "rest" &&
+                t.Parent?.AncestorsAndSelf().Any(static n => n is FunctionExpressionSyntax) == true &&
+                t.Parent?.AncestorsAndSelf().Any(static n => n is SequencePatternSyntax) == true)
+        };
+
+        foreach (var token in tokens)
+        {
+            var hoverOffset = token.SpanStart + Math.Min(1, token.Span.Length - 1);
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+            resolution.ShouldNotBeNull();
+            resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe(token.ValueText);
+        }
+    }
+
+    [Fact]
+    public void NestedDeconstructionDeclarations_HoverResolvesBoundSymbols()
+    {
+        const string code = """
+class C {
+    func Run() -> int {
+        val ((a, b), c) = ((1, 2), 3)
+        val [head, [inner1, inner2]] = [1, [2, 3]]
+        a + b + c + head + inner1 + inner2
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var references = TargetFrameworkResolver
+            .GetReferenceAssemblies(targetFramework)
+            .Select(MetadataReference.CreateFromFile);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in references)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+
+        var identifiers = new[] { "a", "b", "c", "head", "inner1", "inner2" };
+        foreach (var name in identifiers)
+        {
+            var declarationToken = root.DescendantTokens().First(t =>
+                t.Kind == SyntaxKind.IdentifierToken &&
+                t.ValueText == name &&
+                t.Parent?.AncestorsAndSelf().Any(static n => n is PositionalPatternSyntax or SequencePatternSyntax) == true);
+
+            var hoverOffset = declarationToken.SpanStart + Math.Min(1, declarationToken.Span.Length - 1);
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(
+                semanticModel,
+                root,
+                hoverOffset);
+
+            resolution.ShouldNotBeNull();
+            resolution!.Value.Symbol.Name.ShouldBe(name);
+        }
+    }
 }

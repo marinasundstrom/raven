@@ -54,6 +54,7 @@ internal static class SymbolResolver
     private static IEnumerable<CandidateNode> GetCandidateNodes(SyntaxNode root, int offset)
     {
         TextSpan? primaryTokenSpan = null;
+        var primaryTokenKind = SyntaxKind.None;
 
         foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
@@ -70,8 +71,10 @@ internal static class SymbolResolver
             if (primaryTokenSpan is null)
             {
                 primaryTokenSpan = token.Span;
+                primaryTokenKind = token.Kind;
             }
-            else if (primaryTokenSpan.Value.Contains(offset))
+            else if (primaryTokenSpan.Value.Contains(offset) &&
+                     IsStickyPrimaryTokenKind(primaryTokenKind))
             {
                 // Original offset already maps to a concrete token; don't let fallback
                 // offsets (for boundary handling) hijack resolution to adjacent symbols.
@@ -99,6 +102,15 @@ internal static class SymbolResolver
             yield return clamped - 1;
     }
 
+    private static bool IsStickyPrimaryTokenKind(SyntaxKind kind)
+        => kind is SyntaxKind.IdentifierToken
+            or SyntaxKind.NumericLiteralToken
+            or SyntaxKind.StringLiteralToken
+            or SyntaxKind.CharacterLiteralToken
+            or SyntaxKind.TrueKeyword
+            or SyntaxKind.FalseKeyword
+            or SyntaxKind.NullKeyword;
+
     private static ISymbol? ResolveSymbolFromNode(SemanticModel semanticModel, SyntaxNode node, SyntaxToken token)
     {
         if (TryResolveCompoundEventAssignmentSymbol(semanticModel, node, token, out var compoundEventSymbol))
@@ -113,20 +125,8 @@ internal static class SymbolResolver
         if (TryResolveRecordPatternCaseSymbol(semanticModel, node, token, out var recordPatternCaseSymbol))
             return recordPatternCaseSymbol;
 
-        if (TryResolvePatternDeclaredSymbol(semanticModel, node, token, out var patternSymbol))
-            return patternSymbol;
-
         if (TryResolveParameterDeclarationSymbol(semanticModel, node, token, out var parameterDeclarationSymbol))
             return parameterDeclarationSymbol;
-
-        if (TryResolveTypePositionSymbol(semanticModel, node, token, out var typePositionSymbol))
-            return typePositionSymbol;
-
-        if (TryResolveMemberSegmentSymbol(semanticModel, node, token, out var memberSegmentSymbol))
-            return memberSegmentSymbol;
-
-        if (TryResolveMemberReceiverSymbol(semanticModel, node, token, out var receiverSymbol))
-            return receiverSymbol;
 
         if (node is FunctionStatementSyntax functionStatement &&
             IsFunctionDeclarationToken(functionStatement, token))
@@ -152,6 +152,27 @@ internal static class SymbolResolver
                 return ProjectSymbolForDisplay(lambdaSymbol);
         }
 
+        if (TryResolvePatternDeclaredSymbol(semanticModel, node, token, out var patternSymbol))
+            return patternSymbol;
+
+        if (TryResolvePatternOperationDeclaredLocal(semanticModel, node, token, out var patternOperationSymbol))
+            return patternOperationSymbol;
+
+        if (TryResolveContainingStatementDesignatorSymbol(semanticModel, node, token, out var statementDesignatorSymbol))
+            return statementDesignatorSymbol;
+
+        if (TryResolveFromEnclosingBlockLocals(semanticModel, node, token, out var blockLocalSymbol))
+            return blockLocalSymbol;
+
+        if (TryResolveTypePositionSymbol(semanticModel, node, token, out var typePositionSymbol))
+            return typePositionSymbol;
+
+        if (TryResolveMemberSegmentSymbol(semanticModel, node, token, out var memberSegmentSymbol))
+            return memberSegmentSymbol;
+
+        if (TryResolveMemberReceiverSymbol(semanticModel, node, token, out var receiverSymbol))
+            return receiverSymbol;
+
         var symbolInfo = semanticModel.GetSymbolInfo(node);
         if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
         {
@@ -166,21 +187,28 @@ internal static class SymbolResolver
         }
 
         var operation = semanticModel.GetOperation(node);
-        var operationSymbol = operation switch
-        {
-            ILiteralOperation literal => literal.Type?.UnwrapLiteralType(),
-            IParameterReferenceOperation parameterReference => (ISymbol?)parameterReference.Parameter,
-            ILocalReferenceOperation localReference => localReference.Local,
-            IVariableReferenceOperation variableReference => variableReference.Variable,
-            IFieldReferenceOperation fieldReference => fieldReference.Field,
-            IPropertyReferenceOperation propertyReference => propertyReference.Property,
-            IMethodReferenceOperation methodReference => methodReference.Method,
-            IMemberReferenceOperation memberReference => memberReference.Symbol,
-            IInvocationOperation invocation => invocation.TargetMethod,
-            _ => null
-        };
+        var tokenReferencedSymbol = FindReferencedSymbolAtToken(operation, token.Span);
+        if (tokenReferencedSymbol is not null)
+            return ProjectSymbolForDisplay(tokenReferencedSymbol);
 
-        return ProjectSymbolForDisplay(operationSymbol);
+        var operationSymbol = operation is null ? null : GetOperationSymbol(operation);
+
+        if (operationSymbol is not null)
+            return ProjectSymbolForDisplay(operationSymbol);
+
+        var containingStatement = node.AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault();
+        if (containingStatement is not null)
+        {
+            var statementOperation = semanticModel.GetOperation(containingStatement);
+            var statementSymbol = FindReferencedSymbolAtToken(statementOperation, token.Span);
+            if (statementSymbol is not null)
+                return ProjectSymbolForDisplay(statementSymbol);
+        }
+
+        if (TryResolveByDeclaringSyntaxReference(semanticModel, token, out var declaringReferenceSymbol))
+            return ProjectSymbolForDisplay(declaringReferenceSymbol);
+
+        return null;
     }
 
     private static bool TryResolveParameterDeclarationSymbol(
@@ -512,15 +540,7 @@ internal static class SymbolResolver
         if (operation is null || !operation.Syntax.Span.Contains(tokenSpan))
             return null;
 
-        ISymbol? current = operation switch
-        {
-            IFieldReferenceOperation fieldReference => fieldReference.Field,
-            IPropertyReferenceOperation propertyReference => propertyReference.Property,
-            IMethodReferenceOperation methodReference => methodReference.Method,
-            IMemberReferenceOperation memberReference => memberReference.Symbol,
-            IInvocationOperation invocation => invocation.TargetMethod,
-            _ => null
-        };
+        var current = GetOperationSymbol(operation);
 
         foreach (var child in operation.ChildOperations)
         {
@@ -533,6 +553,19 @@ internal static class SymbolResolver
         }
 
         return current;
+    }
+
+    private static ISymbol? GetOperationSymbol(IOperation operation)
+    {
+        return operation switch
+        {
+            ILiteralOperation literal => literal.Type?.UnwrapLiteralType(),
+            ISymbolReferenceOperation<ISymbol> symbolReference => symbolReference.Symbol,
+            ISingleVariableDesignatorOperation designator => designator.Local,
+            IVariableDeclaratorOperation declarator => declarator.Symbol,
+            IInvocationOperation invocation => invocation.TargetMethod,
+            _ => null
+        };
     }
 
     private static bool TryResolveInvocationTargetSymbol(
@@ -1138,7 +1171,239 @@ internal static class SymbolResolver
             _ => null
         };
 
+        if (symbol is null &&
+            node is IdentifierNameSyntax identifierName &&
+            token == identifierName.Identifier &&
+            identifierName.Parent is ConstantPatternSyntax &&
+            TryResolveFunctionExpressionPatternLocalSymbol(semanticModel, identifierName, out var implicitPatternLocal))
+        {
+            symbol = implicitPatternLocal;
+        }
+
         return symbol is not null;
+    }
+
+    private static bool TryResolveContainingStatementDesignatorSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        var containingStatement = node.AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault();
+        if (containingStatement is null)
+            return false;
+
+        var statementOperation = semanticModel.GetOperation(containingStatement);
+        if (statementOperation is null)
+            return false;
+
+        var stack = new Stack<IOperation>();
+        stack.Push(statementOperation);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            switch (current)
+            {
+                case ISingleVariableDesignatorOperation designator
+                    when TryMatchDeclaringSpan(designator.Local, token):
+                    symbol = designator.Local;
+                    return true;
+                case IVariableDeclaratorOperation declarator
+                    when TryMatchDeclaringSpan(declarator.Symbol, token):
+                    symbol = declarator.Symbol;
+                    return true;
+            }
+
+            foreach (var child in current.ChildOperations)
+                stack.Push(child);
+        }
+
+        return false;
+    }
+
+    private static bool TryResolvePatternOperationDeclaredLocal(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        var patternSyntax = node.AncestorsAndSelf().FirstOrDefault(static n =>
+            n is PositionalPatternSyntax or SequencePatternSyntax);
+        if (patternSyntax is null)
+            return false;
+
+        var operation = semanticModel.GetOperation(patternSyntax);
+        if (operation is null)
+            return false;
+
+        var targetName = token.ValueText;
+        var stack = new Stack<IOperation>();
+        stack.Push(operation);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            switch (current)
+            {
+                case ISingleVariableDesignatorOperation designator
+                    when designator.Syntax.Span.Contains(token.Span) ||
+                         TryMatchDeclaringSpan(designator.Local, token) ||
+                         (!string.IsNullOrWhiteSpace(targetName) &&
+                          string.Equals(designator.Local.Name, targetName, StringComparison.Ordinal)):
+                    symbol = designator.Local;
+                    return true;
+                case IVariableDeclaratorOperation declarator
+                    when declarator.Syntax.Span.Contains(token.Span) ||
+                         TryMatchDeclaringSpan(declarator.Symbol, token) ||
+                         (!string.IsNullOrWhiteSpace(targetName) &&
+                          string.Equals(declarator.Symbol.Name, targetName, StringComparison.Ordinal)):
+                    symbol = declarator.Symbol;
+                    return true;
+            }
+
+            foreach (var child in current.ChildOperations)
+                stack.Push(child);
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveFromEnclosingBlockLocals(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        foreach (var blockSyntax in node.AncestorsAndSelf().OfType<BlockStatementSyntax>())
+        {
+            if (semanticModel.GetOperation(blockSyntax) is not IBlockOperation blockOperation)
+                continue;
+
+            foreach (var local in blockOperation.Locals)
+            {
+                if (!TryMatchDeclaringSpan(local, token))
+                    continue;
+
+                symbol = local;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveFunctionExpressionPatternLocalSymbol(
+        SemanticModel semanticModel,
+        IdentifierNameSyntax identifierName,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        var parameter = identifierName.Ancestors().OfType<ParameterSyntax>().FirstOrDefault();
+        if (parameter is null || parameter.Pattern is null)
+            return false;
+
+        var functionExpression = parameter.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault();
+        if (functionExpression is null)
+            return false;
+
+        if (semanticModel.GetOperation(functionExpression) is not ILambdaOperation lambdaOperation ||
+            lambdaOperation.Body is null)
+        {
+            return false;
+        }
+
+        var targetName = identifierName.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(targetName))
+            return false;
+
+        var stack = new Stack<IOperation>();
+        stack.Push(lambdaOperation.Body);
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            if (current is IVariableDeclaratorOperation declarator &&
+                string.Equals(declarator.Symbol.Name, targetName, StringComparison.Ordinal))
+            {
+                symbol = declarator.Symbol;
+                return true;
+            }
+
+            if (current is ISingleVariableDesignatorOperation designator &&
+                string.Equals(designator.Local.Name, targetName, StringComparison.Ordinal))
+            {
+                symbol = designator.Local;
+                return true;
+            }
+
+            foreach (var child in current.ChildOperations)
+                stack.Push(child);
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveByDeclaringSyntaxReference(
+        SemanticModel semanticModel,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        if (token.Kind != SyntaxKind.IdentifierToken || string.IsNullOrWhiteSpace(token.ValueText))
+            return false;
+
+        var root = token.SyntaxTree.GetRoot();
+        foreach (var candidate in root.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            if (!string.Equals(candidate.Identifier.ValueText, token.ValueText, StringComparison.Ordinal))
+                continue;
+
+            var info = semanticModel.GetSymbolInfo(candidate);
+            if (TryMatchDeclaringSpan(info.Symbol, token))
+            {
+                symbol = info.Symbol;
+                return true;
+            }
+
+            if (info.CandidateSymbols.IsDefaultOrEmpty)
+                continue;
+
+            foreach (var candidateSymbol in info.CandidateSymbols)
+            {
+                if (!TryMatchDeclaringSpan(candidateSymbol, token))
+                    continue;
+
+                symbol = candidateSymbol;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryMatchDeclaringSpan(ISymbol? symbol, SyntaxToken token)
+    {
+        if (symbol is null || symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return false;
+
+        foreach (var reference in symbol.DeclaringSyntaxReferences)
+        {
+            if (reference.SyntaxTree == token.SyntaxTree &&
+                reference.Span.Contains(token.SpanStart))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

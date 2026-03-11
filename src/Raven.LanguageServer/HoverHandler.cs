@@ -65,7 +65,10 @@ internal sealed class HoverHandler : IHoverHandler
 
             var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
             if (resolution is null)
-                return null;
+            {
+                var patternHover = TryBuildPatternDeclarationHover(sourceText, semanticModel, root, offset);
+                return patternHover;
+            }
 
             var symbol = resolution.Value.Symbol;
             var signature = BuildSignatureForHover(symbol, resolution.Value.Node, semanticModel, root, offset);
@@ -172,6 +175,111 @@ internal sealed class HoverHandler : IHoverHandler
                 }),
                 Range = PositionHelper.ToRange(sourceText, span)
             };
+        }
+
+        return null;
+    }
+
+    private static Hover? TryBuildPatternDeclarationHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)
+    {
+        var plainTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
+            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+            .WithKindOptions(SymbolDisplayKindOptions.None);
+
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Kind != SyntaxKind.IdentifierToken ||
+                token.Parent is not IdentifierNameSyntax identifierName ||
+                identifierName.Parent is not ConstantPatternSyntax)
+            {
+                continue;
+            }
+
+            var pattern = identifierName.AncestorsAndSelf().FirstOrDefault(static n => n is PositionalPatternSyntax or SequencePatternSyntax);
+            if (pattern is null)
+                continue;
+
+            var patternAssignment = identifierName.AncestorsAndSelf().OfType<PatternDeclarationAssignmentStatementSyntax>().FirstOrDefault();
+            if (patternAssignment is null)
+                continue;
+
+            var inferredType = InferPatternElementType(pattern, token, patternAssignment.Right, semanticModel);
+            var typeDisplay = inferredType?.ToDisplayString(plainTypeFormat) ?? "Error";
+            var signature = $"{token.ValueText}: {typeDisplay}";
+            var hoverText = BuildHoverText(
+                signature,
+                kind: "Local",
+                containing: null,
+                documentation: null,
+                capturedVariables: ImmutableArray<ISymbol>.Empty,
+                isCapturedVariable: false);
+
+            return new Hover
+            {
+                Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+                {
+                    Kind = MarkupKind.Markdown,
+                    Value = hoverText
+                }),
+                Range = PositionHelper.ToRange(sourceText, token.Span)
+            };
+        }
+
+        return null;
+    }
+
+    private static ITypeSymbol? InferPatternElementType(
+        SyntaxNode pattern,
+        SyntaxToken token,
+        ExpressionSyntax right,
+        SemanticModel semanticModel)
+    {
+        var rightType = semanticModel.GetTypeInfo(right).Type;
+        if (rightType is null)
+            return null;
+
+        if (pattern is PositionalPatternSyntax positional)
+        {
+            var index = -1;
+            for (var i = 0; i < positional.Elements.Count; i++)
+            {
+                if (!positional.Elements[i].Span.Contains(token.Span))
+                    continue;
+
+                index = i;
+                break;
+            }
+
+            if (index >= 0 && rightType is ITupleTypeSymbol tupleType && index < tupleType.TupleElements.Length)
+                return tupleType.TupleElements[index].Type;
+
+            return null;
+        }
+
+        if (pattern is SequencePatternSyntax sequence)
+        {
+            var element = sequence.Elements.FirstOrDefault(e => e.Span.Contains(token.Span));
+            if (element is null)
+                return null;
+
+            if (element.DotDotToken.Kind != SyntaxKind.None)
+                return rightType;
+
+            if (rightType is IArrayTypeSymbol arrayType)
+                return arrayType.ElementType;
+
+            if (rightType is INamedTypeSymbol named && named.TypeArguments.Length >= 1)
+                return named.TypeArguments[0];
         }
 
         return null;
