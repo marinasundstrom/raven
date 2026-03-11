@@ -495,7 +495,11 @@ UnaryExpression          ::= LambdaExpression
                            | CastExpression ;
 
 LambdaExpression         ::= 'async'? LambdaParameterClause ReturnTypeClause? '=>' Expression ;
-LambdaParameterClause    ::= '(' ParameterList? ')' | Parameter ;
+LambdaParameterClause    ::= '(' LambdaParameterList? ')' | Parameter ;
+LambdaParameterList      ::= LambdaParameter {',' LambdaParameter} ;
+LambdaParameter          ::= Parameter
+                           | PositionalPattern
+                           | CollectionPattern ;
 
 CastExpression           ::= '(' Type ')' UnaryExpression ;
 

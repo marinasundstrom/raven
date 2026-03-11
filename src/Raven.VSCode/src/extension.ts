@@ -24,14 +24,9 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
     }
   }
 
-  // 1) Packaged copy: <extension>/server/Raven.LanguageServer.dll
-  const packagedPath = context.asAbsolutePath(path.join('server', 'Raven.LanguageServer.dll'));
-  attempts.push(packagedPath);
-  if (fs.existsSync(packagedPath)) {
-    return packagedPath;
-  }
-
-  // 2) Dev/workspace copy next to the extension folder
+  // 1) Dev/workspace copy next to the extension folder.
+  // Prefer this over the packaged server so local compiler/language-server
+  // changes are reflected in diagnostics during development.
   // <repo>/src/Raven.LanguageServer/bin/{Debug|Release}/{tfm}/Raven.LanguageServer.dll
   const repoCandidateRoots = [
     path.join(context.extensionPath, '..', 'Raven.LanguageServer', 'bin'),
@@ -51,6 +46,13 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
         }
       }
     }
+  }
+
+  // 2) Packaged copy: <extension>/server/Raven.LanguageServer.dll
+  const packagedPath = context.asAbsolutePath(path.join('server', 'Raven.LanguageServer.dll'));
+  attempts.push(packagedPath);
+  if (fs.existsSync(packagedPath)) {
+    return packagedPath;
   }
 
   output.appendLine('Failed to locate Raven.LanguageServer.dll. Tried:');

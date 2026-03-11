@@ -219,18 +219,18 @@ partial class BlockBinder
 
                 if (parameterType.TypeKind == TypeKind.Error)
                 {
-                    var parameterName = parameterSyntax.Identifier.ValueText;
-                    var parameterLocation = parameterSyntax.Identifier.GetLocation();
+                    var diagnosticParameterName = GetLambdaParameterNameForDiagnostics(parameterSyntax, index);
+                    var diagnosticParameterLocation = GetLambdaParameterLocation(parameterSyntax);
 
                     if (candidateDelegates.IsDefaultOrEmpty)
                     {
                         _diagnostics.ReportLambdaParameterTypeCannotBeInferred(
-                            parameterName,
-                            parameterLocation);
+                            diagnosticParameterName,
+                            diagnosticParameterLocation);
                     }
                     else
                     {
-                        suppressedDiagnostics.Add(new SuppressedLambdaDiagnostic(parameterName, parameterLocation));
+                        suppressedDiagnostics.Add(new SuppressedLambdaDiagnostic(diagnosticParameterName, diagnosticParameterLocation));
                     }
                 }
             }
@@ -251,13 +251,16 @@ partial class BlockBinder
                 }
             }
 
+            var parameterName = GetLambdaParameterSymbolName(parameterSyntax, index);
+            var parameterLocation = GetLambdaParameterLocation(parameterSyntax);
+
             var symbol = new SourceParameterSymbol(
-                parameterSyntax.Identifier.ValueText,
+                parameterName,
                 parameterType,
                 lambdaSymbol,
                 lambdaSymbol.ContainingType,
                 lambdaSymbol.ContainingNamespace,
-                [parameterSyntax.Identifier.GetLocation()],
+                [parameterLocation],
                 [parameterSyntax.GetReference()],
                 refKind,
                 hasExplicitDefaultValue,
@@ -301,6 +304,8 @@ partial class BlockBinder
         foreach (var param in parameterSymbols)
             lambdaBinder.DeclareParameter(param);
 
+        var destructuringPrologue = BindLambdaDestructuringPrologue(lambdaBinder, parameterSyntaxes, parameterSymbols);
+
         ITypeSymbol? lambdaBodyTargetType = targetSignature?.ReturnType;
         if (isAsyncLambda && lambdaBodyTargetType is not null)
             lambdaBodyTargetType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, lambdaBodyTargetType) ?? lambdaBodyTargetType;
@@ -332,6 +337,12 @@ partial class BlockBinder
                 else
                     _functions.Remove(scopedFunctionName);
             }
+        }
+
+        if (destructuringPrologue.Count > 0)
+        {
+            destructuringPrologue.Add(new BoundExpressionStatement(bodyExpr));
+            bodyExpr = new BoundBlockExpression(destructuringPrologue, Compilation.GetSpecialType(SpecialType.System_Unit));
         }
 
         var inferred = bodyExpr.Type;
@@ -672,6 +683,8 @@ partial class BlockBinder
         if (lambdaSymbol is SourceLambdaSymbol sourceLambdaSymbol)
             sourceLambdaSymbol.SetCapturedVariables(capturedVariables);
 
+        var lambdaHasBodyErrors = HasExpressionErrors(bodyExpr);
+
         var delegateType = primaryDelegate is not null &&
             targetSignature is not null &&
             targetSignature.Parameters.Length == parameterSymbols.Count &&
@@ -686,7 +699,8 @@ partial class BlockBinder
                 returnType
             );
 
-        if (targetDelegate is not null &&
+        if (!lambdaHasBodyErrors &&
+            targetDelegate is not null &&
             targetSignature is not null &&
             targetSignature.Parameters.Length != parameterSymbols.Count)
         {
@@ -1352,7 +1366,21 @@ partial class BlockBinder
         if (parameter.Type is not INamedTypeSymbol delegateType)
             return false;
 
-        return ReplayLambda(lambda, delegateType) is not null;
+        if (ReplayLambda(lambda, delegateType) is not null)
+            return true;
+
+        // If lambda body binding already produced diagnostics (e.g., unknown identifier in body),
+        // keep signature-compatible candidates so overload resolution can still pick a method and
+        // avoid cascading "no overload" diagnostics.
+        if (!HasFunctionExpressionErrors(lambda))
+            return false;
+
+        var invoke = delegateType.GetDelegateInvokeMethod();
+        if (invoke is null)
+            return false;
+
+        var lambdaParameterCount = lambda.Parameters.Count();
+        return invoke.Parameters.Length == lambdaParameterCount;
     }
 
     private BoundFunctionExpression? ReplayLambda(BoundFunctionExpression lambda, INamedTypeSymbol delegateType)
@@ -1526,13 +1554,16 @@ partial class BlockBinder
             // lambda against an unrelated delegate candidate (e.g. RequestDelegate(HttpContext)->Task)
             // and we must not report diagnostics like "default cannot convert to HttpContext" for
             // a delegate type that will not be selected.
+            var parameterName = GetLambdaParameterSymbolName(parameterSyntax, index);
+            var parameterLocation = GetLambdaParameterLocation(parameterSyntax);
+
             var parameterSymbol = new SourceParameterSymbol(
-                parameterSyntax.Identifier.ValueText,
+                parameterName,
                 parameterType,
                 _containingSymbol,
                 _containingSymbol.ContainingType as INamedTypeSymbol,
                 _containingSymbol.ContainingNamespace,
-                [parameterSyntax.Identifier.GetLocation()],
+                [parameterLocation],
                 [parameterSyntax.GetReference()],
                 refKind,
                 hasExplicitDefaultValue: hasExplicitDefaultValue,
@@ -1591,11 +1622,19 @@ partial class BlockBinder
         foreach (var parameter in parameterSymbols)
             lambdaBinder.DeclareParameter(parameter);
 
+        var destructuringPrologue = BindLambdaDestructuringPrologue(lambdaBinder, parameterSyntaxes, parameterSymbols);
+
         var lambdaBodySyntax = GetLambdaBodyExpression(syntax);
         BoundExpression body;
         try
         {
             body = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
+
+            if (destructuringPrologue.Count > 0)
+            {
+                destructuringPrologue.Add(new BoundExpressionStatement(body));
+                body = new BoundBlockExpression(destructuringPrologue, Compilation.GetSpecialType(SpecialType.System_Unit));
+            }
         }
         finally
         {
@@ -1788,6 +1827,53 @@ partial class BlockBinder
         return null;
     }
 
+    private static string GetLambdaParameterSymbolName(ParameterSyntax parameterSyntax, int index)
+    {
+        var name = parameterSyntax.Identifier.ValueText;
+        return string.IsNullOrEmpty(name) ? $"__destructuredArg{index}" : name;
+    }
+
+    private static string GetLambdaParameterNameForDiagnostics(ParameterSyntax parameterSyntax, int index)
+    {
+        var name = parameterSyntax.Identifier.ValueText;
+        return string.IsNullOrEmpty(name) ? $"parameter{index + 1}" : name;
+    }
+
+    private static Location GetLambdaParameterLocation(ParameterSyntax parameterSyntax)
+        => parameterSyntax.Pattern?.GetLocation() ?? parameterSyntax.Identifier.GetLocation();
+
+    private List<BoundStatement> BindLambdaDestructuringPrologue(
+        FunctionExpressionBinder lambdaBinder,
+        ParameterSyntax[] parameterSyntaxes,
+        List<IParameterSymbol> parameterSymbols)
+    {
+        var prologue = new List<BoundStatement>();
+
+        for (var index = 0; index < parameterSyntaxes.Length; index++)
+        {
+            var parameterSyntax = parameterSyntaxes[index];
+            if (parameterSyntax.Pattern is not PatternSyntax pattern)
+                continue;
+
+            var declarationBindingKeywordKind = parameterSyntax.BindingKeyword.Kind switch
+            {
+                SyntaxKind.VarKeyword => SyntaxKind.VarKeyword,
+                SyntaxKind.LetKeyword => SyntaxKind.LetKeyword,
+                _ => SyntaxKind.ValKeyword
+            };
+
+            var assignment = lambdaBinder.BindPatternAssignment(
+                pattern,
+                new BoundParameterAccess(parameterSymbols[index]),
+                pattern,
+                declarationBindingKeywordKind);
+
+            prologue.Add(new BoundExpressionStatement(assignment));
+        }
+
+        return prologue;
+    }
+
     private static ExpressionSyntax GetLambdaBodyExpression(FunctionExpressionSyntax syntax)
         => syntax.Body ?? syntax.ExpressionBody?.Expression
             ?? throw new InvalidOperationException("Function expression is missing both block and expression bodies.");
@@ -1833,5 +1919,44 @@ partial class BlockBinder
             if (argument.Expression is BoundFunctionExpression { Unbound: { } unbound })
                 unbound.ReportSuppressedDiagnostics(_diagnostics);
         }
+    }
+
+    private static bool HasLambdaBodyBindingErrors(IEnumerable<BoundArgument> arguments)
+    {
+        foreach (var argument in arguments)
+        {
+            if (argument.Expression is BoundFunctionExpression lambda &&
+                HasFunctionExpressionErrors(lambda))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasExistingArgumentErrors(SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        foreach (var argument in arguments)
+        {
+            var expression = argument.Expression;
+            if (expression is null)
+                continue;
+
+            var span = expression.Span;
+            foreach (var diagnostic in _diagnostics.AsEnumerable())
+            {
+                if (diagnostic.Severity != DiagnosticSeverity.Error ||
+                    diagnostic.Location is null)
+                {
+                    continue;
+                }
+
+                if (diagnostic.Location.SourceSpan.IntersectsWith(span))
+                    return true;
+            }
+        }
+
+        return false;
     }
 }

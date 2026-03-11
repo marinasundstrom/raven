@@ -198,7 +198,9 @@ partial class BlockBinder
         }
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
-        _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
+        if (!HasLambdaBodyBindingErrors(boundArguments) &&
+            !HasExistingArgumentErrors(syntax.ArgumentList.Arguments))
+            _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
     }
 

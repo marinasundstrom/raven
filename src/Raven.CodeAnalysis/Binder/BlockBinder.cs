@@ -7483,7 +7483,9 @@ partial class BlockBinder : Binder
                 if (!AreArgumentsCompatibleWithMethod(invokeMethod, boundArguments.Length, receiver, boundArguments))
                 {
                     ReportSuppressedLambdaDiagnostics(boundArguments);
-                    _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
+                    if (!HasLambdaBodyBindingErrors(boundArguments) &&
+                        !HasExistingArgumentErrors(argumentList.Arguments))
+                        _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
                     return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
                 }
 
@@ -7575,7 +7577,9 @@ partial class BlockBinder : Binder
                 }
 
                 ReportSuppressedLambdaDiagnostics(boundArguments);
-                _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
+                if (!HasLambdaBodyBindingErrors(boundArguments) &&
+                    !HasExistingArgumentErrors(argumentList.Arguments))
+                    _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
                 return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
             }
 
@@ -7649,7 +7653,10 @@ partial class BlockBinder : Binder
                     candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
 
-            _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
+            ReportSuppressedLambdaDiagnostics(boundArguments);
+            if (!HasLambdaBodyBindingErrors(boundArguments) &&
+                !HasExistingArgumentErrors(argumentList.Arguments))
+                _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
@@ -7698,7 +7705,9 @@ partial class BlockBinder : Binder
             }
 
             ReportSuppressedLambdaDiagnostics(boundArguments);
-            _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
+            if (!HasLambdaBodyBindingErrors(boundArguments) &&
+                !HasExistingArgumentErrors(argumentList.Arguments))
+                _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
@@ -8073,10 +8082,36 @@ partial class BlockBinder : Binder
         if (IsErrorExpression(expression))
             return true;
 
-        if (expression is BoundFunctionExpression)
-            return false;
+        if (expression is BoundFunctionExpression function)
+            return HasFunctionExpressionErrors(function);
 
         return expression.Type?.ContainsErrorType() == true;
+    }
+
+    private static bool HasFunctionExpressionErrors(BoundFunctionExpression function)
+    {
+        var finder = new BoundErrorExpressionFinder();
+        finder.Visit(function.Body);
+        return finder.Found;
+    }
+
+    private sealed class BoundErrorExpressionFinder : BoundTreeWalker
+    {
+        public bool Found { get; private set; }
+
+        public override void Visit(BoundNode node)
+        {
+            if (Found || node is null)
+                return;
+
+            if (node is BoundErrorExpression)
+            {
+                Found = true;
+                return;
+            }
+
+            base.Visit(node);
+        }
     }
 
     private BoundErrorExpression AsErrorExpression(BoundExpression expression)
@@ -9097,6 +9132,13 @@ partial class BlockBinder : Binder
             if (!ShouldAttemptConversion(expression) ||
                 parameter.Type.TypeKind == TypeKind.Error ||
                 expression.Type is null)
+            {
+                converted[i] = expression;
+                continue;
+            }
+
+            if (expression is BoundFunctionExpression lambdaWithErrors &&
+                HasExpressionErrors(lambdaWithErrors))
             {
                 converted[i] = expression;
                 continue;

@@ -439,6 +439,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         if (!IsPossibleAssignmentPatternStart(PeekToken()))
             return false;
 
+        // Parenthesized lambda parameters can start with pattern syntax like `([a, ...rest]) => ...`.
+        // Avoid speculative pattern parsing here, which can otherwise leak diagnostics before lambda parsing wins.
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken) && HasFatArrowBeforeLineBreakOrEquals())
+            return false;
+
         var checkpoint = CreateCheckpoint("assignment-pattern");
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken) &&
@@ -491,6 +496,33 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (token.Kind == SyntaxKind.EqualsToken && depth > 0)
                 return true;
         }
+    }
+
+    private bool HasFatArrowBeforeLineBreakOrEquals()
+    {
+        const int maxLookahead = 64;
+
+        for (var i = 0; i < maxLookahead; i++)
+        {
+            var token = PeekToken(i);
+
+            if (token.IsKind(SyntaxKind.EndOfFileToken))
+                return false;
+
+            if (IsNewLineLike(token))
+                return false;
+
+            if (i > 0 && HasLeadingNewLine(token))
+                return false;
+
+            if (token.IsKind(SyntaxKind.FatArrowToken))
+                return true;
+
+            if (token.IsKind(SyntaxKind.EqualsToken))
+                return false;
+        }
+
+        return false;
     }
 
     private static SyntaxKind GetAssignmentExpressionKind(SyntaxToken operatorToken)
@@ -957,7 +989,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             return false;
         }
 
-        var parameterList = new StatementSyntaxParser(this).ParseParameterList();
+        var parameterList = new StatementSyntaxParser(this).ParseParameterList(allowDestructuringPatterns: true);
 
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
         var constraintClauses = typeParameterList is not null
@@ -1022,7 +1054,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         SplitLeadingLambdaAttributeLists(leadingAttributeLists, out var parameterAttributeLists, out var returnAttributeLists);
 
-        var parameterList = new StatementSyntaxParser(this).ParseParameterList();
+        var parameterList = new StatementSyntaxParser(this).ParseParameterList(allowDestructuringPatterns: true);
         if (parameterAttributeLists.SlotCount > 0 &&
             parameterList.Parameters.SlotCount > 0 &&
             parameterList.Parameters[0] is ParameterSyntax firstParameter)
@@ -1034,6 +1066,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 firstParameter.RefKindKeyword,
                 firstParameter.BindingKeyword,
                 firstParameter.Identifier,
+                firstParameter.Pattern,
                 firstParameter.TypeAnnotation,
                 firstParameter.DefaultValue);
 
@@ -1221,7 +1254,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             expressionBody = null;
         }
 
-        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, identifier, typeAnnotation, defaultValue);
+        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, identifier, null, typeAnnotation, defaultValue);
 
         lambda = SimpleFunctionExpression(
             staticKeyword ?? Token(SyntaxKind.None),

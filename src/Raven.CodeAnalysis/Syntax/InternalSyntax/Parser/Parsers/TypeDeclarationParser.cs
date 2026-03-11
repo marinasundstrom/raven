@@ -1137,7 +1137,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, accessibilityKeyword, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+                parameterList.Add(Parameter(attributeLists, accessibilityKeyword, refKindKeyword, bindingKeyword, name, null, typeAnnotation, defaultValue));
                 parsedParameters++;
             }
 
@@ -1430,7 +1430,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, name, null, typeAnnotation, defaultValue));
                 parsedParameters++;
             }
 

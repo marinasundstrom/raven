@@ -28,6 +28,31 @@ public class FunctionExpressionSyntaxTests
     }
 
     [Fact]
+    public void ParenthesizedLambda_WithPositionalDestructuringParameter_Parses()
+    {
+        var expression = ParseExpression("((a, b)) => a + b");
+
+        var lambda = Assert.IsType<ParenthesizedFunctionExpressionSyntax>(expression);
+        var parameter = Assert.Single(lambda.ParameterList.Parameters);
+        Assert.True(parameter.Identifier.IsMissing);
+        var pattern = Assert.IsType<PositionalPatternSyntax>(parameter.Pattern);
+        Assert.Equal(2, pattern.Elements.Count);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithSequenceDestructuringParameter_Parses()
+    {
+        var expression = ParseExpression("([a, ...rest]) => a");
+
+        var lambda = Assert.IsType<ParenthesizedFunctionExpressionSyntax>(expression);
+        var parameter = Assert.Single(lambda.ParameterList.Parameters);
+        Assert.True(parameter.Identifier.IsMissing);
+        var pattern = Assert.IsType<SequencePatternSyntax>(parameter.Pattern);
+        Assert.Equal(2, pattern.Elements.Count);
+        Assert.Equal(SyntaxKind.DotDotToken, pattern.Elements[1].DotDotToken.Kind);
+    }
+
+    [Fact]
     public void SimpleLambda_WithAsyncModifier_Parses()
     {
         var expression = ParseExpression("async value => value");

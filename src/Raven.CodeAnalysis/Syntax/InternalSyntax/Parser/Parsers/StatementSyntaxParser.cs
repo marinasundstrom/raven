@@ -624,7 +624,7 @@ internal class StatementSyntaxParser : SyntaxParser
         return BlockStatement(openBrace, List(statements), closeBrace);
     }
 
-    public ParameterListSyntax ParseParameterList(SyntaxToken? openParenToken = null)
+    public ParameterListSyntax ParseParameterList(SyntaxToken? openParenToken = null, bool allowDestructuringPatterns = false)
     {
         var openParenTokenValue = openParenToken ?? ReadToken();
 
@@ -665,7 +665,11 @@ internal class StatementSyntaxParser : SyntaxParser
                 }
 
                 var parameterStart = Position;
-                var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+                var canStartDestructuringPattern = allowDestructuringPatterns &&
+                    (PeekToken().IsKind(SyntaxKind.OpenParenToken) || PeekToken().IsKind(SyntaxKind.OpenBracketToken));
+                var attributeLists = canStartDestructuringPattern
+                    ? SyntaxList.Empty
+                    : AttributeDeclarationParser.ParseAttributeLists(this);
 
                 var refKindKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
@@ -675,8 +679,14 @@ internal class StatementSyntaxParser : SyntaxParser
                 if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
                     bindingKeyword = ReadToken();
 
+                PatternSyntax? pattern = null;
                 SyntaxToken name;
-                if (CanTokenBeIdentifier(PeekToken()))
+                if (canStartDestructuringPattern)
+                {
+                    pattern = new PatternSyntaxParser(this).ParsePattern();
+                    name = MissingToken(SyntaxKind.IdentifierToken);
+                }
+                else if (CanTokenBeIdentifier(PeekToken()))
                 {
                     name = ReadIdentifierToken();
                 }
@@ -728,7 +738,7 @@ internal class StatementSyntaxParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, name, pattern, typeAnnotation, defaultValue));
                 parsedParameters++;
             }
         }

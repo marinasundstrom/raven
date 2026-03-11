@@ -1243,6 +1243,83 @@ async func Main() -> Task {
         Assert.Single(receiverType.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, receiverType.TypeArguments[0].SpecialType);
     }
+
+    [Fact]
+    public void Lambda_WithPositionalDestructuringParameter_UsesInferredTupleType()
+    {
+        const string code = """
+import System.*
+class C {
+    func Apply(projector: Func<(int, int), int>) -> int {
+        return projector((4, 6))
+    }
+
+    func Test() -> int {
+        return Apply(((a, b)) => a + b)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+
+        var tupleParameter = Assert.Single(boundLambda.Parameters);
+        Assert.IsAssignableFrom<ITupleTypeSymbol>(tupleParameter.Type);
+
+        var localNames = lambdaSyntax
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Select(id => model.GetSymbolInfo(id).Symbol)
+            .OfType<ILocalSymbol>()
+            .Select(local => local.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        Assert.Contains("a", localNames);
+        Assert.Contains("b", localNames);
+    }
+
+    [Fact]
+    public void Lambda_WithSequenceDestructuringParameter_SupportsJsStyleRest()
+    {
+        const string code = """
+import System.*
+class C {
+    func Apply(projector: Func<int[], int>) -> int {
+        return projector([1, 2, 3])
+    }
+
+    func Test() -> int {
+        return Apply(([a, ...rest]) => a + rest[0] + rest[1])
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+
+        var arrayParameter = Assert.Single(boundLambda.Parameters);
+        Assert.IsAssignableFrom<IArrayTypeSymbol>(arrayParameter.Type);
+
+        var restSymbols = lambdaSyntax
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(id => id.Identifier.ValueText == "rest")
+            .Select(id => model.GetSymbolInfo(id).Symbol)
+            .OfType<ILocalSymbol>()
+            .Where(local => local.Name == "rest")
+            .ToArray();
+        Assert.NotEmpty(restSymbols);
+        Assert.All(restSymbols, local => Assert.IsAssignableFrom<IArrayTypeSymbol>(local.Type));
+    }
 }
 
 public class FunctionExpressionInferenceDiagnosticsTests : DiagnosticTestBase
@@ -1288,6 +1365,29 @@ class Container {
             code,
             [
                 new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("missingValue"),
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void Lambda_WithDestructuredParameterBodyError_DoesNotReportOverloadCascade()
+    {
+        const string code = """
+import System.*
+
+class Container {
+    func Test() -> unit {
+        val x2 = [[1, 2], [2, 3, 4]]
+        val r2 = x2.Select(([a, ..rest]) => b)
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("b"),
             ]);
 
         verifier.Verify();

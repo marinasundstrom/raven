@@ -219,6 +219,43 @@ class Counter {
         Assert.Equal(15, value);
     }
 
+    [Fact]
+    public void Lambda_WithPositionalDestructuredParameter_EmitsAndRuns()
+    {
+        var code = """
+import System.*
+class Picker {
+    func Apply(projector: Func<(int, string), string>) -> string {
+        return projector((2, "foo"))
+    }
+
+    func PickSecond() -> string {
+        return Apply(((a, b)) => b)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Picker", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("PickSecond", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var value = (string)method.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal("foo", value);
+    }
+
     // Known bug: self is not detected as a captured variable, so the lambda is
     // incorrectly emitted as a static method, which produces RAV2801.
     // The correct result is 15 (self.value=8, offset=7). Tracked for fixing.

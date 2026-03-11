@@ -374,8 +374,21 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private SequencePatternElementSyntax ParseSequencePatternElement()
     {
-        if (!ConsumeToken(SyntaxKind.DotDotToken, out var dotDotToken))
+        SyntaxToken dotDotToken;
+        if (PeekToken().IsKind(SyntaxKind.DotToken) && PeekToken(1).IsKind(SyntaxKind.DotDotToken))
+        {
+            // Lexer currently tokenizes `...rest` as `.` + `..`.
+            ReadToken();
+            dotDotToken = ReadToken();
+        }
+        else if (!ConsumeToken(SyntaxKind.DotDotToken, out dotDotToken))
+        {
             return SequencePatternElement(Token(SyntaxKind.None), ParsePattern());
+        }
+
+        // Allow JavaScript-style `...rest` as sugar for Raven's `..rest`.
+        if (PeekToken().IsKind(SyntaxKind.DotToken))
+            ReadToken();
 
         PatternSyntax restPattern;
         if (PeekToken().IsKind(SyntaxKind.UnderscoreToken))

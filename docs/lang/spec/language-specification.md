@@ -3108,6 +3108,30 @@ modifiers) from the delegate's `Invoke` signature and converts the body to the
 delegate's return type. If no delegate context is available, diagnostic
 `RAV2200` is reported and explicit parameter annotations are required.
 
+Parenthesized function-expression parameter lists also support destructuring
+patterns as parameter entries:
+
+* **positional deconstructuring** (tuple/`Deconstruct` style), for example `((a, b))`
+* **sequence deconstructuring** (collection style), for example `([head, ..tail])`
+
+This is primarily target-typed and inference-driven: the underlying parameter
+type still comes from the delegate context, and destructuring is then applied
+inside the lambda body.
+
+```raven
+val pickSecond: ((int, string)) -> string = ((a, b)) => b
+val sumTail: (int[]) -> int = ([head, ..tail]) => head + tail[0]
+```
+
+For sequence destructuring in lambda parameter lists, `..name` and JavaScript-
+style `...name` are both accepted as rest syntax.
+
+When a destructuring parameter omits per-element binding keywords, elements are
+bound as immutable (`val`) by default. Compatibility is still validated against
+the inferred parameter type; non-deconstructable inputs produce the same
+deconstruction diagnostics as other pattern-based bindings (for example
+`RAV0132`).
+
 Function expressions are target-typed: the same function expression may be assigned to, passed
 to, or returned as any compatible delegate type. Compatibility is determined
 solely by the delegate's `Invoke` signature (parameter types, `ref`/`out`
@@ -3479,6 +3503,10 @@ val [first, ..middle, last] = values
 
 `..name` captures the remaining elements as an array slice. `.._` discards the
 remaining segment.
+
+> ⚠️ **Runtime shape note:** sequence deconstructuring is length-sensitive at
+> runtime. If the input sequence does not contain enough elements for the fixed
+> prefix/suffix elements in the pattern, evaluation may fail at runtime.
 
 The discard identifier also appears in ordinary assignment statements. Writing
 `_ = Compute()` produces a discard assignment statement whose left-hand side is a
