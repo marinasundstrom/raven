@@ -247,7 +247,6 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is IParameterSymbol parameter)
         {
-            var binding = parameter.IsMutable ? "var" : "val";
             var parameterTypeSymbol = parameter.Type;
             if (parameterTypeSymbol.TypeKind == TypeKind.Error &&
                 TryInferLambdaParameterTypeFromContext(parameter, contextNode, semanticModel, out var inferredParameterType))
@@ -262,7 +261,7 @@ internal sealed class HoverHandler : IHoverHandler
 
             var parameterType = parameterTypeSymbol.ToDisplayString(plainTypeFormat);
             var accessibilityPrefix = GetNonPublicParameterAccessibilityPrefix(parameter);
-            return $"{accessibilityPrefix}{binding} {parameter.Name}: {parameterType}";
+            return $"{accessibilityPrefix}{parameter.Name}: {parameterType}";
         }
 
         if (symbol is ILocalSymbol local)
@@ -348,16 +347,12 @@ internal sealed class HoverHandler : IHoverHandler
             .WithKindOptions(SymbolDisplayKindOptions.None);
 
         var symbolName = symbol.Name;
-        var binding = symbol switch
-        {
-            IParameterSymbol parameter when parameter.Type.TypeKind == TypeKind.Error
-                => parameter.IsMutable ? "var" : "val",
-            ILocalSymbol local when local.Type.TypeKind == TypeKind.Error
-                => local.IsMutable ? "var" : "val",
-            _ => null
-        };
+        var isErrorParameter = symbol is IParameterSymbol parameter && parameter.Type.TypeKind == TypeKind.Error;
+        var localBinding = symbol is ILocalSymbol local && local.Type.TypeKind == TypeKind.Error
+            ? local.IsMutable ? "var" : "val"
+            : null;
 
-        if (binding is null)
+        if (!isErrorParameter && localBinding is null)
             return false;
 
         var clampedOffset = Math.Clamp(offset, 0, root.FullSpan.End);
@@ -391,7 +386,9 @@ internal sealed class HoverHandler : IHoverHandler
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return false;
 
-        signature = $"{binding} {symbolName}: {receiverType.ToDisplayString(plainTypeFormat)}";
+        signature = localBinding is not null
+            ? $"{localBinding} {symbolName}: {receiverType.ToDisplayString(plainTypeFormat)}"
+            : $"{symbolName}: {receiverType.ToDisplayString(plainTypeFormat)}";
         return true;
     }
 

@@ -206,7 +206,7 @@ class C {
         var signature = (string)buildSignatureForHover.Invoke(
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, receiverIdentifier.Identifier.SpanStart + 1])!;
-        signature.ShouldContain("val x: Error");
+        signature.ShouldContain("x: Error");
     }
 
     [Fact]
@@ -262,5 +262,54 @@ class C {
         signature.ShouldStartWith("(");
         signature.ShouldContain("->");
         signature.ShouldNotContain("Func(");
+    }
+
+    [Fact]
+    public void FunctionExpressionParameterDeclaration_HoverResolvesParameterSymbol()
+    {
+        const string code = """
+class C {
+    func Run() -> int {
+        val project: (int) -> int = (x: int) => x + 1
+        project(5)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var references = TargetFrameworkResolver
+            .GetReferenceAssemblies(targetFramework)
+            .Select(MetadataReference.CreateFromFile);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in references)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var lambdaParameter = root
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .Single()
+            .ParameterList
+            .Parameters
+            .Single();
+
+        var hoverOffset = lambdaParameter.TypeAnnotation!.ColonToken.SpanStart + 1;
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+        var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        parameterSymbol.Name.ShouldBe("x");
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignatureForHover.Invoke(
+            null,
+            [parameterSymbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
+        signature.ShouldContain("x:");
     }
 }

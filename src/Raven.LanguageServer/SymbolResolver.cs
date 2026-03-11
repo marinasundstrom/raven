@@ -116,6 +116,9 @@ internal static class SymbolResolver
         if (TryResolvePatternDeclaredSymbol(semanticModel, node, token, out var patternSymbol))
             return patternSymbol;
 
+        if (TryResolveParameterDeclarationSymbol(semanticModel, node, token, out var parameterDeclarationSymbol))
+            return parameterDeclarationSymbol;
+
         if (TryResolveTypePositionSymbol(semanticModel, node, token, out var typePositionSymbol))
             return typePositionSymbol;
 
@@ -124,13 +127,6 @@ internal static class SymbolResolver
 
         if (TryResolveMemberReceiverSymbol(semanticModel, node, token, out var receiverSymbol))
             return receiverSymbol;
-
-        if (node is ParameterSyntax parameterDeclaration && token == parameterDeclaration.Identifier)
-            return semanticModel.GetDeclaredSymbol(parameterDeclaration);
-
-        if (node.Parent is ParameterSyntax parentParameterDeclaration &&
-            token == parentParameterDeclaration.Identifier)
-            return semanticModel.GetDeclaredSymbol(parentParameterDeclaration);
 
         if (node is FunctionStatementSyntax functionStatement &&
             IsFunctionDeclarationToken(functionStatement, token))
@@ -185,6 +181,84 @@ internal static class SymbolResolver
         };
 
         return ProjectSymbolForDisplay(operationSymbol);
+    }
+
+    private static bool TryResolveParameterDeclarationSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        var parameter = node as ParameterSyntax ?? node.Parent as ParameterSyntax;
+        if (parameter is null)
+            return false;
+
+        if (!parameter.Span.Contains(token.Span))
+            return false;
+
+        // Let nested syntax keep their own hover identity:
+        // parameter type annotation should hover the type, and default values
+        // should hover symbols inside the expression.
+        if (parameter.TypeAnnotation?.Type.Span.Contains(token.Span) == true)
+            return false;
+
+        if (parameter.DefaultValue?.Value.Span.Contains(token.Span) == true)
+            return false;
+
+        symbol = semanticModel.GetDeclaredSymbol(parameter);
+        if (symbol is not null)
+            return true;
+
+        if (TryResolveFunctionExpressionParameterSymbol(semanticModel, parameter, out symbol))
+            return true;
+
+        return false;
+    }
+
+    private static bool TryResolveFunctionExpressionParameterSymbol(
+        SemanticModel semanticModel,
+        ParameterSyntax parameter,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        var functionExpression = parameter.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault();
+        if (functionExpression is null)
+            return false;
+
+        var functionSymbolInfo = semanticModel.GetSymbolInfo(functionExpression);
+        var functionSymbol = functionSymbolInfo.Symbol ?? functionSymbolInfo.CandidateSymbols.FirstOrDefault();
+        if (functionSymbol is not IMethodSymbol lambdaMethod)
+            return false;
+
+        var parameterList = parameter.Parent as ParameterListSyntax;
+        if (parameterList is null)
+            return false;
+
+        var parameterIndex = -1;
+        for (var i = 0; i < parameterList.Parameters.Count; i++)
+        {
+            if (!ReferenceEquals(parameterList.Parameters[i], parameter))
+                continue;
+
+            parameterIndex = i;
+            break;
+        }
+
+        if (parameterIndex >= 0 && parameterIndex < lambdaMethod.Parameters.Length)
+        {
+            symbol = lambdaMethod.Parameters[parameterIndex];
+            return true;
+        }
+
+        if (parameter.Identifier.IsMissing)
+            return false;
+
+        symbol = lambdaMethod.Parameters.FirstOrDefault(
+            p => string.Equals(p.Name, parameter.Identifier.ValueText, StringComparison.Ordinal));
+        return symbol is not null;
     }
 
     private static bool TryResolveMemberReceiverSymbol(

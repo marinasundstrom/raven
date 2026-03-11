@@ -1048,21 +1048,8 @@ public static partial class SymbolExtensions
     {
         var includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType);
         var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName);
-        var includeBinding = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeBinding);
 
         var builder = new StringBuilder();
-
-        if (includeBinding)
-        {
-            if (parameter.IsMutable)
-            {
-                builder.Append("var ");
-            }
-            else
-            {
-                builder.Append("val ");
-            }
-        }
 
         // Core "name: type" (or just type / just name depending on options)
         var core = FormatNamedSymbol(

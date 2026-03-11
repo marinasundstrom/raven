@@ -3132,6 +3132,11 @@ the inferred parameter type; non-deconstructable inputs produce the same
 deconstruction diagnostics as other pattern-based bindings (for example
 `RAV0132`).
 
+Parameters themselves do not carry binding keywords in symbol display/tooling
+representations. Hover/signature text renders them as `name: type`. In
+primary-constructor contexts, `val`/`var` continues to mean promotion to a
+property rather than a mutable parameter binding.
+
 Function expressions are target-typed: the same function expression may be assigned to, passed
 to, or returned as any compatible delegate type. Compatibility is determined
 solely by the delegate's `Invoke` signature (parameter types, `ref`/`out`
