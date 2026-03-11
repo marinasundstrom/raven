@@ -43,8 +43,8 @@ func Main() {
         var compilation = CreateCompilation(syntaxTree);
         var model = compilation.GetSemanticModel(syntaxTree);
 
-        var diagnostics = model.GetDiagnostics();
-        _ = diagnostics.Count;
+        var diagnostics = compilation.GetDiagnostics();
+        _ = diagnostics.Length;
 
         var incompleteStatement = syntaxTree.GetRoot()
             .DescendantNodes()
@@ -52,5 +52,34 @@ func Main() {
             .Single();
 
         Assert.IsType<BoundExpressionStatement>(model.GetBoundNode(incompleteStatement));
+    }
+
+    [Fact]
+    public void GetDiagnostics_MalformedInvocationInMatchArm_DoesNotCrashAndReportsMissingParen()
+    {
+        const string source = """
+import System.*
+import System.Console.*
+
+func Main() -> () {
+    val x = 1
+    match x {
+        2 => WriteLine(("Yes")
+        _ => WriteLine(("No")
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(syntaxTree);
+        _ = compilation.GetSemanticModel(syntaxTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        _ = diagnostics.Length;
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor.Id == CompilerDiagnostics.CharacterExpected.Id
+                          && diagnostic.GetMessage().Contains("')' expected", System.StringComparison.Ordinal));
     }
 }

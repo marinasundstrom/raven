@@ -304,6 +304,16 @@ partial class BlockBinder
         for (int i = 0; i < arguments.Count; i++)
         {
             var arg = arguments[i];
+            if (arg is null || arg.Expression is null)
+            {
+                hasErrors = true;
+                boundArguments[i] = new BoundArgument(
+                    new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed),
+                    RefKind.None,
+                    null,
+                    arg);
+                continue;
+            }
 
             // Bind invocation arguments while supplying a best-effort target type.
             // Positional args use the (common) parameter type at the given index.
@@ -316,7 +326,7 @@ partial class BlockBinder
             }
             else
             {
-                var argName = arg.NameColon.Name.Identifier.ValueText;
+                var argName = arg.NameColon.Name?.Identifier.ValueText;
                 if (!string.IsNullOrEmpty(argName))
                     targetType = TryGetCommonNamedParameterType(methods, argName, receiver);
             }
