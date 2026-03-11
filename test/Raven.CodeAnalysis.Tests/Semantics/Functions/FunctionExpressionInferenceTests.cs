@@ -1320,6 +1320,47 @@ class C {
         Assert.NotEmpty(restSymbols);
         Assert.All(restSymbols, local => Assert.IsAssignableFrom<IArrayTypeSymbol>(local.Type));
     }
+
+    [Fact]
+    public void Lambda_WithPositionalDestructuringParameter_SupportsRecordDeconstruct()
+    {
+        const string code = """
+import System.*
+
+record class Pair(Left: int, Right: int)
+
+class C {
+    func Apply(projector: Func<Pair, int>) -> int {
+        return projector(Pair(4, 6))
+    }
+
+    func Test() -> int {
+        return Apply(((left, right)) => left + right)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+
+        var parameter = Assert.Single(boundLambda.Parameters);
+        Assert.IsAssignableFrom<INamedTypeSymbol>(parameter.Type);
+
+        var localNames = lambdaSyntax
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Select(id => model.GetSymbolInfo(id).Symbol)
+            .OfType<ILocalSymbol>()
+            .Select(local => local.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        Assert.Contains("left", localNames);
+        Assert.Contains("right", localNames);
+    }
 }
 
 public class FunctionExpressionInferenceDiagnosticsTests : DiagnosticTestBase

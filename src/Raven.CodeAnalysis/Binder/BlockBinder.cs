@@ -8163,8 +8163,8 @@ partial class BlockBinder : Binder
             PositionalPatternSyntax tuplePattern => BindPositionalPatternForAssignment(tuplePattern, valueType, declarationBindingKeywordKind),
             SequencePatternSyntax sequencePattern => BindSequencePatternForAssignment(sequencePattern, valueType, declarationBindingKeywordKind),
             DiscardPatternSyntax => new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType),
-            ConstantPatternSyntax { Expression: IdentifierNameSyntax identifierName } when IsDeclarationBindingKeyword(declarationBindingKeywordKind)
-                => BindIdentifierPatternForDeclarationAssignment(identifierName, valueType, declarationBindingKeywordKind),
+            ConstantPatternSyntax { Expression: IdentifierNameSyntax identifierName }
+                => BindIdentifierPatternForAssignment(identifierName, valueType, declarationBindingKeywordKind),
             DeclarationPatternSyntax declaration => BindDeclarationPatternForAssignment(declaration, valueType, node, declarationBindingKeywordKind),
             _ => Misc(node)
         };
@@ -8184,6 +8184,12 @@ partial class BlockBinder : Binder
         ITypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
+        if (pattern.BindingKeyword.Kind == SyntaxKind.None &&
+            !IsDeclarationBindingKeyword(declarationBindingKeywordKind))
+        {
+            return BindVariableDesignationForExistingAssignment(pattern.Designation, valueType);
+        }
+
         var isMutable = pattern.BindingKeyword.IsKind(SyntaxKind.VarKeyword) ||
                         (pattern.BindingKeyword.Kind == SyntaxKind.None && declarationBindingKeywordKind == SyntaxKind.VarKeyword);
         return BindVariableDesignationForAssignment(pattern.Designation, valueType, isMutable);
@@ -8219,50 +8225,7 @@ partial class BlockBinder : Binder
                     IsMutableBindingKeyword(declarationBindingKeywordKind));
             }
 
-            ILocalSymbol? local = null;
-            if (_locals.TryGetValue(name, out var existingLocal))
-            {
-                local = existingLocal.Symbol;
-            }
-            else if (LookupSymbol(name) is ILocalSymbol scopedLocal)
-            {
-                local = scopedLocal;
-            }
-
-            if (local is null)
-            {
-                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, identifier.GetLocation());
-                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
-            }
-
-            if (!local.IsMutable)
-            {
-                _diagnostics.ReportThisValueIsNotMutable(identifier.GetLocation());
-                return new BoundDeclarationPattern(
-                    local.Type ?? Compilation.ErrorTypeSymbol,
-                    new BoundSingleVariableDesignator(local),
-                    BoundExpressionReason.UnsupportedOperation);
-            }
-
-            var targetType = local.Type ?? Compilation.ErrorTypeSymbol;
-            var sourceType = valueType.UnwrapLiteralType() ?? valueType;
-
-            if (targetType.TypeKind != TypeKind.Error &&
-                sourceType.TypeKind != TypeKind.Error &&
-                !IsAssignable(targetType, sourceType, out _))
-            {
-                _diagnostics.ReportCannotAssignFromTypeToType(
-                    GetPatternTypeDisplay(sourceType),
-                    targetType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    identifier.GetLocation());
-
-                return new BoundDeclarationPattern(
-                    targetType,
-                    new BoundSingleVariableDesignator(local),
-                    BoundExpressionReason.TypeMismatch);
-            }
-
-            return new BoundDeclarationPattern(targetType, new BoundSingleVariableDesignator(local));
+            return BindIdentifierPatternForExistingLocalAssignment(identifier.Identifier, valueType);
         }
 
         _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
@@ -8424,6 +8387,21 @@ partial class BlockBinder : Binder
     private static bool IsSequenceRestElement(SequencePatternElementSyntax element)
         => element.DotDotToken.IsKind(SyntaxKind.DotDotToken);
 
+    private BoundPattern BindIdentifierPatternForAssignment(
+        IdentifierNameSyntax identifierName,
+        ITypeSymbol valueType,
+        SyntaxKind declarationBindingKeywordKind)
+    {
+        if (IsDeclarationBindingKeyword(declarationBindingKeywordKind))
+            return BindIdentifierPatternForDeclarationAssignment(identifierName, valueType, declarationBindingKeywordKind);
+
+        var name = identifierName.Identifier.ValueText;
+        if (string.IsNullOrEmpty(name) || name == "_")
+            return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
+
+        return BindIdentifierPatternForExistingLocalAssignment(identifierName.Identifier, valueType);
+    }
+
     private BoundPattern BindIdentifierPatternForDeclarationAssignment(
         IdentifierNameSyntax identifierName,
         ITypeSymbol valueType,
@@ -8437,6 +8415,58 @@ partial class BlockBinder : Binder
             identifierName.Identifier,
             valueType,
             IsMutableBindingKeyword(declarationBindingKeywordKind));
+    }
+
+    private BoundPattern BindIdentifierPatternForExistingLocalAssignment(
+        SyntaxToken identifier,
+        ITypeSymbol valueType)
+    {
+        var name = identifier.ValueText;
+
+        ILocalSymbol? local = null;
+        if (_locals.TryGetValue(name, out var existingLocal))
+        {
+            local = existingLocal.Symbol;
+        }
+        else if (LookupSymbol(name) is ILocalSymbol scopedLocal)
+        {
+            local = scopedLocal;
+        }
+
+        if (local is null)
+        {
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, identifier.GetLocation());
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+        }
+
+        if (!local.IsMutable)
+        {
+            _diagnostics.ReportThisValueIsNotMutable(identifier.GetLocation());
+            return new BoundDeclarationPattern(
+                local.Type ?? Compilation.ErrorTypeSymbol,
+                new BoundSingleVariableDesignator(local),
+                BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var targetType = local.Type ?? Compilation.ErrorTypeSymbol;
+        var sourceType = valueType.UnwrapLiteralType() ?? valueType;
+
+        if (targetType.TypeKind != TypeKind.Error &&
+            sourceType.TypeKind != TypeKind.Error &&
+            !IsAssignable(targetType, sourceType, out _))
+        {
+            _diagnostics.ReportCannotAssignFromTypeToType(
+                GetPatternTypeDisplay(sourceType),
+                targetType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                identifier.GetLocation());
+
+            return new BoundDeclarationPattern(
+                targetType,
+                new BoundSingleVariableDesignator(local),
+                BoundExpressionReason.TypeMismatch);
+        }
+
+        return new BoundDeclarationPattern(targetType, new BoundSingleVariableDesignator(local));
     }
 
     private BoundPattern BindIdentifierTokenForDeclarationAssignment(
@@ -8477,6 +8507,42 @@ partial class BlockBinder : Binder
                 return BindParenthesizedDesignationForAssignment(parenthesized, valueType, isMutable);
             case TypedVariableDesignationSyntax typed:
                 return BindTypedDesignationForAssignment(typed, valueType, isMutable);
+            default:
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(designation.GetLocation());
+                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
+        }
+    }
+
+    private BoundPattern BindVariableDesignationForExistingAssignment(
+        VariableDesignationSyntax designation,
+        ITypeSymbol valueType)
+    {
+        valueType ??= Compilation.ErrorTypeSymbol;
+
+        switch (designation)
+        {
+            case SingleVariableDesignationSyntax single:
+                return BindIdentifierPatternForExistingLocalAssignment(single.Identifier, valueType);
+            case TypedVariableDesignationSyntax typed:
+            {
+                var declaredType = ResolveTypeSyntaxOrError(typed.TypeAnnotation.Type);
+                declaredType = EnsureTypeAccessible(declaredType, typed.TypeAnnotation.Type.GetLocation());
+
+                var sourceType = valueType.UnwrapLiteralType() ?? valueType;
+                if (declaredType.TypeKind != TypeKind.Error &&
+                    sourceType.TypeKind != TypeKind.Error &&
+                    !IsAssignable(declaredType, sourceType, out _))
+                {
+                    _diagnostics.ReportCannotAssignFromTypeToType(
+                        GetPatternTypeDisplay(sourceType),
+                        declaredType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        typed.TypeAnnotation.Type.GetLocation());
+
+                    return new BoundDiscardPattern(declaredType, BoundExpressionReason.TypeMismatch);
+                }
+
+                return BindVariableDesignationForExistingAssignment(typed.Designation, declaredType);
+            }
             default:
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(designation.GetLocation());
                 return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);

@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using Microsoft.CodeAnalysis;
@@ -296,6 +297,136 @@ first + middle[0] + last
         Assert.IsType<BoundDiscardPattern>(patternAssignment.Pattern);
 
         Assert.NotNull(patternAssignment.Type);
+    }
+
+    [Fact]
+    public void NestedPatternAssignment_WithExistingMutableLocals_ReusesBindings()
+    {
+        const string source = """
+var nested = ((1, 2), [3, 4, 5])
+var first = 0
+var second = 0
+var head = 0
+var tail: int[] = [0]
+((first, second), [head, ..tail]) = nested
+first + second + head + tail[0]
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var declaredLocals = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Where(static declarator => declarator.Identifier.ValueText is "first" or "second" or "head" or "tail")
+            .ToDictionary(
+                declarator => declarator.Identifier.ValueText,
+                declarator => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator)),
+                StringComparer.Ordinal);
+
+        var assignment = root
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Single(statement => statement.Left is PositionalPatternSyntax);
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var outerPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(outerPattern.Elements[0]);
+        var sequencePattern = Assert.IsType<BoundPositionalPattern>(outerPattern.Elements[1]);
+        Assert.Equal(1, sequencePattern.RestIndex);
+
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[0]).Designator);
+        var secondDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[1]).Designator);
+        var headDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(sequencePattern.Elements[0]).Designator);
+        var tailDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(sequencePattern.Elements[1]).Designator);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(firstDesignator.Local, declaredLocals["first"]));
+        Assert.True(SymbolEqualityComparer.Default.Equals(secondDesignator.Local, declaredLocals["second"]));
+        Assert.True(SymbolEqualityComparer.Default.Equals(headDesignator.Local, declaredLocals["head"]));
+        Assert.True(SymbolEqualityComparer.Default.Equals(tailDesignator.Local, declaredLocals["tail"]));
+    }
+
+    [Fact]
+    public void PositionalPatternAssignment_WithRecordDeconstruct_ReusesExistingLocals()
+    {
+        const string source = """
+record class Pair(Left: int, Right: int)
+
+var left = 0
+var right = 0
+(left, right) = Pair(1, 2)
+left + right
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var leftLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "left")));
+        var rightLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "right")));
+
+        var assignment = root
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Single(statement => statement.Left is PositionalPatternSyntax);
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var deconstructPattern = Assert.IsType<BoundDeconstructPattern>(patternAssignment.Pattern);
+
+        Assert.Equal("Deconstruct", deconstructPattern.DeconstructMethod.Name);
+        Assert.Equal(2, deconstructPattern.Arguments.Length);
+
+        var leftDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[0]).Designator);
+        var rightDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[1]).Designator);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(leftDesignator.Local, leftLocal));
+        Assert.True(SymbolEqualityComparer.Default.Equals(rightDesignator.Local, rightLocal));
+    }
+
+    [Fact]
+    public void NestedPatternAssignment_WithMissingNestedIdentifier_ReportsPreciseDiagnostic()
+    {
+        const string source = """
+val nested = ((1, 2), [3, 4, 5])
+var first = 0
+var second = 0
+var head = 0
+((first, second), [head, ..missing]) = nested
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id)
+                    .WithAnySpan()
+                    .WithArguments("missing")
+            ]);
+
+        verifier.Verify();
     }
 
     [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]

@@ -3111,8 +3111,8 @@ delegate's return type. If no delegate context is available, diagnostic
 Parenthesized function-expression parameter lists also support destructuring
 patterns as parameter entries:
 
-* **positional deconstructuring** (tuple/`Deconstruct` style), for example `((a, b))`
-* **sequence deconstructuring** (collection style), for example `([head, ..tail])`
+* **positional deconstruction** (tuple/`Deconstruct` style), for example `((a, b))`
+* **sequence deconstruction** (collection style), for example `([head, ..tail])`
 
 This is primarily target-typed and inference-driven: the underlying parameter
 type still comes from the delegate context, and destructuring is then applied
@@ -3123,7 +3123,16 @@ val pickSecond: ((int, string)) -> string = ((a, b)) => b
 val sumTail: (int[]) -> int = ([head, ..tail]) => head + tail[0]
 ```
 
-For sequence destructuring in lambda parameter lists, `..name` and JavaScript-
+Nested deconstruction is recursive in parameter patterns. Positional and
+sequence forms may be freely nested as long as each nested segment is
+compatible with its inferred input type:
+
+```raven
+val project: (((int, string), int[])) -> string =
+    (((id, name), [head, ..tail])) => "$id:$name:$head:${tail.Length}"
+```
+
+For sequence deconstruction in lambda parameter lists, `..name` and JavaScript-
 style `...name` are both accepted as rest syntax.
 
 When a destructuring parameter omits per-element binding keywords, elements are
@@ -3499,6 +3508,12 @@ Use `_` to discard unwanted elements. Nested positional patterns work the same w
 var ((x, y), val magnitude, _) = samples()
 ```
 
+Nested sequence/positional patterns can also be combined:
+
+```raven
+val [(first, second), [head, ..tail]] = value
+```
+
 Collection patterns also support a rest segment with `..name`:
 
 ```raven
@@ -3509,7 +3524,19 @@ val [first, ..middle, last] = values
 `..name` captures the remaining elements as an array slice. `.._` discards the
 remaining segment.
 
-> ⚠️ **Runtime shape note:** sequence deconstructuring is length-sensitive at
+Nested deconstruction uses the same recursive compatibility rules in all valid
+positions:
+
+* declaration deconstruction (`val (...) = expr`, `val [...] = expr`)
+* assignment deconstruction (`(...) = expr`, `[...] = expr`)
+* function-expression parameter patterns (`((...), [...]) => ...`)
+* `is`/`match` pattern positions
+
+For diagnostics, Raven reports failures at the specific nested subpattern that
+is incompatible (arity/type/member mismatch) and only introduces symbols for
+successfully bound designators.
+
+> ⚠️ **Runtime shape note:** sequence deconstruction is length-sensitive at
 > runtime. If the input sequence does not contain enough elements for the fixed
 > prefix/suffix elements in the pattern, evaluation may fail at runtime.
 
