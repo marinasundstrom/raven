@@ -176,4 +176,27 @@ class Person {
         Assert.Equal("var Name: string", nameProperty.ToDisplayString());
         Assert.Equal("val Age: int", ageProperty.ToDisplayString());
     }
+
+    [Fact]
+    public void TypeDisplay_TupleElementNames_AreShownWhenEnabled()
+    {
+        const string source = """
+val tuple: (id: int, name: string) = (1, "x")
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        var baseDisplay = local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        Assert.Equal("(int, string)", baseDisplay);
+
+        var withTupleNames = SymbolDisplayFormat.MinimallyQualifiedFormat.WithMiscellaneousOptions(
+            SymbolDisplayFormat.MinimallyQualifiedFormat.MiscellaneousOptions |
+            SymbolDisplayMiscellaneousOptions.IncludeTupleElementNames);
+
+        var display = local.Type.ToDisplayString(withTupleNames);
+        Assert.Equal("(id: int, name: string)", display);
+    }
 }

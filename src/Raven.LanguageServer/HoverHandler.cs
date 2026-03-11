@@ -182,9 +182,7 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static Hover? TryBuildPatternDeclarationHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)
     {
-        var plainTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
-            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
-            .WithKindOptions(SymbolDisplayKindOptions.None);
+        var plainTypeFormat = CreatePlainTypeFormat();
 
         foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
@@ -299,9 +297,7 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static string BuildSignature(ISymbol symbol, SyntaxNode contextNode, SemanticModel semanticModel)
     {
-        var plainTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
-            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
-            .WithKindOptions(SymbolDisplayKindOptions.None);
+        var plainTypeFormat = CreatePlainTypeFormat();
 
         if (symbol is IMethodSymbol { MethodKind: MethodKind.LambdaMethod } lambda)
         {
@@ -450,9 +446,7 @@ internal sealed class HoverHandler : IHoverHandler
     {
         signature = string.Empty;
 
-        var plainTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
-            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
-            .WithKindOptions(SymbolDisplayKindOptions.None);
+        var plainTypeFormat = CreatePlainTypeFormat();
 
         var symbolName = symbol.Name;
         var isErrorParameter = symbol is IParameterSymbol parameter && parameter.Type.TypeKind == TypeKind.Error;
@@ -768,13 +762,22 @@ internal sealed class HoverHandler : IHoverHandler
                 SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
         }
 
-        var plainTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
-            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
-            .WithKindOptions(SymbolDisplayKindOptions.None);
+        var plainTypeFormat = CreatePlainTypeFormat();
         var parameters = FormatParameters(method.Parameters, plainTypeFormat);
         var returnType = method.ReturnType.ToDisplayString(plainTypeFormat);
         var staticPrefix = IsMethodDeclaredStaticForDisplay(method) ? "static " : string.Empty;
         return $"{staticPrefix}func {method.Name}({parameters}) -> {returnType}";
+    }
+
+    private static SymbolDisplayFormat CreatePlainTypeFormat()
+    {
+        var miscOptions = SymbolDisplayFormat.RavenSignatureFormat.MiscellaneousOptions |
+                          SymbolDisplayMiscellaneousOptions.IncludeTupleElementNames;
+
+        return SymbolDisplayFormat.RavenSignatureFormat
+            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+            .WithKindOptions(SymbolDisplayKindOptions.None)
+            .WithMiscellaneousOptions(miscOptions);
     }
 
     private static bool IsMethodDeclaredStaticForDisplay(IMethodSymbol method)

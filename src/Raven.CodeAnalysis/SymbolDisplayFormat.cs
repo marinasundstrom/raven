@@ -347,7 +347,8 @@ public enum SymbolDisplayMiscellaneousOptions
     IncludeNotNullableReferenceTypeModifier = 512,
     CollapseTupleTypes = 1024,
     ExpandedValueTuple = 2048,
-    ExpandAliases = 4096
+    ExpandAliases = 4096,
+    IncludeTupleElementNames = 8192
 }
 
 [Flags]

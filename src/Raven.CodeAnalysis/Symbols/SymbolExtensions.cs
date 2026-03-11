@@ -753,14 +753,30 @@ public static partial class SymbolExtensions
         if (typeSymbol is ITupleTypeSymbol tupleType)
         {
             var elementTypes = tupleType.TupleElements
-                .Select(e =>
+                .Select((e, index) =>
                 {
                     var t = FormatType(e.Type, format);
-                    // Later: include element names if desired
-                    return t;
+
+                    if (!format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.IncludeTupleElementNames))
+                        return t;
+
+                    if (string.IsNullOrWhiteSpace(e.Name) || IsImplicitTupleElementName(e.Name, index))
+                        return t;
+
+                    var escapedElementName = EscapeIdentifierIfNeeded(e.Name, format);
+                    return $"{escapedElementName}: {t}";
                 });
 
             return "(" + string.Join(", ", elementTypes) + ")";
+        }
+
+        static bool IsImplicitTupleElementName(string name, int elementIndex)
+        {
+            if (!name.StartsWith("Item", StringComparison.Ordinal))
+                return false;
+
+            var suffix = name["Item".Length..];
+            return int.TryParse(suffix, out var ordinal) && ordinal == elementIndex + 1;
         }
 
         // Unions (if you want pipe-style display)

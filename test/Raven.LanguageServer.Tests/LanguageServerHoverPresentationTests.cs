@@ -23,7 +23,7 @@ class Foo(private var name: string) {
             .GetReferenceAssemblies(targetFramework)
             .Select(MetadataReference.CreateFromFile);
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree);
 
         foreach (var reference in references)
@@ -520,4 +520,5 @@ class C {
             resolution!.Value.Symbol.Name.ShouldBe(name);
         }
     }
+
 }
