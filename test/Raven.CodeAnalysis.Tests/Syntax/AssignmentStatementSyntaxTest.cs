@@ -57,8 +57,8 @@ public class AssignmentStatementSyntaxTest
         Assert.Equal(SyntaxKind.OpenBracketToken, pattern.OpenBracketToken.Kind);
         Assert.Equal(3, pattern.Elements.Count);
 
-        Assert.True(pattern.Elements[0].Pattern is ConstantPatternSyntax or DeclarationPatternSyntax);
-        Assert.True(pattern.Elements[1].Pattern is ConstantPatternSyntax or DeclarationPatternSyntax);
+        Assert.True(pattern.Elements[0].Pattern is VariablePatternSyntax or DeclarationPatternSyntax);
+        Assert.True(pattern.Elements[1].Pattern is VariablePatternSyntax or DeclarationPatternSyntax);
         Assert.IsType<DiscardPatternSyntax>(pattern.Elements[2].Pattern);
     }
 
@@ -71,14 +71,14 @@ public class AssignmentStatementSyntaxTest
         var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
         Assert.Equal(3, pattern.Elements.Count);
 
-        Assert.True(pattern.Elements[0].Pattern is ConstantPatternSyntax or DeclarationPatternSyntax);
+        Assert.True(pattern.Elements[0].Pattern is VariablePatternSyntax or DeclarationPatternSyntax);
 
         var restElement = pattern.Elements[1];
         Assert.Equal(SyntaxKind.DotDotToken, restElement.DotDotToken.Kind);
         var middle = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
         Assert.Equal(SyntaxKind.None, middle.BindingKeyword.Kind);
 
-        Assert.True(pattern.Elements[2].Pattern is ConstantPatternSyntax or DeclarationPatternSyntax);
+        Assert.True(pattern.Elements[2].Pattern is VariablePatternSyntax or DeclarationPatternSyntax);
     }
 
     [Fact]

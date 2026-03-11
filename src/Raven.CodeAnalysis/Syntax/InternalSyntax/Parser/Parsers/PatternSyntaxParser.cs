@@ -59,6 +59,9 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParsePrimaryPattern()
     {
+        if (PeekToken().IsKind(SyntaxKind.EqualsEqualsToken))
+            return ParseExplicitValuePattern();
+
         // Relational pattern: > expr, >= expr, < expr, <= expr
         if (IsRelationalPatternStart(PeekToken()))
             return ParseRelationalPattern();
@@ -383,7 +386,7 @@ internal class PatternSyntaxParser : SyntaxParser
         }
         else if (!ConsumeToken(SyntaxKind.DotDotToken, out dotDotToken))
         {
-            return SequencePatternElement(Token(SyntaxKind.None), ParsePattern());
+            return SequencePatternElement(Token(SyntaxKind.None), ParseDeconstructionElementPattern());
         }
 
         // Allow JavaScript-style `...rest` as sugar for Raven's `..rest`.
@@ -562,8 +565,32 @@ internal class PatternSyntaxParser : SyntaxParser
             nameColon = NameColon(IdentifierName(nameToken), colonToken);
         }
 
-        var pattern = new PatternSyntaxParser(this).ParsePattern();
+        var pattern = ParseDeconstructionElementPattern();
         return PositionalPatternElement(nameColon, pattern);
+    }
+
+    private PatternSyntax ParseDeconstructionElementPattern()
+    {
+        if (PeekToken().IsKind(SyntaxKind.EqualsEqualsToken))
+            return ParseExplicitValuePattern();
+
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            var identifier = ReadIdentifierToken();
+            return VariablePattern(
+                Token(SyntaxKind.None),
+                SingleVariableDesignation(Token(SyntaxKind.None), identifier));
+        }
+
+        return new PatternSyntaxParser(this).ParsePattern();
+    }
+
+    private PatternSyntax ParseExplicitValuePattern()
+    {
+        var equalsEqualsToken = ReadToken();
+
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+        return ExplicitValuePattern(equalsEqualsToken, expression);
     }
 
     private static bool IsRelationalPatternStart(SyntaxToken token)

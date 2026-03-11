@@ -5,7 +5,7 @@ import System.*
 val status: Option<(isPriority: bool, carrier: string)> = Some((false, "BlueShip"))
 
 val result = status match {
-    Some((val isPriority, val carrier)) => "Priority=${isPriority}, Carrier=${carrier}"
+    Some((isPriority, carrier)) => "Priority=${isPriority}, Carrier=${carrier}"
     None => "No shipping status"
 }
 

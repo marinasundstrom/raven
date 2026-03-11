@@ -1723,6 +1723,10 @@ internal sealed class ConstantPatternOperation : PatternOperation, IConstantPatt
             {
                 _value = SemanticModel.GetOperation(constantPattern.Expression);
             }
+            else if (Syntax is ExplicitValuePatternSyntax explicitValuePattern)
+            {
+                _value = SemanticModel.GetOperation(explicitValuePattern.Expression);
+            }
 
             return _value;
         }

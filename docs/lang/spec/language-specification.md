@@ -2336,14 +2336,21 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     (including as an extension method), the positional pattern uses that method
     to obtain positional values.
 
-  * ✅ `(val a, val b)`
-  * ✅ `(val a: int, val b: string)`
-  * ✅ `(val a: int, _)`
-  * ❌ `(a, b)` — does **not** introduce bindings; both elements are treated as
-    value patterns and must resolve to in-scope values.
+  * ✅ `(a, b)` (implicit immutable bindings)
+  * ✅ `(val a, var b)` (explicit mutability)
+  * ✅ `(a: int, b: string)` (inline type annotations)
+  * ✅ `(a: int, _)`
+  * ✅ `(a, == existingValue)` (explicit value pattern)
 
-  A positional element introduces a new binding **only** when an explicit binding
-  keyword (`val`, or `var`) is present.
+  In positional deconstruction elements, a bare identifier binds by default
+  (equivalent to `val identifier`). Use `== expr` when you want a value pattern
+  instead of introducing a new binding.
+  This is equivalent to introducing a binding and adding a `when` guard that
+  compares the bound value, but `== expr` keeps the constraint local to the
+  pattern and avoids an additional arm condition.
+
+  In compiler APIs, `== expr` is represented as `ExplicitValuePatternSyntax`
+  (distinct from `ConstantPatternSyntax`) so tools can preserve user intent.
 
   An element may optionally include a name before the colon (`name: pattern`) to
   bind the element value while still applying a nested pattern.
@@ -2361,7 +2368,8 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   * In the syntax tree, bracketed patterns are represented as `SequencePatternSyntax`
     (with `SequencePatternElementSyntax`), distinct from parenthesized positional
     patterns (`PositionalPatternSyntax`).
-  * Each element is a full pattern; bindings still require `val`/`var`.
+  * Each element is a full pattern. In deconstruction element positions, bare
+    identifiers bind by default; use `== expr` for explicit value matching.
   * Length must match exactly.
 
 #### Property patterns
@@ -3445,8 +3453,8 @@ fields as implicitly `static`; the value is emitted as metadata so other assembl
 import it without running an initializer.
 
 Positional deconstruction lets you bind or assign multiple values at once. The outer
-`val`/`var` controls the binding’s mutability, while each element uses a
-designation (possibly nested) to capture or discard the corresponding value.
+`val`/`var` controls the default mutability for shorthand forms, while each element
+uses a designation (possibly nested) to capture or discard the corresponding value.
 Elements may include inline type annotations. Positional deconstruction works with
 tuples and with any type that exposes a compatible `Deconstruct` method (including
 as an extension method).
@@ -3456,6 +3464,7 @@ val (first, second, _) = (1, 2, 3)
 var (head, tail: double, _) = numbers()
 (first, second, _) = next()
 (val lhs, var rhs: double, _) = evaluate()
+(lhs, == expectedRhs) = evaluate()
 ```
 
 Existing locals can participate in positional assignments alongside new
@@ -3491,14 +3500,14 @@ like `val (a, b) = expr`.
 
 ```raven
 val values: int[] = [1, 2, 3]
-[val first, val second, _] = values
+[first, second, _] = values
 [var head, var tail, _] = values
 val [first2, second2, _] = values
 var [head2, tail2, _] = values
 
 import System.Collections.Generic.*
 val list: List<int> = [1, 2, 3]
-[val a, val b, _] = list
+[a, b, _] = list
 let [c, d, _] = list
 ```
 
@@ -3513,6 +3522,23 @@ Nested sequence/positional patterns can also be combined:
 ```raven
 val [(first, second), [head, ..tail]] = value
 ```
+
+In deconstruction element positions, plain identifiers are binding targets by
+default (immutable unless `var` is specified). To match against an existing
+runtime value instead, use an explicit value pattern:
+
+```raven
+match x {
+    (a, == existingValue) => ...
+}
+```
+
+`== existingValue` is a convenience form. The same outcome can be expressed with
+a plain binding plus a `when` guard, but explicit value patterns avoid adding an
+extra arm condition when the intent is simple equality against an in-scope value.
+It also does not capture that element. If you need the value later, bind it and
+compare in a guard/condition (`(a, b) when b == existingValue`, or
+`if t is (a, b) && b == existingValue`).
 
 Collection patterns also support a rest segment with `..name`:
 

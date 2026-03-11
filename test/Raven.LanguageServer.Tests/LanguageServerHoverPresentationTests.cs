@@ -339,24 +339,24 @@ class C {
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
-        var declarationIdentifier = root
+        var declarationDesignation = root
             .DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .First(id => id.Identifier.ValueText == "a" &&
-                         id.Ancestors().Any(static n => n is SequencePatternSyntax));
+            .OfType<SingleVariableDesignationSyntax>()
+            .First(designation => designation.Identifier.ValueText == "a" &&
+                                  designation.Ancestors().Any(static n => n is SequencePatternSyntax));
         var usageIdentifier = root
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .First(id => id.Identifier.ValueText == "a" &&
                          !id.Ancestors().Any(static n => n is SequencePatternSyntax));
 
-        var hoverOffset = declarationIdentifier.Identifier.SpanStart + 1;
+        var hoverOffset = declarationDesignation.Identifier.SpanStart + 1;
         var usageSymbol = semanticModel.GetSymbolInfo(usageIdentifier).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         usageSymbol.DeclaringSyntaxReferences.Any(reference =>
-            reference.SyntaxTree == declarationIdentifier.SyntaxTree &&
-            reference.Span.Contains(declarationIdentifier.Identifier.SpanStart)).ShouldBeTrue();
+            reference.SyntaxTree == declarationDesignation.SyntaxTree &&
+            reference.Span.Contains(declarationDesignation.Identifier.SpanStart)).ShouldBeTrue();
         resolution.ShouldNotBeNull();
         resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("a");
         usageSymbol.Name.ShouldBe("a");

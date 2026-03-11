@@ -1147,6 +1147,40 @@ val result = pair match {
     }
 
     [Fact]
+    public void MatchExpression_WithPositionalPattern_ImplicitBindingAndExplicitValuePattern_BindsCorrectly()
+    {
+        const string code = """
+val existingValue = 2
+val pair: (int, int) = (1, 2)
+
+val result = pair match {
+    (a, == existingValue) => a
+    _ => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "tuple_match_explicit_value_pattern",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(boundMatch.Arms[0].Pattern);
+
+        var firstElement = Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[0]);
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstElement.Designator);
+        Assert.Equal("a", firstDesignator.Local.Name);
+
+        Assert.IsType<BoundConstantPattern>(tuplePattern.Elements[1]);
+    }
+
+    [Fact]
     public void MatchExpression_WithPositionalPatternLengthMismatch_ReportsDiagnostic()
     {
         const string code = """

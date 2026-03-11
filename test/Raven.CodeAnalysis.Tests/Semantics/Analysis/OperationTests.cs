@@ -169,7 +169,7 @@ var result = value match {
         const string source = """
 var tuple = (1, 2)
 var result = tuple match {
-    (val a, val b) => a
+    (a, b) => a
     _ => 0
 }
 """;
@@ -186,6 +186,30 @@ var result = tuple match {
         operation.Subpatterns.Length.ShouldBe(2);
         operation.Subpatterns[0].Kind.ShouldBe(OperationKind.DeclarationPattern);
         operation.Subpatterns[1].Kind.ShouldBe(OperationKind.DeclarationPattern);
+    }
+
+    [Fact]
+    public void GetOperation_ExplicitValuePattern_ExposesValueOperation()
+    {
+        const string source = """
+var expected = 2
+var tuple = (1, 2)
+var result = tuple match {
+    (a, == expected) => a
+    _ => 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var explicitValuePatternSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ExplicitValuePatternSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IConstantPatternOperation>(model.GetOperation(explicitValuePatternSyntax));
+        operation.Value.ShouldNotBeNull();
+        operation.Value!.Kind.ShouldBe(OperationKind.LocalReference);
     }
 
     [Fact]

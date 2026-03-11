@@ -193,6 +193,44 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void PositionalPattern_WithImplicitBindingAndExplicitValuePattern_Parses()
+    {
+        var (pattern, tree) = ParsePattern("(a, == existingValue)");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var positional = Assert.IsType<PositionalPatternSyntax>(pattern);
+        Assert.Equal("(a, == existingValue)", sourceText.ToString(positional.Span));
+
+        var first = Assert.IsType<VariablePatternSyntax>(positional.Elements[0].Pattern);
+        Assert.Equal(SyntaxKind.None, first.BindingKeyword.Kind);
+        var firstDesignation = Assert.IsType<SingleVariableDesignationSyntax>(first.Designation);
+        Assert.Equal("a", firstDesignation.Identifier.ValueText);
+
+        var second = Assert.IsType<ExplicitValuePatternSyntax>(positional.Elements[1].Pattern);
+        Assert.Equal(SyntaxKind.EqualsEqualsToken, second.EqualsEqualsToken.Kind);
+        var identifier = Assert.IsType<IdentifierNameSyntax>(second.Expression);
+        Assert.Equal("existingValue", identifier.Identifier.ValueText);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void SequencePattern_WithExplicitValuePattern_Parses()
+    {
+        var (pattern, tree) = ParsePattern("[head, == sentinel, ..tail]");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var sequence = Assert.IsType<SequencePatternSyntax>(pattern);
+        Assert.Equal("[head, == sentinel, ..tail]", sourceText.ToString(sequence.Span));
+
+        Assert.IsType<VariablePatternSyntax>(sequence.Elements[0].Pattern);
+        Assert.IsType<ExplicitValuePatternSyntax>(sequence.Elements[1].Pattern);
+        Assert.IsType<VariablePatternSyntax>(sequence.Elements[2].Pattern);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void RangePattern_WithExclusiveUpperBound_Parses()
     {
         var (pattern, tree) = ParsePattern("2..<10");

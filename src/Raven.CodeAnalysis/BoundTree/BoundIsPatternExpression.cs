@@ -451,6 +451,7 @@ internal partial class BlockBinder
         {
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
             ConstantPatternSyntax constant => BindConstantPattern(constant, inputType),
+            ExplicitValuePatternSyntax explicitValue => BindExplicitValuePattern(explicitValue, inputType),
             VariablePatternSyntax variable => BindVariablePattern(variable, inputType),
             DeclarationPatternSyntax d => BindDeclarationPattern(d, inputType),
             PositionalPatternSyntax t => BindPositionalPattern(t, inputType),
@@ -642,6 +643,17 @@ internal partial class BlockBinder
                 Diagnostics.ReportUndeclaredConstantPatternHint(identifierName.Identifier.ValueText, identifierName.GetLocation());
             }
         }
+
+        return BindConstantPatternFromExpression(expression, syntax.Expression, inputType);
+    }
+
+    private BoundPattern BindExplicitValuePattern(ExplicitValuePatternSyntax syntax, ITypeSymbol? inputType)
+    {
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var expression = syntax.Expression is MemberBindingExpressionSyntax memberBinding
+            ? BindMemberBindingExpression(memberBinding, inputType)
+            : BindExpression(syntax.Expression);
 
         return BindConstantPatternFromExpression(expression, syntax.Expression, inputType);
     }
