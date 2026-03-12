@@ -745,7 +745,7 @@ internal class StatementSyntaxParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, varParamsKeyword, bindingKeyword, dotDotDotToken, name, pattern, typeAnnotation, defaultValue));
+                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, varParamsKeyword, bindingKeyword, name, pattern, typeAnnotation, dotDotDotToken, defaultValue));
                 parsedParameters++;
             }
         }

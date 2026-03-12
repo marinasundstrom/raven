@@ -37,6 +37,30 @@ val count = Collect(...xs)
     }
 
     [Fact]
+    public void Parser_VarArgsMarkerAppearsAfterTypeAnnotation()
+    {
+        const string source = """
+func Collect<T>(items: T ...) -> int {
+    return 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var parameter = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single()
+            .ParameterList
+            .Parameters
+            .Single();
+
+        Assert.Equal(SyntaxKind.DotDotDotToken, parameter.DotDotDotToken.Kind);
+        Assert.NotNull(parameter.TypeAnnotation);
+        Assert.True(parameter.DotDotDotToken.SpanStart > parameter.Identifier.Span.End);
+        Assert.True(parameter.DotDotDotToken.SpanStart > parameter.TypeAnnotation!.Span.End);
+    }
+
+    [Fact]
     public void Invocation_WithParamsCollector_PacksExtraPositionalArguments()
     {
         const string source = """
@@ -223,5 +247,56 @@ val count = Collect(xs)
         var argument = Assert.Single(boundInvocation.Arguments);
         Assert.IsNotType<BoundCollectionExpression>(argument);
         Assert.True(boundInvocation.Method.Parameters[0].IsVarParams);
+    }
+
+    [Fact]
+    public void GenericVarArgs_SingleArrayArgument_InfersTypeArgumentFromNormalForm()
+    {
+        const string source = """
+func Collect<T>(items: T ...) -> int {
+    return 0
+}
+
+val xs: int[] = [1, 2, 3]
+val count = Collect(xs)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        Assert.True(compilation.GetDiagnostics().IsEmpty);
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.Equal("Collect", boundInvocation.Method.Name);
+        Assert.Single(boundInvocation.Method.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, boundInvocation.Method.TypeArguments[0].SpecialType);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
+    }
+
+    [Fact]
+    public void GenericVarArgs_ExpandedArguments_InfersTypeArgumentFromElements()
+    {
+        const string source = """
+func Collect<T>(items: T ...) -> int {
+    return 0
+}
+
+val count = Collect(1, 2, 3)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        Assert.True(compilation.GetDiagnostics().IsEmpty);
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.Equal("Collect", boundInvocation.Method.Name);
+        Assert.Single(boundInvocation.Method.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, boundInvocation.Method.TypeArguments[0].SpecialType);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
     }
 }

@@ -297,11 +297,19 @@ internal sealed class OverloadResolver
             parameterIndex++;
         }
 
-        if (!TryMapArguments(parameters, arguments, treatAsExtension, out var mappedArguments))
+        if (!TryMapArguments(parameters, arguments, treatAsExtension, out var mappedArguments, out var paramsArguments, out var paramsParameterIndex))
             return null;
 
         for (; parameterIndex < parameters.Length; parameterIndex++)
         {
+            if (parameterIndex == paramsParameterIndex && mappedArguments[parameterIndex] is null)
+            {
+                if (!TryInferFromParamsArguments(compilation, parameters[parameterIndex], paramsArguments, substitutions, method))
+                    return null;
+
+                continue;
+            }
+
             var mapped = mappedArguments[parameterIndex];
             if (mapped is null)
                 continue;
@@ -388,11 +396,19 @@ internal sealed class OverloadResolver
             parameterIndex++;
         }
 
-        if (!TryMapArguments(parameters, arguments, treatAsExtension, out var mappedArguments))
+        if (!TryMapArguments(parameters, arguments, treatAsExtension, out var mappedArguments, out var paramsArguments, out var paramsParameterIndex))
             return null;
 
         for (; parameterIndex < parameters.Length; parameterIndex++)
         {
+            if (parameterIndex == paramsParameterIndex && mappedArguments[parameterIndex] is null)
+            {
+                if (!TryInferFromParamsArguments(compilation, parameters[parameterIndex], paramsArguments, substitutions, method))
+                    return null;
+
+                continue;
+            }
+
             var mapped = mappedArguments[parameterIndex];
             if (mapped is null)
                 continue;
@@ -439,6 +455,62 @@ internal sealed class OverloadResolver
             return null;
 
         return method.Construct(inferredArguments);
+    }
+
+    private static bool TryInferFromParamsArguments(
+        Compilation compilation,
+        IParameterSymbol paramsParameter,
+        IReadOnlyList<BoundArgument> paramsArguments,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        IMethodSymbol inferenceMethod)
+    {
+        if (paramsArguments.Count == 0)
+            return true;
+
+        if (paramsArguments.Count == 1 &&
+            !paramsArguments[0].IsSpread &&
+            paramsArguments[0].Type is ITypeSymbol singleParamsType)
+        {
+            // Prefer normal-form varargs inference when a single collection argument is supplied.
+            // Example: Collect<T>(items: T ...) with int[] should infer T=int (not T=int[]).
+            if (TryGetVarParamsElementType(paramsParameter.Type, out var paramsElementType) &&
+                TryGetVarParamsElementType(singleParamsType, out var singleParamsElementType))
+            {
+                if (!TryInferFromTypes(compilation, paramsElementType, singleParamsElementType, substitutions, inferenceMethod))
+                    return false;
+
+                return true;
+            }
+
+            if (TryInferFromTypes(compilation, paramsParameter.Type, singleParamsType, substitutions, inferenceMethod))
+                return true;
+        }
+
+        if (!TryGetVarParamsElementType(paramsParameter.Type, out var elementType))
+            return true;
+
+        foreach (var paramsArgument in paramsArguments)
+        {
+            var argumentType = paramsArgument.Type;
+            if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
+                continue;
+
+            if (paramsArgument.IsSpread)
+            {
+                if (!TryGetVarParamsElementType(argumentType, out var spreadElementType))
+                    continue;
+
+                if (!TryInferFromTypes(compilation, elementType, spreadElementType, substitutions, inferenceMethod))
+                    return false;
+
+                continue;
+            }
+
+            if (!TryInferFromTypes(compilation, elementType, argumentType, substitutions, inferenceMethod))
+                return false;
+        }
+
+        return true;
     }
 
     private static bool TryInferFromLambda(

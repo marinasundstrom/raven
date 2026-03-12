@@ -1144,7 +1144,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, accessibilityKeyword, refKindKeyword, varParamsKeyword, bindingKeyword, dotDotDotToken, name, null, typeAnnotation, defaultValue));
+                parameterList.Add(Parameter(attributeLists, accessibilityKeyword, refKindKeyword, varParamsKeyword, bindingKeyword, name, null, typeAnnotation, dotDotDotToken, defaultValue));
                 parsedParameters++;
             }
 
@@ -1444,7 +1444,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, varParamsKeyword, bindingKeyword, dotDotDotToken, name, null, typeAnnotation, defaultValue));
+                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, varParamsKeyword, bindingKeyword, name, null, typeAnnotation, dotDotDotToken, defaultValue));
                 parsedParameters++;
             }
 

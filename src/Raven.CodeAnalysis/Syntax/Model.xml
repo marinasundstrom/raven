@@ -752,10 +752,10 @@
     <Slot Name="RefKindKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="ParamsKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="BindingKeyword" Type="Token" IsOptionalToken="true" />
-    <Slot Name="DotDotDotToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="Pattern" Type="Pattern" IsNullable="true" />
     <Slot Name="TypeAnnotation" Type="TypeAnnotationClause" IsNullable="true" />
+    <Slot Name="DotDotDotToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="DefaultValue" Type="EqualsValueClause" IsNullable="true" />
   </Node>
   <Node Name="EnumMemberDeclaration" Inherits="MemberDeclaration">

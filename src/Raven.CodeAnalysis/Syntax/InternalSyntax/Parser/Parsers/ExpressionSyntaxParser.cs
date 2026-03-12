@@ -1066,10 +1066,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 firstParameter.RefKindKeyword,
                 firstParameter.ParamsKeyword,
                 firstParameter.BindingKeyword,
-                firstParameter.DotDotDotToken,
                 firstParameter.Identifier,
                 firstParameter.Pattern,
                 firstParameter.TypeAnnotation,
+                firstParameter.DotDotDotToken,
                 firstParameter.DefaultValue);
 
             var items = new GreenNode[parameterList.Parameters.SlotCount];
@@ -1256,7 +1256,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             expressionBody = null;
         }
 
-        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, Token(SyntaxKind.None), bindingKeyword, Token(SyntaxKind.None), identifier, null, typeAnnotation, defaultValue);
+        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, Token(SyntaxKind.None), bindingKeyword, identifier, null, typeAnnotation, Token(SyntaxKind.None), defaultValue);
 
         lambda = SimpleFunctionExpression(
             staticKeyword ?? Token(SyntaxKind.None),
