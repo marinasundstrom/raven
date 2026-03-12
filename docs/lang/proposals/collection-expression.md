@@ -12,7 +12,7 @@ Collection expressions provide a terse way to construct arrays and other list-li
 let marvel = ["Tony Stark", "Spiderman", "Thor"]
 ```
 
-> ℹ️ Collection expressions are target-typed. When no target type is available the expression produces an array whose element type is the most specific common base type of all items.
+> ℹ️ Collection expressions are target-typed. When no target type is available, Raven first tries to infer a resulting concrete collection type from spread operands; if that fails, it falls back to array inference using the best common element type.
 
 ### Empty expressions
 
@@ -41,6 +41,24 @@ let mixed = [0, ..marvel, 1, ..dc]
 
 If `expr` evaluates to `null` a runtime exception is produced, matching the behavior of C# collection expressions.
 
+#### Spread-based type inference (no explicit target)
+
+When no target type is present:
+
+* If spread operands imply one concrete collection type, Raven preserves that type.
+* If multiple spread operands imply different concrete collection types, inference fails (`RAV2027`) and an explicit target type is required.
+* If no concrete spread type can be inferred, Raven falls back to array inference.
+
+```raven
+let list: ImmutableList<int> = [2, 3, 4]
+let inferred = [7, ..list, 5] // ImmutableList<int>
+
+let a: ImmutableList<int> = [1]
+let b: List<int> = [2]
+let x = [..a, ..b] // error RAV2027
+let y: List<int> = [..a, ..b] // ok
+```
+
 ### List comprehension
 
 We can use list comprehension to generate sequences from within a collection expression.
@@ -64,4 +82,3 @@ let x = [ 1, for i in 1 .. 3 -> i, 42 ]
 ```
 
 In this regard, it is similar to the spread operation.
-

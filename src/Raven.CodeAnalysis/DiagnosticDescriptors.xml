@@ -641,6 +641,10 @@
     Title="Character is not representable in ASCII"
     Message="Character '{character}' cannot be represented by ASCII encoding"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2027" Identifier="CollectionTypeCannotBeInferredFromSpreadOperands"
+    Title="Collection type cannot be inferred from spread operands"
+    Message="Cannot infer resulting collection type because spread operands have incompatible types '{firstType}' and '{secondType}'. Add an explicit target type."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2100" Identifier="MatchExpressionNotExhaustive"
     Title="Match must cover all cases" Message="Missing match case: '{missingType}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

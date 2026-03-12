@@ -9808,6 +9808,22 @@ partial class BlockBinder : Binder
             elementNodes.Add(elementNode);
         }
 
+        if (targetType is null)
+        {
+            if (TryInferCollectionTargetTypeFromSpreads(elements, elementNodes, out var spreadInferredTargetType, out var spreadInferenceConflict))
+            {
+                targetType = spreadInferredTargetType;
+            }
+            else if (spreadInferenceConflict is { } conflict)
+            {
+                _diagnostics.ReportCollectionTypeCannotBeInferredFromSpreadOperands(
+                    conflict.Left.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    conflict.Right.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    conflict.Location);
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            }
+        }
+
         if (targetType is not null &&
             TryBindCollectionBuilderInvocation(syntax, targetType, elements, elementNodes, out var builderBasedCollection))
         {
@@ -10502,6 +10518,99 @@ partial class BlockBinder : Binder
             return ComprehensionRangeInfo.Invalid;
 
         return new ComprehensionRangeInfo(true, convertedStart, convertedEnd, elementType);
+    }
+
+    private bool TryInferCollectionTargetTypeFromSpreads(
+        IReadOnlyList<BoundExpression> elements,
+        IReadOnlyList<SyntaxNode> elementNodes,
+        out ITypeSymbol inferredType,
+        out (ITypeSymbol Left, ITypeSymbol Right, Location Location)? conflict)
+    {
+        inferredType = null!;
+        conflict = null;
+
+        ITypeSymbol? current = null;
+
+        for (var i = 0; i < elements.Count; i++)
+        {
+            if (elements[i] is not BoundSpreadElement spread ||
+                spread.Expression.Type is not ITypeSymbol spreadType)
+            {
+                continue;
+            }
+
+            if (!TryGetConcreteSpreadCollectionType(spreadType, out var candidateType))
+                continue;
+
+            if (current is null)
+            {
+                current = candidateType;
+                continue;
+            }
+
+            if (!SymbolEqualityComparer.Default.Equals(current, candidateType))
+            {
+                var location = i < elementNodes.Count ? elementNodes[i].GetLocation() : Location.None;
+                conflict = (current, candidateType, location);
+                return false;
+            }
+        }
+
+        if (current is null)
+            return false;
+
+        inferredType = current;
+        return true;
+    }
+
+    private bool TryGetConcreteSpreadCollectionType(ITypeSymbol spreadType, out ITypeSymbol concreteType)
+    {
+        concreteType = null!;
+
+        var normalized = TypeSymbolNormalization.NormalizeForInference(spreadType);
+        if (normalized.TypeKind == TypeKind.Error)
+            return false;
+
+        if (normalized is IArrayTypeSymbol { Rank: 1 } arrayType)
+        {
+            concreteType = arrayType;
+            return true;
+        }
+
+        if (normalized is not INamedTypeSymbol namedType)
+            return false;
+
+        if (!IsSpreadEnumerable(namedType))
+            return false;
+
+        if (!IsConcreteCollectionTargetType(namedType))
+            return false;
+
+        concreteType = namedType;
+        return true;
+    }
+
+    private bool IsConcreteCollectionTargetType(INamedTypeSymbol type)
+    {
+        if (type.TypeKind is TypeKind.Interface or TypeKind.TypeParameter or TypeKind.Error)
+            return false;
+
+        if (type.SpecialType == SpecialType.System_String)
+            return false;
+
+        if (TryGetCollectionBuilderInfo(type, out _, out _))
+            return true;
+
+        var hasParameterlessConstructor = type.Constructors.Any(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
+        if (!hasParameterlessConstructor)
+            return false;
+
+        var addMethod = new SymbolQuery("Add", type, IsStatic: false)
+            .Lookup(this)
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method => method.Parameters.Length == 1);
+
+        return addMethod is not null;
     }
 
     private readonly record struct ComprehensionRangeInfo(bool IsValid, BoundExpression? Start, BoundExpression? End, ITypeSymbol? ElementType)

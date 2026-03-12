@@ -2483,9 +2483,6 @@ internal partial class ExpressionGenerator : Generator
 
     private bool TryEmitCollectionExpressionViaBuilderAttribute(INamedTypeSymbol targetType, BoundCollectionExpression collectionExpression)
     {
-        if (collectionExpression.Elements.Any(static element => element is BoundSpreadElement))
-            return false;
-
         Type targetClrType;
         try
         {
@@ -2529,6 +2526,9 @@ internal partial class ExpressionGenerator : Generator
             return false;
 
         var elements = collectionExpression.Elements.ToArray();
+        if (elements.Any(static element => element is BoundSpreadElement))
+            return TryEmitCollectionExpressionViaBuilderAttributeWithSpreads(targetType, targetClrType, methods, elements);
+
         MethodInfo? selectedMethod = null;
         Type? paramsElementType = null;
         int fixedArgumentCount = 0;
@@ -2607,6 +2607,186 @@ internal partial class ExpressionGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Call, selectedMethod);
         return true;
+    }
+
+    private bool TryEmitCollectionExpressionViaBuilderAttributeWithSpreads(
+        INamedTypeSymbol targetType,
+        Type targetClrType,
+        MethodInfo[] methods,
+        BoundExpression[] elements)
+    {
+        if (!TryGetCollectionBuilderElementType(targetType, out var elementType))
+            return false;
+
+        Type elementClrType;
+        try
+        {
+            elementClrType = ResolveClrType(elementType);
+        }
+        catch
+        {
+            return false;
+        }
+
+        if (elementClrType.IsByRefLike)
+            return false;
+
+        var arrayClrType = elementClrType.MakeArrayType();
+
+        MethodInfo? selectedMethod = null;
+        Type? selectedParameterType = null;
+
+        foreach (var candidate in methods)
+        {
+            var method = CloseBuilderMethod(candidate, targetClrType);
+            if (method is null || !targetClrType.IsAssignableFrom(method.ReturnType))
+                continue;
+
+            var parameters = method.GetParameters();
+            if (parameters.Length != 1)
+                continue;
+
+            var parameterType = parameters[0].ParameterType;
+            if (!CanBuilderParameterConsumeArray(parameterType, arrayClrType, elementClrType))
+                continue;
+
+            selectedMethod = method;
+            selectedParameterType = parameterType;
+            break;
+        }
+
+        if (selectedMethod is null || selectedParameterType is null)
+            return false;
+
+        var listTypeDef = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
+        if (listTypeDef is null)
+            return false;
+
+        var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
+        var minimumCapacity = elements.Count(static element => element is not BoundSpreadElement);
+        var ctor = listType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 1 && c.Parameters[0].Type.SpecialType == SpecialType.System_Int32)
+            ?? listType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
+        if (ctor is null)
+            return false;
+
+        if (ctor.Parameters.Length == 1)
+            ILGenerator.Emit(OpCodes.Ldc_I4, minimumCapacity);
+
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(ctor));
+        var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
+        ILGenerator.Emit(OpCodes.Stloc, listLocal);
+
+        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().FirstOrDefault(static method => method.Parameters.Length == 1);
+        if (addMethod is null)
+            return false;
+
+        var addMethodInfo = GetMethodInfo(addMethod);
+
+        foreach (var element in elements)
+        {
+            if (element is BoundSpreadElement spread)
+            {
+                EmitSpreadElement(listLocal, spread, elementType, addMethodInfo);
+                continue;
+            }
+
+            ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+            EmitExpression(element);
+
+            if (element.Type is { } elementRuntimeType &&
+                ShouldBoxForReferenceTarget(elementRuntimeType, elementType))
+            {
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(elementRuntimeType));
+            }
+
+            ILGenerator.Emit(OpCodes.Callvirt, addMethodInfo);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+        var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().FirstOrDefault();
+        if (toArrayMethod is null)
+            return false;
+
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(toArrayMethod));
+        var arrayLocal = ILGenerator.DeclareLocal(arrayClrType);
+        ILGenerator.Emit(OpCodes.Stloc, arrayLocal);
+
+        if (!EmitBuilderArrayArgument(selectedParameterType, arrayClrType, elementClrType, arrayLocal))
+            return false;
+
+        ILGenerator.Emit(OpCodes.Call, selectedMethod);
+        return true;
+    }
+
+    private static MethodInfo? CloseBuilderMethod(MethodInfo candidate, Type targetClrType)
+    {
+        if (!candidate.IsGenericMethodDefinition)
+            return candidate;
+
+        if (!targetClrType.IsGenericType ||
+            candidate.GetGenericArguments().Length != targetClrType.GetGenericArguments().Length)
+        {
+            return null;
+        }
+
+        try
+        {
+            return candidate.MakeGenericMethod(targetClrType.GetGenericArguments());
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool CanBuilderParameterConsumeArray(Type parameterType, Type arrayType, Type elementType)
+    {
+        if (parameterType == arrayType || parameterType.IsAssignableFrom(arrayType))
+            return true;
+
+        if (!parameterType.IsGenericType)
+            return false;
+
+        var definition = parameterType.GetGenericTypeDefinition();
+        if (definition != typeof(ReadOnlySpan<>))
+            return false;
+
+        return parameterType.GetGenericArguments()[0] == elementType;
+    }
+
+    private bool EmitBuilderArrayArgument(Type parameterType, Type arrayType, Type elementType, IILocal arrayLocal)
+    {
+        if (parameterType == arrayType || parameterType.IsAssignableFrom(arrayType))
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+            return true;
+        }
+
+        if (!parameterType.IsGenericType || parameterType.GetGenericTypeDefinition() != typeof(ReadOnlySpan<>))
+            return false;
+
+        if (parameterType.GetGenericArguments()[0] != elementType)
+            return false;
+
+        var spanCtor = parameterType.GetConstructor([arrayType]);
+        if (spanCtor is null)
+            return false;
+
+        ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+        ILGenerator.Emit(OpCodes.Newobj, spanCtor);
+        return true;
+    }
+
+    private static bool TryGetCollectionBuilderElementType(INamedTypeSymbol targetType, out ITypeSymbol elementType)
+    {
+        if (targetType.Arity == 1 && targetType.TypeArguments.Length == 1)
+        {
+            elementType = targetType.TypeArguments[0];
+            return true;
+        }
+
+        elementType = null!;
+        return false;
     }
 
     private void EmitBuilderArgument(BoundExpression expression, Type parameterType)

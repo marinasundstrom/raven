@@ -1116,10 +1116,17 @@ Collection expressions are target-typed:
   parameterless constructor and an instance `Add` method, the compiler constructs the
   target and calls `Add` for every element. The `Add` parameter determines the element
   conversions, and spread entries must supply compatible values. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3738-L3776】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1016-L1096】
-* **No target type** — Without an expected type, Raven infers a best common element type
-  by merging the contributions of each element (spreads use their enumerated element type).
-  The expression then produces an array of that inferred element type, defaulting to
-  `object` when no more precise choice is available. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3776-L3861】
+* **No target type** — Without an expected type, Raven first attempts spread-based
+  collection-type inference:
+  * If one or more spread operands have a concrete collection type (for example
+    `ImmutableList<int>`), that type is used as the collection target.
+  * If multiple spread operands imply the same concrete collection type, that type is used.
+  * If multiple spread operands imply different concrete collection types, inference fails
+    with diagnostic `RAV2027` and an explicit target type is required.
+  * If no concrete spread-based target can be inferred, Raven falls back to array inference:
+    it infers a best common element type by merging all element contributions (spreads use
+    their enumerated element type), then produces `T[]`, defaulting to `object[]` when no
+    more precise choice is available. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3776-L3861】
 
 An empty collection expression `[]` must be used in a context that supplies a target type;
 otherwise its type cannot be inferred. When a target type is available, the compiler
@@ -1136,6 +1143,15 @@ val evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
 
 val names: List<string> = ["a", "b"]
 val inferred = [1, 2.0]  // inferred as object[]
+
+val baseList: ImmutableList<int> = [2, 3, 4]
+val preserved = [7, ..baseList, 5] // inferred as ImmutableList<int>
+
+val a: ImmutableList<int> = [1]
+val b: List<int> = [2]
+val invalid = [..a, ..b] // RAV2027: add explicit target type
+
+val forced: List<int> = [..a, ..b]
 ```
 
 #### Element access

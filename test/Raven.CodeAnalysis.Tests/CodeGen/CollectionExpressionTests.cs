@@ -396,6 +396,49 @@ class Foo {
             calledMembers.Count(static member => member.Contains("::get_Item", StringComparison.Ordinal)));
         Assert.Equal(5, (int)method!.Invoke(instance, null)!);
     }
+
+    [Fact]
+    public void SpreadInference_PreservesImmutableCollectionBuilderType()
+    {
+        var code = """
+import System.Collections.Immutable.*
+
+class Foo {
+    static func Accept(values: ImmutableList<int>) -> int {
+        return values.Count
+    }
+
+    static func GetCount() -> int {
+        val list: ImmutableList<int> = [2, 3, 4]
+        val newList = [7, ..list, 5]
+        return Accept(newList)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Contains(
+            calledMembers,
+            static member => member.Contains("System.Collections.Immutable.ImmutableList::Create", StringComparison.Ordinal) ||
+                             member.Contains("System.Collections.Immutable.ImmutableList::CreateRange", StringComparison.Ordinal));
+        Assert.Equal(5, (int)method!.Invoke(instance, null)!);
+    }
 }
 
 public class CollectionExpressionDiagnosticTests : DiagnosticTestBase
