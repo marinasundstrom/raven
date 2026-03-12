@@ -305,7 +305,7 @@ partial class BlockBinder : Binder
             {
                 if (initializer is not null &&
                     ConstantValueEvaluator.TryEvaluate(initializer.Value, out var evaluated) &&
-                    (evaluated is not null || (isConst && type.SpecialType == SpecialType.System_String)) &&
+                    evaluated is not null &&
                     ConstantValueEvaluator.TryConvert(type, evaluated, out var converted))
                 {
                     constantValue = converted;
@@ -321,11 +321,7 @@ partial class BlockBinder : Binder
                 }
                 else
                 {
-                    _diagnostics.ReportCannotAssignFromTypeToType(
-                        boundInitializer.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        initializer.Value.GetLocation());
-                    ReportExplicitConversionHint(boundInitializer.Type, type, initializer.Value.GetLocation());
+                    ReportCannotAssignFromTypeToType(boundInitializer.Type!, type, initializer.Value.GetLocation());
                     boundInitializer = new BoundErrorExpression(type, null, BoundExpressionReason.TypeMismatch);
                 }
             }
@@ -730,10 +726,7 @@ partial class BlockBinder : Binder
             {
                 if (!IsAssignable(annotatedType, boundInitializer.Type!, out var conversion))
                 {
-                    _diagnostics.ReportCannotAssignFromTypeToType(
-                        boundInitializer.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        annotatedType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        initializer.Value.GetLocation());
+                    ReportCannotAssignFromTypeToType(boundInitializer.Type!, annotatedType, initializer.Value.GetLocation());
                     boundInitializer = new BoundErrorExpression(annotatedType, null, BoundExpressionReason.TypeMismatch);
                 }
                 else
@@ -988,10 +981,7 @@ partial class BlockBinder : Binder
         {
             if (!IsAssignable(targetType, right.Type!, out var conversion))
             {
-                _diagnostics.ReportCannotAssignFromTypeToType(
-                    right.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    targetType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    syntax.GetLocation());
+                ReportCannotAssignFromTypeToType(right.Type!, targetType, syntax.GetLocation());
                 return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
             }
 
@@ -6488,10 +6478,7 @@ partial class BlockBinder : Binder
         {
             if (!IsAssignable(propertySymbol.Type, pipelineType, out var conversion))
             {
-                _diagnostics.ReportCannotAssignFromTypeToType(
-                    pipelineType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    propertySymbol.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    pipelineSyntax.GetLocation());
+                ReportCannotAssignFromTypeToType(pipelineType, propertySymbol.Type, pipelineSyntax.GetLocation());
                 return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
@@ -8553,10 +8540,7 @@ partial class BlockBinder : Binder
             sourceType.TypeKind != TypeKind.Error &&
             !IsAssignable(targetType, sourceType, out _))
         {
-            _diagnostics.ReportCannotAssignFromTypeToType(
-                GetPatternTypeDisplay(sourceType),
-                targetType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                identifier.GetLocation());
+            ReportCannotAssignFromTypeToType(sourceType, targetType, identifier.GetLocation());
 
             return new BoundDeclarationPattern(
                 targetType,
@@ -8631,10 +8615,7 @@ partial class BlockBinder : Binder
                         sourceType.TypeKind != TypeKind.Error &&
                         !IsAssignable(declaredType, sourceType, out _))
                     {
-                        _diagnostics.ReportCannotAssignFromTypeToType(
-                            GetPatternTypeDisplay(sourceType),
-                            declaredType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            typed.TypeAnnotation.Type.GetLocation());
+                        ReportCannotAssignFromTypeToType(sourceType, declaredType, typed.TypeAnnotation.Type.GetLocation());
 
                         return new BoundDiscardPattern(declaredType, BoundExpressionReason.TypeMismatch);
                     }
@@ -8659,10 +8640,7 @@ partial class BlockBinder : Binder
             declaredType.TypeKind != TypeKind.Error &&
             !IsAssignable(declaredType, incomingType, out _))
         {
-            _diagnostics.ReportCannotAssignFromTypeToType(
-                incomingType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                declaredType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                typedDesignation.TypeAnnotation.Type.GetLocation());
+            ReportCannotAssignFromTypeToType(incomingType, declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
 
             declaredType = Compilation.ErrorTypeSymbol;
         }

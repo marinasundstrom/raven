@@ -2313,10 +2313,7 @@ partial class BlockBinder
                     var right = BindLambdaToDelegateIfNeeded(arrayRightExpression, arrayType.ElementType);
                     if (!IsAssignable(arrayType.ElementType, right.Type, out var conversion))
                     {
-                        _diagnostics.ReportCannotAssignFromTypeToType(
-                            right.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            arrayType.ElementType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            rightSyntax.GetLocation());
+                        ReportCannotAssignFromTypeToType(right.Type, arrayType.ElementType, rightSyntax.GetLocation());
                         return new BoundErrorExpression(arrayType.ElementType, null, BoundExpressionReason.TypeMismatch);
                     }
 
@@ -2349,10 +2346,7 @@ partial class BlockBinder
                 var right = BindLambdaToDelegateIfNeeded(indexerRightExpression, indexer.Type);
                 if (!IsAssignable(indexer.Type, right.Type, out var conversion))
                 {
-                    _diagnostics.ReportCannotAssignFromTypeToType(
-                        right.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        indexer.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        rightSyntax.GetLocation());
+                    ReportCannotAssignFromTypeToType(right.Type, indexer.Type, rightSyntax.GetLocation());
                     return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.TypeMismatch);
                 }
 
@@ -2428,10 +2422,7 @@ partial class BlockBinder
                 right2 = BindLambdaToDelegateIfNeeded(right2, localType);
                 if (!IsAssignable(localType, right2.Type!, out var conversion))
                 {
-                    _diagnostics.ReportCannotAssignFromTypeToType(
-                        right2.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        localType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        rightSyntax.GetLocation());
+                    ReportCannotAssignFromTypeToType(right2.Type!, localType, rightSyntax.GetLocation());
                     return new BoundErrorExpression(localType, null, BoundExpressionReason.TypeMismatch);
                 }
 
@@ -2475,10 +2466,7 @@ partial class BlockBinder
                 right2 = BindLambdaToDelegateIfNeeded(right2, parameterType);
                 if (!IsAssignable(parameterType, right2.Type!, out var conversion))
                 {
-                    _diagnostics.ReportCannotAssignFromTypeToType(
-                        right2.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        parameterType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        rightSyntax.GetLocation());
+                    ReportCannotAssignFromTypeToType(right2.Type!, parameterType, rightSyntax.GetLocation());
                     return new BoundErrorExpression(parameterType, null, BoundExpressionReason.TypeMismatch);
                 }
 
@@ -2516,10 +2504,7 @@ partial class BlockBinder
                 right2 = BindLambdaToDelegateIfNeeded(right2, fieldSymbol.Type);
                 if (!IsAssignable(fieldSymbol.Type, right2.Type!, out var conversion))
                 {
-                    _diagnostics.ReportCannotAssignFromTypeToType(
-                        right2.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        fieldSymbol.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        rightSyntax.GetLocation());
+                    ReportCannotAssignFromTypeToType(right2.Type!, fieldSymbol.Type, rightSyntax.GetLocation());
                     return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
                 }
 
@@ -2580,10 +2565,7 @@ partial class BlockBinder
                 right2 = BindLambdaToDelegateIfNeeded(right2, propertySymbol.Type);
                 if (!IsAssignable(propertySymbol.Type, right2.Type!, out var conversion))
                 {
-                    _diagnostics.ReportCannotAssignFromTypeToType(
-                        right2.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        propertySymbol.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        rightSyntax.GetLocation());
+                    ReportCannotAssignFromTypeToType(right2.Type!, propertySymbol.Type, rightSyntax.GetLocation());
                     return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
                 }
 
@@ -2618,10 +2600,7 @@ partial class BlockBinder
 
         if (!IsAssignable(targetType, value.Type, out var conversion))
         {
-            _diagnostics.ReportCannotAssignFromTypeToType(
-                value.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                targetType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                syntax.GetLocation());
+            ReportCannotAssignFromTypeToType(value.Type, targetType, syntax.GetLocation());
             return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
         }
 

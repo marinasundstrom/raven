@@ -69,7 +69,7 @@ class C {
     }
 
     [Fact]
-    public void ConstLocal_StringNullAllowed()
+    public void ConstLocal_StringNullRequiresNullable()
     {
         const string source = """
 class C {
@@ -80,16 +80,12 @@ class C {
 """;
 
         var (compilation, tree) = CreateCompilation(source);
+        _ = compilation.GetSemanticModel(tree);
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
 
-        var model = compilation.GetSemanticModel(tree);
-        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-
-        Assert.True(local.IsConst);
-        Assert.Null(local.ConstantValue);
-        Assert.Equal(SpecialType.System_String, local.Type.SpecialType);
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
     }
 
     [Fact]

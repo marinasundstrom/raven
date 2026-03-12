@@ -252,6 +252,25 @@ internal partial class TypeMemberBinder : Binder
                     _diagnostics.Report(diag);
             }
 
+            if (initializer is not null &&
+                initializer is not BoundErrorExpression &&
+                propertyType.TypeKind != TypeKind.Error &&
+                initializer.Type is { } initializerType &&
+                !initializerType.ContainsErrorType())
+            {
+                var conversion = Compilation.ClassifyConversion(initializerType, propertyType);
+                if (!conversion.Exists || !conversion.IsImplicit)
+                {
+                    ReportCannotAssignFromTypeToType(initializerType, propertyType, propertyDecl.Initializer.Value.GetLocation());
+
+                    initializer = new BoundErrorExpression(propertyType, null, BoundExpressionReason.TypeMismatch);
+                }
+                else if (!conversion.IsIdentity)
+                {
+                    initializer = BoundFactory.CreateConversionExpression(initializer, propertyType, conversion);
+                }
+            }
+
         }
 
         bool? declaredMutable = propertyDecl.BindingKeyword.Kind switch

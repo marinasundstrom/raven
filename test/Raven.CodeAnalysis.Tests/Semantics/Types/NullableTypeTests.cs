@@ -489,8 +489,44 @@ class Foo {
             options: new CompilationOptions(OutputKind.ConsoleApplication));
 
         var diagnostic = Assert.Single(
-            compilation.GetDiagnostics().Where(x => x.Descriptor == CompilerDiagnostics.CannotAssignFromTypeToType));
-        Assert.Equal("Cannot assign 'null' to 'object'", diagnostic.GetMessage());
+            compilation.GetDiagnostics().Where(x => x.Descriptor == CompilerDiagnostics.CannotAssignNullToType));
+        Assert.Equal("Cannot assign null to 'object'", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void PropertyInitializer_AssignedNullToNonNullableReference_ReportsDiagnostic()
+    {
+        const string source = """
+class Foo {
+    var Name: string = null
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
+    }
+
+    [Fact]
+    public void PropertyInitializer_AssignedNullToNullableReference_IsAllowed()
+    {
+        const string source = """
+class Foo {
+    var Name: string? = null
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]

@@ -85,6 +85,20 @@ internal abstract partial class Binder
             location);
     }
 
+    protected void ReportCannotAssignFromTypeToType(ITypeSymbol fromType, ITypeSymbol toType, Location location)
+    {
+        var toArg = toType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        if (fromType.TypeKind == TypeKind.Null)
+        {
+            _diagnostics.ReportCannotAssignNullToType(toArg, location);
+            return;
+        }
+
+        var fromArg = fromType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        _diagnostics.ReportCannotAssignFromTypeToType(fromArg, toArg, location);
+        ReportExplicitConversionHint(fromType, toType, location);
+    }
+
     protected internal bool IsSymbolAccessible(ISymbol symbol)
     {
         if (symbol is null)
