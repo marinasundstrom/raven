@@ -31,4 +31,24 @@ public class CollectionComprehensionSyntaxTests
         Assert.NotNull(comprehension.Condition);
         Assert.Equal("n", Assert.IsType<IdentifierNameSyntax>(comprehension.Selector).Identifier.Text);
     }
+
+    [Fact]
+    public void CollectionExpression_Spread_DotDot_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [..items]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var spread = Assert.IsType<SpreadElementSyntax>(collection.Elements[0]);
+        Assert.Equal(SyntaxKind.DotDotToken, spread.DotDotToken.Kind);
+    }
+
+    [Fact]
+    public void CollectionExpression_Spread_DotDotDot_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [...items]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var spread = Assert.IsType<SpreadElementSyntax>(collection.Elements[0]);
+        Assert.Equal(SyntaxKind.DotDotDotToken, spread.DotDotToken.Kind);
+    }
 }

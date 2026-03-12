@@ -1091,7 +1091,7 @@ Additional encodings may be introduced by adding new suffixes.
 Collection expressions use bracket syntax `[element0, element1, ...]` (with an optional
 trailing comma) to build arrays and other collection types. Elements are evaluated
 from left to right. In addition to ordinary expressions, an element may be written as
-`..expression`—called a *spread*. Spreads enumerate the runtime value and insert each
+`..expression` or `...expression`—called a *spread*. Spreads enumerate the runtime value and insert each
 item into the resulting collection in order. The spread source must be convertible to
 `System.Collections.IEnumerable` (including arrays and `IEnumerable<T>` implementations);
 otherwise diagnostic `RAV2022` is reported. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3670】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L260-L266】
@@ -1129,6 +1129,7 @@ produces an empty instance of that type (an empty array or an initialized collec
 ```raven
 val numbers: int[] = [1, 2, 3]
 val combined = [0, ..numbers, 4]
+val combined2 = [0, ...numbers, 4]
 val squares = [for n in numbers => n * n]
 val evenSquares = [for n in numbers if n % 2 == 0 => n * n]
 val evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
@@ -2339,12 +2340,16 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   * ✅ `(a, b)` (implicit immutable bindings)
   * ✅ `(val a, var b)` (explicit mutability)
   * ✅ `(a: int, b: string)` (inline type annotations)
+  * ✅ `(int a, string b)` (type-pattern + capture)
   * ✅ `(a: int, _)`
   * ✅ `(a, == existingValue)` (explicit value pattern)
 
   In positional deconstruction elements, a bare identifier binds by default
   (equivalent to `val identifier`). Use `== expr` when you want a value pattern
   instead of introducing a new binding.
+  To constrain by type and capture a value in an element, both forms are valid:
+  `val name: Type` (Raven-native typed binding style) and `Type name`
+  (type-pattern style).
   This is equivalent to introducing a binding and adding a `when` guard that
   compares the bound value, but `== expr` keeps the constraint local to the
   pattern and avoids an additional arm condition.
@@ -2372,6 +2377,7 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     patterns (`PositionalPatternSyntax`).
   * Each element is a full pattern. In deconstruction element positions, bare
     identifiers bind by default; use `== expr` for explicit value matching.
+    Type-constrained captures may be written as `val x: T` or `T x`.
   * Length must match exactly.
 
 #### Property patterns
@@ -3461,11 +3467,18 @@ Elements may include inline type annotations. Positional deconstruction works wi
 tuples and with any type that exposes a compatible `Deconstruct` method (including
 as an extension method).
 
+For element type matching + capture, Raven accepts both:
+
+* `val name: Type` (preferred Raven style)
+* `Type name` (type-pattern style)
+
 ```raven
 val (first, second, _) = (1, 2, 3)
 var (head, tail: double, _) = numbers()
 (first, second, _) = next()
 (val lhs, var rhs: double, _) = evaluate()
+(int id, string name) = getTuple()
+(val id: int, val name: string) = getTuple()
 (lhs, == expectedRhs) = evaluate()
 ```
 
@@ -3556,14 +3569,15 @@ It also does not capture that element. If you need the value later, bind it and
 compare in a guard/condition (`(a, b) when b == existingValue`, or
 `if t is (a, b) && b == existingValue`).
 
-Collection patterns also support a rest segment with `..name`:
+Collection patterns also support a rest segment with `..name` or `...name`:
 
 ```raven
 val [first, second, ..rest] = values
+val [first, second, ...rest2] = values
 val [first, ..middle, last] = values
 ```
 
-`..name` captures the remaining elements as an array slice. `.._` discards the
+`..name`/`...name` captures the remaining elements as an array slice. `.._`/`..._` discards the
 remaining segment.
 
 Nested deconstruction uses the same recursive compatibility rules in all valid

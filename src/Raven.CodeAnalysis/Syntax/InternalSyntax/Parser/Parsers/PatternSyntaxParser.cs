@@ -377,21 +377,10 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private SequencePatternElementSyntax ParseSequencePatternElement()
     {
-        SyntaxToken dotDotToken;
-        if (PeekToken().IsKind(SyntaxKind.DotToken) && PeekToken(1).IsKind(SyntaxKind.DotDotToken))
-        {
-            // Lexer currently tokenizes `...rest` as `.` + `..`.
-            ReadToken();
-            dotDotToken = ReadToken();
-        }
-        else if (!ConsumeToken(SyntaxKind.DotDotToken, out dotDotToken))
+        if (!TryConsumeSequenceRestToken(out var dotDotToken))
         {
             return SequencePatternElement(Token(SyntaxKind.None), ParseDeconstructionElementPattern());
         }
-
-        // Allow JavaScript-style `...rest` as sugar for Raven's `..rest`.
-        if (PeekToken().IsKind(SyntaxKind.DotToken))
-            ReadToken();
 
         PatternSyntax restPattern;
         if (PeekToken().IsKind(SyntaxKind.UnderscoreToken))
@@ -419,6 +408,14 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         return SequencePatternElement(dotDotToken, restPattern);
+    }
+
+    private bool TryConsumeSequenceRestToken(out SyntaxToken token)
+    {
+        if (ConsumeToken(SyntaxKind.DotDotDotToken, out token))
+            return true;
+
+        return ConsumeToken(SyntaxKind.DotDotToken, out token);
     }
 
     private MemberPatternSyntax ParseMemberPattern(TypeSyntax? qualifier, SyntaxToken dotToken)

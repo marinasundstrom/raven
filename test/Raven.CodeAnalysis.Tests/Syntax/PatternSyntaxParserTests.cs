@@ -193,6 +193,26 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void SequencePattern_WithTripleDotRestElement_Parses()
+    {
+        var (pattern, tree) = ParsePattern("[let first, ...rest, _]");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var collectionPattern = Assert.IsType<SequencePatternSyntax>(pattern);
+        Assert.Equal("[let first, ...rest, _]", sourceText.ToString(collectionPattern.Span));
+        Assert.Equal(3, collectionPattern.Elements.Count);
+
+        var restElement = collectionPattern.Elements[1];
+        Assert.Equal(SyntaxKind.DotDotDotToken, restElement.DotDotToken.Kind);
+
+        var restPattern = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
+        var restDesignation = Assert.IsType<SingleVariableDesignationSyntax>(restPattern.Designation);
+        Assert.Equal("rest", restDesignation.Identifier.ValueText);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void PositionalPattern_WithImplicitBindingAndExplicitValuePattern_Parses()
     {
         var (pattern, tree) = ParsePattern("(a, == existingValue)");

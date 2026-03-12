@@ -147,6 +147,7 @@
   <TokenKind Name="QuestionQuestionEqualsToken" Text="??=" />
   <TokenKind Name="DotToken" Text="." />
   <TokenKind Name="DotDotToken" Text=".." IsBinaryOperator="true" Precedence="4" />
+  <TokenKind Name="DotDotDotToken" Text="..." />
   <TokenKind Name="CommaToken" Text="," />
   <TokenKind Name="ColonToken" Text=":" />
   <TokenKind Name="SemicolonToken" Text=";" />

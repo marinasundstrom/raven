@@ -295,4 +295,22 @@ public class LexerTests
         Assert.Equal(SyntaxKind.TildeToken, lexer.ReadToken().Kind);
         Assert.Equal(SyntaxKind.NumericLiteralToken, lexer.ReadToken().Kind);
     }
+
+    [Fact]
+    public void DotDotOperator_IsLexedAsSingleToken()
+    {
+        var lexer = new Lexer(new StringReader("..rest"));
+
+        Assert.Equal(SyntaxKind.DotDotToken, lexer.ReadToken().Kind);
+        Assert.Equal(SyntaxKind.IdentifierToken, lexer.ReadToken().Kind);
+    }
+
+    [Fact]
+    public void DotDotDotOperator_IsLexedAsSingleToken()
+    {
+        var lexer = new Lexer(new StringReader("...rest"));
+
+        Assert.Equal(SyntaxKind.DotDotDotToken, lexer.ReadToken().Kind);
+        Assert.Equal(SyntaxKind.IdentifierToken, lexer.ReadToken().Kind);
+    }
 }

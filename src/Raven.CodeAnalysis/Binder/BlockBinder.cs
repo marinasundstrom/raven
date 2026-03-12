@@ -8438,7 +8438,7 @@ partial class BlockBinder : Binder
     }
 
     private static bool IsSequenceRestElement(SequencePatternElementSyntax element)
-        => element.DotDotToken.IsKind(SyntaxKind.DotDotToken);
+        => element.DotDotToken.Kind is SyntaxKind.DotDotToken or SyntaxKind.DotDotDotToken;
 
     private BoundPattern BindIdentifierPatternForAssignment(
         IdentifierNameSyntax identifierName,

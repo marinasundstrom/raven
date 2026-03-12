@@ -345,6 +345,12 @@ internal class Lexer : ILexer
                         if (PeekChar(out ch2) && ch2 == '.')
                         {
                             ReadChar();
+                            if (PeekChar(out var ch3) && ch3 == '.')
+                            {
+                                ReadChar();
+                                return new Token(SyntaxKind.DotDotDotToken, "...");
+                            }
+
                             return new Token(SyntaxKind.DotDotToken, "..");
                         }
                         return new Token(SyntaxKind.DotToken, chStr);

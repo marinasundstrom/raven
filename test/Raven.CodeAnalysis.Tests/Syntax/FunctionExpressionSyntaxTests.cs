@@ -49,6 +49,19 @@ public class FunctionExpressionSyntaxTests
         Assert.True(parameter.Identifier.IsMissing);
         var pattern = Assert.IsType<SequencePatternSyntax>(parameter.Pattern);
         Assert.Equal(2, pattern.Elements.Count);
+        Assert.Equal(SyntaxKind.DotDotDotToken, pattern.Elements[1].DotDotToken.Kind);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithSequenceDestructuringParameter_DotDot_Parses()
+    {
+        var expression = ParseExpression("([a, ..rest]) => a");
+
+        var lambda = Assert.IsType<ParenthesizedFunctionExpressionSyntax>(expression);
+        var parameter = Assert.Single(lambda.ParameterList.Parameters);
+        Assert.True(parameter.Identifier.IsMissing);
+        var pattern = Assert.IsType<SequencePatternSyntax>(parameter.Pattern);
+        Assert.Equal(2, pattern.Elements.Count);
         Assert.Equal(SyntaxKind.DotDotToken, pattern.Elements[1].DotDotToken.Kind);
     }
 
