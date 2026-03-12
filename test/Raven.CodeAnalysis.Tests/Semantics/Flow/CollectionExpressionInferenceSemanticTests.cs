@@ -114,4 +114,43 @@ val merged: List<int> = [..a, ..b]
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
         Assert.Equal("List<int>", bound.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
+
+    [Fact]
+    public void NoTargetType_NumericElements_InferMostPreciseCompatibleNumericArray()
+    {
+        const string source = """
+val inferred = [1, 2.0]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+
+        var collection = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<CollectionExpressionSyntax>()
+            .Single();
+
+        var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
+        Assert.Equal("double[]", bound.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void NoTargetType_IncompatibleElements_DoNotInferObjectArray()
+    {
+        const string source = """
+val inferred = [1, true]
+""";
+
+        var verifier = CreateVerifier(source, [
+            new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("'int'", "'bool'")
+        ]);
+
+        verifier.Verify();
+    }
 }

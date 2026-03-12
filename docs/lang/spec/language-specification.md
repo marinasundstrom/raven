@@ -1125,8 +1125,11 @@ Collection expressions are target-typed:
     with diagnostic `RAV2027` and an explicit target type is required.
   * If no concrete spread-based target can be inferred, Raven falls back to array inference:
     it infers a best common element type by merging all element contributions (spreads use
-    their enumerated element type), then produces `T[]`, defaulting to `object[]` when no
-    more precise choice is available. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3776-L3861】
+    their enumerated element type), then produces `T[]`.
+  * If no compatible common element type can be inferred without falling back to
+    `object`, `System.ValueType`, or interfaces, inference fails
+    with a type-mismatch diagnostic and an explicit target type is required.
+    【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3776-L3861】
 
 An empty collection expression `[]` must be used in a context that supplies a target type;
 otherwise its type cannot be inferred. When a target type is available, the compiler
@@ -1142,7 +1145,7 @@ val evenSquares = [for n in numbers if n % 2 == 0 => n * n]
 val evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
 
 val names: List<string> = ["a", "b"]
-val inferred = [1, 2.0]  // inferred as object[]
+val inferred = [1, 2.0]  // inferred as double[]
 
 val baseList: ImmutableList<int> = [2, 3, 4]
 val preserved = [7, ..baseList, 5] // inferred as ImmutableList<int>
@@ -1152,6 +1155,7 @@ val b: List<int> = [2]
 val invalid = [..a, ..b] // RAV2027: add explicit target type
 
 val forced: List<int> = [..a, ..b]
+val forcedObject: object[] = [1, true]
 ```
 
 #### Element access

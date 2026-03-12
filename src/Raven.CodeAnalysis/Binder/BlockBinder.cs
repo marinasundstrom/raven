@@ -4268,16 +4268,33 @@ partial class BlockBinder : Binder
         var thenType = thenExpr.Type ?? Compilation.ErrorTypeSymbol;
         var elseType = elseExpr.Type ?? Compilation.ErrorTypeSymbol;
 
-        var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { thenType, elseType });
-        if (resultType is ITypeUnionSymbol &&
-            TryInferBestCommonType(thenType, elseType, out var bestCommonType))
-        {
-            resultType = bestCommonType;
-        }
-
         var targetType = GetTargetType(ifExpression);
         if (targetType is NullableTypeSymbol nullableTargetType)
             targetType = nullableTargetType.UnderlyingType;
+
+        var hasInferredResultType = TryInferBestCommonType(thenType, elseType, out var inferredResultType);
+        var resultType = hasInferredResultType ? inferredResultType : Compilation.ErrorTypeSymbol;
+
+        if (!hasInferredResultType && targetType is null)
+        {
+            ReportCannotConvertFromTypeToType(
+                thenType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                elseType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                ifExpression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+        }
+
+        if (targetType is null &&
+            hasInferredResultType &&
+            !SymbolEqualityComparer.Default.Equals(thenType, elseType) &&
+            IsDisallowedImplicitCommonType(resultType))
+        {
+            ReportCannotConvertFromTypeToType(
+                thenType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                elseType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                ifExpression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+        }
 
         if (targetType is not null &&
             targetType.TypeKind != TypeKind.Error &&
@@ -4353,6 +4370,20 @@ partial class BlockBinder : Binder
             }
 
             return targetHasPlaceholder && inferredIsMoreConcrete;
+        }
+
+        static bool IsDisallowedImplicitCommonType(ITypeSymbol type)
+        {
+            if (type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType)
+                return true;
+
+            if (type is INamedTypeSymbol named &&
+                (named.TypeKind is TypeKind.Interface or TypeKind.TypeParameter || named.IsAbstract))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 
@@ -10000,7 +10031,14 @@ partial class BlockBinder : Binder
         }
 
         // Fallback to array if target type couldn't be determined
-        var inferredElementType = InferCollectionElementType(elements);
+        if (!TryInferCollectionElementType(elements, out var inferredElementType, out var inferenceConflict))
+        {
+            ReportCannotConvertFromTypeToType(
+                inferenceConflict.Left.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                inferenceConflict.Right.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        }
         var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType);
 
         var convertedFallback = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
@@ -10618,8 +10656,13 @@ partial class BlockBinder : Binder
         public static ComprehensionRangeInfo Invalid => new(false, null, null, null);
     }
 
-    private ITypeSymbol InferCollectionElementType(IEnumerable<BoundExpression> elements)
+    private bool TryInferCollectionElementType(
+        IEnumerable<BoundExpression> elements,
+        out ITypeSymbol inferredType,
+        out (ITypeSymbol Left, ITypeSymbol Right) conflict)
     {
+        inferredType = Compilation.ErrorTypeSymbol;
+        conflict = default;
         ITypeSymbol? inferred = null;
 
         foreach (var element in elements)
@@ -10645,21 +10688,17 @@ partial class BlockBinder : Binder
                 continue;
             }
 
-            inferred = MergeInferredElementType(inferred, elementType);
+            if (!TryInferBestCommonType(inferred, elementType, out var mergedType))
+            {
+                conflict = (inferred, elementType);
+                return false;
+            }
+
+            inferred = mergedType;
         }
 
-        return inferred ?? Compilation.GetSpecialType(SpecialType.System_Object);
-    }
-
-    private ITypeSymbol MergeInferredElementType(ITypeSymbol current, ITypeSymbol candidate)
-    {
-        if (SymbolEqualityComparer.Default.Equals(current, candidate))
-            return current;
-
-        if (TryInferBestCommonType(current, candidate, out var bestCommonType))
-            return bestCommonType;
-
-        return Compilation.GetSpecialType(SpecialType.System_Object);
+        inferredType = inferred ?? Compilation.GetSpecialType(SpecialType.System_Object);
+        return true;
     }
 
     private bool TryInferBestCommonType(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol bestCommonType)
@@ -10672,6 +10711,12 @@ partial class BlockBinder : Binder
         if (SymbolEqualityComparer.Default.Equals(left, right))
         {
             bestCommonType = left;
+            return true;
+        }
+
+        if (TryInferBestCommonNumericType(left, right, out var numericCommonType))
+        {
+            bestCommonType = numericCommonType;
             return true;
         }
 
@@ -10904,6 +10949,13 @@ partial class BlockBinder : Binder
             if (!rightBases.Contains(current))
                 continue;
 
+            if (current.SpecialType == SpecialType.System_Object)
+                continue;
+
+            // Avoid broad/common-root fallbacks for implicit inference.
+            if (current.SpecialType == SpecialType.System_ValueType || current.TypeKind is TypeKind.Interface)
+                continue;
+
             if (IsAssignable(current, left, out _) && IsAssignable(current, right, out _))
             {
                 commonBase = current;
@@ -10937,6 +10989,12 @@ partial class BlockBinder : Binder
         ITypeSymbol? best = null;
         foreach (var candidate in sharedTargets)
         {
+            if (candidate.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType)
+                continue;
+
+            if (candidate.TypeKind is TypeKind.Interface or TypeKind.TypeParameter)
+                continue;
+
             if (!IsAssignable(candidate, left, out _) || !IsAssignable(candidate, right, out _))
                 continue;
 
@@ -10956,6 +11014,58 @@ partial class BlockBinder : Binder
         targetType = best;
         return true;
     }
+
+    private bool TryInferBestCommonNumericType(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol numericType)
+    {
+        numericType = Compilation.ErrorTypeSymbol;
+
+        if (!IsNumericTypeForInference(left) || !IsNumericTypeForInference(right))
+            return false;
+
+        foreach (var specialType in s_numericInferencePreferenceOrder)
+        {
+            var candidate = Compilation.GetSpecialType(specialType);
+            if (candidate.TypeKind == TypeKind.Error)
+                continue;
+
+            if (IsAssignable(candidate, left, out _) && IsAssignable(candidate, right, out _))
+            {
+                numericType = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsNumericTypeForInference(ITypeSymbol type)
+        => type.SpecialType is
+            SpecialType.System_Byte or
+            SpecialType.System_SByte or
+            SpecialType.System_Int16 or
+            SpecialType.System_UInt16 or
+            SpecialType.System_Int32 or
+            SpecialType.System_UInt32 or
+            SpecialType.System_Int64 or
+            SpecialType.System_UInt64 or
+            SpecialType.System_Single or
+            SpecialType.System_Double or
+            SpecialType.System_Decimal;
+
+    private static readonly SpecialType[] s_numericInferencePreferenceOrder =
+    [
+        SpecialType.System_Byte,
+        SpecialType.System_SByte,
+        SpecialType.System_Int16,
+        SpecialType.System_UInt16,
+        SpecialType.System_Int32,
+        SpecialType.System_UInt32,
+        SpecialType.System_Int64,
+        SpecialType.System_UInt64,
+        SpecialType.System_Single,
+        SpecialType.System_Double,
+        SpecialType.System_Decimal,
+    ];
 
     private static List<ITypeSymbol> GetImplicitConversionTargets(INamedTypeSymbol sourceType)
     {
@@ -11520,6 +11630,20 @@ partial class BlockBinder : Binder
                     return true;
                 current = current.ContainingSymbol;
             }
+            return false;
+        }
+
+        static bool IsDisallowedImplicitCommonType(ITypeSymbol type)
+        {
+            if (type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType)
+                return true;
+
+            if (type is INamedTypeSymbol named &&
+                named.TypeKind is TypeKind.Interface or TypeKind.TypeParameter)
+            {
+                return true;
+            }
+
             return false;
         }
     }
