@@ -163,6 +163,31 @@ internal abstract class Generator
 
     public MemberInfo? GetMemberBuilder(SourceSymbol sourceSymbol) => MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceSymbol);
 
+    protected static bool TypeMayRequireBoxing(ITypeSymbol type)
+    {
+        if (type.IsValueType)
+            return true;
+
+        if (type is ITypeParameterSymbol typeParameter)
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0;
+
+        return false;
+    }
+
+    protected static bool IsDefinitelyReferenceTypeForBoxTarget(ITypeSymbol type)
+    {
+        if (type.IsValueType)
+            return false;
+
+        if (type is ITypeParameterSymbol typeParameter)
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
+
+        return true;
+    }
+
+    protected static bool ShouldBoxForReferenceTarget(ITypeSymbol source, ITypeSymbol target)
+        => TypeMayRequireBoxing(source) && IsDefinitelyReferenceTypeForBoxTarget(target);
+
     protected static ConstructorInfo GetNullableConstructor(Type nullableType, Type underlyingType)
     {
         if (nullableType.IsGenericType)
@@ -374,30 +399,26 @@ internal abstract class Generator
                 return;
 
             ILGenerator.Emit(OpCodes.Box, fromClrType);
-            if (!SymbolEqualityComparer.Default.Equals(from, to))
+            if (!SymbolEqualityComparer.Default.Equals(from, to) &&
+                to.SpecialType != SpecialType.System_Object)
                 ILGenerator.Emit(OpCodes.Castclass, toClrType);
             return;
         }
 
-        if (conversion.IsReference && fromClrType.IsValueType && !toClrType.IsValueType)
+        if (conversion.IsReference && ShouldBoxForReferenceTarget(from, to))
         {
             ILGenerator.Emit(OpCodes.Box, fromClrType);
-            if (!fromClrType.Equals(toClrType))
+            if (!fromClrType.Equals(toClrType) &&
+                to.SpecialType != SpecialType.System_Object)
                 ILGenerator.Emit(OpCodes.Castclass, toClrType);
-            return;
-        }
-
-        if (conversion.IsReference &&
-            from is ITypeParameterSymbol typeParameter &&
-            (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0 &&
-            to.SpecialType == SpecialType.System_Object)
-        {
-            ILGenerator.Emit(OpCodes.Box, fromClrType);
             return;
         }
 
         if (conversion.IsReference)
         {
+            if (conversion.IsImplicit)
+                return;
+
             ILGenerator.Emit(OpCodes.Castclass, toClrType);
             return;
         }
@@ -422,7 +443,7 @@ internal abstract class Generator
             return;
         }
 
-        if (from.IsValueType && !targetClrType.IsValueType)
+        if (ShouldBoxForReferenceTarget(from, unionTo))
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(from));
     }
 

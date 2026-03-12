@@ -315,6 +315,87 @@ class Foo {
             static member => member.Contains("System.Collections.IEnumerable::GetEnumerator", StringComparison.Ordinal));
         Assert.Equal(4, (int)method!.Invoke(instance, null)!);
     }
+
+    [Fact]
+    public void CollectionBuilderAttribute_Target_UsesBuilderFactoryMethod()
+    {
+        var code = """
+import System.Collections.Immutable.*
+
+class Foo {
+    static func GetCount() -> int {
+        val values: ImmutableList<int> = [2, 3, 4]
+        return values.Count
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Contains(
+            calledMembers,
+            static member => member.Contains("System.Collections.Immutable.ImmutableList::Create", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            calledMembers,
+            static member => member.Contains("System.Collections.Generic.List`1::Add", StringComparison.Ordinal));
+        Assert.Equal(3, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void CollectionDeconstruction_WithoutRest_IndexesDirectly()
+    {
+        var code = """
+import System.Collections.Immutable.*
+
+class Foo {
+    static func GetFirstPairSum() -> int {
+        val values: ImmutableList<int> = [2, 3, 4]
+        val [first, second] = values
+        return first + second
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetFirstPairSum");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.DoesNotContain(
+            calledMembers,
+            static member => member.Contains("::get_Count", StringComparison.Ordinal));
+        Assert.Equal(
+            2,
+            calledMembers.Count(static member => member.Contains("::get_Item", StringComparison.Ordinal)));
+        Assert.Equal(5, (int)method!.Invoke(instance, null)!);
+    }
 }
 
 public class CollectionExpressionDiagnosticTests : DiagnosticTestBase

@@ -9751,7 +9751,19 @@ partial class BlockBinder : Binder
         if (syntax.Elements.Count == 0)
         {
             if (targetType != null)
+            {
+                if (TryBindCollectionBuilderInvocation(
+                        syntax,
+                        targetType,
+                        Array.Empty<BoundExpression>(),
+                        Array.Empty<SyntaxNode>(),
+                        out var builderInvocation))
+                {
+                    return builderInvocation;
+                }
+
                 return new BoundEmptyCollectionExpression(targetType);
+            }
 
             _diagnostics.ReportEmptyCollectionLiteralRequiresTargetType(syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
@@ -9794,6 +9806,12 @@ partial class BlockBinder : Binder
 
             elements.Add(boundElement);
             elementNodes.Add(elementNode);
+        }
+
+        if (targetType is not null &&
+            TryBindCollectionBuilderInvocation(syntax, targetType, elements, elementNodes, out var builderBasedCollection))
+        {
+            return builderBasedCollection;
         }
 
         if (targetType is IArrayTypeSymbol arrayType)
@@ -9996,6 +10014,332 @@ partial class BlockBinder : Binder
         }
 
         return new BoundCollectionExpression(fallbackArray, convertedFallback.ToImmutable());
+    }
+
+    private bool TryBindCollectionBuilderInvocation(
+        CollectionExpressionSyntax syntax,
+        ITypeSymbol targetType,
+        IReadOnlyList<BoundExpression> elements,
+        IReadOnlyList<SyntaxNode> elementNodes,
+        out BoundExpression result)
+    {
+        result = null!;
+
+        if (targetType is not INamedTypeSymbol namedTarget)
+            return false;
+
+        if (!TryGetCollectionBuilderInfo(namedTarget, out var builderType, out var methodName))
+            return false;
+
+        if (elements.Any(static element => element is BoundSpreadElement))
+            return false;
+
+        var candidates = builderType
+            .GetMembers(methodName)
+            .OfType<IMethodSymbol>()
+            .Where(static method => method.IsStatic)
+            .ToImmutableArray();
+
+        if (candidates.IsDefaultOrEmpty)
+            return false;
+
+        var accessibleCandidates = GetAccessibleMethods(candidates, syntax.GetLocation(), reportIfInaccessible: false);
+        if (accessibleCandidates.IsDefaultOrEmpty)
+            return false;
+
+        var arguments = new BoundArgument[elements.Count];
+        for (var i = 0; i < elements.Count; i++)
+            arguments[i] = new BoundArgument(elements[i], RefKind.None, null, elementNodes[i]);
+
+        var resolution = OverloadResolver.ResolveOverload(
+            accessibleCandidates,
+            arguments,
+            Compilation,
+            canBindLambda: EnsureLambdaCompatible,
+            callSyntax: syntax);
+
+        var method = resolution.Success
+            ? resolution.Method!
+            : SelectCollectionBuilderMethodFallback(accessibleCandidates, arguments, namedTarget);
+        if (method is null)
+            return false;
+
+        var convertedArguments = ConvertArguments(method.Parameters, arguments);
+
+        BoundExpression invocation = new BoundInvocationExpression(method, convertedArguments);
+        if (!SymbolEqualityComparer.Default.Equals(method.ReturnType, namedTarget))
+        {
+            var conversion = Compilation.ClassifyConversion(method.ReturnType, namedTarget);
+            if (!conversion.Exists || !conversion.IsImplicit)
+                return false;
+
+            invocation = ApplyConversion(invocation, namedTarget, conversion, syntax);
+        }
+
+        ReportObsoleteIfNeeded(method, syntax.GetLocation());
+        result = invocation;
+        return true;
+    }
+
+    private IMethodSymbol? SelectCollectionBuilderMethodFallback(
+        ImmutableArray<IMethodSymbol> candidates,
+        BoundArgument[] arguments,
+        INamedTypeSymbol targetType)
+    {
+        IMethodSymbol? bestMethod = null;
+        var bestScore = int.MaxValue;
+
+        foreach (var candidate in candidates)
+        {
+            var method = OverloadResolver.ApplyTypeArgumentInference(
+                candidate,
+                receiver: null,
+                arguments,
+                Compilation,
+                explicitTypeArguments: ImmutableArray<ITypeSymbol>.Empty);
+            if (method is null)
+                continue;
+
+            if (!OverloadResolver.TryMapArguments(
+                    method.Parameters,
+                    arguments,
+                    treatAsExtension: false,
+                    out var mappedArguments,
+                    out var paramsArguments,
+                    out var paramsParameterIndex))
+            {
+                continue;
+            }
+
+            var score = 0;
+            var valid = true;
+
+            for (var i = 0; i < method.Parameters.Length; i++)
+            {
+                var parameter = method.Parameters[i];
+                if (i == paramsParameterIndex)
+                {
+                    if (mappedArguments[i] is not null)
+                    {
+                        var argument = mappedArguments[i]!.Value;
+                        if (argument.IsSpread ||
+                            argument.Type is null ||
+                            !IsAssignable(parameter.Type, argument.Type, out var conversion))
+                        {
+                            valid = false;
+                            break;
+                        }
+
+                        if (!conversion.IsIdentity)
+                            score++;
+
+                        continue;
+                    }
+
+                    if (!TryGetVarParamsElementType(parameter.Type, out var elementType))
+                    {
+                        valid = false;
+                        break;
+                    }
+
+                    foreach (var paramsArgument in paramsArguments)
+                    {
+                        if (paramsArgument.IsSpread ||
+                            paramsArgument.Type is null ||
+                            !IsAssignable(elementType, paramsArgument.Type, out var conversion))
+                        {
+                            valid = false;
+                            break;
+                        }
+
+                        if (!conversion.IsIdentity)
+                            score++;
+                    }
+
+                    if (!valid)
+                        break;
+
+                    continue;
+                }
+
+                var mapped = mappedArguments[i];
+                if (mapped is null)
+                    continue;
+
+                var boundArgument = mapped.Value;
+                if (boundArgument.IsSpread ||
+                    boundArgument.Type is null ||
+                    !IsAssignable(parameter.Type, boundArgument.Type, out var parameterConversion))
+                {
+                    valid = false;
+                    break;
+                }
+
+                if (!parameterConversion.IsIdentity)
+                    score++;
+            }
+
+            if (!valid)
+                continue;
+
+            var returnConversion = Compilation.ClassifyConversion(method.ReturnType, targetType);
+            if (!returnConversion.Exists || !returnConversion.IsImplicit)
+                continue;
+
+            if (!returnConversion.IsIdentity)
+                score += 2;
+
+            if (method.Parameters.Length > 0 && method.Parameters[^1].IsVarParams)
+                score--;
+
+            if (method.Parameters.Length == 1 &&
+                method.Parameters[0].Type is INamedTypeSymbol singleParamType &&
+                string.Equals(singleParamType.Name, "ReadOnlySpan", StringComparison.Ordinal))
+            {
+                score += 3;
+            }
+
+            if (score < bestScore)
+            {
+                bestScore = score;
+                bestMethod = method;
+            }
+        }
+
+        return bestMethod;
+    }
+
+    private bool TryGetCollectionBuilderInfo(
+        INamedTypeSymbol targetType,
+        out INamedTypeSymbol builderType,
+        out string methodName)
+    {
+        var targetDefinition = (targetType.OriginalDefinition as INamedTypeSymbol) ?? targetType;
+
+        if (TryGetCollectionBuilderInfoFromAttributes(targetDefinition.GetAttributes(), out builderType, out methodName))
+            return true;
+
+        var peTargetType = TryGetMetadataNamedType(targetDefinition);
+        if (peTargetType is null)
+        {
+            builderType = null!;
+            methodName = string.Empty;
+            return false;
+        }
+
+        foreach (var attribute in PENamedTypeSymbol.GetCustomAttributesSafe(peTargetType.GetTypeInfo()))
+        {
+            if (!string.Equals(attribute.AttributeType.FullName, "System.Runtime.CompilerServices.CollectionBuilderAttribute", StringComparison.Ordinal))
+                continue;
+
+            try
+            {
+                if (attribute.ConstructorArguments.Count < 2)
+                    continue;
+
+                var builderTypeArgument = attribute.ConstructorArguments[0].Value;
+                var builderRuntimeType = builderTypeArgument switch
+                {
+                    Type runtimeType => runtimeType,
+                    _ => null
+                };
+
+                if (builderRuntimeType is null ||
+                    attribute.ConstructorArguments[1].Value is not string builderMethodName)
+                {
+                    continue;
+                }
+
+                var builderMetadataName = GetRuntimeMetadataName(builderRuntimeType);
+                var resolvedBuilder = Compilation.GetTypeByMetadataName(builderMetadataName);
+                if (resolvedBuilder is not INamedTypeSymbol namedBuilder)
+                    continue;
+
+                builderType = namedBuilder;
+                methodName = builderMethodName;
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                continue;
+            }
+        }
+
+        builderType = null!;
+        methodName = string.Empty;
+        return false;
+    }
+
+    private static PENamedTypeSymbol? TryGetMetadataNamedType(INamedTypeSymbol type)
+    {
+        var seen = new HashSet<INamedTypeSymbol>(ReferenceEqualityComparer.Instance);
+        var queue = new Queue<INamedTypeSymbol>();
+        queue.Enqueue(type);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (!seen.Add(current))
+                continue;
+
+            if (current is PENamedTypeSymbol pe)
+                return pe;
+
+            if (current.OriginalDefinition is INamedTypeSymbol original &&
+                !ReferenceEquals(original, current))
+            {
+                queue.Enqueue(original);
+            }
+
+            if (current.ConstructedFrom is INamedTypeSymbol constructedFrom &&
+                !ReferenceEquals(constructedFrom, current))
+            {
+                queue.Enqueue(constructedFrom);
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryGetCollectionBuilderInfoFromAttributes(
+        ImmutableArray<AttributeData> attributes,
+        out INamedTypeSymbol builderType,
+        out string methodName)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (!string.Equals(attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), "System.Runtime.CompilerServices.CollectionBuilderAttribute", StringComparison.Ordinal))
+                continue;
+
+            if (attribute.ConstructorArguments.Length != 2)
+                continue;
+
+            var typeArgument = attribute.ConstructorArguments[0];
+            var methodArgument = attribute.ConstructorArguments[1];
+
+            if (typeArgument.Kind != TypedConstantKind.Type ||
+                typeArgument.Value is not INamedTypeSymbol namedBuilder ||
+                methodArgument.Value is not string builderMethodName)
+            {
+                continue;
+            }
+
+            builderType = namedBuilder;
+            methodName = builderMethodName;
+            return true;
+        }
+
+        builderType = null!;
+        methodName = string.Empty;
+        return false;
+    }
+
+    private static string GetRuntimeMetadataName(Type runtimeType)
+    {
+        if (runtimeType.DeclaringType is { } declaringType)
+            return $"{GetRuntimeMetadataName(declaringType)}+{runtimeType.Name}";
+
+        return runtimeType.FullName ?? runtimeType.Name;
     }
 
     private BoundExpression BindCollectionComprehensionElement(CollectionComprehensionElementSyntax syntax)

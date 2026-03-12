@@ -138,6 +138,31 @@ internal class MethodBodyGenerator
         return local is not null;
     }
 
+    private static bool TypeMayRequireBoxing(ITypeSymbol type)
+    {
+        if (type.IsValueType)
+            return true;
+
+        if (type is ITypeParameterSymbol typeParameter)
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0;
+
+        return false;
+    }
+
+    private static bool IsDefinitelyReferenceTypeForBoxTarget(ITypeSymbol type)
+    {
+        if (type.IsValueType)
+            return false;
+
+        if (type is ITypeParameterSymbol typeParameter)
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
+
+        return true;
+    }
+
+    private static bool ShouldBoxForReferenceTarget(ITypeSymbol source, ITypeSymbol target)
+        => TypeMayRequireBoxing(source) && IsDefinitelyReferenceTypeForBoxTarget(target);
+
     internal void RegisterLabelScope(ILabelSymbol labelSymbol, Scope scope)
     {
         _labelScopes[labelSymbol] = scope;
@@ -3011,7 +3036,7 @@ internal class MethodBodyGenerator
             return;
         }
 
-        if (payloadType.IsValueType)
+        if (ShouldBoxForReferenceTarget(payloadType, parameterType))
         {
             var payloadClrType = ResolveClrType(payloadType);
             ILGenerator.Emit(OpCodes.Box, payloadClrType);
@@ -3055,7 +3080,7 @@ internal class MethodBodyGenerator
             return;
         }
 
-        if (payloadType.IsValueType)
+        if (ShouldBoxForReferenceTarget(payloadType, parameterType))
         {
             var payloadClrType = ResolveClrType(payloadType);
             ILGenerator.Emit(OpCodes.Box, payloadClrType);
