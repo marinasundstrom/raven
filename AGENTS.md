@@ -114,6 +114,7 @@ If you change any flags, **rebuild the compiler** before running again.
 - write concise commit messages  
 - summarize PRs with relevant diagnostics  
 - update specs/grammar/docs alongside feature changes
+- update `CHANGELOG.md` for behavior changes (Added/Changed/Removed + impact)
 - when adding a new feature, also evaluate Language Service support and update TextMate grammar definitions as needed (e.g., specific constructs, new keywords, contextual words)
 
 **Additional notes:**  
