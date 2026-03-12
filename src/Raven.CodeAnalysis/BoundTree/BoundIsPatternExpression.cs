@@ -877,17 +877,7 @@ internal partial class BlockBinder
         var hasRest = restIndex >= 0;
         var elementType = Compilation.ErrorTypeSymbol;
 
-        if (hasRest && inputType is not IArrayTypeSymbol && inputType.TypeKind != TypeKind.Error)
-        {
-            _diagnostics.ReportMatchExpressionArmPatternInvalid(
-                "for a collection slice pattern",
-                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                syntax.GetLocation());
-
-            elementType = Compilation.ErrorTypeSymbol;
-            reason = BoundExpressionReason.TypeMismatch;
-        }
-        else if (!TryGetSequencePatternElementType(inputType, out elementType))
+        if (!TryGetSequencePatternElementType(inputType, out elementType))
         {
             if (inputType.TypeKind != TypeKind.Error)
             {
@@ -929,29 +919,54 @@ internal partial class BlockBinder
 
         if (inputType is INamedTypeSymbol namedType)
         {
-            var genericDefinition = namedType.OriginalDefinition ?? namedType;
-            if (genericDefinition.MetadataName == "IEnumerable`1" &&
-                genericDefinition.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" &&
-                namedType.TypeArguments.Length == 1)
+            foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
             {
-                elementType = namedType.TypeArguments[0];
-                return true;
-            }
+                if (!TryGetIndexableElementType(candidate, out var indexerElementType))
+                    continue;
 
-            foreach (var iface in namedType.AllInterfaces)
-            {
-                var ifaceDefinition = iface.OriginalDefinition ?? iface;
-                if (ifaceDefinition.MetadataName == "IEnumerable`1" &&
-                    ifaceDefinition.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" &&
-                    iface.TypeArguments.Length == 1)
-                {
-                    elementType = iface.TypeArguments[0];
-                    return true;
-                }
+                elementType = indexerElementType;
+                return true;
             }
         }
 
         return false;
+
+        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        {
+            yield return type;
+            foreach (var iface in type.AllInterfaces)
+                yield return iface;
+        }
+
+        static bool TryGetIndexableElementType(INamedTypeSymbol type, out ITypeSymbol indexerElementType)
+        {
+            indexerElementType = default!;
+
+            var hasCount = type
+                .GetMembers("Count")
+                .OfType<IPropertySymbol>()
+                .Any(static property =>
+                    property.Parameters.Length == 0 &&
+                    property.Type.SpecialType == SpecialType.System_Int32 &&
+                    property.GetMethod is not null);
+
+            if (!hasCount)
+                return false;
+
+            var indexer = type
+                .GetMembers("Item")
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(static property =>
+                    property.Parameters.Length == 1 &&
+                    property.Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
+                    property.GetMethod is not null);
+
+            if (indexer is null)
+                return false;
+
+            indexerElementType = indexer.Type;
+            return true;
+        }
     }
 
     private BoundPattern BindPositionalPatternElement(PatternSyntax syntax, ITypeSymbol? expectedType)

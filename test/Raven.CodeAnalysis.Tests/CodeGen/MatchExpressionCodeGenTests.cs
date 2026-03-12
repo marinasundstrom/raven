@@ -20,7 +20,8 @@ public class MatchExpressionCodeGenTests
     private static readonly OpCode[] SingleByteOpCodes;
     private static readonly OpCode[] MultiByteOpCodes;
 
-    static MatchExpressionCodeGenTests() {
+    static MatchExpressionCodeGenTests()
+    {
         SingleByteOpCodes = new OpCode[0x100];
         MultiByteOpCodes = new OpCode[0x100];
 
@@ -149,7 +150,7 @@ class Describer {
 class Formatter {
     public func Describe(values: int[]) -> string {
         return values match {
-            [val first, val second] => (first + second).ToString()
+            [first, second] => (first + second).ToString()
             _ => "none"
         }
     }
@@ -177,7 +178,7 @@ class Program {
 class Formatter {
     public func Describe(values: int[]) -> string {
         return values match {
-            [val first, ..middle, val last] => (first + middle[0] + last).ToString()
+            [first, ..middle, last] => (first + middle[0] + last).ToString()
             _ => "none"
         }
     }
@@ -192,6 +193,36 @@ class Program {
 """;
 
         var output = EmitAndRun(code, "match_array_collection_pattern_middle_rest");
+        if (output is null)
+            return;
+
+        Assert.Equal("9", output);
+    }
+
+    [Fact]
+    public void MatchExpression_WithListCollectionPatternMiddleRest_EmitsAndRuns()
+    {
+        const string code = """
+import System.Collections.Generic.*
+
+class Formatter {
+    public func Describe(values: List<int>) -> string {
+        return values match {
+            [first, ..middle, last] => (first + middle[0] + last).ToString()
+            _ => "none"
+        }
+    }
+}
+
+class Program {
+    static func Main() {
+        val formatter = Formatter()
+        System.Console.WriteLine(formatter.Describe([2, 3, 4]))
+    }
+}
+""";
+
+        var output = EmitAndRun(code, "match_list_collection_pattern_middle_rest");
         if (output is null)
             return;
 

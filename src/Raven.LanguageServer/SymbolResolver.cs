@@ -1360,7 +1360,7 @@ internal static class SymbolResolver
         if (token.Kind != SyntaxKind.IdentifierToken || string.IsNullOrWhiteSpace(token.ValueText))
             return false;
 
-        var root = token.SyntaxTree.GetRoot();
+        var root = token.SyntaxTree!.GetRoot();
         foreach (var candidate in root.DescendantNodes().OfType<IdentifierNameSyntax>())
         {
             if (!string.Equals(candidate.Identifier.ValueText, token.ValueText, StringComparison.Ordinal))

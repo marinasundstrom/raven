@@ -2358,13 +2358,15 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
 #### Collection patterns
 
 * `[pattern1, pattern2, …]` — **collection pattern**. Matches when the scrutinee
-  is an array with the same length and each element pattern matches the
-  corresponding array element.
+  is a sequence-deconstructable, indexable collection with the same length and
+  each element pattern matches the corresponding element.
 
-  * Collection patterns are currently supported for array scrutinees (`T[]`).
+  * Collection patterns are supported for arrays (`T[]`) and indexable
+    collection types (`Count` + integer indexer, for example `IList<T>` /
+    `IReadOnlyList<T>`).
   * The same bracketed shape is also used for collection deconstruction
     assignments and declarations (`[val a, val b] = values`), which support
-    arrays and enumerable collections.
+    arrays and indexable collection types.
   * In the syntax tree, bracketed patterns are represented as `SequencePatternSyntax`
     (with `SequencePatternElementSyntax`), distinct from parenthesized positional
     patterns (`PositionalPatternSyntax`).
@@ -3482,8 +3484,8 @@ var (val fifth, var sixth: double, _) = project()
 
 Collection deconstruction uses the same element-pattern rules but with bracket
 syntax. In assignments and declarations, collection deconstruction supports
-arrays (`T[]`) and enumerable collections (`IEnumerable<T>`), and elements are
-bound in sequence order.
+arrays (`T[]`) and indexable collection types (for example `IList<T>` /
+`IReadOnlyList<T>`), and elements are bound in sequence order.
 
 In compiler APIs, this bracketed form is surfaced as `SequencePatternSyntax`
 rather than `PositionalPatternSyntax`, so tuple/positional and sequence forms
@@ -3565,6 +3567,7 @@ successfully bound designators.
 > ⚠️ **Runtime shape note:** sequence deconstruction is length-sensitive at
 > runtime. If the input sequence does not contain enough elements for the fixed
 > prefix/suffix elements in the pattern, evaluation may fail at runtime.
+> Plain enumerable-only sources are not treated as sequence-deconstructable.
 
 The discard identifier also appears in ordinary assignment statements. Writing
 `_ = Compute()` produces a discard assignment statement whose left-hand side is a

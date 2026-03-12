@@ -4176,70 +4176,113 @@ internal partial class ExpressionGenerator : Generator
         ITypeSymbol collectionType,
         ITypeSymbol elementType)
     {
-        if (pattern.RestIndex >= 0)
+        if (!TryGetIndexableCollectionAccess(collectionType, out var access))
             return;
 
-        var enumerable = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable");
-        if (enumerable is null)
-            return;
+        elementType = access.ElementType;
 
         ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
         if (collectionType.IsValueType)
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(collectionType));
-        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
+        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(access.InterfaceType));
 
-        var getEnumerator = enumerable
-            .GetMembers(nameof(IEnumerable.GetEnumerator))
-            .OfType<IMethodSymbol>()
-            .First();
-        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
+        var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(access.InterfaceType));
+        ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
 
-        var enumeratorType = getEnumerator.ReturnType;
-        var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
-        ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+        var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.CountGetter));
+        ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
 
-        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<IMethodSymbol>().First();
-        var currentGetter = enumeratorType
-            .GetMembers(nameof(IEnumerator.Current))
-            .OfType<IPropertySymbol>()
-            .First()
-            .GetMethod!;
+        var arrayType = Compilation.CreateArrayTypeSymbol(elementType);
+        var arrayLocal = ILGenerator.DeclareLocal(ResolveClrType(arrayType));
+        ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+        ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
+        ILGenerator.Emit(OpCodes.Stloc, arrayLocal);
 
-        var stopLabel = ILGenerator.DefineLabel();
+        var indexLocal = ILGenerator.DeclareLocal(typeof(int));
+        var loopStart = ILGenerator.DefineLabel();
+        var loopDone = ILGenerator.DefineLabel();
 
-        for (var i = 0; i < pattern.Elements.Length; i++)
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+        ILGenerator.MarkLabel(loopStart);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+        ILGenerator.Emit(OpCodes.Bge, loopDone);
+
+        ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.IndexerGetter));
+        EmitStoreElement(elementType);
+
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Add);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Br, loopStart);
+
+        ILGenerator.MarkLabel(loopDone);
+
+        EmitArrayPositionalPatternAssignment(pattern, arrayLocal, elementType);
+    }
+
+    private bool TryGetIndexableCollectionAccess(ITypeSymbol collectionType, out (INamedTypeSymbol InterfaceType, IMethodSymbol CountGetter, IMethodSymbol IndexerGetter, ITypeSymbol ElementType) access)
+    {
+        access = default;
+
+        if (collectionType is not INamedTypeSymbol namedType)
+            return false;
+
+        foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
         {
-            var elementPattern = pattern.Elements[i];
-
-            ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
-            ILGenerator.Emit(OpCodes.Brfalse, stopLabel);
-
-            if (elementPattern is null or BoundDiscardPattern)
-                continue;
-
-            ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(currentGetter));
-
-            var elementValueType = GetPatternValueType(elementPattern.Type) ?? GetPatternValueType(elementType);
-            if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
+            if (TryCreateIndexableCollectionAccess(candidate, out access))
             {
-                ILGenerator.Emit(OpCodes.Pop);
-                continue;
+                return true;
             }
-
-            var clrElementType = ResolveClrType(elementValueType);
-            if (elementValueType.IsValueType)
-                ILGenerator.Emit(OpCodes.Unbox_Any, clrElementType);
-            else
-                ILGenerator.Emit(OpCodes.Castclass, clrElementType);
-
-            var elementLocal = ILGenerator.DeclareLocal(clrElementType);
-            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
-            EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
         }
 
-        ILGenerator.MarkLabel(stopLabel);
+        return false;
+
+        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        {
+            yield return type;
+            foreach (var iface in type.AllInterfaces)
+                yield return iface;
+        }
+
+        static bool TryCreateIndexableCollectionAccess(
+            INamedTypeSymbol candidate,
+            out (INamedTypeSymbol InterfaceType, IMethodSymbol CountGetter, IMethodSymbol IndexerGetter, ITypeSymbol ElementType) collectionAccess)
+        {
+            collectionAccess = default;
+
+            var countGetter = candidate
+                .GetMembers("Count")
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(static p =>
+                    p.Parameters.Length == 0 &&
+                    p.Type.SpecialType == SpecialType.System_Int32 &&
+                    p.GetMethod is not null)
+                ?.GetMethod;
+            var indexerGetter = candidate
+                .GetMembers("Item")
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(static p =>
+                    p.Parameters.Length == 1 &&
+                    p.Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
+                    p.GetMethod is not null)
+                ?.GetMethod;
+
+            if (countGetter is null || indexerGetter is null)
+                return false;
+
+            collectionAccess = (candidate, countGetter, indexerGetter, indexerGetter.ReturnType);
+            return true;
+        }
     }
 
     private void EmitDeconstructPatternAssignment(BoundDeconstructPattern deconstructPattern, IILocal valueLocal, ITypeSymbol valueType)

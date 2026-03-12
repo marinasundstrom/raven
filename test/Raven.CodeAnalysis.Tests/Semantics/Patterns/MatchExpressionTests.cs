@@ -405,7 +405,7 @@ func Test(y: int) -> int {
 val items: int[] = [1, 2]
 
 val result = items match {
-    [val first, val second] => first + second
+    [first, second] => first + second
     _ => 0
 }
 """;
@@ -449,7 +449,7 @@ val result = items match {
 val items: int[] = [1, 2, 3, 4]
 
 val result = items match {
-    [val first, ..middle, val last] => first + middle[0] + last
+    [first, ..middle, last] => first + middle[0] + last
     _ => 0
 }
 """;
@@ -474,6 +474,68 @@ val result = items match {
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("middle", restDesignator.Local.Name);
         Assert.True(restDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+    }
+
+    [Fact]
+    public void MatchExpression_WithCollectionPatternRestOnList_BindsRestDesignation()
+    {
+        const string code = """
+import System.Collections.Generic.*
+
+val items: List<int> = [1, 2, 3, 4]
+
+val result = items match {
+    [first, ..middle, last] => first + middle[0] + last
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "list_collection_match_rest",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(bound.Arms[0].Pattern);
+        Assert.Equal(1, collectionPattern.RestIndex);
+
+        var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
+        Assert.Equal("middle", restDesignator.Local.Name);
+        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+    }
+
+    [Fact]
+    public void MatchExpression_WithCollectionPatternOnEnumerable_ReportsDiagnostic()
+    {
+        const string code = """
+import System.Collections.Generic.*
+import System.Linq.*
+
+val items: IEnumerable<int> = [1, 2, 3].Where(v => v > 0)
+
+val result = items match {
+    [first, second] => first + second
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult(CompilerDiagnostics.MatchExpressionArmPatternInvalid.Id)
+                    .WithAnySpan()
+                    .WithArguments("for a collection pattern", "IEnumerable<int>")
+            ]);
+
+        verifier.Verify();
     }
 
     [Fact]

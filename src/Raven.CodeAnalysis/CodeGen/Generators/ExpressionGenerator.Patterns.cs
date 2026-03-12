@@ -426,6 +426,12 @@ internal partial class ExpressionGenerator
                 return;
             }
 
+            if (TryGetIndexableCollectionAccess(inputType, out var indexableAccess))
+            {
+                EmitIndexableCollectionPattern(tuplePattern, indexableAccess, scope);
+                return;
+            }
+
             if (tuplePattern.RestIndex >= 0)
             {
                 ILGenerator.Emit(OpCodes.Pop);
@@ -614,6 +620,70 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
 
         ILGenerator.MarkLabel(labelDone);
+    }
+
+    private void EmitIndexableCollectionPattern(
+        BoundPositionalPattern pattern,
+        (INamedTypeSymbol InterfaceType, IMethodSymbol CountGetter, IMethodSymbol IndexerGetter, ITypeSymbol ElementType) access,
+        Generator scope)
+    {
+        var interfaceClrType = ResolveClrType(access.InterfaceType);
+        var collectionLocal = ILGenerator.DeclareLocal(interfaceClrType);
+        var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        var indexLocal = ILGenerator.DeclareLocal(typeof(int));
+
+        var elementType = access.ElementType;
+        var arrayType = (IArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(elementType);
+        var arrayClrType = ResolveClrType(arrayType);
+        var arrayLocal = ILGenerator.DeclareLocal(arrayClrType);
+        var nullCollectionLabel = ILGenerator.DefineLabel();
+        var doneLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, nullCollectionLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.CountGetter));
+        ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+        ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
+        ILGenerator.Emit(OpCodes.Stloc, arrayLocal);
+
+        var loopStart = ILGenerator.DefineLabel();
+        var loopDone = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+        ILGenerator.MarkLabel(loopStart);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+        ILGenerator.Emit(OpCodes.Bge, loopDone);
+
+        ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.IndexerGetter));
+        EmitStoreElement(elementType);
+
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Add);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Br, loopStart);
+
+        ILGenerator.MarkLabel(loopDone);
+        ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+        EmitArrayCollectionPattern(pattern, arrayType, scope);
+        ILGenerator.Emit(OpCodes.Br, doneLabel);
+
+        ILGenerator.MarkLabel(nullCollectionLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.MarkLabel(doneLabel);
     }
 
     private void EmitPatternTestBranchFalse(

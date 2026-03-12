@@ -273,6 +273,66 @@ first + middle[0] + last
     }
 
     [Fact]
+    public void CollectionPatternDeclarationShorthand_WithMiddleRest_OnList_BindsArraySlice()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val values: List<int> = [1, 2, 3, 4]
+val [first, ..middle, last] = values
+first + middle[0] + last
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
+            .Single();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        Assert.Equal(1, collectionPattern.RestIndex);
+
+        var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
+        Assert.Equal("middle", restDesignator.Local.Name);
+        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+        Assert.False(restDesignator.Local.IsMutable);
+    }
+
+    [Fact]
+    public void CollectionPatternDeclarationShorthand_OnEnumerable_ReportsDiagnostic()
+    {
+        const string source = """
+import System.Collections.Generic.*
+import System.Linq.*
+
+val values: IEnumerable<int> = [1, 2, 3, 4].Where(v => v > 0)
+val [first, second, _] = values
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PositionalDeconstructionRequiresDeconstructableType.Id)
+                    .WithAnySpan()
+                    .WithArguments("'IEnumerable<int>'")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void DiscardAssignmentStatement_BindsDiscardPattern()
     {
         const string source = "_ = 1";

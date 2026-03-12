@@ -1203,19 +1203,26 @@ if (symbolDumpMode != SymbolDumpMode.None)
 
 if (quote)
 {
-    var code = compilation.SyntaxTrees.First().GetText().ToString();
-    var quoted = RavenQuoter.QuoteText(code, new RavenQuoterOptions
+    if (compilation.SyntaxTrees.FirstOrDefault() is not { } firstSyntaxTree)
     {
-        IncludeTrivia = true,
-        GenerateUsingDirectives = true,
-        UseStaticSyntaxFactoryImport = true,
-        UseNamedArguments = true,
-        IgnoreNullValue = true,
-        UseFactoryPropsForSimpleTokens = true
-    });
+        AnsiConsole.MarkupLine("[yellow]No syntax tree available to quote.[/]");
+    }
+    else
+    {
+        var code = firstSyntaxTree.GetText().ToString();
+        var quoted = RavenQuoter.QuoteText(code, new RavenQuoterOptions
+        {
+            IncludeTrivia = true,
+            GenerateUsingDirectives = true,
+            UseStaticSyntaxFactoryImport = true,
+            UseNamedArguments = true,
+            IgnoreNullValue = true,
+            UseFactoryPropsForSimpleTokens = true
+        });
 
-    Console.WriteLine(quoted);
-    Console.WriteLine();
+        Console.WriteLine(quoted);
+        Console.WriteLine();
+    }
 }
 
 if (runIlVerify)

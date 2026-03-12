@@ -8324,22 +8324,9 @@ partial class BlockBinder : Binder
         var restIndex = GetSequenceRestElementIndex(elements);
         var hasRest = restIndex >= 0;
 
-        if (valueType is IArrayTypeSymbol arrayType)
+        if (TryGetSequenceDeconstructionElementType(valueType, out var sequenceElementType))
         {
-            elementType = arrayType.ElementType;
-        }
-        else if (hasRest && valueType.TypeKind != TypeKind.Error)
-        {
-            _diagnostics.ReportPositionalDeconstructionRequiresDeconstructableType(
-                GetPatternTypeDisplay(valueType),
-                pattern.GetLocation());
-
-            patternType = Compilation.ErrorTypeSymbol;
-            elementType = Compilation.ErrorTypeSymbol;
-        }
-        else if (valueType.TypeKind != TypeKind.Error && IsSpreadEnumerable(valueType))
-        {
-            elementType = GetSpreadElementType(valueType);
+            elementType = sequenceElementType;
         }
         else if (valueType.TypeKind != TypeKind.Error)
         {
@@ -8365,6 +8352,72 @@ partial class BlockBinder : Binder
         }
 
         return new BoundPositionalPattern(patternType, boundElements.ToImmutable(), restIndex: restIndex);
+    }
+
+    private bool TryGetSequenceDeconstructionElementType(ITypeSymbol valueType, out ITypeSymbol elementType)
+    {
+        elementType = Compilation.ErrorTypeSymbol;
+
+        if (valueType.TypeKind == TypeKind.Error)
+            return false;
+
+        if (valueType is IArrayTypeSymbol arrayType)
+        {
+            elementType = arrayType.ElementType;
+            return true;
+        }
+
+        if (valueType is not INamedTypeSymbol namedType)
+            return false;
+
+        foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
+        {
+            if (TryGetIndexableElementType(candidate, out var indexerElementType))
+            {
+                elementType = indexerElementType;
+                return true;
+            }
+        }
+
+        return false;
+
+        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        {
+            yield return type;
+            foreach (var iface in type.AllInterfaces)
+                yield return iface;
+        }
+
+        static bool TryGetIndexableElementType(INamedTypeSymbol type, out ITypeSymbol indexerElementType)
+        {
+            indexerElementType = default!;
+
+            var hasCount = type
+                .GetMembers("Count")
+                .OfType<IPropertySymbol>()
+                .Any(static property =>
+                    property.Parameters.Length == 0 &&
+                    property.Type.SpecialType == SpecialType.System_Int32 &&
+                    property.GetMethod is not null);
+
+            if (!hasCount)
+                return false;
+
+            var indexer = type
+                .GetMembers("Item")
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(static property =>
+                    property.Parameters.Length == 1 &&
+                    property.Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
+                    property.GetMethod is not null);
+
+            if (indexer is null)
+                return false;
+
+            indexerElementType = indexer.Type;
+            return true;
+        }
+
     }
 
     private static int GetSequenceRestElementIndex(SeparatedSyntaxList<SequencePatternElementSyntax> elements)
@@ -8524,25 +8577,25 @@ partial class BlockBinder : Binder
             case SingleVariableDesignationSyntax single:
                 return BindIdentifierPatternForExistingLocalAssignment(single.Identifier, valueType);
             case TypedVariableDesignationSyntax typed:
-            {
-                var declaredType = ResolveTypeSyntaxOrError(typed.TypeAnnotation.Type);
-                declaredType = EnsureTypeAccessible(declaredType, typed.TypeAnnotation.Type.GetLocation());
-
-                var sourceType = valueType.UnwrapLiteralType() ?? valueType;
-                if (declaredType.TypeKind != TypeKind.Error &&
-                    sourceType.TypeKind != TypeKind.Error &&
-                    !IsAssignable(declaredType, sourceType, out _))
                 {
-                    _diagnostics.ReportCannotAssignFromTypeToType(
-                        GetPatternTypeDisplay(sourceType),
-                        declaredType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        typed.TypeAnnotation.Type.GetLocation());
+                    var declaredType = ResolveTypeSyntaxOrError(typed.TypeAnnotation.Type);
+                    declaredType = EnsureTypeAccessible(declaredType, typed.TypeAnnotation.Type.GetLocation());
 
-                    return new BoundDiscardPattern(declaredType, BoundExpressionReason.TypeMismatch);
+                    var sourceType = valueType.UnwrapLiteralType() ?? valueType;
+                    if (declaredType.TypeKind != TypeKind.Error &&
+                        sourceType.TypeKind != TypeKind.Error &&
+                        !IsAssignable(declaredType, sourceType, out _))
+                    {
+                        _diagnostics.ReportCannotAssignFromTypeToType(
+                            GetPatternTypeDisplay(sourceType),
+                            declaredType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            typed.TypeAnnotation.Type.GetLocation());
+
+                        return new BoundDiscardPattern(declaredType, BoundExpressionReason.TypeMismatch);
+                    }
+
+                    return BindVariableDesignationForExistingAssignment(typed.Designation, declaredType);
                 }
-
-                return BindVariableDesignationForExistingAssignment(typed.Designation, declaredType);
-            }
             default:
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(designation.GetLocation());
                 return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
