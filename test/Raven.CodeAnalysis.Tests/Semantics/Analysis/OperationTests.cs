@@ -343,6 +343,72 @@ class C {
     }
 
     [Fact]
+    public void GetOperation_InterpolatedString_ExposesContentsAndInterpolation()
+    {
+        const string source = """
+func Message(name: string) -> string {
+    return "Hello ${name}"
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var interpolatedString = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InterpolatedStringExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IInterpolatedStringOperation>(model.GetOperation(interpolatedString));
+        operation.Kind.ShouldBe(OperationKind.InterpolatedString);
+        operation.Contents.Length.ShouldBeGreaterThan(0);
+
+        var interpolation = operation.Contents.OfType<IInterpolationOperation>().Single();
+        interpolation.Expression.ShouldNotBeNull();
+        interpolation.Expression!.Kind.ShouldBe(OperationKind.ParameterReference);
+    }
+
+    [Fact]
+    public void GetOperation_NameOfExpression_CurrentlyFallsBackToNoneKind()
+    {
+        const string source = """
+val memberName = nameof(System.Console.WriteLine)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var nameofSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<NameOfExpressionSyntax>()
+            .Single();
+
+        var operation = model.GetOperation(nameofSyntax);
+        operation.ShouldNotBeNull();
+        operation!.Kind.ShouldBe(OperationKind.None);
+    }
+
+    [Fact]
+    public void GetOperation_NullCoalesceExpression_CurrentlyFallsBackToNoneKind()
+    {
+        const string source = """
+func M(name: string?) -> string {
+    return name ?? "fallback"
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var nullCoalesceSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<NullCoalesceExpressionSyntax>()
+            .Single();
+
+        var operation = model.GetOperation(nullCoalesceSyntax);
+        operation.ShouldNotBeNull();
+        operation!.Kind.ShouldBe(OperationKind.None);
+        operation.ChildOperations.Length.ShouldBe(2);
+    }
+
+    [Fact]
     public void GetOperation_MethodGroupWithOverloads_DoesNotThrow()
     {
         const string source = """

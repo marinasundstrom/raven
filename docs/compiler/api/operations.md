@@ -4,9 +4,9 @@ The operations API exposes a tree of semantic nodes that sit between the
 binder's `BoundNode` graph and the syntax tree. It mirrors the `IOperation`
 surface from Roslyn so tooling and analyzers can reason about Raven programs
 using a stable, syntax-agnostic shape. Every concrete operation now has a
-dedicated class (for example, `BinaryOperation`, `InvocationOperation`, and
-`ReturnOperation`) so analyzers can inspect well-named properties rather than
-working with anonymous nodes.
+dedicated class when available (for example, `BinaryOperation`,
+`InvocationOperation`, and `ReturnOperation`). Unmapped semantic shapes fall
+back to `SimpleOperation` with `OperationKind.None`.
 
 ---
 
@@ -70,7 +70,7 @@ and visitors can rely on reference equality.
 
 ## Navigating the operation tree
 
-Operations expose their children through the `Children` property and can be
+Operations expose their children through the `ChildOperations` property and can be
 traversed with the provided visitor base types:
 
 ```csharp

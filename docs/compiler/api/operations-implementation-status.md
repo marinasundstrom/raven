@@ -38,18 +38,18 @@ Sources of truth:
 | `Binary` | `BoundBinaryExpression` | `BinaryOperation` |
 | `Parenthesized` | `BoundParenthesizedExpression` | `ParenthesizedOperation` |
 | `Conversion` | `BoundConversionExpression`, `BoundAsExpression` | `ConversionOperation` |
-| `ConditionalAccess` | `BoundConditionalAccessExpression` | `ConditionalAccessOperation` |
+| `ConditionalAccess` | `BoundConditionalAccessExpression`, `BoundCarrierConditionalAccessExpression` | `ConditionalAccessOperation` |
 | `Conditional` | `BoundIfStatement`, `BoundIfExpression` | `ConditionalOperation` |
 | `TryExpression` | `BoundTryExpression` | `TryExpressionOperation` |
 | `Await` | `BoundAwaitExpression` | `AwaitOperation` |
-| `WhileLoop` | `BoundWhileStatement` | `WhileOperation` |
-| `ForLoop` | `BoundForStatement` | `ForOperation` |
+| `WhileLoop` | `BoundWhileStatement` | `WhileLoopOperation` |
+| `ForLoop` | `BoundForStatement` | `ForLoopOperation` |
 | `Invocation` | `BoundInvocationExpression` | `InvocationOperation` |
 | `ObjectCreation` | `BoundObjectCreationExpression` | `ObjectCreationOperation` |
 | `Assignment` | `BoundAssignmentExpression`, `BoundAssignmentStatement` | `AssignmentOperation` |
 | `DelegateCreation` | `BoundDelegateCreationExpression` | `DelegateCreationOperation` |
 | `Tuple` | `BoundTupleExpression` | `TupleOperation` |
-| `Lambda` | `BoundLambdaExpression` | `LambdaOperation` |
+| `Lambda` | `BoundFunctionExpression` | `LambdaOperation` |
 | `AddressOf` | `BoundAddressOfExpression` | `AddressOfOperation` |
 | `ArrayElement` | `BoundArrayAccessExpression` | `ElementAccessOperation` |
 | `IndexerElement` | `BoundIndexerAccessExpression` | `ElementAccessOperation` |
@@ -86,7 +86,23 @@ These bound nodes are not mapped to `OperationKind`/specialized operations in `O
 
 | Bound node(s) | Suggested operation shape | Notes |
 | --- | --- | --- |
-None currently tracked.
+| `BoundCollectionComprehensionExpression` | `ICollectionComprehensionOperation` (new) or `Collection` extension | Currently falls back to `SimpleOperation` / `OperationKind.None`. |
+| `BoundDeconstructPattern` | `IDeconstructPatternOperation` (new) | Pattern kind exists in bound tree but has no `OperationKind` mapping. |
+| `BoundDereferenceExpression` | `IDereferenceOperation` (new) | Pointer dereference is currently untyped in operations surface. |
+| `BoundMatchStatement` | `ISwitchOperation` or dedicated statement switch operation | Only `BoundMatchExpression` maps to `OperationKind.Switch` today. |
+| `BoundNameOfExpression` | `INameOfOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
+| `BoundNullCoalesceExpression` | `ICoalesceOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
+| `BoundNullableValueExpression` | `INullableValueOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
+| `BoundPointerMemberAccessExpression` | `IMemberReferenceOperation` extension or pointer-specific node | Produces `SimpleOperation` / `OperationKind.None`. |
+| `BoundPropagateExpression` | `IPropagateOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
+| `BoundPropertyPattern` | `IPropertyPatternOperation` (new) | Pattern kind exists in bound tree but has no `OperationKind` mapping. |
+| `BoundRangePattern` | `IRangePatternOperation` (new) | Pattern kind exists in bound tree but has no `OperationKind` mapping. |
+| `BoundRelationalPattern` | `IRelationalPatternOperation` (new) | Pattern kind exists in bound tree but has no `OperationKind` mapping. |
+| `BoundRequiredResultExpression` | `IRequiredResultOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
+| `BoundReturnExpression` | `IReturnExpressionOperation` (new) | Distinct from statement return; currently `OperationKind.None`. |
+| `BoundThrowExpression` | `IThrowExpressionOperation` (new) or map to `Throw` with expression semantics | Distinct from throw statement; currently `OperationKind.None`. |
+| `BoundUnionCaseExpression` | `IUnionCaseOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
+| `BoundWithExpression` | `IWithOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
 
 ## Notes
 
