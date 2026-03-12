@@ -51,6 +51,11 @@ public enum OperationKind
     Return,
 
     /// <summary>
+    /// A return expression.
+    /// </summary>
+    ReturnExpression,
+
+    /// <summary>
     /// A yield return statement.
     /// </summary>
     YieldReturn,
@@ -64,6 +69,11 @@ public enum OperationKind
     /// A throw statement.
     /// </summary>
     Throw,
+
+    /// <summary>
+    /// A throw expression.
+    /// </summary>
+    ThrowExpression,
 
     /// <summary>
     /// A break statement.
@@ -166,6 +176,16 @@ public enum OperationKind
     Binary,
 
     /// <summary>
+    /// A null-coalescing operation.
+    /// </summary>
+    Coalesce,
+
+    /// <summary>
+    /// A nameof operation.
+    /// </summary>
+    NameOf,
+
+    /// <summary>
     /// A parenthesized expression.
     /// </summary>
     Parenthesized,
@@ -174,6 +194,16 @@ public enum OperationKind
     /// A conversion operation (explicit or implicit).
     /// </summary>
     Conversion,
+
+    /// <summary>
+    /// A propagation expression.
+    /// </summary>
+    Propagate,
+
+    /// <summary>
+    /// A dereference expression.
+    /// </summary>
+    Dereference,
 
     /// <summary>
     /// A conditional statement or expression.
@@ -219,6 +249,26 @@ public enum OperationKind
     /// An object creation expression.
     /// </summary>
     ObjectCreation,
+
+    /// <summary>
+    /// An object initializer.
+    /// </summary>
+    ObjectInitializer,
+
+    /// <summary>
+    /// An object initializer assignment entry.
+    /// </summary>
+    ObjectInitializerAssignment,
+
+    /// <summary>
+    /// An object initializer expression entry.
+    /// </summary>
+    ObjectInitializerExpressionEntry,
+
+    /// <summary>
+    /// A with expression.
+    /// </summary>
+    With,
 
     /// <summary>
     /// A simple assignment expression or statement.
@@ -271,6 +321,11 @@ public enum OperationKind
     Lambda,
 
     /// <summary>
+    /// A discriminated union case expression.
+    /// </summary>
+    UnionCase,
+
+    /// <summary>
     /// A switch or match expression.
     /// </summary>
     Switch,
@@ -296,9 +351,29 @@ public enum OperationKind
     ConstantPattern,
 
     /// <summary>
+    /// A relational pattern.
+    /// </summary>
+    RelationalPattern,
+
+    /// <summary>
     /// A positional pattern.
     /// </summary>
     PositionalPattern,
+
+    /// <summary>
+    /// A recursive pattern.
+    /// </summary>
+    RecursivePattern,
+
+    /// <summary>
+    /// A range pattern.
+    /// </summary>
+    RangePattern,
+
+    /// <summary>
+    /// A property pattern.
+    /// </summary>
+    PropertyPattern,
 
     /// <summary>
     /// A discard pattern.
@@ -334,6 +409,11 @@ public enum OperationKind
     /// A collection expression.
     /// </summary>
     Collection,
+
+    /// <summary>
+    /// A collection comprehension expression.
+    /// </summary>
+    CollectionComprehension,
 
     /// <summary>
     /// An empty collection expression.

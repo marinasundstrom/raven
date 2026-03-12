@@ -18,9 +18,11 @@ Sources of truth:
 | `Function` | `BoundFunctionStatement` | `FunctionOperation` |
 | `VariableDeclarator` | `BoundVariableDeclarator` | `VariableDeclaratorOperation` |
 | `Return` | `BoundReturnStatement` | `ReturnOperation` |
+| `ReturnExpression` | `BoundReturnExpression` | `ReturnExpressionOperation` |
 | `YieldReturn` | `BoundYieldReturnStatement` | `YieldReturnOperation` |
 | `YieldBreak` | `BoundYieldBreakStatement` | `YieldBreakOperation` |
 | `Throw` | `BoundThrowStatement` | `ThrowOperation` |
+| `ThrowExpression` | `BoundThrowExpression` | `ThrowExpressionOperation` |
 | `Break` | `BoundBreakStatement` | `BreakOperation` |
 | `Continue` | `BoundContinueStatement` | `ContinueOperation` |
 | `Goto` | `BoundGotoStatement` | `GotoOperation` |
@@ -36,8 +38,12 @@ Sources of truth:
 | `MethodReference` | `BoundMethodGroupExpression` | `MethodReferenceOperation` |
 | `Unary` | `BoundUnaryExpression` | `UnaryOperation` |
 | `Binary` | `BoundBinaryExpression` | `BinaryOperation` |
+| `Coalesce` | `BoundNullCoalesceExpression` | `CoalesceOperation` |
+| `NameOf` | `BoundNameOfExpression` | `NameOfOperation` |
 | `Parenthesized` | `BoundParenthesizedExpression` | `ParenthesizedOperation` |
 | `Conversion` | `BoundConversionExpression`, `BoundAsExpression` | `ConversionOperation` |
+| `Propagate` | `BoundPropagateExpression` | `PropagationOperation` |
+| `Dereference` | `BoundDereferenceExpression` | `DereferenceOperation` |
 | `ConditionalAccess` | `BoundConditionalAccessExpression`, `BoundCarrierConditionalAccessExpression` | `ConditionalAccessOperation` |
 | `Conditional` | `BoundIfStatement`, `BoundIfExpression` | `ConditionalOperation` |
 | `TryExpression` | `BoundTryExpression` | `TryExpressionOperation` |
@@ -46,22 +52,31 @@ Sources of truth:
 | `ForLoop` | `BoundForStatement` | `ForLoopOperation` |
 | `Invocation` | `BoundInvocationExpression` | `InvocationOperation` |
 | `ObjectCreation` | `BoundObjectCreationExpression` | `ObjectCreationOperation` |
+| `ObjectInitializer` | `BoundObjectInitializer` | `ObjectInitializerOperation` |
+| `ObjectInitializerAssignment` | `BoundObjectInitializerAssignmentEntry` | `ObjectInitializerAssignmentOperation` |
+| `ObjectInitializerExpressionEntry` | `BoundObjectInitializerExpressionEntry` | `ObjectInitializerExpressionEntryOperation` |
+| `With` | `BoundWithExpression` | `WithOperation` |
 | `Assignment` | `BoundAssignmentExpression`, `BoundAssignmentStatement` | `AssignmentOperation` |
 | `DelegateCreation` | `BoundDelegateCreationExpression` | `DelegateCreationOperation` |
 | `Tuple` | `BoundTupleExpression` | `TupleOperation` |
 | `Lambda` | `BoundFunctionExpression` | `LambdaOperation` |
+| `UnionCase` | `BoundUnionCaseExpression` | `UnionCaseOperation` |
 | `AddressOf` | `BoundAddressOfExpression` | `AddressOfOperation` |
 | `ArrayElement` | `BoundArrayAccessExpression` | `ElementAccessOperation` |
 | `IndexerElement` | `BoundIndexerAccessExpression` | `ElementAccessOperation` |
 | `Index` | `BoundIndexExpression` | `IndexOperation` |
 | `Range` | `BoundRangeExpression` | `RangeOperation` |
 | `TypeOf` | `BoundTypeOfExpression` | `TypeOfOperation` |
-| `Switch` | `BoundMatchExpression` | `SwitchOperation` |
+| `Switch` | `BoundMatchExpression`, `BoundMatchStatement` | `MatchOperation` |
 | `IsPattern` | `BoundIsPatternExpression` | `IsPatternOperation` |
 | `CasePattern` | `BoundCasePattern` | `CasePatternOperation` |
 | `DeclarationPattern` | `BoundDeclarationPattern` | `DeclarationPatternOperation` |
 | `ConstantPattern` | `BoundConstantPattern` | `ConstantPatternOperation` |
+| `RelationalPattern` | `BoundRelationalPattern` | `RelationalPatternOperation` |
 | `PositionalPattern` | `BoundPositionalPattern` | `PositionalPatternOperation` |
+| `RecursivePattern` | `BoundDeconstructPattern` | `RecursivePatternOperation` |
+| `RangePattern` | `BoundRangePattern` | `RangePatternOperation` |
+| `PropertyPattern` | `BoundPropertyPattern` | `PropertyPatternOperation` |
 | `DiscardPattern` | `BoundDiscardPattern` | `DiscardPatternOperation` |
 | `NotPattern` | `BoundNotPattern` | `NotPatternOperation` |
 | `AndPattern` | `BoundAndPattern` | `AndPatternOperation` |
@@ -69,6 +84,7 @@ Sources of truth:
 | `SingleVariableDesignator` | `BoundSingleVariableDesignator` | `SingleVariableDesignatorOperation` |
 | `DiscardDesignator` | `BoundDiscardDesignator` | `DiscardDesignatorOperation` |
 | `Collection` | `BoundCollectionExpression` | `CollectionOperation` |
+| `CollectionComprehension` | `BoundCollectionComprehensionExpression` | `CollectionComprehensionOperation` |
 | `EmptyCollection` | `BoundEmptyCollectionExpression` | `EmptyCollectionOperation` |
 | `SpreadElement` | `BoundSpreadElement` | `SpreadElementOperation` |
 | `TypeExpression` | `BoundTypeExpression` | `TypeOperation` |
@@ -79,6 +95,7 @@ Sources of truth:
 | `Unit` | `BoundUnitExpression` | `UnitOperation` |
 | `Invalid` | `BoundErrorExpression` | `InvalidOperation` |
 | `FieldReference`/`PropertyReference`/`MethodReference` | `BoundMemberAccessExpression` | `MemberReferenceOperation` |
+| `FieldReference`/`PropertyReference`/`MethodReference` | `BoundPointerMemberAccessExpression` | `MemberReferenceOperation` |
 
 ## Missing operation kinds or specialized nodes (no mapping yet)
 
@@ -86,23 +103,12 @@ These bound nodes are not mapped to `OperationKind`/specialized operations in `O
 
 | Bound node(s) | Suggested operation shape | Notes |
 | --- | --- | --- |
-| `BoundCollectionComprehensionExpression` | `ICollectionComprehensionOperation` (new) or `Collection` extension | Currently falls back to `SimpleOperation` / `OperationKind.None`. |
-| `BoundDeconstructPattern` | `IDeconstructPatternOperation` (new) | Pattern kind exists in bound tree but has no `OperationKind` mapping. |
-| `BoundDereferenceExpression` | `IDereferenceOperation` (new) | Pointer dereference is currently untyped in operations surface. |
-| `BoundMatchStatement` | `ISwitchOperation` or dedicated statement switch operation | Only `BoundMatchExpression` maps to `OperationKind.Switch` today. |
-| `BoundNameOfExpression` | `INameOfOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
-| `BoundNullCoalesceExpression` | `ICoalesceOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
-| `BoundNullableValueExpression` | `INullableValueOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
-| `BoundPointerMemberAccessExpression` | `IMemberReferenceOperation` extension or pointer-specific node | Produces `SimpleOperation` / `OperationKind.None`. |
-| `BoundPropagateExpression` | `IPropagateOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
-| `BoundPropertyPattern` | `IPropertyPatternOperation` (new) | Pattern kind exists in bound tree but has no `OperationKind` mapping. |
-| `BoundRangePattern` | `IRangePatternOperation` (new) | Pattern kind exists in bound tree but has no `OperationKind` mapping. |
-| `BoundRelationalPattern` | `IRelationalPatternOperation` (new) | Pattern kind exists in bound tree but has no `OperationKind` mapping. |
-| `BoundRequiredResultExpression` | `IRequiredResultOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
-| `BoundReturnExpression` | `IReturnExpressionOperation` (new) | Distinct from statement return; currently `OperationKind.None`. |
-| `BoundThrowExpression` | `IThrowExpressionOperation` (new) or map to `Throw` with expression semantics | Distinct from throw statement; currently `OperationKind.None`. |
-| `BoundUnionCaseExpression` | `IUnionCaseOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
-| `BoundWithExpression` | `IWithOperation` (new) | Produces `SimpleOperation` / `OperationKind.None`. |
+| `BoundNullableValueExpression` | `INullableValueOperation` (new) | Internal wrapper candidate; currently unwrapped to operand. |
+
+Intentional internal wrappers (not exposed as dedicated operations):
+
+- `BoundRequiredResultExpression` is a codegen-only wrapper and is unwrapped to its operand in the Operations API.
+- `BoundNullableValueExpression` is an internal lowering/codegen helper and is unwrapped to its operand in the Operations API.
 
 ## Notes
 
@@ -126,6 +132,18 @@ latest slices:
 - `ICasePatternOperation`: `Arguments`
 - `IConstantPatternOperation`: `Value`
 - `IPositionalPatternOperation`: `Subpatterns`
+- `IReceiverPatternOperation`: `ReceiverType`, `NarrowedType`
+- `IRecursivePatternOperation`: `DeconstructMethod`, `Arguments`
+- `IRangePatternOperation`: `LowerBound`, `UpperBound`, `IsUpperExclusive`
+- `IRelationalPatternOperation`: `OperatorKind`, `Value`
+- `IPropertyPatternOperation`: `Designator`, `Members`, `Subpatterns`
+- `IPropagationOperation`: `Operand`, `OkType`, `ErrorType`, `EnclosingResultType`, `EnclosingErrorConstructor`
+- `IDereferenceOperation`: `Operand`
+- `ICollectionComprehensionOperation`: `Source`, `Condition`, `Selector`, `IterationLocal`, `ElementType`
+- `IObjectCreationOperation`: `Initializer`
+- `IObjectInitializerOperation`: `Entries`
+- `IObjectInitializerAssignmentOperation`: `Member`, `OperatorTokenKind`, `Value`
+- `IObjectInitializerExpressionEntryOperation`: `Expression`
 - `INotPatternOperation`: `Pattern`
 - `IAndPatternOperation`: `Left`, `Right`
 - `IOrPatternOperation`: `Left`, `Right`

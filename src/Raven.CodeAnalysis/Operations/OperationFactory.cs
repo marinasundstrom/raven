@@ -7,6 +7,16 @@ internal static class OperationFactory
 {
     public static Operation? Create(SemanticModel semanticModel, SyntaxNode syntax, BoundNode bound)
     {
+        if (bound is BoundRequiredResultExpression requiredResult)
+            return Create(semanticModel, syntax, requiredResult.Operand);
+        if (bound is BoundNullableValueExpression nullableValue)
+            return Create(semanticModel, syntax, nullableValue.Operand);
+        if (bound is BoundSpreadElement { Expression: BoundCollectionComprehensionExpression collectionComprehension } &&
+            syntax is CollectionComprehensionElementSyntax)
+        {
+            return Create(semanticModel, syntax, collectionComprehension);
+        }
+
         var kind = GetOperationKind(bound);
         var type = bound switch
         {
@@ -38,9 +48,11 @@ internal static class OperationFactory
             BoundLocalDeclarationStatement declaration => new VariableDeclarationOperation(semanticModel, declaration, syntax, isImplicit),
             BoundVariableDeclarator declarator => new VariableDeclaratorOperation(semanticModel, declarator, syntax, isImplicit),
             BoundReturnStatement @return => new ReturnOperation(semanticModel, @return, syntax, isImplicit),
+            BoundReturnExpression returnExpression => new ReturnExpressionOperation(semanticModel, returnExpression, syntax, isImplicit),
             BoundYieldReturnStatement yieldReturn => new YieldReturnOperation(semanticModel, yieldReturn, syntax, isImplicit),
             BoundYieldBreakStatement yieldBreak => new YieldBreakOperation(semanticModel, yieldBreak, syntax, isImplicit),
             BoundThrowStatement @throw => new ThrowOperation(semanticModel, @throw, syntax, isImplicit),
+            BoundThrowExpression throwExpression => new ThrowExpressionOperation(semanticModel, throwExpression, syntax, isImplicit),
             BoundBreakStatement @break => new BreakOperation(semanticModel, @break, syntax, isImplicit),
             BoundContinueStatement @continue => new ContinueOperation(semanticModel, @continue, syntax, isImplicit),
             BoundGotoStatement @goto => new GotoOperation(semanticModel, @goto, syntax, isImplicit),
@@ -56,9 +68,13 @@ internal static class OperationFactory
             BoundMethodGroupExpression methodGroup => new MethodReferenceOperation(semanticModel, methodGroup, syntax, isImplicit),
             BoundUnaryExpression unary => new UnaryOperation(semanticModel, unary, syntax, isImplicit),
             BoundBinaryExpression binary => new BinaryOperation(semanticModel, binary, syntax, isImplicit),
+            BoundNullCoalesceExpression coalesce => new CoalesceOperation(semanticModel, coalesce, syntax, isImplicit),
+            BoundNameOfExpression nameOf => new NameOfOperation(semanticModel, nameOf, syntax, isImplicit),
             BoundParenthesizedExpression parenthesized => new ParenthesizedOperation(semanticModel, parenthesized, syntax, isImplicit),
             BoundConversionExpression cast => new ConversionOperation(semanticModel, cast, cast.Conversion, syntax, cast.Type, isImplicit),
             BoundAsExpression asExpression => new ConversionOperation(semanticModel, asExpression, asExpression.Conversion, syntax, asExpression.Type, isImplicit),
+            BoundPropagateExpression propagateExpression => new PropagationOperation(semanticModel, propagateExpression, syntax, isImplicit),
+            BoundDereferenceExpression dereferenceExpression => new DereferenceOperation(semanticModel, dereferenceExpression, syntax, isImplicit),
             BoundConditionalAccessExpression conditionalAccess => new ConditionalAccessOperation(semanticModel, conditionalAccess, syntax, isImplicit),
             BoundCarrierConditionalAccessExpression carrierConditionalAccess => new ConditionalAccessOperation(semanticModel, carrierConditionalAccess, syntax, isImplicit),
             BoundIfStatement conditionalStatement => new ConditionalOperation(semanticModel, conditionalStatement, syntax, null, isImplicit),
@@ -69,23 +85,33 @@ internal static class OperationFactory
             BoundForStatement forStatement => new ForLoopOperation(semanticModel, forStatement, syntax, isImplicit),
             BoundInvocationExpression invocation => new InvocationOperation(semanticModel, invocation, syntax, isImplicit),
             BoundObjectCreationExpression creation => new ObjectCreationOperation(semanticModel, creation, syntax, isImplicit),
+            BoundObjectInitializer initializer => new ObjectInitializerOperation(semanticModel, initializer, syntax, isImplicit),
+            BoundObjectInitializerAssignmentEntry assignmentEntry => new ObjectInitializerAssignmentOperation(semanticModel, assignmentEntry, syntax, isImplicit),
+            BoundObjectInitializerExpressionEntry expressionEntry => new ObjectInitializerExpressionEntryOperation(semanticModel, expressionEntry, syntax, isImplicit),
+            BoundWithExpression withExpression => new WithOperation(semanticModel, withExpression, syntax, isImplicit),
             BoundAssignmentExpression assignmentExpression => new AssignmentOperation(semanticModel, assignmentExpression, syntax, assignmentExpression.Type, isImplicit),
             BoundAssignmentStatement assignmentStatement => new AssignmentOperation(semanticModel, assignmentStatement.Expression, syntax, assignmentStatement.Expression.Type, isImplicit),
             BoundDelegateCreationExpression delegateCreation => new DelegateCreationOperation(semanticModel, delegateCreation, syntax, isImplicit),
             BoundTupleExpression tuple => new TupleOperation(semanticModel, tuple, syntax, isImplicit),
             BoundFunctionExpression lambda => new LambdaOperation(semanticModel, lambda, syntax, isImplicit),
+            BoundUnionCaseExpression unionCase => new UnionCaseOperation(semanticModel, unionCase, syntax, isImplicit),
             BoundAddressOfExpression addressOf => new AddressOfOperation(semanticModel, addressOf, syntax, isImplicit),
             BoundArrayAccessExpression arrayAccess => new ElementAccessOperation(semanticModel, arrayAccess, OperationKind.ArrayElement, syntax, isImplicit),
             BoundIndexerAccessExpression indexerAccess => new ElementAccessOperation(semanticModel, indexerAccess, OperationKind.IndexerElement, syntax, isImplicit),
             BoundIndexExpression indexExpression => new IndexOperation(semanticModel, indexExpression, syntax, isImplicit),
             BoundRangeExpression rangeExpression => new RangeOperation(semanticModel, rangeExpression, syntax, isImplicit),
             BoundTypeOfExpression typeOf => new TypeOfOperation(semanticModel, typeOf, syntax, isImplicit),
-            BoundMatchExpression match => new SwitchOperation(semanticModel, match, syntax, isImplicit),
+            BoundMatchExpression match => new MatchOperation(semanticModel, match, syntax, isImplicit),
+            BoundMatchStatement matchStatement => new MatchOperation(semanticModel, matchStatement, syntax, isImplicit),
             BoundIsPatternExpression isPattern => new IsPatternOperation(semanticModel, isPattern, syntax, isImplicit),
             BoundCasePattern casePattern => new CasePatternOperation(semanticModel, casePattern, syntax, isImplicit),
             BoundDeclarationPattern declarationPattern => new DeclarationPatternOperation(semanticModel, declarationPattern, syntax, isImplicit),
             BoundConstantPattern constantPattern => new ConstantPatternOperation(semanticModel, constantPattern, syntax, isImplicit),
+            BoundRelationalPattern relationalPattern => new RelationalPatternOperation(semanticModel, relationalPattern, syntax, isImplicit),
             BoundPositionalPattern tuplePattern => new PositionalPatternOperation(semanticModel, tuplePattern, syntax, isImplicit),
+            BoundDeconstructPattern deconstructPattern => new RecursivePatternOperation(semanticModel, deconstructPattern, syntax, isImplicit),
+            BoundRangePattern rangePattern => new RangePatternOperation(semanticModel, rangePattern, syntax, isImplicit),
+            BoundPropertyPattern propertyPattern => new PropertyPatternOperation(semanticModel, propertyPattern, syntax, isImplicit),
             BoundDiscardPattern discardPattern => new DiscardPatternOperation(semanticModel, discardPattern, syntax, isImplicit),
             BoundNotPattern notPattern => new NotPatternOperation(semanticModel, notPattern, syntax, isImplicit),
             BoundAndPattern andPattern => new AndPatternOperation(semanticModel, andPattern, syntax, isImplicit),
@@ -93,6 +119,7 @@ internal static class OperationFactory
             BoundSingleVariableDesignator singleVariableDesignator => new SingleVariableDesignatorOperation(semanticModel, singleVariableDesignator, syntax, isImplicit),
             BoundDiscardDesignator discardDesignator => new DiscardDesignatorOperation(semanticModel, discardDesignator, syntax, isImplicit),
             BoundCollectionExpression collection => new CollectionOperation(semanticModel, collection, syntax, isImplicit),
+            BoundCollectionComprehensionExpression comprehension => new CollectionComprehensionOperation(semanticModel, comprehension, syntax, isImplicit),
             BoundEmptyCollectionExpression emptyCollection => new EmptyCollectionOperation(semanticModel, emptyCollection, syntax, isImplicit),
             BoundSpreadElement spreadElement => new SpreadElementOperation(semanticModel, spreadElement, syntax, isImplicit),
             BoundTypeExpression typeExpression => new TypeOperation(semanticModel, typeExpression, syntax, isImplicit),
@@ -104,6 +131,9 @@ internal static class OperationFactory
             BoundMemberAccessExpression memberAccess => kind == OperationKind.None
                 ? new SimpleOperation(semanticModel, kind, syntax, type, isImplicit)
                 : new MemberReferenceOperation(semanticModel, memberAccess, kind, syntax, isImplicit),
+            BoundPointerMemberAccessExpression pointerMemberAccess => kind == OperationKind.None
+                ? new SimpleOperation(semanticModel, kind, syntax, type, isImplicit)
+                : new MemberReferenceOperation(semanticModel, pointerMemberAccess, kind, syntax, isImplicit),
             BoundErrorExpression error => new InvalidOperation(semanticModel, error, syntax, isImplicit),
             _ => new SimpleOperation(semanticModel, kind, syntax, type, isImplicit)
         };
@@ -120,9 +150,11 @@ internal static class OperationFactory
             BoundFunctionStatement => OperationKind.Function,
             BoundVariableDeclarator => OperationKind.VariableDeclarator,
             BoundReturnStatement => OperationKind.Return,
+            BoundReturnExpression => OperationKind.ReturnExpression,
             BoundYieldReturnStatement => OperationKind.YieldReturn,
             BoundYieldBreakStatement => OperationKind.YieldBreak,
             BoundThrowStatement => OperationKind.Throw,
+            BoundThrowExpression => OperationKind.ThrowExpression,
             BoundBreakStatement => OperationKind.Break,
             BoundContinueStatement => OperationKind.Continue,
             BoundGotoStatement => OperationKind.Goto,
@@ -143,11 +175,22 @@ internal static class OperationFactory
                 IMethodSymbol => OperationKind.MethodReference,
                 _ => OperationKind.None
             },
+            BoundPointerMemberAccessExpression pointerMember => pointerMember.Member switch
+            {
+                IFieldSymbol => OperationKind.FieldReference,
+                IPropertySymbol => OperationKind.PropertyReference,
+                IMethodSymbol => OperationKind.MethodReference,
+                _ => OperationKind.None
+            },
             BoundUnaryExpression => OperationKind.Unary,
             BoundBinaryExpression => OperationKind.Binary,
+            BoundNullCoalesceExpression => OperationKind.Coalesce,
+            BoundNameOfExpression => OperationKind.NameOf,
             BoundParenthesizedExpression => OperationKind.Parenthesized,
             BoundConversionExpression => OperationKind.Conversion,
             BoundAsExpression => OperationKind.Conversion,
+            BoundPropagateExpression => OperationKind.Propagate,
+            BoundDereferenceExpression => OperationKind.Dereference,
             BoundConditionalAccessExpression => OperationKind.ConditionalAccess,
             BoundCarrierConditionalAccessExpression => OperationKind.ConditionalAccess,
             BoundTryExpression => OperationKind.TryExpression,
@@ -158,6 +201,10 @@ internal static class OperationFactory
             BoundForStatement => OperationKind.ForLoop,
             BoundInvocationExpression => OperationKind.Invocation,
             BoundObjectCreationExpression => OperationKind.ObjectCreation,
+            BoundObjectInitializer => OperationKind.ObjectInitializer,
+            BoundObjectInitializerAssignmentEntry => OperationKind.ObjectInitializerAssignment,
+            BoundObjectInitializerExpressionEntry => OperationKind.ObjectInitializerExpressionEntry,
+            BoundWithExpression => OperationKind.With,
             BoundAssignmentExpression => OperationKind.Assignment,
             BoundAssignmentStatement => OperationKind.Assignment,
             BoundDelegateCreationExpression => OperationKind.DelegateCreation,
@@ -169,12 +216,18 @@ internal static class OperationFactory
             BoundRangeExpression => OperationKind.Range,
             BoundTypeOfExpression => OperationKind.TypeOf,
             BoundFunctionExpression => OperationKind.Lambda,
+            BoundUnionCaseExpression => OperationKind.UnionCase,
             BoundMatchExpression => OperationKind.Switch,
+            BoundMatchStatement => OperationKind.Switch,
             BoundIsPatternExpression => OperationKind.IsPattern,
             BoundCasePattern => OperationKind.CasePattern,
             BoundDeclarationPattern => OperationKind.DeclarationPattern,
             BoundConstantPattern => OperationKind.ConstantPattern,
+            BoundRelationalPattern => OperationKind.RelationalPattern,
             BoundPositionalPattern => OperationKind.PositionalPattern,
+            BoundDeconstructPattern => OperationKind.RecursivePattern,
+            BoundRangePattern => OperationKind.RangePattern,
+            BoundPropertyPattern => OperationKind.PropertyPattern,
             BoundDiscardPattern => OperationKind.DiscardPattern,
             BoundNotPattern => OperationKind.NotPattern,
             BoundAndPattern => OperationKind.AndPattern,
@@ -182,6 +235,7 @@ internal static class OperationFactory
             BoundSingleVariableDesignator => OperationKind.SingleVariableDesignator,
             BoundDiscardDesignator => OperationKind.DiscardDesignator,
             BoundCollectionExpression => OperationKind.Collection,
+            BoundCollectionComprehensionExpression => OperationKind.CollectionComprehension,
             BoundEmptyCollectionExpression => OperationKind.EmptyCollection,
             BoundSpreadElement => OperationKind.SpreadElement,
             BoundTypeExpression => OperationKind.TypeExpression,

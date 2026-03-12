@@ -186,6 +186,60 @@ var result = value match {
     }
 
     [Fact]
+    public void GetOperation_MatchExpression_ArmValue_SkipsInternalRequiredResultWrapper()
+    {
+        const string source = """
+var value = 0 match {
+    0 => 1
+    _ => 2
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpressionSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MatchExpressionSyntax>()
+            .Single();
+
+        var matchOperation = Assert.IsAssignableFrom<ISwitchOperation>(model.GetOperation(matchExpressionSyntax));
+        var operation = matchOperation.ArmValues[0];
+        operation.Kind.ShouldBe(OperationKind.Literal);
+        operation.ChildOperations.Length.ShouldBe(0);
+    }
+
+    [Fact]
+    public void GetOperation_MatchStatement_ExposesSwitchShapeAndArms()
+    {
+        const string source = """
+import System.Console.*
+
+val value = 1
+
+match value {
+    1 => WriteLine("one")
+    _ => WriteLine("other")
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var matchStatementSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MatchStatementSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<ISwitchOperation>(model.GetOperation(matchStatementSyntax));
+        operation.Kind.ShouldBe(OperationKind.Switch);
+        operation.Value.ShouldNotBeNull();
+        operation.Patterns.Length.ShouldBe(2);
+        operation.Guards.Length.ShouldBe(0);
+        operation.ArmValues.Length.ShouldBe(2);
+        operation.ArmValues[0].Kind.ShouldBe(OperationKind.Invocation);
+        operation.ArmValues[1].Kind.ShouldBe(OperationKind.Invocation);
+    }
+
+    [Fact]
     public void GetOperation_PositionalPattern_ExposesSubpatterns()
     {
         const string source = """
@@ -208,6 +262,116 @@ var result = tuple match {
         operation.Subpatterns.Length.ShouldBe(2);
         operation.Subpatterns[0].Kind.ShouldBe(OperationKind.DeclarationPattern);
         operation.Subpatterns[1].Kind.ShouldBe(OperationKind.DeclarationPattern);
+    }
+
+    [Fact]
+    public void GetOperation_RecordPattern_ExposesRecursivePatternShape()
+    {
+        const string source = """
+val value: object = new Person("Ada", 42)
+val result = value match {
+    Person(val name, val age) => name
+    _ => ""
+}
+
+record class Person(Name: string, Age: int)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var patternSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<RecordPatternSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IRecursivePatternOperation>(model.GetOperation(patternSyntax));
+        operation.Kind.ShouldBe(OperationKind.RecursivePattern);
+        operation.DeconstructMethod.Name.ShouldBe("Deconstruct");
+        operation.Arguments.Length.ShouldBe(2);
+        operation.Arguments[0].Kind.ShouldBe(OperationKind.DeclarationPattern);
+        operation.Arguments[1].Kind.ShouldBe(OperationKind.DeclarationPattern);
+    }
+
+    [Fact]
+    public void GetOperation_RangePattern_ExposesBoundsAndExclusivity()
+    {
+        const string source = """
+val value: int = 9
+val result = value match {
+    2..<10 => 1
+    _ => 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var patternSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<RangePatternSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IRangePatternOperation>(model.GetOperation(patternSyntax));
+        operation.Kind.ShouldBe(OperationKind.RangePattern);
+        operation.IsUpperExclusive.ShouldBeTrue();
+        operation.LowerBound.ShouldNotBeNull();
+        operation.UpperBound.ShouldNotBeNull();
+        operation.LowerBound!.Kind.ShouldBe(OperationKind.Literal);
+        operation.UpperBound!.Kind.ShouldBe(OperationKind.Literal);
+    }
+
+    [Fact]
+    public void GetOperation_RelationalPattern_ExposesOperatorAndValue()
+    {
+        const string source = """
+val value: int = 9
+val result = value match {
+    > 2 => 1
+    _ => 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var patternSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<RelationalPatternSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IRelationalPatternOperation>(model.GetOperation(patternSyntax));
+        operation.Kind.ShouldBe(OperationKind.RelationalPattern);
+        operation.OperatorKind.ShouldBe(SyntaxKind.GreaterThanToken);
+        operation.Value.ShouldNotBeNull();
+        operation.Value!.Kind.ShouldBe(OperationKind.Literal);
+    }
+
+    [Fact]
+    public void GetOperation_PropertyPattern_ExposesMembersAndSubpatterns()
+    {
+        const string source = """
+val value: object = new Person("Ada", 42)
+val result = value match {
+    Person { Name: "Ada", Age: _ } => 1
+    _ => 0
+}
+
+record class Person(Name: string, Age: int)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var patternSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PropertyPatternSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IPropertyPatternOperation>(model.GetOperation(patternSyntax));
+        operation.Kind.ShouldBe(OperationKind.PropertyPattern);
+        operation.Members.Length.ShouldBe(2);
+        operation.Members[0].Name.ShouldBe("Name");
+        operation.Members[1].Name.ShouldBe("Age");
+        operation.Subpatterns.Length.ShouldBe(2);
+        operation.Subpatterns[0].Kind.ShouldBe(OperationKind.ConstantPattern);
+        operation.Subpatterns[1].Kind.ShouldBe(OperationKind.DiscardPattern);
     }
 
     [Fact]
@@ -368,7 +532,7 @@ func Message(name: string) -> string {
     }
 
     [Fact]
-    public void GetOperation_NameOfExpression_CurrentlyFallsBackToNoneKind()
+    public void GetOperation_NameOfExpression_ReturnsNameOfOperation()
     {
         const string source = """
 val memberName = nameof(System.Console.WriteLine)
@@ -381,13 +545,14 @@ val memberName = nameof(System.Console.WriteLine)
             .OfType<NameOfExpressionSyntax>()
             .Single();
 
-        var operation = model.GetOperation(nameofSyntax);
-        operation.ShouldNotBeNull();
-        operation!.Kind.ShouldBe(OperationKind.None);
+        var operation = Assert.IsAssignableFrom<INameOfOperation>(model.GetOperation(nameofSyntax));
+        operation.Kind.ShouldBe(OperationKind.NameOf);
+        operation.Name.ShouldBe("WriteLine");
+        operation.Operand.ShouldNotBeNull();
     }
 
     [Fact]
-    public void GetOperation_NullCoalesceExpression_CurrentlyFallsBackToNoneKind()
+    public void GetOperation_NullCoalesceExpression_ReturnsCoalesceOperation()
     {
         const string source = """
 func M(name: string?) -> string {
@@ -402,10 +567,290 @@ func M(name: string?) -> string {
             .OfType<NullCoalesceExpressionSyntax>()
             .Single();
 
-        var operation = model.GetOperation(nullCoalesceSyntax);
-        operation.ShouldNotBeNull();
-        operation!.Kind.ShouldBe(OperationKind.None);
+        var operation = Assert.IsAssignableFrom<ICoalesceOperation>(model.GetOperation(nullCoalesceSyntax));
+        operation.Kind.ShouldBe(OperationKind.Coalesce);
+        operation.Left.ShouldNotBeNull();
+        operation.Left!.Kind.ShouldBe(OperationKind.ParameterReference);
+        operation.Right.ShouldNotBeNull();
+        operation.Right!.Kind.ShouldBe(OperationKind.Literal);
         operation.ChildOperations.Length.ShouldBe(2);
+    }
+
+    [Fact]
+    public void GetOperation_WithExpression_ReturnsWithOperation()
+    {
+        const string source = """
+record class Person(Name: string, Age: int)
+
+val bob = Person("Bob", 30)
+val updated = bob with {
+    Age = 31
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var withExpressionSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<WithExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IWithOperation>(model.GetOperation(withExpressionSyntax));
+        operation.Kind.ShouldBe(OperationKind.With);
+        operation.Receiver.ShouldNotBeNull();
+        operation.Members.Length.ShouldBe(1);
+        operation.Members[0].Name.ShouldBe("Age");
+        operation.Values.Length.ShouldBe(1);
+        operation.Values[0].Kind.ShouldBe(OperationKind.Literal);
+        operation.ChildOperations.Length.ShouldBe(2);
+    }
+
+    [Fact]
+    public void GetOperation_UnionCaseExpression_CurrentlySurfacesAsConversionToObjectCreation()
+    {
+        const string source = """
+union Error {
+    MissingName(message: string)
+}
+
+val error: Error = MissingName("x")
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var conversion = Assert.IsAssignableFrom<IConversionOperation>(model.GetOperation(invocationSyntax));
+        conversion.Operand.ShouldNotBeNull();
+        conversion.Operand!.Kind.ShouldBe(OperationKind.ObjectCreation);
+    }
+
+    [Fact]
+    public void GetOperation_ReturnExpression_ReturnsReturnExpressionOperation()
+    {
+        const string source = """
+func M(name: string?) -> string {
+    val value = name ?? return "fallback"
+    return value
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var returnExpressionSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ReturnExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IReturnOperation>(model.GetOperation(returnExpressionSyntax));
+        operation.Kind.ShouldBe(OperationKind.ReturnExpression);
+        operation.ReturnedValue.ShouldNotBeNull();
+        operation.ReturnedValue!.Kind.ShouldBe(OperationKind.Literal);
+        operation.ChildOperations.Length.ShouldBe(1);
+    }
+
+    [Fact]
+    public void GetOperation_ThrowExpression_ReturnsThrowExpressionOperation()
+    {
+        const string source = """
+import System.*
+
+func M(name: string?) -> string {
+    return name ?? throw InvalidOperationException("missing")
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var throwExpressionSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ThrowExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IThrowOperation>(model.GetOperation(throwExpressionSyntax));
+        operation.Kind.ShouldBe(OperationKind.ThrowExpression);
+        operation.Exception.ShouldNotBeNull();
+        operation.Exception!.Kind.ShouldBe(OperationKind.ObjectCreation);
+        operation.ChildOperations.Length.ShouldBe(1);
+    }
+
+    [Fact]
+    public void GetOperation_PropagationExpression_ReturnsPropagationOperation()
+    {
+        const string source = """
+union Option<T> {
+    Some(T)
+    None
+}
+
+func test() -> Option<int> {
+    val r = test2()?
+    return .Some(r)
+}
+
+func test2() -> Option<int> {
+    return .Some(1)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var propagateSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PropagateExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IPropagationOperation>(model.GetOperation(propagateSyntax));
+        operation.Kind.ShouldBe(OperationKind.Propagate);
+        operation.Operand.ShouldNotBeNull();
+        operation.Operand!.Kind.ShouldBe(OperationKind.Invocation);
+        operation.ChildOperations.Length.ShouldBe(1);
+    }
+
+    [Fact]
+    public void GetOperation_DereferenceExpression_ReturnsDereferenceOperation()
+    {
+        const string source = """
+class Test {
+    unsafe static func Run() -> int {
+        var value = 41
+        val pointer: *int = &value
+        return *pointer
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var dereferenceSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PrefixOperatorExpressionSyntax>()
+            .Single(node => node.Kind == SyntaxKind.DereferenceExpression);
+
+        var operation = Assert.IsAssignableFrom<IDereferenceOperation>(model.GetOperation(dereferenceSyntax));
+        operation.Kind.ShouldBe(OperationKind.Dereference);
+        operation.Operand.ShouldNotBeNull();
+        operation.Operand!.Kind.ShouldBe(OperationKind.LocalReference);
+        operation.ChildOperations.Length.ShouldBe(1);
+    }
+
+    [Fact]
+    public void GetOperation_PointerMemberAccess_ReturnsMemberReferenceOperation()
+    {
+        const string source = """
+struct Holder {
+    public field Value: int = 42
+}
+
+class Test {
+    unsafe static func Run() -> int {
+        var holder = Holder()
+        val pointer: *Holder = &holder
+        return pointer->Value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var pointerAccessSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(access => access.OperatorToken.Kind == SyntaxKind.ArrowToken);
+
+        var operation = Assert.IsAssignableFrom<IMemberReferenceOperation>(model.GetOperation(pointerAccessSyntax));
+        operation.Kind.ShouldBe(OperationKind.FieldReference);
+        operation.Symbol.Name.ShouldBe("Value");
+    }
+
+    [Fact]
+    public void GetOperation_CollectionComprehensionElement_ReturnsComprehensionOperation()
+    {
+        const string source = """
+val numbers = [1, 2, 3, 4]
+val result = [for n in numbers if n % 2 == 0 => n * n]
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var collectionSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<CollectionExpressionSyntax>()
+            .Single(collection => collection.Elements.Any(element => element is CollectionComprehensionElementSyntax));
+
+        var collectionOperation = Assert.IsAssignableFrom<ICollectionOperation>(model.GetOperation(collectionSyntax));
+        var operation = Assert.IsAssignableFrom<ICollectionComprehensionOperation>(
+            Assert.Single(collectionOperation.ChildOperations));
+        operation.Kind.ShouldBe(OperationKind.CollectionComprehension);
+        operation.Source.ShouldNotBeNull();
+        operation.Source!.Kind.ShouldBe(OperationKind.LocalReference);
+        operation.Condition.ShouldNotBeNull();
+        operation.Condition!.Kind.ShouldBe(OperationKind.Binary);
+        operation.Selector.ShouldNotBeNull();
+        operation.Selector!.Kind.ShouldBe(OperationKind.Binary);
+        operation.IterationLocal.Name.ShouldContain("n");
+        operation.ChildOperations.Length.ShouldBe(3);
+    }
+
+    [Fact]
+    public void GetOperation_ObjectCreationInitializer_ExposesEntries()
+    {
+        const string source = """
+class Foo {
+    var Name: string = ""
+}
+
+val foo = Foo {
+    Name = "updated"
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var creationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var creation = Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(creationSyntax));
+        var operation = Assert.IsAssignableFrom<IObjectInitializerOperation>(creation.Initializer);
+        operation.Kind.ShouldBe(OperationKind.ObjectInitializer);
+        operation.Entries.Length.ShouldBe(1);
+
+        var entry = Assert.IsAssignableFrom<IObjectInitializerAssignmentOperation>(operation.Entries[0]);
+        entry.Kind.ShouldBe(OperationKind.ObjectInitializerAssignment);
+        entry.Member.Name.ShouldBe("Name");
+        entry.Value.ShouldNotBeNull();
+        entry.Value!.Kind.ShouldBe(OperationKind.Literal);
+    }
+
+    [Fact]
+    public void GetOperation_ObjectCreation_ExposesInitializerOperation()
+    {
+        const string source = """
+class Foo {
+    var Name: string = ""
+}
+
+val foo = Foo {
+    Name = "updated"
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var creationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(creationSyntax));
+        operation.Kind.ShouldBe(OperationKind.ObjectCreation);
+        operation.Initializer.ShouldNotBeNull();
+        Assert.IsAssignableFrom<IObjectInitializerOperation>(operation.Initializer);
     }
 
     [Fact]

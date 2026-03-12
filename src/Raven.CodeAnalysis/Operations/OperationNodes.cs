@@ -53,6 +53,15 @@ internal static class OperationUtilities
 
         return builder.ToImmutable();
     }
+
+    public static IOperation? CreateOperationFromBound(SemanticModel semanticModel, BoundNode? boundNode, SyntaxNode fallbackSyntax)
+    {
+        if (boundNode is null)
+            return null;
+
+        var syntax = semanticModel.GetSyntax(boundNode) ?? fallbackSyntax;
+        return OperationFactory.Create(semanticModel, syntax, boundNode);
+    }
 }
 
 internal sealed class BlockOperation : Operation, IBlockOperation
@@ -237,6 +246,29 @@ internal sealed class ReturnOperation : Operation, IReturnOperation
     }
 }
 
+internal sealed class ReturnExpressionOperation : Operation, IReturnOperation
+{
+    private IOperation? _returnedValue;
+
+    internal ReturnExpressionOperation(
+        SemanticModel semanticModel,
+        BoundReturnExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.ReturnExpression, syntax, bound.Type, isImplicit)
+    {
+    }
+
+    public IOperation? ReturnedValue => _returnedValue ??= SemanticModel.GetOperation(((ReturnExpressionSyntax)Syntax).Expression);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return ReturnedValue is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(ReturnedValue);
+    }
+}
+
 internal sealed class YieldReturnOperation : Operation, IYieldReturnOperation
 {
     private readonly BoundYieldReturnStatement _bound;
@@ -299,6 +331,29 @@ internal sealed class ThrowOperation : Operation, IThrowOperation
     }
 
     public IOperation? Exception => _exception ??= SemanticModel.GetOperation(((ThrowStatementSyntax)Syntax).Expression);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Exception is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Exception);
+    }
+}
+
+internal sealed class ThrowExpressionOperation : Operation, IThrowOperation
+{
+    private IOperation? _exception;
+
+    internal ThrowExpressionOperation(
+        SemanticModel semanticModel,
+        BoundThrowExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.ThrowExpression, syntax, bound.Type, isImplicit)
+    {
+    }
+
+    public IOperation? Exception => _exception ??= SemanticModel.GetOperation(((ThrowExpressionSyntax)Syntax).Expression);
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
@@ -600,6 +655,16 @@ internal sealed class MemberReferenceOperation : SymbolReferenceOperation<ISymbo
         : base(semanticModel, kind, syntax, bound.Member, bound.Type, isImplicit)
     {
     }
+
+    internal MemberReferenceOperation(
+        SemanticModel semanticModel,
+        BoundPointerMemberAccessExpression bound,
+        OperationKind kind,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, kind, syntax, bound.Member, bound.Type, isImplicit)
+    {
+    }
 }
 
 internal sealed class UnaryOperation : Operation, IUnaryOperation
@@ -660,6 +725,60 @@ internal sealed class BinaryOperation : Operation, IBinaryOperation
     }
 }
 
+internal sealed class CoalesceOperation : Operation, ICoalesceOperation
+{
+    private IOperation? _left;
+    private IOperation? _right;
+
+    internal CoalesceOperation(
+        SemanticModel semanticModel,
+        BoundNullCoalesceExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.Coalesce, syntax, bound.Type, isImplicit)
+    {
+    }
+
+    public IOperation? Left => _left ??= SemanticModel.GetOperation(((NullCoalesceExpressionSyntax)Syntax).Left);
+
+    public IOperation? Right => _right ??= SemanticModel.GetOperation(((NullCoalesceExpressionSyntax)Syntax).Right);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return ImmutableArray.CreateBuilder<IOperation>()
+            .AddIfNotNull(Left)
+            .AddIfNotNull(Right)
+            .ToImmutable();
+    }
+}
+
+internal sealed class NameOfOperation : Operation, INameOfOperation
+{
+    private readonly BoundNameOfExpression _bound;
+    private IOperation? _operand;
+
+    internal NameOfOperation(
+        SemanticModel semanticModel,
+        BoundNameOfExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.NameOf, syntax, bound.StringType, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public string Name => _bound.Name;
+
+    public IOperation? Operand => _operand ??= SemanticModel.GetOperation(((NameOfExpressionSyntax)Syntax).Operand);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Operand is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Operand);
+    }
+}
+
 internal sealed class ParenthesizedOperation : Operation, IParenthesizedOperation
 {
     private IOperation? _operation;
@@ -685,6 +804,7 @@ internal sealed class ParenthesizedOperation : Operation, IParenthesizedOperatio
 
 internal sealed class ConversionOperation : Operation, IConversionOperation
 {
+    private readonly BoundExpression _bound;
     private readonly Conversion _conversion;
     private IOperation? _operand;
 
@@ -697,6 +817,7 @@ internal sealed class ConversionOperation : Operation, IConversionOperation
         bool isImplicit)
         : base(semanticModel, OperationKind.Conversion, syntax, type, isImplicit)
     {
+        _bound = bound;
         _conversion = conversion;
     }
 
@@ -713,7 +834,98 @@ internal sealed class ConversionOperation : Operation, IConversionOperation
                 _operand = SemanticModel.GetOperation(cast.Expression);
             else if (Syntax is AsExpressionSyntax asExpression)
                 _operand = SemanticModel.GetOperation(asExpression.Expression);
+            else
+                _operand = _bound switch
+                {
+                    BoundConversionExpression conversionExpression => OperationUtilities.CreateOperationFromBound(SemanticModel, conversionExpression.Expression, Syntax),
+                    BoundAsExpression boundAsExpression => OperationUtilities.CreateOperationFromBound(SemanticModel, boundAsExpression.Expression, Syntax),
+                    _ => null
+                };
 
+            return _operand;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Operand is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Operand);
+    }
+}
+
+internal sealed class PropagationOperation : Operation, IPropagationOperation
+{
+    private readonly BoundPropagateExpression _bound;
+    private IOperation? _operand;
+    private bool _operandInitialized;
+
+    internal PropagationOperation(
+        SemanticModel semanticModel,
+        BoundPropagateExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.Propagate, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ITypeSymbol OkType => _bound.OkType;
+
+    public ITypeSymbol? ErrorType => _bound.ErrorType;
+
+    public INamedTypeSymbol EnclosingResultType => _bound.EnclosingResultType;
+
+    public IMethodSymbol EnclosingErrorConstructor => _bound.EnclosingErrorConstructor;
+
+    public IOperation? Operand
+    {
+        get
+        {
+            if (_operandInitialized)
+                return _operand;
+
+            _operandInitialized = true;
+            var fallback = Syntax is PropagateExpressionSyntax propagateExpression ? propagateExpression.Expression : Syntax;
+            _operand = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Operand, fallback);
+            return _operand;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Operand is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Operand);
+    }
+}
+
+internal sealed class DereferenceOperation : Operation, IDereferenceOperation
+{
+    private readonly BoundDereferenceExpression _bound;
+    private IOperation? _operand;
+    private bool _operandInitialized;
+
+    internal DereferenceOperation(
+        SemanticModel semanticModel,
+        BoundDereferenceExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.Dereference, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? Operand
+    {
+        get
+        {
+            if (_operandInitialized)
+                return _operand;
+
+            _operandInitialized = true;
+            var fallback = Syntax is PrefixOperatorExpressionSyntax prefix ? prefix.Expression : Syntax;
+            _operand = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Reference, fallback);
             return _operand;
         }
     }
@@ -1153,6 +1365,8 @@ internal sealed class ObjectCreationOperation : Operation, IObjectCreationOperat
 {
     private readonly BoundObjectCreationExpression _bound;
     private ImmutableArray<IOperation>? _arguments;
+    private IOperation? _initializer;
+    private bool _initializerInitialized;
 
     internal ObjectCreationOperation(
         SemanticModel semanticModel,
@@ -1170,7 +1384,206 @@ internal sealed class ObjectCreationOperation : Operation, IObjectCreationOperat
         ? OperationUtilities.CreateChildOperations(SemanticModel, creation.ArgumentList.Arguments)
         : ImmutableArray<IOperation>.Empty;
 
-    protected override ImmutableArray<IOperation> GetChildrenCore() => Arguments;
+    public IOperation? Initializer
+    {
+        get
+        {
+            if (_initializerInitialized)
+                return _initializer;
+
+            _initializerInitialized = true;
+
+            var syntaxInitializer = Syntax switch
+            {
+                ObjectCreationExpressionSyntax objectCreation => objectCreation.Initializer,
+                InvocationExpressionSyntax invocation => invocation.Initializer,
+                _ => null
+            };
+
+            if (_bound.Initializer is null || syntaxInitializer is null)
+                return null;
+
+            _initializer = OperationFactory.Create(SemanticModel, syntaxInitializer, _bound.Initializer);
+            return _initializer;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        var builder = ImmutableArray.CreateBuilder<IOperation>();
+        builder.AddRange(Arguments);
+        builder.AddIfNotNull(Initializer);
+        return builder.ToImmutable();
+    }
+}
+
+internal sealed class ObjectInitializerOperation : Operation, IObjectInitializerOperation
+{
+    private readonly BoundObjectInitializer _bound;
+    private ImmutableArray<IOperation>? _entries;
+
+    internal ObjectInitializerOperation(
+        SemanticModel semanticModel,
+        BoundObjectInitializer bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.ObjectInitializer, syntax, null, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ImmutableArray<IOperation> Entries
+    {
+        get
+        {
+            if (_entries.HasValue)
+                return _entries.Value;
+
+            var syntaxEntries = Syntax is ObjectInitializerExpressionSyntax initializerSyntax
+                ? initializerSyntax.Entries.ToArray()
+                : [];
+            var boundEntries = _bound.Entries.ToArray();
+            var builder = ImmutableArray.CreateBuilder<IOperation>();
+
+            if (boundEntries.Length == syntaxEntries.Length)
+            {
+                for (var i = 0; i < boundEntries.Length; i++)
+                {
+                    builder.AddIfNotNull(OperationFactory.Create(SemanticModel, syntaxEntries[i], boundEntries[i]));
+                }
+            }
+            else
+            {
+                foreach (var boundEntry in boundEntries)
+                {
+                    var syntax = SemanticModel.GetSyntax(boundEntry) ?? Syntax;
+                    builder.AddIfNotNull(OperationFactory.Create(SemanticModel, syntax, boundEntry));
+                }
+            }
+
+            _entries = builder.ToImmutable();
+            return _entries.Value;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => Entries;
+}
+
+internal sealed class ObjectInitializerAssignmentOperation : Operation, IObjectInitializerAssignmentOperation
+{
+    private readonly BoundObjectInitializerAssignmentEntry _bound;
+    private IOperation? _value;
+    private bool _valueInitialized;
+
+    internal ObjectInitializerAssignmentOperation(
+        SemanticModel semanticModel,
+        BoundObjectInitializerAssignmentEntry bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.ObjectInitializerAssignment, syntax, null, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ISymbol Member => _bound.Member;
+
+    public SyntaxKind OperatorTokenKind => _bound.OperatorTokenKind;
+
+    public IOperation? Value
+    {
+        get
+        {
+            if (_valueInitialized)
+                return _value;
+
+            _valueInitialized = true;
+            var fallback = Syntax is ObjectInitializerAssignmentEntrySyntax assignmentEntry
+                ? assignmentEntry.Expression
+                : Syntax;
+            _value = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Value, fallback);
+            return _value;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Value is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Value);
+    }
+}
+
+internal sealed class ObjectInitializerExpressionEntryOperation : Operation, IObjectInitializerExpressionEntryOperation
+{
+    private readonly BoundObjectInitializerExpressionEntry _bound;
+    private IOperation? _expression;
+    private bool _expressionInitialized;
+
+    internal ObjectInitializerExpressionEntryOperation(
+        SemanticModel semanticModel,
+        BoundObjectInitializerExpressionEntry bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.ObjectInitializerExpressionEntry, syntax, null, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? Expression
+    {
+        get
+        {
+            if (_expressionInitialized)
+                return _expression;
+
+            _expressionInitialized = true;
+            var fallback = Syntax is ObjectInitializerExpressionEntrySyntax expressionEntry
+                ? expressionEntry.Expression
+                : Syntax;
+            _expression = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Expression, fallback);
+            return _expression;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Expression is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Expression);
+    }
+}
+
+internal sealed class WithOperation : Operation, IWithOperation
+{
+    private readonly BoundWithExpression _bound;
+    private IOperation? _receiver;
+    private ImmutableArray<IOperation>? _values;
+
+    internal WithOperation(
+        SemanticModel semanticModel,
+        BoundWithExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.With, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? Receiver => _receiver ??= SemanticModel.GetOperation(((WithExpressionSyntax)Syntax).Expression);
+
+    public ImmutableArray<ISymbol> Members => _bound.Assignments.Select(assignment => assignment.Member).ToImmutableArray();
+
+    public ImmutableArray<IOperation> Values => _values ??= OperationUtilities.CreateChildOperations(
+        SemanticModel,
+        ((WithExpressionSyntax)Syntax).Assignments.Select(assignment => assignment.Expression));
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        var builder = ImmutableArray.CreateBuilder<IOperation>();
+        builder.AddIfNotNull(Receiver);
+        builder.AddRange(Values);
+        return builder.ToImmutable();
+    }
 }
 
 internal sealed class AssignmentOperation : Operation, IAssignmentOperation
@@ -1478,19 +1891,83 @@ internal sealed class LambdaOperation : Operation, ILambdaOperation
     }
 }
 
-internal sealed class SwitchOperation : Operation, ISwitchOperation
+internal sealed class UnionCaseOperation : Operation, IUnionCaseOperation
 {
+    private readonly BoundUnionCaseExpression _bound;
+    private ImmutableArray<IOperation>? _arguments;
+
+    internal UnionCaseOperation(
+        SemanticModel semanticModel,
+        BoundUnionCaseExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.UnionCase, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public INamedTypeSymbol UnionType => _bound.UnionType;
+
+    public INamedTypeSymbol CaseType => _bound.CaseType;
+
+    public IMethodSymbol? Constructor => _bound.CaseConstructor;
+
+    public ImmutableArray<IOperation> Arguments
+    {
+        get
+        {
+            if (_arguments.HasValue)
+                return _arguments.Value;
+
+            var builder = ImmutableArray.CreateBuilder<IOperation>();
+            foreach (var argument in _bound.Arguments)
+            {
+                builder.AddIfNotNull(OperationUtilities.CreateOperationFromBound(SemanticModel, argument, Syntax));
+            }
+
+            _arguments = builder.ToImmutable();
+            return _arguments.Value;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => Arguments;
+}
+
+internal sealed class MatchOperation : Operation, ISwitchOperation
+{
+    private readonly ImmutableArray<BoundMatchArm> _boundArms;
     private IOperation? _value;
     private ImmutableArray<IOperation>? _patterns;
     private ImmutableArray<IOperation>? _guards;
     private ImmutableArray<IOperation>? _armValues;
 
-    internal SwitchOperation(SemanticModel semanticModel, BoundMatchExpression bound, SyntaxNode syntax, bool isImplicit)
+    internal MatchOperation(SemanticModel semanticModel, BoundMatchExpression bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.Switch, syntax, bound.Type, isImplicit)
     {
+        _boundArms = bound.Arms;
     }
 
-    public IOperation? Value => _value ??= SemanticModel.GetOperation(((MatchExpressionSyntax)Syntax).Expression);
+    internal MatchOperation(SemanticModel semanticModel, BoundMatchStatement bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.Switch, syntax, null, isImplicit)
+    {
+        _boundArms = bound.Arms;
+    }
+
+    private ExpressionSyntax? MatchInput => Syntax switch
+    {
+        MatchExpressionSyntax matchExpression => matchExpression.Expression,
+        MatchStatementSyntax matchStatement => matchStatement.Expression,
+        _ => null
+    };
+
+    private SyntaxList<MatchArmSyntax> MatchArms => Syntax switch
+    {
+        MatchExpressionSyntax matchExpression => matchExpression.Arms,
+        MatchStatementSyntax matchStatement => matchStatement.Arms,
+        _ => default
+    };
+
+    public IOperation? Value => _value ??= MatchInput is null ? null : SemanticModel.GetOperation(MatchInput);
 
     public ImmutableArray<IOperation> Patterns
     {
@@ -1500,8 +1977,7 @@ internal sealed class SwitchOperation : Operation, ISwitchOperation
                 return _patterns.Value;
 
             var builder = ImmutableArray.CreateBuilder<IOperation>();
-            var matchExpression = (MatchExpressionSyntax)Syntax;
-            foreach (var arm in matchExpression.Arms)
+            foreach (var arm in MatchArms)
             {
                 builder.AddIfNotNull(SemanticModel.GetOperation(arm.Pattern));
             }
@@ -1519,8 +1995,7 @@ internal sealed class SwitchOperation : Operation, ISwitchOperation
                 return _guards.Value;
 
             var builder = ImmutableArray.CreateBuilder<IOperation>();
-            var matchExpression = (MatchExpressionSyntax)Syntax;
-            foreach (var arm in matchExpression.Arms)
+            foreach (var arm in MatchArms)
             {
                 if (arm.WhenClause is null)
                     continue;
@@ -1541,10 +2016,21 @@ internal sealed class SwitchOperation : Operation, ISwitchOperation
                 return _armValues.Value;
 
             var builder = ImmutableArray.CreateBuilder<IOperation>();
-            var matchExpression = (MatchExpressionSyntax)Syntax;
-            foreach (var arm in matchExpression.Arms)
+            var matchArms = MatchArms;
+
+            if (_boundArms.Length == matchArms.Count)
             {
-                builder.AddIfNotNull(SemanticModel.GetOperation(arm.Expression));
+                for (var i = 0; i < matchArms.Count; i++)
+                {
+                    builder.AddIfNotNull(OperationUtilities.CreateOperationFromBound(SemanticModel, _boundArms[i].Expression, matchArms[i].Expression));
+                }
+            }
+            else
+            {
+                foreach (var arm in matchArms)
+                {
+                    builder.AddIfNotNull(SemanticModel.GetOperation(arm.Expression));
+                }
             }
 
             _armValues = builder.ToImmutable();
@@ -1740,6 +2226,55 @@ internal sealed class ConstantPatternOperation : PatternOperation, IConstantPatt
     }
 }
 
+internal sealed class RelationalPatternOperation : PatternOperation, IRelationalPatternOperation
+{
+    private readonly BoundRelationalPattern _bound;
+    private IOperation? _value;
+    private bool _valueInitialized;
+
+    internal RelationalPatternOperation(
+        SemanticModel semanticModel,
+        BoundRelationalPattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.RelationalPattern, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public SyntaxKind OperatorKind => Syntax is RelationalPatternSyntax relationalPattern
+        ? relationalPattern.OperatorToken.Kind
+        : _bound.Operator switch
+        {
+            BoundRelationalPatternOperator.LessThan => SyntaxKind.LessThanExpression,
+            BoundRelationalPatternOperator.LessThanOrEqual => SyntaxKind.LessThanOrEqualsExpression,
+            BoundRelationalPatternOperator.GreaterThan => SyntaxKind.GreaterThanExpression,
+            BoundRelationalPatternOperator.GreaterThanOrEqual => SyntaxKind.GreaterThanOrEqualsExpression,
+            _ => SyntaxKind.None
+        };
+
+    public IOperation? Value
+    {
+        get
+        {
+            if (_valueInitialized)
+                return _value;
+
+            _valueInitialized = true;
+            var fallback = Syntax is RelationalPatternSyntax relationalPattern ? relationalPattern.Expression : Syntax;
+            _value = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Value, fallback);
+            return _value;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Value is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Value);
+    }
+}
+
 internal sealed class PositionalPatternOperation : PatternOperation, IPositionalPatternOperation
 {
     private ImmutableArray<IOperation>? _subpatterns;
@@ -1769,6 +2304,210 @@ internal sealed class PositionalPatternOperation : PatternOperation, IPositional
     }
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => Subpatterns;
+}
+
+internal sealed class RecursivePatternOperation : PatternOperation, IRecursivePatternOperation
+{
+    private readonly BoundDeconstructPattern _bound;
+    private ImmutableArray<IOperation>? _arguments;
+
+    internal RecursivePatternOperation(
+        SemanticModel semanticModel,
+        BoundDeconstructPattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.RecursivePattern, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ITypeSymbol ReceiverType => _bound.ReceiverType;
+
+    public ITypeSymbol? NarrowedType => _bound.NarrowedType;
+
+    public IMethodSymbol DeconstructMethod => _bound.DeconstructMethod;
+
+    public ImmutableArray<IOperation> Arguments
+    {
+        get
+        {
+            if (_arguments.HasValue)
+                return _arguments.Value;
+
+            var syntaxArguments = Syntax switch
+            {
+                RecordPatternSyntax recordPattern => recordPattern.ArgumentList.Arguments.Cast<PatternSyntax>().ToImmutableArray(),
+                PositionalPatternSyntax positionalPattern => positionalPattern.Elements.Select(element => element.Pattern).ToImmutableArray(),
+                _ => ImmutableArray<PatternSyntax>.Empty
+            };
+
+            var builder = ImmutableArray.CreateBuilder<IOperation>();
+
+            if (_bound.Arguments.Length == syntaxArguments.Length)
+            {
+                for (var i = 0; i < _bound.Arguments.Length; i++)
+                {
+                    builder.AddIfNotNull(OperationUtilities.CreateOperationFromBound(
+                        SemanticModel,
+                        _bound.Arguments[i],
+                        syntaxArguments[i]));
+                }
+            }
+            else
+            {
+                foreach (var argumentSyntax in syntaxArguments)
+                    builder.AddIfNotNull(SemanticModel.GetOperation(argumentSyntax));
+            }
+
+            _arguments = builder.ToImmutable();
+            return _arguments.Value;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => Arguments;
+}
+
+internal sealed class RangePatternOperation : PatternOperation, IRangePatternOperation
+{
+    private readonly BoundRangePattern _bound;
+    private IOperation? _lowerBound;
+    private IOperation? _upperBound;
+    private bool _lowerBoundInitialized;
+    private bool _upperBoundInitialized;
+
+    internal RangePatternOperation(
+        SemanticModel semanticModel,
+        BoundRangePattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.RangePattern, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? LowerBound
+    {
+        get
+        {
+            if (_lowerBoundInitialized)
+                return _lowerBound;
+
+            _lowerBoundInitialized = true;
+            var fallback = Syntax is RangePatternSyntax rangePattern && rangePattern.LowerBound is not null
+                ? rangePattern.LowerBound
+                : Syntax;
+            _lowerBound = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.LowerBound, fallback);
+            return _lowerBound;
+        }
+    }
+
+    public IOperation? UpperBound
+    {
+        get
+        {
+            if (_upperBoundInitialized)
+                return _upperBound;
+
+            _upperBoundInitialized = true;
+            var fallback = Syntax is RangePatternSyntax rangePattern && rangePattern.UpperBound is not null
+                ? rangePattern.UpperBound
+                : Syntax;
+            _upperBound = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.UpperBound, fallback);
+            return _upperBound;
+        }
+    }
+
+    public bool IsUpperExclusive => _bound.IsUpperExclusive;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return ImmutableArray.CreateBuilder<IOperation>()
+            .AddIfNotNull(LowerBound)
+            .AddIfNotNull(UpperBound)
+            .ToImmutable();
+    }
+}
+
+internal sealed class PropertyPatternOperation : PatternOperation, IPropertyPatternOperation
+{
+    private readonly BoundPropertyPattern _bound;
+    private IOperation? _designator;
+    private bool _designatorInitialized;
+    private ImmutableArray<ISymbol>? _members;
+    private ImmutableArray<IOperation>? _subpatterns;
+
+    internal PropertyPatternOperation(
+        SemanticModel semanticModel,
+        BoundPropertyPattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.PropertyPattern, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ITypeSymbol ReceiverType => _bound.ReceiverType;
+
+    public ITypeSymbol? NarrowedType => _bound.NarrowedType;
+
+    public IOperation? Designator
+    {
+        get
+        {
+            if (_designatorInitialized)
+                return _designator;
+
+            _designatorInitialized = true;
+            _designator = _bound.Designator is null
+                ? null
+                : OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Designator, Syntax);
+            return _designator;
+        }
+    }
+
+    public ImmutableArray<ISymbol> Members => _members ??= _bound.Properties.Select(property => property.Member).ToImmutableArray();
+
+    public ImmutableArray<IOperation> Subpatterns
+    {
+        get
+        {
+            if (_subpatterns.HasValue)
+                return _subpatterns.Value;
+
+            var syntaxSubpatterns = Syntax is PropertyPatternSyntax propertyPattern
+                ? propertyPattern.PropertyPatternClause.Properties.Select(property => property.Pattern).ToImmutableArray()
+                : ImmutableArray<PatternSyntax>.Empty;
+
+            var builder = ImmutableArray.CreateBuilder<IOperation>();
+
+            if (_bound.Properties.Length == syntaxSubpatterns.Length)
+            {
+                for (var i = 0; i < _bound.Properties.Length; i++)
+                {
+                    builder.AddIfNotNull(OperationUtilities.CreateOperationFromBound(
+                        SemanticModel,
+                        _bound.Properties[i].Pattern,
+                        syntaxSubpatterns[i]));
+                }
+            }
+            else
+            {
+                foreach (var pattern in syntaxSubpatterns)
+                    builder.AddIfNotNull(SemanticModel.GetOperation(pattern));
+            }
+
+            _subpatterns = builder.ToImmutable();
+            return _subpatterns.Value;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        var builder = ImmutableArray.CreateBuilder<IOperation>();
+        builder.AddIfNotNull(Designator);
+        builder.AddRange(Subpatterns);
+        return builder.ToImmutable();
+    }
 }
 
 internal sealed class DiscardPatternOperation : PatternOperation, IDiscardPatternOperation
@@ -1916,12 +2655,121 @@ internal sealed class DiscardDesignatorOperation : DesignatorOperation, IDiscard
 
 internal sealed class CollectionOperation : Operation, ICollectionOperation
 {
+    private readonly BoundCollectionExpression _bound;
+    private ImmutableArray<IOperation>? _elements;
+
     internal CollectionOperation(SemanticModel semanticModel, BoundCollectionExpression bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.Collection, syntax, bound.Type, isImplicit)
     {
+        _bound = bound;
     }
 
-    protected override ImmutableArray<IOperation> GetChildrenCore() => OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        if (_elements.HasValue)
+            return _elements.Value;
+
+        var syntaxElements = Syntax is CollectionExpressionSyntax collectionSyntax
+            ? collectionSyntax.Elements.ToArray()
+            : [];
+        var boundElements = _bound.Elements.ToArray();
+        var builder = ImmutableArray.CreateBuilder<IOperation>();
+
+        if (boundElements.Length == syntaxElements.Length)
+        {
+            for (var i = 0; i < boundElements.Length; i++)
+                builder.AddIfNotNull(OperationUtilities.CreateOperationFromBound(SemanticModel, boundElements[i], syntaxElements[i]));
+        }
+        else
+        {
+            foreach (var boundElement in boundElements)
+                builder.AddIfNotNull(OperationUtilities.CreateOperationFromBound(SemanticModel, boundElement, Syntax));
+        }
+
+        _elements = builder.ToImmutable();
+        return _elements.Value;
+    }
+}
+
+internal sealed class CollectionComprehensionOperation : Operation, ICollectionComprehensionOperation
+{
+    private readonly BoundCollectionComprehensionExpression _bound;
+    private IOperation? _source;
+    private IOperation? _condition;
+    private IOperation? _selector;
+    private bool _conditionInitialized;
+
+    internal CollectionComprehensionOperation(
+        SemanticModel semanticModel,
+        BoundCollectionComprehensionExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.CollectionComprehension, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? Source
+    {
+        get
+        {
+            if (_source is not null)
+                return _source;
+
+            var fallback = Syntax is CollectionComprehensionElementSyntax comprehension
+                ? comprehension.Source
+                : Syntax;
+            _source = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Source, fallback);
+            return _source;
+        }
+    }
+
+    public IOperation? Condition
+    {
+        get
+        {
+            if (_conditionInitialized)
+                return _condition;
+
+            _conditionInitialized = true;
+            if (_bound.Condition is null)
+                return null;
+
+            var fallback = Syntax is CollectionComprehensionElementSyntax comprehension && comprehension.Condition is not null
+                ? comprehension.Condition
+                : Syntax;
+            _condition = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Condition, fallback);
+            return _condition;
+        }
+    }
+
+    public IOperation? Selector
+    {
+        get
+        {
+            if (_selector is not null)
+                return _selector;
+
+            var fallback = Syntax is CollectionComprehensionElementSyntax comprehension
+                ? comprehension.Selector
+                : Syntax;
+            _selector = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Selector, fallback);
+            return _selector;
+        }
+    }
+
+    public ILocalSymbol IterationLocal => _bound.IterationLocal;
+
+    public ITypeSymbol ElementType => _bound.ElementType;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return ImmutableArray.CreateBuilder<IOperation>()
+            .AddIfNotNull(Source)
+            .AddIfNotNull(Condition)
+            .AddIfNotNull(Selector)
+            .ToImmutable();
+    }
 }
 
 internal sealed class EmptyCollectionOperation : Operation, IEmptyCollectionOperation

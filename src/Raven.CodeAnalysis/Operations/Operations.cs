@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 namespace Raven.CodeAnalysis.Operations;
 
 public interface IBlockOperation : IOperation
@@ -201,6 +202,17 @@ public interface IBinaryOperation : IOperation
     IOperation? Right { get; }
 }
 
+public interface ICoalesceOperation : IBinaryOperation
+{
+}
+
+public interface INameOfOperation : IOperation
+{
+    string Name { get; }
+
+    IOperation? Operand { get; }
+}
+
 public interface IParenthesizedOperation : IOperation
 {
     IOperation? Operand { get; }
@@ -211,6 +223,21 @@ public interface IConversionOperation : IOperation
     Conversion Conversion { get; }
 
     IOperation? Operand { get; }
+}
+
+public interface IPropagationOperation : IUnaryOperation
+{
+    ITypeSymbol OkType { get; }
+
+    ITypeSymbol? ErrorType { get; }
+
+    INamedTypeSymbol EnclosingResultType { get; }
+
+    IMethodSymbol EnclosingErrorConstructor { get; }
+}
+
+public interface IDereferenceOperation : IUnaryOperation
+{
 }
 
 public interface IConditionalOperation : IOperation
@@ -262,6 +289,15 @@ public interface IDelegateCreationOperation : IOperation
 {
 }
 
+public interface IWithOperation : IOperation
+{
+    IOperation? Receiver { get; }
+
+    ImmutableArray<ISymbol> Members { get; }
+
+    ImmutableArray<IOperation> Values { get; }
+}
+
 public interface IAddressOfOperation : IOperation
 {
 }
@@ -298,6 +334,27 @@ public interface IObjectCreationOperation : IOperation
     IMethodSymbol? Constructor { get; }
 
     ImmutableArray<IOperation> Arguments { get; }
+
+    IOperation? Initializer { get; }
+}
+
+public interface IObjectInitializerOperation : IOperation
+{
+    ImmutableArray<IOperation> Entries { get; }
+}
+
+public interface IObjectInitializerAssignmentOperation : IOperation
+{
+    ISymbol Member { get; }
+
+    SyntaxKind OperatorTokenKind { get; }
+
+    IOperation? Value { get; }
+}
+
+public interface IObjectInitializerExpressionEntryOperation : IOperation
+{
+    IOperation? Expression { get; }
 }
 
 public interface IAssignmentOperation : IOperation
@@ -373,6 +430,17 @@ public interface ILambdaOperation : IOperation
     ImmutableArray<ISymbol> CapturedVariables { get; }
 }
 
+public interface IUnionCaseOperation : IOperation
+{
+    INamedTypeSymbol UnionType { get; }
+
+    INamedTypeSymbol CaseType { get; }
+
+    IMethodSymbol? Constructor { get; }
+
+    ImmutableArray<IOperation> Arguments { get; }
+}
+
 public interface ISwitchOperation : IOperation
 {
     IOperation? Value { get; }
@@ -418,8 +486,47 @@ public interface IConstantPatternOperation : IPatternOperation
     IOperation? Value { get; }
 }
 
+public interface IRelationalPatternOperation : IPatternOperation
+{
+    SyntaxKind OperatorKind { get; }
+
+    IOperation? Value { get; }
+}
+
 public interface IPositionalPatternOperation : IPatternOperation
 {
+    ImmutableArray<IOperation> Subpatterns { get; }
+}
+
+public interface IReceiverPatternOperation : IPatternOperation
+{
+    ITypeSymbol ReceiverType { get; }
+
+    ITypeSymbol? NarrowedType { get; }
+}
+
+public interface IRecursivePatternOperation : IReceiverPatternOperation
+{
+    IMethodSymbol DeconstructMethod { get; }
+
+    ImmutableArray<IOperation> Arguments { get; }
+}
+
+public interface IRangePatternOperation : IPatternOperation
+{
+    IOperation? LowerBound { get; }
+
+    IOperation? UpperBound { get; }
+
+    bool IsUpperExclusive { get; }
+}
+
+public interface IPropertyPatternOperation : IReceiverPatternOperation
+{
+    IOperation? Designator { get; }
+
+    ImmutableArray<ISymbol> Members { get; }
+
     ImmutableArray<IOperation> Subpatterns { get; }
 }
 
@@ -461,6 +568,19 @@ public interface IDiscardDesignatorOperation : IDesignatorOperation
 
 public interface ICollectionOperation : IOperation
 {
+}
+
+public interface ICollectionComprehensionOperation : IOperation
+{
+    IOperation? Source { get; }
+
+    IOperation? Condition { get; }
+
+    IOperation? Selector { get; }
+
+    ILocalSymbol IterationLocal { get; }
+
+    ITypeSymbol ElementType { get; }
 }
 
 public interface IEmptyCollectionOperation : IOperation
