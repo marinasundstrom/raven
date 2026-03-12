@@ -515,7 +515,7 @@
     Message="Explicit cast from '{fromType}' to '{toType}' is unnecessary because an implicit conversion exists."
     Category="compiler" Severity="Info" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1504" Identifier="CannotAssignFromTypeToType" Title="Cannot assign to type"
-    Message="Cannot assign {fromType} to {toType}" Category="compiler" Severity="Error"
+    Message="Cannot assign '{fromType}' to '{toType}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1505" Identifier="MultipleContentEntriesNotAllowed"
     Title="Multiple content entries not allowed"

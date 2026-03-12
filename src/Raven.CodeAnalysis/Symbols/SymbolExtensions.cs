@@ -162,12 +162,7 @@ public static partial class SymbolExtensions
 
     public static string ToDisplayStringForTypeMismatchDiagnostic(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
-        var display = FormatType(typeSymbol, format);
-
-        if (display.IndexOf('\'') >= 0 || display.IndexOf('"') >= 0)
-            return display;
-
-        return $"'{display}'";
+        return FormatType(typeSymbol, format);
     }
 
     public static string ToDisplayString(this ISymbol symbol, SymbolDisplayFormat? format = default!)

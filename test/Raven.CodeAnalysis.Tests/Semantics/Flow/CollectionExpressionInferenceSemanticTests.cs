@@ -148,7 +148,7 @@ val inferred = [1, true]
 """;
 
         var verifier = CreateVerifier(source, [
-            new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("'int'", "'bool'")
+            new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "bool")
         ]);
 
         verifier.Verify();

@@ -38,7 +38,7 @@ val local: Exception = Exception()
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithSpan(7, 24, 7, 35).WithArguments("'Exception'", "'Exception'")],
+            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithSpan(7, 24, 7, 35).WithArguments("Exception", "Exception")],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();

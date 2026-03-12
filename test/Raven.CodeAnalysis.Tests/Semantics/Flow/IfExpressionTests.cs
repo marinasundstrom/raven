@@ -58,7 +58,7 @@ val result = if input == 2 { 2 } else { false }
 """;
 
         var verifier = CreateVerifier(code,
-            [new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("'int'", "'bool'")]);
+            [new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "bool")]);
 
         verifier.Verify();
     }
