@@ -7,6 +7,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-12**.
 ### Added
 - Expanded Operations API coverage for newer language constructs and bound nodes.
 - Added targeted sample coverage around generic parsing with static interface constraints.
+- Added style analyzer + code fix to convert expression-bodied members to block-bodied form.
 
 Impact:
 - Compiler API consumers can inspect more semantics directly.
