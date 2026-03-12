@@ -5299,22 +5299,6 @@ partial class BlockBinder : Binder
 
         if (!isMultiline)
         {
-            if (syntax.Contents.Count == 1)
-            {
-                var first = syntax.Contents.First();
-                if (first is InterpolationSyntax interpolationSyntax)
-                {
-                    var expr = BindExpression(interpolationSyntax.Expression);
-
-                    IMethodSymbol? toStringMethod = ResolveToStringMethod(expr.Type);
-
-                    if (toStringMethod is null)
-                        return new BoundErrorExpression(expr.Type);
-
-                    return new BoundInvocationExpression(toStringMethod, [], expr);
-                }
-            }
-
             foreach (var content in syntax.Contents)
             {
                 BoundExpression expr = content switch
@@ -5395,7 +5379,20 @@ partial class BlockBinder : Binder
         BoundExpression? ConcatOrFirst(BoundExpression? left, BoundExpression right)
         {
             if (left is null)
-                return right;
+            {
+                if (right.Type?.SpecialType == SpecialType.System_String)
+                    return right;
+
+                var empty = new BoundLiteralExpression(
+                    BoundLiteralExpressionKind.StringLiteral,
+                    string.Empty,
+                    Compilation.GetSpecialType(SpecialType.System_String));
+
+                var firstConcat = ResolveStringConcatMethod(empty, right);
+                return firstConcat is null
+                    ? ErrorExpression(reason: BoundExpressionReason.OtherError)
+                    : new BoundInvocationExpression(firstConcat, [empty, right]);
+            }
 
             if (left is BoundErrorExpression)
                 return left;
@@ -5475,6 +5472,12 @@ partial class BlockBinder : Binder
     private IMethodSymbol? ResolveToStringMethod(ITypeSymbol type)
     {
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+
+        if (type is ITypeParameterSymbol)
+        {
+            var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+            return objectType.GetMethodRecursive("ToString", stringType, []);
+        }
 
         var currentType = type;
         while (currentType != null)

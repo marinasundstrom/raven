@@ -1,0 +1,11 @@
+import System.*
+import System.Console.*
+
+func Main() -> () {
+    val r = Parse<int>("42")
+    WriteLine(r)
+}
+
+func Parse<T>(str: string) -> T 
+    where T: IParsable<T>
+    => T.Parse(str, null)

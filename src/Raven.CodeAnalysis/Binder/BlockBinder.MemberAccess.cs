@@ -95,6 +95,13 @@ partial class BlockBinder
 
         if (hasErrors || methodGroup.Receiver is { } receiver && IsErrorExpression(receiver))
         {
+            ReportSuppressedLambdaDiagnostics(boundArguments);
+            if (!HasLambdaBodyBindingErrors(boundArguments) &&
+                !HasExistingArgumentErrors(syntax.ArgumentList.Arguments))
+            {
+                _diagnostics.ReportNoOverloadForMethod("method", methodGroup.Methods[0].Name, boundArguments.Length, syntax.GetLocation());
+            }
+
             var selectedForError = methodGroup.SelectedMethod;
             var symbol = selectedForError ?? methodGroup.Methods.FirstOrDefault();
             var returnType = symbol?.ReturnType ?? Compilation.ErrorTypeSymbol;
@@ -232,9 +239,13 @@ partial class BlockBinder
                 method.Parameters.Length > 0)
             {
                 var extensionReceiverType = method.Parameters[0].Type;
-                var conversion = Compilation.ClassifyConversion(receiver.Type, extensionReceiverType);
-                if (!conversion.Exists || !conversion.IsImplicit)
-                    continue;
+                var hasOpenReceiverTypeParameters = ContainsAnyTypeParameter(extensionReceiverType, method.TypeParameters);
+                if (!hasOpenReceiverTypeParameters)
+                {
+                    var conversion = Compilation.ClassifyConversion(receiver.Type, extensionReceiverType);
+                    if (!conversion.Exists || !conversion.IsImplicit)
+                        continue;
+                }
             }
 
             var parameters = method.Parameters;
@@ -337,14 +348,17 @@ partial class BlockBinder
                     targetType = TryGetCommonNamedParameterType(methods, argName, receiver);
             }
 
-            // For lambda arguments where candidates disagree on the delegate type
+            // For callable arguments where candidates disagree on the delegate type
             // (TryGetCommonPositionalParameterType returns null), fall back to the first
             // candidate that provides a delegate type for this argument position.  This
             // handles cases like [1,2,3].ToDictionary(x => x, y => y) where overloads agree
-            // on input parameter types but differ on return-type type parameters
-            // (e.g. Func<int,TKey1> vs Func<int,TKey2>).
-            if (targetType is null && arg.Expression is FunctionExpressionSyntax)
+            // on input parameter types but differ on return-type type parameters,
+            // and method-group calls like shipmentWeights.Select(Compute).
+            if (targetType is null &&
+                arg.Expression is FunctionExpressionSyntax or IdentifierNameSyntax or MemberAccessExpressionSyntax or GenericNameSyntax)
+            {
                 targetType = TryGetFirstDelegateParameterType(methods, i, receiver, pipeReceiverType);
+            }
 
             // Apply pre-inferred type-parameter substitutions to the target type, then
             // discard the target type if it still contains unresolved type parameters —
@@ -356,9 +370,9 @@ partial class BlockBinder
             // PARAMETER TYPES still contain unresolved type parameters.  The return-type
             // position can be left open — the lambda binder already handles that correctly by
             // inferring the return type from the body (see BlockBinder.Lambda.cs line ~541).
-            if (targetType is not null)
+            if (targetType is not null && methods.Length == 1)
             {
-                var hasUnresolved = arg.Expression is FunctionExpressionSyntax
+                var hasUnresolved = CanUseOpenDelegateReturnTypeHint(arg.Expression)
                     ? ContainsAnyTypeParameterInDelegateInputParams(targetType, allMethodTypeParams)
                     : ContainsAnyTypeParameter(targetType, allMethodTypeParams);
                 if (hasUnresolved)
@@ -369,15 +383,18 @@ partial class BlockBinder
                 ? BindExpression(arg.Expression)
                 : BindExpressionWithTargetType(arg.Expression, targetType);
 
-            if (IsErrorExpression(boundExpr) && targetType is not null)
+            if (targetType is not null && HasExpressionErrors(boundExpr))
             {
                 // Target-typed binding can fail for otherwise-valid expressions (e.g., nested union
-                // case construction). Retry without the target type before treating it as an error.
+                // case construction or method-group conversion). Retry without the target type
+                // before treating it as an error.
                 RemoveCachedBoundNode(arg.Expression);
-                boundExpr = BindExpression(arg.Expression);
+                var naturalBoundExpr = BindExpression(arg.Expression);
+                if (!HasExpressionErrors(naturalBoundExpr))
+                    boundExpr = naturalBoundExpr;
             }
 
-            if (HasExpressionErrors(boundExpr))
+            if (HasExpressionErrors(boundExpr) && boundExpr is not BoundMethodGroupExpression)
                 hasErrors = true;
 
             var name = arg.NameColon?.Name.Identifier.ValueText;
@@ -926,6 +943,12 @@ partial class BlockBinder
 
         return sawSystemDelegateLike ? null : firstConcreteDelegate;
     }
+
+    private static bool CanUseOpenDelegateReturnTypeHint(ExpressionSyntax expression)
+        => expression is FunctionExpressionSyntax
+            or IdentifierNameSyntax
+            or MemberAccessExpressionSyntax
+            or GenericNameSyntax;
 
     /// <summary>
     /// Returns <c>true</c> when the <em>input parameter types</em> (not the return type) of a

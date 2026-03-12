@@ -1138,7 +1138,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
             if (codeGen.TryGetRuntimeTypeForTypeParameter(methodTypeParameter, out var resolved))
             {
-                if (resolved is { IsGenericParameter: true, DeclaringMethod: not null })
+                if (IsMethodGenericParameter(resolved))
                     return resolved;
 
                 if (TryGetMethodGenericParameter(methodSymbol, methodTypeParameter.Ordinal, codeGen, out var refreshedMethodParameter))
@@ -1182,7 +1182,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
                 if (codeGen.TryGetRuntimeTypeForTypeParameter(asyncParameter, out var asyncResolved))
                 {
-                    if (asyncResolved is { IsGenericParameter: true, DeclaringMethod: not null })
+                    if (IsMethodGenericParameter(asyncResolved))
                         return asyncResolved;
 
                     if (TryGetMethodGenericParameter(stateMachine.AsyncMethod, asyncParameter.Ordinal, codeGen, out var refreshedAsyncMethodParameter))
@@ -1262,6 +1262,31 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         }
 
         return false;
+    }
+
+    private static bool IsMethodGenericParameter(Type runtimeType)
+    {
+        try
+        {
+            return runtimeType.IsGenericParameter && runtimeType.IsGenericMethodParameter;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsSignaturePlaceholderType(Type runtimeType)
+    {
+        try
+        {
+            _ = runtimeType.Assembly;
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return true;
+        }
     }
 
     private static bool TryGetSourceMethod(IMethodSymbol methodSymbol, out SourceMethodSymbol sourceMethod)
@@ -1625,60 +1650,76 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             // Resolve the constructed runtime type
             var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
 
-            if (constructedType is TypeBuilder || constructedType.GetType().FullName == "System.Reflection.Emit.TypeBuilderInstantiation")
+            if (constructedType.IsGenericType &&
+                baseMethod.DeclaringType is Type baseDeclaringTypeForInstantiation &&
+                baseDeclaringTypeForInstantiation.IsGenericTypeDefinition &&
+                ReferenceEquals(constructedType.GetGenericTypeDefinition(), baseDeclaringTypeForInstantiation))
             {
-                var instantiated = TypeBuilder.GetMethod(constructedType, baseMethod);
-                if (instantiated is not null)
-                    return instantiated;
+                try
+                {
+                    var instantiated = TypeBuilder.GetMethod(constructedType, baseMethod);
+                    if (instantiated is not null)
+                        return instantiated;
+                }
+                catch (Exception ex) when (ex is NotSupportedException or ArgumentException)
+                {
+                }
             }
 
             // Use metadata name and parameter types to resolve the method on the constructed type
-            var parameterTypes = Parameters
-                .Select(x => TypeSymbolExtensionsForCodeGen.GetClrType(x.Type, codeGen))
-                .ToArray();
-            var method = constructedType.GetMethod(
-                baseMethod.Name,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static,
-                null,
-                parameterTypes,
-                null
-            );
-
-            if (method != null)
-                return method;
-
-            // Fallback: metadata-token matching is more resilient for generic instantiations
-            // where reflected parameter types can differ from substituted symbol projections.
-            if (baseMethod.DeclaringType is Type baseDeclaringType &&
-                constructedType.IsGenericType &&
-                baseDeclaringType.IsGenericTypeDefinition &&
-                ReferenceEquals(constructedType.GetGenericTypeDefinition(), baseDeclaringType))
+            if (!IsSignaturePlaceholderType(constructedType))
             {
-                var candidates = constructedType.GetMethods(
-                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
+                var parameterTypes = Parameters
+                    .Select(x => TypeSymbolExtensionsForCodeGen.GetClrType(x.Type, codeGen))
+                    .ToArray();
+                var method = constructedType.GetMethod(
+                    baseMethod.Name,
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static,
+                    null,
+                    parameterTypes,
+                    null
+                );
 
-                foreach (var candidate in candidates)
+                if (method != null)
+                    return method;
+
+                // Fallback: metadata-token matching is more resilient for generic instantiations
+                // where reflected parameter types can differ from substituted symbol projections.
+                if (baseMethod.DeclaringType is Type baseDeclaringType &&
+                    constructedType.IsGenericType &&
+                    baseDeclaringType.IsGenericTypeDefinition &&
+                    ReferenceEquals(constructedType.GetGenericTypeDefinition(), baseDeclaringType))
                 {
-                    if (candidate.Name != baseMethod.Name)
-                        continue;
+                    var candidates = constructedType.GetMethods(
+                        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
 
-                    if (candidate.GetParameters().Length != baseMethod.GetParameters().Length)
-                        continue;
-
-                    if (candidate.IsGenericMethod != baseMethod.IsGenericMethod)
-                        continue;
-
-                    try
+                    foreach (var candidate in candidates)
                     {
-                        if (candidate.MetadataToken == baseMethod.MetadataToken)
-                            return candidate;
-                    }
-                    catch
-                    {
-                        // Some reflected members (e.g. dynamic methods) can throw for MetadataToken;
-                        // skip and continue probing.
+                        if (candidate.Name != baseMethod.Name)
+                            continue;
+
+                        if (candidate.GetParameters().Length != baseMethod.GetParameters().Length)
+                            continue;
+
+                        if (candidate.IsGenericMethod != baseMethod.IsGenericMethod)
+                            continue;
+
+                        try
+                        {
+                            if (candidate.MetadataToken == baseMethod.MetadataToken)
+                                return candidate;
+                        }
+                        catch
+                        {
+                            // Some reflected members (e.g. dynamic methods) can throw for MetadataToken;
+                            // skip and continue probing.
+                        }
                     }
                 }
+            }
+            else
+            {
+                return baseMethod;
             }
 
             throw new MissingMethodException($"Method '{baseMethod.Name}' with specified parameters not found on constructed type '{constructedType}'.");
@@ -1704,22 +1745,42 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             if (ReferenceEquals(constructedType, definitionMethod.DeclaringType))
                 return definitionMethod;
 
-            var parameterTypes = sourceMethod.Parameters
-                .Select(p => TypeSymbolExtensionsForCodeGen.GetClrType(p.Type, codeGen))
-                .ToArray();
-
-            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
-            var resolved = constructedType.GetMethod(definitionMethod.Name, bindingFlags, null, parameterTypes, null);
-            if (resolved is not null)
+            if (!IsSignaturePlaceholderType(constructedType))
             {
-                codeGen.AddMemberBuilder(sourceMethod, resolved, cacheArguments);
-                return resolved;
+                var parameterTypes = sourceMethod.Parameters
+                    .Select(p => TypeSymbolExtensionsForCodeGen.GetClrType(p.Type, codeGen))
+                    .ToArray();
+
+                var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+                var resolved = constructedType.GetMethod(definitionMethod.Name, bindingFlags, null, parameterTypes, null);
+                if (resolved is not null)
+                {
+                    codeGen.AddMemberBuilder(sourceMethod, resolved, cacheArguments);
+                    return resolved;
+                }
+            }
+            else
+            {
+                return definitionMethod;
             }
 
             throw new MissingMethodException($"Method '{definitionMethod.Name}' with specified parameters not found on constructed type '{constructedType}'.");
         }
 
         throw new InvalidOperationException("Expected PE or source method symbol.");
+    }
+
+    private static bool IsSignaturePlaceholderType(Type runtimeType)
+    {
+        try
+        {
+            _ = runtimeType.Assembly;
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return true;
+        }
     }
 
     private string GetDebuggerDisplay()

@@ -26,6 +26,7 @@ internal class CodeGenerator
     readonly Dictionary<MemberBuilderCacheKey, MemberInfo> _constructedMappings = new Dictionary<MemberBuilderCacheKey, MemberInfo>();
     readonly Dictionary<RuntimeTypeParameterKey, Stack<Type>> _genericParameterMap = new();
     readonly HashSet<GenericTypeParameterBuilder> _genericParameterConstraintsApplied = new();
+    readonly HashSet<PETypeParameterIdentity> _resolvingMetadataTypeParameters = new();
     readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(ReferenceEqualityComparer.Instance);
     readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(ReferenceEqualityComparer.Instance);
 
@@ -1712,13 +1713,13 @@ internal class CodeGenerator
                     if (!candidate.IsGenericParameter || !candidate.IsGenericMethodParameter || candidate.IsGenericTypeParameter)
                         continue;
 
-                    if (!IsSignaturePlaceholderType(candidate))
+                    if (IsSignaturePlaceholderType(candidate))
                         continue;
 
                     if (CodeGenFlags.PrintDebug)
                     {
                         PrintDebug(
-                            $"[CodeGen:TypeParam] Lookup preferred signature placeholder {symbol.Name} -> {candidate} (depth={stack.Count})");
+                            $"[CodeGen:TypeParam] Lookup preferred runtime method parameter {symbol.Name} -> {candidate} (depth={stack.Count})");
                     }
 
                     type = candidate;
@@ -1726,15 +1727,27 @@ internal class CodeGenerator
                 }
             }
 
-            if (CodeGenFlags.PrintDebug)
+            var top = stack.Peek();
+            if (usage == RuntimeTypeUsage.MethodBody &&
+                symbol.OwnerKind == TypeParameterOwnerKind.Method &&
+                IsSignaturePlaceholderType(top))
             {
-                var candidate = stack.Peek();
-                PrintDebug(
-                    $"[CodeGen:TypeParam] Lookup hit {symbol.Name} -> {candidate} (isMethodParam={candidate.IsGenericMethodParameter}, isTypeParam={candidate.IsGenericTypeParameter}, depth={stack.Count})");
+                if (CodeGenFlags.PrintDebug)
+                {
+                    PrintDebug(
+                        $"[CodeGen:TypeParam] Skip signature placeholder top-of-stack for method-body lookup {symbol.Name} -> {top}");
+                }
             }
-
-            type = stack.Peek();
-            return true;
+            else
+            {
+                if (CodeGenFlags.PrintDebug)
+                {
+                    PrintDebug(
+                        $"[CodeGen:TypeParam] Lookup hit {symbol.Name} -> {top} (isMethodParam={top.IsGenericMethodParameter}, isTypeParam={top.IsGenericTypeParameter}, depth={stack.Count})");
+                }
+                type = top;
+                return true;
+            }
         }
 
         if (normalized.OwnerKind == TypeParameterOwnerKind.Method &&
@@ -1747,22 +1760,47 @@ internal class CodeGenerator
         if (normalized is PETypeParameterSymbol normalizedPeTypeParameter &&
             TryResolveMetadataTypeParameter(normalizedPeTypeParameter, out var normalizedResolved))
         {
-            type = CacheRuntimeTypeParameter(symbol, normalizedResolved);
-            return true;
+            if (usage == RuntimeTypeUsage.MethodBody && IsSignaturePlaceholderType(normalizedResolved))
+            {
+                if (CodeGenFlags.PrintDebug)
+                {
+                    PrintDebug(
+                        $"[CodeGen:TypeParam] Ignore signature placeholder {normalized.Name} for method body resolution (metadata owner).");
+                }
+            }
+            else
+            {
+                type = CacheRuntimeTypeParameter(symbol, normalizedResolved);
+                return true;
+            }
         }
 
         if (symbol is PETypeParameterSymbol peTypeParameter && TryResolveMetadataTypeParameter(peTypeParameter, out var resolved))
         {
-            type = CacheRuntimeTypeParameter(symbol, resolved);
-            return true;
+            if (usage == RuntimeTypeUsage.MethodBody && IsSignaturePlaceholderType(resolved))
+            {
+                if (CodeGenFlags.PrintDebug)
+                {
+                    PrintDebug(
+                        $"[CodeGen:TypeParam] Ignore signature placeholder {symbol.Name} for method body resolution (direct metadata owner).");
+                }
+            }
+            else
+            {
+                type = CacheRuntimeTypeParameter(symbol, resolved);
+                return true;
+            }
         }
 
         if (normalized.Ordinal >= 0)
         {
             if (normalized.OwnerKind == TypeParameterOwnerKind.Method)
             {
-                type = CacheRuntimeTypeParameter(symbol, Type.MakeGenericMethodParameter(normalized.Ordinal));
-                return true;
+                if (usage == RuntimeTypeUsage.Signature)
+                {
+                    type = CacheRuntimeTypeParameter(symbol, Type.MakeGenericMethodParameter(normalized.Ordinal));
+                    return true;
+                }
             }
         }
 
@@ -1798,7 +1836,7 @@ internal class CodeGenerator
                 if (!candidate.IsGenericParameter || !candidate.IsGenericMethodParameter || candidate.IsGenericTypeParameter)
                     continue;
 
-                if (!IsSignaturePlaceholderType(candidate))
+                if (IsSignaturePlaceholderType(candidate))
                     continue;
 
                 type = candidate;
@@ -1806,7 +1844,15 @@ internal class CodeGenerator
             }
         }
 
-        type = currentStack.Peek();
+        var top = currentStack.Peek();
+        if (usage == RuntimeTypeUsage.MethodBody &&
+            normalizedMethodParameter.OwnerKind == TypeParameterOwnerKind.Method &&
+            IsSignaturePlaceholderType(top))
+        {
+            return false;
+        }
+
+        type = top;
         return true;
     }
 
@@ -1930,29 +1976,21 @@ internal class CodeGenerator
 
     private bool TryResolveMetadataTypeParameter(PETypeParameterSymbol symbol, out Type type)
     {
-        if (symbol.OwnerKind == TypeParameterOwnerKind.Type &&
-            symbol.DeclaringTypeParameterOwner is INamedTypeSymbol containingType)
+        if (!_resolvingMetadataTypeParameters.Add(symbol.MetadataIdentity))
         {
-            var runtimeType = RuntimeSymbolResolver.GetType(containingType, treatUnitAsVoid: true);
-            var parameters = runtimeType.IsGenericTypeDefinition
-                ? runtimeType.GetTypeInfo().GenericTypeParameters
-                : runtimeType.GetGenericTypeDefinition().GetTypeInfo().GenericTypeParameters;
-
-            var ordinal = symbol.Ordinal;
-            if ((uint)ordinal < (uint)parameters.Length)
-            {
-                type = parameters[ordinal];
-                return true;
-            }
+            type = null!;
+            return false;
         }
-        else if (symbol.OwnerKind == TypeParameterOwnerKind.Method &&
-                 symbol.DeclaringMethodParameterOwner is IMethodSymbol containingMethod)
+
+        try
         {
-            if (TryGetRuntimeMethod(containingMethod, out var methodInfo))
+            if (symbol.OwnerKind == TypeParameterOwnerKind.Type &&
+                symbol.DeclaringTypeParameterOwner is INamedTypeSymbol containingType)
             {
-                var parameters = methodInfo.IsGenericMethodDefinition
-                    ? methodInfo.GetGenericArguments()
-                    : methodInfo.GetGenericMethodDefinition().GetGenericArguments();
+                var runtimeType = RuntimeSymbolResolver.GetType(containingType, treatUnitAsVoid: true);
+                var parameters = runtimeType.IsGenericTypeDefinition
+                    ? runtimeType.GetTypeInfo().GenericTypeParameters
+                    : runtimeType.GetGenericTypeDefinition().GetTypeInfo().GenericTypeParameters;
 
                 var ordinal = symbol.Ordinal;
                 if ((uint)ordinal < (uint)parameters.Length)
@@ -1961,27 +1999,48 @@ internal class CodeGenerator
                     return true;
                 }
             }
-
-            try
+            else if (symbol.OwnerKind == TypeParameterOwnerKind.Method &&
+                     symbol.DeclaringMethodParameterOwner is IMethodSymbol containingMethod)
             {
-                var resolvedMethod = RuntimeSymbolResolver.GetMethodInfo(containingMethod);
-                var parameters = resolvedMethod.IsGenericMethodDefinition
-                    ? resolvedMethod.GetGenericArguments()
-                    : resolvedMethod.GetGenericMethodDefinition().GetGenericArguments();
-
-                if ((uint)symbol.Ordinal < (uint)parameters.Length)
+                if (TryGetRuntimeMethod(containingMethod, out var methodInfo))
                 {
-                    type = parameters[symbol.Ordinal];
-                    return true;
+                    var parameters = methodInfo.IsGenericMethodDefinition
+                        ? methodInfo.GetGenericArguments()
+                        : methodInfo.GetGenericMethodDefinition().GetGenericArguments();
+
+                    var ordinal = symbol.Ordinal;
+                    if ((uint)ordinal < (uint)parameters.Length)
+                    {
+                        type = parameters[ordinal];
+                        return true;
+                    }
+                }
+
+                try
+                {
+                    var resolvedMethod = RuntimeSymbolResolver.GetMethodInfo(containingMethod);
+                    var parameters = resolvedMethod.IsGenericMethodDefinition
+                        ? resolvedMethod.GetGenericArguments()
+                        : resolvedMethod.GetGenericMethodDefinition().GetGenericArguments();
+
+                    if ((uint)symbol.Ordinal < (uint)parameters.Length)
+                    {
+                        type = parameters[symbol.Ordinal];
+                        return true;
+                    }
+                }
+                catch (InvalidOperationException)
+                {
                 }
             }
-            catch (InvalidOperationException)
-            {
-            }
-        }
 
-        type = null!;
-        return false;
+            type = null!;
+            return false;
+        }
+        finally
+        {
+            _resolvingMetadataTypeParameters.Remove(symbol.MetadataIdentity);
+        }
     }
 
 }

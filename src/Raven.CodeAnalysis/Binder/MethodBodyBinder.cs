@@ -142,7 +142,13 @@ class MethodBodyBinder : BlockBinder
         if (bodySyntax is not BlockStatementSyntax blockSyntax)
             return;
 
-        var requiredReturnType = GetTrailingExpressionTargetType(_methodSymbol);
+        if (_methodSymbol.IsIterator)
+            return;
+
+        var requiredReturnType = _methodSymbol.IsAsync
+            ? AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, _methodSymbol.ReturnType) ?? GetTrailingExpressionTargetType(_methodSymbol)
+            : GetTrailingExpressionTargetType(_methodSymbol);
+
         if (requiredReturnType.ContainsErrorType() ||
             requiredReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
         {
@@ -153,6 +159,12 @@ class MethodBodyBinder : BlockBinder
         // If the final bound statement is an expression statement, trailing-expression
         // validation will handle type compatibility diagnostics.
         if (bound.Statements.LastOrDefault() is BoundExpressionStatement)
+            return;
+
+        // Lowering supports implicit returns from trailing if/else branches.
+        // Avoid reporting a missing return when that rewrite would succeed.
+        var unitType = Compilation.UnitTypeSymbol;
+        if (!ReferenceEquals(ImplicitReturnRewriter.RewriteIfNeeded(requiredReturnType, unitType, bound), bound))
             return;
 
         var controlFlow = SemanticModel.AnalyzeControlFlowInternal(new ControlFlowRegion(blockSyntax), blockSyntax, analyzeJumpPoints: false);

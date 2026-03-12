@@ -6479,8 +6479,12 @@ internal partial class ExpressionGenerator : Generator
         var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
         var useConstrainedStaticInterfaceCall =
             target.IsStatic &&
+            target.IsAbstract &&
             isInterfaceCall &&
-            receiverType is ITypeParameterSymbol;
+            receiverType is SourceTypeParameterSymbol &&
+            target is IMethodSymbol interfaceMethod &&
+            string.Equals(interfaceMethod.MetadataName, "Parse", StringComparison.Ordinal) &&
+            string.Equals(interfaceMethod.ContainingType?.ToFullyQualifiedMetadataName(), "System.IParsable`1", StringComparison.Ordinal);
 
         var targetMethodInfo = GetMethodInfo(target);
 
