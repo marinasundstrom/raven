@@ -390,14 +390,16 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is ITypeSymbol typeSymbol)
         {
+            var declarationTypeFormat = CreatePlainTypeFormatWithoutSpecialTypeAliases();
+
             if (typeSymbol is INamedTypeSymbol delegateType &&
                 delegateType.TypeKind == TypeKind.Delegate &&
-                TryFormatDelegateTypeSignature(delegateType, plainTypeFormat, out var delegateSignature))
+                TryFormatDelegateTypeSignature(delegateType, declarationTypeFormat, out var delegateSignature))
             {
                 return delegateSignature;
             }
 
-            var typeFormat = plainTypeFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
+            var typeFormat = declarationTypeFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
             var text = FormatType(typeSymbol, typeFormat);
 
             // Append base class / base interface list (e.g. "class Foo: Bar")
@@ -407,10 +409,10 @@ internal sealed class HoverHandler : IHoverHandler
 
                 // Only show user-defined base types (SpecialType.None excludes object, ValueType, etc.)
                 if (namedType.BaseType is { SpecialType: SpecialType.None } baseType)
-                    bases.Add(baseType.ToDisplayString(plainTypeFormat));
+                    bases.Add(baseType.ToDisplayString(declarationTypeFormat));
 
                 foreach (var iface in namedType.Interfaces)
-                    bases.Add(iface.ToDisplayString(plainTypeFormat));
+                    bases.Add(iface.ToDisplayString(declarationTypeFormat));
 
                 if (bases.Count > 0)
                     text += ": " + string.Join(", ", bases);
@@ -778,6 +780,13 @@ internal sealed class HoverHandler : IHoverHandler
             .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
             .WithKindOptions(SymbolDisplayKindOptions.None)
             .WithMiscellaneousOptions(miscOptions);
+    }
+
+    private static SymbolDisplayFormat CreatePlainTypeFormatWithoutSpecialTypeAliases()
+    {
+        var format = CreatePlainTypeFormat();
+        var miscOptions = format.MiscellaneousOptions & ~SymbolDisplayMiscellaneousOptions.UseSpecialTypes;
+        return format.WithMiscellaneousOptions(miscOptions);
     }
 
     private static bool IsMethodDeclaredStaticForDisplay(IMethodSymbol method)
