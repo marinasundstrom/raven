@@ -237,6 +237,44 @@ first + second
     }
 
     [Fact]
+    public void CollectionPatternDeclarationShorthand_WithOuterAndInlineBinding_ReportsDiagnostic()
+    {
+        const string source = """
+val values: int[] = [1, 2, 3]
+val [val first, val second, _] = values
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PatternDeclarationBindingKeywordConflict.Id)
+                    .WithAnySpan()
+                    .WithArguments("val", "val")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PositionalPatternDeclarationShorthand_WithOuterAndInlineBinding_ReportsDiagnostic()
+    {
+        const string source = """
+val obj = (1, "x")
+val (val id, val name) = obj
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PatternDeclarationBindingKeywordConflict.Id)
+                    .WithAnySpan()
+                    .WithArguments("val", "val")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void CollectionPatternDeclarationShorthand_WithMiddleRest_BindsArraySlice()
     {
         const string source = """

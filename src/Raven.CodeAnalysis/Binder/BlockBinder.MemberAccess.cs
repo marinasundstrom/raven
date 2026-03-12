@@ -2643,6 +2643,15 @@ partial class BlockBinder
             return new BoundExpressionStatement(ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation));
         }
 
+        var inlineBindingKeyword = FindFirstInlinePatternBindingKeyword(syntax.Left);
+        if (inlineBindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+        {
+            _diagnostics.ReportPatternDeclarationBindingKeywordConflict(
+                syntax.BindingKeyword.Text,
+                inlineBindingKeyword.Text,
+                inlineBindingKeyword.GetLocation());
+        }
+
         var right = BindExpression(syntax.Right);
         var bound = BindPatternAssignment(syntax.Left, right, syntax, syntax.BindingKeyword.Kind);
         if (bound is BoundAssignmentExpression assignment)
@@ -2652,6 +2661,25 @@ partial class BlockBinder
         }
 
         return new BoundExpressionStatement(bound);
+    }
+
+    private static SyntaxToken FindFirstInlinePatternBindingKeyword(PatternSyntax pattern)
+    {
+        foreach (var variablePattern in pattern.DescendantNodesAndSelf().OfType<VariablePatternSyntax>())
+        {
+            var keyword = variablePattern.BindingKeyword;
+            if (keyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                return keyword;
+        }
+
+        foreach (var single in pattern.DescendantNodesAndSelf().OfType<SingleVariableDesignationSyntax>())
+        {
+            var keyword = single.BindingKeyword;
+            if (keyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                return keyword;
+        }
+
+        return SyntaxFactory.Token(SyntaxKind.None);
     }
 
     private BoundExpression BindAssignment(ExpressionOrPatternSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node, SyntaxKind operatorTokenKind)

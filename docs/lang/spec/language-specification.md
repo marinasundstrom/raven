@@ -3500,6 +3500,20 @@ The shorthand is equivalent to applying the same binding keyword to each
 identifier element (`val`, `var`, or `let`), matching tuple deconstruction forms
 like `val (a, b) = expr`.
 
+These two declaration styles are mutually exclusive in a single deconstruction:
+choose either an outer/common binding keyword or per-element binding keywords.
+Mixing both is invalid.
+
+```raven
+// valid
+var [first, second, _] = values
+[val first, val second, _] = values
+
+// invalid
+val [val first, val second, _] = values
+val (val id, val name) = obj
+```
+
 ```raven
 val values: int[] = [1, 2, 3]
 [first, second, _] = values

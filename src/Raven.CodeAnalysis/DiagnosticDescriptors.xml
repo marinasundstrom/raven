@@ -707,6 +707,10 @@
     Title="Record pattern argument count mismatch"
     Message="Record '{recordType}' expects {expected} argument(s) but received {actual}"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1613" Identifier="PatternDeclarationBindingKeywordConflict"
+    Title="Pattern declaration mixes binding styles"
+    Message="Cannot combine outer binding keyword '{outerKeyword}' with inline pattern binding keyword '{inlineKeyword}'. Use one style."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2200" Identifier="LambdaParameterTypeCannotBeInferred"
     Title="Lambda parameter type cannot be inferred"
     Message="Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context"

@@ -50,7 +50,7 @@ func Main() {
 import System.*
 
 func Main() {
-    (val first, val second) = (1, 2)
+    val (first, second) = (1, 2)
     Console.WriteLine(first)
     Console.WriteLine(second)
 }
@@ -125,8 +125,8 @@ func Main() {
 import System.*
 
 func Main() {
-    (val first, val ignoredFirst) = (1, 2)
-    (var second, var ignoredSecond) = (3, 4)
+    val (first, ignoredFirst) = (1, 2)
+    var (second, ignoredSecond) = (3, 4)
     Console.WriteLine(first)
     Console.WriteLine(second)
 }
