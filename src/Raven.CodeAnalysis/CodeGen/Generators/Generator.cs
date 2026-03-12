@@ -368,7 +368,9 @@ internal abstract class Generator
 
         if (conversion.IsBoxing)
         {
-            if (!fromClrType.IsValueType)
+            // Generic type parameters can require boxing even when reflection does not
+            // report IsValueType=true on the parameter type itself.
+            if (!fromClrType.IsValueType && !fromClrType.IsGenericParameter)
                 return;
 
             ILGenerator.Emit(OpCodes.Box, fromClrType);

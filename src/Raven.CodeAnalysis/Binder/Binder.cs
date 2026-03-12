@@ -1927,6 +1927,21 @@ internal abstract partial class Binder
         _diagnostics.ReportTypeArgumentDoesNotSatisfyConstraint(argumentDisplay, "notnull", typeParameter.Name, genericDisplayName, location);
     }
 
+    protected bool ReportTypeArgumentConstraintFailureIfPresent(OverloadResolutionResult resolution, Location location)
+    {
+        if (resolution.ConstraintFailure is not { } failure)
+            return false;
+
+        _diagnostics.ReportTypeArgumentDoesNotSatisfyConstraint(
+            failure.TypeArgument,
+            failure.Constraint,
+            failure.TypeParameter,
+            failure.GenericName,
+            location);
+
+        return true;
+    }
+
     protected static Location GetTypeArgumentLocation<TNode>(SeparatedSyntaxList<TNode> arguments, Location fallback, int index)
         where TNode : SyntaxNode
     {

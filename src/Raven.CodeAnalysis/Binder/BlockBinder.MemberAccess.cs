@@ -197,6 +197,9 @@ partial class BlockBinder
             return BindConstructorInvocation(typeFallback, syntax, receiverSyntax: syntax.Expression, receiver: null);
         }
 
+        if (ReportTypeArgumentConstraintFailureIfPresent(resolution, syntax.GetLocation()))
+            return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
+
         ReportSuppressedLambdaDiagnostics(boundArguments);
         if (!HasLambdaBodyBindingErrors(boundArguments) &&
             !HasExistingArgumentErrors(syntax.ArgumentList.Arguments))

@@ -299,4 +299,24 @@ val count = Collect(1, 2, 3)
         Assert.Equal(SpecialType.System_Int32, boundInvocation.Method.TypeArguments[0].SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
     }
+
+    [Fact]
+    public void GenericVarArgs_InferredTypeViolatingConstraint_ReportsConstraintDiagnostic()
+    {
+        const string source = """
+func Collect<T>(items: T ...) where T: class {
+    return 0
+}
+
+val xs: int[] = [1, 2, 3]
+val count = Collect(xs)
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "RAV0320");
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV1501");
+    }
 }
