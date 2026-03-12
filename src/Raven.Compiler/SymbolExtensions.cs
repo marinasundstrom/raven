@@ -239,7 +239,7 @@ public static class SymbolExtensions
 
             case IFieldSymbol fieldSymbol:
                 AppendProperty(builder, "Type", fieldSymbol.Type.ToDisplayString(displayFormat));
-                AppendBooleanProperty(builder, "IsMutable", fieldSymbol.IsMutable);
+                AppendBooleanProperty(builder, "IsReadOnly", fieldSymbol.IsReadOnly);
                 AppendBooleanProperty(builder, "IsConst", fieldSymbol.IsConst);
                 AppendBooleanProperty(builder, "IsRequired", fieldSymbol.IsRequired);
                 if (fieldSymbol.IsConst)

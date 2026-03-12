@@ -1209,7 +1209,7 @@ if (quote)
     }
     else
     {
-        var code = firstSyntaxTree.GetText().ToString();
+        var code = firstSyntaxTree.GetText()!.ToString();
         var quoted = RavenQuoter.QuoteText(code, new RavenQuoterOptions
         {
             IncludeTrivia = true,
