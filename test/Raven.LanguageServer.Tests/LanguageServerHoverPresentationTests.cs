@@ -47,6 +47,37 @@ class Foo(private var name: string) {
     }
 
     [Fact]
+    public void PromotedPrimaryConstructorParameter_HoverSignature_IncludesBindingKeyword()
+    {
+        const string code = """
+record ApplicationError(val Message: string)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var references = TargetFrameworkResolver
+            .GetReferenceAssemblies(targetFramework)
+            .Select(MetadataReference.CreateFromFile);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in references)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var parameterSyntax = root.DescendantNodes().OfType<ParameterSyntax>().Single();
+        var symbol = semanticModel.GetDeclaredSymbol(parameterSyntax).ShouldBeAssignableTo<IParameterSymbol>();
+
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignature.Invoke(null, [symbol, parameterSyntax, semanticModel])!;
+        signature.ShouldStartWith("val Message:");
+    }
+
+    [Fact]
     public void DelegateTypeHover_UsesRavenFunctionTypeSignature()
     {
         const string code = """

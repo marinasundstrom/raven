@@ -367,7 +367,8 @@ internal sealed class HoverHandler : IHoverHandler
 
             var parameterType = parameterTypeSymbol.ToDisplayString(plainTypeFormat);
             var accessibilityPrefix = GetNonPublicParameterAccessibilityPrefix(parameter);
-            return $"{accessibilityPrefix}{parameter.Name}: {parameterType}";
+            var promotedBindingPrefix = GetPromotedPrimaryConstructorBindingPrefix(parameter);
+            return $"{accessibilityPrefix}{promotedBindingPrefix}{parameter.Name}: {parameterType}";
         }
 
         if (symbol is ILocalSymbol local)
@@ -705,6 +706,35 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         return false;
+    }
+
+    private static string GetPromotedPrimaryConstructorBindingPrefix(IParameterSymbol parameter)
+    {
+        foreach (var syntaxReference in parameter.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not ParameterSyntax parameterSyntax)
+                continue;
+
+            if (parameterSyntax.Parent is not ParameterListSyntax { Parent: TypeDeclarationSyntax typeDeclaration })
+                continue;
+
+            var refKeywordKind = parameterSyntax.RefKindKeyword.Kind;
+            var typeIsByRef = parameterSyntax.TypeAnnotation?.Type is ByRefTypeSyntax;
+            if (refKeywordKind is not SyntaxKind.None || typeIsByRef)
+                return string.Empty;
+
+            var bindingKeyword = parameterSyntax.BindingKeyword.Kind;
+            if (bindingKeyword == SyntaxKind.ValKeyword)
+                return "val ";
+
+            if (bindingKeyword == SyntaxKind.VarKeyword)
+                return "var ";
+
+            if (typeDeclaration is RecordDeclarationSyntax)
+                return parameter.IsMutable ? "var " : "val ";
+        }
+
+        return string.Empty;
     }
 
     private static bool TryGetEnclosingCallableDisplayForLocalFunction(

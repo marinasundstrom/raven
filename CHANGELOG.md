@@ -17,6 +17,7 @@ Impact:
 - Static interface member resolution and generic constraint checks were corrected for `IParsable<T>`-style flows.
 - Cascade behavior after failed generic binding was reduced to avoid misleading downstream errors.
 - Several binder/codegen regression fixes landed (including interpolation/object-dumper/runtime sample paths).
+- Hover/signature display for promoted primary-constructor parameters now preserves binding keyword semantics (`val`/`var`) when the parameter maps to a property.
 
 Impact:
 - Fewer false diagnostics and better first-error quality.
