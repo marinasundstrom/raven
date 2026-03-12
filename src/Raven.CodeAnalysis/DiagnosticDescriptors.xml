@@ -313,6 +313,10 @@
     Title="Default value cannot convert to parameter type"
     Message="Default value for parameter '{parameterName}' cannot be converted to '{parameterType}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0342" Identifier="ParameterBindingKeywordNotAllowed"
+    Title="Parameter binding keyword not allowed"
+    Message="Binding keyword '{bindingKeyword}' is not valid on parameter '{parameterName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0314" Identifier="ContainingTypeDoesNotImplementInterface"
     Title="Type does not implement interface"
     Message="Type '{typeName}' does not implement interface '{interfaceName}'" Category="compiler"

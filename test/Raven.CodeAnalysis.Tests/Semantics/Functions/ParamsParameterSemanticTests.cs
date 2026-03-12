@@ -224,6 +224,35 @@ func Main() -> int {
     }
 
     [Fact]
+    public void ToDisplayString_RendersVarParamsWithParamsKeyword()
+    {
+        const string source = """
+func Collect(items: int ...) -> int {
+    return 0
+}
+
+func Main() -> int {
+    return Collect(1, 2, 3)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.ValueText == "Collect");
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(function));
+        var display = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        Assert.Contains("params items: int", display);
+        Assert.DoesNotContain("...", display);
+    }
+
+    [Fact]
     public void VarArgs_SingleArrayArgument_BindsAsNormalForm()
     {
         const string source = """

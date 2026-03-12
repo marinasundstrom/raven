@@ -196,6 +196,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
     private static string FormatParameter(IParameterSymbol parameter, SymbolDisplayFormat plainTypeFormat)
     {
+        var paramsPrefix = parameter.IsVarParams ? "params " : string.Empty;
         var refPrefix = parameter.RefKind switch
         {
             RefKind.Ref => "ref ",
@@ -206,8 +207,34 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             _ => string.Empty
         };
 
-        var typeDisplay = parameter.Type.ToDisplayString(plainTypeFormat);
-        return $"{refPrefix}{parameter.Name}: {typeDisplay}";
+        var typeSymbol = parameter.Type;
+        if (parameter.IsVarParams && TryGetVarParamsElementType(typeSymbol, out var elementType))
+            typeSymbol = elementType;
+
+        var typeDisplay = typeSymbol.ToDisplayString(plainTypeFormat);
+        return $"{paramsPrefix}{refPrefix}{parameter.Name}: {typeDisplay}";
+    }
+
+    private static bool TryGetVarParamsElementType(ITypeSymbol parameterType, out ITypeSymbol elementType)
+    {
+        elementType = parameterType;
+
+        if (parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
+        {
+            elementType = arrayType.ElementType;
+            return true;
+        }
+
+        if (parameterType is not INamedTypeSymbol namedType || namedType.TypeArguments.Length != 1)
+            return false;
+
+        if (namedType.MetadataName is "IList`1" or "ICollection`1" or "IReadOnlyCollection`1" or "IReadOnlyList`1" or "IEnumerable`1")
+        {
+            elementType = namedType.TypeArguments[0];
+            return true;
+        }
+
+        return false;
     }
 
     private static StringOrMarkupContent? FormatDocumentation(DocumentationComment? documentation)

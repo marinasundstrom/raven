@@ -65,4 +65,93 @@ class Foo {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void Function_ValOrVarParameter_ReportsBindingKeywordDiagnostic()
+    {
+        var code = """
+func F(val a: int, var b: int) -> int {
+    a + b
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("val", "a"),
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("var", "b")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void Method_ValOrVarParameter_ReportsBindingKeywordDiagnostic()
+    {
+        var code = """
+class C {
+    func M(val a: int, var b: int) -> int {
+        a + b
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("val", "a"),
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("var", "b")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void Operator_ValOrVarParameter_ReportsBindingKeywordDiagnostic()
+    {
+        var code = """
+class C {
+    public static func +(val left: C, var right: C) -> C {
+        left
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("val", "left"),
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("var", "right")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void IndexerParameter_ValOrVar_ReportsBindingKeywordDiagnostic()
+    {
+        var code = """
+class C {
+    private var data: int[] = [0, 1, 2]
+
+    public var self[val index: int, var step: int]: int {
+        get => data[index]
+        set => data[index] = value + step
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("val", "index"),
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("var", "step")
+            ]);
+
+        verifier.Verify();
+    }
 }

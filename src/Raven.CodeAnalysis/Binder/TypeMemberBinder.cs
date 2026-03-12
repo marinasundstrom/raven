@@ -629,7 +629,15 @@ internal partial class TypeMemberBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+            if (p.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            {
+                _diagnostics.ReportParameterBindingKeywordNotAllowed(
+                    p.BindingKeyword.Text,
+                    p.Identifier.ValueText,
+                    p.BindingKeyword.GetLocation());
+            }
+
+            const bool isMutable = false;
             paramInfos.Add((p.Identifier.ValueText, typeSyntax, refKind, p, isMutable));
         }
 
@@ -1122,7 +1130,15 @@ internal partial class TypeMemberBinder : Binder
                 p.Identifier.ValueText,
                 _diagnostics,
                 out _);
-            var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+            if (p.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            {
+                _diagnostics.ReportParameterBindingKeywordNotAllowed(
+                    p.BindingKeyword.Text,
+                    p.Identifier.ValueText,
+                    p.BindingKeyword.GetLocation());
+            }
+
+            const bool isMutable = false;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
@@ -1270,7 +1286,15 @@ internal partial class TypeMemberBinder : Binder
                 p.Identifier.ValueText,
                 _diagnostics,
                 out _);
-            var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+            if (p.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            {
+                _diagnostics.ReportParameterBindingKeywordNotAllowed(
+                    p.BindingKeyword.Text,
+                    p.Identifier.ValueText,
+                    p.BindingKeyword.GetLocation());
+            }
+
+            const bool isMutable = false;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
@@ -2609,7 +2633,15 @@ internal partial class TypeMemberBinder : Binder
                 _diagnostics,
                 ref seenOptionalParameter);
 
-            var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+            if (p.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            {
+                _diagnostics.ReportParameterBindingKeywordNotAllowed(
+                    p.BindingKeyword.Text,
+                    p.Identifier.ValueText,
+                    p.BindingKeyword.GetLocation());
+            }
+
+            const bool isMutable = false;
 
             indexerParametersBuilder.Add((p, type, refKind, isMutable, isVarParams, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue));
         }

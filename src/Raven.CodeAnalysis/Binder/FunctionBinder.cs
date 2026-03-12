@@ -137,7 +137,15 @@ class FunctionBinder : Binder
                 : typeSyntax;
             var type = methodBinder.BindTypeSyntaxDirect(boundTypeSyntax);
 
-            var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+            if (p.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            {
+                _diagnostics.ReportParameterBindingKeywordNotAllowed(
+                    p.BindingKeyword.Text,
+                    p.Identifier.ValueText,
+                    p.BindingKeyword.GetLocation());
+            }
+
+            const bool isMutable = false;
 
             var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                 p,

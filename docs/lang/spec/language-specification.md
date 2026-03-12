@@ -2896,6 +2896,10 @@ Function, method, and accessor parameters use the `name: Type` syntax. Parameter
 names are required and participate in overload resolution alongside their types
 and any `ref`/`out` modifiers.
 
+`val`/`var` binding keywords are **not valid** on ordinary function, method,
+operator, indexer, or accessor parameters. The only parameter context where
+`val`/`var` is valid is primary-constructor parameter promotion.
+
 Lambda parameter lists use the same parameter form and default-value rules.
 Parameters in function-like declarations may include attribute lists. This
 applies to functions, methods, constructors, delegates, accessors, and lambdas.
@@ -3206,9 +3210,10 @@ deconstruction diagnostics as other pattern-based bindings (for example
 `RAV0132`).
 
 Parameters themselves do not carry binding keywords in symbol display/tooling
-representations. Hover/signature text renders them as `name: type`. In
-primary-constructor contexts, `val`/`var` continues to mean promotion to a
-property rather than a mutable parameter binding.
+representations. Hover/signature text renders them as `name: type` (or
+`params name: elementType` for collector parameters). In primary-constructor
+contexts, `val`/`var` continues to mean promotion to a property rather than a
+mutable parameter binding.
 
 Function expressions are target-typed: the same function expression may be assigned to, passed
 to, or returned as any compatible delegate type. Compatibility is determined
