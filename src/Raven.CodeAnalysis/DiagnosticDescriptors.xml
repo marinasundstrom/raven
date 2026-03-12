@@ -74,6 +74,9 @@
   <Descriptor Id="RAV0174" Identifier="VariableUsedBeforeDeclaration" Title="Use before declaration"
     Message="'{name}' is used before it is declared." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0175" Identifier="NotAllCodePathsReturnAValue" Title="Missing return value"
+    Message="Not all code paths return a value." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0162" Identifier="UnreachableCodeDetected" Title="Unreachable code"
     Message="Unreachable code" Category="compiler" Severity="Warning" EnabledByDefault="true"
     Description="" HelpLinkUri="" />

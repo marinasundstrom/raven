@@ -102,6 +102,8 @@ class MethodBodyBinder : BlockBinder
             bound = rebind();
         }
 
+        ReportMissingReturnIfNeeded(bodySyntax, bound);
+
         var unit = Compilation.UnitTypeSymbol;
         var skipTrailingExpressionCheck = ShouldSkipTrailingExpressionCheck(unit);
 
@@ -133,6 +135,39 @@ class MethodBodyBinder : BlockBinder
 
         CacheBoundNode(bodySyntax, bound);
         return bound;
+    }
+
+    private void ReportMissingReturnIfNeeded(SyntaxNode bodySyntax, BoundBlockStatement bound)
+    {
+        if (bodySyntax is not BlockStatementSyntax blockSyntax)
+            return;
+
+        var requiredReturnType = GetTrailingExpressionTargetType(_methodSymbol);
+        if (requiredReturnType.ContainsErrorType() ||
+            requiredReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+        {
+            return;
+        }
+
+        // Raven permits implicit trailing-expression returns for non-unit methods.
+        // If the final bound statement is an expression statement, trailing-expression
+        // validation will handle type compatibility diagnostics.
+        if (bound.Statements.LastOrDefault() is BoundExpressionStatement)
+            return;
+
+        var controlFlow = SemanticModel.AnalyzeControlFlowInternal(new ControlFlowRegion(blockSyntax), blockSyntax, analyzeJumpPoints: false);
+        if (controlFlow is { Succeeded: true, EndPointIsReachable: true })
+            _diagnostics.ReportNotAllCodePathsReturnAValue(GetMissingReturnDiagnosticLocation(blockSyntax));
+    }
+
+    private static Location GetMissingReturnDiagnosticLocation(BlockStatementSyntax blockSyntax)
+    {
+        return blockSyntax.Parent switch
+        {
+            FunctionStatementSyntax function => function.Identifier.GetLocation(),
+            MethodDeclarationSyntax method => method.Identifier.GetLocation(),
+            _ => blockSyntax.GetLocation()
+        };
     }
 
     private void AnalyzeAsyncBody(SyntaxNode bodySyntax, SourceMethodSymbol asyncMethod, BoundBlockStatement bound)
