@@ -1011,9 +1011,17 @@ internal sealed class OverloadResolver
 
         bool candidateIsExtension = candidate.IsExtensionMethod && receiver is not null;
         bool currentIsExtension = current.IsExtensionMethod && receiver is not null;
+        var candidateHasParams = candParams.Length > 0 && candParams[^1].IsVarParams;
+        var currentHasParams = currentParams.Length > 0 && currentParams[^1].IsVarParams;
 
         if (candidateIsExtension != currentIsExtension)
             return !currentIsExtension;
+
+        // Prefer non-varargs signatures over varargs signatures when both apply.
+        // This mirrors standard overload resolution behavior where params-expanded
+        // candidates are considered less specific than fixed-arity candidates.
+        if (candidateHasParams != currentHasParams)
+            return !candidateHasParams;
 
         if (candidateIsExtension && currentIsExtension && receiver?.Type is ITypeSymbol receiverType)
         {
@@ -1268,11 +1276,58 @@ internal sealed class OverloadResolver
             parameterIndex++;
         }
 
-        if (!TryMapArguments(parameters, arguments, treatAsExtension, out var mappedArguments))
+        if (!TryMapArguments(parameters, arguments, treatAsExtension, out var mappedArguments, out var paramsArguments, out var paramsParameterIndex))
             return false;
 
         for (; parameterIndex < parameters.Length; parameterIndex++)
         {
+            if (parameterIndex == paramsParameterIndex)
+            {
+                var mappedParamsArgument = mappedArguments[parameterIndex];
+                if (mappedParamsArgument is not null)
+                {
+                    if (!TryEvaluateArgument(parameters[parameterIndex], mappedParamsArgument.Value.Expression, compilation, canBindLambda, comparisonLog, ref score))
+                        return false;
+
+                    continue;
+                }
+
+                if (paramsArguments.Length == 1 &&
+                    !paramsArguments[0].IsSpread &&
+                    paramsArguments[0].Type is ITypeSymbol singleParamsType)
+                {
+                    var singleParamsConversion = compilation.ClassifyConversion(singleParamsType, parameters[parameterIndex].Type);
+                    if (singleParamsConversion.IsImplicit)
+                    {
+                        // Normal-form params binding: a single array-like argument maps directly.
+                        if (!TryEvaluateArgument(parameters[parameterIndex], paramsArguments[0].Expression, compilation, canBindLambda, comparisonLog, ref score))
+                            return false;
+
+                        // Prefer non-params overloads when both are otherwise equivalent.
+                        score += 1;
+                        continue;
+                    }
+                }
+
+                // Expanded-form params binding: 0..N element arguments.
+                score += 1;
+                foreach (var paramsArgument in paramsArguments)
+                {
+                    if (paramsArgument.IsSpread)
+                    {
+                        if (!TryEvaluateArgument(parameters[parameterIndex], paramsArgument.Expression, compilation, canBindLambda, comparisonLog, ref score))
+                            return false;
+
+                        continue;
+                    }
+
+                    if (!TryEvaluateParamsElement(parameters[parameterIndex], paramsArgument.Expression, compilation, comparisonLog, ref score))
+                        return false;
+                }
+
+                continue;
+            }
+
             var mapped = mappedArguments[parameterIndex];
             if (mapped is null)
             {
@@ -1300,11 +1355,29 @@ internal sealed class OverloadResolver
         bool treatAsExtension,
         out BoundArgument?[] orderedArguments)
     {
+        return TryMapArguments(parameters, arguments, treatAsExtension, out orderedArguments, out _, out _);
+    }
+
+    internal static bool TryMapArguments(
+        ImmutableArray<IParameterSymbol> parameters,
+        IReadOnlyList<BoundArgument> arguments,
+        bool treatAsExtension,
+        out BoundArgument?[] orderedArguments,
+        out BoundArgument[] paramsArguments,
+        out int paramsParameterIndex)
+    {
         orderedArguments = new BoundArgument?[parameters.Length];
+        paramsArguments = Array.Empty<BoundArgument>();
+        paramsParameterIndex = -1;
 
         var nextPositional = treatAsExtension ? 1 : 0;
         var maxNamedIndex = -1;
         var seenNamed = false;
+        var paramsBuilder = new List<BoundArgument>();
+
+        var hasParamsParameter = parameters.Length > nextPositional && parameters[^1].IsVarParams;
+        if (hasParamsParameter)
+            paramsParameterIndex = parameters.Length - 1;
 
         foreach (var argument in arguments)
         {
@@ -1317,23 +1390,69 @@ internal sealed class OverloadResolver
                 if (treatAsExtension && parameterIndex == 0)
                     return false;
 
-                if (orderedArguments[parameterIndex] is not null)
-                    return false;
+                if (parameterIndex == paramsParameterIndex)
+                {
+                    if (argument.IsSpread)
+                    {
+                        if (orderedArguments[parameterIndex] is not null)
+                            return false;
 
-                orderedArguments[parameterIndex] = argument;
+                        paramsBuilder.Add(argument);
+                    }
+                    else
+                    {
+                        if (orderedArguments[parameterIndex] is not null || paramsBuilder.Count > 0)
+                            return false;
+
+                        orderedArguments[parameterIndex] = argument;
+                    }
+                }
+                else
+                {
+                    if (orderedArguments[parameterIndex] is not null || argument.IsSpread)
+                        return false;
+
+                    orderedArguments[parameterIndex] = argument;
+                }
+
                 seenNamed = true;
                 if (parameterIndex > maxNamedIndex)
                     maxNamedIndex = parameterIndex;
                 continue;
             }
 
-            while (nextPositional < parameters.Length && orderedArguments[nextPositional] is not null)
+            while (nextPositional < parameters.Length &&
+                   nextPositional != paramsParameterIndex &&
+                   orderedArguments[nextPositional] is not null)
                 nextPositional++;
 
             if (nextPositional >= parameters.Length)
+            {
+                if (paramsParameterIndex >= 0 && orderedArguments[paramsParameterIndex] is null)
+                {
+                    paramsBuilder.Add(argument);
+                    continue;
+                }
+
                 return false;
+            }
+
+            if (nextPositional == paramsParameterIndex)
+            {
+                if (orderedArguments[paramsParameterIndex] is not null)
+                    return false;
+
+                if (seenNamed && nextPositional <= maxNamedIndex)
+                    return false;
+
+                paramsBuilder.Add(argument);
+                continue;
+            }
 
             if (seenNamed && nextPositional <= maxNamedIndex)
+                return false;
+
+            if (argument.IsSpread)
                 return false;
 
             orderedArguments[nextPositional] = argument;
@@ -1343,11 +1462,94 @@ internal sealed class OverloadResolver
         var requiredStart = treatAsExtension ? 1 : 0;
         for (var i = requiredStart; i < parameters.Length; i++)
         {
+            if (i == paramsParameterIndex)
+                continue;
+
             if (orderedArguments[i] is null && !parameters[i].HasExplicitDefaultValue)
                 return false;
         }
 
+        paramsArguments = paramsBuilder.ToArray();
         return true;
+    }
+
+    private static bool TryEvaluateParamsElement(
+        IParameterSymbol paramsParameter,
+        BoundExpression argument,
+        Compilation compilation,
+        List<OverloadArgumentComparisonLog>? comparisonLog,
+        ref int score)
+    {
+        if (!TryGetVarParamsElementType(paramsParameter.Type, out var elementType))
+            return TryEvaluateArgument(paramsParameter, argument, compilation, canBindLambda: null, comparisonLog, ref score);
+
+        var argumentType = argument.Type;
+        if (argumentType is null || argumentType.SpecialType == SpecialType.System_Void)
+        {
+            LogComparison(comparisonLog, paramsParameter, argumentType, OverloadArgumentComparisonResult.NullArgumentType, "params element argument has no valid type");
+            return false;
+        }
+
+        var conversion = compilation.ClassifyConversion(argumentType, elementType);
+        if (!conversion.IsImplicit)
+        {
+            LogComparison(comparisonLog, paramsParameter, argumentType, OverloadArgumentComparisonResult.ConversionFailed, "params element conversion failed");
+            return false;
+        }
+
+        score += GetConversionScore(conversion);
+        LogComparison(comparisonLog, paramsParameter, argumentType, OverloadArgumentComparisonResult.Success, "params element conversion succeeded");
+        return true;
+    }
+
+    private static bool TryGetVarParamsElementType(ITypeSymbol paramsType, out ITypeSymbol elementType)
+    {
+        if (paramsType is IArrayTypeSymbol { Rank: 1 } arrayType)
+        {
+            elementType = arrayType.ElementType;
+            return true;
+        }
+
+        if (paramsType is INamedTypeSymbol namedType)
+        {
+            if (namedType.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+                namedType.TypeArguments.Length == 1)
+            {
+                elementType = namedType.TypeArguments[0];
+                return true;
+            }
+
+            var definition = namedType.OriginalDefinition ?? namedType;
+            if (definition.MetadataName == "IEnumerable`1" &&
+                definition.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" &&
+                namedType.TypeArguments.Length == 1)
+            {
+                elementType = namedType.TypeArguments[0];
+                return true;
+            }
+
+            foreach (var iface in namedType.AllInterfaces)
+            {
+                if (iface.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+                    iface.TypeArguments.Length == 1)
+                {
+                    elementType = iface.TypeArguments[0];
+                    return true;
+                }
+
+                var ifaceDefinition = iface.OriginalDefinition ?? iface;
+                if (ifaceDefinition.MetadataName == "IEnumerable`1" &&
+                    ifaceDefinition.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" &&
+                    iface.TypeArguments.Length == 1)
+                {
+                    elementType = iface.TypeArguments[0];
+                    return true;
+                }
+            }
+        }
+
+        elementType = null!;
+        return false;
     }
 
     private static int[] BuildArgumentParameterMap(
@@ -1827,7 +2029,8 @@ internal sealed class OverloadResolver
 
     private static bool HasSufficientArguments(ImmutableArray<IParameterSymbol> parameters, int providedCount)
     {
-        if (providedCount > parameters.Length)
+        var hasParamsParameter = parameters.Length > 0 && parameters[^1].IsVarParams;
+        if (!hasParamsParameter && providedCount > parameters.Length)
             return false;
 
         var required = GetRequiredParameterCount(parameters);
@@ -1837,7 +2040,8 @@ internal sealed class OverloadResolver
     private static int GetRequiredParameterCount(ImmutableArray<IParameterSymbol> parameters)
     {
         var required = parameters.Length;
-        while (required > 0 && parameters[required - 1].HasExplicitDefaultValue)
+        while (required > 0 &&
+               (parameters[required - 1].HasExplicitDefaultValue || parameters[required - 1].IsVarParams))
             required--;
 
         return required;

@@ -832,6 +832,13 @@ internal partial class TypeMemberBinder : Binder
             var resolvedType = typeSyntax is null
                 ? Compilation.ErrorTypeSymbol
                 : ResolveParameterTypeSyntaxForSignature(methodBinder, typeSyntax, refKind);
+            resolvedType = NormalizeVarParamsParameterType(
+                Compilation,
+                syntax,
+                resolvedType,
+                paramName,
+                _diagnostics,
+                out _);
             resolvedParamInfos.Add((paramName, resolvedType, refKind, syntax, isMutable));
         }
 
@@ -965,15 +972,22 @@ internal partial class TypeMemberBinder : Binder
 
         foreach (var (paramName, paramType, refKind, syntax, isMutable) in resolvedParamInfos)
         {
-            var defaultResult = ProcessParameterDefault(
+            var effectiveParamType = NormalizeVarParamsParameterType(
+                Compilation,
                 syntax,
                 paramType,
+                paramName,
+                _diagnostics,
+                out var isVarParams);
+            var defaultResult = ProcessParameterDefault(
+                syntax,
+                effectiveParamType,
                 paramName,
                 _diagnostics,
                 ref seenOptionalParameter);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
-                paramType,
+                effectiveParamType,
                 methodSymbol,
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
@@ -982,7 +996,8 @@ internal partial class TypeMemberBinder : Binder
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
-                isMutable
+                isMutable,
+                isVarParams
             );
             parameters.Add(pSymbol);
         }
@@ -1100,6 +1115,13 @@ internal partial class TypeMemberBinder : Binder
                 };
 
             var pType = ResolveParameterTypeSyntaxForSignature(operatorBinder, typeSyntax, refKind);
+            pType = NormalizeVarParamsParameterType(
+                Compilation,
+                p,
+                pType,
+                p.Identifier.ValueText,
+                _diagnostics,
+                out _);
             var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
@@ -1130,15 +1152,22 @@ internal partial class TypeMemberBinder : Binder
         var seenOptionalParameter = false;
         foreach (var (paramName, paramType, refKind, syntax, isMutable) in resolvedParamInfos)
         {
-            var defaultResult = ProcessParameterDefault(
+            var effectiveParamType = NormalizeVarParamsParameterType(
+                Compilation,
                 syntax,
                 paramType,
+                paramName,
+                _diagnostics,
+                out var isVarParams);
+            var defaultResult = ProcessParameterDefault(
+                syntax,
+                effectiveParamType,
                 paramName,
                 _diagnostics,
                 ref seenOptionalParameter);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
-                paramType,
+                effectiveParamType,
                 operatorSymbol,
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
@@ -1147,7 +1176,8 @@ internal partial class TypeMemberBinder : Binder
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
-                isMutable
+                isMutable,
+                isVarParams
             );
             parameters.Add(pSymbol);
         }
@@ -1233,6 +1263,13 @@ internal partial class TypeMemberBinder : Binder
                 };
 
             var pType = ResolveParameterTypeSyntaxForSignature(conversionBinder, typeSyntax, refKind);
+            pType = NormalizeVarParamsParameterType(
+                Compilation,
+                p,
+                pType,
+                p.Identifier.ValueText,
+                _diagnostics,
+                out _);
             var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
@@ -1263,15 +1300,22 @@ internal partial class TypeMemberBinder : Binder
         var seenOptionalParameter = false;
         foreach (var (paramName, paramType, refKind, syntax, isMutable) in resolvedParamInfos)
         {
-            var defaultResult = ProcessParameterDefault(
+            var effectiveParamType = NormalizeVarParamsParameterType(
+                Compilation,
                 syntax,
                 paramType,
+                paramName,
+                _diagnostics,
+                out var isVarParams);
+            var defaultResult = ProcessParameterDefault(
+                syntax,
+                effectiveParamType,
                 paramName,
                 _diagnostics,
                 ref seenOptionalParameter);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
-                paramType,
+                effectiveParamType,
                 conversionSymbol,
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
@@ -1280,7 +1324,8 @@ internal partial class TypeMemberBinder : Binder
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
-                isMutable
+                isMutable,
+                isVarParams
             );
             parameters.Add(pSymbol);
         }
@@ -1500,6 +1545,13 @@ internal partial class TypeMemberBinder : Binder
             var pType = typeSyntax is null
                 ? Compilation.ErrorTypeSymbol
                 : ResolveParameterTypeSyntaxForSignature(this, typeSyntax, refKind);
+            pType = NormalizeVarParamsParameterType(
+                Compilation,
+                p,
+                pType,
+                p.Identifier.ValueText,
+                _diagnostics,
+                out _);
             if (typeSyntax is null)
             {
                 _diagnostics.ReportParameterTypeAnnotationRequired(
@@ -1554,15 +1606,22 @@ internal partial class TypeMemberBinder : Binder
         var seenOptionalParameter = false;
         foreach (var (paramName, paramType, refKind, syntax, isMutable) in paramInfos)
         {
-            var defaultResult = ProcessParameterDefault(
+            var effectiveParamType = NormalizeVarParamsParameterType(
+                Compilation,
                 syntax,
                 paramType,
+                paramName,
+                _diagnostics,
+                out var isVarParams);
+            var defaultResult = ProcessParameterDefault(
+                syntax,
+                effectiveParamType,
                 paramName,
                 _diagnostics,
                 ref seenOptionalParameter);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
-                paramType,
+                effectiveParamType,
                 ctorSymbol,
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
@@ -1571,7 +1630,8 @@ internal partial class TypeMemberBinder : Binder
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
-                isMutable
+                isMutable,
+                isVarParams
             );
             parameters.Add(pSymbol);
         }
@@ -2510,7 +2570,7 @@ internal partial class TypeMemberBinder : Binder
                 isStatic = false;
         }
 
-        var indexerParametersBuilder = new List<(ParameterSyntax Syntax, ITypeSymbol Type, RefKind RefKind, bool IsMutable, bool HasDefaultValue, object? DefaultValue)>();
+        var indexerParametersBuilder = new List<(ParameterSyntax Syntax, ITypeSymbol Type, RefKind RefKind, bool IsMutable, bool IsVarParams, bool HasDefaultValue, object? DefaultValue)>();
         var seenOptionalParameter = false;
         foreach (var p in indexerDecl.ParameterList.Parameters)
         {
@@ -2534,6 +2594,13 @@ internal partial class TypeMemberBinder : Binder
                 };
 
             var type = ResolveParameterTypeSyntaxForSignature(this, typeSyntax, refKind);
+            type = NormalizeVarParamsParameterType(
+                Compilation,
+                p,
+                type,
+                p.Identifier.ValueText,
+                _diagnostics,
+                out var isVarParams);
 
             var defaultResult = ProcessParameterDefault(
                 p,
@@ -2544,7 +2611,7 @@ internal partial class TypeMemberBinder : Binder
 
             var isMutable = p.BindingKeyword.Kind == SyntaxKind.VarKeyword;
 
-            indexerParametersBuilder.Add((p, type, refKind, isMutable, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue));
+            indexerParametersBuilder.Add((p, type, refKind, isMutable, isVarParams, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue));
         }
 
         var indexerParameters = indexerParametersBuilder.ToArray();
@@ -2916,7 +2983,8 @@ internal partial class TypeMemberBinder : Binder
                         param.RefKind,
                         param.HasDefaultValue,
                         param.DefaultValue,
-                        param.IsMutable));
+                        param.IsMutable,
+                        param.IsVarParams));
                 }
                 if (!isGet)
                 {
@@ -3304,6 +3372,69 @@ internal partial class TypeMemberBinder : Binder
         }
 
         return new ParameterDefaultProcessingResult(true, evaluation.Value);
+    }
+
+    internal static bool IsVarParamsSyntax(ParameterSyntax parameterSyntax)
+        => parameterSyntax.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken ||
+           parameterSyntax.ParamsKeyword.Kind == SyntaxKind.ParamsKeyword;
+
+    internal static ITypeSymbol NormalizeVarParamsParameterType(
+        Compilation compilation,
+        ParameterSyntax parameterSyntax,
+        ITypeSymbol parameterType,
+        string parameterName,
+        DiagnosticBag diagnostics,
+        out bool isVarParams)
+    {
+        var hasDotMarker = parameterSyntax.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken;
+        var hasParamsKeyword = parameterSyntax.ParamsKeyword.Kind == SyntaxKind.ParamsKeyword;
+
+        if (hasDotMarker && hasParamsKeyword)
+        {
+            diagnostics.ReportVarParamsMarkersAreMutuallyExclusive(parameterName, parameterSyntax.GetLocation());
+            isVarParams = false;
+            return parameterType;
+        }
+
+        isVarParams = hasDotMarker || hasParamsKeyword;
+        if (!isVarParams || parameterType.TypeKind == TypeKind.Error)
+            return parameterType;
+
+        if (hasParamsKeyword && !IsCollectionLikeType(parameterType))
+        {
+            diagnostics.ReportParamsKeywordRequiresCollectionType(parameterName, parameterSyntax.GetLocation());
+            isVarParams = false;
+            return parameterType;
+        }
+
+        if (hasDotMarker)
+        {
+            if (IsCollectionLikeType(parameterType))
+                return parameterType;
+
+            var iListType = compilation.GetTypeByMetadataName("System.Collections.Generic.IList`1") as INamedTypeSymbol;
+            if (iListType is not null)
+                return iListType.Construct(parameterType);
+
+            // Fallback when IList<T> metadata is unavailable.
+            return compilation.CreateArrayTypeSymbol(parameterType);
+        }
+
+        return parameterType;
+    }
+
+    private static bool IsCollectionLikeType(ITypeSymbol type)
+    {
+        if (type is IArrayTypeSymbol { Rank: 1 })
+            return true;
+
+        if (type is not INamedTypeSymbol namedType)
+            return false;
+
+        if (namedType.MetadataName == "IEnumerable`1")
+            return true;
+
+        return namedType.AllInterfaces.Any(i => i.MetadataName == "IEnumerable`1");
     }
 
     private string GetMemberDisplayName(string memberName)

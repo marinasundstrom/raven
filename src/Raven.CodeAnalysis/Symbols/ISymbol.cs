@@ -335,7 +335,7 @@ public interface IParameterSymbol : ISymbol
 {
     ITypeSymbol Type { get; }
 
-    bool IsParams { get; }
+    bool IsVarParams { get; }
 
     RefKind RefKind { get; }
 

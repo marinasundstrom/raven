@@ -1979,7 +1979,7 @@ public partial class SemanticModel
             namespaceSymbol?.AddMember(caseSymbol);
             RegisterMember(unionSymbol, caseSymbol);
 
-            var rawParameters = new List<(ParameterSyntax Syntax, ITypeSymbol Type, RefKind RefKind, bool HasExplicitDefaultValue, object? ExplicitDefaultValue, bool IsMutable)>();
+            var rawParameters = new List<(ParameterSyntax Syntax, ITypeSymbol Type, RefKind RefKind, bool HasExplicitDefaultValue, object? ExplicitDefaultValue, bool IsMutable, bool IsVarParams)>();
             var seenOptionalParameter = false;
 
             if (caseClause.ParameterList is { } parameterList)
@@ -2017,6 +2017,14 @@ public partial class SemanticModel
                         parameterType = unionBinder.BindTypeSyntaxDirect(boundTypeSyntax);
                     }
 
+                    parameterType = TypeMemberBinder.NormalizeVarParamsParameterType(
+                        Compilation,
+                        parameterSyntax,
+                        parameterType,
+                        parameterSyntax.Identifier.ValueText,
+                        unionBinder.Diagnostics,
+                        out var isVarParams);
+
                     var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                         parameterSyntax,
                         parameterType,
@@ -2025,7 +2033,7 @@ public partial class SemanticModel
                         ref seenOptionalParameter);
 
                     var isMutable = parameterSyntax.BindingKeyword.Kind == SyntaxKind.VarKeyword;
-                    rawParameters.Add((parameterSyntax, parameterType, refKind, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue, isMutable));
+                    rawParameters.Add((parameterSyntax, parameterType, refKind, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue, isMutable, isVarParams));
                 }
             }
 
@@ -2134,7 +2142,8 @@ public partial class SemanticModel
                     refKind,
                     rawParameter.HasExplicitDefaultValue,
                     rawParameter.ExplicitDefaultValue,
-                    rawParameter.IsMutable);
+                    rawParameter.IsMutable,
+                    rawParameter.IsVarParams);
 
                 parameters.Add(parameterSymbol);
 
@@ -3215,6 +3224,14 @@ public partial class SemanticModel
                 parameterType = classBinder.BindTypeSyntaxDirect(boundTypeSyntax);
             }
 
+            parameterType = TypeMemberBinder.NormalizeVarParamsParameterType(
+                Compilation,
+                parameterSyntax,
+                parameterType,
+                parameterSyntax.Identifier.ValueText,
+                classBinder.Diagnostics,
+                out var isVarParams);
+
             var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                 parameterSyntax,
                 parameterType,
@@ -3235,7 +3252,8 @@ public partial class SemanticModel
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
-                isMutable);
+                isMutable,
+                isVarParams);
 
             parameters.Add(parameterSymbol);
 

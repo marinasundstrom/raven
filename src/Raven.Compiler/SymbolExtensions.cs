@@ -253,7 +253,7 @@ public static class SymbolExtensions
                 AppendProperty(builder, "Type", parameterSymbol.Type.ToDisplayString(displayFormat));
                 AppendBooleanProperty(builder, "IsMutable", parameterSymbol.IsMutable);
                 AppendProperty(builder, "RefKind", parameterSymbol.RefKind.ToString());
-                AppendBooleanProperty(builder, "IsParams", parameterSymbol.IsParams);
+                AppendBooleanProperty(builder, "IsVarParams", parameterSymbol.IsVarParams);
                 AppendBooleanProperty(builder, "IsMutable", parameterSymbol.IsMutable);
                 AppendBooleanProperty(builder, "HasExplicitDefaultValue", parameterSymbol.HasExplicitDefaultValue);
                 if (parameterSymbol.HasExplicitDefaultValue)
@@ -282,9 +282,6 @@ public static class SymbolExtensions
     {
         var parts = new List<string>();
 
-        if (parameter.IsParams)
-            parts.Add("params");
-
         parts.Add(parameter.RefKind switch
         {
             RefKind.Ref => "ref",
@@ -298,11 +295,21 @@ public static class SymbolExtensions
         if (parameter.IsMutable)
             parts.Add("var");
 
-        var typeDisplay = parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var parameterType = parameter.Type;
+        if (parameter.IsVarParams &&
+            parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
+        {
+            parameterType = arrayType.ElementType;
+        }
+
+        var typeDisplay = parameterType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
         parts.Add(typeDisplay);
         parts.Add(parameter.Name);
 
         var signature = string.Join(' ', parts.Where(p => !string.IsNullOrEmpty(p)));
+
+        if (parameter.IsVarParams)
+            signature += " ...";
 
         if (parameter.HasExplicitDefaultValue)
         {

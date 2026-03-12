@@ -248,7 +248,7 @@ partial class BlockBinder
                     required++;
             }
 
-            var hasParamsArray = effectiveCount > 0 && parameters[^1].IsParams;
+            var hasParamsArray = effectiveCount > 0 && parameters[^1].IsVarParams;
 
             bool accepts;
             if (hasParamsArray)
@@ -313,7 +313,8 @@ partial class BlockBinder
                     new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed),
                     RefKind.None,
                     null,
-                    arg);
+                    arg,
+                    arg.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken);
                 continue;
             }
 
@@ -380,7 +381,8 @@ partial class BlockBinder
             if (string.IsNullOrEmpty(name))
                 name = null;
 
-            boundArguments[i] = new BoundArgument(boundExpr, RefKind.None, name, arg);
+            var isSpread = arg.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken;
+            boundArguments[i] = new BoundArgument(boundExpr, RefKind.None, name, arg, isSpread);
         }
 
         return boundArguments;

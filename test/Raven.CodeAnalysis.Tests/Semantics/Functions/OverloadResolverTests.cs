@@ -171,7 +171,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
             "value",
             intType,
             RefKind.None,
-            isParams: false,
+            isVarParams: false,
             hasExplicitDefaultValue: true,
             explicitDefaultValue: 42);
 
@@ -202,7 +202,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         var stringArgument = new TestBoundExpression(stringType);
         var outArgument = new BoundAddressOfExpression(
-            new FakeParameterSymbol("value", intType, RefKind.None, isParams: false),
+            new FakeParameterSymbol("value", intType, RefKind.None, isVarParams: false),
             intType);
 
         var result = OverloadResolver.ResolveOverload(
@@ -248,7 +248,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
     private static FakeMethodSymbol CreateMethod(Compilation compilation, string name, ITypeSymbol parameterType)
     {
-        var parameter = new FakeParameterSymbol("arg", parameterType, RefKind.None, isParams: false);
+        var parameter = new FakeParameterSymbol("arg", parameterType, RefKind.None, isVarParams: false);
         var parameters = ImmutableArray.Create<IParameterSymbol>(parameter);
         return new FakeMethodSymbol(name, compilation.GetSpecialType(SpecialType.System_Unit), parameters);
     }
@@ -259,8 +259,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
         ITypeSymbol receiverType,
         ITypeSymbol parameterType)
     {
-        var receiver = new FakeParameterSymbol("receiver", receiverType, RefKind.None, isParams: false);
-        var argument = new FakeParameterSymbol("arg", parameterType, RefKind.None, isParams: false);
+        var receiver = new FakeParameterSymbol("receiver", receiverType, RefKind.None, isVarParams: false);
+        var argument = new FakeParameterSymbol("arg", parameterType, RefKind.None, isVarParams: false);
         var parameters = ImmutableArray.Create<IParameterSymbol>(receiver, argument);
         return new FakeMethodSymbol(
             name,
@@ -445,21 +445,21 @@ public sealed class OverloadResolverTests : CompilationTestBase
             string name,
             ITypeSymbol type,
             RefKind refKind,
-            bool isParams,
+            bool isVarParams,
             bool hasExplicitDefaultValue = false,
             object? explicitDefaultValue = null)
             : base(SymbolKind.Parameter, name)
         {
             Type = type;
             RefKind = refKind;
-            IsParams = isParams;
+            IsVarParams = isVarParams;
             HasExplicitDefaultValue = hasExplicitDefaultValue;
             ExplicitDefaultValue = explicitDefaultValue;
         }
 
         public ITypeSymbol Type { get; }
 
-        public bool IsParams { get; }
+        public bool IsVarParams { get; }
 
         public RefKind RefKind { get; }
 

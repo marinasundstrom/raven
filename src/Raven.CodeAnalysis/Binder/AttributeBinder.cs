@@ -104,7 +104,8 @@ internal sealed class AttributeBinder : BlockBinder
             if (string.IsNullOrEmpty(name))
                 name = null;
 
-            boundArguments.Add(new BoundArgument(boundArgumentExpression, RefKind.None, name, argumentSyntax));
+            var isSpread = argumentSyntax.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken;
+            boundArguments.Add(new BoundArgument(boundArgumentExpression, RefKind.None, name, argumentSyntax, isSpread));
         }
 
         if (hasErrors)

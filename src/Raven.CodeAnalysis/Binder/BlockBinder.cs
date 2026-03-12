@@ -7872,7 +7872,8 @@ partial class BlockBinder : Binder
             if (string.IsNullOrEmpty(name))
                 name = null;
 
-            boundArguments[i] = new BoundArgument(boundArg, RefKind.None, name, syntax);
+            var isSpread = syntax.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken;
+            boundArguments[i] = new BoundArgument(boundArg, RefKind.None, name, syntax, isSpread);
         }
 
         hasErrors = seenErrors;
@@ -7909,7 +7910,8 @@ partial class BlockBinder : Binder
             if (string.IsNullOrEmpty(name))
                 name = null;
 
-            boundArguments[i] = new BoundArgument(boundArg, RefKind.None, name, syntax);
+            var isSpread = syntax.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken;
+            boundArguments[i] = new BoundArgument(boundArg, RefKind.None, name, syntax, isSpread);
         }
 
         hasErrors = seenErrors;
@@ -9185,8 +9187,10 @@ partial class BlockBinder : Binder
     protected BoundExpression[] ConvertArguments(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<BoundArgument> arguments)
     {
         var converted = new BoundExpression[parameters.Length];
+        BoundArgument[] paramsArguments = Array.Empty<BoundArgument>();
+        var paramsParameterIndex = -1;
 
-        if (!OverloadResolver.TryMapArguments(parameters, arguments, treatAsExtension: false, out var mappedArguments))
+        if (!OverloadResolver.TryMapArguments(parameters, arguments, treatAsExtension: false, out var mappedArguments, out paramsArguments, out paramsParameterIndex))
         {
             mappedArguments = new BoundArgument?[parameters.Length];
 
@@ -9200,6 +9204,105 @@ partial class BlockBinder : Binder
         for (int i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
+            if (i == paramsParameterIndex)
+            {
+                var mappedParamsArgument = mappedArguments[i];
+                if (mappedParamsArgument is not null)
+                {
+                    // Explicit params-array argument (normal form): convert as a regular parameter.
+                }
+                else
+                {
+                    if (!TryGetVarParamsElementType(parameter.Type, out var elementType))
+                    {
+                        converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
+                        continue;
+                    }
+
+                    if (paramsArguments.Length == 1 &&
+                        !paramsArguments[0].IsSpread &&
+                        paramsArguments[0].Type is ITypeSymbol singleParamsType &&
+                        IsAssignable(parameter.Type, singleParamsType, out var paramsArrayConversion))
+                    {
+                        var singleParamsArgument = paramsArguments[0];
+                        var paramsSyntaxNode = singleParamsArgument.Syntax switch
+                        {
+                            ArgumentSyntax argumentSyntax => argumentSyntax.Expression,
+                            SyntaxNode node => node,
+                            _ => null
+                        };
+
+                        converted[i] = ApplyConversion(singleParamsArgument.Expression, parameter.Type, paramsArrayConversion, paramsSyntaxNode);
+                        continue;
+                    }
+
+                    var paramsElements = new List<BoundExpression>(paramsArguments.Length);
+
+                    foreach (var paramsArgument in paramsArguments)
+                    {
+                        var paramsExpression = paramsArgument.Expression;
+                        var paramsSyntaxNode = paramsArgument.Syntax switch
+                        {
+                            ArgumentSyntax argumentSyntax => argumentSyntax.Expression,
+                            SyntaxNode node => node,
+                            _ => null
+                        };
+
+                        if (paramsArgument.IsSpread)
+                        {
+                            if (paramsExpression.Type is null || !IsSpreadEnumerable(paramsExpression.Type))
+                            {
+                                var typeName = paramsExpression.Type?.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "unknown";
+                                _diagnostics.ReportSpreadSourceMustBeEnumerable(typeName, paramsSyntaxNode?.GetLocation() ?? Location.None);
+                                paramsElements.Add(new BoundErrorExpression(elementType, null, BoundExpressionReason.TypeMismatch));
+                                continue;
+                            }
+
+                            var spreadElementType = GetSpreadElementType(paramsExpression.Type);
+                            if (!IsAssignable(elementType, spreadElementType, out _))
+                            {
+                                var fromType = spreadElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                                var toType = elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                                ReportCannotConvertFromTypeToType(fromType, toType, paramsSyntaxNode?.GetLocation() ?? Location.None);
+                                paramsElements.Add(new BoundErrorExpression(elementType, null, BoundExpressionReason.TypeMismatch));
+                                continue;
+                            }
+
+                            paramsElements.Add(new BoundSpreadElement(paramsExpression));
+                            continue;
+                        }
+
+                        if (!ShouldAttemptConversion(paramsExpression) ||
+                            elementType.TypeKind == TypeKind.Error ||
+                            paramsExpression.Type is null)
+                        {
+                            paramsElements.Add(paramsExpression);
+                            continue;
+                        }
+
+                        if (!IsAssignable(elementType, paramsExpression.Type, out var elementConversion))
+                        {
+                            var location = paramsSyntaxNode?.GetLocation() ?? parameter.Locations.FirstOrDefault();
+                            if (location is not null)
+                            {
+                                ReportCannotConvertFromTypeToType(
+                                    paramsExpression.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                    elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                    location);
+                            }
+
+                            paramsElements.Add(new BoundErrorExpression(elementType, null, BoundExpressionReason.TypeMismatch));
+                            continue;
+                        }
+
+                        paramsElements.Add(ApplyConversion(paramsExpression, elementType, elementConversion, paramsSyntaxNode));
+                    }
+
+                    converted[i] = new BoundCollectionExpression(parameter.Type, paramsElements, parameter);
+                    continue;
+                }
+            }
+
             var argument = mappedArguments[i];
 
             if (argument is null)
@@ -9295,6 +9398,25 @@ partial class BlockBinder : Binder
         }
 
         return converted;
+    }
+
+    private bool TryGetVarParamsElementType(ITypeSymbol parameterType, out ITypeSymbol elementType)
+    {
+        if (parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
+        {
+            elementType = arrayType.ElementType;
+            return true;
+        }
+
+        if (parameterType is INamedTypeSymbol namedType &&
+            TryGetIEnumerableElementType(namedType, out var enumerableElementType))
+        {
+            elementType = enumerableElementType;
+            return true;
+        }
+
+        elementType = Compilation.ErrorTypeSymbol;
+        return false;
     }
 
     private static bool IsSystemDelegateLike(ITypeSymbol type)
@@ -9522,7 +9644,8 @@ partial class BlockBinder : Binder
 
     protected static bool SupportsArgumentCount(ImmutableArray<IParameterSymbol> parameters, int providedCount)
     {
-        if (providedCount > parameters.Length)
+        var hasParamsParameter = parameters.Length > 0 && parameters[^1].IsVarParams;
+        if (!hasParamsParameter && providedCount > parameters.Length)
             return false;
 
         var required = GetRequiredParameterCount(parameters);
@@ -9532,7 +9655,8 @@ partial class BlockBinder : Binder
     protected static int GetRequiredParameterCount(ImmutableArray<IParameterSymbol> parameters)
     {
         var required = parameters.Length;
-        while (required > 0 && parameters[required - 1].HasExplicitDefaultValue)
+        while (required > 0 &&
+               (parameters[required - 1].HasExplicitDefaultValue || parameters[required - 1].IsVarParams))
             required--;
 
         return required;

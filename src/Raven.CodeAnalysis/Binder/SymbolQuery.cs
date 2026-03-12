@@ -230,11 +230,13 @@ internal readonly record struct SymbolQuery(
 
     private static bool SupportsArgumentCount(ImmutableArray<IParameterSymbol> parameters, int argumentCount)
     {
-        if (argumentCount > parameters.Length)
+        var hasParamsParameter = parameters.Length > 0 && parameters[^1].IsVarParams;
+        if (!hasParamsParameter && argumentCount > parameters.Length)
             return false;
 
         var required = parameters.Length;
-        while (required > 0 && parameters[required - 1].HasExplicitDefaultValue)
+        while (required > 0 &&
+               (parameters[required - 1].HasExplicitDefaultValue || parameters[required - 1].IsVarParams))
             required--;
 
         return argumentCount >= required;

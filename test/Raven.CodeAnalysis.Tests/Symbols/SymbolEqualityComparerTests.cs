@@ -575,7 +575,7 @@ class Sample {{
 
         public ITypeSymbol Type { get; }
 
-        public bool IsParams => false;
+        public bool IsVarParams => false;
 
         public RefKind RefKind { get; }
 

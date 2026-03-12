@@ -1095,6 +1095,10 @@ internal class TypeDeclarationParser : SyntaxParser
                 if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
                     refKindKeyword = ReadToken();
 
+                var varParamsKeyword = Token(SyntaxKind.None);
+                if (PeekToken().Kind == SyntaxKind.ParamsKeyword)
+                    varParamsKeyword = ReadToken();
+
                 var bindingKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
                     bindingKeyword = ReadToken();
@@ -1110,6 +1114,9 @@ internal class TypeDeclarationParser : SyntaxParser
                 }
 
                 var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+                var dotDotDotToken = Token(SyntaxKind.None);
+                if (PeekToken().Kind is SyntaxKind.DotDotDotToken)
+                    dotDotDotToken = ReadToken();
 
                 EqualsValueClauseSyntax? defaultValue = null;
                 if (IsNextToken(SyntaxKind.EqualsToken, out _))
@@ -1137,7 +1144,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, accessibilityKeyword, refKindKeyword, bindingKeyword, name, null, typeAnnotation, defaultValue));
+                parameterList.Add(Parameter(attributeLists, accessibilityKeyword, refKindKeyword, varParamsKeyword, bindingKeyword, dotDotDotToken, name, null, typeAnnotation, defaultValue));
                 parsedParameters++;
             }
 
@@ -1388,6 +1395,10 @@ internal class TypeDeclarationParser : SyntaxParser
                 if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
                     refKindKeyword = ReadToken();
 
+                var varParamsKeyword = Token(SyntaxKind.None);
+                if (PeekToken().Kind == SyntaxKind.ParamsKeyword)
+                    varParamsKeyword = ReadToken();
+
                 var bindingKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
                     bindingKeyword = ReadToken();
@@ -1403,6 +1414,9 @@ internal class TypeDeclarationParser : SyntaxParser
                 }
 
                 var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+                var dotDotDotToken = Token(SyntaxKind.None);
+                if (PeekToken().Kind is SyntaxKind.DotDotDotToken)
+                    dotDotDotToken = ReadToken();
 
                 EqualsValueClauseSyntax? defaultValue = null;
                 if (IsNextToken(SyntaxKind.EqualsToken, out _))
@@ -1430,7 +1444,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, name, null, typeAnnotation, defaultValue));
+                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, varParamsKeyword, bindingKeyword, dotDotDotToken, name, null, typeAnnotation, defaultValue));
                 parsedParameters++;
             }
 

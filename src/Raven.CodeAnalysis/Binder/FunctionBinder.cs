@@ -146,6 +146,14 @@ class FunctionBinder : Binder
                 _diagnostics,
                 ref seenOptionalParameter);
 
+            type = TypeMemberBinder.NormalizeVarParamsParameterType(
+                Compilation,
+                p,
+                type,
+                p.Identifier.ValueText,
+                _diagnostics,
+                out var isVarParams);
+
             parameters.Add(new SourceParameterSymbol(
                 p.Identifier.ValueText,
                 type,
@@ -157,7 +165,8 @@ class FunctionBinder : Binder
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
-                isMutable));
+                isMutable,
+                isVarParams));
         }
 
         _methodSymbol.SetParameters(parameters);

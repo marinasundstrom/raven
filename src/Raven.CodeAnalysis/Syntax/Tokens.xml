@@ -80,6 +80,7 @@
   <TokenKind Name="RefKeyword" Text="ref" IsReservedWord="false" />
   <TokenKind Name="OutKeyword" Text="out" IsReservedWord="false" />
   <TokenKind Name="InKeyword" Text="in" IsReservedWord="false" />
+  <TokenKind Name="ParamsKeyword" Text="params" IsReservedWord="false" />
   <TokenKind Name="ByKeyword" Text="by" IsReservedWord="false" />
   <TokenKind Name="WhereKeyword" Text="where" IsReservedWord="false" />
   <TokenKind Name="PublicKeyword" Text="public" IsReservedWord="false" />

@@ -5587,7 +5587,16 @@ internal partial class ExpressionGenerator : Generator
         if (omittedImplicitUnitArgument)
             EmitUnitValue();
 
-        for (int i = 0; i < args.Length; i++)
+        var hasExpandedParamsArguments =
+            paramSymbols.Length > 0 &&
+            paramSymbols[^1].IsVarParams &&
+            args.Length > paramSymbols.Length;
+
+        var regularArgumentCount = hasExpandedParamsArguments
+            ? paramSymbols.Length - 1
+            : args.Length;
+
+        for (int i = 0; i < regularArgumentCount; i++)
         {
             var paramSymbol = paramSymbols[i];
             var argument = args[i];
@@ -5605,11 +5614,9 @@ internal partial class ExpressionGenerator : Generator
                         break;
 
                     case BoundParameterAccess { Parameter: IParameterSymbol p }:
-                        {
-                            // For by-ref parameters use ldarg; otherwise load parameter address.
-                            EmitParameterForByRefUse(p);
-                            break;
-                        }
+                        // For by-ref parameters use ldarg; otherwise load parameter address.
+                        EmitParameterForByRefUse(p);
+                        break;
 
                     default:
                         throw new NotSupportedException($"Unsupported ref/out argument: {argument?.GetType().Name}");
@@ -5652,6 +5659,45 @@ internal partial class ExpressionGenerator : Generator
             }
         }
 
+        if (hasExpandedParamsArguments)
+        {
+            var paramsParam = paramSymbols[^1];
+            if (!TryGetVarParamsElementType(paramsParam.Type, out var elementType))
+                throw new NotSupportedException("Expanded varargs emission requires a collection-typed params parameter.");
+
+            var extraCount = args.Length - regularArgumentCount;
+            var emittedArrayType = Compilation.CreateArrayTypeSymbol(elementType);
+
+            ILGenerator.Emit(OpCodes.Ldc_I4, extraCount);
+            ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
+
+            for (var i = 0; i < extraCount; i++)
+            {
+                var argument = args[regularArgumentCount + i];
+                ILGenerator.Emit(OpCodes.Dup);
+                ILGenerator.Emit(OpCodes.Ldc_I4, i);
+
+                EmitRequiredValue(argument);
+
+                var argumentType = argument?.Type;
+                if (argumentType is not null && !SymbolEqualityComparer.Default.Equals(argumentType, elementType))
+                {
+                    var conversion = Compilation.ClassifyConversion(argumentType, elementType);
+                    if (conversion.Exists && !conversion.IsIdentity)
+                        EmitConversion(argumentType, elementType, conversion);
+                }
+
+                EmitStoreElement(elementType);
+            }
+
+            if (!SymbolEqualityComparer.Default.Equals(paramsParam.Type, emittedArrayType))
+            {
+                var conversion = Compilation.ClassifyConversion(emittedArrayType, paramsParam.Type);
+                if (conversion.Exists && !conversion.IsIdentity)
+                    EmitConversion(emittedArrayType, paramsParam.Type, conversion);
+            }
+        }
+
         // Emit the actual call
         var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
 
@@ -5678,6 +5724,38 @@ internal partial class ExpressionGenerator : Generator
             }
         }
 
+    }
+
+    private bool TryGetVarParamsElementType(ITypeSymbol paramsType, out ITypeSymbol elementType)
+    {
+        if (paramsType is IArrayTypeSymbol { Rank: 1 } arrayType)
+        {
+            elementType = arrayType.ElementType;
+            return true;
+        }
+
+        if (paramsType is INamedTypeSymbol namedType)
+        {
+            if (namedType.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+                namedType.TypeArguments.Length == 1)
+            {
+                elementType = namedType.TypeArguments[0];
+                return true;
+            }
+
+            foreach (var iface in namedType.AllInterfaces)
+            {
+                if (iface.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+                    iface.TypeArguments.Length == 1)
+                {
+                    elementType = iface.TypeArguments[0];
+                    return true;
+                }
+            }
+        }
+
+        elementType = null!;
+        return false;
     }
 
     private void EmitInvocationClosureArgument(TypeGenerator.LambdaClosure closure)

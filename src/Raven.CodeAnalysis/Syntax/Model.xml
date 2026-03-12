@@ -101,6 +101,7 @@
   </Node>
   <Node Name="Argument" Inherits="Node">
     <Slot Name="NameColon" Type="NameColon" IsNullable="true" />
+    <Slot Name="DotDotDotToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="NamespaceDeclaration" Inherits="BaseNamespaceDeclaration">
@@ -749,7 +750,9 @@
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="AccessibilityKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="RefKindKeyword" Type="Token" IsOptionalToken="true" />
+    <Slot Name="ParamsKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="BindingKeyword" Type="Token" IsOptionalToken="true" />
+    <Slot Name="DotDotDotToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="Pattern" Type="Pattern" IsNullable="true" />
     <Slot Name="TypeAnnotation" Type="TypeAnnotationClause" IsNullable="true" />

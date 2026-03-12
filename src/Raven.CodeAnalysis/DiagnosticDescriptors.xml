@@ -866,4 +866,12 @@
     Title="Constructor parameter promotion requires primary constructor"
     Message="Constructor parameter '{parameterName}' cannot use '{bindingKeyword}'. Parameter promotion is only supported in primary constructors."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0923" Identifier="VarParamsMarkersAreMutuallyExclusive"
+    Title="varparams markers are mutually exclusive"
+    Message="Parameter '{parameterName}' cannot use both 'params' and '...'."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0924" Identifier="ParamsKeywordRequiresCollectionType"
+    Title="'params' requires a collection type"
+    Message="Parameter '{parameterName}' uses 'params' and must declare a collection type."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

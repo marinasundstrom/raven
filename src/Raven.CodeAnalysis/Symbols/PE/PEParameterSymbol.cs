@@ -37,7 +37,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     public override string Name => _name;
     public ITypeSymbol Type => _type ??= ResolveParameterType();
 
-    public bool IsParams => _isParams;
+    public bool IsVarParams => _isParams;
 
     public RefKind RefKind
     {

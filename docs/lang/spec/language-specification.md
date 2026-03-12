@@ -1162,6 +1162,23 @@ When the target has optional parameters, omitted trailing arguments are filled
 in using the defaults declared on the parameter list. The supplied arguments are
 matched positionally before defaults are considered.
 
+Parameters may also be declared as collectors using a trailing `...` after the
+parameter type. A collector parameter must be the trailing parameter.
+
+For convenience syntax (`items: T ...`), the declared parameter type defaults to
+`IList<T>` in semantic binding.
+
+If you need to control the exact collection type, use explicit `params` syntax,
+for example `params items: int[]` or `params items: IEnumerable<int>`.
+
+At call sites, any extra positional arguments are packed into the collector.
+Calls may also use `...expr` in
+argument position to expand an existing sequence into the collector.
+
+Raven also supports an explicit collector marker with `params`:
+`params items: IEnumerable<int>`. The `...` form and `params` are mutually
+exclusive on the same parameter.
+
 Arguments may also be written with an explicit name using the `name: expression`
 syntax. Named arguments may appear in any order, and each one must match a
 parameter declared by the target. After a named argument is used, any remaining
@@ -1178,9 +1195,20 @@ func makePoint(x: int, y: int, label: string = "origin") -> string {
     return "$label: ($x, $y)";
 }
 
+func sum(items: int ...) -> int {
+    return items.Length;
+}
+
+func sum2(params items: int[]) -> int {
+    return items.Length;
+}
+
 val swapped = makePoint(y: 2, x: 1);
 val mixed = makePoint(3, label: "axis", y: 0);
 val invalid = makePoint(x: 1, 2);  // error: positional argument cannot follow `x:`
+val a = sum(1, 2, 3);
+val xs = [4, 5];
+val b = sum(...xs);
 ```
 
 The compiler binds each named argument to its declared parameter. The call to

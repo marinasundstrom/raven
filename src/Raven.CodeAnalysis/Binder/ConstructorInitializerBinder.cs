@@ -51,7 +51,8 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
             var name = argument.NameColon?.Name.Identifier.ValueText;
             if (string.IsNullOrEmpty(name))
                 name = null;
-            boundArguments.Add(new BoundArgument(boundArgument, RefKind.None, name, argument));
+            var isSpread = argument.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken;
+            boundArguments.Add(new BoundArgument(boundArgument, RefKind.None, name, argument, isSpread));
         }
 
         if (hasErrors)

@@ -1312,7 +1312,7 @@ partial class BlockBinder
                 var requiredParams = visibleParams;
                 for (var i = method.Parameters.Length - 1; i >= firstVisible; i--)
                 {
-                    if (method.Parameters[i].HasExplicitDefaultValue || method.Parameters[i].IsParams)
+                    if (method.Parameters[i].HasExplicitDefaultValue || method.Parameters[i].IsVarParams)
                         requiredParams--;
                     else
                         break;

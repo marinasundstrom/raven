@@ -13,7 +13,8 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         RefKind refKind = RefKind.None,
         bool hasExplicitDefaultValue = false,
         object? explicitDefaultValue = null,
-        bool isMutable = false)
+        bool isMutable = false,
+        bool isVarParams = false)
         : base(SymbolKind.Parameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Type = parameterType;
@@ -21,11 +22,12 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         HasExplicitDefaultValue = hasExplicitDefaultValue;
         ExplicitDefaultValue = explicitDefaultValue;
         IsMutable = isMutable;
+        IsVarParams = isVarParams;
     }
 
     public ITypeSymbol Type { get; }
 
-    public bool IsParams => false;
+    public bool IsVarParams { get; }
 
     public RefKind RefKind { get; }
 

@@ -83,8 +83,10 @@ ExtensionPropertyModifiers ::= AccessModifier ;
 ReturnTypeClause         ::= '->' Type ;
 
 ParameterList            ::= Parameter {',' Parameter} ;
-Parameter                ::= {AttributeList} AccessModifier? RefKindModifier? ParameterBindingKeyword?
-                             Identifier ':' Type ['=' Expression] ;
+Parameter                ::= {AttributeList} AccessModifier? RefKindModifier? ParamsModifier? ParameterBindingKeyword?
+                             Identifier ':' Type VarParamsSuffix? ['=' Expression] ;
+ParamsModifier           ::= 'params' ;
+VarParamsSuffix          ::= '...' ; (* Convenience collector marker. `params` and `...` are mutually exclusive on the same parameter. *)
 RefKindModifier          ::= 'ref' | 'out' | 'in' ;
 ParameterBindingKeyword  ::= 'let' | 'val' | 'var' | 'const' ;
 
@@ -514,7 +516,8 @@ PostfixTrailer           ::= ArgumentList
                            | WithExpression ;
 
 ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
-Argument                 ::= [Identifier ':'] Expression ;
+Argument                 ::= [Identifier ':'] ArgumentSpread? Expression ;
+ArgumentSpread           ::= '...' ;
 AttributeArgumentList    ::= '(' [AttributeArgument {',' AttributeArgument}] ')' ;
 AttributeArgument        ::= [Identifier ':'] Expression ; (* Attribute named arguments must use ':'; '=' is not valid syntax. *)
 

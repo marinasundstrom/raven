@@ -1064,7 +1064,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 mergedAttributes,
                 firstParameter.AccessibilityKeyword,
                 firstParameter.RefKindKeyword,
+                firstParameter.ParamsKeyword,
                 firstParameter.BindingKeyword,
+                firstParameter.DotDotDotToken,
                 firstParameter.Identifier,
                 firstParameter.Pattern,
                 firstParameter.TypeAnnotation,
@@ -1254,7 +1256,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             expressionBody = null;
         }
 
-        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, bindingKeyword, identifier, null, typeAnnotation, defaultValue);
+        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, Token(SyntaxKind.None), bindingKeyword, Token(SyntaxKind.None), identifier, null, typeAnnotation, defaultValue);
 
         lambda = SimpleFunctionExpression(
             staticKeyword ?? Token(SyntaxKind.None),
@@ -1636,6 +1638,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     {
         NameColonSyntax? nameColon = null;
         nameSpan = null;
+        var dotDotDotToken = Token(SyntaxKind.None);
 
         // Try to parse optional name:
         if (PeekToken(1).IsKind(SyntaxKind.ColonToken)
@@ -1681,8 +1684,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
         }
 
+        if (PeekToken().IsKind(SyntaxKind.DotDotDotToken))
+            dotDotDotToken = ReadToken();
+
         var expr = ParseExpression();
-        return Argument(nameColon, expr);
+        return Argument(nameColon, dotDotDotToken, expr);
     }
 
     private BracketedArgumentListSyntax ParseBracketedArgumentListSyntax()
@@ -2093,8 +2099,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         var expressions = new List<GreenNode>();
 
-        var firstExpr = new ExpressionSyntaxParser(this).ParseArgument();
-        expressions.Add(firstExpr);
+        var firstArg = new ExpressionSyntaxParser(this).ParseArgument();
+        expressions.Add(firstArg);
 
         bool sawComma = false;
 
@@ -2102,8 +2108,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             sawComma = true;
             expressions.Add(ReadToken()); // Consume comma
-            var arg = new ExpressionSyntaxParser(this).ParseArgument();
-            expressions.Add(arg);
+            var argument = new ExpressionSyntaxParser(this).ParseArgument();
+            expressions.Add(argument);
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
@@ -2116,7 +2122,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         else
         {
             // Just a parenthesized expression
-            return ParenthesizedExpression(openParenToken, (ExpressionSyntax)firstExpr.GetSlot(1), closeParenToken);
+            return ParenthesizedExpression(openParenToken, firstArg.Expression, closeParenToken);
         }
     }
 

@@ -1427,7 +1427,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
 
-        public bool IsParams => _original.IsParams;
+        public bool IsVarParams => _original.IsVarParams;
 
         public RefKind RefKind => _original.RefKind;
 

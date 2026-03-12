@@ -1068,17 +1068,24 @@ public static partial class SymbolExtensions
         var builder = new StringBuilder();
 
         // Core "name: type" (or just type / just name depending on options)
+        var parameterType = parameter.Type;
+        if (parameter.IsVarParams &&
+            parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
+        {
+            parameterType = arrayType.ElementType;
+        }
+
         var core = FormatNamedSymbol(
             parameter.Name,
-            parameter.Type,
+            parameterType,
             includeType,
             format,
             includeName,
             escapeName: !IsSelfReceiverParameter(parameter));
 
-        if (parameter.IsParams)
+        if (parameter.IsVarParams)
         {
-            core = "..." + core;
+            core += " ...";
         }
 
         // Optionally prepend modifiers (out / val / var / etc.) when requested
