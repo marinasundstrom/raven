@@ -126,5 +126,21 @@ If you change any flags, **rebuild the compiler** before running again.
 - prefer implementing new features via lowering where possible  
 - unit tests can request an `ITestOutputHelper` parameter to write diagnostics via `WriteLine`.
 
+### Language feature checklist (add/update)
+
+When implementing or modifying a language feature, walk this checklist to avoid partial changes:
+
+- **Syntax model:** update syntax definitions/models and regenerate nodes/factories if needed.
+- **Tokens/keywords:** add or update token kinds, lexer handling, and keyword classification.
+- **Parser:** parse the new construct (including precedence/associativity and recovery paths).
+- **Bound tree/model:** add/update bound nodes and any generated bound visitor/rewriter artifacts.
+- **Binding/semantics:** bind the construct, enforce rules, and report diagnostics (no crashes).
+- **Lowering:** implement in lowering when appropriate; keep semantic and emit behavior aligned.
+- **Code generation:** ensure IL/runtime emission paths handle the feature (or intentionally reject with diagnostics).
+- **Operations API:** update `OperationKind`, operation interfaces/nodes, `OperationFactory`, and operation tests/docs.
+- **Language service/editor:** validate symbol lookup, hover, completion, and diagnostics in LSP/editor paths.
+- **Grammar/spec/docs:** update grammar/specification and API docs (`docs/`) for the final behavior.
+- **Tests:** add focused syntax, semantic, operations, and codegen tests as applicable.
+
 **External components:**  
 No external type-union analyzer project is part of this repository.
