@@ -1064,8 +1064,6 @@ public static partial class SymbolExtensions
 
         // Core "name: type" (or just type / just name depending on options)
         var parameterType = parameter.Type;
-        if (parameter.IsVarParams && TryGetVarParamsElementType(parameterType, out var elementType))
-            parameterType = elementType;
 
         var core = FormatNamedSymbol(
             parameter.Name,
@@ -1100,28 +1098,6 @@ public static partial class SymbolExtensions
         }
 
         return builder.ToString();
-    }
-
-    private static bool TryGetVarParamsElementType(ITypeSymbol parameterType, out ITypeSymbol elementType)
-    {
-        elementType = parameterType;
-
-        if (parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
-        {
-            elementType = arrayType.ElementType;
-            return true;
-        }
-
-        if (parameterType is not INamedTypeSymbol namedType || namedType.TypeArguments.Length != 1)
-            return false;
-
-        if (namedType.MetadataName is "IList`1" or "ICollection`1" or "IReadOnlyCollection`1" or "IReadOnlyList`1" or "IEnumerable`1")
-        {
-            elementType = namedType.TypeArguments[0];
-            return true;
-        }
-
-        return false;
     }
 
     private static string FormatConstant(object? value, ITypeSymbol type, SymbolDisplayFormat format)

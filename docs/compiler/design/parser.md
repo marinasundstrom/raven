@@ -91,23 +91,28 @@ Here are the most common methods used when reading the token stream.
   ```csharp
   private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
   {
-      var letKeyword = ReadToken();
+      var bindingKeyword = ReadToken();
+      var firstDeclarator = ParseVariableDeclarator();
+      var declarators = SeparatedList(firstDeclarator);
 
-      var name = ParseSimpleName();
-
-      EqualsValueClauseSyntax? initializer = null;
-
-      var typeAnnotation = ParseTypeAnnotationSyntax();
-
-      if (IsNextToken(SyntaxKind.EqualsToken))
+      while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
       {
-          initializer = ParseEqualsValueSyntax();
+          declarators = declarators.AddSeparator(commaToken);
+          declarators = declarators.Add(ParseVariableDeclarator());
       }
 
-      var declarators = SeparatedList<VariableDeclaratorSyntax>(
-          VariableDeclarator(name, typeAnnotation, initializer));
+      return VariableDeclaration(bindingKeyword, declarators);
+  }
 
-      return VariableDeclaration(letKeyword, declarators);
+  private VariableDeclaratorSyntax ParseVariableDeclarator()
+  {
+      var name = ParseSimpleName();
+      var typeAnnotation = ParseTypeAnnotationSyntax();
+      var initializer = IsNextToken(SyntaxKind.EqualsToken)
+          ? ParseEqualsValueSyntax()
+          : null;
+
+      return VariableDeclarator(name, typeAnnotation, initializer);
   }
 
   private TypeAnnotationSyntax? ParseTypeAnnotationSyntax()

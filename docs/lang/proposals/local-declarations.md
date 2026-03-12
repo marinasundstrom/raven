@@ -21,3 +21,12 @@ Explanation:
 If a local doesn't have an annotation then its type will be inferred from the bound expression.
 
 This is part of a bigger feature.
+
+## Multiple declarators
+
+`val` and `var` local declarations support comma-separated declarators.
+
+```raven
+val a = 1, b = 2
+var x = 10, y = 20
+```

@@ -78,6 +78,9 @@ func ParseInt(text: string) -> Result<int, string> {
 val name = "Raven"
 var count = 0
 count = count + 1
+
+val a = 1, b = 2
+var left = 10, right = 20
 ```
 
 ---

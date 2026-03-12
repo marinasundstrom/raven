@@ -248,7 +248,7 @@ func Main() -> int {
         var symbol = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(function));
         var display = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
-        Assert.Contains("params items: int", display);
+        Assert.Contains("params items: IList<int>", display);
         Assert.DoesNotContain("...", display);
     }
 

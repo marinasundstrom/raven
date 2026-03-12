@@ -3470,11 +3470,13 @@ if !TryParse(arg, &total) {
 ### Value binding (`val`)
 
 A `val` binding is **immutable** (not reassignable). Types are inferred
-unless annotated.
+unless annotated. A single declaration may declare multiple bindings by
+separating declarators with commas.
 
 ```raven
 val x = "Foo"
 val y: int = 2
+val a = 1, b = 2
 val a: int = 2, b: string = ""
 ```
 
@@ -3482,7 +3484,8 @@ Raven treats `let` as an alias for `val`.
 
 ### Variable binding (`var`)
 
-A `var` binding is **mutable** (reassignable).
+A `var` binding is **mutable** (reassignable). A single declaration may
+declare multiple bindings by separating declarators with commas.
 
 ```raven
 var x = "Foo"
@@ -3490,6 +3493,9 @@ x = "Bar"
 
 var y: int = 2
 y = 3
+
+var left = 1, right = 2
+left = left + right
 ```
 
 ### Constant binding (`const`)

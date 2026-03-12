@@ -1108,8 +1108,23 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private VariableDeclarationSyntax FinishParseVariableDeclarationSyntax(SyntaxToken bindingKeyword)
     {
-        SyntaxToken identifier = MissingToken(SyntaxKind.IdentifierToken);
+        List<GreenNode> declarators = new List<GreenNode>
+        {
+            ParseVariableDeclarator()
+        };
 
+        while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+        {
+            declarators.Add(commaToken);
+            declarators.Add(ParseVariableDeclarator());
+        }
+
+        return new VariableDeclarationSyntax(bindingKeyword, List(declarators.ToArray()));
+    }
+
+    private VariableDeclaratorSyntax ParseVariableDeclarator()
+    {
+        SyntaxToken identifier = MissingToken(SyntaxKind.IdentifierToken);
         var next = PeekToken();
 
         if (next.Kind == SyntaxKind.UnderscoreToken)
@@ -1123,19 +1138,13 @@ internal class StatementSyntaxParser : SyntaxParser
             identifier = ReadIdentifierToken();
         }
 
-        EqualsValueClauseSyntax? initializer = null;
-
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
-        if (IsNextToken(SyntaxKind.EqualsToken, out var _))
-        {
+        EqualsValueClauseSyntax? initializer = null;
+        if (IsNextToken(SyntaxKind.EqualsToken, out _))
             initializer = new EqualsValueClauseSyntaxParser(this).Parse();
-        }
 
-        var declarators = new SyntaxList(
-            [VariableDeclarator(identifier, typeAnnotation, initializer)]);
-
-        return new VariableDeclarationSyntax(bindingKeyword, declarators);
+        return VariableDeclarator(identifier, typeAnnotation, initializer);
     }
 
     private TypeAnnotationClauseSyntax? ParseTypeAnnotationClauseSyntax()

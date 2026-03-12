@@ -45,6 +45,28 @@ var first = 1
     }
 
     [Fact]
+    public void GetOperation_VariableDeclaration_WithMultipleDeclarators_ReturnsAllDeclarators()
+    {
+        const string source = """
+val first = 1, second = 2
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var declarationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<LocalDeclarationStatementSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IVariableDeclarationOperation>(model.GetOperation(declarationSyntax));
+
+        operation.Kind.ShouldBe(OperationKind.LocalDeclaration);
+        operation.Declarators.Select(declarator => declarator.Symbol.Name)
+            .ShouldBe(new[] { "first", "second" });
+        operation.Declarators.Length.ShouldBe(2);
+    }
+
+    [Fact]
     public void GetOperation_IfExpression_ReturnsConditionalShape()
     {
         const string source = """
