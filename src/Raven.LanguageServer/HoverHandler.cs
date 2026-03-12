@@ -338,7 +338,9 @@ internal sealed class HoverHandler : IHoverHandler
                                (IsLocalFunctionDeclaredStatic(method) || (!IsFunctionStatementSymbol(method) && method.IsStatic))
                 ? "static "
                 : string.Empty;
-            var accessibilityPrefix = GetNonPublicAccessibilityPrefix(method);
+            var accessibilityPrefix = IsFunctionStatementSymbol(method)
+                ? string.Empty
+                : GetNonPublicAccessibilityPrefix(method);
             return $"{accessibilityPrefix}{staticPrefix}func {method.Name}{typeParameters}({parameters}) -> {returnType}";
         }
 

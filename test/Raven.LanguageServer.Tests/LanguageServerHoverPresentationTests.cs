@@ -91,6 +91,44 @@ class Functions {
     }
 
     [Fact]
+    public void FunctionStatementHover_DoesNotShowAccessibilityModifier()
+    {
+        const string code = """
+class C {
+    func Run() -> int {
+        func Parse() -> int => 42
+        Parse()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var references = TargetFrameworkResolver
+            .GetReferenceAssemblies(targetFramework)
+            .Select(MetadataReference.CreateFromFile);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in references)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var functionStatement = root.DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var methodSymbol = semanticModel.GetDeclaredSymbol(functionStatement).ShouldBeAssignableTo<IMethodSymbol>();
+
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignature.Invoke(null, [methodSymbol, functionStatement, semanticModel])!;
+        signature.ShouldStartWith("func Parse()");
+        signature.ShouldNotContain("private ");
+        signature.ShouldNotContain("internal ");
+    }
+
+    [Fact]
     public void ContinueWithBody_ResultHover_ResolvesTaskResultProperty()
     {
         const string code = """
