@@ -22,7 +22,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App" OutputKind="DynamicallyLinkedLibrary" />
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" />
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -79,7 +79,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App" OutputKind="DynamicallyLinkedLibrary" />
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" />
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -117,7 +117,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App" OutputKind="DynamicallyLinkedLibrary" Configuration="Release" />
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" Configuration="Release" />
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -147,7 +147,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App" OutputKind="ConsoleApplication" />
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="ConsoleApplication" />
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

@@ -10,7 +10,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$SCRIPT_DIR"
 
 PROJECT_DIR="$REPO_ROOT/src/Raven.Compiler"
-DOTNET_VERSION="${DOTNET_VERSION:-net9.0}"
+DOTNET_VERSION="${DOTNET_VERSION:-net10.0}"
 BUILD_CONFIG="${BUILD_CONFIG:-Debug}"
 COMPILER_EXC="ravc"
 
@@ -151,7 +151,7 @@ fi
 # Make sure the compiler has been built
 dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
 dotnet build "$REPO_ROOT/src/Raven.CodeAnalysis" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
-# TestDep is currently net9.0-only, so build it with its declared framework.
+# TestDep is currently net10.0-only, so build it with its declared framework.
 dotnet build "$REPO_ROOT/src/TestDep" -c "$BUILD_CONFIG"
 
 if [[ -z "${RAVEN_CORE:-}" ]]; then
@@ -237,7 +237,7 @@ done
 TEST_DEP_DLL=""
 for candidate in \
   "$REPO_ROOT/src/TestDep/bin/$BUILD_CONFIG/$DOTNET_VERSION/TestDep.dll" \
-  "$REPO_ROOT/src/TestDep/bin/$BUILD_CONFIG/net9.0/TestDep.dll"
+  "$REPO_ROOT/src/TestDep/bin/$BUILD_CONFIG/net10.0/TestDep.dll"
 do
   if [[ -f "$candidate" ]]; then
     TEST_DEP_DLL="$candidate"

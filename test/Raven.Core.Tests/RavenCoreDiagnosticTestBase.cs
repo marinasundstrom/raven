@@ -45,7 +45,7 @@ public abstract class RavenCoreDiagnosticTestBase
         }
 
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        var fallbackPath = Path.Combine(repoRoot, "src", "Raven.Core", "bin", "Debug", "net9.0", "Raven.Core.dll");
+        var fallbackPath = Path.Combine(repoRoot, "src", "Raven.Core", "bin", "Debug", "net10.0", "Raven.Core.dll");
         if (File.Exists(fallbackPath))
         {
             return fallbackPath;

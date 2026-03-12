@@ -33,7 +33,8 @@ public sealed class AsyncILGenerationTests
 
     private readonly ITestOutputHelper _output;
 
-    static AsyncILGenerationTests() {
+    static AsyncILGenerationTests()
+    {
         s_singleByteOpCodes = new OpCode[0x100];
         s_multiByteOpCodes = new OpCode[0x100];
 
@@ -54,7 +55,8 @@ public sealed class AsyncILGenerationTests
         }
     }
 
-    public AsyncILGenerationTests(ITestOutputHelper output) {
+    public AsyncILGenerationTests(ITestOutputHelper output)
+    {
         _output = output;
     }
 
@@ -1128,7 +1130,7 @@ WriteLine(result)
 
         try
         {
-            var compilerArgs = $"run --framework net9.0 --project \"{projectPath}\" -- {sourcePath} -o {assemblyPath}";
+            var compilerArgs = $"run --framework net10.0 --project \"{projectPath}\" -- {sourcePath} -o {assemblyPath}";
             var compilerInfo = new ProcessStartInfo("dotnet", compilerArgs)
             {
                 RedirectStandardOutput = true,
@@ -1206,7 +1208,7 @@ WriteLine(result)
 
         try
         {
-            var compilerArgs = $"run --framework net9.0 --project \"{projectPath}\" -- {sourcePath} -o {assemblyPath}";
+            var compilerArgs = $"run --framework net10.0 --project \"{projectPath}\" -- {sourcePath} -o {assemblyPath}";
             var compilerInfo = new ProcessStartInfo("dotnet", compilerArgs)
             {
                 RedirectStandardOutput = true,
@@ -1288,7 +1290,7 @@ WriteLine(result)
 
         try
         {
-            var compilerArgs = $"run --framework net9.0 --project \"{projectPath}\" -- --async-investigation Step15 \"{sourcePath}\" -o \"{assemblyPath}\"";
+            var compilerArgs = $"run --framework net10.0 --project \"{projectPath}\" -- --async-investigation Step15 \"{sourcePath}\" -o \"{assemblyPath}\"";
             var compilerInfo = new ProcessStartInfo("dotnet", compilerArgs)
             {
                 RedirectStandardOutput = true,
@@ -1355,7 +1357,8 @@ WriteLine(result)
         }
         finally
         {
-            foreach (var path in new[] { sourcePath, assemblyPath, runtimeConfigPath, depsPath, pdbPath }) {
+            foreach (var path in new[] { sourcePath, assemblyPath, runtimeConfigPath, depsPath, pdbPath })
+            {
                 if (!string.IsNullOrEmpty(path) && File.Exists(path))
                     File.Delete(path);
             }
@@ -1381,7 +1384,8 @@ WriteLine(result)
         Assert.Contains(grouped, group => group.Key == "_builder");
         Assert.Contains(grouped, group => group.Key.StartsWith("<>awaiter", StringComparison.Ordinal));
 
-        foreach (var group in grouped) {
+        foreach (var group in grouped)
+        {
             var uniqueAddresses = group.Select(record => record.Address).Distinct().ToArray();
             Assert.Single(uniqueAddresses);
 
@@ -1416,7 +1420,8 @@ WriteLine(result)
         var awaiterGroups = grouped.Where(group => group.Key.StartsWith("<>awaiter", StringComparison.Ordinal)).ToArray();
         Assert.True(awaiterGroups.Length >= 2, "Expected at least two awaiter fields in multi-await pointer trace.");
 
-        foreach (var group in grouped) {
+        foreach (var group in grouped)
+        {
             var uniqueAddresses = group.Select(record => record.Address).Distinct().ToArray();
             Assert.Single(uniqueAddresses);
 
@@ -1469,7 +1474,8 @@ WriteLine(result)
         var awaiterGroups = grouped.Where(group => group.Key.StartsWith("<>awaiter", StringComparison.Ordinal)).ToArray();
         Assert.True(awaiterGroups.Length >= 2, "Expected pointer logs for each awaiter slot.");
 
-        foreach (var group in awaiterGroups) {
+        foreach (var group in awaiterGroups)
+        {
             Assert.Contains(group, record => record.Operation == "addr");
             Assert.Contains(group, record => record.Operation == "store");
         }
@@ -1538,7 +1544,8 @@ WriteLine(result)
 
         Assert.NotEmpty(setResultCalls);
 
-        foreach (var setResult in setResultCalls) {
+        foreach (var setResult in setResultCalls)
+        {
             var declaringType = Assert.IsAssignableFrom<Type>(setResult.DeclaringType);
 
             Assert.True(declaringType.IsGenericType);
@@ -1777,12 +1784,14 @@ WriteLine(result)
 
         Assert.NotEmpty(builderCalls);
 
-        foreach (var method in builderCalls) {
+        foreach (var method in builderCalls)
+        {
             var declaringType = method!.DeclaringType!;
             var typeArguments = declaringType.GetGenericArguments();
             Assert.NotEmpty(typeArguments);
 
-            foreach (var argument in typeArguments) {
+            foreach (var argument in typeArguments)
+            {
                 if (!argument.IsGenericParameter)
                     continue;
 
@@ -1862,7 +1871,8 @@ WriteLine(result)
 
         Assert.NotEmpty(awaiterFields);
 
-        foreach (var awaiterField in awaiterFields) {
+        foreach (var awaiterField in awaiterFields)
+        {
             var storeCount = instructions.Count(instruction =>
                 instruction.Opcode == OpCodes.Stfld &&
                 FormatOperand(instruction.Operand) == awaiterField);
@@ -2371,7 +2381,8 @@ class C {
         private readonly IILBuilderFactory _inner;
         private readonly Func<MethodGenerator, bool> _predicate;
 
-        public CachedConstructedMethodProbeFactory(IILBuilderFactory inner, Func<MethodGenerator, bool> predicate) {
+        public CachedConstructedMethodProbeFactory(IILBuilderFactory inner, Func<MethodGenerator, bool> predicate)
+        {
             _inner = inner;
             _predicate = predicate;
         }
@@ -2501,7 +2512,8 @@ class C {
 
     private static TypeDefinitionHandle FindTypeDefinition(MetadataReader reader, string name)
     {
-        foreach (var handle in reader.TypeDefinitions) {
+        foreach (var handle in reader.TypeDefinitions)
+        {
             var definition = reader.GetTypeDefinition(handle);
             if (reader.GetString(definition.Name) == name)
                 return handle;
@@ -2514,7 +2526,8 @@ class C {
     {
         var metadataName = typeSymbol.MetadataName;
 
-        foreach (var handle in reader.TypeDefinitions) {
+        foreach (var handle in reader.TypeDefinitions)
+        {
             var definition = reader.GetTypeDefinition(handle);
             if (reader.StringComparer.Equals(definition.Name, metadataName))
                 return handle;
@@ -2522,7 +2535,8 @@ class C {
 
         var simpleName = typeSymbol.Name;
 
-        foreach (var handle in reader.TypeDefinitions) {
+        foreach (var handle in reader.TypeDefinitions)
+        {
             var definition = reader.GetTypeDefinition(handle);
             if (reader.StringComparer.Equals(definition.Name, simpleName))
                 return handle;

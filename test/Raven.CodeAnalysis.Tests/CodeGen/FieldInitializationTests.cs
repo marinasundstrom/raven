@@ -26,7 +26,7 @@ class Foo {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))

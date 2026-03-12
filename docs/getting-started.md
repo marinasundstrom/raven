@@ -16,7 +16,7 @@ scripts/codex-build.sh
 ## 2. Compile and run a real Raven case sample
 
 ```bash
-dotnet run -f net9.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
+dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
   samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-case.dll --run
 ```
 
@@ -30,7 +30,7 @@ Helpful debugging flags:
 Example:
 
 ```bash
-dotnet run -f net9.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
+dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
   samples/cases/quote-summary-linq-result-option.rav -d pretty -bt --no-emit
 ```
 
@@ -54,7 +54,7 @@ func BuildGreeting(name: string) -> string {
 Compile and run:
 
 ```bash
-dotnet run -f net9.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
+dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
   hello.rav -o /tmp/hello.dll --run
 ```
 

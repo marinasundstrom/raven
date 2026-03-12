@@ -17,7 +17,7 @@ Async sample note:
 
 ## Batch scripts and framework selection
 
-`build.sh` now accepts a target framework flag and defaults to `net9.0`:
+`build.sh` now accepts a target framework flag and defaults to `net10.0`:
 
 ```bash
 # default
@@ -33,7 +33,7 @@ Equivalent environment override:
 DOTNET_VERSION=net11.0 ./build.sh
 ```
 
-`run.sh` also accepts the same framework flag and defaults to `net9.0`:
+`run.sh` also accepts the same framework flag and defaults to `net10.0`:
 
 ```bash
 # default
@@ -73,7 +73,7 @@ These are the main options available for when debugging the compiler:
 
 ## Sample compilation and execution status
 
-Running `RAVEN_CORE=../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll bash build.sh` (which copies the referenced Raven.Core.dll into `output/`) currently produces 36/64 compilation successes and 28 failures, most of which stem from unresolved `Error` types during code generation. Running `OUTPUT_DIR=output bash run.sh` against the successfully emitted DLLs still completes, but the failing samples listed below are skipped.
+Running `RAVEN_CORE=../src/Raven.Core/bin/Debug/net10.0/net10.0/Raven.Core.dll bash build.sh` (which copies the referenced Raven.Core.dll into `output/`) currently produces 36/64 compilation successes and 28 failures, most of which stem from unresolved `Error` types during code generation. Running `OUTPUT_DIR=output bash run.sh` against the successfully emitted DLLs still completes, but the failing samples listed below are skipped.
 
 ### Current failure investigation (Raven.Core reference)
 

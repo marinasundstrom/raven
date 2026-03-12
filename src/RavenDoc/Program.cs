@@ -9,7 +9,7 @@ using System.Diagnostics;
 
 class Program
 {
-    private const string TargetFramework = "net9.0";
+    private const string TargetFramework = "net10.0";
     private static readonly string outputDir = "_docs";
 
     static void Main()

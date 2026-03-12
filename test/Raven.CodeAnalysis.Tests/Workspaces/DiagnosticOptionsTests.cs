@@ -165,7 +165,7 @@ func Main() {
 
             File.WriteAllText(projectPath,
                 """
-<Project Name="App" TargetFramework="net9.0" Output="App">
+<Project Name="App" TargetFramework="net10.0" Output="App">
   <Document Path="main.rav" />
 </Project>
 """);
@@ -219,7 +219,7 @@ dotnet_diagnostic.RAV9014.severity = none
             File.WriteAllText(sourcePath, "TODO");
             File.WriteAllText(projectPath,
                 """
-<Project Name="App" TargetFramework="net9.0" Output="App">
+<Project Name="App" TargetFramework="net10.0" Output="App">
   <Document Path="main.rav" />
 </Project>
 """);

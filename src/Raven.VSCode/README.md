@@ -8,7 +8,7 @@ It also adds Raven debug integration: F5 can compile and launch either a single 
 - .NET 9 SDK installed and on your `PATH`.
 - A built Raven language server (`Raven.LanguageServer.dll`). The extension auto-discovers common locations:
   1. A packaged `server/Raven.LanguageServer.dll` folder inside the extension.
-  2. A workspace build output at `src/Raven.LanguageServer/bin/Debug/net9.0/Raven.LanguageServer.dll`.
+  2. A workspace build output at `src/Raven.LanguageServer/bin/Debug/net10.0/Raven.LanguageServer.dll`.
 - Alternatively, set the full path explicitly via the `raven.languageServerPath` setting.
 
 ## Building
@@ -31,7 +31,7 @@ npm run compile
 ## Configuration
 - `raven.languageServerPath`: override the resolved server assembly path when the defaults do not apply.
 - `raven.compilerProjectPath`: optional override for the `Raven.Compiler.csproj` path used by Raven debug launch.
-- `raven.targetFramework`: optional target framework (for example, `net9.0`) passed to Raven debug compilation.
+- `raven.targetFramework`: optional target framework (for example, `net10.0`) passed to Raven debug compilation.
 
 ## Debugging Raven code (F5)
 1. Open a `.rav` file or `.ravenproj` file.

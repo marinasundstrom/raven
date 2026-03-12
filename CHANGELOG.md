@@ -19,6 +19,7 @@ Impact:
 - Cascade behavior after failed generic binding was reduced to avoid misleading downstream errors.
 - Several binder/codegen regression fixes landed (including interpolation/object-dumper/runtime sample paths).
 - Hover/signature display for promoted primary-constructor parameters now preserves binding keyword semantics (`val`/`var`) when the parameter maps to a property.
+- Compiler projects were retargeted from `net10.0` to `net10.0` (including build scripts/default framework switches).
 
 Impact:
 - Fewer false diagnostics and better first-error quality.

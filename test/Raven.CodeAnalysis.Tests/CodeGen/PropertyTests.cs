@@ -22,7 +22,7 @@ class Sample {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -71,7 +71,7 @@ class Counter {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -124,7 +124,7 @@ class Entity {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -204,7 +204,7 @@ class Point {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -276,7 +276,7 @@ class Shipment {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -321,7 +321,7 @@ class Shipment {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -369,7 +369,7 @@ class Shipment {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -407,7 +407,7 @@ class Registry {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -463,7 +463,7 @@ class Counter {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -520,7 +520,7 @@ class ShipmentOrderService(var pendingCount: int = 0) {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -569,7 +569,7 @@ class Person(private var name: string) {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -609,7 +609,7 @@ class Person(protected var name: string) {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -643,7 +643,7 @@ class Person(internal var Name: string)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -677,7 +677,7 @@ record class Person(Name: string, Age: int)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))
@@ -727,7 +727,7 @@ record class Person(Name: string, private var Secret: int)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
         MetadataReference[] references = [
             .. TargetFrameworkResolver.GetReferenceAssemblies(version)
                 .Select(path => MetadataReference.CreateFromFile(path))

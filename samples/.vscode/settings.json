@@ -1,4 +1,4 @@
 {
     "raven.compilerProjectPath": "../src/Raven.Compiler",
-    "raven.targetFramework": "net9.0"
+    "raven.targetFramework": "net10.0"
 }

@@ -11,7 +11,7 @@ using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 
 class Program
 {
-    private const string TargetFramework = "net9.0";
+    private const string TargetFramework = "net10.0";
     static void Main()
     {
         QuoterTest();

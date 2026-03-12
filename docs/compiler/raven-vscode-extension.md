@@ -5,7 +5,7 @@ The Raven VS Code extension wires the editor to the `Raven.LanguageServer` LSP p
 ## Prerequisites
 - .NET 9 SDK available on your `PATH` so the client can start the language server.
 - Node.js 18+ for building and running the extension.
-- A built `Raven.LanguageServer.dll` (from `src/Raven.LanguageServer/bin/Debug/net9.0` or a packaged `server/` folder).
+- A built `Raven.LanguageServer.dll` (from `src/Raven.LanguageServer/bin/Debug/net10.0` or a packaged `server/` folder).
 
 ## Building the extension
 Install dependencies and compile the client bundle from the repository root:
@@ -29,7 +29,7 @@ The compiled JavaScript emits to `out/` and is referenced by the extension manif
 The extension exposes settings to control language-server resolution and debug compilation:
 - `raven.languageServerPath` (string): Override the resolved `Raven.LanguageServer.dll` path. Use this when working with custom build outputs or packaged bits.
 - `raven.compilerProjectPath` (string): Override the `Raven.Compiler.csproj` path used for Raven debug launches. Defaults to `<workspace>/src/Raven.Compiler/Raven.Compiler.csproj`.
-- `raven.targetFramework` (string): Optional target framework (for example, `net9.0`) passed to debug compile invocations (`dotnet run --framework` and `Raven.Compiler --framework`).
+- `raven.targetFramework` (string): Optional target framework (for example, `net10.0`) passed to debug compile invocations (`dotnet run --framework` and `Raven.Compiler --framework`).
 
 ## F5 compile + debug
 The extension contributes a `Raven` debug type:

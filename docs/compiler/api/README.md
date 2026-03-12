@@ -275,7 +275,7 @@ var compilation = Compilation.Create("MyAssembly", new CompilationOptions(Output
     .AddReferences([
         // The path to the reference assembly for System.Runtime. Will determine what version of .NET you compile against.
         // On Windows the path is different.Despite pointing at a file in Mac. The app will run on other platforms.
-        MetadataReference.CreateFromFile("/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net9.0/System.Runtime.dll"),
+        MetadataReference.CreateFromFile("/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net10.0/System.Runtime.dll"),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
     ]);
 
@@ -321,7 +321,7 @@ var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText);
 var compilation = Compilation.Create("MyAssembly", new CompilationOptions(OutputKind.ConsoleApplication))
     .AddSyntaxTrees(syntaxTree)
     .AddReferences([
-        MetadataReference.CreateFromFile(("/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net9.0/System.Runtime.dll"),
+        MetadataReference.CreateFromFile(("/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net10.0/System.Runtime.dll"),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
     ]);
 

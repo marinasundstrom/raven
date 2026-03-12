@@ -504,7 +504,7 @@ if (runtimeAsyncOverride is true &&
     return;
 }
 var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
-var fallbackLocalTfms = new[] { "net11.0", "net9.0" }
+var fallbackLocalTfms = new[] { "net11.0", "net10.0" }
     .Where(tfm => !string.Equals(tfm, preferredCoreTfm, StringComparison.OrdinalIgnoreCase))
     .ToArray();
 

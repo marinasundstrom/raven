@@ -8,7 +8,7 @@ public static class ReferenceAssemblyPaths
     /// <summary>
     /// Returns full paths to all reference assemblies (*.dll) for the resolved (pack version, TFM).
     /// sdkVersion: exact version (e.g. "9.0.7"), wildcard (e.g. "9.*"), or null/"*" for latest installed.
-    /// targetFramework: exact TFM (e.g. "net9.0"), wildcard (e.g. "net9.*"), or null/"*" for latest available under that version.
+    /// targetFramework: exact TFM (e.g. "net10.0"), wildcard (e.g. "net9.*"), or null/"*" for latest available under that version.
     /// packId: e.g. "Microsoft.NETCore.App.Ref" (default) or "Microsoft.WindowsDesktop.App.Ref".
     /// </summary>
     public static string[] GetReferenceAssemblyPaths(string? sdkVersion = null, string? targetFramework = null, string packId = "Microsoft.NETCore.App.Ref")
@@ -295,7 +295,7 @@ public static class ReferenceAssemblyPaths
 
         public static TfmRank Parse(string tfm)
         {
-            // Accepts: net9, net9.0, net9.0-windows10.0.19041.0, net8.0-android, etc.
+            // Accepts: net9, net10.0, net10.0-windows10.0.19041.0, net8.0-android, etc.
             // Extract the first occurrence of "net<major>[.<minor>]" and ignore any qualifiers.
             if (string.IsNullOrWhiteSpace(tfm))
                 return new TfmRank(0, 0);

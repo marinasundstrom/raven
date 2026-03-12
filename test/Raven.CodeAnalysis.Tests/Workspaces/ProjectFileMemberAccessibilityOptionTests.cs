@@ -20,7 +20,7 @@ public sealed class ProjectFileMemberAccessibilityOptionTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App" OutputKind="DynamicallyLinkedLibrary" MembersPublicByDefault="true" />
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" MembersPublicByDefault="true" />
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

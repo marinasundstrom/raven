@@ -15,7 +15,7 @@ public sealed class RavenProjectOutputDeterminismTests
             var projectPath = Path.Combine(tempRoot, $"{projectName}.ravenproj");
             var sourcePath = Path.Combine(tempRoot, "main.rav");
             File.WriteAllText(projectPath, $$"""
-                                          <Project Name="{{projectName}}" TargetFramework="net9.0" Output="{{projectName}}" OutputKind="ConsoleApplication">
+                                          <Project Name="{{projectName}}" TargetFramework="net10.0" Output="{{projectName}}" OutputKind="ConsoleApplication">
                                           </Project>
                                           """);
             File.WriteAllText(sourcePath, """
@@ -23,7 +23,7 @@ public sealed class RavenProjectOutputDeterminismTests
                                           Console.WriteLine("hello")
                                           """);
 
-            var outputDirectory = Path.Combine(tempRoot, "bin", "Debug", "net9.0");
+            var outputDirectory = Path.Combine(tempRoot, "bin", "Debug", "net10.0");
             var expectedAssemblyPath = Path.Combine(outputDirectory, $"{projectName}.dll");
 
             var firstRun = RunCompiler(projectPath, outputDirectory);
@@ -50,7 +50,7 @@ public sealed class RavenProjectOutputDeterminismTests
             var projectPath = Path.Combine(tempRoot, $"{projectName}.ravenproj");
             var sourcePath = Path.Combine(tempRoot, "main.rav");
             File.WriteAllText(projectPath, $$"""
-                                          <Project Name="{{projectName}}" TargetFramework="net9.0" Output="{{projectName}}" OutputKind="ConsoleApplication">
+                                          <Project Name="{{projectName}}" TargetFramework="net10.0" Output="{{projectName}}" OutputKind="ConsoleApplication">
                                           </Project>
                                           """);
             File.WriteAllText(sourcePath, """
@@ -74,7 +74,7 @@ public sealed class RavenProjectOutputDeterminismTests
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         var compilerProjectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
-        var args = $"run --framework net9.0 --project \"{compilerProjectPath}\" --property WarningLevel=0 -- \"{projectPath}\" -o \"{outputPath}\" --framework net9.0";
+        var args = $"run --framework net10.0 --project \"{compilerProjectPath}\" --property WarningLevel=0 -- \"{projectPath}\" -o \"{outputPath}\" --framework net10.0";
 
         var startInfo = new ProcessStartInfo("dotnet", args)
         {

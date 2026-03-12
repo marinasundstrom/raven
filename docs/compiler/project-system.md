@@ -15,7 +15,7 @@ dotnet run --project src/Raven.Compiler -- init
 Supported attributes on `<Project>`:
 
 - `Name`: Logical project name.
-- `TargetFramework`: Target framework moniker (for example `net9.0`).
+- `TargetFramework`: Target framework moniker (for example `net10.0`).
 - `Output`: Assembly name.
 - `OutputKind`: `ConsoleApplication` or `DynamicallyLinkedLibrary`.
 - `AllowUnsafe`: `true`/`false`.
@@ -71,7 +71,7 @@ Set `EnableDefaultRavItems="false"` to disable this implicit inclusion and requi
 This enables minimal project files like:
 
 ```xml
-<Project Name="App" TargetFramework="net9.0" Output="App">
+<Project Name="App" TargetFramework="net10.0" Output="App">
   <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 </Project>
 ```

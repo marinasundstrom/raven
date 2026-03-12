@@ -535,7 +535,7 @@ internal sealed class WorkspaceManager
 
     private IEnumerable<string> EnumerateRavenCoreCandidates(string preferredTfm)
     {
-        var tfms = new[] { preferredTfm, "net11.0", "net9.0" }
+        var tfms = new[] { preferredTfm, "net11.0", "net10.0" }
             .Where(tfm => !string.IsNullOrWhiteSpace(tfm))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();

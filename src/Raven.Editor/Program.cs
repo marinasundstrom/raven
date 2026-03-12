@@ -60,7 +60,7 @@ internal class Program
         _documentId = DocumentId.CreateNew(_projectId);
         var solution = Workspace.CurrentSolution.AddDocument(_documentId, documentName, sourceText);
 
-        var targetFrameworkTfm = "net9.0";
+        var targetFrameworkTfm = "net10.0";
         var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
         var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 
@@ -714,7 +714,7 @@ internal class Program
         {
             runtimeOptions = new
             {
-                tfm = "net9.0",
+                tfm = "net10.0",
                 framework = new
                 {
                     name = "Microsoft.NETCore.App",

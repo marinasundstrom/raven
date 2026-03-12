@@ -185,7 +185,7 @@ This occurs when the generator is running, that is, when the ``Raven.CodeAnalysi
 
 The output of the source generator for syntax is found in `Raven.CodeAnalysis/Syntax/generated` and in `Raven.CodeAnalysis/Syntax/InternalSyntax/generated`.
 
-The output of the source generator for bound nodes, is found in `Raven.CodeAnalysis/obj/Debug/net9.0/generated`
+The output of the source generator for bound nodes, is found in `Raven.CodeAnalysis/obj/Debug/net10.0/generated`
 
 ### Suppress warnings in .NET CLI
 

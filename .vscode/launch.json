@@ -22,7 +22,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Raven.Compiler/bin/Debug/net9.0/Raven.Compiler.dll",
+            "program": "${workspaceFolder}/src/Raven.Compiler/bin/Debug/net10.0/Raven.Compiler.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/Raven.Compiler",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
@@ -41,7 +41,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Raven.Editor/bin/Debug/net9.0/Raven.Editor.dll",
+            "program": "${workspaceFolder}/src/Raven.Editor/bin/Debug/net10.0/Raven.Editor.dll",
             "args": [
                 "../../samples/editor-test.rav"
             ],
@@ -56,7 +56,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Raven.Compiler/bin/Debug/net9.0/Raven.Compiler.dll",
+            "program": "${workspaceFolder}/src/Raven.Compiler/bin/Debug/net10.0/Raven.Compiler.dll",
             "args": [
                 "../../Raven.samples/editor-test.rav"
             ],
@@ -82,7 +82,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build:language-server",
-            "program": "${workspaceFolder}/src/Raven.LanguageServer/bin/Debug/net9.0/Raven.LanguageServer.dll",
+            "program": "${workspaceFolder}/src/Raven.LanguageServer/bin/Debug/net10.0/Raven.LanguageServer.dll",
             "args": [
                 "--stdio"
             ],

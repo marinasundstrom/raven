@@ -130,7 +130,7 @@ scripts/test-baseline.sh
 Compile and run a sample case:
 
 ```bash
-dotnet run -f net9.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
+dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
   samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-sample.dll --run
 ```
 

@@ -34,7 +34,7 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
   ];
 
   const configurations = ['Debug', 'Release'];
-  const tfms = ['net9.0', 'net8.0', 'net7.0'];
+  const tfms = ['net10.0', 'net8.0', 'net7.0'];
 
   for (const root of repoCandidateRoots) {
     for (const cfg of configurations) {

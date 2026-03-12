@@ -125,7 +125,7 @@
         "raven.languageServerPath": {
           "type": "string",
           "default": "",
-          "description": "Full path to Raven.LanguageServer.dll. Leave empty to auto-discover a sibling 'server/Raven.LanguageServer.dll' next to the extension or a workspace copy under src/Raven.LanguageServer/bin/Debug/net9.0."
+          "description": "Full path to Raven.LanguageServer.dll. Leave empty to auto-discover a sibling 'server/Raven.LanguageServer.dll' next to the extension or a workspace copy under src/Raven.LanguageServer/bin/Debug/net10.0."
         },
         "raven.compilerProjectPath": {
           "type": "string",
@@ -135,7 +135,7 @@
         "raven.targetFramework": {
           "type": "string",
           "default": "",
-          "description": "Target framework to pass to Raven debug compile (for both dotnet run and Raven.Compiler --framework), for example 'net9.0'. Leave empty to use defaults."
+          "description": "Target framework to pass to Raven debug compile (for both dotnet run and Raven.Compiler --framework), for example 'net10.0'. Leave empty to use defaults."
         },
         "raven.debugStopAtEntry": {
           "type": "boolean",

@@ -8,7 +8,7 @@ shopt -s nullglob
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-DOTNET_VERSION="${DOTNET_VERSION:-net9.0}"
+DOTNET_VERSION="${DOTNET_VERSION:-net10.0}"
 
 usage() {
   cat <<EOF

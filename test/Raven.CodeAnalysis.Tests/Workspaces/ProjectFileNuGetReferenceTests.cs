@@ -39,7 +39,7 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App">
+            <Project Name="App" TargetFramework="net10.0" Output="App">
               <PackageReference Include="Fake.Package" Version="1.0.0" />
             </Project>
             """);
@@ -80,7 +80,7 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App">
+            <Project Name="App" TargetFramework="net10.0" Output="App">
               <FrameworkReference Include="Microsoft.AspNetCore.App" />
             </Project>
             """);
@@ -118,7 +118,7 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App">
+            <Project Name="App" TargetFramework="net10.0" Output="App">
               <FrameworkReference Include="Microsoft.AspNetCore.App" />
             </Project>
             """);
@@ -155,7 +155,7 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App">
+            <Project Name="App" TargetFramework="net10.0" Output="App">
               <FrameworkReference Include="Microsoft.AspNetCore.App" />
             </Project>
             """);
@@ -191,7 +191,7 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App">
+            <Project Name="App" TargetFramework="net10.0" Output="App">
               <FrameworkReference Include="Microsoft.AspNetCore.App" />
             </Project>
             """);
@@ -243,7 +243,7 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net9.0" Output="App">
+            <Project Name="App" TargetFramework="net10.0" Output="App">
               <FrameworkReference Include="Microsoft.AspNetCore.App" />
             </Project>
             """);

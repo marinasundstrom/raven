@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -8,7 +9,7 @@ public class TargetFrameworkMonikerTests
     [Fact]
     public void ToFrameworkString_converts_net_tfm()
     {
-        var full = TargetFrameworkMoniker.Parse("net9.0").ToFrameworkString();
+        var full = TargetFrameworkMoniker.Parse("net10.0").ToFrameworkString();
         Assert.Equal(".NETCoreApp,Version=v9.0", full);
     }
 
@@ -16,7 +17,7 @@ public class TargetFrameworkMonikerTests
     public void ToTfm_converts_full_string()
     {
         var tfm = TargetFrameworkMoniker.Parse(".NETCoreApp,Version=v9.0").ToTfm();
-        Assert.Equal("net9.0", tfm);
+        Assert.Equal("net10.0", tfm);
     }
 
     [Fact]
