@@ -1976,6 +1976,10 @@ internal abstract partial class Binder
 
         bool allSatisfied = true;
         var displayName = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        for (int i = 0; i < typeParameters.Length; i++)
+            substitutions[typeParameters[i]] = typeArguments[i];
 
         for (int i = 0; i < typeParameters.Length; i++)
         {
@@ -2011,10 +2015,11 @@ internal abstract partial class Binder
             {
                 foreach (var constraintType in typeParameter.ConstraintTypes)
                 {
-                    if (constraintType is IErrorTypeSymbol)
+                    var substitutedConstraint = SubstituteConstraintType(constraintType, substitutions);
+                    if (substitutedConstraint is IErrorTypeSymbol)
                         continue;
 
-                    if (constraintType is INamedTypeSymbol namedConstraint)
+                    if (substitutedConstraint is INamedTypeSymbol namedConstraint)
                     {
                         if (SemanticFacts.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
                             continue;
@@ -2025,10 +2030,10 @@ internal abstract partial class Binder
                         continue;
                     }
 
-                    if (SemanticFacts.SatisfiesTypeConstraint(typeArgument, constraintType))
+                    if (SemanticFacts.SatisfiesTypeConstraint(typeArgument, substitutedConstraint))
                         continue;
 
-                    var display = constraintType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    var display = substitutedConstraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
                     ReportConstraintViolation(typeArgument, display, typeParameter, displayName, getArgumentLocation(i));
                     allSatisfied = false;
                 }
@@ -2036,6 +2041,58 @@ internal abstract partial class Binder
         }
 
         return allSatisfied;
+    }
+
+    private static ITypeSymbol SubstituteConstraintType(
+        ITypeSymbol type,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol typeParameter:
+                return substitutions.TryGetValue(typeParameter, out var substitutedType)
+                    ? substitutedType
+                    : type;
+
+            case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+            {
+                var typeArguments = named.TypeArguments;
+                var rewritten = new ITypeSymbol[typeArguments.Length];
+                var changed = false;
+
+                for (int i = 0; i < typeArguments.Length; i++)
+                {
+                    var substitutedArg = SubstituteConstraintType(typeArguments[i], substitutions);
+                    rewritten[i] = substitutedArg;
+                    changed |= !ReferenceEquals(substitutedArg, typeArguments[i]);
+                }
+
+                if (!changed)
+                    return type;
+
+                var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
+                if (definition.Arity == rewritten.Length)
+                    return definition.Construct(rewritten);
+
+                return type;
+            }
+
+            case NullableTypeSymbol nullable:
+            {
+                var substitutedUnderlying = SubstituteConstraintType(nullable.UnderlyingType, substitutions);
+                if (ReferenceEquals(substitutedUnderlying, nullable.UnderlyingType))
+                    return type;
+
+                return new NullableTypeSymbol(
+                    substitutedUnderlying,
+                    nullable.ContainingSymbol,
+                    nullable.ContainingType,
+                    nullable.ContainingNamespace,
+                    nullable.Locations.ToArray());
+            }
+        }
+
+        return type;
     }
 
     private ITypeSymbol? ResolveGenericMember(INamespaceOrTypeSymbol container, GenericNameSyntax generic)

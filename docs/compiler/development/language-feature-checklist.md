@@ -4,6 +4,7 @@ Use this checklist to plan the work required for a new language feature. Each st
 relates to Raven's compiler architecture.
 
 ## 1. Shape the feature
+- **Core pipeline gate** — Explicitly check: `Tokens`, `Syntax nodes`, `Parser`, `Binders`, `Lowering`, `Code Gen`, `Operations API`, and language-service impacts before implementation starts.
 - **Design review** — Validate the feature against existing language goals and the specification. Consider this when the feature
   changes syntax or semantics in a way that might conflict with prior design principles.
 - **Feature flag or versioning strategy** — Decide whether the feature needs to be guarded behind a flag or staged rollout. Use

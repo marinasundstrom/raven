@@ -208,6 +208,18 @@ class Repository<TContext: class, IDisposable>
 }
 ```
 
+Constraints also enable static abstract interface member calls on type
+parameters. For example, parsing helpers can constrain `T` to `IParsable<T>` and
+invoke `T.Parse(...)` directly:
+
+```raven
+import System.*
+
+func Parse<T>(text: string) -> T
+    where T: IParsable<T>
+    => T.Parse(text, null)
+```
+
 #### Variance
 
 Interface declarations may annotate their type parameters with variance

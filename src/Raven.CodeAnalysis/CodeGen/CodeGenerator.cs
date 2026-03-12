@@ -25,6 +25,7 @@ internal class CodeGenerator
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<MemberBuilderCacheKey, MemberInfo> _constructedMappings = new Dictionary<MemberBuilderCacheKey, MemberInfo>();
     readonly Dictionary<RuntimeTypeParameterKey, Stack<Type>> _genericParameterMap = new();
+    readonly HashSet<GenericTypeParameterBuilder> _genericParameterConstraintsApplied = new();
     readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(ReferenceEqualityComparer.Instance);
     readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(ReferenceEqualityComparer.Instance);
 
@@ -122,6 +123,7 @@ internal class CodeGenerator
             return;
 
         var count = Math.Min(parameters.Length, builders.Length);
+        var applyConstraints = new bool[count];
 
         for (var i = 0; i < count; i++)
         {
@@ -129,7 +131,12 @@ internal class CodeGenerator
             var builder = builders[i];
             var stack = GetOrCreateGenericParameterStack(parameter);
             if (stack.Count == 0 || !ReferenceEquals(stack.Peek(), builder))
+            {
                 stack.Push(builder);
+                applyConstraints[i] = true;
+            }
+
+            applyConstraints[i] = _genericParameterConstraintsApplied.Add(builder);
 
             var owner = builder.DeclaringMethod is null ? "type" : "method";
             PrintDebug($"[CodeGen:TypeParam] Register generic parameter {parameter.Name} (ordinal={parameter.Ordinal}, symbolOwner={parameter.OwnerKind}) => {builder} (owner={owner}, isMethodParam={builder.IsGenericMethodParameter}, isTypeParam={builder.IsGenericTypeParameter})");
@@ -137,7 +144,8 @@ internal class CodeGenerator
 
         for (var i = 0; i < count; i++)
         {
-            ApplyGenericParameterConstraints(parameters[i], builders[i]);
+            if (applyConstraints[i])
+                ApplyGenericParameterConstraints(parameters[i], builders[i]);
         }
     }
 
@@ -197,15 +205,20 @@ internal class CodeGenerator
 
         Type? baseType = null;
         List<Type>? interfaces = null;
+        var seenConstraintTypes = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var constraintType in parameter.ConstraintTypes)
         {
+            if (!seenConstraintTypes.Add(constraintType))
+                continue;
+
             var constraintClrType = TypeSymbolExtensionsForCodeGen.GetClrType(constraintType, this);
 
             if (constraintClrType.IsInterface)
             {
                 interfaces ??= new List<Type>();
-                interfaces.Add(constraintClrType);
+                if (!interfaces.Contains(constraintClrType))
+                    interfaces.Add(constraintClrType);
             }
             else
             {

@@ -46,6 +46,32 @@ string.
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_OnConstrainedTypeParameter_ReturnsStaticConstraintMembers()
+    {
+        var code = """
+import System.*;
+
+func Parse<T>(text: string) -> T
+    where T: IParsable<T>
+{
+    T.
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Parse");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnVariable_ReturnsInstanceMembers()
     {
         var code = """

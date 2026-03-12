@@ -6477,11 +6477,18 @@ internal partial class ExpressionGenerator : Generator
 
         // Emit the actual call
         var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
+        var useConstrainedStaticInterfaceCall =
+            target.IsStatic &&
+            isInterfaceCall &&
+            receiverType is ITypeParameterSymbol;
 
         var targetMethodInfo = GetMethodInfo(target);
 
         if (target.IsStatic)
         {
+            if (useConstrainedStaticInterfaceCall && receiverType is not null)
+                ILGenerator.Emit(OpCodes.Constrained, ResolveClrType(receiverType));
+
             ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
         }
         else

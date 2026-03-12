@@ -377,7 +377,7 @@ partial class BlockBinder
                 boundExpr = BindExpression(arg.Expression);
             }
 
-            if (IsErrorExpression(boundExpr))
+            if (HasExpressionErrors(boundExpr))
                 hasErrors = true;
 
             var name = arg.NameColon?.Name.Identifier.ValueText;

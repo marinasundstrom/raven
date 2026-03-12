@@ -1,6 +1,8 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -125,5 +127,39 @@ class Formatter {
         var instance = Activator.CreateInstance(type)!;
         var value = (int?)method!.Invoke(instance, Array.Empty<object>());
         Assert.Equal(3, value);
+    }
+
+    [Fact]
+    public void StaticAbstractInterfaceCallOnTypeParameter_EmitsConstrainedPrefix()
+    {
+        const string code = """
+import System.*
+
+func Parse<T>(text: string) -> T
+    where T: IParsable<T>
+    => T.Parse(text, null)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("generic_static_abstract_call", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+
+        var type = loaded.Assembly.GetType("Program", true)!;
+        var parseMethod = type
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+            .Single(m => string.Equals(m.Name, "Parse", StringComparison.Ordinal));
+        var opcodes = ILReader.GetOpCodes(parseMethod);
+
+        Assert.Contains(opcodes, opcode => opcode == OpCodes.Constrained);
+
+        var typeParameter = parseMethod.GetGenericArguments().Single();
+        var constraints = typeParameter.GetGenericParameterConstraints();
+        Assert.Single(constraints);
     }
 }

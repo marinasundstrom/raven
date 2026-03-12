@@ -254,10 +254,19 @@ public static class CompletionProvider
 
         static bool IsTypeAccessSymbol(ISymbol? symbol, ITypeSymbol? type)
         {
-            if (symbol is not INamedTypeSymbol)
-                return false;
+            return symbol switch
+            {
+                INamedTypeSymbol or ITypeParameterSymbol => type is not null && SymbolEqualityComparer.Default.Equals(symbol, type),
+                _ => false
+            };
+        }
 
-            return type is not null && SymbolEqualityComparer.Default.Equals(symbol, type);
+        static ITypeSymbol? TryGetTypeAccessSymbol(ISymbol? symbol, ITypeSymbol? type)
+        {
+            if (IsTypeAccessSymbol(symbol, type) && symbol is ITypeSymbol symbolType)
+                return symbolType;
+
+            return null;
         }
 
         static IEnumerable<ISymbol> GetTypeMembersIncludingBase(ITypeSymbol type, bool includeStatic) =>
@@ -344,6 +353,53 @@ public static class CompletionProvider
                 return true;
 
             return type is { TypeKind: TypeKind.Error };
+        }
+
+        IEnumerable<ISymbol> GetTypeAccessMembers(ITypeSymbol typeAccessSymbol)
+        {
+            if (typeAccessSymbol is INamedTypeSymbol namedType)
+            {
+                var staticMembers = namedType.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
+                return namedType is IDiscriminatedUnionSymbol union
+                    ? staticMembers.Concat(union.Cases.Where(IsAccessible))
+                    : staticMembers;
+            }
+
+            if (typeAccessSymbol is not ITypeParameterSymbol typeParameter)
+                return Array.Empty<ISymbol>();
+
+            var members = new List<ISymbol>();
+            var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+            var visitedTypeParameters = new HashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+
+            void AddConstraintMembers(ITypeSymbol constraintType)
+            {
+                if (constraintType is INamedTypeSymbol namedConstraint)
+                {
+                    foreach (var member in namedConstraint.GetMembers())
+                    {
+                        if (!member.IsStatic || !IsAccessible(member) || !seen.Add(member))
+                            continue;
+
+                        members.Add(member);
+                    }
+
+                    return;
+                }
+
+                if (constraintType is ITypeParameterSymbol nestedTypeParameter &&
+                    visitedTypeParameters.Add(nestedTypeParameter))
+                {
+                    foreach (var nestedConstraint in nestedTypeParameter.ConstraintTypes)
+                        AddConstraintMembers(nestedConstraint);
+                }
+            }
+
+            visitedTypeParameters.Add(typeParameter);
+            foreach (var constraintType in typeParameter.ConstraintTypes)
+                AddConstraintMembers(constraintType);
+
+            return members;
         }
 
         ITypeSymbol? TryGetExplicitlyAnnotatedType(ISymbol? symbol)
@@ -1008,13 +1064,9 @@ public static class CompletionProvider
                 {
                     members = ns.GetMembers().Where(IsAccessible);
                 }
-                else if (IsTypeAccessSymbol(symbol, type))
+                else if (TryGetTypeAccessSymbol(symbol, type) is { } typeAccessSymbol)
                 {
-                    var typeSymbol = (INamedTypeSymbol)symbol!;
-                    var staticMembers = typeSymbol.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
-                    members = typeSymbol is IDiscriminatedUnionSymbol union
-                        ? staticMembers.Concat(union.Cases.Where(IsAccessible))
-                        : staticMembers;
+                    members = GetTypeAccessMembers(typeAccessSymbol);
                 }
                 else if (type is ITypeSymbol instanceType)
                 {
@@ -1147,14 +1199,11 @@ public static class CompletionProvider
                     // Namespace or namespace alias: list its public members
                     members = ns.GetMembers().Where(IsAccessible);
                 }
-                else if (IsTypeAccessSymbol(symbol, type))
+                else if (TryGetTypeAccessSymbol(symbol, type) is { } typeAccessSymbol)
                 {
-                    var typeSymbol = (INamedTypeSymbol)symbol!;
-                    // Accessing a type name: show static members
-                    var staticMembers = typeSymbol.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
-                    members = typeSymbol is IDiscriminatedUnionSymbol union
-                        ? staticMembers.Concat(union.Cases.Where(IsAccessible))
-                        : staticMembers;
+                    // Accessing a type-like receiver (named type or constrained type parameter):
+                    // show static members.
+                    members = GetTypeAccessMembers(typeAccessSymbol);
                 }
                 else if (type is ITypeSymbol instanceType)
                 {

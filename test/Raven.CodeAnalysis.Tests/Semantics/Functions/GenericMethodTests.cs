@@ -123,4 +123,56 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
         Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
     }
+
+    [Fact]
+    public void GenericMethodInvocation_WhereClauseSelfConstraint_AllowsExplicitTypeArgument()
+    {
+        var source = """
+            import System.*
+
+            func Parse<T>(text: string) -> T
+                where T: IParsable<T>
+                => T.Parse(text, null)
+
+            func Main() -> int
+            {
+                return Parse<int>("42");
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void GenericConstraintFailure_DoesNotCascadeToAmbiguousOverload()
+    {
+        var source = """
+            import System.*
+            import System.Console.*
+
+            func Main() -> ()
+            {
+                val r = Parse<bool?>("42")
+                WriteLine(r)
+            }
+
+            func Parse<T>(text: string) -> T
+                where T: notnull
+                => throw InvalidOperationException()
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+    }
 }
