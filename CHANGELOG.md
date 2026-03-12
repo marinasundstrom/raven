@@ -17,6 +17,7 @@ Impact:
 - Null-assignment diagnostics were tightened and message quality improved (clearer assignment errors and hint formatting).
 - Static interface member resolution and generic constraint checks were corrected for `IParsable<T>`-style flows.
 - Cascade behavior after failed generic binding was reduced to avoid misleading downstream errors.
+- Generic method calls with explicit type arguments now follow C# more closely by skipping extra method-type inference passes for later lambda arguments, and overload reporting suppresses more downstream cascades when an argument already carries an error type.
 - Several binder/codegen regression fixes landed (including interpolation/object-dumper/runtime sample paths).
 - Hover/signature display for promoted primary-constructor parameters now preserves binding keyword semantics (`val`/`var`) when the parameter maps to a property.
 - Compiler projects were retargeted from `net10.0` to `net10.0` (including build scripts/default framework switches).

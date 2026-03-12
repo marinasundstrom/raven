@@ -1921,15 +1921,12 @@ partial class BlockBinder
         }
     }
 
-    private static bool HasLambdaBodyBindingErrors(IEnumerable<BoundArgument> arguments)
+    private static bool HasArgumentBindingErrors(IEnumerable<BoundArgument> arguments)
     {
         foreach (var argument in arguments)
         {
-            if (argument.Expression is BoundFunctionExpression lambda &&
-                HasFunctionExpressionErrors(lambda))
-            {
+            if (HasExpressionErrors(argument.Expression))
                 return true;
-            }
         }
 
         return false;

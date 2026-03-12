@@ -15,7 +15,7 @@ Source file:
 From this folder:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- HelloWorld.ravenproj
+dotnet run -f net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- HelloWorld.ravenproj
 ```
 
 ## Run

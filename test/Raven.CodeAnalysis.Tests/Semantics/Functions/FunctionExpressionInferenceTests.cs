@@ -1107,6 +1107,34 @@ func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
     }
 
     [Fact]
+    public void GenericFunction_WithExplicitTypeArguments_AndActionLambda_DoesNotRequireFurtherInference()
+    {
+        const string source = """
+import System.*
+
+class Container {
+    static func Create<T>(handler: Action<T>) -> unit { }
+
+    static func Main() -> unit {
+        Create<int>(value => {})
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambda = tree.GetRoot().DescendantNodes().OfType<SimpleFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
+        var parameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+    }
+
+    [Fact]
     public void GenericFunction_ToDictionary_WithTwoLambdas_InfersTypeParameters()
     {
         const string source = """

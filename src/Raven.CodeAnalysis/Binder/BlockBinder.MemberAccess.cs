@@ -96,7 +96,7 @@ partial class BlockBinder
         if (hasErrors || methodGroup.Receiver is { } receiver && IsErrorExpression(receiver))
         {
             ReportSuppressedLambdaDiagnostics(boundArguments);
-            if (!HasLambdaBodyBindingErrors(boundArguments) &&
+            if (!HasArgumentBindingErrors(boundArguments) &&
                 !HasExistingArgumentErrors(syntax.ArgumentList.Arguments))
             {
                 _diagnostics.ReportNoOverloadForMethod("method", methodGroup.Methods[0].Name, boundArguments.Length, syntax.GetLocation());
@@ -208,7 +208,7 @@ partial class BlockBinder
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
-        if (!HasLambdaBodyBindingErrors(boundArguments) &&
+        if (!HasArgumentBindingErrors(boundArguments) &&
             !HasExistingArgumentErrors(syntax.ArgumentList.Arguments))
             _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);

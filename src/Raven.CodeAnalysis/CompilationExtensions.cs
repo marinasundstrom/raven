@@ -33,9 +33,10 @@ public static class CompilationExtensions
             var current = root;
             foreach (var part in parts)
             {
-                current = current.GetMembers(part)
-                    .OfType<INamespaceSymbol>()
-                    .FirstOrDefault();
+                current = current.LookupNamespace(part)
+                    ?? current.GetMembers(part)
+                        .OfType<INamespaceSymbol>()
+                        .FirstOrDefault();
 
                 if (current is null)
                     return null;

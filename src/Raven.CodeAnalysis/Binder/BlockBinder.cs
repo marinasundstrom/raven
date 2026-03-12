@@ -799,7 +799,7 @@ partial class BlockBinder : Binder
         // Collection literals are target-type-sensitive. Reusing a cached node can
         // apply a previous context (for example, inferred array) in a later binding
         // that has an explicit target type.
-        var skipCache = syntax is CollectionExpressionSyntax;
+        var skipCache = syntax is CollectionExpressionSyntax or FunctionExpressionSyntax;
 
         if (!skipCache && TryGetCachedBoundNode(syntax) is BoundExpression cached)
             return cached;
@@ -7507,7 +7507,7 @@ partial class BlockBinder : Binder
                 if (!AreArgumentsCompatibleWithMethod(invokeMethod, boundArguments.Length, receiver, boundArguments))
                 {
                     ReportSuppressedLambdaDiagnostics(boundArguments);
-                    if (!HasLambdaBodyBindingErrors(boundArguments) &&
+                    if (!HasArgumentBindingErrors(boundArguments) &&
                         !HasExistingArgumentErrors(argumentList.Arguments))
                         _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
                     return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
@@ -7601,7 +7601,7 @@ partial class BlockBinder : Binder
                 }
 
                 ReportSuppressedLambdaDiagnostics(boundArguments);
-                if (!HasLambdaBodyBindingErrors(boundArguments) &&
+                if (!HasArgumentBindingErrors(boundArguments) &&
                     !HasExistingArgumentErrors(argumentList.Arguments))
                 {
                     if (!ReportTypeArgumentConstraintFailureIfPresent(resolution, callSyntax.GetLocation()))
@@ -7681,7 +7681,7 @@ partial class BlockBinder : Binder
             }
 
             ReportSuppressedLambdaDiagnostics(boundArguments);
-            if (!HasLambdaBodyBindingErrors(boundArguments) &&
+            if (!HasArgumentBindingErrors(boundArguments) &&
                 !HasExistingArgumentErrors(argumentList.Arguments))
             {
                 if (!ReportTypeArgumentConstraintFailureIfPresent(resolution, callSyntax.GetLocation()))
@@ -7735,7 +7735,7 @@ partial class BlockBinder : Binder
             }
 
             ReportSuppressedLambdaDiagnostics(boundArguments);
-            if (!HasLambdaBodyBindingErrors(boundArguments) &&
+            if (!HasArgumentBindingErrors(boundArguments) &&
                 !HasExistingArgumentErrors(argumentList.Arguments))
             {
                 if (!ReportTypeArgumentConstraintFailureIfPresent(resolution, callSyntax.GetLocation()))

@@ -284,6 +284,29 @@ internal sealed class OverloadResolver
         if (explicitTypeArguments.Length > arity)
             return null;
 
+        // When the call provides every method type argument explicitly, C# treats the method
+        // as fully constructed before checking argument applicability. Do not keep inferring
+        // from later arguments (especially lambdas), because metadata delegate signatures like
+        // Action<T> can surface void/unit normalization differences that are not type-inference failures.
+        if (explicitTypeArguments.Length == arity)
+        {
+            var finalExplicitArgs = new ITypeSymbol[arity];
+            for (int i = 0; i < arity; i++)
+            {
+                var normalized = NormalizeType(explicitTypeArguments[i]);
+                if (normalized.TypeKind == TypeKind.Error)
+                    return null;
+
+                finalExplicitArgs[i] = normalized;
+            }
+
+            var immutableExplicitArgs = ImmutableArray.CreateRange(finalExplicitArgs);
+            if (!SatisfiesMethodConstraints(method, immutableExplicitArgs, out constraintFailure))
+                return null;
+
+            return method.Construct(finalExplicitArgs);
+        }
+
         // Right-align explicit args to the last type parameters.
         var fixedArgs = new ITypeSymbol?[arity];
         var offset = arity - explicitTypeArguments.Length;

@@ -894,7 +894,6 @@ internal abstract partial class Binder
             if (!includePartialMatches && name is not null && member.Name != name)
                 continue;
 
-            var str = member.ToDisplayString();
             yield return member;
         }
 
@@ -2055,41 +2054,41 @@ internal abstract partial class Binder
                     : type;
 
             case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
-            {
-                var typeArguments = named.TypeArguments;
-                var rewritten = new ITypeSymbol[typeArguments.Length];
-                var changed = false;
-
-                for (int i = 0; i < typeArguments.Length; i++)
                 {
-                    var substitutedArg = SubstituteConstraintType(typeArguments[i], substitutions);
-                    rewritten[i] = substitutedArg;
-                    changed |= !ReferenceEquals(substitutedArg, typeArguments[i]);
+                    var typeArguments = named.TypeArguments;
+                    var rewritten = new ITypeSymbol[typeArguments.Length];
+                    var changed = false;
+
+                    for (int i = 0; i < typeArguments.Length; i++)
+                    {
+                        var substitutedArg = SubstituteConstraintType(typeArguments[i], substitutions);
+                        rewritten[i] = substitutedArg;
+                        changed |= !ReferenceEquals(substitutedArg, typeArguments[i]);
+                    }
+
+                    if (!changed)
+                        return type;
+
+                    var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
+                    if (definition.Arity == rewritten.Length)
+                        return definition.Construct(rewritten);
+
+                    return type;
                 }
 
-                if (!changed)
-                    return type;
-
-                var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
-                if (definition.Arity == rewritten.Length)
-                    return definition.Construct(rewritten);
-
-                return type;
-            }
-
             case NullableTypeSymbol nullable:
-            {
-                var substitutedUnderlying = SubstituteConstraintType(nullable.UnderlyingType, substitutions);
-                if (ReferenceEquals(substitutedUnderlying, nullable.UnderlyingType))
-                    return type;
+                {
+                    var substitutedUnderlying = SubstituteConstraintType(nullable.UnderlyingType, substitutions);
+                    if (ReferenceEquals(substitutedUnderlying, nullable.UnderlyingType))
+                        return type;
 
-                return new NullableTypeSymbol(
-                    substitutedUnderlying,
-                    nullable.ContainingSymbol,
-                    nullable.ContainingType,
-                    nullable.ContainingNamespace,
-                    nullable.Locations.ToArray());
-            }
+                    return new NullableTypeSymbol(
+                        substitutedUnderlying,
+                        nullable.ContainingSymbol,
+                        nullable.ContainingType,
+                        nullable.ContainingNamespace,
+                        nullable.Locations.ToArray());
+                }
         }
 
         return type;

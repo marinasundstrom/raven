@@ -1,8 +1,18 @@
 import System.*
 import System.Console.*
+import System.Reactive.*
 
 func Main() -> Result<(), ApplicationError> {
-     Ok(())
+    val observer = Observer.Create<int>(value => {
+        WriteLine(value)
+    })
+
+    observer.OnNext(1)
+    observer.OnNext(2)
+    observer.OnNext(3)
+    observer.OnCompleted()
+
+    Ok(())
 }
 
 record ApplicationError(val Message: string)
