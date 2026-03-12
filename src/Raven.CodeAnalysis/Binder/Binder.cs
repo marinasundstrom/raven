@@ -869,11 +869,6 @@ internal abstract partial class Binder
                     foreach (var method in EnumerateExtensionMethods(typeMember, name, includePartialMatches))
                         yield return method;
                 }
-                else if (member is INamespaceSymbol nestedNs)
-                {
-                    foreach (var method in EnumerateExtensionMethods(nestedNs, name, includePartialMatches))
-                        yield return method;
-                }
             }
 
             yield break;
@@ -916,11 +911,6 @@ internal abstract partial class Binder
                 if (member is INamedTypeSymbol typeMember)
                 {
                     foreach (var method in EnumerateExtensionStaticMethods(typeMember, name, includePartialMatches))
-                        yield return method;
-                }
-                else if (member is INamespaceSymbol nestedNs)
-                {
-                    foreach (var method in EnumerateExtensionStaticMethods(nestedNs, name, includePartialMatches))
                         yield return method;
                 }
             }
@@ -970,11 +960,6 @@ internal abstract partial class Binder
                     foreach (var property in EnumerateExtensionProperties(typeMember, name, includePartialMatches))
                         yield return property;
                 }
-                else if (member is INamespaceSymbol nestedNs)
-                {
-                    foreach (var property in EnumerateExtensionProperties(nestedNs, name, includePartialMatches))
-                        yield return property;
-                }
             }
 
             yield break;
@@ -1017,11 +1002,6 @@ internal abstract partial class Binder
                 if (member is INamedTypeSymbol typeMember)
                 {
                     foreach (var property in EnumerateExtensionStaticProperties(typeMember, name, includePartialMatches))
-                        yield return property;
-                }
-                else if (member is INamespaceSymbol nestedNs)
-                {
-                    foreach (var property in EnumerateExtensionStaticProperties(nestedNs, name, includePartialMatches))
                         yield return property;
                 }
             }

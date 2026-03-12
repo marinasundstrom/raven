@@ -1,16 +1,25 @@
 import System.*
 import System.Console.*
 import System.Reactive.*
+import System.Reactive.Subjects.*
+import System.Reactive.Linq.*
 
 func Main() -> Result<(), ApplicationError> {
-    val observer = Observer.Create<int>(value => {
-        WriteLine(value)
-    })
+    val source = Subject<int>()
 
-    observer.OnNext(1)
-    observer.OnNext(2)
-    observer.OnNext(3)
-    observer.OnCompleted()
+    val query = source
+        |> Where(x => x > 1)
+
+    val subscription = query.Subscribe(value => {
+            WriteLine(value)
+        })
+
+    source.OnNext(1)
+    source.OnNext(2)
+    source.OnNext(3)
+    source.OnCompleted()
+
+    subscription.Dispose()
 
     Ok(())
 }

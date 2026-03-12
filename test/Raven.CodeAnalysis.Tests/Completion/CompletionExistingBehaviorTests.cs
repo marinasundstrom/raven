@@ -176,6 +176,37 @@ factory.Create().
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_DoesNotIncludeExtensionsFromNestedNamespaces()
+    {
+        var code = """
+import System.*
+import System.Collections.Generic.*
+
+val numbers = new List<int>();
+numbers.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default
+            .Concat([
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            ])
+            .ToArray();
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("numbers.", StringComparison.Ordinal) + "numbers.".Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Add");
+        Assert.DoesNotContain(items, i => i.DisplayText == "Where");
+    }
+
+    [Fact]
     public void GetCompletions_OnMethodMemberAccess_ApplyingCompletionProducesExpectedText()
     {
         var code = """

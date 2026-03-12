@@ -111,5 +111,6 @@ static func Main() -> unit {
         Assert.Contains(items, item => item.DisplayText == "OnNext");
         Assert.Contains(items, item => item.DisplayText == "OnCompleted");
         Assert.DoesNotContain(items, item => item.DisplayText == "const");
+        Assert.DoesNotContain(items, item => item.DisplayText == "Subscribe");
     }
 }
