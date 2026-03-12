@@ -19,7 +19,14 @@ public sealed class SingleStatementBlockBodyAnalyzer : DiagnosticAnalyzer
     {
         context.RegisterSyntaxNodeAction(AnalyzeMethodDeclaration, SyntaxKind.MethodDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeFunctionStatement, SyntaxKind.FunctionStatement);
-        context.RegisterSyntaxNodeAction(AnalyzeAccessorDeclaration, SyntaxKind.AccessorDeclaration);
+        context.RegisterSyntaxNodeAction(
+            AnalyzeAccessorDeclaration,
+            SyntaxKind.AccessorDeclaration,
+            SyntaxKind.GetAccessorDeclaration,
+            SyntaxKind.SetAccessorDeclaration,
+            SyntaxKind.InitAccessorDeclaration,
+            SyntaxKind.AddAccessorDeclaration,
+            SyntaxKind.RemoveAccessorDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeConstructorDeclaration, SyntaxKind.ConstructorDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeOperatorDeclaration, SyntaxKind.OperatorDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeConversionOperatorDeclaration, SyntaxKind.ConversionOperatorDeclaration);
@@ -36,7 +43,7 @@ public sealed class SingleStatementBlockBodyAnalyzer : DiagnosticAnalyzer
         if (!TryGetConvertibleExpression(method.Body, out _))
             return;
 
-        context.ReportDiagnostic(Diagnostic.Create(Descriptor, method.Body.GetLocation()));
+        context.ReportDiagnostic(Diagnostic.Create(Descriptor, method.Identifier.GetLocation()));
     }
 
     private static void AnalyzeFunctionStatement(SyntaxNodeAnalysisContext context)
@@ -50,7 +57,7 @@ public sealed class SingleStatementBlockBodyAnalyzer : DiagnosticAnalyzer
         if (!TryGetConvertibleExpression(function.Body, out _))
             return;
 
-        context.ReportDiagnostic(Diagnostic.Create(Descriptor, function.Body.GetLocation()));
+        context.ReportDiagnostic(Diagnostic.Create(Descriptor, function.Identifier.GetLocation()));
     }
 
     private static void AnalyzeAccessorDeclaration(SyntaxNodeAnalysisContext context)
@@ -64,7 +71,7 @@ public sealed class SingleStatementBlockBodyAnalyzer : DiagnosticAnalyzer
         if (!TryGetConvertibleExpression(accessor.Body, out _))
             return;
 
-        context.ReportDiagnostic(Diagnostic.Create(Descriptor, accessor.Body.GetLocation()));
+        context.ReportDiagnostic(Diagnostic.Create(Descriptor, accessor.Keyword.GetLocation()));
     }
 
     private static void AnalyzeConstructorDeclaration(SyntaxNodeAnalysisContext context)

@@ -21,7 +21,7 @@ class C {
             [
                 new DiagnosticResult(SingleStatementBlockBodyAnalyzer.DiagnosticId)
                     .WithSeverity(DiagnosticSeverity.Info)
-                    .WithLocation(2, 23)
+                    .WithLocation(2, 10)
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -42,7 +42,7 @@ func Get() -> int {
             [
                 new DiagnosticResult(SingleStatementBlockBodyAnalyzer.DiagnosticId)
                     .WithSeverity(DiagnosticSeverity.Info)
-                    .WithLocation(1, 19)
+                    .WithLocation(1, 6)
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -81,6 +81,31 @@ class C {
         var verifier = CreateAnalyzerVerifier<SingleStatementBlockBodyAnalyzer>(
             code,
             [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PropertyAccessor_WithSingleReturnStatement_ReportsDiagnosticOnAccessorKeyword()
+    {
+        const string code = """
+class C {
+    val Value: int {
+        get {
+            return 42
+        }
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<SingleStatementBlockBodyAnalyzer>(
+            code,
+            [
+                new DiagnosticResult(SingleStatementBlockBodyAnalyzer.DiagnosticId)
+                    .WithSeverity(DiagnosticSeverity.Info)
+                    .WithLocation(3, 9)
+            ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();

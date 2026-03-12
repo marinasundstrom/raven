@@ -25,7 +25,8 @@ public sealed class SingleStatementBlockBodyCodeFixProvider : CodeFixProvider
         if (root is null)
             return;
 
-        var block = root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BlockStatementSyntax>();
+        var anchorNode = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
+        var block = TryGetBodyBlock(anchorNode) ?? anchorNode.FirstAncestorOrSelf<BlockStatementSyntax>();
         if (block is null)
             return;
 
@@ -38,5 +39,24 @@ public sealed class SingleStatementBlockBodyCodeFixProvider : CodeFixProvider
                 "Convert to expression body",
                 context.Document.Id,
                 change));
+    }
+
+    private static BlockStatementSyntax? TryGetBodyBlock(SyntaxNode node)
+    {
+        return node switch
+        {
+            MethodDeclarationSyntax method => method.Body,
+            FunctionStatementSyntax function => function.Body,
+            AccessorDeclarationSyntax accessor => accessor.Body,
+            ConstructorDeclarationSyntax constructor => constructor.Body,
+            OperatorDeclarationSyntax op => op.Body,
+            ConversionOperatorDeclarationSyntax conversion => conversion.Body,
+            _ => node.FirstAncestorOrSelf<MethodDeclarationSyntax>()?.Body
+                ?? node.FirstAncestorOrSelf<FunctionStatementSyntax>()?.Body
+                ?? node.FirstAncestorOrSelf<AccessorDeclarationSyntax>()?.Body
+                ?? node.FirstAncestorOrSelf<ConstructorDeclarationSyntax>()?.Body
+                ?? node.FirstAncestorOrSelf<OperatorDeclarationSyntax>()?.Body
+                ?? node.FirstAncestorOrSelf<ConversionOperatorDeclarationSyntax>()?.Body
+        };
     }
 }
