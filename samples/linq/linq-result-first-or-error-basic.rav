@@ -1,6 +1,7 @@
 import System.*
 import System.Console.*
 import System.Collections.Generic.*
+import System.Linq.*
 
 // Feature: LINQ `FirstOrError` extension in its simplest form.
 val pendingShipments = [101, 202, 303]
