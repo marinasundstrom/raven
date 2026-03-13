@@ -49,7 +49,7 @@ internal class Program
         Console.CancelKeyPress += HandleCancelKeyPress;
 
         var filePath = args.Length > 0 ? args[0] : string.Empty;
-        var documentName = string.IsNullOrEmpty(filePath) ? "main.rav" : Path.GetFileName(filePath);
+        var documentName = string.IsNullOrEmpty(filePath) ? $"main{RavenFileExtensions.Raven}" : Path.GetFileName(filePath);
         var text = File.Exists(filePath)
             ? File.ReadAllText(filePath)
             : "import System.Console.*\n\nWriteLine(\"Hello, World!\")\n";

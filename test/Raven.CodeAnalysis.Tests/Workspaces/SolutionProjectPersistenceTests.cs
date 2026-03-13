@@ -34,15 +34,15 @@ public class SolutionProjectPersistenceTests
 
         var libProj = ws.CurrentSolution.GetProject(libId)!;
         var appProj = ws.CurrentSolution.GetProject(appId)!;
-        libProj.AddDocument("Lib.rav", SourceText.From("fn add(a:int,b:int)=a+b"), "Lib.rav");
-        var appDoc = appProj.AddDocument("Program.rav", SourceText.From("System.Console.WriteLine(\"Hi\");"), "Program.rav");
+        libProj.AddDocument("Lib.rvn", SourceText.From("fn add(a:int,b:int)=a+b"), "Lib.rvn");
+        var appDoc = appProj.AddDocument("Program.rvn", SourceText.From("System.Console.WriteLine(\"Hi\");"), "Program.rvn");
         var sol = appDoc.Project.Solution.AddProjectReference(appId, new ProjectReference(libId));
         ws.TryApplyChanges(sol);
 
         var solutionPath = Path.Combine(dir, "App.ravensln");
         ws.SaveSolution(solutionPath);
 
-        var programPath = Path.Combine(dir, "Program.rav");
+        var programPath = Path.Combine(dir, "Program.rvn");
         Assert.True(File.Exists(programPath));
         Assert.Contains("WriteLine", File.ReadAllText(programPath));
 
@@ -56,7 +56,7 @@ public class SolutionProjectPersistenceTests
         Assert.Single(app2.ProjectReferences);
         Assert.Equal(lib2.Id, app2.ProjectReferences.Single().ProjectId);
         var doc2 = app2.Documents.Single();
-        Assert.Equal("Program.rav", doc2.Name);
+        Assert.Equal("Program.rvn", doc2.Name);
         Assert.Equal(programPath, doc2.FilePath);
         var text = doc2.GetTextAsync().Result.ToString();
         Assert.Contains("WriteLine", text);
@@ -82,12 +82,12 @@ public class SolutionProjectPersistenceTests
         var projectId = ProjectId.CreateNew(solution.Id);
         solution = solution.AddProject(projectId, "App");
         var docId = DocumentId.CreateNew(projectId);
-        solution = solution.AddDocument(docId, "Program.rav", SourceText.From("print"));
+        solution = solution.AddDocument(docId, "Program.rvn", SourceText.From("print"));
         ws.TryApplyChanges(solution);
         var doc = ws.CurrentSolution.GetDocument(docId)!;
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(dir);
-        var path = Path.Combine(dir, "Program.rav");
+        var path = Path.Combine(dir, "Program.rvn");
         doc.SaveDocument(path);
         Assert.True(File.Exists(path));
         Assert.Contains("print", File.ReadAllText(path));
@@ -101,14 +101,14 @@ public class SolutionProjectPersistenceTests
         var projectId = ProjectId.CreateNew(solution.Id);
         solution = solution.AddProject(projectId, "App");
         var docId = DocumentId.CreateNew(projectId);
-        solution = solution.AddDocument(docId, "Program.rav", SourceText.From("print"));
+        solution = solution.AddDocument(docId, "Program.rvn", SourceText.From("print"));
         ws.TryApplyChanges(solution);
 
         var raven = ws.ToRavenWorkspace();
         var proj = raven.CurrentSolution.Projects.Single();
         Assert.Equal("App", proj.Name);
         Assert.Single(proj.Documents);
-        Assert.Equal("Program.rav", proj.Documents.Single().Name);
+        Assert.Equal("Program.rvn", proj.Documents.Single().Name);
     }
 
     [Fact]

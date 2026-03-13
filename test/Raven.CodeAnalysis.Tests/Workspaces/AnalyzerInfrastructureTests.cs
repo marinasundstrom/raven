@@ -77,7 +77,7 @@ public class AnalyzerInfrastructureTests
 
         var docId = DocumentId.CreateNew(projectId);
         var initial = SourceText.From("\"unterminated");
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", initial);
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", initial);
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -107,7 +107,7 @@ public class AnalyzerInfrastructureTests
         workspace.TryApplyChanges(solutionWithProject);
 
         var docId = DocumentId.CreateNew(projectId);
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From("TODO"));
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("TODO"));
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -136,7 +136,7 @@ class C {
 
 func F() -> unit { }
 """;
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From(code));
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;

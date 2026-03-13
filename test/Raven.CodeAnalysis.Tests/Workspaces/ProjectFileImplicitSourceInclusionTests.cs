@@ -19,10 +19,10 @@ public sealed class ProjectFileImplicitSourceInclusionTests
             var srcDir = Path.Combine(root, "src");
             Directory.CreateDirectory(srcDir);
 
-            var includedMain = Path.Combine(srcDir, "main.rav");
-            var includedNested = Path.Combine(srcDir, "nested", "feature.rav");
-            var excludedObj = Path.Combine(root, "obj", "generated.rav");
-            var excludedBin = Path.Combine(root, "bin", "artifact.rav");
+            var includedMain = Path.Combine(srcDir, "main.rvn");
+            var includedNested = Path.Combine(srcDir, "nested", "feature.rvn");
+            var excludedObj = Path.Combine(root, "obj", "generated.rvn");
+            var excludedBin = Path.Combine(root, "bin", "artifact.rvn");
 
             Directory.CreateDirectory(Path.GetDirectoryName(includedNested)!);
             Directory.CreateDirectory(Path.GetDirectoryName(excludedObj)!);
@@ -65,7 +65,7 @@ public sealed class ProjectFileImplicitSourceInclusionTests
 
         try
         {
-            var sourcePath = Path.Combine(root, "main.rav");
+            var sourcePath = Path.Combine(root, "main.rvn");
             File.WriteAllText(sourcePath, "func Main() { }\n");
 
             var projectPath = Path.Combine(root, "App.ravenproj");
@@ -93,8 +93,8 @@ public sealed class ProjectFileImplicitSourceInclusionTests
 
         try
         {
-            var includedPath = Path.Combine(root, "main.rav");
-            var extraPath = Path.Combine(root, "extra.rav");
+            var includedPath = Path.Combine(root, "main.rvn");
+            var extraPath = Path.Combine(root, "extra.rvn");
             File.WriteAllText(includedPath, "func Main() { }\n");
             File.WriteAllText(extraPath, "func Extra() { }\n");
 
@@ -103,7 +103,7 @@ public sealed class ProjectFileImplicitSourceInclusionTests
                 projectPath,
                 """
 <Project Name="App" Output="App" EnableDefaultRavItems="true">
-  <Document Path="main.rav" />
+  <Document Path="main.rvn" />
 </Project>
 """);
 

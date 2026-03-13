@@ -40,7 +40,7 @@ public class DiagnosticOptionsTests
             .WithSpecificDiagnosticOption(TodoAnalyzer.Descriptor.Id, ReportDiagnostic.Error);
         var projectId = workspace.AddProject("Test", compilationOptions: options);
         var docId = DocumentId.CreateNew(projectId);
-        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From("TODO")));
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("TODO")));
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
         project = project.AddAnalyzerReference(new AnalyzerReference(new TodoAnalyzer()));
@@ -61,7 +61,7 @@ public class DiagnosticOptionsTests
             .WithSpecificDiagnosticOption("RAV1010", ReportDiagnostic.Suppress);
         var projectId = workspace.AddProject("Test", compilationOptions: options);
         var docId = DocumentId.CreateNew(projectId);
-        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From("\"unterminated")));
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("\"unterminated")));
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
         foreach (var reference in TestMetadataReferences.Default)
@@ -80,7 +80,7 @@ public class DiagnosticOptionsTests
             .WithRunAnalyzers(false);
         var projectId = workspace.AddProject("Test", compilationOptions: options);
         var docId = DocumentId.CreateNew(projectId);
-        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From("TODO \"unterminated")));
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("TODO \"unterminated")));
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
         project = project.AddAnalyzerReference(new AnalyzerReference(new TodoAnalyzer()));
@@ -101,7 +101,7 @@ public class DiagnosticOptionsTests
             .WithSpecificDiagnosticOption("RAV1010", ReportDiagnostic.Suppress);
         var projectId = workspace.AddProject("Test", compilationOptions: options);
         var docId = DocumentId.CreateNew(projectId);
-        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From("\"unterminated")));
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("\"unterminated")));
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
         foreach (var reference in TestMetadataReferences.Default)
@@ -121,7 +121,7 @@ public class DiagnosticOptionsTests
             .WithSpecificDiagnosticOption(NonNullDeclarationsAnalyzer.DiagnosticId, ReportDiagnostic.Error);
         var projectId = workspace.AddProject("Test", compilationOptions: options);
         var docId = DocumentId.CreateNew(projectId);
-        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From(
             """
 func Test() {
     var value: int? = null
@@ -148,7 +148,7 @@ func Test() {
         try
         {
             var projectPath = Path.Combine(dir, "App.ravenproj");
-            var sourcePath = Path.Combine(dir, "main.rav");
+            var sourcePath = Path.Combine(dir, "main.rvn");
             var editorConfigPath = Path.Combine(dir, ".editorconfig");
 
             File.WriteAllText(sourcePath,
@@ -166,7 +166,7 @@ func Main() {
             File.WriteAllText(projectPath,
                 """
 <Project Name="App" TargetFramework="net10.0" Output="App">
-  <Document Path="main.rav" />
+  <Document Path="main.rvn" />
 </Project>
 """);
 
@@ -174,7 +174,7 @@ func Main() {
                 """
 root = true
 
-[*.rav]
+[*.rvn]
 dotnet_diagnostic.RAV9012.severity = none
 dotnet_diagnostic.RAV9013.severity = none
 dotnet_diagnostic.RAV9014.severity = none
@@ -213,21 +213,21 @@ dotnet_diagnostic.RAV9014.severity = none
         try
         {
             var projectPath = Path.Combine(dir, "App.ravenproj");
-            var sourcePath = Path.Combine(dir, "main.rav");
+            var sourcePath = Path.Combine(dir, "main.rvn");
             var editorConfigPath = Path.Combine(dir, ".editorconfig");
 
             File.WriteAllText(sourcePath, "TODO");
             File.WriteAllText(projectPath,
                 """
 <Project Name="App" TargetFramework="net10.0" Output="App">
-  <Document Path="main.rav" />
+  <Document Path="main.rvn" />
 </Project>
 """);
             File.WriteAllText(editorConfigPath,
                 """
 root = true
 
-[*.rav]
+[*.rvn]
 dotnet_analyzer_diagnostic.severity = none
 """);
 

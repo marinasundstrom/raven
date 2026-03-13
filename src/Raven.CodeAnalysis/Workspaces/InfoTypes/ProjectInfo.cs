@@ -68,5 +68,8 @@ public sealed class ProjectInfo
     public ProjectInfo WithAnalyzerReferences(IEnumerable<AnalyzerReference> analyzerReferences) =>
         new(Attributes, Documents, ProjectReferences, MetadataReferences, analyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
 
+    public ProjectInfo WithTargetFramework(string? targetFramework) =>
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, AnalyzerReferences, FilePath, targetFramework, CompilationOptions, AssemblyName);
+
     public sealed record ProjectAttributes(ProjectId Id, string Name, VersionStamp Version);
 }

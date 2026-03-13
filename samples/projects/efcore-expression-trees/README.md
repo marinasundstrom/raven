@@ -1,17 +1,17 @@
-# EF Core Expression Trees (.ravenproj)
+# EF Core Expression Trees (.rvnproj)
 
 This sample is a progress target for Raven expression-tree support with EF Core overlap.
 
 Project file:
 
-- `EfCoreExpressionTrees.ravenproj`
+- `EfCoreExpressionTrees.rvnproj`
 - Package references:
   - `Microsoft.EntityFrameworkCore` `9.0.0`
   - `Microsoft.EntityFrameworkCore.InMemory` `9.0.0`
 
 Source file:
 
-- `src/main.rav`
+- `src/main.rvn`
 
 What it exercises:
 
@@ -26,7 +26,7 @@ What it exercises:
 From this folder:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- EfCoreExpressionTrees.ravenproj
+dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- EfCoreExpressionTrees.rvnproj
 ```
 
 ## Run

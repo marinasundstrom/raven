@@ -32,7 +32,7 @@ public sealed class ProjectFileNuGetReferenceTests
         Directory.CreateDirectory(Path.GetDirectoryName(packageAssemblyPath)!);
         File.Copy(typeof(object).Assembly.Location, packageAssemblyPath, overwrite: true);
 
-        var sourcePath = Path.Combine(sourceDir, "main.rav");
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
         File.WriteAllText(sourcePath, "System.Console.WriteLine(\"hi\")");
 
         var projectPath = Path.Combine(projectDir, "App.ravenproj");
@@ -51,7 +51,7 @@ public sealed class ProjectFileNuGetReferenceTests
             var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
             var projectId = workspace.OpenProject(projectPath);
             var project = workspace.CurrentSolution.GetProject(projectId)!;
-            Assert.Contains(project.Documents, static d => string.Equals(d.Name, "main.rav", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(project.Documents, static d => string.Equals(d.Name, "main.rvn", StringComparison.OrdinalIgnoreCase));
 
             Assert.Contains(
                 project.MetadataReferences.OfType<PortableExecutableReference>(),
@@ -73,7 +73,7 @@ public sealed class ProjectFileNuGetReferenceTests
         Directory.CreateDirectory(projectDir);
         Directory.CreateDirectory(sourceDir);
 
-        var sourcePath = Path.Combine(sourceDir, "main.rav");
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
         File.WriteAllText(sourcePath, "System.Console.WriteLine(\"hi\")");
 
         var projectPath = Path.Combine(projectDir, "App.ravenproj");
@@ -104,7 +104,7 @@ public sealed class ProjectFileNuGetReferenceTests
         Directory.CreateDirectory(projectDir);
         Directory.CreateDirectory(sourceDir);
 
-        var sourcePath = Path.Combine(sourceDir, "main.rav");
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
         File.WriteAllText(
             sourcePath,
             """
@@ -141,7 +141,7 @@ public sealed class ProjectFileNuGetReferenceTests
         Directory.CreateDirectory(projectDir);
         Directory.CreateDirectory(sourceDir);
 
-        var sourcePath = Path.Combine(sourceDir, "main.rav");
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
         File.WriteAllText(
             sourcePath,
             """
@@ -177,7 +177,7 @@ public sealed class ProjectFileNuGetReferenceTests
         Directory.CreateDirectory(projectDir);
         Directory.CreateDirectory(sourceDir);
 
-        var sourcePath = Path.Combine(sourceDir, "main.rav");
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
         File.WriteAllText(
             sourcePath,
             """
@@ -215,7 +215,7 @@ public sealed class ProjectFileNuGetReferenceTests
         Directory.CreateDirectory(projectDir);
         Directory.CreateDirectory(sourceDir);
 
-        var sourcePath = Path.Combine(sourceDir, "main.rav");
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
         File.WriteAllText(
             sourcePath,
             """

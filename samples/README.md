@@ -6,7 +6,7 @@
 2. Compile from the sample directory with:
 
    ```
-   dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <file>.rav -o <file>.dll
+   dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <file>.rvn -o <file>.dll
    ```
 
    Use the relative path for nested samples (for example, `dotnet run --project ../src/Raven.Compiler  --property WarningLevel=0 -- async/async-await.rav -o async-await.dll`).
@@ -52,7 +52,7 @@ Feature-based categorization for promoting samples into proper cases:
 
 ## Project Samples
 
-For `.ravenproj` + NuGet restore/cache behavior, see:
+For `.rvnproj` + NuGet restore/cache behavior, see:
 
 - `samples/projects/nuget-demo/README.md`
 - `samples/projects/aspnet-minimal-api/README.md`

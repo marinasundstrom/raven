@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Xml.Linq;
 
 using Microsoft.Extensions.Logging;
 
@@ -102,7 +101,8 @@ internal sealed class WorkspaceManager
         if (!stack.Add(normalizedProjectPath))
             throw new InvalidOperationException($"Detected cyclic project references involving '{normalizedProjectPath}'.");
 
-        foreach (var referencedProjectPath in EnumerateProjectReferences(normalizedProjectPath))
+        foreach (var referencedProjectPath in projectSystem.GetProjectReferencePaths(normalizedProjectPath)
+                     .Where(projectSystem.CanOpenProject))
             _ = OpenProjectWithReferences(referencedProjectPath, projectSystem, loadedProjects, stack);
 
         var projectId = projectSystem.OpenProject(_workspace, normalizedProjectPath);
@@ -160,50 +160,18 @@ internal sealed class WorkspaceManager
         }
     }
 
-    private static IEnumerable<string> EnumerateProjectReferences(string projectFilePath)
-    {
-        var projectDirectory = Path.GetDirectoryName(projectFilePath);
-        if (string.IsNullOrWhiteSpace(projectDirectory))
-            yield break;
-
-        XDocument document;
-        try
-        {
-            document = XDocument.Load(projectFilePath);
-        }
-        catch
-        {
-            yield break;
-        }
-
-        var root = document.Root;
-        if (root is null)
-            yield break;
-
-        foreach (var element in root.Elements("ProjectReference"))
-        {
-            var relativePath = (string?)element.Attribute("Path");
-            if (string.IsNullOrWhiteSpace(relativePath))
-                continue;
-
-            var fullPath = Path.IsPathRooted(relativePath)
-                ? relativePath
-                : Path.GetFullPath(Path.Combine(projectDirectory, relativePath));
-
-            if (!File.Exists(fullPath))
-                continue;
-
-            yield return fullPath;
-        }
-    }
-
     private string? TryFindRootProjectFile(string root)
     {
         if (!Directory.Exists(root))
             return null;
 
+        var projectSystem = _workspace.Services.ProjectSystemService;
+        if (projectSystem is null)
+            return null;
+
         var candidates = Directory
-            .EnumerateFiles(root, "*.ravenproj", SearchOption.TopDirectoryOnly)
+            .EnumerateFiles(root, "*.*proj", SearchOption.TopDirectoryOnly)
+            .Where(projectSystem.CanOpenProject)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -233,7 +201,7 @@ internal sealed class WorkspaceManager
     {
         var sourceText = SourceText.From(text);
         var filePath = uri.GetFileSystemPath();
-        var name = Path.GetFileName(filePath) ?? filePath ?? "document.rav";
+        var name = Path.GetFileName(filePath) ?? filePath ?? $"document{RavenFileExtensions.Raven}";
 
         lock (_gate)
         {

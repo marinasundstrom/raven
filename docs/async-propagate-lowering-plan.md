@@ -99,7 +99,7 @@ Validation performed:
 - Built the compiler and core analysis projects directly:
   - `dotnet build src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj --property WarningLevel=0`
   - `dotnet build src/Raven.Compiler/Raven.Compiler.csproj --property WarningLevel=0`
-- Exercised the repro samples through `ravc`:
+- Exercised the repro samples through `rvn`:
   - `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- samples/async/async-result-propagation-error-path.rav`
   - `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- samples/async/async-result-propagation-using-success.rav`
 

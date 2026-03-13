@@ -4,8 +4,8 @@ This sample shows a temporary integration where a C# project imports a target fi
 
 Files:
 
-- `src/raven/RavenGreeter.ravenproj` - Raven project producing `RavenGreeter.dll`
-- `src/raven/main.rav` - Raven code consumed from C#
+- `src/raven/RavenGreeter.rvnproj` - Raven project producing `RavenGreeter.dll`
+- `src/raven/main.rvn` - Raven code consumed from C#
 - `src/csharp/Host.csproj` - C# host project importing `build/Raven.MSBuild.targets`
 - `src/csharp/Program.cs` - Loads `RavenGreeter.dll` and invokes `Greeter.Message()` via reflection
 
@@ -27,7 +27,7 @@ Hello from Raven via MSBuild integration
 
 `build/Raven.MSBuild.targets` adds a `BuildRavenProject` target that runs before `ResolveReferences`:
 
-1. Compiles the configured `.ravenproj` using `Raven.Compiler`
+1. Compiles the configured `.rvnproj` using `Raven.Compiler`
 2. Writes output into `$(IntermediateOutputPath)raven\`
 3. Injects the produced Raven DLL as a `<Reference>` for the C# compilation
 
@@ -40,4 +40,4 @@ Current limitation:
 
 ## Building Raven project separately
 
-`dotnet run --project ../../../../../src/Raven.Compiler --property WarningLevel=0 -- RavenGreeter.ravenproj`
+`dotnet run --project ../../../../../src/Raven.Compiler --property WarningLevel=0 -- RavenGreeter.rvnproj`

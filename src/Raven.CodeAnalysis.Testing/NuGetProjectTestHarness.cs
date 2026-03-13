@@ -63,7 +63,7 @@ public sealed class NuGetProjectTestHarness : IDisposable
         CompilationOptions? compilationOptions = null,
         string? targetFramework = null,
         string projectName = "TestProject",
-        string documentPath = "src/main.rav")
+        string documentPath = "src/main.rvn")
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(packageReferences);
@@ -77,7 +77,7 @@ public sealed class NuGetProjectTestHarness : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(fullDocumentPath)!);
         File.WriteAllText(fullDocumentPath, source, Encoding.UTF8);
 
-        var projectFilePath = Path.Combine(rootDirectory, $"{projectName}.ravenproj");
+        var projectFilePath = Path.Combine(rootDirectory, $"{projectName}{RavenFileExtensions.Project}");
         var projectElement = new XElement(
             "Project",
             new XAttribute("Name", projectName),

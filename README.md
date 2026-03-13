@@ -131,7 +131,7 @@ Compile and run a sample case:
 
 ```bash
 dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
-  samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-sample.dll --run
+  samples/cases/quote-summary-linq-result-option.rvn -o /tmp/raven-sample.dll --run
 ```
 
 Useful debug flags:
@@ -153,10 +153,10 @@ mkdir hello-raven
 cd hello-raven
 
 # Create a project scaffold (default type: app)
-dotnet run --project ../src/Raven.Compiler -- init
+rvn init
 
 # Build (project files default output to ./bin)
-dotnet run --project ../src/Raven.Compiler -- *.ravenproj
+rvn *.rvnproj
 
 # Run the produced assembly
 dotnet bin/Hello.dll
@@ -165,7 +165,7 @@ dotnet bin/Hello.dll
 Create a class library scaffold instead:
 
 ```bash
-dotnet run --project ../src/Raven.Compiler -- init --type classlib --name MyLibrary
+rvn init --type classlib --name MyLibrary
 ```
 
 Project-system and NuGet details:
@@ -200,7 +200,7 @@ Options:
 - `--symbols [list|hierarchy]` &ndash; inspect source symbols (`list` dumps properties, `hierarchy` prints the tree)
 - `-h`, `--help` &ndash; show help
 
-`ravc` references `Raven.Core.dll` by default. Use `--raven-core` to point to a different build of Raven.Core, or `--emit-core-types-only` to embed shimmed core types instead of referencing the DLL.
+`rvn` references `Raven.Core.dll` by default. Use `--raven-core` to point to a different build of Raven.Core, or `--emit-core-types-only` to embed shimmed core types instead of referencing the DLL.
 
 Creating a `.debug/` directory in the current or parent folder causes the
 compiler to emit per-file dumps (syntax tree, highlighted syntax, raw source,
@@ -221,7 +221,7 @@ When a file path is supplied, the editor opens the file and displays its name in
 
 The Raven VS Code extension now supports F5 compile-and-debug for both single files and project files:
 
-- `.rav` active file
+- `.rvn` active file
 - `.ravenproj` project
 
 Repository launch presets are included in [`.vscode/launch.json`](.vscode/launch.json):

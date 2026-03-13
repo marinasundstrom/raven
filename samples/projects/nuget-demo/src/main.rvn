@@ -1,3 +1,3 @@
-var message = "NuGet package restore through .ravenproj works"
+var message = "NuGet package restore through .rvnproj works"
 var json = Newtonsoft.Json.JsonConvert.SerializeObject(message)
 System.Console.WriteLine(json)

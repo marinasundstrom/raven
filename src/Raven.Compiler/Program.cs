@@ -379,8 +379,7 @@ if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentation
     documentationFormat = DocumentationFormat.Markdown;
 }
 
-var inputMayBeProjectFile = sourceFiles.Count == 1 &&
-                            string.Equals(Path.GetExtension(sourceFiles[0]), ".ravenproj", StringComparison.OrdinalIgnoreCase);
+var inputMayBeProjectFile = sourceFiles.Count == 1 && IsRavenProjectFile(sourceFiles[0]);
 
 if (run && outputKind != OutputKind.ConsoleApplication && !inputMayBeProjectFile)
 {
@@ -406,6 +405,9 @@ static bool IsValidAssemblyReference(string path)
         return false;
     }
 }
+
+static bool IsRavenProjectFile(string path)
+    => RavenFileExtensions.HasProjectExtension(path);
 
 static bool IsAssemblyCompatibleWithTargetFramework(string path, TargetFrameworkMoniker targetFramework)
 {
@@ -482,7 +484,7 @@ for (int i = 0; i < sourceFiles.Count; i++)
 }
 
 var projectFileInput = sourceFiles.Count == 1 &&
-                       string.Equals(Path.GetExtension(sourceFiles[0]), ".ravenproj", StringComparison.OrdinalIgnoreCase)
+                       IsRavenProjectFile(sourceFiles[0])
     ? sourceFiles[0]
     : null;
 
@@ -1026,7 +1028,7 @@ if (debugDir is not null)
         var root = syntaxTree.GetRoot();
         var name = Path.GetFileNameWithoutExtension(document.FilePath) ?? document.Name;
 
-        File.WriteAllText(Path.Combine(debugDir, $"{name}.raw.rav"), root.ToFullString());
+        File.WriteAllText(Path.Combine(debugDir, $"{name}.raw{RavenFileExtensions.Raven}"), root.ToFullString());
 
         var treeText = root.GetSyntaxTreeRepresentation(new PrinterOptions
         {
@@ -1646,8 +1648,8 @@ static IEnumerable<string> GetDotNetRootsForDependencyCopy()
 
 static void PrintHelp()
 {
-    Console.WriteLine("Usage: ravenc [options] <source-files|project-file.ravenproj>");
-    Console.WriteLine("       ravenc init [--name <project-name>] [--framework <tfm>] [--force]");
+    Console.WriteLine("Usage: rvn [options] <source-files|project-file.rvnproj>");
+    Console.WriteLine("       rvn init [--name <project-name>] [--framework <tfm>] [--force]");
     Console.WriteLine();
     Console.WriteLine("Options:");
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
@@ -1670,8 +1672,8 @@ static void PrintHelp()
     Console.WriteLine("  --no-runtime-async");
     Console.WriteLine("                     Disable runtime-async metadata emission (auto-enabled for net11+)");
     Console.WriteLine("  -o <path>          Output path.");
-    Console.WriteLine("                     For .rav inputs: output assembly path.");
-    Console.WriteLine("                     For .ravenproj inputs: output directory path (default: <project-dir>/bin/<Configuration>).");
+    Console.WriteLine("                     For Raven source-file inputs (.rvn, legacy .rav): output assembly path.");
+    Console.WriteLine("                     For Raven project-file inputs (.rvnproj, legacy .ravenproj): output directory path (default: <project-dir>/bin/<Configuration>).");
     Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");
     Console.WriteLine("                     Use 'group' to display syntax lists grouped by property.");
     Console.WriteLine("  -ps                Print the parsing sequence");
@@ -1694,7 +1696,7 @@ static void PrintHelp()
     Console.WriteLine("  --suggestions    Display educational rewrite suggestions for diagnostics that provide them");
     Console.WriteLine("  -q, --quote        Display AST as compilable C# code.");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
-    Console.WriteLine("  --publish        Emit runtime artifacts; for .ravenproj defaults output to <project-dir>/bin/<Configuration>/publish");
+    Console.WriteLine("  --publish        Emit runtime artifacts; for Raven project-file inputs defaults output to <project-dir>/bin/<Configuration>/publish");
     Console.WriteLine("  --fix            Apply supported code fixes to source files before compiling");
     Console.WriteLine("  --format         Normalize whitespace and indentation in source files before compiling");
     Console.WriteLine("  --doc-tool [ravendoc|comments]");
@@ -1708,7 +1710,7 @@ static void PrintHelp()
     Console.WriteLine("  -h, --help         Display help");
     Console.WriteLine();
     Console.WriteLine("Init command:");
-    Console.WriteLine("  init              Create a .ravenproj project scaffold in the current directory.");
+    Console.WriteLine("  init              Create a .rvnproj project scaffold in the current directory.");
     Console.WriteLine("  init --name <name>");
     Console.WriteLine("                    Override the generated project/assembly name.");
     Console.WriteLine("  init --framework <tfm>");
@@ -1836,15 +1838,11 @@ static int RunInitCommand(string[] args)
     var cwd = Directory.GetCurrentDirectory();
     var fallbackName = Path.GetFileName(cwd.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
     var projectName = SanitizeProjectName(string.IsNullOrWhiteSpace(name) ? fallbackName : name!);
-    var projectFilePath = Path.Combine(cwd, $"{projectName}.ravenproj");
+    var projectFilePath = Path.Combine(cwd, $"{projectName}{RavenFileExtensions.Project}");
     var srcDir = Path.Combine(cwd, "src");
-    var mainSourcePath = Path.Combine(srcDir, "main.rav");
+    var mainSourcePath = Path.Combine(srcDir, $"main{RavenFileExtensions.Raven}");
     var binDir = Path.Combine(cwd, "bin");
     var binGitkeep = Path.Combine(binDir, ".gitkeep");
-    var outputKind = isClassLibrary
-        ? OutputKind.DynamicallyLinkedLibrary
-        : OutputKind.ConsoleApplication;
-
     if (!force)
     {
         var existing = new[] { projectFilePath, mainSourcePath, binGitkeep }.Where(File.Exists).ToArray();
@@ -1861,8 +1859,17 @@ static int RunInitCommand(string[] args)
     Directory.CreateDirectory(srcDir);
     Directory.CreateDirectory(binDir);
 
+    var outputType = isClassLibrary ? "Library" : "Exe";
     var projectXml = $"""
-                      <Project Name="{projectName}" TargetFramework="{framework}" Output="{projectName}" OutputKind="{outputKind}">
+                      <Project Sdk="Microsoft.NET.Sdk">
+                        <PropertyGroup>
+                          <TargetFramework>{framework}</TargetFramework>
+                          <AssemblyName>{projectName}</AssemblyName>
+                          <OutputType>{outputType}</OutputType>
+                        </PropertyGroup>
+                        <ItemGroup>
+                          <RavenCompile Include="src/**/*{RavenFileExtensions.Raven}" />
+                        </ItemGroup>
                       </Project>
                       """;
     File.WriteAllText(projectFilePath, projectXml + Environment.NewLine);
@@ -1880,24 +1887,24 @@ static int RunInitCommand(string[] args)
     AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(projectFilePath)}[/]");
     AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(mainSourcePath)}[/]");
     AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(binGitkeep)}[/]");
-    AnsiConsole.MarkupLine("[grey]Compile with: ravenc ./" + Markup.Escape(Path.GetFileName(projectFilePath)) + " -o bin/" + Markup.Escape(projectName) + ".dll[/]");
+    AnsiConsole.MarkupLine("[grey]Compile with: rvn ./" + Markup.Escape(Path.GetFileName(projectFilePath)) + " -o bin/" + Markup.Escape(projectName) + ".dll[/]");
 
     return 0;
 }
 
 static void PrintInitHelp()
 {
-    Console.WriteLine("Usage: ravenc init [--name <project-name>] [--framework <tfm>] [--type <app|classlib>] [--force]");
+    Console.WriteLine("Usage: rvn init [--name <project-name>] [--framework <tfm>] [--type <app|classlib>] [--force]");
     Console.WriteLine();
     Console.WriteLine("Creates a Raven project scaffold in the current directory:");
-    Console.WriteLine("  - <project-name>.ravenproj");
-    Console.WriteLine("  - src/main.rav");
+    Console.WriteLine("  - <project-name>.rvnproj");
+    Console.WriteLine("  - src/main.rvn");
     Console.WriteLine("  - bin/.gitkeep");
     Console.WriteLine();
     Console.WriteLine("Options:");
     Console.WriteLine("  --name <project-name>      Override generated project/assembly name.");
     Console.WriteLine("  --framework <tfm>          Set TargetFramework (default: latest installed).");
-    Console.WriteLine("  --type <app|classlib>      Set OutputKind (default: app).");
+    Console.WriteLine("  --type <app|classlib>      Set MSBuild OutputType (default: app).");
     Console.WriteLine("  --force                    Overwrite scaffold files.");
 }
 

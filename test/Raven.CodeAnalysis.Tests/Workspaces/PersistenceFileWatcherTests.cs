@@ -22,7 +22,7 @@ public class PersistenceFileWatcherTests
             var projectId = workspace.AddProject("Test", filePath: Path.Combine(dir, "Test.ravenproj"));
             using var watcher = workspace.EnableFileWatching();
 
-            var file = Path.Combine(dir, "main.rav");
+            var file = Path.Combine(dir, "main.rvn");
             File.WriteAllText(file, "print 1");
 
             Assert.True(SpinWait.SpinUntil(() =>

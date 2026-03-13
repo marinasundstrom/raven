@@ -20,7 +20,7 @@ The `src/Raven.Core` project builds directly from the Raven sources in
 
 Because this target runs before the rest of the build, `dotnet build Raven.sln`
 produces `Raven.Core.dll` automatically and keeps it in sync with the compiler.
-You can still override the reference with `ravc --raven-core <path>` when
+You can still override the reference with `rvn --raven-core <path>` when
 compiling standalone projects.
 
 ## Types included in Raven.Core

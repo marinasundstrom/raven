@@ -304,7 +304,7 @@ WriteLine(result)
         try
         {
             var succeeded = IlVerifyRunner.Verify(null, assemblyPath, compilation);
-            Assert.True(succeeded, "IL verification failed. Run ravenc --ilverify for detailed output.");
+            Assert.True(succeeded, "IL verification failed. Run rvn --ilverify for detailed output.");
         }
         finally
         {
@@ -338,7 +338,7 @@ WriteLine(result)
         try
         {
             var succeeded = IlVerifyRunner.Verify(null, assemblyPath, compilation);
-            Assert.True(succeeded, "IL verification failed for try-await expression. Run ravenc --ilverify for detailed output.");
+            Assert.True(succeeded, "IL verification failed for try-await expression. Run rvn --ilverify for detailed output.");
         }
         finally
         {
@@ -361,7 +361,7 @@ WriteLine(result)
         try
         {
             var succeeded = IlVerifyRunner.Verify(null, assemblyPath, compilation);
-            Assert.True(succeeded, "IL verification failed for nested try-await expression. Run ravenc --ilverify for detailed output.");
+            Assert.True(succeeded, "IL verification failed for nested try-await expression. Run rvn --ilverify for detailed output.");
         }
         finally
         {
@@ -384,7 +384,7 @@ WriteLine(result)
         try
         {
             var succeeded = IlVerifyRunner.Verify(null, assemblyPath, compilation);
-            Assert.True(succeeded, "IL verification failed for using try-await expression. Run ravenc --ilverify for detailed output.");
+            Assert.True(succeeded, "IL verification failed for using try-await expression. Run rvn --ilverify for detailed output.");
         }
         finally
         {
@@ -1139,7 +1139,7 @@ WriteLine(result)
                 WorkingDirectory = repoRoot
             };
 
-            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start ravenc."))
+            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start rvn."))
             {
                 var compilerStdOut = compilerProcess.StandardOutput.ReadToEnd();
                 var compilerStdErr = compilerProcess.StandardError.ReadToEnd();
@@ -1147,9 +1147,9 @@ WriteLine(result)
 
                 if (compilerProcess.ExitCode != 0)
                 {
-                    _output.WriteLine("ravenc stdout:");
+                    _output.WriteLine("rvn stdout:");
                     _output.WriteLine(compilerStdOut);
-                    _output.WriteLine("ravenc stderr:");
+                    _output.WriteLine("rvn stderr:");
                     _output.WriteLine(compilerStdErr);
                 }
 
@@ -1217,7 +1217,7 @@ WriteLine(result)
                 WorkingDirectory = repoRoot
             };
 
-            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start ravenc."))
+            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start rvn."))
             {
                 var compilerStdOut = compilerProcess.StandardOutput.ReadToEnd();
                 var compilerStdErr = compilerProcess.StandardError.ReadToEnd();
@@ -1225,9 +1225,9 @@ WriteLine(result)
 
                 if (compilerProcess.ExitCode != 0)
                 {
-                    _output.WriteLine("ravenc stdout:");
+                    _output.WriteLine("rvn stdout:");
                     _output.WriteLine(compilerStdOut);
-                    _output.WriteLine("ravenc stderr:");
+                    _output.WriteLine("rvn stderr:");
                     _output.WriteLine(compilerStdErr);
                 }
 
@@ -1299,7 +1299,7 @@ WriteLine(result)
                 WorkingDirectory = repoRoot
             };
 
-            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start ravenc."))
+            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start rvn."))
             {
                 var compilerStdOut = compilerProcess.StandardOutput.ReadToEnd();
                 var compilerStdErr = compilerProcess.StandardError.ReadToEnd();
@@ -1307,9 +1307,9 @@ WriteLine(result)
 
                 if (compilerProcess.ExitCode != 0)
                 {
-                    _output.WriteLine("ravenc stdout:");
+                    _output.WriteLine("rvn stdout:");
                     _output.WriteLine(compilerStdOut);
-                    _output.WriteLine("ravenc stderr:");
+                    _output.WriteLine("rvn stderr:");
                     _output.WriteLine(compilerStdErr);
                 }
 

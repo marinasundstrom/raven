@@ -22,7 +22,9 @@ class Program
             path = Path.Combine("../../..", path);
         }
 
-        var files = Directory.GetFiles(path, "*.rav").Where(x => !x.Contains("generic-math-error.rav"));
+        var files = RavenFileExtensions.All
+            .SelectMany(ext => Directory.GetFiles(path, $"*{ext}"))
+            .Where(x => !x.Contains($"generic-math-error{RavenFileExtensions.LegacyRaven}", StringComparison.OrdinalIgnoreCase));
 
         foreach (var file in files)
         {
@@ -36,7 +38,8 @@ class Program
             path = Path.Combine("../../..", path);
         }
 
-        var files2 = Directory.GetFiles(path, "*.rav");
+        var files2 = RavenFileExtensions.All
+            .SelectMany(ext => Directory.GetFiles(path, $"*{ext}"));
 
         foreach (var file in files2)
         {

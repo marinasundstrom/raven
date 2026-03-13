@@ -13,7 +13,7 @@ public sealed class RavenProjectOutputDeterminismTests
         {
             var projectName = "DeterministicProject";
             var projectPath = Path.Combine(tempRoot, $"{projectName}.ravenproj");
-            var sourcePath = Path.Combine(tempRoot, "main.rav");
+            var sourcePath = Path.Combine(tempRoot, "main.rvn");
             File.WriteAllText(projectPath, $$"""
                                           <Project Name="{{projectName}}" TargetFramework="net10.0" Output="{{projectName}}" OutputKind="ConsoleApplication">
                                           </Project>
@@ -48,7 +48,7 @@ public sealed class RavenProjectOutputDeterminismTests
         {
             var projectName = "DeterministicProject";
             var projectPath = Path.Combine(tempRoot, $"{projectName}.ravenproj");
-            var sourcePath = Path.Combine(tempRoot, "main.rav");
+            var sourcePath = Path.Combine(tempRoot, "main.rvn");
             File.WriteAllText(projectPath, $$"""
                                           <Project Name="{{projectName}}" TargetFramework="net10.0" Output="{{projectName}}" OutputKind="ConsoleApplication">
                                           </Project>
@@ -73,8 +73,8 @@ public sealed class RavenProjectOutputDeterminismTests
     private static (int ExitCode, string StdOut, string StdErr) RunCompiler(string projectPath, string outputPath)
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        var compilerProjectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
-        var args = $"run --framework net10.0 --project \"{compilerProjectPath}\" --property WarningLevel=0 -- \"{projectPath}\" -o \"{outputPath}\" --framework net10.0";
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot);
+        var args = $"\"{compilerDllPath}\" \"{projectPath}\" -o \"{outputPath}\" --framework net10.0";
 
         var startInfo = new ProcessStartInfo("dotnet", args)
         {
@@ -122,6 +122,29 @@ public sealed class RavenProjectOutputDeterminismTests
         var stdout = stdoutBuilder.ToString();
         var stderr = stderrBuilder.ToString();
         return (process.ExitCode, stdout, stderr);
+    }
+
+    private static string EnsureCompilerBuilt(string repoRoot)
+    {
+        var compilerProjectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+        var buildArgs = $"build \"{compilerProjectPath}\" --framework net10.0 /property:WarningLevel=0";
+        var startInfo = new ProcessStartInfo("dotnet", buildArgs)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            WorkingDirectory = repoRoot
+        };
+
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start dotnet process.");
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        Assert.True(process.ExitCode == 0, $"Failed to build rvn CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}");
+
+        var compilerDllPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "bin", "Debug", "net10.0", "rvn.dll");
+        Assert.True(File.Exists(compilerDllPath), $"Expected compiler output at '{compilerDllPath}'.");
+        return compilerDllPath;
     }
 
     private static string CreateTempDirectory()

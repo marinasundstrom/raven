@@ -15,7 +15,7 @@ internal static class SolutionFile
         Directory.CreateDirectory(dir);
         var projects = solution.Projects.Select(p =>
         {
-            var projectPath = p.FilePath ?? Path.Combine(dir, $"{p.Name}.ravenproj");
+            var projectPath = p.FilePath ?? Path.Combine(dir, $"{p.Name}{RavenFileExtensions.Project}");
             ProjectFile.Save(p, projectPath);
             var relative = Path.GetRelativePath(dir, projectPath);
             return new XElement("Project", new XAttribute("Path", relative));

@@ -8,10 +8,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-12**.
 - Expanded Operations API coverage for newer language constructs and bound nodes.
 - Added targeted sample coverage around generic parsing with static interface constraints.
 - Added style analyzer + code fix to convert expression-bodied members to block-bodied form.
+- Added an MSBuild-backed Raven project-system service so workspaces can open SDK-style project files with `RavenCompile` items and traverse `ProjectReference` through the project-system abstraction.
 
 Impact:
 - Compiler API consumers can inspect more semantics directly.
 - Regressions in generic-constraint scenarios are easier to catch with samples.
+- Raven workspace consumers are no longer limited to the custom `.ravenproj` file format.
 
 ### Changed
 - Null-assignment diagnostics were tightened and message quality improved (clearer assignment errors and hint formatting).
@@ -21,6 +23,7 @@ Impact:
 - Several binder/codegen regression fixes landed (including interpolation/object-dumper/runtime sample paths).
 - Hover/signature display for promoted primary-constructor parameters now preserves binding keyword semantics (`val`/`var`) when the parameter maps to a property.
 - Compiler projects were retargeted from `net10.0` to `net10.0` (including build scripts/default framework switches).
+- The primary Raven CLI command name is now `rvn`, and project scaffolding/help now advertise SDK-style `.rvnproj` files.
 
 Impact:
 - Fewer false diagnostics and better first-error quality.

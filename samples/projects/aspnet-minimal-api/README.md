@@ -1,22 +1,22 @@
-# ASP.NET Core Minimal API (.ravenproj)
+# ASP.NET Core Minimal API (.rvnproj)
 
 This sample shows a Raven project targeting an ASP.NET Core Minimal API endpoint.
 
 Project file:
 
-- `AspNetMinimalApi.ravenproj`
+- `AspNetMinimalApi.rvnproj`
 - Framework reference: `Microsoft.AspNetCore.App`
 
 Source file:
 
-- `src/main.rav`
+- `src/main.rvn`
 
 ## Build
 
 From this folder:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- AspNetMinimalApi.ravenproj --run
+dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- AspNetMinimalApi.rvnproj --run
 ```
 
 This emits output to `bin/` by default for project builds.

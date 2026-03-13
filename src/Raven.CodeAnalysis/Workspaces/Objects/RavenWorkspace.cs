@@ -24,7 +24,9 @@ public sealed class RavenWorkspace : Workspace
             new HostServices(
                 new SyntaxTreeProvider(),
                 new PersistenceService(),
-                projectSystemService ?? new RavenProjectSystemService()))
+                projectSystemService ?? new CompositeProjectSystemService(
+                    new RavenProjectSystemService(),
+                    new MsBuildProjectSystemService())))
     {
         _sdkVersion = sdkVersion;
         _defaultTargetFramework = defaultTargetFramework;
@@ -77,13 +79,19 @@ public sealed class RavenWorkspace : Workspace
     /// <summary>
     /// Adds a new project to the workspace.
     /// </summary>
-    public ProjectId AddProject(string name, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
+    public ProjectId AddProject(
+        string name,
+        string? filePath = null,
+        string? assemblyName = null,
+        CompilationOptions? compilationOptions = null,
+        string? targetFramework = null)
     {
         var options = compilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication);
 
         var solution = CurrentSolution;
         var projectId = ProjectId.CreateNew(solution.Id);
         solution = solution.AddProject(projectId, name, filePath, assemblyName, options);
+        solution = solution.WithTargetFramework(projectId, targetFramework);
         TryApplyChanges(solution);
         return projectId;
     }

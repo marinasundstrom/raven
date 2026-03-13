@@ -1,7 +1,7 @@
-# NuGet + .ravenproj sample
+# NuGet + .rvnproj sample
 
-This sample uses a Raven project file (`NuGetDemo.ravenproj`) at the sample root, with source in `src/` and outputs in `bin/`.
-It relies on implicit source inclusion, so all `*.rav` files under this folder are included automatically.
+This sample uses a Raven project file (`NuGetDemo.rvnproj`) at the sample root, with source in `src/` and outputs in `bin/`.
+It includes Raven source via `RavenCompile`, using the preferred `*.rvn` extension under this folder.
 
 The project file contains a NuGet package reference:
 
@@ -15,7 +15,7 @@ If the package is missing, Raven triggers restore and then loads references from
 From this folder (`samples/projects/nuget-demo`):
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- NuGetDemo.ravenproj
+dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- NuGetDemo.rvnproj
 ```
 
 Optional run step:

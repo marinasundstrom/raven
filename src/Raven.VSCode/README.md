@@ -1,8 +1,10 @@
 # Raven VS Code Extension
 
-This extension wires VS Code to the `Raven.LanguageServer` project via the Language Server Protocol (LSP). It provides document synchronization and diagnostics for `.rav` files and is designed to run alongside the Raven workspace.
+This extension wires VS Code to the `Raven.LanguageServer` project via the Language Server Protocol (LSP). It provides document synchronization and diagnostics for `.rvn` files (with legacy `.rav` compatibility) and is designed to run alongside the Raven workspace.
 
-It also adds Raven debug integration: F5 can compile and launch either a single `.rav` file or a `.ravenproj` project by invoking `Raven.Compiler` and then debugging the emitted DLL with the C# debugger.
+It also adds Raven debug integration: F5 can compile and launch either a single `.rvn` file (or legacy `.rav`) or a Raven project file (`.rvnproj` or legacy `.ravenproj`) by invoking `Raven.Compiler` and then debugging the emitted DLL with the C# debugger.
+
+`.rvnproj` and legacy `.ravenproj` files are associated to VS Code's `xml` language mode by default, so they get XML/MSBuild colorization in the editor.
 
 ## Prerequisites
 - .NET 9 SDK installed and on your `PATH`.
@@ -34,6 +36,6 @@ npm run compile
 - `raven.targetFramework`: optional target framework (for example, `net10.0`) passed to Raven debug compilation.
 
 ## Debugging Raven code (F5)
-1. Open a `.rav` file or `.ravenproj` file.
+1. Open a `.rvn`, `.rvnproj`, `.rav`, or `.ravenproj` file.
 2. Press F5 and choose `Raven: Compile and Debug` (or run `Raven: Compile and Debug Active File` from the command palette).
 3. The extension compiles into `${workspaceFolder}/.raven-debug` and launches `dotnet <output.dll>` under the debugger.

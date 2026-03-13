@@ -25,11 +25,11 @@ public class RavenWorkspaceTests
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
         var document = project.AddDocument(
-            "test.rav",
+            "test.rvn",
             SourceText.From("System.Console.WriteLine(\"Hello\")\n"));
         workspace.TryApplyChanges(document.Project.Solution);
 
         var compilation = workspace.GetCompilation(projectId);
-        Assert.Contains(compilation.SyntaxTrees, t => t.FilePath == "test.rav");
+        Assert.Contains(compilation.SyntaxTrees, t => t.FilePath == "test.rvn");
     }
 }

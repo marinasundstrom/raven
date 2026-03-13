@@ -14,7 +14,7 @@ public sealed class ProjectFileMemberAccessibilityOptionTests
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var projectDir = Path.Combine(root, "project");
         Directory.CreateDirectory(projectDir);
-        File.WriteAllText(Path.Combine(projectDir, "main.rav"), "class C { M() -> unit { return; } }");
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { M() -> unit { return; } }");
 
         var projectPath = Path.Combine(projectDir, "App.ravenproj");
         File.WriteAllText(

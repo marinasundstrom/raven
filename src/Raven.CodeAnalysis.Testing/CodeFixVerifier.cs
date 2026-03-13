@@ -23,7 +23,7 @@ public class CodeFixVerifier<TAnalyzer, TCodeFixProvider>
         var workspace = RavenWorkspace.Create(targetFramework: TestTargetFramework.Default);
         var projectId = workspace.AddProject("Test");
         var docId = DocumentId.CreateNew(projectId);
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(Test.TestCode));
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From(Test.TestCode));
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;

@@ -35,7 +35,7 @@ public static class EditorConfigDiagnosticOptions
                 ? anchorPath
                 : Path.GetDirectoryName(anchorPath);
             if (!string.IsNullOrWhiteSpace(directory))
-                normalizedSourcePaths = [Path.Combine(directory!, "__editorconfig__.rav")];
+                normalizedSourcePaths = [Path.Combine(directory!, $"__editorconfig__{RavenFileExtensions.Raven}")];
         }
 
         if (normalizedSourcePaths.Length == 0)

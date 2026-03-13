@@ -39,7 +39,7 @@ root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = t
 ````
 
 > **Tip:**
-This can also be printed by adding `-s` as an argument to the Raven.Compiler (ravc) command.
+This can also be printed by adding `-s` as an argument to the `rvn` command.
 
 Will give you this:
 
@@ -129,7 +129,7 @@ semanticModel.PrintBinderTree();
 ```
 
 > **Tip:**
-This is also printed by adding `-bt` as an argument to the Raven.Compiler (ravc) command.
+This is also printed by adding `-bt` as an argument to the `rvn` command.
 
 ```
 GlobalBinder
@@ -151,7 +151,7 @@ semanticModel.PrintBoundTree();
 ```
 
 > **Tip:**
-This is also printed by adding `-bt` as an argument to the Raven.Compiler (ravc) command.
+This is also printed by adding `-bt` as an argument to the `rvn` command.
 
 ```
 BlockStatement [Syntax=CompilationUnit]

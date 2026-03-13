@@ -1,6 +1,6 @@
 # Raven VS Code Extension
 
-The Raven VS Code extension wires the editor to the `Raven.LanguageServer` LSP process so `.rav` files can surface diagnostics and completions. It auto-discovers the language server build output and starts it with `dotnet` when the extension activates.
+The Raven VS Code extension wires the editor to the `Raven.LanguageServer` LSP process so `.rvn` files, with legacy `.rav` compatibility, can surface diagnostics and completions. It auto-discovers the language server build output and starts it with `dotnet` when the extension activates.
 
 ## Prerequisites
 - .NET 9 SDK available on your `PATH` so the client can start the language server.
@@ -23,7 +23,7 @@ The compiled JavaScript emits to `out/` and is referenced by the extension manif
 2. Open the repository in VS Code.
 3. In Run and Debug, launch `Raven: LSP + Extension` to start both the extension host and language server.
 4. If needed, you can launch only `Raven VS Code Extension Host` (extension host only).
-5. Open or create a `.rav` file to trigger activation and view diagnostics.
+5. Open or create a `.rvn` file to trigger activation and view diagnostics.
 
 ## Configuration
 The extension exposes settings to control language-server resolution and debug compilation:
@@ -33,7 +33,7 @@ The extension exposes settings to control language-server resolution and debug c
 
 ## F5 compile + debug
 The extension contributes a `Raven` debug type:
-- `Raven: Compile and Debug` compiles the active `.rav` or `.ravenproj` target using `Raven.Compiler`.
+- `Raven: Compile and Debug` compiles the active `.rvn` file, `.rvnproj`, or legacy `.rav`/`.ravenproj` target using `Raven.Compiler`.
 - Build artifacts are emitted to `${workspaceFolder}/.raven-debug`.
 - After compile succeeds, the extension starts a `coreclr` debug session with `dotnet <compiled-output.dll>`.
 

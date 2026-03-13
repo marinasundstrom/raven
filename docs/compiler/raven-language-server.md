@@ -1,6 +1,6 @@
 # Raven Language Server
 
-The Raven language server provides Language Server Protocol (LSP) support for `.rav` files so editors can surface diagnostics and completions while you work. It is hosted inside the `Raven.LanguageServer` project and wraps the Raven compiler workspace to keep documents synchronized with the editor.
+The Raven language server provides Language Server Protocol (LSP) support for `.rvn` files, with legacy `.rav` compatibility, so editors can surface diagnostics and completions while you work. It is hosted inside the `Raven.LanguageServer` project and wraps the Raven compiler workspace to keep documents synchronized with the editor.
 
 ## Features
 - **Text synchronization:** Opens, changes, saves, and closes documents through `TextDocumentSyncHandlerBase`, storing the latest text in the workspace.

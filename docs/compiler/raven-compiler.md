@@ -1,7 +1,7 @@
-# Raven.Compiler CLI
+# `rvn` CLI
 
-`Raven.Compiler` is the command-line entry point for the Raven language.
-It compiles one or more `.rav` source files into a .NET assembly and exposes a
+`rvn` is the command-line entry point for the Raven language.
+It compiles one or more `.rvn` source files (with legacy `.rav` compatibility) into a .NET assembly and exposes a
 few switches for inspecting the compiler's output.
 
 It also supports scaffolding a new Raven project in the current directory via `init`.
@@ -11,17 +11,17 @@ For temporary C# interop, see the project-system page's MSBuild bridge section (
 ## Usage
 
 ```bash
-dotnet run --project src/Raven.Compiler -- [options] <source-files>
-dotnet run --project src/Raven.Compiler -- init [--name <project-name>] [--framework <tfm>] [--type <app|classlib>] [--force]
+rvn [options] <source-files>
+rvn init [--name <project-name>] [--framework <tfm>] [--type <app|classlib>] [--force]
 ```
 
 ## Options
 
 - `--framework <tfm>` &ndash; target framework (e.g. `net8.0`)
 - `--refs <path>` &ndash; additional metadata reference (repeatable)
-- `-o <path>` &ndash; output path (`.rav` inputs: assembly file path; `.ravenproj` inputs: output directory path)
-- `--publish` &ndash; publish-style output (copies runtime dependencies, emits runtime artifacts, and defaults `.ravenproj` output to `<project-dir>/bin/<Configuration>/publish`)
-- `--run` &ndash; execute after successful compile (console apps only); runs from normal output (`bin/<Configuration>` for `.ravenproj`) and stages runtime dependencies there as needed
+- `-o <path>` &ndash; output path (`.rvn`/legacy `.rav` inputs: assembly file path; `.rvnproj` inputs: output directory path)
+- `--publish` &ndash; publish-style output (copies runtime dependencies, emits runtime artifacts, and defaults `.rvnproj` output to `<project-dir>/bin/<Configuration>/publish`)
+- `--run` &ndash; execute after successful compile (console apps only); runs from normal output (`bin/<Configuration>` for `.rvnproj`) and stages runtime dependencies there as needed
 - `--runtime-async` &ndash; force .NET 11 runtime-async emission for async methods (`Async` method impl flag + `AsyncHelpers.Await` calls when available)
 - `--no-runtime-async` &ndash; disable runtime-async emission and keep classic awaiter pattern/state-machine lowering
 - `--global-statements` &ndash; enable top-level/global statements (default)
@@ -41,23 +41,23 @@ dotnet run --project src/Raven.Compiler -- init [--name <project-name>] [--frame
 
 ## Init command
 
-Use `init` to scaffold a `.ravenproj` project in the current directory:
+Use `init` to scaffold a `.rvnproj` project in the current directory:
 
 ```bash
-dotnet run --project src/Raven.Compiler -- init
+rvn init
 ```
 
 Generated files:
 
-- `<CurrentDirectoryName>.ravenproj`
-- `src/main.rav`
+- `<CurrentDirectoryName>.rvnproj`
+- `src/main.rvn`
 - `bin/.gitkeep`
 
 Useful init options:
 
 - `--name <project-name>` &ndash; override generated project and assembly name
 - `--framework <tfm>` &ndash; set `TargetFramework` in the generated project file
-- `--type <app|classlib>` &ndash; set `OutputKind` (`app` = `ConsoleApplication`, `classlib` = `DynamicallyLinkedLibrary`; default `app`)
+- `--type <app|classlib>` &ndash; set MSBuild `OutputType` (`app` = `Exe`, `classlib` = `Library`; default `app`)
 - `--force` &ndash; overwrite scaffold files if they already exist
 
 Creating a `.debug/` directory in the current or parent folder causes the
@@ -79,7 +79,7 @@ When the project target framework is `net11.0` (or newer), Raven auto-enables ru
 Important: if you run the compiler via `dotnet run`, run the compiler host on `net11.0` so `AsyncHelpers` is available:
 
 ```bash
-dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.ravenproj --run
+dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj --run
 ```
 
 Sample project:

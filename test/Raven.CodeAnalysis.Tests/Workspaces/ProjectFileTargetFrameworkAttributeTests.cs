@@ -15,7 +15,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         var sourceDir = Path.Combine(projectDir, "src");
         Directory.CreateDirectory(sourceDir);
 
-        var sourcePath = Path.Combine(sourceDir, "main.rav");
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
         File.WriteAllText(sourcePath, "class C { }");
 
         var projectPath = Path.Combine(projectDir, "App.ravenproj");
@@ -31,7 +31,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
 
         var generated = Assert.Single(
             project.Documents,
-            static d => d.Name.EndsWith("TargetFrameworkAttribute.g.rav", StringComparison.OrdinalIgnoreCase));
+            static d => d.Name.EndsWith("TargetFrameworkAttribute.g.rvn", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(generated.FilePath);
         Assert.Contains(
             $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}Debug{Path.DirectorySeparatorChar}raven{Path.DirectorySeparatorChar}generated{Path.DirectorySeparatorChar}",
@@ -41,7 +41,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
             """
             import System.Runtime.Versioning.*
 
-            [assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
+            [assembly: TargetFramework(".NETCoreApp,Version=v10.0")]
             """,
             generated.Text.ToString().TrimEnd());
 
@@ -54,7 +54,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         var targetFrameworkAttribute = Assert.Single(
             assembly.GetCustomAttributesData(),
             static a => a.AttributeType.FullName == "System.Runtime.Versioning.TargetFrameworkAttribute");
-        Assert.Equal(".NETCoreApp,Version=v9.0", targetFrameworkAttribute.ConstructorArguments.Single().Value);
+        Assert.Equal(".NETCoreApp,Version=v10.0", targetFrameworkAttribute.ConstructorArguments.Single().Value);
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         var projectDir = Path.Combine(root, "project");
         Directory.CreateDirectory(projectDir);
 
-        var sourcePath = Path.Combine(projectDir, "main.rav");
+        var sourcePath = Path.Combine(projectDir, "main.rvn");
         File.WriteAllText(
             sourcePath,
             """
@@ -88,7 +88,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
 
         Assert.DoesNotContain(
             project.Documents,
-            static d => d.Name.EndsWith("TargetFrameworkAttribute.g.rav", StringComparison.OrdinalIgnoreCase));
+            static d => d.Name.EndsWith("TargetFrameworkAttribute.g.rvn", StringComparison.OrdinalIgnoreCase));
 
         var compilation = workspace.GetCompilation(projectId);
         using var peStream = new MemoryStream();
@@ -111,7 +111,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var projectDir = Path.Combine(root, "project");
         Directory.CreateDirectory(projectDir);
-        File.WriteAllText(Path.Combine(projectDir, "main.rav"), "class C { }");
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { }");
 
         var projectPath = Path.Combine(projectDir, "App.ravenproj");
         File.WriteAllText(
@@ -126,7 +126,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
 
         var generated = Assert.Single(
             project.Documents,
-            static d => d.Name.EndsWith("TargetFrameworkAttribute.g.rav", StringComparison.OrdinalIgnoreCase));
+            static d => d.Name.EndsWith("TargetFrameworkAttribute.g.rvn", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(generated.FilePath);
 
         Assert.Contains(
@@ -141,7 +141,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var projectDir = Path.Combine(root, "project");
         Directory.CreateDirectory(projectDir);
-        File.WriteAllText(Path.Combine(projectDir, "main.rav"), "val x = 1");
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "val x = 1");
 
         var projectPath = Path.Combine(projectDir, "App.ravenproj");
         File.WriteAllText(

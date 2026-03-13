@@ -96,7 +96,7 @@ mkdir hello-raven
 cd hello-raven
 
 dotnet run --project ../src/Raven.Compiler -- init
-dotnet run --project ../src/Raven.Compiler -- *.ravenproj
+dotnet run --project ../src/Raven.Compiler -- *.rvnproj
 ```
 
 For more details:

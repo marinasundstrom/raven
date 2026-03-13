@@ -11,13 +11,13 @@ Disabled rules in this sample:
 Files:
 
 - `.editorconfig`: rule severity overrides.
-- `AnalyzerEditorConfig.ravenproj`: project file.
-- `src/main.rav`: source that intentionally uses nullable values, `throw`, and regular LINQ.
+- `AnalyzerEditorConfig.rvnproj`: project file.
+- `src/main.rvn`: source that intentionally uses nullable values, `throw`, and regular LINQ.
 
 ## Build
 
 From repository root:
 
 ```bash
-dotnet run --project src/Raven.Compiler --property WarningLevel=0 -- samples/projects/analyzer-editorconfig/AnalyzerEditorConfig.ravenproj -o samples/projects/analyzer-editorconfig/bin
+dotnet run --project src/Raven.Compiler --property WarningLevel=0 -- samples/projects/analyzer-editorconfig/AnalyzerEditorConfig.rvnproj -o samples/projects/analyzer-editorconfig/bin
 ```

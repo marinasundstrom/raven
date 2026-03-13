@@ -10,13 +10,13 @@ public class TargetFrameworkMonikerTests
     public void ToFrameworkString_converts_net_tfm()
     {
         var full = TargetFrameworkMoniker.Parse("net10.0").ToFrameworkString();
-        Assert.Equal(".NETCoreApp,Version=v9.0", full);
+        Assert.Equal(".NETCoreApp,Version=v10.0", full);
     }
 
     [Fact]
     public void ToTfm_converts_full_string()
     {
-        var tfm = TargetFrameworkMoniker.Parse(".NETCoreApp,Version=v9.0").ToTfm();
+        var tfm = TargetFrameworkMoniker.Parse(".NETCoreApp,Version=v10.0").ToTfm();
         Assert.Equal("net10.0", tfm);
     }
 
@@ -27,4 +27,3 @@ public class TargetFrameworkMonikerTests
         Assert.False(string.IsNullOrWhiteSpace(version.ToFrameworkString()));
     }
 }
-

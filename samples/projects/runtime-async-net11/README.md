@@ -1,4 +1,4 @@
-# Runtime Async (.ravenproj, .NET 11)
+# Runtime Async (.rvnproj, .NET 11)
 
 This sample targets `.NET 11` and demonstrates runtime-async emission for:
 
@@ -9,29 +9,29 @@ This sample targets `.NET 11` and demonstrates runtime-async emission for:
 
 Project file:
 
-- `RuntimeAsyncNet11.ravenproj`
+- `RuntimeAsyncNet11.rvnproj`
 - Target framework: `net11.0`
 
 Source file:
 
-- `src/main.rav`
+- `src/main.rvn`
 
 ## Build and run
 
 From this folder:
 
 ```bash
-dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.ravenproj --run
+dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.rvnproj --run
 ```
 
 Runtime-async metadata emission is auto-enabled for `net11.0` targets. You can force behavior with:
 
 ```bash
 # Force on
-dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.ravenproj --runtime-async --run
+dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.rvnproj --runtime-async --run
 
 # Force off
-dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.ravenproj --no-runtime-async --run
+dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.rvnproj --no-runtime-async --run
 ```
 
 ## Inspect emitted IL

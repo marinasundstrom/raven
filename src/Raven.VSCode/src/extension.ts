@@ -111,7 +111,7 @@ function resolveTargetFramework(targetPath: string): string | undefined {
 
 function isRavenFile(filePath: string): boolean {
   const ext = path.extname(filePath).toLowerCase();
-  return ext === '.rav' || ext === '.ravenproj';
+  return ext === '.rvn' || ext === '.rav' || ext === '.ravenproj' || ext === '.rvnproj';
 }
 
 function resolveDebugTarget(config: vscode.DebugConfiguration): string | undefined {
@@ -160,7 +160,7 @@ function getProjectTargetFramework(projectFilePath: string): string | undefined 
 }
 
 function resolveOwningProjectPath(targetPath: string): string | undefined {
-  if (path.extname(targetPath).toLowerCase() === '.ravenproj') {
+  if (isRavenProjectFile(targetPath)) {
     return fs.existsSync(targetPath) ? targetPath : undefined;
   }
 
@@ -189,12 +189,17 @@ function findRavenProjectsInDirectory(directory: string): string[] {
   try {
     return fs
       .readdirSync(directory)
-      .filter(entry => path.extname(entry).toLowerCase() === '.ravenproj')
+      .filter(entry => isRavenProjectFile(entry))
       .map(entry => path.join(directory, entry))
       .sort((left, right) => left.localeCompare(right));
   } catch {
     return [];
   }
+}
+
+function isRavenProjectFile(filePath: string): boolean {
+  const ext = path.extname(filePath).toLowerCase();
+  return ext === '.ravenproj' || ext === '.rvnproj';
 }
 
 function* enumerateAncestorDirectories(startPath: string, stopDirectory?: string): Generator<string> {
@@ -268,7 +273,7 @@ function normalizePathSegment(value: string): string {
 function resolveOutputLayout(targetPath: string, configuration: 'Debug' | 'Release'): OutputLayout {
   const effectiveTargetPath = resolveEffectiveTargetPath(targetPath);
   const targetFramework = resolveTargetFramework(effectiveTargetPath);
-  const targetIsProject = path.extname(effectiveTargetPath).toLowerCase() === '.ravenproj';
+  const targetIsProject = isRavenProjectFile(effectiveTargetPath);
   const workspaceFolder = getContainingWorkspaceFolderPath(effectiveTargetPath);
 
   if (targetIsProject) {
@@ -460,7 +465,7 @@ class RavenDebugConfigurationProvider implements vscode.DebugConfigurationProvid
     const targetPath = resolveDebugTarget(config);
     if (!targetPath || !isRavenFile(targetPath)) {
       void vscode.window.showErrorMessage(
-        'Select a .rav or .ravenproj file, or set "target"/"project" in launch.json.'
+        'Select a .rvn, .rvnproj, .rav, or .ravenproj file, or set "target"/"project" in launch.json.'
       );
       return undefined;
     }
@@ -557,7 +562,7 @@ export function activate(context: vscode.ExtensionContext): void {
     documentSelector: [{ scheme: 'file', language: 'raven' }],
     synchronize: {
       configurationSection: 'raven',
-      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.rav')
+      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav}')
     },
     outputChannel: output
   };

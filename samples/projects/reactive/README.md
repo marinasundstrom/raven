@@ -1,21 +1,21 @@
-# Hello World (.ravenproj)
+# Hello World (.rvnproj)
 
 This sample is a simple Hello World program.
 
 Project file:
 
-- `HelloWorld.ravenproj`
+- `HelloWorld.rvnproj`
 
 Source file:
 
-- `src/main.rav`
+- `src/main.rvn`
 
 ## Build
 
 From this folder:
 
 ```bash
-dotnet run -f net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- HelloWorld.ravenproj
+dotnet run -f net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- HelloWorld.rvnproj
 ```
 
 ## Run

@@ -735,8 +735,8 @@ class C {
     public void AspNetMinimalApiProject_EmitsNonOverlappingSequencePointsForMainSource()
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        var projectPath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "AspNetMinimalApi.ravenproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "main.rav");
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "AspNetMinimalApi.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "main.rvn");
         var outputDirectory = Path.Combine(Path.GetTempPath(), "raven-sequence-point-integration", Guid.NewGuid().ToString("N"));
 
         Directory.CreateDirectory(outputDirectory);
