@@ -602,7 +602,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       const header = macroName && macroName.trim().length > 0
-        ? `// Macro expansion for @${macroName}\n\n`
+        ? `// Macro expansion for #[${macroName}]\n\n`
         : '// Macro expansion\n\n';
 
       const document = await vscode.workspace.openTextDocument({

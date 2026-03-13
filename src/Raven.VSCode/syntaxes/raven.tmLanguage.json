@@ -10,6 +10,9 @@
             "include": "#comments"
         },
         {
+            "include": "#macroAttributes"
+        },
+        {
             "include": "#strings"
         },
         {
@@ -35,6 +38,52 @@
         }
     ],
     "repository": {
+        "macroAttributes": {
+            "patterns": [
+                {
+                    "name": "meta.annotation.macro.raven",
+                    "begin": "(#)(\\[)",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "punctuation.definition.annotation.macro.raven"
+                        },
+                        "2": {
+                            "name": "punctuation.section.brackets.begin.raven"
+                        }
+                    },
+                    "end": "(\\])",
+                    "endCaptures": {
+                        "1": {
+                            "name": "punctuation.section.brackets.end.raven"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "name": "entity.name.annotation.macro.raven",
+                            "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*\\b"
+                        },
+                        {
+                            "include": "#strings"
+                        },
+                        {
+                            "include": "#numbers"
+                        },
+                        {
+                            "include": "#operators"
+                        },
+                        {
+                            "include": "#punctuation"
+                        },
+                        {
+                            "include": "#keywords"
+                        },
+                        {
+                            "include": "#types"
+                        }
+                    ]
+                }
+            ]
+        },
         "comments": {
             "patterns": [
                 {

@@ -317,6 +317,9 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.SlashToken, chStr);
 
                     case '#':
+                        if (PeekChar(out ch2) && ch2 == '[')
+                            return new Token(SyntaxKind.HashToken, chStr);
+
                         _stringBuilder.Append('#');
 
                         while (PeekChar(out var c))

@@ -260,7 +260,7 @@ public static class PrettyGreenTreePrinter
         if (kinds.Count == 0)
             return string.Empty;
 
-        return " " + string.Join(" ", kinds.Select(k => $"[@{k}]"));
+        return " " + string.Join(" ", kinds.Select(k => $"#[{k}]"));
     }
 
     private static IEnumerable<string> DiagnosticsAsChildLines(IEnumerable<DiagnosticInfo> diagnostics, bool colorize)
@@ -299,7 +299,7 @@ public static class PrettyGreenTreePrinter
         {
             var kind = a.Kind;
             var data = a.Data;
-            return data is null ? $"[@{kind}]" : $"[@{kind}] = {data}";
+            return data is null ? $"#[{kind}]" : $"#[{kind}] = {data}";
         });
     }
 

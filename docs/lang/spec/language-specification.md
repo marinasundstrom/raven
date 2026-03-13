@@ -6,6 +6,8 @@ Implementation details describing how Raven projects map to .NET are documented 
 
 An overview of available types, literal semantics, and conversions can be found in the [type system](type-system.md).
 
+Attached macro syntax and expansion rules are documented in [macros.md](macros.md).
+
 ## Document conventions
 
 * **Normative requirements** use key words such as “must”, “may”, and “should” to describe observable language behaviour.

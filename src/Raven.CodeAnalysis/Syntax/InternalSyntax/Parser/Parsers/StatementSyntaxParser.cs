@@ -30,7 +30,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             statement = ParseLabeledStatementSyntax();
         }
-        else if (token.Kind == SyntaxKind.OpenBracketToken && TryParseAttributedFunctionSyntax(out var attributedFunction))
+        else if (AttributeDeclarationParser.IsAttributeListStart(this) && TryParseAttributedFunctionSyntax(out var attributedFunction))
         {
             statement = attributedFunction;
         }

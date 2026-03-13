@@ -5,5 +5,5 @@ func Main() -> () {
     WriteLine(user.Name)
 }
 
-[@AddEquatable]
+#[AddEquatable]
 class User(val Name: string, val Age: int)

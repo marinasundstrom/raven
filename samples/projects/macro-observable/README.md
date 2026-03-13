@@ -1,6 +1,6 @@
 # Macro Observable (`.rvnproj`)
 
-This sample shows a Raven-authored macro plugin that models the `ObservableBase` + `[@Observable]` direction.
+This sample shows a Raven-authored macro plugin that models the `ObservableBase` + `#[Observable]` direction.
 
 The sample shape is:
 
@@ -15,7 +15,7 @@ func Main() -> unit {
 }
 
 class MyViewModel: ObservableBase {
-    [@Observable]
+    #[Observable]
     var Title: string = ""
 }
 ```
@@ -23,13 +23,13 @@ class MyViewModel: ObservableBase {
 Current status:
 
 - The macro plugin is written in Raven, not C#.
-- `[@Observable]` is resolved from a `RavenMacro` assembly reference.
+- `#[Observable]` is resolved from a `RavenMacro` assembly reference.
 - The plugin returns both an introduced backing field and a replacement property declaration through `MacroExpansionResult`.
 - The expanded setter now calls `RaisePropertyChanged(...)` through the replacement declaration.
 
 Files:
 
-- `app/MacroObservable.rvnproj`: Raven application using `[@Observable]`
+- `app/MacroObservable.rvnproj`: Raven application using `#[Observable]`
 - `app/src/main.rvn`: `ObservableBase` plus `MyViewModel`
 - `macros/ObservableMacros.rvnproj`: Raven macro plugin project
 - `macros/main.rvn`: plugin implementation of `IRavenMacroPlugin` / `IAttachedDeclarationMacro`

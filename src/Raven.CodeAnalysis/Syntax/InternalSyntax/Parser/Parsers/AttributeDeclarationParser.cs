@@ -12,12 +12,12 @@ internal static class AttributeDeclarationParser
 {
     public static SyntaxList ParseAttributeLists(SyntaxParser parser)
     {
-        if (!parser.PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+        if (!IsAttributeListStart(parser))
             return SyntaxList.Empty;
 
         var attributeLists = new List<GreenNode>();
 
-        while (parser.PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+        while (IsAttributeListStart(parser))
         {
             attributeLists.Add(ParseAttributeList(parser));
         }
@@ -27,6 +27,10 @@ internal static class AttributeDeclarationParser
 
     public static AttributeListSyntax ParseAttributeList(SyntaxParser parser)
     {
+        SyntaxToken? hashToken = null;
+        if (parser.PeekToken().IsKind(SyntaxKind.HashToken))
+            hashToken = parser.ReadToken();
+
         var openBracket = parser.ReadToken();
 
         AttributeTargetSpecifierSyntax? target = null;
@@ -41,7 +45,8 @@ internal static class AttributeDeclarationParser
         var attributes = new List<GreenNode>();
         while (true)
         {
-            attributes.Add(ParseAttribute(parser));
+            attributes.Add(ParseAttribute(parser, hashToken));
+            hashToken = null;
 
             var separator = parser.PeekToken();
             if (!separator.IsKind(SyntaxKind.CommaToken))
@@ -56,7 +61,7 @@ internal static class AttributeDeclarationParser
         return AttributeList(openBracket, target, List(attributes), closeBracket);
     }
 
-    private static AttributeSyntax ParseAttribute(SyntaxParser parser)
+    private static AttributeSyntax ParseAttribute(SyntaxParser parser, SyntaxToken? hashToken = null)
     {
         var name = new NameSyntaxParser(parser).ParseName();
 
@@ -66,6 +71,10 @@ internal static class AttributeDeclarationParser
             argumentList = new ExpressionSyntaxParser(parser).ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false);
         }
 
-        return Attribute(name, argumentList);
+        return Attribute(hashToken ?? Token(SyntaxKind.None), name, argumentList);
     }
+
+    internal static bool IsAttributeListStart(SyntaxParser parser)
+        => parser.PeekToken().IsKind(SyntaxKind.OpenBracketToken)
+            || (parser.PeekToken().IsKind(SyntaxKind.HashToken) && parser.PeekToken(1).IsKind(SyntaxKind.OpenBracketToken));
 }

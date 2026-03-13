@@ -12,7 +12,7 @@ func Main() -> () {
 }
 
 class MyViewModel : ObservableBase {
-    [@Observable]
+    #[Observable]
     var Title: string = ""
 }
 

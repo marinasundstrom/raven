@@ -3,6 +3,7 @@
 ### Sub sections
 
 * [Language specification](spec/language-specification.md)
+* [Macros](spec/macros.md)
 * [Type system](spec/type-system.md)
 * [Proposals](proposals)
 

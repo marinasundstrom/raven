@@ -16,7 +16,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     public void UnknownMacroAttribute_ReportsUnknownMacroDiagnostic_AndDoesNotBindAsClrAttribute()
     {
         var (compilation, tree) = CreateCompilation("""
-            [@AddEquatable]
+            #[AddEquatable]
             class Widget {}
             """);
 
@@ -38,7 +38,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     public void KnownMacroAttribute_FromMacroReference_DoesNotReportUnknownMacroDiagnostic()
     {
         var (compilation, _) = CreateCompilation("""
-            [@AddEquatable]
+            #[AddEquatable]
             class Widget {}
             """);
 
@@ -53,7 +53,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     {
         var (compilation, _) = CreateCompilation("""
             class Widget {
-                [@AddEquatable]
+                #[AddEquatable]
                 func Render() -> () {}
             }
             """);
@@ -69,7 +69,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     public void GetMacroExpansion_ReturnsPluginExpansionResult()
     {
         var (compilation, tree) = CreateCompilation("""
-            [@AddEquatable]
+            #[AddEquatable]
             class Widget {}
             """);
 
@@ -90,7 +90,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     public void TypeMacro_IntroducedMembers_AppearOnDeclaredType()
     {
         var (compilation, tree) = CreateCompilation("""
-            [@AddEquatable]
+            #[AddEquatable]
             class Widget {}
             """);
 
@@ -109,7 +109,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     {
         var (compilation, tree) = CreateCompilation("""
             class MyViewModel: INotifyPropertyChanged {
-                [@Observable]
+                #[Observable]
                 var Title: string
             }
             """);
@@ -131,7 +131,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     {
         var (compilation, tree) = CreateCompilation("""
             class MyViewModel: INotifyPropertyChanged {
-                [@Observable]
+                #[Observable]
                 var Title: string
             }
             """);
@@ -155,7 +155,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     public void MacroExpansionDiagnostics_AreReportedBySemanticModel()
     {
         var (compilation, _) = CreateCompilation("""
-            [@AddEquatable]
+            #[AddEquatable]
             class Widget {}
             """);
 
@@ -170,7 +170,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     public void MacroExpansionFailure_ReportsDiagnostic()
     {
         var (compilation, _) = CreateCompilation("""
-            [@AddEquatable]
+            #[AddEquatable]
             class Widget {}
             """);
 

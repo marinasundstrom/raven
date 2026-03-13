@@ -308,7 +308,7 @@ public sealed class MsBuildProjectSystemServiceTests
             var appSourcePath = Path.Combine(appDirectory, "main.rvn");
             File.WriteAllText(appSourcePath, """
                 class MyViewModel {
-                    [@Observable]
+                    #[Observable]
                     var Title: string
                 }
                 """);
@@ -450,7 +450,7 @@ public sealed class MsBuildProjectSystemServiceTests
                 }
 
                 class MyViewModel : ObservableBase {
-                    [@Observable]
+                    #[Observable]
                     var Title: string = ""
                 }
 

@@ -96,10 +96,10 @@ public class AttributeParsingTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void MacroAttribute_WithAtPrefixedName_ParsesAsMacroAttribute()
+    public void MacroAttribute_WithHashPrefix_ParsesAsMacroAttribute()
     {
         const string code = """
-            [@AddEquatable]
+            #[AddEquatable]
             class Widget {}
             """;
 
@@ -114,10 +114,51 @@ public class AttributeParsingTests : DiagnosticTestBase
 
         Assert.True(attribute.IsMacroAttribute());
         Assert.True(attribute.TryGetMacroName(out var macroName));
-        Assert.Equal("@AddEquatable", name.Identifier.Text);
+        Assert.Equal(SyntaxKind.HashToken, attribute.HashToken.Kind);
+        Assert.Equal("AddEquatable", name.Identifier.Text);
         Assert.Equal("AddEquatable", name.Identifier.ValueText);
         Assert.Equal("AddEquatable", macroName);
         Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void MacroAttribute_WithArguments_ParsesArgumentList()
+    {
+        const string code = """
+            #[Observable(Name: "TitleChanged")]
+            class Widget {}
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single();
+
+        var attribute = Assert.Single(Assert.Single(declaration.AttributeLists).Attributes);
+        var argument = Assert.Single(attribute.ArgumentList!.Arguments);
+
+        Assert.Equal(SyntaxKind.HashToken, attribute.HashToken.Kind);
+        Assert.Equal("Name", argument.NameColon!.Name.Identifier.ValueText);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void HashDirective_IsNotParsedAsMacroAttribute()
+    {
+        const string code = """
+            #pragma warning disable RAV0001
+            class Widget {}
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single();
+
+        Assert.Empty(declaration.AttributeLists);
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>());
     }
 
     [Fact]

@@ -1040,7 +1040,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     {
         lambda = null;
 
-        if (!PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+        if (!AttributeDeclarationParser.IsAttributeListStart(this))
             return false;
 
         var checkpoint = CreateCheckpoint("attributed-parenthesized-lambda");

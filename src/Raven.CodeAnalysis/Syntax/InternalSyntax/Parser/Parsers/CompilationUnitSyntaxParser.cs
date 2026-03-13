@@ -53,7 +53,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             // Allow compilation-level attributes (e.g. [assembly: ...]) to appear after imports/aliases,
             // before any other members/statements.
             if (order != MemberOrder.Members &&
-                nextToken.IsKind(SyntaxKind.OpenBracketToken) &&
+                AttributeDeclarationParser.IsAttributeListStart(this) &&
                 TryParseCompilationAttributeList(out var compilationAttributeList))
             {
                 compilationAttributeLists.Add(compilationAttributeList);
@@ -87,7 +87,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
     {
         attributeList = default!;
 
-        if (!PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+        if (!AttributeDeclarationParser.IsAttributeListStart(this))
             return false;
 
         var checkpoint = CreateCheckpoint();
@@ -115,7 +115,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
     {
         return token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
             SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.DelegateKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
-            SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword or SyntaxKind.OpenBracketToken or
+            SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword or SyntaxKind.OpenBracketToken or SyntaxKind.HashToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or
             SyntaxKind.StaticKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.FinalKeyword or SyntaxKind.SealedKeyword or
             SyntaxKind.OpenKeyword or SyntaxKind.RecordKeyword or
@@ -180,7 +180,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.PartialKeyword) ||
                  nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
                  nextToken.IsKind(SyntaxKind.ExternKeyword) ||
-                 nextToken.IsKind(SyntaxKind.OpenBracketToken))
+                 nextToken.IsKind(SyntaxKind.OpenBracketToken) ||
+                 nextToken.IsKind(SyntaxKind.HashToken))
         {
             var checkpoint = CreateCheckpoint();
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
@@ -189,7 +190,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             var tokenAfterModifiers = PeekToken();
 
-            if (nextToken.IsKind(SyntaxKind.OpenBracketToken) &&
+            if (AttributeDeclarationParser.IsAttributeListStart(this) &&
                 attributeLists.GetChildren()
                     .OfType<AttributeListSyntax>()
                     .Any(attributeList => attributeList.CloseBracketToken.IsMissing))

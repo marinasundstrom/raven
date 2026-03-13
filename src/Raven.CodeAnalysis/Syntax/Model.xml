@@ -915,6 +915,7 @@
     <Slot Name="CloseBracketToken" Type="Token" DefaultToken="CloseBracketToken" />
   </Node>
   <Node Name="Attribute" Inherits="Node">
+    <Slot Name="HashToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Name" Type="Name" />
     <Slot Name="ArgumentList" Type="ArgumentList" IsNullable="true" />
   </Node>

@@ -162,6 +162,7 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         return token.Kind is
             SyntaxKind.OpenBracketToken or
+            SyntaxKind.HashToken or
             SyntaxKind.OpenBraceToken or
             SyntaxKind.PublicKeyword or
             SyntaxKind.PrivateKeyword or
@@ -434,7 +435,7 @@ internal class TypeDeclarationParser : SyntaxParser
             return IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken);
         }
 
-        if (keywordOrIdentifier.IsKind(SyntaxKind.OpenBracketToken))
+        if (keywordOrIdentifier.IsKind(SyntaxKind.OpenBracketToken) || keywordOrIdentifier.IsKind(SyntaxKind.HashToken))
         {
             var typeKeywordKind = PeekTypeKeyword(this);
 

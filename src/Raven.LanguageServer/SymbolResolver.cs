@@ -451,7 +451,7 @@ internal static class SymbolResolver
 
             // In type positions we always prefer the union carrier type over a case type,
             // otherwise hover displays the case as "Name(...)".
-            symbol = resolvedType.UnderlyingDiscriminatedUnion ?? resolvedType;
+            symbol = resolvedType!.UnderlyingDiscriminatedUnion ?? resolvedType;
             return true;
         }
 

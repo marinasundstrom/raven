@@ -4,7 +4,7 @@ This sample shows the intended shape of an attached macro project for Raven.
 
 Current status:
 
-- `[@AddEquatable]` parses as a macro-style attribute.
+- `#[AddEquatable]` parses as a macro-style attribute.
 - Macro-style attributes are intentionally excluded from normal CLR attribute binding/emission.
 - The .NET plugin contract exists.
 - Raven project files can reference macro assemblies with `RavenMacro`.
@@ -13,7 +13,7 @@ Current status:
 
 Files:
 
-- `MacroAddEquatable.rvnproj`: Raven project using `[@AddEquatable]`
+- `MacroAddEquatable.rvnproj`: Raven project using `#[AddEquatable]`
 - `src/main.rvn`: Raven source that uses the macro-style attribute
 - `macros/AddEquatableMacros.csproj`: example .NET macro plugin project
 - `macros/AddEquatableMacroPlugin.cs`: example plugin implementation that returns a generated member through `MacroExpansionResult`

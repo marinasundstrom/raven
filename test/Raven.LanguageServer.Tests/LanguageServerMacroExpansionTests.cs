@@ -19,7 +19,7 @@ public sealed class LanguageServerMacroExpansionTests
     {
         const string code = """
 class MyViewModel {
-    [@Observable]
+    #[Observable]
     var Title: string
 }
 """;
@@ -53,7 +53,7 @@ class MyViewModel {
     {
         const string code = """
 class MyViewModel {
-    [@Observable]
+    #[Observable]
     var Title: string
 }
 """;

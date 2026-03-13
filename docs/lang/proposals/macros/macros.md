@@ -4,7 +4,8 @@
 
 Current implementation status:
 
-* `[@MacroName]` syntax is reserved for macro-style attributes.
+* `#[MacroName]` syntax is reserved for macro-style attributes.
+* `#` only starts a macro attribute when it is immediately followed by `[`. Other `#...` forms continue to lex as directives such as `#pragma`.
 * Macro-style attributes are kept out of the normal CLR attribute binding/emission pipeline.
 * Initial .NET plugin contracts exist under `Raven.CodeAnalysis.Macros`.
 * Project files can reference macro assemblies with `RavenMacro` items and the compiler now resolves attached macros against those plugin assemblies.
@@ -59,7 +60,7 @@ Macros are **compiler-integrated syntax transformers**, not textual preprocessor
 ## Attached Macros (current direction)
 
 ```raven
-[@AddEquatable]
+#[AddEquatable]
 class User {
     val Name: string
 }
@@ -69,7 +70,7 @@ Another motivating attached-macro shape is property notification:
 
 ```raven
 class MyViewModel: INotifyPropertyChanged {
-    [@Observable]
+    #[Observable]
     var Title: string
 }
 ```
@@ -78,8 +79,20 @@ Characteristics:
 
 * Annotation-style syntax that feels familiar in a .NET-targeted language
 * Distinct from normal CLR/custom attributes
+* Follows the same placement rules as declaration attributes: it must appear directly on the target declaration with no intervening blank line
 * Intended for plugin-backed expansion into ordinary Raven declarations
 * Intended to support both additive member generation and declaration replacement
+* Supports optional positional and named arguments using the normal attribute argument-list syntax
+
+Example argument forms:
+
+```raven
+#[Observable]
+#[Observable("TitleChanged")]
+#[Observable(Name: "TitleChanged", Notify: true)]
+```
+
+The compiler parses and preserves these arguments generically. Their meaning is defined entirely by the macro plugin.
 
 ## Invocation Macros (future / Rust-style)
 
@@ -286,14 +299,14 @@ This is required for macros such as:
 
 ```raven
 class MyViewModel: INotifyPropertyChanged {
-    [@Observable]
+    #[Observable]
     var Title: string
 }
 ```
 
 In that shape:
 
-* `[@Observable]` must be able to replace or synthesize the annotated property implementation
+* `#[Observable]` must be able to replace or synthesize the annotated property implementation
 * the surrounding type shape may already declare `INotifyPropertyChanged`
 
 The important constraint is that Raven should stay generic:

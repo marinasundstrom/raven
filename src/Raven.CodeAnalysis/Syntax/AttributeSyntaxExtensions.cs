@@ -9,7 +9,7 @@ public static class AttributeSyntaxExtensions
         if (attribute is null)
             throw new ArgumentNullException(nameof(attribute));
 
-        return HasMacroSigil(attribute.Name);
+        return attribute.HashToken.Kind == SyntaxKind.HashToken;
     }
 
     public static bool TryGetMacroName(this AttributeSyntax attribute, out string macroName)
@@ -27,19 +27,6 @@ public static class AttributeSyntaxExtensions
         return true;
     }
 
-    private static bool HasMacroSigil(TypeSyntax name)
-        => name switch
-        {
-            IdentifierNameSyntax identifier => HasMacroSigil(identifier.Identifier),
-            GenericNameSyntax generic => HasMacroSigil(generic.Identifier),
-            QualifiedNameSyntax qualified => HasMacroSigil(qualified.Left) || HasMacroSigil(qualified.Right),
-            AliasQualifiedNameSyntax aliasQualified => HasMacroSigil(aliasQualified.Alias.Identifier) || HasMacroSigil(aliasQualified.Name),
-            _ => false
-        };
-
-    private static bool HasMacroSigil(SyntaxToken token)
-        => token.Text.StartsWith("@", StringComparison.Ordinal);
-
     private static string GetNormalizedName(TypeSyntax name)
         => name switch
         {
@@ -47,6 +34,6 @@ public static class AttributeSyntaxExtensions
             GenericNameSyntax generic => generic.Identifier.ValueText,
             QualifiedNameSyntax qualified => $"{GetNormalizedName(qualified.Left)}.{GetNormalizedName(qualified.Right)}",
             AliasQualifiedNameSyntax aliasQualified => $"{aliasQualified.Alias.Identifier.ValueText}::{GetNormalizedName(aliasQualified.Name)}",
-            _ => name.ToString().TrimStart('@')
+            _ => name.ToString()
         };
 }

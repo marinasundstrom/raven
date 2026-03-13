@@ -162,6 +162,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 SyntaxKind.ExtensionKeyword or
                 SyntaxKind.TraitKeyword or
                 SyntaxKind.OpenBracketToken or
+                SyntaxKind.HashToken or
                 SyntaxKind.PublicKeyword or
                 SyntaxKind.PrivateKeyword or
                 SyntaxKind.InternalKeyword or
@@ -290,7 +291,8 @@ internal class NamespaceDeclarationParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.OpenKeyword) || nextToken.IsKind(SyntaxKind.RecordKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) || nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
                  nextToken.IsKind(SyntaxKind.ExternKeyword) ||
-                 nextToken.IsKind(SyntaxKind.OpenBracketToken))
+                 nextToken.IsKind(SyntaxKind.OpenBracketToken) ||
+                 nextToken.IsKind(SyntaxKind.HashToken))
         {
             var checkpoint = CreateCheckpoint();
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
@@ -299,7 +301,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             var tokenAfterModifiers = PeekToken();
 
-            if (nextToken.IsKind(SyntaxKind.OpenBracketToken) &&
+            if (AttributeDeclarationParser.IsAttributeListStart(this) &&
                 attributeLists.GetChildren()
                     .OfType<AttributeListSyntax>()
                     .Any(attributeList => attributeList.CloseBracketToken.IsMissing))

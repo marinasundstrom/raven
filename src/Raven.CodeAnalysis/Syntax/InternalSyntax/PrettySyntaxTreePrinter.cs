@@ -605,7 +605,7 @@ public static class PrettySyntaxTreePrinter
                         .ToList();
 
                     if (kinds.Count > 0)
-                        return " " + string.Join(", ", kinds.Select(k => $"[@{k}]"));
+                        return " " + string.Join(", ", kinds.Select(k => $"#[{k}]"));
                 }
             }
 
@@ -622,7 +622,7 @@ public static class PrettySyntaxTreePrinter
                     .ToList();
 
                 if (kinds.Count > 0)
-                    return " " + string.Join(", ", kinds.Select(k => $"[@{k}]"));
+                    return " " + string.Join(", ", kinds.Select(k => $"#[{k}]"));
             }
         }
         catch
@@ -651,7 +651,7 @@ public static class PrettySyntaxTreePrinter
             return Array.Empty<string>();
 
         return pairs
-            .Select(p => p.data is null ? $"[@{p.kind}]" : $"[@{p.kind}] = {p.data}")
+            .Select(p => p.data is null ? $"#[{p.kind}]" : $"#[{p.kind}] = {p.data}")
             .ToArray();
     }
 

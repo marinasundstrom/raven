@@ -22,7 +22,7 @@ public sealed class MacroCodeGenTests
                 }
             }
 
-            [@AddEquatable]
+            #[AddEquatable]
             class Widget {}
             """);
 
@@ -55,7 +55,7 @@ public sealed class MacroCodeGenTests
             }
 
             class MyViewModel {
-                [@Observable]
+                #[Observable]
                 var Title: string
             }
             """);
@@ -83,7 +83,7 @@ public sealed class MacroCodeGenTests
     {
         var syntaxTree = SyntaxTree.ParseText("""
             class MyViewModel {
-                [@Observable]
+                #[Observable]
                 var Title: string = ""
             }
 
@@ -127,7 +127,7 @@ public sealed class MacroCodeGenTests
             }
 
             class MyViewModel : ObservableBase {
-                [@Observable]
+                #[Observable]
                 var Title: string = ""
             }
 
