@@ -67,7 +67,7 @@ first + second
     {
         const string source = """
 val values: int[] = [1, 2, 3]
-[val first, val second, _] = values
+val [first, second, _] = values
 first + second
 """;
 
@@ -82,7 +82,7 @@ first + second
 
         var assignment = tree.GetRoot()
             .DescendantNodes()
-            .OfType<AssignmentStatementSyntax>()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
             .Last();
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
@@ -116,7 +116,7 @@ first + second
 import System.Collections.Generic.*
 
 val values: List<int> = [1, 2, 3]
-[val first, val second, _] = values
+val [first, second, _] = values
 first + second
 """;
 
@@ -131,7 +131,7 @@ first + second
 
         var assignment = tree.GetRoot()
             .DescendantNodes()
-            .OfType<AssignmentStatementSyntax>()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
             .Last();
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
@@ -364,7 +364,7 @@ val [first, second, _] = values
             [
                 new DiagnosticResult(CompilerDiagnostics.PositionalDeconstructionRequiresDeconstructableType.Id)
                     .WithAnySpan()
-                    .WithArguments("'IEnumerable<int>'")
+                    .WithArguments("IEnumerable<int>")
             ]);
 
         verifier.Verify();

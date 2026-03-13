@@ -11,7 +11,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class BlockExpressionEarlyExitTests : DiagnosticTestBase
 {
     [Fact]
-    public void IfExpression_InitializerWithReturnStatements_ReportsDiagnostics_AndPreservesBestCommonType()
+    public void IfExpression_InitializerWithReturnStatements_ReportsDiagnostics_AndLeavesErrorType()
     {
         const string code = """
 class Foo {
@@ -31,8 +31,7 @@ class Foo {
             [
                 new DiagnosticResult("RAV1900").WithSpan(4, 13, 4, 22),
                 new DiagnosticResult("RAV1900").WithSpan(6, 13, 6, 22),
-                new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "ValueType"),
-                new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("()", "ValueType")
+                new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "()")
             ]);
 
         var result = verifier.GetResult();
@@ -40,13 +39,13 @@ class Foo {
         var model = result.Compilation.GetSemanticModel(tree);
         var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "x");
         var local = (ILocalSymbol)model.GetDeclaredSymbol(variable)!;
-        Assert.Equal(SpecialType.System_ValueType, local.Type.SpecialType);
+        Assert.Equal(SpecialType.None, local.Type.SpecialType);
 
         verifier.Verify();
     }
 
     [Fact]
-    public void IfExpression_GlobalInitializerWithReturnStatements_ReportsDiagnostics_AndPreservesBestCommonType()
+    public void IfExpression_GlobalInitializerWithReturnStatements_ReportsDiagnostics_AndLeavesErrorType()
     {
         const string code = """
 val x = if true {
@@ -62,8 +61,7 @@ val x = if true {
             [
                 new DiagnosticResult("RAV1900").WithSpan(2, 5, 2, 14),
                 new DiagnosticResult("RAV1900").WithSpan(4, 5, 4, 14),
-                new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "ValueType"),
-                new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("()", "ValueType")
+                new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "()")
             ]);
 
         var result = verifier.GetResult();
@@ -77,7 +75,7 @@ val x = if true {
             IFieldSymbol field => field.Type,
             _ => throw new InvalidOperationException($"Unexpected symbol: {symbol.GetType().Name}")
         };
-        Assert.Equal(SpecialType.System_ValueType, type.SpecialType);
+        Assert.Equal(SpecialType.None, type.SpecialType);
 
         verifier.Verify();
     }

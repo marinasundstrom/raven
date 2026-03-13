@@ -123,7 +123,7 @@ func outer() {
     {
         var source = """
 class C {
-    static func Set(var x: &int) { x = 1 }
+    static func Set(x: &int) { x = 1 }
     static func Pass(x: &int) { Set(&x) }
 }
 """;
@@ -138,7 +138,7 @@ class C {
     {
         var source = """
 class C {
-    static func Set(var value: &int) -> unit { value = 42 }
+    static func Set(value: &int) -> unit { value = 42 }
 
     static func Run() -> unit {
         var data = 0
@@ -199,7 +199,7 @@ class C {
     }
 
     [Fact]
-    public void Method_ValueParameter_WithVar_AllowsAssignment()
+    public void Method_ValueParameter_WithVar_ReportsDiagnostic()
     {
         var source = """
 class C {
@@ -213,7 +213,8 @@ class C {
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
         var diagnostics = compilation.GetDiagnostics();
-        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        Assert.Contains(diagnostics, d => d.Id == CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id);
+        Assert.Contains(diagnostics, d => d.Id == CompilerDiagnostics.ThisValueIsNotMutable.Id);
     }
 
     [Fact]

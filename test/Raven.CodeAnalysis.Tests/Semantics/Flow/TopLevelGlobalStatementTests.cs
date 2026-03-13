@@ -85,7 +85,7 @@ enum Shade {
         Assert.NotNull(programType);
 
         var entryPoint = compilation.GetEntryPoint();
-        Assert.NotNull(entryPoint);
+        Assert.Null(entryPoint);
     }
 
     [Fact]

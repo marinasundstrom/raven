@@ -328,7 +328,7 @@ partial class BlockBinder
                     RefKind.None,
                     null,
                     arg,
-                    arg.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken);
+                    arg?.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken);
                 continue;
             }
 

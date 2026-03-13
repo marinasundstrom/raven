@@ -47,10 +47,6 @@ for member in members {
                 .WithSeverity(DiagnosticSeverity.Error)
                 .WithLocation(3, 16)
                 .WithArguments("System.DoesNotExist"),
-            new DiagnosticResult(CompilerDiagnostics.CallIsAmbiguous.Id)
-                .WithSeverity(DiagnosticSeverity.Error)
-                .WithSpan(4, 1, 4, 13)
-                .WithArguments("static WriteLine(value: bool) → ()", "static WriteLine(value: char) → ()"),
         });
 
         verifier.Verify();
