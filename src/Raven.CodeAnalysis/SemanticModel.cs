@@ -598,8 +598,11 @@ public partial class SemanticModel
                     }
                 }
 
-                if (TryGetCachedBoundNode(node) is { } contextCachedNode)
+                if (TryGetCachedBoundNode(node) is { } contextCachedNode &&
+                    !IsLikelyStaleFunctionBodyNode(contextCachedNode))
+                {
                     return contextCachedNode;
+                }
 
                 if (TryFindBoundNodeBySyntax(contextualBoundRoot, node, out var contextualBoundNode))
                 {
@@ -819,7 +822,6 @@ public partial class SemanticModel
         boundNode = null!;
         return false;
     }
-
     private BoundNode LowerBoundNode(SyntaxNode syntaxNode, Binder binder, BoundNode boundNode)
     {
         boundNode = RewriteAsyncIfNeeded(syntaxNode, binder, boundNode);

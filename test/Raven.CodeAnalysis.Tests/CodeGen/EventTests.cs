@@ -172,6 +172,79 @@ class Program {
     }
 
     [Fact]
+    public void PropertyChangedEventAdd_WithInferredLambdaParameters_EmitsAndRuns()
+    {
+        var code = """
+import System.*
+import System.ComponentModel.*
+
+class MyViewModel : ObservableBase {
+    private var _title: string = ""
+
+    var Title: string {
+        get => _title
+        set {
+            _title = value
+            RaisePropertyChanged(nameof(Title))
+        }
+    }
+}
+
+open class ObservableBase : INotifyPropertyChanged {
+    event PropertyChanged: PropertyChangedEventHandler?
+
+    protected func RaisePropertyChanged(propertyName: string) -> unit {
+        PropertyChanged?(self, PropertyChangedEventArgs(propertyName))
+    }
+}
+
+class Program {
+    static func Main() -> int {
+        val viewModel = MyViewModel()
+        viewModel.PropertyChanged += (sender, args) => {
+            System.Console.WriteLine(args.PropertyName ?? "")
+        }
+
+        viewModel.Title = "Hello from Raven"
+        System.Console.WriteLine(viewModel.Title)
+        return 0
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var entryPoint = assembly.EntryPoint;
+        Assert.NotNull(entryPoint);
+
+        var originalOut = Console.Out;
+        using var writer = new StringWriter();
+        Console.SetOut(writer);
+
+        try
+        {
+            entryPoint!.Invoke(null, null);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        Assert.Equal("Title\nHello from Raven", writer.ToString().ReplaceLineEndings("\n").TrimEnd('\n'));
+    }
+
+    [Fact]
     public void ObjectInitializer_EventAdd_WiresHandler()
     {
         var code = """

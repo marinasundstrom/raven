@@ -147,13 +147,6 @@ if (( ${#rav_files[@]} == 0 )); then
   exit 0
 fi
 
-#
-# Make sure the compiler has been built
-dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
-dotnet build "$REPO_ROOT/src/Raven.CodeAnalysis" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
-# TestDep is currently net10.0-only, so build it with its declared framework.
-dotnet build "$REPO_ROOT/src/TestDep" -c "$BUILD_CONFIG"
-
 if [[ -z "${RAVEN_CORE:-}" ]]; then
   rm -f "$REPO_ROOT/src/Raven.Core/bin/$BUILD_CONFIG/$DOTNET_VERSION/Raven.Core.dll"
   dotnet build "$REPO_ROOT/src/Raven.Core" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
@@ -168,6 +161,13 @@ if [[ -z "${RAVEN_CORE:-}" ]]; then
     fi
   done
 fi
+
+#
+# Make sure the compiler has been built after its runtime dependency exists.
+dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+dotnet build "$REPO_ROOT/src/Raven.CodeAnalysis" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+# TestDep is currently net10.0-only, so build it with its declared framework.
+dotnet build "$REPO_ROOT/src/TestDep" -c "$BUILD_CONFIG"
 
 COMPILER_BIN="$PROJECT_DIR/bin/$BUILD_CONFIG/$DOTNET_VERSION/$COMPILER_EXC"
 

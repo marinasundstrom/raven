@@ -68,6 +68,42 @@ class Calculator {
     }
 
     [Fact]
+    public void Lambda_AssignedToMetadataDelegate_InfersParameterTypes()
+    {
+        const string code = """
+import System.*
+import System.ComponentModel.*
+
+class Program {
+    static func Run() -> unit {
+        val handler: PropertyChangedEventHandler = (sender, args) => {
+            Console.WriteLine(args.PropertyName ?? "")
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        var parameters = boundLambda.Parameters.ToArray();
+        Assert.Equal(2, parameters.Length);
+
+        var propertyChangedArgsType = compilation.GetTypeByMetadataName("System.ComponentModel.PropertyChangedEventArgs");
+
+        Assert.Equal("object?", parameters[0].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.True(SymbolEqualityComparer.Default.Equals(propertyChangedArgsType, parameters[1].Type));
+    }
+
+    [Fact]
     public void Lambda_WithConflictingDelegateCandidates_SuppressesParameterInferenceDiagnostic()
     {
         const string code = """
