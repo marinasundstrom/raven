@@ -1,0 +1,25 @@
+import System.*
+import System.Console.*
+import System.Reactive.*
+import System.Reactive.Subjects.*
+import System.Reactive.Linq.*
+
+func Main() -> Result<(), ApplicationError> {
+    val source = Subject<int>()
+
+    val query = source
+        |> Where(x => x > 1)
+
+    use subscription = query.Subscribe(value => {
+            WriteLine(value)
+        })
+
+    source.OnNext(1)
+    source.OnNext(2)
+    source.OnNext(3)
+    source.OnCompleted()
+
+    Ok(())
+}
+
+record ApplicationError(val Message: string)
