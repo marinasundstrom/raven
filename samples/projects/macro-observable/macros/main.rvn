@@ -5,9 +5,8 @@ import Raven.CodeAnalysis.Syntax.*
 class ObservableMacroPlugin : IRavenMacroPlugin {
     val Name: string => "SampleMacros.Observable"
 
-    func GetMacros() -> ImmutableArray<IMacroDefinition> {
-        ImmutableArray.Create<IMacroDefinition>(ObservableMacro())
-    }
+    func GetMacros() -> ImmutableArray<IMacroDefinition> 
+        => [ObservableMacro()]
 }
 
 class ObservableMacro : IAttachedDeclarationMacro {
@@ -53,7 +52,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
 
         MacroExpansionResult {
             ReplacementDeclaration = replacement
-            IntroducedMembers = ImmutableArray.Create<MemberDeclarationSyntax>(backingFieldMember)
+            IntroducedMembers = [backingFieldMember]
         }
     }
 }
