@@ -162,6 +162,7 @@ internal static class CompletionItemMapper
             Label = item.DisplayText,
             FilterText = item.DisplayText,
             Detail = item.Description,
+            LabelDetails = TryCreateLabelDetails(item.Symbol),
             Kind = CompletionHandler.MapCompletionItemKind(item),
             SortText = CompletionHandler.GetSortText(item),
             CommitCharacters = s_defaultCommitCharacters,
@@ -174,6 +175,22 @@ internal static class CompletionItemMapper
             InsertTextFormat = useSnippet
                 ? InsertTextFormat.Snippet
                 : InsertTextFormat.PlainText
+        };
+    }
+
+    private static CompletionItemLabelDetails? TryCreateLabelDetails(ISymbol? symbol)
+    {
+        return symbol switch
+        {
+            IMethodSymbol { IsExtensionMethod: true } => new CompletionItemLabelDetails
+            {
+                Detail = " (extension)"
+            },
+            IPropertySymbol property when property.IsExtensionProperty() => new CompletionItemLabelDetails
+            {
+                Detail = " (extension)"
+            },
+            _ => null
         };
     }
 
