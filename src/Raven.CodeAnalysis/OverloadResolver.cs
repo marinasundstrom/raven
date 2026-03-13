@@ -1418,7 +1418,7 @@ internal sealed class OverloadResolver
                 return false;
             }
 
-            if (!TryEvaluateArgument(parameters[parameterIndex], receiver, compilation, canBindLambda, comparisonLog, ref score))
+            if (!TryEvaluateArgument(parameters[parameterIndex], receiver, RefKind.None, compilation, canBindLambda, comparisonLog, ref score))
                 return false;
 
             parameterIndex++;
@@ -1434,7 +1434,7 @@ internal sealed class OverloadResolver
                 var mappedParamsArgument = mappedArguments[parameterIndex];
                 if (mappedParamsArgument is not null)
                 {
-                    if (!TryEvaluateArgument(parameters[parameterIndex], mappedParamsArgument.Value.Expression, compilation, canBindLambda, comparisonLog, ref score))
+                    if (!TryEvaluateArgument(parameters[parameterIndex], mappedParamsArgument.Value.Expression, mappedParamsArgument.Value.RefKind, compilation, canBindLambda, comparisonLog, ref score))
                         return false;
 
                     continue;
@@ -1448,7 +1448,7 @@ internal sealed class OverloadResolver
                     if (singleParamsConversion.IsImplicit)
                     {
                         // Normal-form params binding: a single array-like argument maps directly.
-                        if (!TryEvaluateArgument(parameters[parameterIndex], paramsArguments[0].Expression, compilation, canBindLambda, comparisonLog, ref score))
+                        if (!TryEvaluateArgument(parameters[parameterIndex], paramsArguments[0].Expression, paramsArguments[0].RefKind, compilation, canBindLambda, comparisonLog, ref score))
                             return false;
 
                         // Prefer non-params overloads when both are otherwise equivalent.
@@ -1463,7 +1463,7 @@ internal sealed class OverloadResolver
                 {
                     if (paramsArgument.IsSpread)
                     {
-                        if (!TryEvaluateArgument(parameters[parameterIndex], paramsArgument.Expression, compilation, canBindLambda, comparisonLog, ref score))
+                        if (!TryEvaluateArgument(parameters[parameterIndex], paramsArgument.Expression, paramsArgument.RefKind, compilation, canBindLambda, comparisonLog, ref score))
                             return false;
 
                         continue;
@@ -1490,7 +1490,7 @@ internal sealed class OverloadResolver
                 continue;
             }
 
-            if (!TryEvaluateArgument(parameters[parameterIndex], mapped.Value.Expression, compilation, canBindLambda, comparisonLog, ref score))
+            if (!TryEvaluateArgument(parameters[parameterIndex], mapped.Value.Expression, mapped.Value.RefKind, compilation, canBindLambda, comparisonLog, ref score))
                 return false;
         }
 
@@ -1629,7 +1629,7 @@ internal sealed class OverloadResolver
         ref int score)
     {
         if (!TryGetVarParamsElementType(paramsParameter.Type, out var elementType))
-            return TryEvaluateArgument(paramsParameter, argument, compilation, canBindLambda: null, comparisonLog, ref score);
+            return TryEvaluateArgument(paramsParameter, argument, RefKind.None, compilation, null, comparisonLog, ref score);
 
         var argumentType = argument.Type;
         if (argumentType is null || argumentType.SpecialType == SpecialType.System_Void)
@@ -1744,6 +1744,7 @@ internal sealed class OverloadResolver
     private static bool TryEvaluateArgument(
         IParameterSymbol parameter,
         BoundExpression argument,
+        RefKind argumentRefKind,
         Compilation compilation,
         Func<IParameterSymbol, BoundFunctionExpression, bool>? canBindLambda,
         List<OverloadArgumentComparisonLog>? comparisonLog,
@@ -1752,6 +1753,12 @@ internal sealed class OverloadResolver
         var argType = argument.Type;
         if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
         {
+            if (argumentRefKind != parameter.RefKind)
+            {
+                LogComparison(comparisonLog, parameter, argument.Type, OverloadArgumentComparisonResult.RefKindMismatch, "argument ref kind does not match parameter ref kind");
+                return false;
+            }
+
             if (argType is null)
             {
                 LogComparison(comparisonLog, parameter, argument.Type, OverloadArgumentComparisonResult.NullArgumentType, "argument type is null");
@@ -1785,6 +1792,12 @@ internal sealed class OverloadResolver
             LogComparison(comparisonLog, parameter, referencedType, OverloadArgumentComparisonResult.Success, "address argument matches ref/out/in parameter");
 
             return true;
+        }
+
+        if (argumentRefKind != RefKind.None)
+        {
+            LogComparison(comparisonLog, parameter, argument.Type, OverloadArgumentComparisonResult.RefKindMismatch, "ref/out/in argument supplied for non-byref parameter");
+            return false;
         }
 
         // Method group conversions must be validated against the target delegate type.

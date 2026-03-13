@@ -566,27 +566,26 @@ func clamp(min: int, value: int, max: int) -> int {
     return Math.Max(min, Math.Min(value, max))
 }
 
-func TryParse(text: string, out var result: &int) -> bool {
+func TryParse(text: string, out result: int) -> bool {
     result = 0      // ok: the parameter explicitly opts into mutation
     /* ... */
 }
 ```
 
-Declaring a parameter with `&Type` passes the argument by reference. The callee
-receives an alias to the caller's storage and can read or write through that
-alias. Callers supply such arguments with the address-of operator `&expr`.
-Placing `out` before the parameter name signals that the method must assign the
-alias before returning; the caller is required to pass an assignable storage
-location. Ordinary by-reference parameters omit `out` and behave like `ref`
-arguments in other languages.
+Declaring a parameter with `ref`, `out`, or `in` passes the argument by
+reference. The callee receives an alias to the caller's storage and callers
+supply such arguments with the address-of operator `&expr`. Plain parameters are
+readonly. `ref` parameters can be read and assigned, `in` parameters are
+readonly aliases, and `out` parameters must be assigned before the method
+returns.
 
 ```raven
-func Increment(var value: &int) -> () {
+func Increment(ref value: int) -> () {
     value = value + 1
 }
 
 var total = 41
-Increment(&total)
+Increment(ref total)
 Console.WriteLine(total) // prints 42
 ```
 

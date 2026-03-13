@@ -184,3 +184,4 @@ Impact:
 - If old code uses union/type-literal syntax, migrate to current Raven constructs.
 - Re-check overload-heavy calls (especially lambdas/extensions/generics) because binder behavior is now stricter and more correct.
 - For compiler API integrations, prefer current Operations API names/shapes aligned to match-oriented semantics.
+- Changed: invocation arguments for `ref`, `out`, and `in` parameters now use explicit call-site keywords instead of `&` at ordinary call sites. Raven now supports `Set(ref value)`, `TryParse(text, out result)`, and declaration forms like `TryParse(text, out var result)` and `TryParse(text, out val result)`.

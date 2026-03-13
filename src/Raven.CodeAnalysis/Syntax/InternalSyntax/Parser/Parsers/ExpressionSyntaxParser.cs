@@ -1636,9 +1636,24 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     public ArgumentSyntax ParseArgument(bool allowLegacyNamedArgumentEquals, out TextSpan? nameSpan)
     {
+        var refKindKeyword = Token(SyntaxKind.None);
+        var bindingKeyword = Token(SyntaxKind.None);
         NameColonSyntax? nameColon = null;
         nameSpan = null;
         var dotDotDotToken = Token(SyntaxKind.None);
+
+        if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+        {
+            var next = PeekToken(1);
+            if (!next.IsKind(SyntaxKind.ColonToken) && !next.IsKind(SyntaxKind.EqualsToken))
+                refKindKeyword = ReadToken();
+        }
+
+        if (refKindKeyword.Kind == SyntaxKind.OutKeyword &&
+            PeekToken().Kind is SyntaxKind.VarKeyword or SyntaxKind.ValKeyword or SyntaxKind.LetKeyword)
+        {
+            bindingKeyword = ReadToken();
+        }
 
         // Try to parse optional name:
         if (PeekToken(1).IsKind(SyntaxKind.ColonToken)
@@ -1687,8 +1702,17 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.DotDotDotToken))
             dotDotDotToken = ReadToken();
 
-        var expr = ParseExpression();
-        return Argument(nameColon, dotDotDotToken, expr);
+        ExpressionSyntax expr;
+        if (bindingKeyword.Kind != SyntaxKind.None && CanTokenBeIdentifier(PeekToken()))
+        {
+            expr = IdentifierName(ReadIdentifierToken());
+        }
+        else
+        {
+            expr = ParseExpression();
+        }
+
+        return Argument(refKindKeyword, bindingKeyword, nameColon, dotDotDotToken, expr);
     }
 
     private BracketedArgumentListSyntax ParseBracketedArgumentListSyntax()
@@ -1873,7 +1897,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (expression is null)
                 break;
 
-            argumentList.Add(Argument(null, expression));
+            argumentList.Add(Argument(Token(SyntaxKind.None), Token(SyntaxKind.None), null, Token(SyntaxKind.None), expression));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))

@@ -4,7 +4,7 @@ val arg = if args.Length > 0 { args[0]; } else { "0"; }
 
 var total = 0
 
-if !int.TryParse(arg, &total) {
+if !int.TryParse(arg, out total) {
     Console.WriteLine("Expected number")
 }
 
@@ -14,7 +14,7 @@ while true {
     
     var number = 0
 
-    if int.TryParse(inputStr, &number) {
+    if int.TryParse(inputStr, out number) {
         total = total + number
 
         Console.Write("The total is: ")

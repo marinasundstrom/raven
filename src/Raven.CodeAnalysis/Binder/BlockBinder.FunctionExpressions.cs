@@ -235,7 +235,7 @@ partial class BlockBinder
                 }
             }
 
-            var isMutable = parameterSyntax.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+            var isMutable = refKind is RefKind.Ref or RefKind.Out;
 
             var hasExplicitDefaultValue = false;
             object explicitDefaultValue = null;
@@ -1488,7 +1488,7 @@ partial class BlockBinder
         {
             var parameterSyntax = parameterSyntaxes[index];
             var delegateParameter = invoke.Parameters[index];
-            var isMutable = parameterSyntax.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+            var isMutable = delegateParameter.RefKind is RefKind.Ref or RefKind.Out;
 
             // Preserve any default values that were already extracted during the initial bind.
             // IMPORTANT: We still do NOT validate/convert these defaults during replay.

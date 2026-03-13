@@ -1631,6 +1631,89 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed /*,.InvalidAddressOfTarget */);
     }
 
+    protected BoundExpression BindByRefInvocationArgument(BoundExpression operand, RefKind refKind, SyntaxNode syntax)
+    {
+        if (!refKind.IsByRef())
+            return operand;
+
+        if (operand is BoundErrorExpression)
+            return operand;
+
+        if (refKind is RefKind.Ref or RefKind.Out)
+        {
+            switch (operand)
+            {
+                case BoundLocalAccess { Local.IsMutable: false }:
+                case BoundParameterAccess { Parameter.IsMutable: false }:
+                    _diagnostics.ReportThisValueIsNotMutable(syntax.GetLocation());
+                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+            }
+        }
+
+        return operand switch
+        {
+            BoundLocalAccess or BoundParameterAccess => new BoundAddressOfExpression(operand),
+            BoundFieldAccess fieldAccess => CanAssignToField(fieldAccess.Field, fieldAccess.Receiver, syntax)
+                ? new BoundAddressOfExpression(fieldAccess)
+                : new BoundErrorExpression(fieldAccess.Type ?? Compilation.ErrorTypeSymbol, fieldAccess.Field, BoundExpressionReason.ArgumentBindingFailed),
+            BoundMemberAccessExpression { Member: IFieldSymbol } memberAccess => new BoundAddressOfExpression(memberAccess),
+            BoundArrayAccessExpression arrayAccess => new BoundAddressOfExpression(arrayAccess),
+            BoundSelfExpression selfExpression => new BoundAddressOfExpression(selfExpression),
+            _ => ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed),
+        };
+    }
+
+    protected BoundExpression BindInvocationArgumentExpression(ArgumentSyntax syntax, ITypeSymbol? targetType, RefKind refKind)
+    {
+        if (syntax.BindingKeyword.Kind != SyntaxKind.None)
+            return BindDeclaredOutArgument(syntax, targetType, refKind);
+
+        var expressionTargetType = refKind.IsByRef() && targetType is RefTypeSymbol byRefTargetType
+            ? byRefTargetType.ElementType
+            : targetType;
+
+        var boundExpression = expressionTargetType is null
+            ? BindExpression(syntax.Expression)
+            : BindExpressionWithTargetType(syntax.Expression, expressionTargetType);
+
+        if (refKind.IsByRef())
+            boundExpression = BindByRefInvocationArgument(boundExpression, refKind, syntax.Expression);
+
+        return boundExpression;
+    }
+
+    private BoundExpression BindDeclaredOutArgument(ArgumentSyntax syntax, ITypeSymbol? targetType, RefKind refKind)
+    {
+        if (refKind != RefKind.Out || syntax.Expression is not IdentifierNameSyntax identifier)
+            return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+
+        var name = identifier.Identifier.ValueText;
+        var localType = targetType is RefTypeSymbol byRefTargetType
+            ? byRefTargetType.ElementType
+            : Compilation.ErrorTypeSymbol;
+        var isMutable = syntax.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+
+        if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)
+        {
+            var isSameDeclaration = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
+                reference.SyntaxTree == identifier.SyntaxTree &&
+                reference.Span == identifier.Span);
+
+            if (isSameDeclaration)
+                return BindByRefInvocationArgument(new BoundLocalAccess(existing.Symbol), refKind, syntax.Expression);
+        }
+
+        if (LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+            _diagnostics.ReportVariableShadowsPreviousDeclaration(name, identifier.Identifier.GetLocation());
+
+        var local = CreateLocalSymbol(identifier, name, isMutable, localType);
+        _locals[name] = (local, _scopeDepth);
+
+        var access = new BoundLocalAccess(local);
+        CacheBoundNode(identifier, access);
+        return BindByRefInvocationArgument(access, refKind, syntax.Expression);
+    }
+
     private BoundExpression BindDereferenceExpression(BoundExpression operand, PrefixOperatorExpressionSyntax syntax)
     {
         if (operand is BoundErrorExpression)
@@ -7954,7 +8037,14 @@ partial class BlockBinder : Binder
             var targetType = TryGetLambdaParameter(targetMethod, i, extensionReceiverImplicit, out var parameter)
                 ? parameter!.Type
                 : null;
-            var boundArg = BindExpressionWithTargetType(syntax.Expression, targetType);
+            var syntaxRefKind = syntax.RefKindKeyword.Kind switch
+            {
+                SyntaxKind.RefKeyword => RefKind.Ref,
+                SyntaxKind.OutKeyword => RefKind.Out,
+                SyntaxKind.InKeyword => RefKind.In,
+                _ => RefKind.None,
+            };
+            var boundArg = BindInvocationArgumentExpression(syntax, targetType, syntaxRefKind);
             if (HasExpressionErrors(boundArg))
                 seenErrors = true;
 
@@ -7963,7 +8053,7 @@ partial class BlockBinder : Binder
                 name = null;
 
             var isSpread = syntax.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken;
-            boundArguments[i] = new BoundArgument(boundArg, RefKind.None, name, syntax, isSpread);
+            boundArguments[i] = new BoundArgument(boundArg, syntaxRefKind, name, syntax, isSpread);
         }
 
         hasErrors = seenErrors;

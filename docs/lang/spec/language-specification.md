@@ -3455,16 +3455,15 @@ assignable.)
 By-reference locals and fields never use the `out` modifier—`out` is
 only meaningful at the call boundary to signal definite assignment
 responsibilities between caller and callee. Declaring a local with
-`&Type` produces a reference variable that immediately aliases an
-existing storage location; invoking a member with an `out &Type`
-parameter transfers that aliasing requirement to the parameter for the
-duration of the call.
+`ref`, `out`, and `in` parameters immediately alias existing storage
+locations. The caller provides that storage with `&expr`; `out`
+requires the callee to assign the aliased storage before returning.
 
 ```raven
-func TryParse(text: string, out var result: &int) -> bool { /* ... */ }
+func TryParse(text: string, out result: int) -> bool { /* ... */ }
 
 var total = 0
-if !TryParse(arg, &total) {
+if !TryParse(arg, out total) {
     Console.WriteLine("Expected number")
 }
 ```

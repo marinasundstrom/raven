@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -103,6 +105,7 @@ class MethodBodyBinder : BlockBinder
         }
 
         ReportMissingReturnIfNeeded(bodySyntax, bound);
+        ReportUnassignedOutParametersIfNeeded(bodySyntax, bound);
 
         var unit = Compilation.UnitTypeSymbol;
         var skipTrailingExpressionCheck = ShouldSkipTrailingExpressionCheck(unit);
@@ -217,6 +220,237 @@ class MethodBodyBinder : BlockBinder
         }
 
         return false;
+    }
+
+    private void ReportUnassignedOutParametersIfNeeded(SyntaxNode bodySyntax, BoundBlockStatement bound)
+    {
+        var outParameters = _methodSymbol.Parameters
+            .Where(static parameter => parameter.RefKind == RefKind.Out)
+            .ToImmutableArray();
+
+        if (outParameters.IsDefaultOrEmpty)
+            return;
+
+        var analyzer = new OutParameterAssignmentAnalyzer(this, outParameters);
+        analyzer.Analyze(bodySyntax, bound);
+    }
+
+    private Location GetOutParameterDiagnosticLocation(SyntaxNode bodySyntax)
+    {
+        return bodySyntax switch
+        {
+            BlockStatementSyntax block => GetMissingReturnDiagnosticLocation(block),
+            ArrowExpressionClauseSyntax arrow => arrow.GetLocation(),
+            _ => _methodSymbol.Locations.FirstOrDefault() ?? Location.None
+        };
+    }
+
+    private sealed class OutParameterAssignmentAnalyzer
+    {
+        private readonly MethodBodyBinder _binder;
+        private readonly ImmutableArray<IParameterSymbol> _outParameters;
+
+        public OutParameterAssignmentAnalyzer(MethodBodyBinder binder, ImmutableArray<IParameterSymbol> outParameters)
+        {
+            _binder = binder;
+            _outParameters = outParameters;
+        }
+
+        public void Analyze(SyntaxNode bodySyntax, BoundBlockStatement body)
+        {
+            var state = AnalyzeBlock(body, ImmutableHashSet<IParameterSymbol>.Empty.WithComparer(SymbolEqualityComparer.Default));
+            if (state.CompletesNormally)
+                ReportMissing(state.Assigned, _binder.GetOutParameterDiagnosticLocation(bodySyntax));
+        }
+
+        private AnalysisState AnalyzeBlock(BoundBlockStatement block, ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            var currentAssigned = assigned;
+            var completesNormally = true;
+
+            foreach (var statement in block.Statements)
+            {
+                if (!completesNormally)
+                    break;
+
+                var state = AnalyzeStatement(statement, currentAssigned);
+                currentAssigned = state.Assigned;
+                completesNormally = state.CompletesNormally;
+            }
+
+            return new AnalysisState(currentAssigned, completesNormally);
+        }
+
+        private AnalysisState AnalyzeStatement(BoundStatement statement, ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            switch (statement)
+            {
+                case BoundBlockStatement block:
+                    return AnalyzeBlock(block, assigned);
+                case BoundExpressionStatement expressionStatement:
+                    return new AnalysisState(MarkAssignedExpression(expressionStatement.Expression, assigned), true);
+                case BoundAssignmentStatement assignmentStatement:
+                    return new AnalysisState(MarkAssignedExpression(assignmentStatement.Expression, assigned), true);
+                case BoundReturnStatement:
+                    ReportMissing(assigned, _binder._methodSymbol.Locations.FirstOrDefault() ?? Location.None);
+                    return new AnalysisState(assigned, false);
+                case BoundThrowStatement:
+                case BoundBreakStatement:
+                case BoundContinueStatement:
+                    return new AnalysisState(assigned, false);
+                case BoundIfStatement ifStatement:
+                    return AnalyzeIf(ifStatement, assigned);
+                case BoundWhileStatement whileStatement:
+                    _ = AnalyzeStatement(whileStatement.Body, assigned);
+                    return new AnalysisState(assigned, true);
+                case BoundForStatement forStatement:
+                    _ = AnalyzeStatement(forStatement.Body, assigned);
+                    return new AnalysisState(assigned, true);
+                case BoundTryStatement tryStatement:
+                    return AnalyzeTry(tryStatement, assigned);
+                default:
+                    return new AnalysisState(assigned, true);
+            }
+        }
+
+        private AnalysisState AnalyzeIf(BoundIfStatement ifStatement, ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            var thenState = AnalyzeStatement(ifStatement.ThenNode, assigned);
+            var elseState = ifStatement.ElseNode is null
+                ? new AnalysisState(assigned, true)
+                : AnalyzeStatement(ifStatement.ElseNode, assigned);
+
+            return (thenState.CompletesNormally, elseState.CompletesNormally) switch
+            {
+                (true, true) => new AnalysisState(Intersect(thenState.Assigned, elseState.Assigned), true),
+                (true, false) => thenState,
+                (false, true) => elseState,
+                _ => new AnalysisState(assigned, false),
+            };
+        }
+
+        private AnalysisState AnalyzeTry(BoundTryStatement tryStatement, ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            var completingStates = new List<ImmutableHashSet<IParameterSymbol>>();
+
+            var tryState = AnalyzeBlock(tryStatement.TryBlock, assigned);
+            if (tryState.CompletesNormally)
+                completingStates.Add(tryState.Assigned);
+
+            foreach (var catchClause in tryStatement.CatchClauses)
+            {
+                var catchState = AnalyzeBlock(catchClause.Block, assigned);
+                if (catchState.CompletesNormally)
+                    completingStates.Add(catchState.Assigned);
+            }
+
+            var completesNormally = completingStates.Count > 0;
+            var afterTry = completesNormally
+                ? completingStates.Aggregate(Intersect)
+                : assigned;
+
+            if (tryStatement.FinallyBlock is null)
+                return new AnalysisState(afterTry, completesNormally);
+
+            var finallyState = AnalyzeBlock(tryStatement.FinallyBlock, afterTry);
+            return new AnalysisState(finallyState.Assigned, completesNormally && finallyState.CompletesNormally);
+        }
+
+        private ImmutableHashSet<IParameterSymbol> MarkAssignedExpression(BoundExpression? expression, ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            if (expression is null)
+                return assigned;
+
+            if (expression is BoundByRefAssignmentExpression { Reference: BoundParameterAccess parameterAccess })
+                return MarkAssignedParameter(parameterAccess.Parameter, assigned);
+
+            if (expression is BoundParameterAssignmentExpression parameterAssignment)
+                return MarkAssignedParameter(parameterAssignment.Parameter, assigned);
+
+            var collector = new AssignedOutParameterCollector(_outParameters, assigned);
+            collector.VisitExpression(expression);
+            return collector.Assigned;
+        }
+
+        private ImmutableHashSet<IParameterSymbol> MarkAssignedParameter(IParameterSymbol parameter, ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            foreach (var outParameter in _outParameters)
+            {
+                if (SymbolEqualityComparer.Default.Equals(outParameter, parameter))
+                    return assigned.Add(outParameter);
+            }
+
+            return assigned;
+        }
+
+        private void ReportMissing(ImmutableHashSet<IParameterSymbol> assigned, Location location)
+        {
+            foreach (var parameter in _outParameters)
+            {
+                if (!assigned.Contains(parameter))
+                    _binder._diagnostics.ReportUnassignedOutParameter(parameter.Name, location);
+            }
+        }
+
+        private static ImmutableHashSet<IParameterSymbol> Intersect(
+            ImmutableHashSet<IParameterSymbol> left,
+            ImmutableHashSet<IParameterSymbol> right)
+        {
+            var builder = ImmutableHashSet.CreateBuilder<IParameterSymbol>(SymbolEqualityComparer.Default);
+            foreach (var parameter in left)
+            {
+                if (right.Contains(parameter))
+                    builder.Add(parameter);
+            }
+
+            return builder.ToImmutable();
+        }
+
+        private readonly record struct AnalysisState(ImmutableHashSet<IParameterSymbol> Assigned, bool CompletesNormally);
+    }
+
+    private sealed class AssignedOutParameterCollector : BoundTreeWalker
+    {
+        private readonly ImmutableArray<IParameterSymbol> _outParameters;
+
+        public AssignedOutParameterCollector(
+            ImmutableArray<IParameterSymbol> outParameters,
+            ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            _outParameters = outParameters;
+            Assigned = assigned;
+        }
+
+        public ImmutableHashSet<IParameterSymbol> Assigned { get; private set; }
+
+        public override void VisitParameterAssignmentExpression(BoundParameterAssignmentExpression node)
+        {
+            base.VisitParameterAssignmentExpression(node);
+            Mark(node.Parameter);
+        }
+
+        public override void VisitByRefAssignmentExpression(BoundByRefAssignmentExpression node)
+        {
+            base.VisitByRefAssignmentExpression(node);
+            if (node.Reference is BoundParameterAccess parameterAccess)
+                Mark(parameterAccess.Parameter);
+        }
+
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
+        {
+        }
+
+        private void Mark(IParameterSymbol parameter)
+        {
+            foreach (var outParameter in _outParameters)
+            {
+                if (SymbolEqualityComparer.Default.Equals(outParameter, parameter))
+                {
+                    Assigned = Assigned.Add(outParameter);
+                    break;
+                }
+            }
+        }
     }
 
     private ITypeSymbol GetTrailingExpressionTargetType(IMethodSymbol method)

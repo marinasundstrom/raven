@@ -336,16 +336,21 @@ partial class BlockBinder
             // Positional args use the (common) parameter type at the given index.
             // Named args use the (common) parameter type for that name.
             ITypeSymbol? targetType = null;
+            var argumentRefKind = RefKind.None;
 
             if (arg.NameColon is null)
             {
                 targetType = TryGetCommonPositionalParameterType(methods, i, receiver);
+                argumentRefKind = TryGetCommonPositionalParameterRefKind(methods, i, receiver);
             }
             else
             {
                 var argName = arg.NameColon.Name?.Identifier.ValueText;
                 if (!string.IsNullOrEmpty(argName))
+                {
                     targetType = TryGetCommonNamedParameterType(methods, argName, receiver);
+                    argumentRefKind = TryGetCommonNamedParameterRefKind(methods, argName, receiver);
+                }
             }
 
             // For callable arguments where candidates disagree on the delegate type
@@ -379,9 +384,15 @@ partial class BlockBinder
                     targetType = null;
             }
 
-            var boundExpr = targetType is null
-                ? BindExpression(arg.Expression)
-                : BindExpressionWithTargetType(arg.Expression, targetType);
+            var syntaxRefKind = arg.RefKindKeyword.Kind switch
+            {
+                SyntaxKind.RefKeyword => RefKind.Ref,
+                SyntaxKind.OutKeyword => RefKind.Out,
+                SyntaxKind.InKeyword => RefKind.In,
+                _ => RefKind.None,
+            };
+
+            var boundExpr = BindInvocationArgumentExpression(arg, targetType, syntaxRefKind);
 
             if (targetType is not null && HasExpressionErrors(boundExpr))
             {
@@ -389,7 +400,7 @@ partial class BlockBinder
                 // case construction or method-group conversion). Retry without the target type
                 // before treating it as an error.
                 RemoveCachedBoundNode(arg.Expression);
-                var naturalBoundExpr = BindExpression(arg.Expression);
+                var naturalBoundExpr = BindInvocationArgumentExpression(arg, targetType: null, syntaxRefKind);
                 if (!HasExpressionErrors(naturalBoundExpr))
                     boundExpr = naturalBoundExpr;
             }
@@ -402,7 +413,7 @@ partial class BlockBinder
                 name = null;
 
             var isSpread = arg.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken;
-            boundArguments[i] = new BoundArgument(boundExpr, RefKind.None, name, arg, isSpread);
+            boundArguments[i] = new BoundArgument(boundExpr, syntaxRefKind != RefKind.None ? syntaxRefKind : argumentRefKind, name, arg, isSpread);
         }
 
         return boundArguments;
@@ -472,6 +483,39 @@ partial class BlockBinder
             return hasCommon ? common : null;
         }
 
+        RefKind TryGetCommonPositionalParameterRefKind(ImmutableArray<IMethodSymbol> methods, int argumentIndex, BoundExpression? invocationReceiver)
+        {
+            if (methods.IsDefaultOrEmpty)
+                return RefKind.None;
+
+            RefKind? common = null;
+
+            foreach (var method in methods)
+            {
+                if (method is null)
+                    continue;
+
+                var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+                    ? argumentIndex + 1
+                    : argumentIndex;
+
+                if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                    return RefKind.None;
+
+                var refKind = method.Parameters[parameterIndex].RefKind;
+                if (common is null)
+                {
+                    common = refKind;
+                    continue;
+                }
+
+                if (common.Value != refKind)
+                    return RefKind.None;
+            }
+
+            return common ?? RefKind.None;
+        }
+
         ITypeSymbol? TryGetCommonNamedParameterType(ImmutableArray<IMethodSymbol> methods, string argumentName, BoundExpression? invocationReceiver)
         {
             if (methods.IsDefaultOrEmpty)
@@ -510,6 +554,35 @@ partial class BlockBinder
             }
 
             return hasCommon ? common : null;
+        }
+
+        RefKind TryGetCommonNamedParameterRefKind(ImmutableArray<IMethodSymbol> methods, string argumentName, BoundExpression? invocationReceiver)
+        {
+            if (methods.IsDefaultOrEmpty)
+                return RefKind.None;
+
+            RefKind? common = null;
+
+            foreach (var method in methods)
+            {
+                if (method is null)
+                    continue;
+
+                var parameter = method.Parameters.FirstOrDefault(p => string.Equals(p.Name, argumentName, StringComparison.OrdinalIgnoreCase));
+                if (parameter is null)
+                    return RefKind.None;
+
+                if (common is null)
+                {
+                    common = parameter.RefKind;
+                    continue;
+                }
+
+                if (common.Value != parameter.RefKind)
+                    return RefKind.None;
+            }
+
+            return common ?? RefKind.None;
         }
     }
 

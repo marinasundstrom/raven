@@ -11,11 +11,11 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class ByRefParameterTests : CompilationTestBase
 {
     [Fact]
-    public void Parameter_WithAmpersand_HasRefKindRef()
+    public void Parameter_WithRefKeyword_HasRefKindRef()
     {
         var source = """
 class C {
-    func test(x: &int) -> unit { }
+    func test(ref x: int) -> unit { }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -26,6 +26,7 @@ class C {
         var symbol = methodSymbol.Parameters.Single();
         Assert.Equal(RefKind.Ref, symbol.RefKind);
         Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
+        Assert.True(symbol.IsMutable);
     }
 
     [Fact]
@@ -33,7 +34,7 @@ class C {
     {
         var source = """
 class C {
-    func test(out var x: &int) -> unit { x = 1 }
+    func test(out x: int) -> unit { x = 1 }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -44,14 +45,15 @@ class C {
         var symbol = methodSymbol.Parameters.Single();
         Assert.Equal(RefKind.Out, symbol.RefKind);
         Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
+        Assert.True(symbol.IsMutable);
     }
 
     [Fact]
-    public void ConstructorParameter_WithAmpersand_HasRefKindRef()
+    public void ConstructorParameter_WithRefKeyword_HasRefKindRef()
     {
         var source = """
 class C {
-    init(x: &int) { }
+    init(ref x: int) { }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -62,6 +64,7 @@ class C {
         var parameter = ctorSymbol.Parameters.Single();
         Assert.Equal(RefKind.Ref, parameter.RefKind);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+        Assert.True(parameter.IsMutable);
     }
 
     [Fact]
@@ -69,7 +72,7 @@ class C {
     {
         var source = """
 class C {
-    init(out var x: &int) { x = 0 }
+    init(out x: int) { x = 0 }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -80,14 +83,15 @@ class C {
         var parameter = ctorSymbol.Parameters.Single();
         Assert.Equal(RefKind.Out, parameter.RefKind);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+        Assert.True(parameter.IsMutable);
     }
 
     [Fact]
-    public void FunctionParameter_WithAmpersand_HasRefKindRef()
+    public void FunctionParameter_WithRefKeyword_HasRefKindRef()
     {
         var source = """
 func outer() {
-    func inner(x: &int) { }
+    func inner(ref x: int) { }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -98,6 +102,7 @@ func outer() {
         var parameter = symbol.Parameters.Single();
         Assert.Equal(RefKind.Ref, parameter.RefKind);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+        Assert.True(parameter.IsMutable);
     }
 
     [Fact]
@@ -105,7 +110,7 @@ func outer() {
     {
         var source = """
 func outer() {
-    func inner(out var x: &int) { x = 1 }
+    func inner(out x: int) { x = 1 }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -116,6 +121,7 @@ func outer() {
         var parameter = symbol.Parameters.Single();
         Assert.Equal(RefKind.Out, parameter.RefKind);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+        Assert.True(parameter.IsMutable);
     }
 
     [Fact]
@@ -123,8 +129,8 @@ func outer() {
     {
         var source = """
 class C {
-    static func Set(x: &int) { x = 1 }
-    static func Pass(x: &int) { Set(&x) }
+    static func Set(ref x: int) { x = 1 }
+    static func Pass(ref x: int) { Set(ref x) }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -138,11 +144,11 @@ class C {
     {
         var source = """
 class C {
-    static func Set(value: &int) -> unit { value = 42 }
+    static func Set(ref value: int) -> unit { value = 42 }
 
     static func Run() -> unit {
         var data = 0
-        Set(&data)
+        Set(ref data)
     }
 }
 """;
@@ -157,14 +163,14 @@ class C {
     {
         var source = """
 class C {
-    static func TryParse(text: string, out var result: &int) -> bool {
+    static func TryParse(text: string, out result: int) -> bool {
         result = 1
         return true
     }
 
     static func Consume(arg: string) -> bool {
         var total = 0
-        if !TryParse(arg, &total) {
+        if !TryParse(arg, out total) {
             return false
         }
 
@@ -180,11 +186,63 @@ class C {
     }
 
     [Fact]
-    public void Method_OutParameter_WithoutVar_ReportsDiagnostic()
+    public void Method_OutParameter_WithDeclaredVarLocal_Compiles()
     {
         var source = """
 class C {
-    static func TryParse(text: string, out result: &int) -> bool {
+    static func TryParse(text: string, out result: int) -> bool {
+        result = 1
+        return true
+    }
+
+    static func Consume(arg: string) -> int {
+        if !TryParse(arg, out var total) {
+            return -1
+        }
+
+        total = total + 1
+        return total
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Method_OutParameter_WithDeclaredValLocal_IsReadOnlyAfterCall()
+    {
+        var source = """
+class C {
+    static func TryParse(text: string, out result: int) -> bool {
+        result = 1
+        return true
+    }
+
+    static func Consume(arg: string) -> int {
+        if !TryParse(arg, out val total) {
+            return -1
+        }
+
+        total = total + 1
+        return total
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Id == CompilerDiagnostics.ThisValueIsNotMutable.Id);
+    }
+
+    [Fact]
+    public void Method_OutParameter_WithBindingKeyword_ReportsDiagnostic()
+    {
+        var source = """
+class C {
+    static func TryParse(text: string, out var result: int) -> bool {
         result = 0
         return true
     }
@@ -194,8 +252,7 @@ class C {
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
         var diagnostics = compilation.GetDiagnostics();
-        var diagnostic = Assert.Single(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Equal(CompilerDiagnostics.ThisValueIsNotMutable.Id, diagnostic.Id);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id);
     }
 
     [Fact]

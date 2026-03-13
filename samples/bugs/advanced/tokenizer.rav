@@ -45,7 +45,7 @@ class Lexer {
         }
         else {
             var ch = Convert.ToChar(no);
-            if int.TryParse(ch.ToString(), &number) {
+            if int.TryParse(ch.ToString(), out number) {
                 _stringBuilder.Append(ch)
                 val noStr = _stringBuilder.ToString();
                 return .Number(noStr, number)

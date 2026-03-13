@@ -145,7 +145,7 @@ class FunctionBinder : Binder
                     p.BindingKeyword.GetLocation());
             }
 
-            const bool isMutable = false;
+            var isMutable = refKind is RefKind.Ref or RefKind.Out;
 
             var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                 p,

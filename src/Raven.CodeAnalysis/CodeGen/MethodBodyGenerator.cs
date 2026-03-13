@@ -4130,6 +4130,14 @@ internal class MethodBodyGenerator
 
         public List<ILocalSymbol> Locals { get; } = new();
 
+        public override void VisitLocalAccess(BoundLocalAccess node)
+        {
+            if (!Locals.Any(l => SymbolEqualityComparer.Default.Equals(l, node.Local)))
+                Locals.Add(node.Local);
+
+            base.VisitLocalAccess(node);
+        }
+
         public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
         {
             foreach (var d in node.Declarators)

@@ -100,6 +100,8 @@
     <Slot Name="Selector" Type="Expression" />
   </Node>
   <Node Name="Argument" Inherits="Node">
+    <Slot Name="RefKindKeyword" Type="Token" IsOptionalToken="true" />
+    <Slot Name="BindingKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="NameColon" Type="NameColon" IsNullable="true" />
     <Slot Name="DotDotDotToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Expression" Type="Expression" />

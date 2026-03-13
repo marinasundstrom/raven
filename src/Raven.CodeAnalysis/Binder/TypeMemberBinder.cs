@@ -637,7 +637,7 @@ internal partial class TypeMemberBinder : Binder
                     p.BindingKeyword.GetLocation());
             }
 
-            const bool isMutable = false;
+            var isMutable = refKind is RefKind.Ref or RefKind.Out;
             paramInfos.Add((p.Identifier.ValueText, typeSyntax, refKind, p, isMutable));
         }
 
@@ -1138,7 +1138,7 @@ internal partial class TypeMemberBinder : Binder
                     p.BindingKeyword.GetLocation());
             }
 
-            const bool isMutable = false;
+            var isMutable = refKind is RefKind.Ref or RefKind.Out;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
@@ -1294,7 +1294,7 @@ internal partial class TypeMemberBinder : Binder
                     p.BindingKeyword.GetLocation());
             }
 
-            const bool isMutable = false;
+            var isMutable = refKind is RefKind.Ref or RefKind.Out;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
@@ -1592,8 +1592,15 @@ internal partial class TypeMemberBinder : Binder
                     bindingKeywordText,
                     p.BindingKeyword.GetLocation());
             }
+            else if (bindingKeywordKind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            {
+                _diagnostics.ReportParameterBindingKeywordNotAllowed(
+                    p.BindingKeyword.Text,
+                    p.Identifier.ValueText,
+                    p.BindingKeyword.GetLocation());
+            }
 
-            var isMutable = bindingKeywordKind == SyntaxKind.VarKeyword;
+            var isMutable = refKind is RefKind.Ref or RefKind.Out;
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
@@ -1989,7 +1996,8 @@ internal partial class TypeMemberBinder : Binder
                 CurrentNamespace.AsSourceNamespace(),
                 new[] { p.GetLocation() },
                 new[] { p.GetReference() },
-                refKind));
+                refKind,
+                isMutable: refKind is RefKind.Ref or RefKind.Out));
         }
 
         invoke.SetParameters(invokeParams.ToImmutable());
@@ -2641,7 +2649,7 @@ internal partial class TypeMemberBinder : Binder
                     p.BindingKeyword.GetLocation());
             }
 
-            const bool isMutable = false;
+            var isMutable = refKind is RefKind.Ref or RefKind.Out;
 
             indexerParametersBuilder.Add((p, type, refKind, isMutable, isVarParams, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue));
         }

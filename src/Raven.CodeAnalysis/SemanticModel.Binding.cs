@@ -2114,7 +2114,7 @@ public partial class SemanticModel
                         unionBinder.Diagnostics,
                         ref seenOptionalParameter);
 
-                    var isMutable = parameterSyntax.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+                    var isMutable = refKind is RefKind.Ref or RefKind.Out;
                     rawParameters.Add((parameterSyntax, parameterType, refKind, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue, isMutable, isVarParams));
                 }
             }
