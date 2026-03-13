@@ -91,6 +91,7 @@ internal sealed class BlockOperation : Operation, IBlockOperation
 
 internal sealed class ExpressionStatementOperation : Operation, IExpressionStatementOperation
 {
+    private readonly BoundExpressionStatement _bound;
     private IOperation? _operation;
 
     internal ExpressionStatementOperation(
@@ -100,9 +101,15 @@ internal sealed class ExpressionStatementOperation : Operation, IExpressionState
         bool isImplicit)
         : base(semanticModel, OperationKind.ExpressionStatement, syntax, bound.Expression.Type, isImplicit)
     {
+        _bound = bound;
     }
 
-    public IOperation? Operation => _operation ??= SemanticModel.GetOperation(((ExpressionStatementSyntax)Syntax).Expression);
+    public IOperation? Operation => _operation ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel,
+        _bound.Expression,
+        Syntax is ExpressionStatementSyntax expressionStatement
+            ? expressionStatement.Expression
+            : Syntax);
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {

@@ -177,4 +177,37 @@ value = 1
         operation.IsImplicit.ShouldBeFalse();
         operation.Syntax.ShouldBe(assignment);
     }
+
+    [Fact]
+    public void GetOperation_CompoundAssignmentStatement_ReturnsAssignmentOperation()
+    {
+        const string source = """
+import System.*
+
+delegate ChangedHandler(sender: object?, value: int) -> unit
+
+class Source {
+    event Changed: ChangedHandler?
+
+    func Hook(handler: ChangedHandler) -> unit {
+        Changed += handler
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Single();
+
+        var operation = model.GetOperation(assignment);
+
+        operation.ShouldNotBeNull();
+        operation!.Kind.ShouldBe(OperationKind.Assignment);
+        operation.IsImplicit.ShouldBeFalse();
+        operation.Syntax.ShouldBe(assignment);
+        operation.ChildOperations.ShouldNotBeEmpty();
+    }
 }

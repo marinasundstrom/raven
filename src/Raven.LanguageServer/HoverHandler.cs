@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -380,12 +381,29 @@ internal sealed class HoverHandler : IHoverHandler
         if (symbol is IParameterSymbol parameter)
         {
             var parameterTypeSymbol = parameter.Type;
-            if (parameterTypeSymbol.TypeKind == TypeKind.Error &&
+            if (parameterTypeSymbol.ContainsErrorType() &&
+                contextNode.AncestorsAndSelf().OfType<ParameterSyntax>().FirstOrDefault() is { } parameterSyntax &&
+                semanticModel.GetFunctionExpressionParameterSymbol(parameterSyntax) is { Type: { } contextualParameterType } &&
+                !contextualParameterType.ContainsErrorType())
+            {
+                parameterTypeSymbol = contextualParameterType;
+            }
+            else if (parameterTypeSymbol.ContainsErrorType() &&
+                     TryInferLambdaParameterTypeFromFunctionTarget(contextNode, semanticModel, out var targetedParameterType))
+            {
+                parameterTypeSymbol = targetedParameterType;
+            }
+            else if (parameterTypeSymbol.ContainsErrorType() &&
+                TryInferDeclaredTypeFromContext(contextNode, semanticModel, out var declaredParameterType))
+            {
+                parameterTypeSymbol = declaredParameterType;
+            }
+            else if (parameterTypeSymbol.ContainsErrorType() &&
                 TryInferLambdaParameterTypeFromContext(parameter, contextNode, semanticModel, out var inferredParameterType))
             {
                 parameterTypeSymbol = inferredParameterType;
             }
-            else if (parameterTypeSymbol.TypeKind == TypeKind.Error &&
+            else if (parameterTypeSymbol.ContainsErrorType() &&
                      TryInferReceiverTypeFromMemberAccessContext(parameter.Name, contextNode, semanticModel, out inferredParameterType))
             {
                 parameterTypeSymbol = inferredParameterType;
@@ -401,7 +419,13 @@ internal sealed class HoverHandler : IHoverHandler
         {
             var binding = local.IsMutable ? "var" : "val";
             var localTypeSymbol = local.Type;
-            if (localTypeSymbol.TypeKind == TypeKind.Error &&
+            if (localTypeSymbol.ContainsErrorType() &&
+                TryInferDeclaredTypeFromContext(contextNode, semanticModel, out var declaredLocalType))
+            {
+                localTypeSymbol = declaredLocalType;
+            }
+
+            if (localTypeSymbol.ContainsErrorType() &&
                 TryInferReceiverTypeFromMemberAccessContext(local.Name, contextNode, semanticModel, out var inferredLocalType))
             {
                 localTypeSymbol = inferredLocalType;
@@ -419,13 +443,12 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is ITypeSymbol typeSymbol)
         {
-            var declarationTypeFormat = CreatePlainTypeFormatWithoutSpecialTypeAliases();
+            var declarationTypeFormat = CreatePlainTypeFormat();
 
             if (typeSymbol is INamedTypeSymbol delegateType &&
-                delegateType.TypeKind == TypeKind.Delegate &&
-                TryFormatDelegateTypeSignature(delegateType, declarationTypeFormat, out var delegateSignature))
+                delegateType.TypeKind == TypeKind.Delegate)
             {
-                return delegateSignature;
+                return delegateType.ToDisplayString(declarationTypeFormat);
             }
 
             var typeFormat = declarationTypeFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
@@ -460,12 +483,52 @@ internal sealed class HoverHandler : IHoverHandler
         SyntaxNode root,
         int offset)
     {
+        if (TryBuildDeclaredTypeHoverSignatureOverride(symbol, semanticModel, root, offset, out var declaredTypeSignature))
+            return declaredTypeSignature;
+
         var signature = BuildSignature(symbol, contextNode, semanticModel);
 
         if (!TryBuildReceiverErrorSignatureOverride(symbol, semanticModel, root, offset, out var overridden))
             return signature;
 
         return overridden;
+    }
+
+    private static bool TryBuildDeclaredTypeHoverSignatureOverride(
+        ISymbol symbol,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        out string signature)
+    {
+        signature = string.Empty;
+
+        if (symbol is not ILocalSymbol and not IParameterSymbol)
+            return false;
+
+        var typeSymbol = symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            _ => null
+        };
+
+        if (typeSymbol is null || !typeSymbol.ContainsErrorType())
+            return false;
+
+        if (!TryInferDeclaredTypeAtOffset(root, offset, semanticModel, out var declaredType))
+            return false;
+
+        var plainTypeFormat = CreatePlainTypeFormat();
+        var bindingPrefix = symbol switch
+        {
+            ILocalSymbol local => $"{(local.IsMutable ? "var" : "val")} {local.Name}: ",
+            IParameterSymbol parameter => $"{GetNonPublicParameterAccessibilityPrefix(parameter)}{GetPromotedPrimaryConstructorBindingPrefix(parameter)}{parameter.Name}: ",
+            _ => string.Empty
+        };
+
+        signature = bindingPrefix + declaredType.ToDisplayString(plainTypeFormat);
+        return true;
     }
 
     private static bool TryBuildReceiverErrorSignatureOverride(
@@ -480,8 +543,8 @@ internal sealed class HoverHandler : IHoverHandler
         var plainTypeFormat = CreatePlainTypeFormat();
 
         var symbolName = symbol.Name;
-        var isErrorParameter = symbol is IParameterSymbol parameter && parameter.Type.TypeKind == TypeKind.Error;
-        var localBinding = symbol is ILocalSymbol local && local.Type.TypeKind == TypeKind.Error
+        var isErrorParameter = symbol is IParameterSymbol parameter && parameter.Type.ContainsErrorType();
+        var localBinding = symbol is ILocalSymbol local && local.Type.ContainsErrorType()
             ? local.IsMutable ? "var" : "val"
             : null;
 
@@ -554,7 +617,7 @@ internal sealed class HoverHandler : IHoverHandler
         if (accessibility is Accessibility.NotApplicable or Accessibility.Public)
             return string.Empty;
 
-        return accessibility.ToString().ToLowerInvariant() + " ";
+        return AccessibilityUtilities.GetDisplayText(accessibility) + " ";
     }
 
     private static string GetNonPublicParameterAccessibilityPrefix(IParameterSymbol parameter)
@@ -840,13 +903,6 @@ internal sealed class HoverHandler : IHoverHandler
             .WithMiscellaneousOptions(miscOptions);
     }
 
-    private static SymbolDisplayFormat CreatePlainTypeFormatWithoutSpecialTypeAliases()
-    {
-        var format = CreatePlainTypeFormat();
-        var miscOptions = format.MiscellaneousOptions & ~SymbolDisplayMiscellaneousOptions.UseSpecialTypes;
-        return format.WithMiscellaneousOptions(miscOptions);
-    }
-
     private static bool IsMethodDeclaredStaticForDisplay(IMethodSymbol method)
     {
         foreach (var syntax in method.DeclaringSyntaxReferences.Select(static r => r.GetSyntax()))
@@ -876,6 +932,140 @@ internal sealed class HoverHandler : IHoverHandler
         out ITypeSymbol inferredType)
         => TryInferLambdaParameterTypeByNameFromContext(parameter.Name, contextNode, semanticModel, out inferredType);
 
+    private static bool TryInferLambdaParameterTypeFromFunctionTarget(
+        SyntaxNode contextNode,
+        SemanticModel semanticModel,
+        out ITypeSymbol inferredType)
+    {
+        inferredType = null!;
+
+        var parameterSyntax = contextNode.AncestorsAndSelf().OfType<ParameterSyntax>().FirstOrDefault();
+        var functionExpression = contextNode.AncestorsAndSelf().OfType<FunctionExpressionSyntax>().FirstOrDefault();
+        if (parameterSyntax is null || functionExpression is null)
+            return false;
+
+        if (semanticModel.GetOperation(functionExpression) is ILambdaOperation lambdaOperation)
+        {
+            var operationParameterIndex = GetLambdaParameterIndex(functionExpression, parameterSyntax.Identifier.ValueText);
+            if (operationParameterIndex >= 0 && operationParameterIndex < lambdaOperation.Parameters.Length)
+            {
+                var operationParameterType = lambdaOperation.Parameters[operationParameterIndex].Type;
+                if (operationParameterType is not null && !operationParameterType.ContainsErrorType())
+                {
+                    inferredType = operationParameterType;
+                    return true;
+                }
+            }
+        }
+
+        var functionType = semanticModel.GetTypeInfo(functionExpression).ConvertedType
+            ?? semanticModel.GetTypeInfo(functionExpression).Type;
+
+        var delegateType = UnwrapDelegateType(functionType);
+        var invokeMethod = delegateType?.GetDelegateInvokeMethod();
+        if (invokeMethod is null || invokeMethod.Parameters.IsDefaultOrEmpty)
+            return false;
+
+        var parameterIndex = GetLambdaParameterIndex(functionExpression, parameterSyntax.Identifier.ValueText);
+        if (parameterIndex < 0 || parameterIndex >= invokeMethod.Parameters.Length)
+            return false;
+
+        var parameterType = invokeMethod.Parameters[parameterIndex].Type;
+        if (parameterType is null || parameterType.ContainsErrorType())
+            return false;
+
+        inferredType = parameterType is NullableTypeSymbol nullable ? nullable.UnderlyingType : parameterType;
+        return true;
+    }
+
+    private static bool TryInferDeclaredTypeFromContext(
+        SyntaxNode contextNode,
+        SemanticModel semanticModel,
+        out ITypeSymbol inferredType)
+    {
+        inferredType = null!;
+
+        foreach (var typeSyntax in contextNode.AncestorsAndSelf().OfType<TypeSyntax>())
+        {
+            if (!TryResolveTypeSymbolFromSyntax(semanticModel, typeSyntax, out var resolvedType))
+                continue;
+
+            inferredType = resolvedType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryInferDeclaredTypeAtOffset(
+        SyntaxNode root,
+        int offset,
+        SemanticModel semanticModel,
+        out ITypeSymbol inferredType)
+    {
+        inferredType = null!;
+
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var typeSyntax = token.Parent?.AncestorsAndSelf().OfType<TypeSyntax>().FirstOrDefault();
+            if (typeSyntax is null)
+                continue;
+
+            var typeSyntaxes = token.Parent!
+                .AncestorsAndSelf()
+                .OfType<TypeSyntax>()
+                .Where(typeNode => typeNode.Span.Contains(token.Span));
+
+            foreach (var candidateTypeSyntax in typeSyntaxes)
+            {
+                if (!TryResolveTypeSymbolFromSyntax(semanticModel, candidateTypeSyntax, out var resolvedType))
+                    continue;
+
+                inferredType = resolvedType;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveTypeSymbolFromSyntax(
+        SemanticModel semanticModel,
+        TypeSyntax typeSyntax,
+        out ITypeSymbol inferredType)
+    {
+        inferredType = null!;
+
+        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
+        var resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (resolvedType is null || resolvedType.TypeKind == TypeKind.Error)
+        {
+            var typeSymbol = semanticModel.GetSymbolInfo(typeSyntax).Symbol;
+            resolvedType = typeSymbol switch
+            {
+                ITypeSymbol resolved => resolved,
+                IAliasSymbol { UnderlyingSymbol: ITypeSymbol aliasedType } => aliasedType,
+                _ => resolvedType
+            };
+        }
+
+        if (resolvedType is null || resolvedType.TypeKind == TypeKind.Error)
+            return false;
+
+        inferredType = resolvedType;
+        return true;
+    }
+
     private static bool TryInferLambdaParameterTypeByNameFromContext(
         string parameterName,
         SyntaxNode contextNode,
@@ -889,12 +1079,11 @@ internal sealed class HoverHandler : IHoverHandler
             return false;
 
         var functionInfo = semanticModel.GetSymbolInfo(functionExpression);
+        var lambdaParameterIndex = GetLambdaParameterIndex(functionExpression, parameterName);
         if (functionInfo.Symbol is IMethodSymbol functionMethod &&
             !functionMethod.Parameters.IsDefaultOrEmpty)
         {
-            var fromMethod = functionMethod.Parameters.Length == 1
-                ? functionMethod.Parameters[0]
-                : functionMethod.Parameters.FirstOrDefault(p => string.Equals(p.Name, parameterName, StringComparison.Ordinal));
+            var fromMethod = TryGetDelegateParameter(functionMethod.Parameters, parameterName, lambdaParameterIndex);
 
             if (fromMethod is not null &&
                 fromMethod.Type is { TypeKind: not TypeKind.Error } typedFromMethod)
@@ -908,7 +1097,11 @@ internal sealed class HoverHandler : IHoverHandler
             argument.Parent is not ArgumentListSyntax argumentList ||
             argumentList.Parent is not InvocationExpressionSyntax invocation)
         {
-            return false;
+            return TryInferLambdaParameterTypeFromAssignmentTarget(
+                parameterName,
+                functionExpression,
+                semanticModel,
+                out inferredType);
         }
 
         var argumentIndex = 0;
@@ -937,9 +1130,7 @@ internal sealed class HoverHandler : IHoverHandler
                 if (invokeMethod is null || invokeMethod.Parameters.IsDefaultOrEmpty)
                     continue;
 
-                IParameterSymbol? delegateParameter = invokeMethod.Parameters.Length == 1
-                    ? invokeMethod.Parameters[0]
-                    : invokeMethod.Parameters.FirstOrDefault(p => string.Equals(p.Name, parameterName, StringComparison.Ordinal));
+                var delegateParameter = TryGetDelegateParameter(invokeMethod.Parameters, parameterName, lambdaParameterIndex);
 
                 if (delegateParameter is null || delegateParameter.Type.TypeKind == TypeKind.Error)
                     continue;
@@ -976,9 +1167,7 @@ internal sealed class HoverHandler : IHoverHandler
             if (invokeMethod is null || invokeMethod.Parameters.IsDefaultOrEmpty)
                 continue;
 
-            IParameterSymbol? delegateParameter = invokeMethod.Parameters.Length == 1
-                ? invokeMethod.Parameters[0]
-                : invokeMethod.Parameters.FirstOrDefault(p => string.Equals(p.Name, parameterName, StringComparison.Ordinal));
+            var delegateParameter = TryGetDelegateParameter(invokeMethod.Parameters, parameterName, lambdaParameterIndex);
 
             if (delegateParameter is null)
                 continue;
@@ -990,6 +1179,147 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         return false;
+    }
+
+    private static bool TryInferLambdaParameterTypeFromAssignmentTarget(
+        string parameterName,
+        FunctionExpressionSyntax functionExpression,
+        SemanticModel semanticModel,
+        out ITypeSymbol inferredType)
+    {
+        inferredType = null!;
+
+        ExpressionSyntax? targetExpression = null;
+
+        if (functionExpression.Parent is AssignmentExpressionSyntax assignmentExpression &&
+            ReferenceEquals(assignmentExpression.Right, functionExpression) &&
+            assignmentExpression.Left is ExpressionSyntax assignmentExpressionLeft)
+        {
+            targetExpression = assignmentExpressionLeft;
+        }
+        else if (functionExpression.Parent is AssignmentStatementSyntax assignmentStatement &&
+                 ReferenceEquals(assignmentStatement.Right, functionExpression) &&
+                 assignmentStatement.Left is ExpressionSyntax assignmentStatementLeft)
+        {
+            targetExpression = assignmentStatementLeft;
+        }
+
+        if (targetExpression is null)
+            return false;
+
+        var targetType = semanticModel.GetTypeInfo(targetExpression).ConvertedType
+            ?? semanticModel.GetTypeInfo(targetExpression).Type;
+
+        var delegateType = UnwrapDelegateType(targetType);
+        if (delegateType is null)
+        {
+            if (targetExpression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name is IdentifierNameSyntax memberName &&
+                semanticModel.GetTypeInfo(memberAccess.Expression).Type is INamedTypeSymbol receiverType &&
+                receiverType.TypeKind != TypeKind.Error)
+            {
+                for (var currentType = receiverType; currentType is not null; currentType = currentType.BaseType)
+                {
+                    targetType = currentType.GetMembers(memberName.Identifier.ValueText)
+                        .Select(member => member switch
+                        {
+                            IEventSymbol eventSymbol => eventSymbol.Type,
+                            IPropertySymbol property => property.Type,
+                            IFieldSymbol field => field.Type,
+                            _ => null
+                        })
+                        .FirstOrDefault(type => type is not null && !type.ContainsErrorType());
+
+                    if (targetType is not null)
+                        break;
+                }
+            }
+
+            var targetSymbol = targetExpression is MemberAccessExpressionSyntax targetMemberAccess
+                ? semanticModel.GetSymbolInfo(targetMemberAccess.Name).Symbol ?? semanticModel.GetSymbolInfo(targetExpression).Symbol
+                : semanticModel.GetSymbolInfo(targetExpression).Symbol;
+
+            if (targetSymbol is IMethodSymbol { AssociatedSymbol: { } associatedSymbol })
+                targetSymbol = associatedSymbol;
+            else if (targetSymbol is IFieldSymbol { AssociatedSymbol: { } associatedFieldSymbol })
+                targetSymbol = associatedFieldSymbol;
+
+            targetType = targetSymbol switch
+            {
+                IEventSymbol eventSymbol => eventSymbol.Type,
+                ILocalSymbol local => local.Type,
+                IFieldSymbol field => field.Type,
+                IPropertySymbol property => property.Type,
+                IParameterSymbol parameter => parameter.Type,
+                _ => targetType
+            };
+
+            delegateType = UnwrapDelegateType(targetType);
+            if (delegateType is null)
+                return false;
+        }
+
+        var invokeMethod = delegateType.GetDelegateInvokeMethod();
+        if (invokeMethod is null || invokeMethod.Parameters.IsDefaultOrEmpty)
+            return false;
+
+        var lambdaParameterIndex = GetLambdaParameterIndex(functionExpression, parameterName);
+        var delegateParameter = TryGetDelegateParameter(invokeMethod.Parameters, parameterName, lambdaParameterIndex);
+
+        if (delegateParameter is null || delegateParameter.Type.ContainsErrorType())
+            return false;
+
+        inferredType = delegateParameter.Type is NullableTypeSymbol nullable
+            ? nullable.UnderlyingType
+            : delegateParameter.Type;
+        return true;
+    }
+
+    private static INamedTypeSymbol? UnwrapDelegateType(ITypeSymbol? type)
+    {
+        return type switch
+        {
+            INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType => delegateType,
+            NullableTypeSymbol { UnderlyingType: INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType } => delegateType,
+            _ => null
+        };
+    }
+
+    private static int GetLambdaParameterIndex(FunctionExpressionSyntax functionExpression, string parameterName)
+    {
+        var parameters = functionExpression switch
+        {
+            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters,
+            _ => default
+        };
+
+        if (parameters.Count == 0)
+            return -1;
+
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            if (string.Equals(parameters[i].Identifier.ValueText, parameterName, StringComparison.Ordinal))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private static IParameterSymbol? TryGetDelegateParameter(
+        ImmutableArray<IParameterSymbol> parameters,
+        string parameterName,
+        int parameterIndex)
+    {
+        if (parameters.IsDefaultOrEmpty)
+            return null;
+
+        if (parameters.Length == 1)
+            return parameters[0];
+
+        if (parameterIndex >= 0 && parameterIndex < parameters.Length)
+            return parameters[parameterIndex];
+
+        return parameters.FirstOrDefault(p => string.Equals(p.Name, parameterName, StringComparison.Ordinal));
     }
 
     private static bool TryInferReceiverTypeFromMemberAccessContext(

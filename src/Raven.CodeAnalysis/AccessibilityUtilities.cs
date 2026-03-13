@@ -8,6 +8,17 @@ namespace Raven.CodeAnalysis;
 
 internal static class AccessibilityUtilities
 {
+    public static string GetDisplayText(Accessibility accessibility)
+    {
+        return accessibility switch
+        {
+            Accessibility.ProtectedAndProtected => "protected",
+            Accessibility.ProtectedOrInternal => "protected internal",
+            Accessibility.ProtectedAndInternal => "private protected",
+            _ => accessibility.ToString().ToLowerInvariant(),
+        };
+    }
+
     public static Accessibility DetermineAccessibility(
         IEnumerable<SyntaxToken> modifiers,
         Accessibility defaultAccessibility)

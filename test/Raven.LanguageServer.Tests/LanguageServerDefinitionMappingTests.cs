@@ -22,15 +22,10 @@ class Counter {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);

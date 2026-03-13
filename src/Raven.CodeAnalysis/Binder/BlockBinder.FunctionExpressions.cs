@@ -747,6 +747,10 @@ partial class BlockBinder
             syntax.Parent is ArgumentSyntax &&
             !candidateDelegates.IsDefaultOrEmpty &&
             candidateDelegates.Length > 1;
+
+        if (!isProvisionalCandidateBind)
+            CacheBoundNode(syntax, boundLambda);
+
         if (isProvisionalCandidateBind)
             ClearCachedLambdaBodyNodes(lambdaBodySyntaxNode);
 

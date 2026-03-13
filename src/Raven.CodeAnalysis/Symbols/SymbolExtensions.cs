@@ -181,12 +181,14 @@ public static partial class SymbolExtensions
             // TryFormatFunctionType must be checked first: System.Func/Action and synthesized
             // delegates always render as arrow-notation (e.g. T -> bool), even when
             // DelegateStyle is NameAndSignature.
-            string text;
-            if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
+            var isNamedDelegateDeclarationDisplay =
+                typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } namedDelegateType &&
                 format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature &&
-                !TryFormatFunctionType(typeSymbol, format, out _))
+                !TryFormatFunctionType(typeSymbol, format, out _);
+            string text;
+            if (isNamedDelegateDeclarationDisplay)
             {
-                text = FormatNamedDelegateDeclaration(delegateType, format);
+                text = FormatNamedDelegateDeclaration((INamedTypeSymbol)typeSymbol, format);
             }
             else
             {
@@ -194,7 +196,8 @@ public static partial class SymbolExtensions
             }
 
             if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword) &&
-                            symbol is INamedTypeSymbol namedTypeSymbol)
+                            symbol is INamedTypeSymbol namedTypeSymbol &&
+                            !isNamedDelegateDeclarationDisplay)
             {
                 var keyword = GetTypeKeyword(namedTypeSymbol);
                 if (!string.IsNullOrEmpty(keyword))
@@ -509,7 +512,7 @@ public static partial class SymbolExtensions
             symbol.DeclaredAccessibility is not Accessibility.NotApplicable)
         {
             accessibilityPrefix = ShouldDisplayAccessibility(symbol)
-                ? symbol.DeclaredAccessibility.ToString().ToLower()
+                ? AccessibilityUtilities.GetDisplayText(symbol.DeclaredAccessibility)
                 : null;
         }
 
@@ -912,11 +915,13 @@ public static partial class SymbolExtensions
         var displayName = FormatNamedType(delegateType, format);
         var invoke = delegateType.GetDelegateInvokeMethod();
         if (invoke is null)
-            return displayName;
+            return $"delegate {displayName}";
 
-        var parameters = string.Join(", ", invoke.Parameters.Select(p => FormatParameter(p, format)));
+        var parameterFormat = format.WithParameterOptions(
+            format.ParameterOptions | SymbolDisplayParameterOptions.IncludeParamsRefOut);
+        var parameters = string.Join(", ", invoke.Parameters.Select(p => FormatParameter(p, parameterFormat)));
         var returnType = FormatType(invoke.ReturnType, format);
-        return $"{displayName}({parameters}) -> {returnType}";
+        return $"delegate {displayName}({parameters}) -> {returnType}";
     }
 
     // =========================
@@ -1179,7 +1184,7 @@ public static partial class SymbolExtensions
             accessor.DeclaredAccessibility != propertySymbol.DeclaredAccessibility &&
             ShouldDisplayAccessibility(accessor))
         {
-            parts.Add(accessor.DeclaredAccessibility.ToString().ToLower());
+            parts.Add(AccessibilityUtilities.GetDisplayText(accessor.DeclaredAccessibility));
         }
 
         parts.Add(keyword);

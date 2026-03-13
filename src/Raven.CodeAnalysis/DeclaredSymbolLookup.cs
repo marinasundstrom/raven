@@ -94,6 +94,55 @@ internal sealed class DeclaredSymbolLookup
                 return parameterSymbol;
         }
 
+        if (node is ParameterSyntax lambdaParameterSyntax &&
+            lambdaParameterSyntax.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault() is { } functionExpression)
+        {
+            if (_semanticModel.TryGetContextualBoundFunctionExpression(functionExpression, out var boundLambda))
+            {
+                if (TryGetLambdaParameterIndex(functionExpression, lambdaParameterSyntax, out var parameterIndex) &&
+                    parameterIndex < boundLambda.Parameters.Count())
+                {
+                    return boundLambda.Parameters.ElementAt(parameterIndex);
+                }
+
+                var lambdaParameterSymbol = boundLambda.Parameters.FirstOrDefault(parameter =>
+                    parameter.DeclaringSyntaxReferences.Any(reference =>
+                        reference.SyntaxTree == lambdaParameterSyntax.SyntaxTree &&
+                        reference.Span == lambdaParameterSyntax.Span));
+
+                if (lambdaParameterSymbol is not null)
+                    return lambdaParameterSymbol;
+            }
+
+            if (_semanticModel.GetBoundNode(functionExpression) is BoundFunctionExpression directlyBoundLambda)
+            {
+                if (TryGetLambdaParameterIndex(functionExpression, lambdaParameterSyntax, out var parameterIndex) &&
+                    parameterIndex < directlyBoundLambda.Parameters.Count())
+                {
+                    return directlyBoundLambda.Parameters.ElementAt(parameterIndex);
+                }
+
+                var directLambdaParameterSymbol = directlyBoundLambda.Parameters.FirstOrDefault(parameter =>
+                    parameter.DeclaringSyntaxReferences.Any(reference =>
+                        reference.SyntaxTree == lambdaParameterSyntax.SyntaxTree &&
+                        reference.Span == lambdaParameterSyntax.Span));
+
+                if (directLambdaParameterSymbol is not null)
+                    return directLambdaParameterSymbol;
+            }
+
+            var functionSymbolInfo = _semanticModel.GetSymbolInfo(functionExpression);
+            var functionSymbol = functionSymbolInfo.Symbol ?? functionSymbolInfo.CandidateSymbols.FirstOrDefault();
+            if (functionSymbol is IMethodSymbol lambdaMethod)
+            {
+                if (TryGetLambdaParameterIndex(functionExpression, lambdaParameterSyntax, out var parameterIndex) &&
+                    parameterIndex < lambdaMethod.Parameters.Length)
+                {
+                    return lambdaMethod.Parameters[parameterIndex];
+                }
+            }
+        }
+
         var binder = _semanticModel.GetBinder(node);
 
         if (_semanticModel.Compilation.DeclarationTable.TryGetDeclKey(node, out var key))
@@ -146,5 +195,33 @@ internal sealed class DeclaredSymbolLookup
             .FirstOrDefault(method =>
                 method.Parameters.Length == parameterCount &&
                 method.Arity == arity);
+    }
+
+    private static bool TryGetLambdaParameterIndex(
+        FunctionExpressionSyntax functionExpression,
+        ParameterSyntax parameterSyntax,
+        out int parameterIndex)
+    {
+        switch (functionExpression)
+        {
+            case ParenthesizedFunctionExpressionSyntax parenthesized:
+                for (var i = 0; i < parenthesized.ParameterList.Parameters.Count; i++)
+                {
+                    if (ReferenceEquals(parenthesized.ParameterList.Parameters[i], parameterSyntax))
+                    {
+                        parameterIndex = i;
+                        return true;
+                    }
+                }
+
+                break;
+
+            case SimpleFunctionExpressionSyntax simple when ReferenceEquals(simple.Parameter, parameterSyntax):
+                parameterIndex = 0;
+                return true;
+        }
+
+        parameterIndex = -1;
+        return false;
     }
 }

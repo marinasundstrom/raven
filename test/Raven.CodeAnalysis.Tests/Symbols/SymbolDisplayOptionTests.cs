@@ -86,6 +86,49 @@ class Sample {
     }
 
     [Fact]
+    public void TypeDisplay_NamedDelegate_UsesDelegateDeclarationForm()
+    {
+        const string source = """
+import System.ComponentModel.*
+
+class Sample {
+    func test() -> unit {
+        val handler: PropertyChangedEventHandler = (sender, args) => ()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal(
+            "delegate PropertyChangedEventHandler(sender: object?, e: PropertyChangedEventArgs) -> ()",
+            local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void TypeDisplay_GenericNamedDelegate_IncludesTypeParameters()
+    {
+        const string source = """
+class Container {
+    public delegate Formatter<T>(ref value: T, out result: string) -> bool
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
+        var delegateSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
+        var constructedDelegate = delegateSymbol.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+
+        Assert.Equal(
+            "delegate Formatter<int>(value: int, out result: string) -> bool",
+            constructedDelegate.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
     public void TypeDisplay_ConstructedMetadataType_UsesConcreteTypeArguments()
     {
         const string source = """

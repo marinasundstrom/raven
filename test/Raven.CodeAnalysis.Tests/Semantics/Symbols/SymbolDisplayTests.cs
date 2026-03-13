@@ -51,4 +51,57 @@ class C {
 
         Assert.Equal("Value: int { get; private set; }", display);
     }
+
+    [Fact]
+    public void Method_ToDisplayString_FormatsProtectedAccessibility()
+    {
+        const string source = """
+class Base {
+    protected func Run() -> unit { }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+
+        var display = symbol.ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat);
+
+        Assert.Equal("protected Run() -> ()", display);
+    }
+
+    [Fact]
+    public void Method_ToDisplayString_FormatsAllAccessibilityModifiers()
+    {
+        const string source = """
+class Base {
+    private func PrivateRun() -> unit { }
+    internal func InternalRun() -> unit { }
+    protected func ProtectedRun() -> unit { }
+    protected internal func ProtectedInternalRun() -> unit { }
+    private protected func PrivateProtectedRun() -> unit { }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var methods = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .ToDictionary(
+                static declaration => declaration.Identifier.ValueText,
+                declaration => Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration)));
+
+        methods["PrivateRun"].ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat)
+            .ShouldBe("private PrivateRun() -> ()");
+        methods["InternalRun"].ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat)
+            .ShouldBe("internal InternalRun() -> ()");
+        methods["ProtectedRun"].ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat)
+            .ShouldBe("protected ProtectedRun() -> ()");
+        methods["ProtectedInternalRun"].ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat)
+            .ShouldBe("protected internal ProtectedInternalRun() -> ()");
+        methods["PrivateProtectedRun"].ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat)
+            .ShouldBe("private protected PrivateProtectedRun() -> ()");
+    }
 }

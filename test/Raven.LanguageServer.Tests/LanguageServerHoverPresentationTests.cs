@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Syntax;
 using Raven.LanguageServer;
 
@@ -18,15 +19,10 @@ class Foo(private var name: string) {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -54,15 +50,10 @@ record ApplicationError(val Message: string)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -94,15 +85,10 @@ class Functions {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -122,6 +108,77 @@ class Functions {
     }
 
     [Fact]
+    public void ProtectedMethodHover_UsesProtectedKeyword()
+    {
+        const string code = """
+class Base {
+    protected func Run() -> unit { }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var symbol = semanticModel.GetDeclaredSymbol(method).ShouldBeAssignableTo<IMethodSymbol>();
+
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignature.Invoke(null, [symbol, method, semanticModel])!;
+        signature.ShouldBe("protected func Run() -> ()");
+        signature.ShouldNotContain("protectedandprotected");
+    }
+
+    [Fact]
+    public void MethodHover_FormatsAllAccessibilityModifiers()
+    {
+        const string code = """
+class Base {
+    private func PrivateRun() -> unit { }
+    internal func InternalRun() -> unit { }
+    protected func ProtectedRun() -> unit { }
+    protected internal func ProtectedInternalRun() -> unit { }
+    private protected func PrivateProtectedRun() -> unit { }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var methods = root.DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .ToDictionary(
+                static declaration => declaration.Identifier.ValueText,
+                declaration => semanticModel.GetDeclaredSymbol(declaration).ShouldBeAssignableTo<IMethodSymbol>());
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        ((string)buildSignature.Invoke(null, [methods["PrivateRun"], methods["PrivateRun"].DeclaringSyntaxReferences[0].GetSyntax(), semanticModel])!)
+            .ShouldBe("private func PrivateRun() -> ()");
+        ((string)buildSignature.Invoke(null, [methods["InternalRun"], methods["InternalRun"].DeclaringSyntaxReferences[0].GetSyntax(), semanticModel])!)
+            .ShouldBe("internal func InternalRun() -> ()");
+        ((string)buildSignature.Invoke(null, [methods["ProtectedRun"], methods["ProtectedRun"].DeclaringSyntaxReferences[0].GetSyntax(), semanticModel])!)
+            .ShouldBe("protected func ProtectedRun() -> ()");
+        ((string)buildSignature.Invoke(null, [methods["ProtectedInternalRun"], methods["ProtectedInternalRun"].DeclaringSyntaxReferences[0].GetSyntax(), semanticModel])!)
+            .ShouldBe("protected internal func ProtectedInternalRun() -> ()");
+        ((string)buildSignature.Invoke(null, [methods["PrivateProtectedRun"], methods["PrivateProtectedRun"].DeclaringSyntaxReferences[0].GetSyntax(), semanticModel])!)
+            .ShouldBe("private protected func PrivateProtectedRun() -> ()");
+    }
+
+    [Fact]
     public void FunctionStatementHover_DoesNotShowAccessibilityModifier()
     {
         const string code = """
@@ -134,15 +191,10 @@ class C {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -189,15 +241,10 @@ class C {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -240,15 +287,10 @@ class C {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -298,15 +340,10 @@ class C {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -346,15 +383,10 @@ class C {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -383,6 +415,126 @@ class C {
     }
 
     [Fact]
+    public void EventSubscriptionLambdaParameter_HoverUsesInferredDelegateParameterType()
+    {
+        const string code = """
+import System.*
+import System.ComponentModel.*
+
+open class ObservableBase : INotifyPropertyChanged {
+    event PropertyChanged: PropertyChangedEventHandler?
+
+    protected func RaisePropertyChanged(propertyName: string) -> unit {
+        PropertyChanged?(self, PropertyChangedEventArgs(propertyName))
+    }
+}
+
+class MyViewModel : ObservableBase {
+    var Title: string = ""
+}
+
+class Program {
+    static func Main() -> unit {
+        val viewModel = MyViewModel()
+        viewModel.PropertyChanged += (sender, args) => {
+            Console.WriteLine(args.PropertyName ?? "")
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        var root = syntaxTree.GetRoot();
+        var lambdaParameters = root
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .Single()
+            .ParameterList
+            .Parameters;
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var lambdaOperation = semanticModel.GetOperation(root
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .Single()).ShouldBeAssignableTo<ILambdaOperation>();
+        lambdaOperation.Parameters[0].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("object?");
+        lambdaOperation.Parameters[1].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("PropertyChangedEventArgs");
+
+        var senderParameter = semanticModel.GetFunctionExpressionParameterSymbol(lambdaParameters[0]);
+        var argsParameter = semanticModel.GetFunctionExpressionParameterSymbol(lambdaParameters[1]);
+        senderParameter.ShouldNotBeNull();
+        argsParameter.ShouldNotBeNull();
+        senderParameter!.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("object?");
+        argsParameter!.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("PropertyChangedEventArgs");
+
+        foreach (var (parameterName, expectedType) in new[]
+                 {
+                     ("sender", "object?"),
+                     ("args", "PropertyChangedEventArgs")
+                 })
+        {
+            var lambdaParameter = lambdaParameters.Single(parameter => parameter.Identifier.ValueText == parameterName);
+            var hoverOffset = lambdaParameter.Identifier.SpanStart + 1;
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+            resolution.ShouldNotBeNull();
+            var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+            parameterSymbol.Name.ShouldBe(parameterName);
+            parameterSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe(expectedType);
+
+            var signature = (string)buildSignatureForHover.Invoke(
+                null,
+                [parameterSymbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
+
+            signature.ShouldContain($"{parameterName}: {expectedType}");
+        }
+    }
+
+    [Fact]
+    public void SymbolResolver_DoesNotThrowInsideAssignmentStatement()
+    {
+        const string code = """
+class C {
+    func Run() -> unit {
+        var value = 0
+        value += 1
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var identifier = root.DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Single()
+            .Left
+            .DescendantTokens()
+            .Single(token => token.ValueText == "value");
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, identifier.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("value");
+    }
+
+    [Fact]
     public void DeconstructionPatternDeclaration_HoverResolvesBoundLocal()
     {
         const string code = """
@@ -395,15 +547,10 @@ class C {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -445,15 +592,10 @@ class C {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -511,15 +653,10 @@ class C {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -557,15 +694,10 @@ class C {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var targetFramework = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var references = TargetFrameworkResolver
-            .GetReferenceAssemblies(targetFramework)
-            .Select(MetadataReference.CreateFromFile);
-
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
-        foreach (var reference in references)
+        foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);

@@ -39,9 +39,8 @@ class Counter {
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        foreach (var referencePath in TargetFrameworkResolver.GetReferenceAssemblies(version))
-            project = project.AddMetadataReference(MetadataReference.CreateFromFile(referencePath));
+        foreach (var reference in LanguageServerTestReferences.Default)
+            project = project.AddMetadataReference(reference);
 
         workspace.TryApplyChanges(project.Solution);
         project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -91,9 +90,8 @@ class Foo(name: string) {
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        foreach (var referencePath in TargetFrameworkResolver.GetReferenceAssemblies(version))
-            project = project.AddMetadataReference(MetadataReference.CreateFromFile(referencePath));
+        foreach (var reference in LanguageServerTestReferences.Default)
+            project = project.AddMetadataReference(reference);
 
         workspace.TryApplyChanges(project.Solution);
         project = workspace.CurrentSolution.GetProject(projectId)!;

@@ -19,6 +19,13 @@ internal static class SymbolResolver
                     memberTokenSymbol.UnderlyingSymbol,
                     candidate.Token.Parent ?? candidate.Node);
 
+            if (TryResolveParameterDeclarationTokenFastPath(semanticModel, candidate.Token, out var parameterSymbol, out var parameterNode))
+            {
+                return new SymbolResolutionResult(
+                    parameterSymbol.UnderlyingSymbol,
+                    parameterNode);
+            }
+
             if (ShouldSkipCandidateNode(candidate.Node, candidate.Token))
                 continue;
 
@@ -161,11 +168,11 @@ internal static class SymbolResolver
         if (TryResolveContainingStatementDesignatorSymbol(semanticModel, node, token, out var statementDesignatorSymbol))
             return statementDesignatorSymbol;
 
-        if (TryResolveFromEnclosingBlockLocals(semanticModel, node, token, out var blockLocalSymbol))
-            return blockLocalSymbol;
-
         if (TryResolveTypePositionSymbol(semanticModel, node, token, out var typePositionSymbol))
             return typePositionSymbol;
+
+        if (TryResolveFromEnclosingBlockLocals(semanticModel, node, token, out var blockLocalSymbol))
+            return blockLocalSymbol;
 
         if (TryResolveMemberSegmentSymbol(semanticModel, node, token, out var memberSegmentSymbol))
             return memberSegmentSymbol;
@@ -219,7 +226,7 @@ internal static class SymbolResolver
     {
         symbol = null;
 
-        var parameter = node as ParameterSyntax ?? node.Parent as ParameterSyntax;
+        var parameter = node as ParameterSyntax ?? node.AncestorsAndSelf().OfType<ParameterSyntax>().FirstOrDefault();
         if (parameter is null)
             return false;
 
@@ -235,57 +242,8 @@ internal static class SymbolResolver
         if (parameter.DefaultValue?.Value.Span.Contains(token.Span) == true)
             return false;
 
-        symbol = semanticModel.GetDeclaredSymbol(parameter);
-        if (symbol is not null)
-            return true;
-
-        if (TryResolveFunctionExpressionParameterSymbol(semanticModel, parameter, out symbol))
-            return true;
-
-        return false;
-    }
-
-    private static bool TryResolveFunctionExpressionParameterSymbol(
-        SemanticModel semanticModel,
-        ParameterSyntax parameter,
-        out ISymbol? symbol)
-    {
-        symbol = null;
-
-        var functionExpression = parameter.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault();
-        if (functionExpression is null)
-            return false;
-
-        var functionSymbolInfo = semanticModel.GetSymbolInfo(functionExpression);
-        var functionSymbol = functionSymbolInfo.Symbol ?? functionSymbolInfo.CandidateSymbols.FirstOrDefault();
-        if (functionSymbol is not IMethodSymbol lambdaMethod)
-            return false;
-
-        var parameterList = parameter.Parent as ParameterListSyntax;
-        if (parameterList is null)
-            return false;
-
-        var parameterIndex = -1;
-        for (var i = 0; i < parameterList.Parameters.Count; i++)
-        {
-            if (!ReferenceEquals(parameterList.Parameters[i], parameter))
-                continue;
-
-            parameterIndex = i;
-            break;
-        }
-
-        if (parameterIndex >= 0 && parameterIndex < lambdaMethod.Parameters.Length)
-        {
-            symbol = lambdaMethod.Parameters[parameterIndex];
-            return true;
-        }
-
-        if (parameter.Identifier.IsMissing)
-            return false;
-
-        symbol = lambdaMethod.Parameters.FirstOrDefault(
-            p => string.Equals(p.Name, parameter.Identifier.ValueText, StringComparison.Ordinal));
+        symbol = semanticModel.GetFunctionExpressionParameterSymbol(parameter)
+            ?? semanticModel.GetDeclaredSymbol(parameter);
         return symbol is not null;
     }
 
@@ -442,6 +400,38 @@ internal static class SymbolResolver
         return false;
     }
 
+    private static bool TryResolveParameterDeclarationTokenFastPath(
+        SemanticModel semanticModel,
+        SyntaxToken token,
+        [NotNullWhen(true)] out ISymbol? symbol,
+        [NotNullWhen(true)] out SyntaxNode? node)
+    {
+        symbol = null;
+        node = null;
+
+        var parameter = token.Parent?.AncestorsAndSelf().OfType<ParameterSyntax>().FirstOrDefault();
+        if (parameter is null)
+            return false;
+
+        if (!parameter.Span.Contains(token.Span))
+            return false;
+
+        if (parameter.TypeAnnotation?.Type.Span.Contains(token.Span) == true)
+            return false;
+
+        if (parameter.DefaultValue?.Value.Span.Contains(token.Span) == true)
+            return false;
+
+        var resolved = semanticModel.GetFunctionExpressionParameterSymbol(parameter)
+            ?? semanticModel.GetDeclaredSymbol(parameter);
+        if (resolved is null)
+            return false;
+
+        symbol = resolved;
+        node = parameter;
+        return true;
+    }
+
     private static bool TryResolveTypePositionSymbol(
         SemanticModel semanticModel,
         SyntaxNode node,
@@ -450,18 +440,45 @@ internal static class SymbolResolver
     {
         symbol = null;
 
-        var typeSyntax = node.AncestorsAndSelf().OfType<TypeSyntax>().FirstOrDefault();
-        if (typeSyntax is null || !typeSyntax.Span.Contains(token.Span))
-            return false;
+        var typeSyntaxes = node.AncestorsAndSelf()
+            .OfType<TypeSyntax>()
+            .Where(typeSyntax => typeSyntax.Span.Contains(token.Span));
 
+        foreach (var typeSyntax in typeSyntaxes)
+        {
+            if (!TryResolveTypeSymbolFromSyntax(semanticModel, typeSyntax, out var resolvedType))
+                continue;
+
+            // In type positions we always prefer the union carrier type over a case type,
+            // otherwise hover displays the case as "Name(...)".
+            symbol = resolvedType.UnderlyingDiscriminatedUnion ?? resolvedType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveTypeSymbolFromSyntax(
+        SemanticModel semanticModel,
+        TypeSyntax typeSyntax,
+        out ITypeSymbol? resolvedType)
+    {
         var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
-        var resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
+        resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (resolvedType is not null && resolvedType.TypeKind != TypeKind.Error)
+            return true;
+
+        var typeSymbol = semanticModel.GetSymbolInfo(typeSyntax).Symbol;
+        resolvedType = typeSymbol switch
+        {
+            ITypeSymbol resolved => resolved,
+            IAliasSymbol { UnderlyingSymbol: ITypeSymbol aliasedType } => aliasedType,
+            _ => resolvedType
+        };
+
         if (resolvedType is null || resolvedType.TypeKind == TypeKind.Error)
             return false;
 
-        // In type positions we always prefer the union carrier type over a case type,
-        // otherwise hover displays the case as "Name(...)".
-        symbol = resolvedType.UnderlyingDiscriminatedUnion ?? resolvedType;
         return true;
     }
 

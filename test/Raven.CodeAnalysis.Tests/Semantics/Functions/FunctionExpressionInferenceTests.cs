@@ -104,6 +104,121 @@ class Program {
     }
 
     [Fact]
+    public void LambdaParameter_DeclaredSymbol_UsesInferredType_FromEventSubscription()
+    {
+        const string code = """
+import System.*
+import System.ComponentModel.*
+
+open class ObservableBase : INotifyPropertyChanged {
+    event PropertyChanged: PropertyChangedEventHandler?
+
+    protected func RaisePropertyChanged(propertyName: string) -> unit {
+        PropertyChanged?(self, PropertyChangedEventArgs(propertyName))
+    }
+}
+
+class MyViewModel : ObservableBase {
+    var Title: string = ""
+}
+
+class Program {
+    static func Main() -> unit {
+        val viewModel = MyViewModel()
+        viewModel.PropertyChanged += (sender, args) => {
+            Console.WriteLine(args.PropertyName ?? "")
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .Single();
+        var argsParameterSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .Single()
+            .ParameterList
+            .Parameters
+            .Single(parameter => parameter.Identifier.ValueText == "args");
+
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        var boundArgsParameter = boundLambda.Parameters.ElementAt(1);
+        var argsParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(argsParameterSyntax));
+        var propertyChangedArgsType = compilation.GetTypeByMetadataName("System.ComponentModel.PropertyChangedEventArgs");
+
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(propertyChangedArgsType, boundArgsParameter.Type),
+            boundArgsParameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        Assert.True(SymbolEqualityComparer.Default.Equals(propertyChangedArgsType, argsParameter.Type));
+    }
+
+    [Fact]
+    public void LambdaParameter_DeclaredSymbol_UsesInferredType_FromSourceDefinedDelegateEventSubscription()
+    {
+        const string code = """
+import System.*
+
+class ChangedArgs(var PropertyName: string)
+
+delegate PropertyChangedHandler(sender: object?, e: ChangedArgs) -> unit
+
+open class ObservableBase {
+    event PropertyChanged: PropertyChangedHandler?
+
+    protected func RaisePropertyChanged(propertyName: string) -> unit {
+        PropertyChanged?(self, ChangedArgs(propertyName))
+    }
+}
+
+class MyViewModel : ObservableBase {
+    var Title: string = ""
+}
+
+class Program {
+    static func Main() -> unit {
+        val viewModel = MyViewModel()
+        viewModel.PropertyChanged += (sender, args) => {
+            Console.WriteLine(args.PropertyName ?? "")
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .Single();
+        var lambdaParameters = lambdaSyntax.ParameterList.Parameters.ToArray();
+
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        boundLambda.Parameters.Count().ShouldBe(2);
+
+        var senderParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(lambdaParameters[0]));
+        var argsParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(lambdaParameters[1]));
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+        var changedArgsType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("ChangedArgs"));
+
+        senderParameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("object?");
+        SymbolEqualityComparer.Default.Equals(changedArgsType, argsParameter.Type).ShouldBeTrue();
+        SymbolEqualityComparer.Default.Equals(objectType.MakeNullable(), boundLambda.Parameters.ElementAt(0).Type).ShouldBeTrue();
+        SymbolEqualityComparer.Default.Equals(changedArgsType, boundLambda.Parameters.ElementAt(1).Type).ShouldBeTrue();
+    }
+
+    [Fact]
     public void Lambda_WithConflictingDelegateCandidates_SuppressesParameterInferenceDiagnostic()
     {
         const string code = """
@@ -499,7 +614,7 @@ class Container {
         var handlerLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators[1]));
 
         Assert.Equal("int -> ()", actionLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-        Assert.StartsWith("MyHandler(", handlerLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.StartsWith("delegate MyHandler(", handlerLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -788,7 +903,7 @@ class Container {
         var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
         var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
         var elementType = Assert.Single(resultType.TypeArguments);
-        Assert.Equal("Object", elementType.Name);
+        Assert.Equal("String", elementType.Name);
     }
 
     [Fact]

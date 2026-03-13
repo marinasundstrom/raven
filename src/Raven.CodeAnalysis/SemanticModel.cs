@@ -494,7 +494,14 @@ public partial class SemanticModel
         var binder = GetBinder(typeSyntax);
         try
         {
-            var type = binder.BindTypeSyntaxDirect(typeSyntax);
+            var result = binder.BindTypeSyntax(typeSyntax);
+            var type = result.Success
+                ? result.ResolvedType
+                : binder.BindTypeSyntaxDirect(typeSyntax);
+
+            if (type is null || type.TypeKind == TypeKind.Error)
+                return new TypeInfo(null, null);
+
             return new TypeInfo(type, type, ComputeConversion(type, type));
         }
         catch
@@ -731,6 +738,11 @@ public partial class SemanticModel
         return node switch
         {
             BoundErrorExpression => true,
+            BoundFunctionExpression functionExpression
+                when functionExpression.Type?.TypeKind == TypeKind.Error ||
+                     functionExpression.DelegateType?.TypeKind == TypeKind.Error ||
+                     functionExpression.ReturnType?.TypeKind == TypeKind.Error ||
+                     functionExpression.Parameters.Any(static parameter => parameter.Type is null || parameter.Type.TypeKind == TypeKind.Error) => true,
             BoundBlockExpression blockExpression when blockExpression.Type?.TypeKind == TypeKind.Error => true,
             BoundExpression expression when expression.Type?.TypeKind == TypeKind.Error => true,
             _ => false
@@ -775,6 +787,80 @@ public partial class SemanticModel
         return false;
     }
 
+    internal bool TryGetContextualBoundFunctionExpression(
+        FunctionExpressionSyntax functionExpression,
+        out BoundFunctionExpression boundFunction)
+    {
+        if (TryGetCachedBoundNode(functionExpression) is BoundFunctionExpression cachedFunction &&
+            !IsLikelyStaleFunctionBodyNode(cachedFunction))
+        {
+            boundFunction = cachedFunction;
+            return true;
+        }
+
+        if (TryGetContextualBindingRoot(functionExpression, out var contextualRoot) &&
+            !ReferenceEquals(contextualRoot, functionExpression))
+        {
+            var boundRoot = GetBoundNode(contextualRoot, BoundTreeView.Original);
+            if (TryFindBoundNodeBySyntax(boundRoot, functionExpression, out var contextualBoundNode) &&
+                contextualBoundNode is BoundFunctionExpression contextualFunction)
+            {
+                CacheBoundNode(functionExpression, contextualFunction, GetBinder(functionExpression));
+                boundFunction = contextualFunction;
+                return true;
+            }
+        }
+
+        boundFunction = null!;
+        return false;
+    }
+
+    public IParameterSymbol? GetFunctionExpressionParameterSymbol(ParameterSyntax parameterSyntax)
+    {
+        EnsureDeclarations();
+        EnsureRootBinderCreated();
+        EnsureDiagnosticsCollected();
+
+        if (parameterSyntax.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault() is not { } functionExpression)
+            return GetDeclaredSymbol(parameterSyntax) as IParameterSymbol;
+
+        if (TryGetContextualBindingRoot(functionExpression, out var contextualRoot) &&
+            !ReferenceEquals(contextualRoot, functionExpression))
+        {
+            ClearCachedBoundNodes(contextualRoot);
+            var reboundRoot = GetBoundNode(contextualRoot, BoundTreeView.Original);
+            if (TryFindBoundNodeBySyntax(reboundRoot, functionExpression, out var reboundFunctionNode) &&
+                reboundFunctionNode is BoundFunctionExpression reboundLambda &&
+                TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, reboundLambda.Parameters, out var reboundParameter))
+            {
+                CacheBoundNode(functionExpression, reboundLambda, GetBinder(functionExpression));
+                return reboundParameter;
+            }
+        }
+
+        if (TryGetContextualBoundFunctionExpression(functionExpression, out var contextualLambda) &&
+            TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, contextualLambda.Parameters, out var contextualParameter))
+        {
+            return contextualParameter;
+        }
+
+        if (GetBoundNode(functionExpression) is BoundFunctionExpression boundLambda &&
+            TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, boundLambda.Parameters, out var boundParameter))
+        {
+            return boundParameter;
+        }
+
+        var functionSymbolInfo = GetSymbolInfo(functionExpression);
+        var functionSymbol = functionSymbolInfo.Symbol ?? functionSymbolInfo.CandidateSymbols.FirstOrDefault();
+        if (functionSymbol is IMethodSymbol lambdaMethod &&
+            TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, lambdaMethod.Parameters, out var lambdaParameter))
+        {
+            return lambdaParameter;
+        }
+
+        return GetDeclaredSymbol(parameterSyntax) as IParameterSymbol;
+    }
+
     /// <summary>
     /// Get the bound expression for a specific expression syntax node.
     /// </summary>
@@ -784,6 +870,55 @@ public partial class SemanticModel
     internal BoundExpression GetBoundNode(ExpressionSyntax expression)
     {
         return (BoundExpression)GetBoundNode((SyntaxNode)expression);
+    }
+
+    private static bool TryGetFunctionParameterBySyntax(
+        FunctionExpressionSyntax functionExpression,
+        ParameterSyntax parameterSyntax,
+        IEnumerable<IParameterSymbol> parameters,
+        out IParameterSymbol parameterSymbol)
+    {
+        if (TryGetFunctionParameterIndex(functionExpression, parameterSyntax, out var parameterIndex))
+        {
+            parameterSymbol = parameters.ElementAtOrDefault(parameterIndex)!;
+            if (parameterSymbol is not null)
+                return true;
+        }
+
+        parameterSymbol = parameters.FirstOrDefault(parameter =>
+            parameter.DeclaringSyntaxReferences.Any(reference =>
+                reference.SyntaxTree == parameterSyntax.SyntaxTree &&
+                reference.Span == parameterSyntax.Span))!;
+
+        return parameterSymbol is not null;
+    }
+
+    private static bool TryGetFunctionParameterIndex(
+        FunctionExpressionSyntax functionExpression,
+        ParameterSyntax parameterSyntax,
+        out int parameterIndex)
+    {
+        switch (functionExpression)
+        {
+            case ParenthesizedFunctionExpressionSyntax parenthesized:
+                for (var i = 0; i < parenthesized.ParameterList.Parameters.Count; i++)
+                {
+                    if (ReferenceEquals(parenthesized.ParameterList.Parameters[i], parameterSyntax))
+                    {
+                        parameterIndex = i;
+                        return true;
+                    }
+                }
+
+                break;
+
+            case SimpleFunctionExpressionSyntax simple when ReferenceEquals(simple.Parameter, parameterSyntax):
+                parameterIndex = 0;
+                return true;
+        }
+
+        parameterIndex = -1;
+        return false;
     }
 
     private bool TryFindBoundNodeBySyntax(BoundNode root, SyntaxNode targetSyntax, out BoundNode boundNode)

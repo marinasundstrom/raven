@@ -43,6 +43,8 @@ internal static class OperationFactory
         {
             BoundBlockStatement block => new BlockOperation(semanticModel, block, kind, syntax, block.LocalsToDispose, type, isImplicit),
             BoundBlockExpression blockExpression => new BlockOperation(semanticModel, blockExpression, kind, syntax, blockExpression.LocalsToDispose, type, isImplicit),
+            BoundExpressionStatement statement when syntax is AssignmentStatementSyntax assignmentStatement =>
+                new AssignmentOperation(semanticModel, statement.Expression, assignmentStatement, statement.Expression.Type, isImplicit),
             BoundExpressionStatement statement => new ExpressionStatementOperation(semanticModel, statement, syntax, isImplicit),
             BoundFunctionStatement function => new FunctionOperation(semanticModel, function, syntax, isImplicit),
             BoundLocalDeclarationStatement declaration => new VariableDeclarationOperation(semanticModel, declaration, syntax, isImplicit),

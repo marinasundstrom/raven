@@ -4,7 +4,7 @@ import System.ComponentModel.*
 
 func Main() -> () {
     val viewModel = MyViewModel()
-    viewModel.PropertyChanged += (sender, args) => {
+    viewModel.PropertyChanged += func (sender, args) => {
         WriteLine(args.PropertyName ?? "")
     }
     viewModel.Title = "Hello from Raven"
