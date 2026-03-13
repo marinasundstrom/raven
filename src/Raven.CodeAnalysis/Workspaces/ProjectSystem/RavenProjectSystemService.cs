@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 
+using Raven.CodeAnalysis.Macros;
+
 namespace Raven.CodeAnalysis;
 
 public sealed class RavenProjectSystemService : IProjectSystemService
@@ -58,6 +60,9 @@ public sealed class RavenProjectSystemService : IProjectSystemService
 
         foreach (var metadataReferencePath in projInfo.MetadataReferences)
             solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataReferencePath));
+
+        foreach (var macroReferencePath in projInfo.MacroReferences)
+            solution = solution.AddMacroReference(projectId, MacroReference.CreateFromFile(macroReferencePath));
 
         var packageReferences = NuGetPackageResolver.ResolveReferences(
             projectFilePath,

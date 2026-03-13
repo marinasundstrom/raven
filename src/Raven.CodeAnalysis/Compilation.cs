@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -19,6 +20,7 @@ public partial class Compilation
     private INamespaceSymbol? _globalNamespace;
     private readonly SyntaxTree[] _syntaxTrees;
     private readonly MetadataReference[] _references;
+    private readonly MacroReference[] _macroReferences;
     internal SyntaxTree? SyntaxTreeWithFileScopedCode;
     private readonly ConcurrentDictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new();
     private readonly ConcurrentDictionary<Assembly, IAssemblySymbol> _assemblySymbols = new();
@@ -47,12 +49,14 @@ public partial class Compilation
     private BoundNodeFactory? _boundNodeFactory;
     private ErrorSymbol _errorSymbol;
     private bool isSettingUp;
+    private MacroRegistry? _macroRegistry;
 
-    private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
+    private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, MacroReference[] macroReferences, CompilationOptions? options = null)
     {
         AssemblyName = assemblyName ?? "assembly";
         _syntaxTrees = syntaxTrees;
         _references = references;
+        _macroReferences = macroReferences;
         Options = options ?? new CompilationOptions();
     }
 
@@ -73,6 +77,7 @@ public partial class Compilation
     public IModuleSymbol Module { get; private set; }
 
     public IEnumerable<MetadataReference> References => _references;
+    public IEnumerable<MacroReference> MacroReferences => _macroReferences;
 
     public IEnumerable<IAssemblySymbol> ReferencedAssemblySymbols => Module.ReferencedAssemblySymbols;
 
@@ -131,34 +136,51 @@ public partial class Compilation
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
-        return new Compilation(assemblyName, syntaxTrees, [], options);
+        return new Compilation(assemblyName, syntaxTrees, [], [], options);
     }
 
     public static Compilation Create(string assemblyName, CompilationOptions? options = null)
     {
-        return new Compilation(assemblyName, [], [], options);
+        return new Compilation(assemblyName, [], [], [], options);
     }
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
         if (references.Length == 0)
             references = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
-        return new Compilation(assemblyName, syntaxTrees, references, options);
+        return new Compilation(assemblyName, syntaxTrees, references, [], options);
+    }
+
+    public static Compilation Create(
+        string assemblyName,
+        SyntaxTree[] syntaxTrees,
+        MetadataReference[] references,
+        MacroReference[] macroReferences,
+        CompilationOptions? options = null)
+    {
+        if (references.Length == 0)
+            references = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
+        return new Compilation(assemblyName, syntaxTrees, references, macroReferences, options);
     }
 
     public Compilation AddSyntaxTrees(params SyntaxTree[] syntaxTrees)
     {
-        return new Compilation(AssemblyName, _syntaxTrees.Concat(syntaxTrees).ToArray(), _references, Options);
+        return new Compilation(AssemblyName, _syntaxTrees.Concat(syntaxTrees).ToArray(), _references, _macroReferences, Options);
     }
 
     public Compilation AddReferences(params MetadataReference[] references)
     {
-        return new Compilation(AssemblyName, _syntaxTrees, references, Options);
+        return new Compilation(AssemblyName, _syntaxTrees, references, _macroReferences, Options);
+    }
+
+    public Compilation AddMacroReferences(params MacroReference[] macroReferences)
+    {
+        return new Compilation(AssemblyName, _syntaxTrees, _references, macroReferences, Options);
     }
 
     public Compilation WithAssemblyName(string? assemblyName)
     {
-        return new Compilation(assemblyName, _syntaxTrees, _references, Options);
+        return new Compilation(assemblyName, _syntaxTrees, _references, _macroReferences, Options);
     }
 
     public MetadataReference ToMetadataReference() => new CompilationReference(this);
@@ -207,22 +229,6 @@ public partial class Compilation
                 paths.Add(knownPath);
         }
 
-        foreach (var loadedAssembly in AppDomain.CurrentDomain.GetAssemblies())
-        {
-            string location;
-            try
-            {
-                location = loadedAssembly.Location;
-            }
-            catch (NotSupportedException)
-            {
-                continue;
-            }
-
-            if (!string.IsNullOrEmpty(location) && File.Exists(location) && !paths.Contains(location, StringComparer.OrdinalIgnoreCase))
-                paths.Add(location);
-        }
-
         var coreAssemblyName = typeof(object).Assembly.GetName().Name;
         _metadataLoadContext = CreateMetadataLoadContext(paths, coreAssemblyName);
 
@@ -248,8 +254,15 @@ public partial class Compilation
         Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, []);
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
+        _macroRegistry = MacroRegistry.Create(_macroReferences);
 
         InitializeTopLevelPrograms();
+    }
+
+    internal MacroRegistry GetMacroRegistry()
+    {
+        EnsureSetup();
+        return _macroRegistry ??= MacroRegistry.Create(_macroReferences);
     }
 
     private static MetadataLoadContext CreateMetadataLoadContext(IEnumerable<string> paths, string? coreAssemblyName)
@@ -417,8 +430,8 @@ public partial class Compilation
         var returnsInt = bindableGlobals.Any(static g => ContainsNonUnitReturnOutsideNestedFunctions(g.Statement));
         var requiresAsync = bindableGlobals.Any(static g => ContainsAwaitExpressionOutsideNestedFunctions(g.Statement));
         var hasTopLevelMainFunction = bindableGlobals.Any(static g => g.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" });
-        var containsExecutableCode = !hasTopLevelMainFunction && (bindableGlobals.Count == 0
-            || bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax));
+        var containsExecutableCode = !hasTopLevelMainFunction
+            && bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax);
 
         var programClass = new SynthesizedProgramClassSymbol(this, targetNamespace, [compilationUnit.GetLocation()], [compilationUnit.GetReference()]);
 

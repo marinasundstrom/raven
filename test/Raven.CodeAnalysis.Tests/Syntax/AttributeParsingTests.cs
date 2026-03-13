@@ -96,6 +96,31 @@ public class AttributeParsingTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void MacroAttribute_WithAtPrefixedName_ParsesAsMacroAttribute()
+    {
+        const string code = """
+            [@AddEquatable]
+            class Widget {}
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single();
+
+        var attribute = Assert.Single(Assert.Single(declaration.AttributeLists).Attributes);
+        var name = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
+
+        Assert.True(attribute.IsMacroAttribute());
+        Assert.True(attribute.TryGetMacroName(out var macroName));
+        Assert.Equal("@AddEquatable", name.Identifier.Text);
+        Assert.Equal("AddEquatable", name.Identifier.ValueText);
+        Assert.Equal("AddEquatable", macroName);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void PropertyDeclaration_WithAttributeList_ParsesAttributes()
     {
         const string code = """

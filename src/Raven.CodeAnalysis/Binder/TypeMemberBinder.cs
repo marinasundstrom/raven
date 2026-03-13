@@ -32,7 +32,7 @@ internal partial class TypeMemberBinder : Binder
 
     public override ISymbol? LookupSymbol(string name)
     {
-        var symbol = _containingType.GetMembers(name).FirstOrDefault();
+        var symbol = EnumerateTypeAndBaseMembers(_containingType, name).FirstOrDefault();
         if (symbol is not null)
             return symbol;
 

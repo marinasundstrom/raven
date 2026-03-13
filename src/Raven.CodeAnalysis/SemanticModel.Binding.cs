@@ -41,6 +41,9 @@ public partial class SemanticModel
         if (attribute is null)
             throw new ArgumentNullException(nameof(attribute));
 
+        if (attribute.IsMacroAttribute())
+            return null;
+
         if (_attributeCache.TryGetValue(attribute, out var cached))
             return cached;
 
@@ -285,14 +288,93 @@ public partial class SemanticModel
         return classSymbol;
     }
 
+    private readonly record struct EffectiveMemberDeclaration(
+        MemberDeclarationSyntax EffectiveSyntax,
+        MemberDeclarationSyntax? OriginalSyntax = null);
+
+    private ImmutableArray<EffectiveMemberDeclaration> GetEffectiveTypeMembers(TypeDeclarationSyntax typeDeclaration)
+    {
+        var builder = ImmutableArray.CreateBuilder<EffectiveMemberDeclaration>();
+
+        foreach (var member in typeDeclaration.Members)
+            AppendExpandedMember(builder, member);
+
+        foreach (var attribute in typeDeclaration.AttributeLists.SelectMany(static list => list.Attributes))
+        {
+            if (!attribute.IsMacroAttribute())
+                continue;
+
+            var expansion = GetMacroExpansion(attribute);
+            if (expansion is null)
+                continue;
+
+            foreach (var introducedMember in expansion.IntroducedMembers)
+            {
+                RegisterMacroContainingTypeSyntax(introducedMember, typeDeclaration);
+                builder.Add(new EffectiveMemberDeclaration(introducedMember));
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private void AppendExpandedMember(
+        ImmutableArray<EffectiveMemberDeclaration>.Builder builder,
+        MemberDeclarationSyntax member)
+    {
+        MemberDeclarationSyntax effectiveMember = member;
+        var peerDeclarations = ImmutableArray.CreateBuilder<MemberDeclarationSyntax>();
+
+        foreach (var attribute in member.AttributeLists.SelectMany(static list => list.Attributes))
+        {
+            if (!attribute.IsMacroAttribute())
+                continue;
+
+            var expansion = GetMacroExpansion(attribute);
+            if (expansion is null)
+                continue;
+
+            foreach (var introducedMember in expansion.IntroducedMembers)
+            {
+                RegisterMacroContainingTypeSyntax(introducedMember, containingTypeDeclaration: (TypeDeclarationSyntax)member.Parent!);
+                builder.Add(new EffectiveMemberDeclaration(introducedMember));
+            }
+
+            if (expansion.ReplacementDeclaration is MemberDeclarationSyntax replacementMember)
+            {
+                effectiveMember = replacementMember;
+                RegisterMacroReplacementSyntax(member, replacementMember);
+                RegisterMacroContainingTypeSyntax(replacementMember, containingTypeDeclaration: (TypeDeclarationSyntax)member.Parent!);
+            }
+
+            foreach (var peerDeclaration in expansion.PeerDeclarations)
+            {
+                RegisterMacroContainingTypeSyntax(peerDeclaration, containingTypeDeclaration: (TypeDeclarationSyntax)member.Parent!);
+                peerDeclarations.Add(peerDeclaration);
+            }
+        }
+
+        builder.Add(new EffectiveMemberDeclaration(effectiveMember, member));
+
+        foreach (var peerDeclaration in peerDeclarations)
+            builder.Add(new EffectiveMemberDeclaration(peerDeclaration));
+    }
+
+    private void RegisterMacroContainingTypeSyntax(MemberDeclarationSyntax member, TypeDeclarationSyntax containingTypeDeclaration)
+    {
+        if (member.Parent is TypeDeclarationSyntax generatedContainingType)
+            RegisterMacroContainingTypeSyntax(generatedContainingType, containingTypeDeclaration);
+    }
+
     private void DeclareClassMemberTypes(TypeDeclarationSyntax classDecl, SourceNamedTypeSymbol classSymbol)
     {
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var parentType = (INamedTypeSymbol)classSymbol;
 
-        foreach (var member in classDecl.Members)
+        foreach (var effectiveMember in GetEffectiveTypeMembers(classDecl))
         {
+            var member = effectiveMember.EffectiveSyntax;
             switch (member)
             {
                 case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
@@ -2197,6 +2279,7 @@ public partial class SemanticModel
                     RegisterCaseMember(getterSymbol);
 
                     propertySymbol.SetBackingField(backingField);
+                    propertySymbol.MarkSynthesizedBackingFieldAccessors();
                     propertySymbol.SetAccessors(getterSymbol, null);
                 }
             }
@@ -2447,14 +2530,18 @@ public partial class SemanticModel
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
 
-        foreach (var member in classDecl.Members)
+        foreach (var effectiveMember in GetEffectiveTypeMembers(classDecl))
         {
+            var member = effectiveMember.EffectiveSyntax;
+            var originalSyntax = effectiveMember.OriginalSyntax;
             switch (member)
             {
                 case FieldDeclarationSyntax fieldDecl:
                     var fieldBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     fieldBinder.BindFieldDeclaration(fieldDecl);
                     CacheBinder(fieldDecl, fieldBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, fieldBinder);
                     foreach (var decl in fieldDecl.Declaration.Declarators)
                         CacheBinder(decl, fieldBinder);
                     break;
@@ -2463,6 +2550,8 @@ public partial class SemanticModel
                     var constBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     constBinder.BindConstDeclaration(constDecl);
                     CacheBinder(constDecl, constBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, constBinder);
                     foreach (var decl in constDecl.Declaration.Declarators)
                         CacheBinder(decl, constBinder);
                     break;
@@ -2471,6 +2560,8 @@ public partial class SemanticModel
                     var memberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
                     CacheBinder(methodDecl, methodBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, methodBinder);
                     if (methodBinder.ContainingSymbol is IMethodSymbol methodSymbol)
                         RegisterMethodSymbol(methodDecl, methodSymbol);
                     break;
@@ -2479,18 +2570,24 @@ public partial class SemanticModel
                     var operatorBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var boundOperatorBinder = operatorBinder.BindOperatorDeclaration(operatorDecl);
                     CacheBinder(operatorDecl, boundOperatorBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, boundOperatorBinder);
                     break;
 
                 case ConversionOperatorDeclarationSyntax conversionDecl:
                     var conversionBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var boundConversionBinder = conversionBinder.BindConversionOperatorDeclaration(conversionDecl);
                     CacheBinder(conversionDecl, boundConversionBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, boundConversionBinder);
                     break;
 
                 case PropertyDeclarationSyntax propDecl:
                     var propMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var accessorBinders = propMemberBinder.BindPropertyDeclaration(propDecl);
                     CacheBinder(propDecl, propMemberBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, propMemberBinder);
                     foreach (var kv in accessorBinders)
                         CacheBinder(kv.Key, kv.Value);
                     break;
@@ -2499,6 +2596,8 @@ public partial class SemanticModel
                     var eventMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var eventAccessors = eventMemberBinder.BindEventDeclaration(eventDecl);
                     CacheBinder(eventDecl, eventMemberBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, eventMemberBinder);
                     foreach (var kv in eventAccessors)
                         CacheBinder(kv.Key, kv.Value);
                     break;
@@ -2507,6 +2606,8 @@ public partial class SemanticModel
                     var indexerMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var indexerAccessorBinders = indexerMemberBinder.BindIndexerDeclaration(indexerDecl);
                     CacheBinder(indexerDecl, indexerMemberBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, indexerMemberBinder);
                     foreach (var kv in indexerAccessorBinders)
                         CacheBinder(kv.Key, kv.Value);
                     break;
@@ -2515,30 +2616,40 @@ public partial class SemanticModel
                     var ctorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var ctorBinder = ctorMemberBinder.BindConstructorDeclaration(ctorDecl);
                     CacheBinder(ctorDecl, ctorBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, ctorBinder);
                     break;
 
                 case ParameterlessConstructorDeclarationSyntax initDecl:
                     var initMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var initBinder = initMemberBinder.BindInitDeclaration(initDecl);
                     CacheBinder(initDecl, initBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, initBinder);
                     break;
 
                 case InitializerBlockDeclarationSyntax initBlockDecl:
                     var initBlockMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var initBlockBinder = initBlockMemberBinder.BindInitBlockDeclaration(initBlockDecl);
                     CacheBinder(initBlockDecl, initBlockBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, initBlockBinder);
                     break;
 
                 case FinallyDeclarationSyntax finalDecl:
                     var finalMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var finalBinder = finalMemberBinder.BindFinallyDeclaration(finalDecl);
                     CacheBinder(finalDecl, finalBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, finalBinder);
                     break;
 
                 case DelegateDeclarationSyntax del:
                     var delMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var delBinder = delMemberBinder.BindDelegateDeclaration(del);
                     CacheBinder(del, delBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, delBinder);
                     break;
 
                 case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
@@ -2561,6 +2672,8 @@ public partial class SemanticModel
                     if (!nestedInterfaces.IsDefaultOrEmpty)
                         nestedSymbol.SetInterfaces(MergeInterfaceSets(nestedSymbol.Interfaces, nestedInterfaces));
                     CacheBinder(nestedClass, nestedBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, nestedBinder);
                     RegisterClassSymbol(nestedClass, nestedSymbol);
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
@@ -2605,6 +2718,8 @@ public partial class SemanticModel
                     var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
                     nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
                     CacheBinder(nestedInterface, nestedInterfaceBinder);
+                    if (originalSyntax is not null)
+                        CacheBinder(originalSyntax, nestedInterfaceBinder);
                     RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
                     break;
 
@@ -2614,6 +2729,8 @@ public partial class SemanticModel
 
                         var enumBinder = new EnumDeclarationBinder(classBinder, enumSymbol, enumDecl);
                         CacheBinder(enumDecl, enumBinder);
+                        if (originalSyntax is not null)
+                            CacheBinder(originalSyntax, enumBinder);
 
                         var enumUnderlyingType = ResolveEnumUnderlyingType(enumDecl, classBinder);
                         enumSymbol.SetEnumUnderlyingType(enumUnderlyingType);
@@ -2636,6 +2753,7 @@ public partial class SemanticModel
 
         if (classBinder.ContainingSymbol is SourceNamedTypeSymbol { IsRecord: true })
             RegisterRecordValueMembers(classDecl, classBinder);
+
         classBinder.EnsureDefaultConstructor();
 
     }
@@ -3456,7 +3574,13 @@ public partial class SemanticModel
 
         propertySymbol.SetBackingField(backingField);
         if (lowerAsFieldOnly)
+        {
             propertySymbol.MarkEmitAsFieldOnly();
+        }
+        else
+        {
+            propertySymbol.MarkSynthesizedBackingFieldAccessors();
+        }
 
         var getMethod = new SourceMethodSymbol(
             $"get_{propertySymbol.Name}",
@@ -4192,6 +4316,12 @@ public partial class SemanticModel
 
     private SourceNamedTypeSymbol GetDeclaredTypeSymbol(SyntaxNode node)
     {
+        if (node is TypeDeclarationSyntax generatedType &&
+            TryGetMacroContainingTypeSyntax(generatedType, out var containingType))
+        {
+            node = containingType;
+        }
+
         if (_declaredTypeSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out var symbol))
             return symbol;
 

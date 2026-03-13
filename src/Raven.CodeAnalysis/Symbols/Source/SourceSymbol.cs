@@ -79,6 +79,9 @@ internal abstract class SourceSymbol : Symbol
 
             foreach (var attribute in attributeLists.SelectMany(static list => list.Attributes))
             {
+                if (attribute.IsMacroAttribute())
+                    continue;
+
                 if (!ShouldBindAttributeForOwner(attribute))
                     continue;
 

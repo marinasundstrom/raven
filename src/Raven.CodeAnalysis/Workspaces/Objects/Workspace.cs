@@ -189,7 +189,7 @@ public class Workspace
         }
 
         var compilation = Compilation.Create(project.AssemblyName ?? project.Name,
-            syntaxTrees.ToArray(), references.ToArray(), project.CompilationOptions);
+            syntaxTrees.ToArray(), references.ToArray(), [.. project.MacroReferences], project.CompilationOptions);
 
         state.Version = project.Version;
         state.Compilation = compilation;

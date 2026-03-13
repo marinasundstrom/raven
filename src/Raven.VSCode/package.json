@@ -16,7 +16,8 @@
     "onCommand:raven.run.compileAndRun",
     "onCommand:raven.debug.compileAndDebug",
     "onCommand:raven.build.activeTarget",
-    "onCommand:raven.build.clean"
+    "onCommand:raven.build.clean",
+    "onCommand:raven.showMacroExpansion"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -50,6 +51,10 @@
       {
         "command": "raven.build.clean",
         "title": "Raven: Clean Build Artifacts"
+      },
+      {
+        "command": "raven.showMacroExpansion",
+        "title": "Raven: Show Macro Expansion"
       }
     ],
     "menus": {

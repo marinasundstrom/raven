@@ -3818,19 +3818,25 @@ internal partial class ExpressionGenerator : Generator
     {
         var indexerProperty = boundIndexerAccessExpression.Symbol as IPropertySymbol;
 
-        EmitExpression(boundIndexerAccessExpression.Receiver);
+        if (indexerProperty is null)
+            throw new InvalidOperationException("Indexer symbol is not a property.");
+
+        EmitIndexerReceiver(boundIndexerAccessExpression.Receiver, indexerProperty);
 
         foreach (var argument in boundIndexerAccessExpression.Arguments)
         {
             EmitExpression(argument);
         }
 
-        if (indexerProperty?.GetMethod is null)
+        if (indexerProperty.GetMethod is null)
             throw new InvalidOperationException("Indexer does not have a getter");
 
         var getter = GetMethodInfo(indexerProperty.GetMethod);
+        var callOpCode = indexerProperty.IsStatic || indexerProperty.ContainingType!.IsValueType
+            ? OpCodes.Call
+            : OpCodes.Callvirt;
 
-        ILGenerator.Emit(OpCodes.Callvirt, getter);
+        ILGenerator.Emit(callOpCode, getter);
     }
 
     private void EmitLoadElement(ITypeSymbol elementType)
@@ -4321,20 +4327,23 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundIndexerAssignmentExpression indexer:
-                EmitExpression(indexer.Left.Receiver);
+                var indexerProperty = (IPropertySymbol)indexer.Left.Symbol!;
+                EmitIndexerReceiver(indexer.Left.Receiver, indexerProperty);
 
                 foreach (var arg in indexer.Left.Arguments)
                     EmitExpression(arg);
 
                 EmitRequiredValue(indexer.Right);
 
-                var indexerProperty = (IPropertySymbol)indexer.Left.Symbol!;
                 if (indexerProperty.SetMethod is null)
                     throw new InvalidOperationException("Indexer does not have a setter");
 
                 var setter2 = GetMethodInfo(indexerProperty.SetMethod);
+                var setCallOpCode = indexerProperty.IsStatic || indexerProperty.ContainingType!.IsValueType
+                    ? OpCodes.Call
+                    : OpCodes.Callvirt;
 
-                ILGenerator.Emit(OpCodes.Callvirt, setter2);
+                ILGenerator.Emit(setCallOpCode, setter2);
                 break;
 
             case BoundPatternAssignmentExpression patternAssignmentExpression:
@@ -5955,6 +5964,24 @@ internal partial class ExpressionGenerator : Generator
         }
 
         EmitReceiverIfNeeded(receiver, propertySymbol, receiverAlreadyLoaded);
+    }
+
+    private void EmitIndexerReceiver(BoundExpression receiver, IPropertySymbol indexerProperty)
+    {
+        if (indexerProperty.IsStatic)
+            return;
+
+        if (indexerProperty.ContainingType!.IsValueType)
+        {
+            if (TryEmitInvocationReceiverAddress(receiver))
+                return;
+
+            EmitExpression(receiver);
+            EmitValueTypeAddressIfNeeded(receiver.Type, indexerProperty.ContainingType);
+            return;
+        }
+
+        EmitExpression(receiver);
     }
 
     private bool TryEmitValueTypeReceiverAddress(BoundExpression? receiver, ITypeSymbol? runtimeType, ITypeSymbol? declaredType = null)

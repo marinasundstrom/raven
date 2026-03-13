@@ -503,6 +503,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
             foreach (var attribute in returnAttributes)
             {
+                if (attribute.IsMacroAttribute())
+                    continue;
+
                 var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
                 var binder = semanticModel.GetBinder(binderNode);
                 var attributeBinder = binder as AttributeBinder ?? new AttributeBinder(this, binder);
@@ -548,6 +551,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
             foreach (var attribute in method.AttributeLists.SelectMany(static list => list.Attributes))
             {
+                if (attribute.IsMacroAttribute())
+                    continue;
+
                 if (IsExtensionAttributeName(attribute.Name))
                     return true;
             }

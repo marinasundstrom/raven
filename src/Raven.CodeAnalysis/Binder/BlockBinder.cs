@@ -856,6 +856,25 @@ partial class BlockBinder : Binder
         return boundNode;
     }
 
+    public override BoundNode GetOrBind(SyntaxNode node)
+    {
+        if (node is ArrowExpressionClauseSyntax arrow)
+        {
+            if (TryGetCachedBoundNode(arrow) is BoundNode cached)
+                return cached;
+
+            var expression = BindExpression(arrow.Expression, allowReturn: true);
+            BoundBlockStatement bound = expression is BoundBlockExpression blockExpression
+                ? new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose)
+                : new BoundBlockStatement([new BoundExpressionStatement(expression)]);
+
+            CacheBoundNode(arrow, bound);
+            return bound;
+        }
+
+        return base.GetOrBind(node);
+    }
+
     private BoundExpression BindReceiverBindingExpression(ReceiverBindingExpressionSyntax syntax)
     {
         _diagnostics.ReportInvalidInvocation(syntax.GetLocation());
@@ -8931,29 +8950,11 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        if (!sourceProperty.EmitAsFieldOnly && !IsPrivateInitializerOnlyStoredProperty(sourceProperty))
+        if (!sourceProperty.EmitAsFieldOnly)
             return false;
 
         backingField = sourceProperty.BackingField;
         return true;
-    }
-
-    private static bool IsPrivateInitializerOnlyStoredProperty(SourcePropertySymbol sourceProperty)
-    {
-        foreach (var syntaxReference in sourceProperty.DeclaringSyntaxReferences)
-        {
-            if (syntaxReference.GetSyntax() is not PropertyDeclarationSyntax propertyDecl)
-                continue;
-
-            if (sourceProperty.DeclaredAccessibility == Accessibility.Private &&
-                (propertyDecl.AccessorList is null || propertyDecl.AccessorList.IsMissing) &&
-                propertyDecl.ExpressionBody is null)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static bool IsConstructorSelfReceiver(IMethodSymbol methodSymbol, BoundExpression? receiver)
@@ -11304,7 +11305,7 @@ partial class BlockBinder : Binder
             // Members/imports remain visible even after the boundary.
             if (current is TypeMemberBinder typeMemberBinder)
             {
-                foreach (var member in typeMemberBinder.ContainingSymbol.GetMembers(name))
+                foreach (var member in EnumerateTypeAndBaseMembers(typeMemberBinder.ContainingSymbol, name))
                     if (seen.Add(member))
                         yield return member;
             }

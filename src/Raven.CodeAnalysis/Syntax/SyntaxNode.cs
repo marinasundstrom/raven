@@ -213,6 +213,11 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
 
     public abstract TResult Accept<TResult>(SyntaxVisitor<TResult> visitor);
 
+    internal SyntaxNode WithParent(SyntaxNode? parent, int position)
+    {
+        return Green.CreateRed(parent, position);
+    }
+
     public Location GetLocation()
     {
         if (SyntaxTree is null)

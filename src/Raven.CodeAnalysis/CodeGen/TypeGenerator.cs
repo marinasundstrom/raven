@@ -791,7 +791,7 @@ internal class TypeGenerator
                             ?? propertySymbol.UnderlyingSymbol as SourcePropertySymbol;
 
                         if (sourceProperty is not null &&
-                            (sourceProperty.EmitAsFieldOnly || IsPrivateInitializerOnlyStoredProperty(sourceProperty)))
+                            sourceProperty.EmitAsFieldOnly)
                             break;
 
                         var getterSymbol = propertySymbol.GetMethod as IMethodSymbol;
@@ -2108,24 +2108,6 @@ internal class TypeGenerator
         // Non-constructed case: definition MethodInfo is fine.
         methodInfo = definitionMethodInfo;
         return true;
-    }
-
-    private static bool IsPrivateInitializerOnlyStoredProperty(SourcePropertySymbol sourceProperty)
-    {
-        foreach (var syntaxReference in sourceProperty.DeclaringSyntaxReferences)
-        {
-            if (syntaxReference.GetSyntax() is not PropertyDeclarationSyntax propertyDecl)
-                continue;
-
-            if (sourceProperty.DeclaredAccessibility == Accessibility.Private &&
-                (propertyDecl.AccessorList is null || propertyDecl.AccessorList.IsMissing) &&
-                propertyDecl.ExpressionBody is null)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private bool TryGetInterfaceDefinitionMethodInfo(IMethodSymbol definitionMethod, out MethodInfo methodInfo)

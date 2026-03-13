@@ -332,7 +332,13 @@ internal partial class TypeMemberBinder : Binder
             sourcePropertySymbol?.SetBackingField(backingField);
 
             if (isPrivateInitializerOnlyStoredProperty)
+            {
                 sourcePropertySymbol.MarkEmitAsFieldOnly();
+            }
+            else if (hasAutoAccessorList || isImplicitAutoProperty)
+            {
+                sourcePropertySymbol.MarkSynthesizedBackingFieldAccessors();
+            }
         }
 
         var hasExpressionBody = propertyDecl.ExpressionBody is not null;

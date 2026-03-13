@@ -120,6 +120,44 @@ class Test {
     }
 
     [Fact]
+    public void ExpressionBodiedFunction_DoesNotCrashHighlighter()
+    {
+        var source = """
+import System.Console.*
+
+func greet(name: string) -> string => $"Hello {name}"
+
+WriteLine(greet("Raven"))
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var exception = Record.Exception(() => root.WriteNodeToText(compilation));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void AsyncLambdaWithExpressionBody_DoesNotCrashHighlighter()
+    {
+        var source = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+val result = await Task.Run(async () => 42)
+WriteLine($"Result: {result}")
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var exception = Record.Exception(() => root.WriteNodeToText(compilation));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public void MethodInvocation_UsesMethodColor()
     {
         var source = """

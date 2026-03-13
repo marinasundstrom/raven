@@ -13,6 +13,7 @@ namespace Raven.CodeAnalysis;
 public partial class Compilation
 {
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new();
+    private readonly Dictionary<SyntaxTree, SemanticModel> _generatedSemanticModels = new();
 
     /// <summary>
     /// Gets completion items available at a position in a syntax tree within this compilation.
@@ -54,6 +55,11 @@ public partial class Compilation
             return semanticModel;
         }
 
+        if (_generatedSemanticModels.TryGetValue(syntaxTree, out semanticModel))
+        {
+            return semanticModel;
+        }
+
         if (!_syntaxTrees.Contains(syntaxTree))
         {
             throw new ArgumentNullException(nameof(syntaxTree), "Syntax tree is not part of compilation");
@@ -62,6 +68,17 @@ public partial class Compilation
         semanticModel = new SemanticModel(this, syntaxTree);
         _semanticModels[syntaxTree] = semanticModel;
         return semanticModel;
+    }
+
+    internal void RegisterGeneratedSyntaxTree(SyntaxTree syntaxTree, SemanticModel semanticModel)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+        ArgumentNullException.ThrowIfNull(semanticModel);
+
+        if (_syntaxTrees.Contains(syntaxTree))
+            return;
+
+        _generatedSemanticModels[syntaxTree] = semanticModel;
     }
 
     internal void EnsureSourceDeclarationsComplete()

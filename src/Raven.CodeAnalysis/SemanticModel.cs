@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -24,6 +25,9 @@ public partial class SemanticModel
     private readonly ConcurrentDictionary<SyntaxNode, BoundNode> _loweredBoundNodeCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _loweredBoundNodeCache2 = new();
     private readonly ConcurrentDictionary<SyntaxNodeMapKey, byte> _asyncLoweringInProgress = new();
+    private readonly ConcurrentDictionary<AttributeSyntax, MacroExpansionResult?> _macroExpansionCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, SyntaxNode> _macroReplacementSyntaxMap = new();
+    private readonly ConcurrentDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
 
     private readonly ConcurrentDictionary<BoundNode, SyntaxNode> _syntaxCache = new(ReferenceEqualityComparer.Instance);
     private readonly ConcurrentDictionary<BoundNode, SyntaxNode> _loweredSyntaxCache = new(ReferenceEqualityComparer.Instance);
@@ -116,6 +120,12 @@ public partial class SemanticModel
 
                 if (child is AttributeSyntax attributeSyntax)
                 {
+                    if (attributeSyntax.IsMacroAttribute())
+                    {
+                        _ = GetMacroExpansion(attributeSyntax);
+                        continue;
+                    }
+
                     // Attribute names/arguments have attribute-specific binding rules.
                     // Binding descendant expressions directly can produce bogus name lookup
                     // diagnostics (e.g. [Obsolete] resolving as an identifier expression).
@@ -148,6 +158,12 @@ public partial class SemanticModel
         {
             foreach (var attributeSyntax in statementNode.DescendantNodes().OfType<AttributeSyntax>())
             {
+                if (attributeSyntax.IsMacroAttribute())
+                {
+                    _ = GetMacroExpansion(attributeSyntax);
+                    continue;
+                }
+
                 var attributeParent = (SyntaxNode?)attributeSyntax.Parent ?? statementNode;
                 var binderForAttribute = GetBinder(attributeParent, parentBinder);
                 var attributeBinder = binderForAttribute as AttributeBinder
@@ -156,7 +172,16 @@ public partial class SemanticModel
                 _ = attributeBinder.BindAttribute(attributeSyntax);
             }
         }
+
     }
+
+    private static SyntaxNode? TryGetMacroTarget(AttributeSyntax attributeSyntax)
+        => attributeSyntax.Parent?.Parent switch
+        {
+            AttributeListSyntax { Parent: SyntaxNode parent } => parent,
+            SyntaxNode parent => parent,
+            _ => null
+        };
 
     /// <summary>
     /// Gets symbol information about a syntax node
@@ -391,6 +416,42 @@ public partial class SemanticModel
     /// <returns></returns>
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
         => _declaredSymbolLookup.Lookup(node);
+
+    public MacroExpansionResult? GetMacroExpansion(
+        AttributeSyntax attribute,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(attribute);
+
+        if (!attribute.IsMacroAttribute())
+            return null;
+
+        if (TryGetMacroTarget(attribute) is not { } targetDeclaration)
+            return null;
+
+        return _macroExpansionCache.GetOrAdd(
+            attribute,
+            static (syntax, state) => MacroExpansionService.ExpandAttachedMacro(
+                state.Model.Compilation,
+                state.Model,
+                syntax,
+                state.TargetDeclaration,
+                state.Model._declarationDiagnostics,
+                state.CancellationToken),
+            (Model: this, TargetDeclaration: targetDeclaration, CancellationToken: cancellationToken));
+    }
+
+    internal bool TryGetMacroReplacementSyntax(SyntaxNode node, out SyntaxNode replacement)
+        => _macroReplacementSyntaxMap.TryGetValue(node, out replacement!);
+
+    internal void RegisterMacroReplacementSyntax(SyntaxNode original, SyntaxNode replacement)
+        => _macroReplacementSyntaxMap[original] = replacement;
+
+    internal bool TryGetMacroContainingTypeSyntax(TypeDeclarationSyntax generatedType, out TypeDeclarationSyntax containingType)
+        => _macroContainingTypeSyntaxMap.TryGetValue(generatedType, out containingType!);
+
+    internal void RegisterMacroContainingTypeSyntax(TypeDeclarationSyntax generatedType, TypeDeclarationSyntax containingType)
+        => _macroContainingTypeSyntaxMap[generatedType] = containingType;
 
     /// <summary>
     /// Gets type information about an expression.

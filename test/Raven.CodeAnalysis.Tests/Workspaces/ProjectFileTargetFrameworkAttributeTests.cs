@@ -161,4 +161,46 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
             emitResult.Diagnostics,
             static d => d.Descriptor == CompilerDiagnostics.EntryPointIsAmbiguous);
     }
+
+    [Fact]
+    public void OpenProject_WithExplicitMainFunction_AndGeneratedTargetFrameworkAttribute_HasSingleEntryPoint()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        Directory.CreateDirectory(projectDir);
+        File.WriteAllText(
+            Path.Combine(projectDir, "main.rvn"),
+            """
+            import System.ComponentModel.*
+
+            func Main() -> unit {
+                val viewModel = MyViewModel()
+            }
+
+            class MyViewModel {
+            }
+            """);
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="ConsoleApplication" />
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var compilation = workspace.GetCompilation(projectId);
+
+        using var peStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+        Assert.DoesNotContain(
+            emitResult.Diagnostics,
+            static d => d.Descriptor == CompilerDiagnostics.EntryPointIsAmbiguous);
+
+        var entryPoint = compilation.GetEntryPoint();
+        Assert.NotNull(entryPoint);
+        Assert.Equal("Main", entryPoint!.Name);
+    }
 }

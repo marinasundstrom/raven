@@ -184,13 +184,40 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     {
         get
         {
-            return _parameters ??= _methodInfo.GetParameters().Select(param =>
+            if (_parameters is not null)
+                return _parameters.Value;
+
+            try
             {
-                return new PEParameterSymbol(
-                      _reflectionTypeLoader,
-                      param, this, this.ContainingType, this.ContainingNamespace,
-                      [new MetadataLocation(ContainingModule!)]);
-            }).OfType<IParameterSymbol>().ToImmutableArray();
+                _parameters = _methodInfo.GetParameters().Select(param =>
+                {
+                    return new PEParameterSymbol(
+                          _reflectionTypeLoader,
+                          param, this, this.ContainingType, this.ContainingNamespace,
+                          [new MetadataLocation(ContainingModule!)]);
+                }).OfType<IParameterSymbol>().ToImmutableArray();
+            }
+            catch
+            {
+                // Some metadata-only references carry optional/transitive dependencies that
+                // are intentionally absent at runtime (for example Microsoft.Build on
+                // Raven.CodeAnalysis). Mark unreadable signatures so callers can
+                // treat the member as invalid instead of silently treating it as parameterless.
+                _hasUnreadableSignature = true;
+                _parameters =
+                [
+                    new SourceParameterSymbol(
+                        "__unreadable",
+                        _reflectionTypeLoader.Compilation.ErrorTypeSymbol,
+                        this,
+                        this.ContainingType,
+                        this.ContainingNamespace,
+                        [new MetadataLocation(ContainingModule!)],
+                        [])
+                ];
+            }
+
+            return _parameters.Value;
         }
     }
 
@@ -223,6 +250,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private string? _name;
     private string? _extensionMarkerName;
     private bool? _setsRequiredMembers;
+    private bool _hasUnreadableSignature;
 
     public bool IsExtensionMethod => _lazyIsExtensionMethod ??= ComputeIsExtensionMethod();
 
@@ -264,6 +292,9 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private bool ComputeIsExtensionMethod()
     {
         if (_methodInfo is null || !_methodInfo.IsStatic)
+            return false;
+
+        if (_hasUnreadableSignature)
             return false;
 
         if (Parameters.IsDefaultOrEmpty || Parameters.Length == 0)

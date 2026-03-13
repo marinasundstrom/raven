@@ -4,13 +4,20 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 {
+    internal enum PropertyImplementationKind
+    {
+        Explicit,
+        SynthesizedBackingFieldAccessors,
+        FieldOnly
+    }
+
     private readonly bool _isStatic;
     private readonly string _metadataName;
     private SourceFieldSymbol? _backingField;
     private bool _declaredInExtension;
     private ITypeSymbol? _extensionReceiverType;
     private bool? _isMutable;
-    private bool _emitAsFieldOnly;
+    private PropertyImplementationKind _implementationKind;
     private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
 
     public SourcePropertySymbol(
@@ -47,10 +54,11 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 
     public override string MetadataName => _metadataName;
 
-    public bool IsAutoProperty => _backingField is not null;
+    public bool IsAutoProperty => _implementationKind == PropertyImplementationKind.SynthesizedBackingFieldAccessors;
 
     public SourceFieldSymbol? BackingField => _backingField;
-    internal bool EmitAsFieldOnly => _emitAsFieldOnly;
+    internal bool EmitAsFieldOnly => _implementationKind == PropertyImplementationKind.FieldOnly;
+    internal PropertyImplementationKind ImplementationKind => _implementationKind;
 
     internal bool IsDeclaredInExtension => _declaredInExtension;
 
@@ -73,6 +81,11 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
         backingField.SetAssociatedProperty(this);
     }
 
+    internal void MarkSynthesizedBackingFieldAccessors()
+    {
+        _implementationKind = PropertyImplementationKind.SynthesizedBackingFieldAccessors;
+    }
+
     internal void MarkDeclaredInExtension(ITypeSymbol? receiverType)
     {
         _declaredInExtension = true;
@@ -81,7 +94,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 
     internal void MarkEmitAsFieldOnly()
     {
-        _emitAsFieldOnly = true;
+        _implementationKind = PropertyImplementationKind.FieldOnly;
     }
 
     public bool IsRequired

@@ -1,5 +1,18 @@
 # Raven Macro System
 
+> ⚠️ 🧩 This proposal has been partly implemented
+
+Current implementation status:
+
+* `[@MacroName]` syntax is reserved for macro-style attributes.
+* Macro-style attributes are kept out of the normal CLR attribute binding/emission pipeline.
+* Initial .NET plugin contracts exist under `Raven.CodeAnalysis.Macros`.
+* Project files can reference macro assemblies with `RavenMacro` items and the compiler now resolves attached macros against those plugin assemblies.
+* Unknown macros, duplicate exports, invalid targets, plugin load failures, and plugin-thrown expansion failures now produce compiler diagnostics.
+* Attached macros are invoked through a generic semantic-model expansion path and expansion results are cached per compilation.
+* `MacroExpansionResult` now models both additive members and optional declaration replacement.
+* Generated-member and replacement integration into normal binding/codegen is not implemented yet.
+
 ## 1. Goals
 
 Raven macros provide:
@@ -27,8 +40,8 @@ Macros are **compiler-integrated syntax transformers**, not textual preprocessor
 3. **Parsing is deterministic**
    The file parses fully without macro expansion.
 
-4. **Expansion happens at binding time**
-   Macros are expanded lazily when encountered during binding.
+4. **Expansion happens in a dedicated macro phase near binding**
+   Macro resolution may use binding services, but expansion should not be an ad hoc callback spread through ordinary binder logic.
 
 5. **Expansion is pure and cached**
    Macro expansion must be deterministic and side-effect free.
@@ -43,7 +56,32 @@ Macros are **compiler-integrated syntax transformers**, not textual preprocessor
 
 # 3. Macro Syntax
 
-## Invocation Macros (Rust-style)
+## Attached Macros (current direction)
+
+```raven
+[@AddEquatable]
+class User {
+    val Name: string
+}
+```
+
+Another motivating attached-macro shape is property notification:
+
+```raven
+class MyViewModel: INotifyPropertyChanged {
+    [@Observable]
+    var Title: string
+}
+```
+
+Characteristics:
+
+* Annotation-style syntax that feels familiar in a .NET-targeted language
+* Distinct from normal CLR/custom attributes
+* Intended for plugin-backed expansion into ordinary Raven declarations
+* Intended to support both additive member generation and declaration replacement
+
+## Invocation Macros (future / Rust-style)
 
 ```raven
 linq! {
@@ -58,8 +96,8 @@ Characteristics:
 * Explicit `!` invocation marker
 * Body captured as `TokenTree`
 * Must appear in a valid syntactic slot
-* No attribute-based macros
-* No scope macros
+* Deferred until after attached macros are stable
+* Not part of the current implementation slice
 
 ---
 
@@ -97,10 +135,10 @@ Macros are discovered via a well-known contract (e.g. `IMacro` and/or `[RavenMac
 
 ## 5.2 Execution Model
 
-When binding encounters a macro invocation:
+When macro expansion runs:
 
 1. Resolve macro implementation from referenced assemblies
-2. Execute macro with captured `TokenTree`
+2. Execute macro with structured Raven syntax
 3. Receive:
 
    * Lowered Raven syntax
@@ -137,9 +175,11 @@ Cache key includes:
 
 Macros consist of three conceptual stages:
 
-1. **Token Processing**
+1. **Macro Resolution**
 2. **Optional Semantic Validation**
 3. **Expansion Building**
+
+For the first implementation slice, the input model is ordinary Raven syntax rather than `TokenTree`.
 
 ---
 
@@ -217,24 +257,62 @@ This prevents semantic cycles.
 
 ---
 
-# 10. Binding Strategy (Substitution Model)
+# 10. Current Expansion Model
 
-There is no global expansion phase.
+The current implementation keeps macro execution adjacent to semantic analysis, but not scattered through ad hoc binder callbacks.
 
-Instead:
+Today the flow is:
 
-When binder encounters a macro invocation node:
+1. Parse source
+2. Resolve attached macro attributes against loaded `RavenMacro` assemblies
+3. Validate macro target compatibility
+4. Invoke the plugin with structured Raven syntax
+5. Cache the resulting `MacroExpansionResult` on the semantic model
+6. Surface plugin diagnostics through normal compiler diagnostics
 
-1. Retrieve or compute expansion
-2. Bind expansion root using the same binder context
-3. Remap diagnostics
-4. Return bound result
+This makes macro expansion available to tooling and inspection without yet committing Raven to generated-member substitution inside binding/codegen.
 
 This is a substitution model.
 
 SourceTree remains authoritative.
 
 No merged tree is required.
+
+## 10.1 Next Capability: Declaration Replacement
+
+The next planned attached-macro capability is declaration replacement.
+
+This is required for macros such as:
+
+```raven
+class MyViewModel: INotifyPropertyChanged {
+    [@Observable]
+    var Title: string
+}
+```
+
+In that shape:
+
+* `[@Observable]` must be able to replace or synthesize the annotated property implementation
+* the surrounding type shape may already declare `INotifyPropertyChanged`
+
+The important constraint is that Raven should stay generic:
+
+* the compiler should not know what `Observable` means
+* the macro plugin should decide whether a declaration is valid, redundant, or requires companion macros
+* the compiler should only know how to apply generic replacement/additive expansion mechanics
+
+So the macro system needs to evolve from:
+
+* additive introduced members only
+
+to:
+
+* introduced members
+* optional replacement for the annotated declaration
+* diagnostics
+
+That replacement should still lower to ordinary Raven syntax. The macro system gains a generic "replace this declaration with these ordinary declarations/accessors/members" capability, rather than any compiler-internal understanding of notification semantics.
 
 ---
 
@@ -295,7 +373,8 @@ Each expansion produces:
 
 ```
 MacroExpansionResult {
-    ExpansionRootSyntax
+    IntroducedMembers
+    ReplacementDeclaration?
     MappingTable
     Diagnostics
 }

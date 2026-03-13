@@ -246,6 +246,15 @@ internal abstract partial class Binder
         return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
     }
 
+    protected static IEnumerable<ISymbol> EnumerateTypeAndBaseMembers(INamedTypeSymbol containingType, string name)
+    {
+        for (var current = containingType; current is not null; current = current.BaseType)
+        {
+            foreach (var member in current.GetMembers(name))
+                yield return member;
+        }
+    }
+
     public virtual IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null)
@@ -1726,12 +1735,21 @@ internal abstract partial class Binder
         {
             ExpressionSyntax expr => BindExpression(expr),
             StatementSyntax stmt => BindStatement(stmt),
+            ArrowExpressionClauseSyntax arrow => BindArrowExpressionClause(arrow),
 
             _ => throw new NotSupportedException($"Unsupported node kind: {node.Kind}")
         };
 
         CacheBoundNode(node, result);
         return result;
+    }
+
+    protected virtual BoundNode BindArrowExpressionClause(ArrowExpressionClauseSyntax clause)
+    {
+        var expression = BindExpression(clause.Expression);
+        return expression is BoundBlockExpression blockExpression
+            ? new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose)
+            : new BoundBlockStatement([new BoundExpressionStatement(expression)]);
     }
 
     private static int ComputeGenericArity(GenericNameSyntax generic)

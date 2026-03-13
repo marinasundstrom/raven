@@ -595,6 +595,29 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('raven.showMacroExpansion', async (_uri?: string, macroName?: string, expansionText?: string) => {
+      if (!expansionText || expansionText.trim().length === 0) {
+        void vscode.window.showInformationMessage('No macro expansion is available at the current location.');
+        return;
+      }
+
+      const header = macroName && macroName.trim().length > 0
+        ? `// Macro expansion for @${macroName}\n\n`
+        : '// Macro expansion\n\n';
+
+      const document = await vscode.workspace.openTextDocument({
+        content: `${header}${expansionText}\n`,
+        language: 'raven'
+      });
+
+      await vscode.window.showTextDocument(document, {
+        preview: true,
+        viewColumn: vscode.ViewColumn.Beside
+      });
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('raven.debug.compileAndDebug', async (uri?: vscode.Uri) => {
       const target = resolveCommandTarget(uri);
       if (!target) {

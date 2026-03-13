@@ -16,6 +16,15 @@ internal sealed class DeclaredSymbolLookup
 
     public ISymbol? Lookup(SyntaxNode node)
     {
+        if (_semanticModel.TryGetMacroReplacementSyntax(node, out var replacementNode))
+            node = replacementNode;
+
+        if (node is TypeDeclarationSyntax generatedContainingType &&
+            _semanticModel.TryGetMacroContainingTypeSyntax(generatedContainingType, out var containingTypeReplacement))
+        {
+            node = containingTypeReplacement;
+        }
+
         _semanticModel.EnsureDeclarations();
         _semanticModel.EnsureRootBinderCreated();
 

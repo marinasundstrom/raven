@@ -4157,9 +4157,25 @@ internal class MethodBodyGenerator
             base.VisitExpressionStatement(node);
         }
 
+        public override void VisitIfStatement(BoundIfStatement node)
+        {
+            if (node.Condition is BoundIsPatternExpression { Pattern: { } pattern })
+                AddPatternDesignatorLocals(pattern);
+
+            base.VisitIfStatement(node);
+        }
+
+        public override void VisitConditionalGotoStatement(BoundConditionalGotoStatement node)
+        {
+            if (node.Condition is BoundIsPatternExpression { Pattern: { } pattern })
+                AddPatternDesignatorLocals(pattern);
+
+            base.VisitConditionalGotoStatement(node);
+        }
+
         private void AddPatternDesignatorLocals(BoundPattern pattern)
         {
-            foreach (var designator in pattern.GetDesignators())
+            foreach (var designator in EnumerateDesignators(pattern))
             {
                 if (designator is BoundSingleVariableDesignator single &&
                     !Locals.Any(l => SymbolEqualityComparer.Default.Equals(l, single.Local)))
@@ -4167,6 +4183,34 @@ internal class MethodBodyGenerator
                     Locals.Add(single.Local);
                 }
             }
+        }
+
+        private static IEnumerable<BoundDesignator> EnumerateDesignators(BoundPattern pattern)
+        {
+            switch (pattern)
+            {
+                case BoundNotPattern notPattern:
+                    foreach (var designator in EnumerateDesignators(notPattern.Pattern))
+                        yield return designator;
+                    yield break;
+
+                case BoundAndPattern andPattern:
+                    foreach (var designator in EnumerateDesignators(andPattern.Left))
+                        yield return designator;
+                    foreach (var designator in EnumerateDesignators(andPattern.Right))
+                        yield return designator;
+                    yield break;
+
+                case BoundOrPattern orPattern:
+                    foreach (var designator in EnumerateDesignators(orPattern.Left))
+                        yield return designator;
+                    foreach (var designator in EnumerateDesignators(orPattern.Right))
+                        yield return designator;
+                    yield break;
+            }
+
+            foreach (var designator in pattern.GetDesignators())
+                yield return designator;
         }
 
     }

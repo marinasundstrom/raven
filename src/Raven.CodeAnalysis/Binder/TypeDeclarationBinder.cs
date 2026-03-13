@@ -27,7 +27,7 @@ internal abstract class TypeDeclarationBinder : Binder
 
     public override ISymbol? LookupSymbol(string name)
     {
-        var symbol = ContainingSymbol.GetMembers(name).FirstOrDefault();
+        var symbol = EnumerateTypeAndBaseMembers(ContainingSymbol, name).FirstOrDefault();
         if (symbol is not null)
             return symbol;
 

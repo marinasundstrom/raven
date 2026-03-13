@@ -3,12 +3,15 @@ using System.Linq;
 
 using Microsoft.Extensions.Logging;
 
+using Newtonsoft.Json.Linq;
+
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 using LspCodeAction = OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeAction;
@@ -20,6 +23,7 @@ namespace Raven.LanguageServer;
 
 internal sealed class CodeActionHandler : ICodeActionHandler
 {
+    private const string ShowMacroExpansionCommand = "raven.showMacroExpansion";
     private readonly DocumentStore _documents;
     private readonly WorkspaceManager _workspaceManager;
     private readonly ILogger<CodeActionHandler> _logger;
@@ -35,7 +39,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
         => new()
         {
             DocumentSelector = TextDocumentSelector.ForLanguage("raven"),
-            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix)
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, CodeActionKind.RefactorRewrite)
         };
 
     public void SetCapability(CodeActionCapability capability)
@@ -59,7 +63,19 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                 .Where(fix => MatchesRequestedDiagnostics(fix, request.Context?.Diagnostics, documentText))
                 .ToArray();
 
-            var actions = new List<CommandOrCodeAction>(filteredFixes.Length);
+            var actions = new List<CommandOrCodeAction>(filteredFixes.Length + 1);
+
+            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+            if (syntaxTree is not null &&
+                _documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) &&
+                compilation is not null)
+            {
+                var semanticModel = compilation.GetSemanticModel(syntaxTree);
+                var root = syntaxTree.GetRoot(cancellationToken);
+                if (TryCreateMacroExpansionAction(request.TextDocument.Uri, documentText, semanticModel, root, request.Range, out var macroAction))
+                    actions.Add(macroAction);
+            }
+
             foreach (var fix in filteredFixes)
             {
                 var action = await TryCreateLspCodeActionAsync(request.TextDocument.Uri, document, fix, cancellationToken).ConfigureAwait(false);
@@ -127,6 +143,29 @@ internal sealed class CodeActionHandler : ICodeActionHandler
 
     private static bool SpansOverlap(int leftStart, int leftEnd, int rightStart, int rightEnd)
         => leftStart <= rightEnd && rightStart <= leftEnd;
+
+    private static bool TryCreateMacroExpansionAction(
+        DocumentUri uri,
+        SourceText documentText,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        LspRange requestRange,
+        out CommandOrCodeAction action)
+    {
+        action = default!;
+
+        if (!MacroExpansionDisplayService.TryCreateForRange(documentText, semanticModel, root, requestRange, out var display))
+            return false;
+
+        action = new CommandOrCodeAction(new Command
+        {
+            Name = ShowMacroExpansionCommand,
+            Title = $"Show macro expansion for @{display.MacroName}",
+            Arguments = new JArray(uri.ToString(), display.MacroName, display.FullText)
+        });
+
+        return true;
+    }
 
     private static async Task<CommandOrCodeAction?> TryCreateLspCodeActionAsync(
         DocumentUri uri,

@@ -17,6 +17,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
     private readonly ConcurrentDictionary<MethodBase, PEMethodSymbol> _methodSymbols = new();
     private readonly ConcurrentDictionary<(PEMethodSymbol method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
 
+    internal Compilation Compilation => compilation;
+
     public ITypeSymbol? ResolveType(ParameterInfo parameterInfo)
     {
         var methodContext = parameterInfo.Member as MethodBase;

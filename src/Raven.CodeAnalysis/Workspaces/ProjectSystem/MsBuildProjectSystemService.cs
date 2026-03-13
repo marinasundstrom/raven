@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 
+using Raven.CodeAnalysis.Macros;
+
 namespace Raven.CodeAnalysis;
 
 public sealed class MsBuildProjectSystemService : IProjectSystemService
@@ -74,6 +76,12 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
         foreach (var metadataReferencePath in evaluation.MetadataReferencePaths)
             solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataReferencePath));
+
+        foreach (var macroReferencePath in evaluation.MacroReferencePaths)
+        {
+            var resolvedMacroReferencePath = ResolveMacroReferencePath(macroReferencePath, evaluation, raven);
+            solution = solution.AddMacroReference(projectId, MacroReference.CreateFromFile(resolvedMacroReferencePath));
+        }
 
         var packageReferences = NuGetPackageResolver.ResolveReferences(
             projectFilePath,
@@ -155,6 +163,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
         RewriteRavenCompileItems(root, project, projectDirectory);
         RewriteManagedProjectReferences(root, project, projectDirectory);
+        RewriteMacroReferences(root, project, projectDirectory);
 
         projectDocument.Save(filePath);
     }
@@ -211,6 +220,161 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         var segments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
         return !segments.Any(segment => segment.Equals("obj", StringComparison.OrdinalIgnoreCase));
     }
+
+    private string ResolveMacroReferencePath(
+        string macroReferencePath,
+        MsBuildProjectEvaluationResult requestingProject,
+        RavenWorkspace workspace)
+    {
+        var extension = Path.GetExtension(macroReferencePath);
+        if (!IsProjectFileExtension(extension))
+            return macroReferencePath;
+
+        if (string.Equals(extension, ".rvnproj", StringComparison.OrdinalIgnoreCase))
+            return BuildRavenMacroProject(macroReferencePath, requestingProject, workspace);
+
+        var metadataPath = MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
+            macroReferencePath,
+            requestingProject.Configuration,
+            requestingProject.TargetFramework);
+
+        if (!string.IsNullOrWhiteSpace(metadataPath) && File.Exists(metadataPath))
+            return metadataPath;
+
+        throw new FileNotFoundException($"Could not resolve macro assembly output for project '{macroReferencePath}'.", macroReferencePath);
+    }
+
+    private string BuildRavenMacroProject(
+        string projectFilePath,
+        MsBuildProjectEvaluationResult requestingProject,
+        RavenWorkspace workspace)
+    {
+        var macroEvaluation = MsBuildProjectEvaluator.Evaluate(projectFilePath, _conventions, requestingProject.TargetFramework);
+        var effectiveTargetFramework = macroEvaluation.TargetFramework ?? requestingProject.TargetFramework ?? workspace.DefaultTargetFramework;
+        var outputPath = GetRavenMacroOutputPath(projectFilePath, macroEvaluation.Configuration, effectiveTargetFramework, macroEvaluation.AssemblyName);
+        var rebuildInputs = GetRavenMacroRebuildInputs(macroEvaluation).ToArray();
+
+        if (NeedsRebuild(projectFilePath, outputPath, rebuildInputs))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+
+            var macroWorkspace = RavenWorkspace.Create(
+                targetFramework: requestingProject.TargetFramework ?? workspace.DefaultTargetFramework,
+                projectSystemService: new CompositeProjectSystemService(
+                    new RavenProjectSystemService(),
+                    new MsBuildProjectSystemService(_conventions)));
+
+            var macroProjectId = macroWorkspace.OpenProject(projectFilePath);
+            var macroCompilation = macroWorkspace.GetCompilation(macroProjectId);
+
+            using var peStream = File.Create(outputPath);
+            using var pdbStream = File.Create(Path.ChangeExtension(outputPath, ".pdb"));
+            var emitResult = macroCompilation.Emit(peStream, pdbStream);
+            if (!emitResult.Success)
+            {
+                var diagnosticText = string.Join(Environment.NewLine, emitResult.Diagnostics.Select(static diagnostic => diagnostic.ToString()));
+                throw new InvalidOperationException($"Failed to build macro project '{projectFilePath}'.{Environment.NewLine}{diagnosticText}");
+            }
+        }
+
+        return outputPath;
+    }
+
+    internal static string GetRavenMacroOutputPath(
+        string projectFilePath,
+        string configuration,
+        string? targetFramework,
+        string assemblyName)
+    {
+        var outputDirectory = Path.Combine(
+            Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory,
+            "bin",
+            configuration);
+
+        if (!string.IsNullOrWhiteSpace(targetFramework))
+            outputDirectory = Path.Combine(outputDirectory, targetFramework);
+
+        return Path.Combine(outputDirectory, $"{assemblyName}.dll");
+    }
+
+    internal static IEnumerable<string> GetRavenMacroRebuildInputs(MsBuildProjectEvaluationResult evaluation)
+    {
+        foreach (var document in evaluation.Documents)
+        {
+            if (!string.IsNullOrWhiteSpace(document.FilePath))
+                yield return document.FilePath!;
+        }
+
+        foreach (var metadataReferencePath in evaluation.MetadataReferencePaths)
+            yield return metadataReferencePath;
+
+        foreach (var projectReferencePath in evaluation.ProjectReferencePaths)
+        {
+            yield return projectReferencePath;
+
+            var referencedOutput = MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
+                projectReferencePath,
+                evaluation.Configuration,
+                evaluation.TargetFramework);
+
+            if (!string.IsNullOrWhiteSpace(referencedOutput))
+                yield return referencedOutput!;
+        }
+
+        foreach (var macroReferencePath in evaluation.MacroReferencePaths)
+        {
+            yield return macroReferencePath;
+
+            var extension = Path.GetExtension(macroReferencePath);
+            if (!IsProjectFileExtension(extension))
+                continue;
+
+            var referencedOutput = string.Equals(extension, ".rvnproj", StringComparison.OrdinalIgnoreCase)
+                ? GetRavenMacroOutputPathForProject(macroReferencePath, evaluation.Configuration, evaluation.TargetFramework)
+                : MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
+                    macroReferencePath,
+                    evaluation.Configuration,
+                    evaluation.TargetFramework);
+
+            if (!string.IsNullOrWhiteSpace(referencedOutput))
+                yield return referencedOutput!;
+        }
+    }
+
+    private static string GetRavenMacroOutputPathForProject(
+        string projectFilePath,
+        string configuration,
+        string? targetFramework)
+    {
+        var macroEvaluation = MsBuildProjectEvaluator.Evaluate(projectFilePath, RavenProjectConventions.Default, targetFramework);
+        return GetRavenMacroOutputPath(projectFilePath, configuration, macroEvaluation.TargetFramework ?? targetFramework, macroEvaluation.AssemblyName);
+    }
+
+    internal static bool NeedsRebuild(string projectFilePath, string outputPath, IEnumerable<string?> sourcePaths)
+    {
+        if (!File.Exists(outputPath))
+            return true;
+
+        var outputWriteTime = File.GetLastWriteTimeUtc(outputPath);
+        if (File.GetLastWriteTimeUtc(projectFilePath) > outputWriteTime)
+            return true;
+
+        foreach (var sourcePath in sourcePaths)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+                continue;
+
+            if (File.GetLastWriteTimeUtc(sourcePath) > outputWriteTime)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsProjectFileExtension(string extension)
+        => string.Equals(extension, ".rvnproj", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(extension, ".csproj", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(extension, ".fsproj", StringComparison.OrdinalIgnoreCase);
 
     private static void RewriteRavenCompileItems(XElement root, Project project, string projectDirectory)
     {
@@ -280,6 +444,34 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         var itemGroup = new XElement(root.GetDefaultNamespace() + "ItemGroup");
         foreach (var path in references)
             itemGroup.Add(new XElement(root.GetDefaultNamespace() + "ProjectReference", new XAttribute("Include", path)));
+
+        root.Add(itemGroup);
+    }
+
+    private static void RewriteMacroReferences(XElement root, Project project, string projectDirectory)
+    {
+        var macroReferenceElements = root
+            .Descendants()
+            .Where(static element => string.Equals(element.Name.LocalName, "RavenMacro", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        foreach (var element in macroReferenceElements)
+            element.Remove();
+
+        var references = project.MacroReferences
+            .Select(static reference => reference.Display)
+            .Where(static display => !string.IsNullOrWhiteSpace(display) && File.Exists(display))
+            .Select(path => Path.GetRelativePath(projectDirectory, path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (references.Length == 0)
+            return;
+
+        var itemGroup = new XElement(root.GetDefaultNamespace() + "ItemGroup");
+        foreach (var path in references)
+            itemGroup.Add(new XElement(root.GetDefaultNamespace() + "RavenMacro", new XAttribute("Include", path)));
 
         root.Add(itemGroup);
     }

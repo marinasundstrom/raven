@@ -1,3 +1,7 @@
+using System;
+using System.IO;
+using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -53,5 +57,96 @@ val value = Observer.Ping()
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, static d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void GetDiagnostics_DoesNotCrash_WhenMetadataReferenceHasMissingOptionalDependencies()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+import System.Console.*
+
+val message = $"Hello"
+WriteLine(message)
+""");
+
+        var compilation = Compilation.Create(
+            "consumer",
+            [tree],
+            [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(typeof(Compilation).Assembly.Location)],
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var exception = Record.Exception(() => compilation.GetDiagnostics());
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void MetadataMethods_WithUnreadableSignatures_DoNotBecomeParameterless()
+    {
+        var dependencyTree = SyntaxTree.ParseText("""
+            public class MissingType {}
+            """);
+        var dependencyCompilation = Compilation.Create(
+            "dependency",
+            [dependencyTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var dependencyStream = new MemoryStream();
+        var dependencyEmit = dependencyCompilation.Emit(dependencyStream);
+        Assert.True(dependencyEmit.Success, string.Join(Environment.NewLine, dependencyEmit.Diagnostics));
+
+        var dependencyDirectory = Path.Combine(Path.GetTempPath(), $"raven-metadata-dependency-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dependencyDirectory);
+        var dependencyPath = Path.Combine(dependencyDirectory, "dependency.dll");
+        File.WriteAllBytes(dependencyPath, dependencyStream.ToArray());
+
+        var hostTree = SyntaxTree.ParseText("""
+            public class Host {
+                public static func M(value: MissingType) -> unit {}
+                public static func N() -> unit {}
+            }
+            """);
+        var hostCompilation = Compilation.Create(
+            "host",
+            [hostTree],
+            [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(dependencyPath)],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var hostStream = new MemoryStream();
+        var hostEmit = hostCompilation.Emit(hostStream);
+        Assert.True(hostEmit.Success, string.Join(Environment.NewLine, hostEmit.Diagnostics));
+
+        var hostDirectory = Path.Combine(Path.GetTempPath(), $"raven-metadata-host-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(hostDirectory);
+        var hostPath = Path.Combine(hostDirectory, "host.dll");
+        File.WriteAllBytes(hostPath, hostStream.ToArray());
+
+        try
+        {
+            var compilation = Compilation.Create(
+                "consumer",
+                syntaxTrees: [],
+                references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(hostPath)],
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            var hostType = compilation.GetTypeByMetadataName("Host");
+            Assert.NotNull(hostType);
+
+            var unreadable = Assert.Single(hostType!.GetMembers("M").OfType<IMethodSymbol>());
+            Assert.Single(unreadable.Parameters);
+            Assert.Equal(TypeKind.Error, unreadable.Parameters[0].Type.TypeKind);
+            var fallback = Assert.Single(hostType.GetMembers("N").OfType<IMethodSymbol>());
+            Assert.Empty(fallback.Parameters);
+        }
+        finally
+        {
+            if (Directory.Exists(dependencyDirectory))
+                Directory.Delete(dependencyDirectory, recursive: true);
+
+            if (Directory.Exists(hostDirectory))
+                Directory.Delete(hostDirectory, recursive: true);
+        }
     }
 }

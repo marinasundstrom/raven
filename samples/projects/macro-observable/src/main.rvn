@@ -1,0 +1,30 @@
+import System.*
+import System.Console.*
+import System.ComponentModel.*
+
+func Main() -> () {
+    val viewModel = MyViewModel()
+    viewModel.PropertyChanged += func (sender: object?, args: PropertyChangedEventArgs) => {
+        WriteLine(args.PropertyName ?? "")
+    }
+    viewModel.Title = "Hello from Raven"
+    WriteLine(viewModel.Title)
+}
+
+class MyViewModel : ObservableBase {
+    [@Observable]
+    var Title: string = ""
+}
+
+open class ObservableBase : INotifyPropertyChanged {
+    event PropertyChanged: PropertyChangedEventHandler?
+
+    #pragma warning disable RAV9019
+    #pragma warning disable RAV9012
+    
+    protected func RaisePropertyChanged(propertyName: string, oldValue: object?, newValue: object?) -> unit 
+        => PropertyChanged?(self, PropertyChangedEventArgs(propertyName))
+
+    #pragma warning restore RAV9019
+    #pragma warning restore RAV9012      
+}

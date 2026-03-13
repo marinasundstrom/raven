@@ -74,8 +74,9 @@ class BinderFactory
         // A block directly under a method requires a MethodBodyBinder so the method body
         // can bind parameters and local declarations. Nested blocks receive a
         // LocalScopeBinder to track their own local scope.
-        return parentBinder is MethodBinder
-            ? new MethodBodyBinder(GetMethodSymbol(parentBinder)!, parentBinder!)
+        var methodSymbol = GetMethodSymbol(parentBinder);
+        return methodSymbol is not null
+            ? new MethodBodyBinder(methodSymbol, parentBinder!)
             : new LocalScopeBinder(parentBinder!);
     }
 
@@ -86,6 +87,12 @@ class BinderFactory
 
         if (parentBinder is FunctionBinder functionBinder)
             return functionBinder?.GetMethodSymbol()!;
+
+        if (parentBinder is FunctionExpressionBinder functionExpressionBinder &&
+            functionExpressionBinder.ContainingSymbol is IMethodSymbol lambdaMethod)
+        {
+            return lambdaMethod;
+        }
 
         return null;
     }

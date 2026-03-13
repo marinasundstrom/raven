@@ -15,11 +15,16 @@ namespace Raven.CodeAnalysis;
 
 internal static class MsBuildProjectEvaluator
 {
-    public static MsBuildProjectEvaluationResult Evaluate(string projectFilePath, RavenProjectConventions conventions)
+    public static MsBuildProjectEvaluationResult Evaluate(
+        string projectFilePath,
+        RavenProjectConventions conventions,
+        string? requestedTargetFramework = null)
     {
         var initialEvaluation = LoadProject(projectFilePath, globalProperties: null);
         var configuration = GetNormalizedConfiguration(initialEvaluation, conventions);
-        var targetFramework = GetEffectiveTargetFramework(initialEvaluation);
+        var targetFramework = string.IsNullOrWhiteSpace(requestedTargetFramework)
+            ? GetEffectiveTargetFramework(initialEvaluation)
+            : requestedTargetFramework;
 
         var globalProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -70,6 +75,11 @@ internal static class MsBuildProjectEvaluator
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray();
 
+        var macroReferencePaths = project.GetItems("RavenMacro")
+            .Select(item => GetFullPath(projectDirectory, item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
+
         var packageReferences = project.GetItems("PackageReference")
             .Select(item => new ProjectFile.PackageReferenceInfo(
                 item.EvaluatedInclude,
@@ -113,6 +123,7 @@ internal static class MsBuildProjectEvaluator
             documents,
             metadataReferencePaths,
             projectReferencePaths,
+            macroReferencePaths,
             packageReferences,
             frameworkReferences,
             generatedSourceDirectory);
@@ -255,6 +266,7 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ImmutableArray<DocumentInfo> Documents,
     ImmutableArray<string> MetadataReferencePaths,
     ImmutableArray<string> ProjectReferencePaths,
+    ImmutableArray<string> MacroReferencePaths,
     ImmutableArray<ProjectFile.PackageReferenceInfo> PackageReferences,
     ImmutableArray<ProjectFile.FrameworkReferenceInfo> FrameworkReferences,
     string GeneratedSourceDirectory);

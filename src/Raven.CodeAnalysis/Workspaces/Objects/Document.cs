@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -101,7 +102,7 @@ public sealed class Document
                 .Cast<SyntaxTree>()
                 .ToArray();
 
-            compilation = Compilation.Create(Project.Name, trees, [.. Project.MetadataReferences]);
+            compilation = Compilation.Create(Project.Name, trees, [.. Project.MetadataReferences], [.. Project.MacroReferences]);
         }
 
         var model = compilation.GetSemanticModel(tree);

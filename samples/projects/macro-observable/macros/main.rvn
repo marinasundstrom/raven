@@ -1,0 +1,59 @@
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
+class ObservableMacroPlugin : IRavenMacroPlugin {
+    val Name: string => "SampleMacros.Observable"
+
+    func GetMacros() -> ImmutableArray<IMacroDefinition> {
+        ImmutableArray.Create<IMacroDefinition>(ObservableMacro())
+    }
+}
+
+class ObservableMacro : IAttachedDeclarationMacro {
+    val Name: string => "Observable"
+    val Kind: MacroKind => MacroKind.AttachedDeclaration
+    val Targets: MacroTarget => MacroTarget.Property
+
+    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
+        val property = context.TargetDeclaration as PropertyDeclarationSyntax
+        if property is null {
+            return MacroExpansionResult.Empty
+        }
+
+        val propertyName = property.Identifier.ValueText
+        val propertyType = property.Type.Type.ToString()
+        val backingFieldName = "_${propertyName}"
+
+        val tree = SyntaxFactory.ParseSyntaxTree("""
+            class __GeneratedContainer {
+                private var ${backingFieldName}: ${propertyType}
+
+                var ${propertyName}: ${propertyType} {
+                    get => ${backingFieldName}
+                    set {
+                        val oldValue = ${backingFieldName}
+                        ${backingFieldName} = value
+                        RaisePropertyChanged(nameof(${propertyName}), oldValue, value)
+                    }
+                }
+            }
+            """)
+
+        val container = tree.GetRoot().Members[0] as ClassDeclarationSyntax
+        if container is null {
+            return MacroExpansionResult.Empty
+        }
+
+        val backingFieldMember = container.Members[0] as PropertyDeclarationSyntax
+        val replacement = container.Members[1] as PropertyDeclarationSyntax
+        if backingFieldMember is null || replacement is null {
+            return MacroExpansionResult.Empty
+        }
+
+        MacroExpansionResult {
+            ReplacementDeclaration = replacement
+            IntroducedMembers = ImmutableArray.Create<MemberDeclarationSyntax>(backingFieldMember)
+        }
+    }
+}

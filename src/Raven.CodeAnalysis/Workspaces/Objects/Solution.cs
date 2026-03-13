@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
@@ -65,7 +66,7 @@ public sealed class Solution
     {
         if (_projectInfos.ContainsKey(id)) return this;
         var projAttr = new ProjectInfo.ProjectAttributes(id, name, VersionStamp.Create());
-        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>(), filePath: filePath, analyzerReferences: null, targetFramework: null, compilationOptions: compilationOptions, assemblyName: assemblyName);
+        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>(), filePath: filePath, analyzerReferences: null, macroReferences: null, targetFramework: null, compilationOptions: compilationOptions, assemblyName: assemblyName);
         var newInfos = _projectInfos.Add(id, projInfo);
         var newInfo = _info.WithProjects(newInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
@@ -173,7 +174,7 @@ public sealed class Solution
             throw new InvalidOperationException("Project not found");
 
         var attr = projInfo.Attributes with { Version = projInfo.Version.GetNewerVersion() };
-        projInfo = new ProjectInfo(attr, projInfo.Documents, projInfo.ProjectReferences, projInfo.MetadataReferences, projInfo.AnalyzerReferences, projInfo.FilePath, projInfo.TargetFramework, compilationOptions, projInfo.AssemblyName);
+        projInfo = new ProjectInfo(attr, projInfo.Documents, projInfo.ProjectReferences, projInfo.MetadataReferences, projInfo.MacroReferences, projInfo.AnalyzerReferences, projInfo.FilePath, projInfo.TargetFramework, compilationOptions, projInfo.AssemblyName);
         var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
@@ -200,6 +201,18 @@ public sealed class Solution
 
         var updated = projInfo.AnalyzerReferences.Add(reference);
         projInfo = projInfo.WithAnalyzerReferences(updated).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
+    public Solution AddMacroReference(ProjectId projectId, MacroReference reference)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+
+        var updated = projInfo.MacroReferences.Add(reference);
+        projInfo = projInfo.WithMacroReferences(updated).WithVersion(projInfo.Version.GetNewerVersion());
         var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);

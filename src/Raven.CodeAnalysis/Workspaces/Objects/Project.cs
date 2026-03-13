@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
@@ -61,6 +62,9 @@ public sealed class Project
     /// <summary>An analyzer references for this project.</summary>
     public IReadOnlyList<AnalyzerReference> AnalyzerReferences => _info.AnalyzerReferences;
 
+    /// <summary>Macro references for this project.</summary>
+    public IReadOnlyList<MacroReference> MacroReferences => _info.MacroReferences;
+
     /// <summary>Gets a document by its identifier.</summary>
     public Document? GetDocument(DocumentId id)
     {
@@ -112,6 +116,11 @@ public sealed class Project
     public Project AddAnalyzerReference(AnalyzerReference analyzerReference)
     {
         return Solution.AddAnalyzerReference(Id, analyzerReference).GetProject(Id);
+    }
+
+    public Project AddMacroReference(MacroReference macroReference)
+    {
+        return Solution.AddMacroReference(Id, macroReference).GetProject(Id);
     }
 
     /// <summary>

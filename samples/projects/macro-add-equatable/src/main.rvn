@@ -1,0 +1,9 @@
+import System.Console.*
+
+func Main() -> () {
+    val user = User("Ada", 37)
+    WriteLine(user.Name)
+}
+
+[@AddEquatable]
+class User(val Name: string, val Age: int)

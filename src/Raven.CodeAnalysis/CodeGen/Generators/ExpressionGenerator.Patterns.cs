@@ -1874,6 +1874,9 @@ internal partial class ExpressionGenerator
         if (designation is BoundSingleVariableDesignator single)
         {
             var symbol = single.Local;
+            var existingLocal = scope.GetLocal(symbol);
+            if (existingLocal is not null)
+                return existingLocal;
 
             var local = ILGenerator.DeclareLocal(ResolveClrType(symbol.Type));
             local.SetLocalSymInfo(single.Local.Name);

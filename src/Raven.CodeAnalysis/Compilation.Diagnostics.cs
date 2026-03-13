@@ -23,6 +23,9 @@ public partial class Compilation
                 Add(diagnostic);
         }
 
+        foreach (var diagnostic in GetMacroRegistry().Diagnostics)
+            Add(diagnostic);
+
         var entryPointDiagnostics = GetEntryPointDiagnostics(cancellationToken);
         foreach (var diagnostic in entryPointDiagnostics)
             Add(diagnostic);

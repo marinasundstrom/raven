@@ -121,6 +121,9 @@ If you change any flags, **rebuild the compiler** before running again.
 - focus on incremental, additive changes  
 - review `docs/` before altering syntax/semantics  
 - ask Codex to collapse large diffs  
+- when writing or testing Raven code exposes compiler behavior that is clearly wrong for the intended/spec'd language behavior, fix the compiler instead of just working around it in Raven code
+- if the intended behavior is unclear, reduce the repro, check `docs/`, and then fix or clarify the behavior rather than leaving the compiler in a broken/ambiguous state
+- compiler bug fixes must be locked with focused tests (syntax/semantic/codegen as appropriate)
 - for language server troubleshooting, capture logs to `logs/raven-lsp.log` (create `logs/` if missing) and include the relevant excerpt when reporting hover/completion/definition failures
 - inspect `ravc` outputs with `ilspycmd`  
   (install via `dotnet tool install --global ilspycmd`)  

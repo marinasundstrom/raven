@@ -59,6 +59,10 @@ internal sealed class HoverHandler : IHoverHandler
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = PositionHelper.ToOffset(sourceText, request.Position);
 
+            var macroHover = TryBuildMacroExpansionHover(sourceText, semanticModel, root, offset);
+            if (macroHover is not null)
+                return macroHover;
+
             var literalHover = TryBuildLiteralHover(sourceText, semanticModel, root, offset);
             if (literalHover is not null)
                 return literalHover;
@@ -178,6 +182,28 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         return null;
+    }
+
+    private static Hover? TryBuildMacroExpansionHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)
+    {
+        if (!MacroExpansionDisplayService.TryCreateForOffset(sourceText, semanticModel, root, offset, out var display))
+            return null;
+
+        var hoverText = string.Join(
+            "\n\n",
+            $"```raven\n{display.PreviewText}\n```",
+            $"Macro `@{display.MacroName}` expansion preview.",
+            "Use `Show macro expansion` to inspect the full expansion.");
+
+        return new Hover
+        {
+            Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+            {
+                Kind = MarkupKind.Markdown,
+                Value = hoverText
+            }),
+            Range = PositionHelper.ToRange(sourceText, display.Span)
+        };
     }
 
     private static Hover? TryBuildPatternDeclarationHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)

@@ -18,6 +18,7 @@ internal static class ProjectFile
         ProjectInfo Info,
         ImmutableArray<string> ProjectReferences,
         ImmutableArray<string> MetadataReferences,
+        ImmutableArray<string> MacroReferences,
         ImmutableArray<PackageReferenceInfo> PackageReferences,
         ImmutableArray<FrameworkReferenceInfo> FrameworkReferences,
         string Configuration);
@@ -64,6 +65,15 @@ internal static class ProjectFile
                 continue;
             var rel = Path.GetRelativePath(dir, refPath);
             projectElement.Add(new XElement("ProjectReference", new XAttribute("Path", rel)));
+        }
+
+        foreach (var macroRef in project.MacroReferences)
+        {
+            if (string.IsNullOrWhiteSpace(macroRef.Display) || !File.Exists(macroRef.Display))
+                continue;
+
+            var rel = Path.GetRelativePath(dir, macroRef.Display);
+            projectElement.Add(new XElement("RavenMacro", new XAttribute("Path", rel)));
         }
 
         var doc = new XDocument(projectElement);
@@ -171,8 +181,13 @@ internal static class ProjectFile
             .Select(static value => new FrameworkReferenceInfo(value!))
             .ToImmutableArray();
 
+        var macroRefs = root.Elements("RavenMacro")
+            .Select(e => (string?)e.Attribute("Path") ?? (string?)e.Attribute("Include") ?? throw new InvalidDataException("RavenMacro path missing."))
+            .Select(p => Path.IsPathRooted(p) ? p : Path.GetFullPath(Path.Combine(projectDir, p)))
+            .ToImmutableArray();
+
         var attrInfo = new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create());
         var info = new ProjectInfo(attrInfo, documents, filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: options, assemblyName: output);
-        return new ProjectFileInfo(info, projectRefs, metadataRefs, packageRefs, frameworkRefs, configuration);
+        return new ProjectFileInfo(info, projectRefs, metadataRefs, macroRefs, packageRefs, frameworkRefs, configuration);
     }
 }
