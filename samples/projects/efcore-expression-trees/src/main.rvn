@@ -40,6 +40,7 @@ class User(
 )
 
 class AppDbContext : DbContext {
+    #pragma warning disable-next-line RAV9006
     var Users: DbSet<User>
 
     protected override func OnConfiguring(optionsBuilder: DbContextOptionsBuilder) -> () {
