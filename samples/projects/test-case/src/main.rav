@@ -1,27 +1,42 @@
 import System.*
 import System.Console.*
-import System.Reactive.*
-import System.Reactive.Subjects.*
-import System.Reactive.Linq.*
 
-func Main() -> Result<(), ApplicationError> {
-    val source = Subject<int>()
+func Main() -> () {
+    var a = 1, b = 2
+    WriteLine("a: $a, b: $b")
+    
+    (b, a) = (a, b)
+    WriteLine("a: $a, b: $b")
 
-    val query = source
-        |> Where(x => x > 1)
+    Tuple()
+    Person()
 
-    val subscription = query.Subscribe(value => {
-            WriteLine(value)
-        })
+    val arr = [3, 9, 10, 3, 2]
+    val [first, second, ...rest] = arr
 
-    source.OnNext(1)
-    source.OnNext(2)
-    source.OnNext(3)
-    source.OnCompleted()
+    WriteLine("first: $first, and second: $second")
 
-    subscription.Dispose()
-
-    Ok(())
+    for no in rest {
+        WriteLine(no)
+    }
 }
 
-record ApplicationError(val Message: string)
+func Tuple() {
+    val person = (no: 1, name: "John Doe")
+    val (id, name) = person
+
+    WriteLine("$id: $name")
+}
+
+func Person() {
+    val person = Person(1, "John Doe", 20)
+    val (id, name, _) = person
+
+    WriteLine("$id: $name")
+}
+
+record Person(
+    val Id: int, 
+    val Name: string, 
+    val Age: int
+)
