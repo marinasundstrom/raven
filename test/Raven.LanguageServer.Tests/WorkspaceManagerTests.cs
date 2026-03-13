@@ -95,6 +95,69 @@ class MacroPlugin { }
         manager.GetProjectsSnapshot().Count.ShouldBe(2);
     }
 
+    [Fact]
+    public async Task TryGetDocument_ResolvesSiblingProjectDocumentByUri()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        WriteMacroObservableLayout(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var macroUri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "macros", "main.rvn"));
+
+        manager.TryGetDocument(macroUri, out var document).ShouldBeTrue();
+        document.ShouldNotBeNull();
+        manager.TryGetCompilation(macroUri, out var compilation).ShouldBeTrue();
+        compilation.ShouldNotBeNull();
+
+        var syntaxTree = await document.GetSyntaxTreeAsync();
+        syntaxTree.ShouldNotBeNull();
+        Should.NotThrow(() => compilation.GetSemanticModel(syntaxTree!));
+    }
+
+    [Fact]
+    public async Task RemoveDocument_DoesNotRemoveProjectBackedSiblingProjectDocument()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        WriteMacroObservableLayout(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var macroPath = Path.Combine(_tempRoot, "macros", "main.rvn");
+        var macroUri = DocumentUri.FromFileSystemPath(macroPath);
+        var originalText = File.ReadAllText(macroPath);
+
+        _ = manager.UpsertDocument(macroUri, originalText);
+        manager.RemoveDocument(macroUri).ShouldBeTrue();
+
+        manager.TryGetDocument(macroUri, out var document).ShouldBeTrue();
+        document.ShouldNotBeNull();
+        manager.TryGetCompilation(macroUri, out var compilation).ShouldBeTrue();
+        compilation.ShouldNotBeNull();
+
+        var syntaxTree = await document.GetSyntaxTreeAsync();
+        syntaxTree.ShouldNotBeNull();
+        Should.NotThrow(() => compilation.GetSemanticModel(syntaxTree!));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))
@@ -113,5 +176,66 @@ class MacroPlugin { }
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, contents);
+    }
+
+    private static void WriteMacroObservableLayout(string root)
+    {
+        var ravenCodeAnalysisPath = typeof(RavenWorkspace).Assembly.Location;
+
+        _ = WriteProject(Path.Combine(root, "app"), "MacroObservable", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>MacroObservable</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+    <RavenMacro Include="../macros/ObservableMacros.rvnproj" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(root, "app", "src", "main.rvn"), """
+func Main() -> () { }
+""");
+
+        _ = WriteProject(Path.Combine(root, "macros"), "ObservableMacros", $$"""
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ObservableMacros</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="main.rvn" />
+    <Reference Include="Raven.CodeAnalysis">
+      <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(root, "macros", "main.rvn"), """
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
+class ObservableMacroPlugin: IRavenMacroPlugin {
+    val Name: string => "SampleMacros.Observable"
+
+    func GetMacros() -> ImmutableArray<IMacroDefinition> {
+        ImmutableArray.Create<IMacroDefinition>(ObservableMacro())
+    }
+}
+
+class ObservableMacro: IAttachedDeclarationMacro {
+    val Name: string => "Observable"
+    val Kind: MacroKind => MacroKind.AttachedDeclaration
+    val Targets: MacroTarget => MacroTarget.Property
+
+    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
+        MacroExpansionResult.Empty
+    }
+}
+""");
     }
 }
