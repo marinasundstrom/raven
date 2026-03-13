@@ -1390,8 +1390,17 @@ internal sealed class HoverHandler : IHoverHandler
             parameters.Select(parameter =>
             {
                 var paramsPrefix = parameter.IsVarParams ? "params " : string.Empty;
+                var refPrefix = parameter.RefKind switch
+                {
+                    RefKind.Ref => "ref ",
+                    RefKind.Out => "out ",
+                    RefKind.In => "in ",
+                    RefKind.RefReadOnly => "ref readonly ",
+                    RefKind.RefReadOnlyParameter => "ref readonly ",
+                    _ => string.Empty
+                };
                 var parameterType = parameter.Type.ToDisplayString(format);
-                return $"{paramsPrefix}{parameter.Name}: {parameterType}";
+                return $"{paramsPrefix}{refPrefix}{parameter.Name}: {parameterType}";
             }));
     }
 

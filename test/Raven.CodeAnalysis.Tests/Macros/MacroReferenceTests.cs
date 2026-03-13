@@ -30,6 +30,14 @@ public sealed class MacroReferenceTests
         Assert.Contains("IRavenMacroPlugin", ex.Message);
     }
 
+    [Fact]
+    public void GenericMacroDefinition_ExposesTypedParameterObject()
+    {
+        var macro = new TypedParameterAttachedMacro();
+
+        Assert.Equal(typeof(ObservableMacroParameters), ((IMacroDefinition<ObservableMacroParameters>)macro).ParametersType);
+    }
+
     public sealed class TestMacroPlugin : IRavenMacroPlugin
     {
         public string Name => "TestMacros";
@@ -45,6 +53,23 @@ public sealed class MacroReferenceTests
         public MacroKind Kind => MacroKind.AttachedDeclaration;
 
         public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+            => MacroExpansionResult.Empty;
+    }
+
+    public sealed class ObservableMacroParameters
+    {
+        public bool Notify { get; init; } = true;
+    }
+
+    public sealed class TypedParameterAttachedMacro : IAttachedDeclarationMacro, IMacroDefinition<ObservableMacroParameters>
+    {
+        public string Name => "Observable";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Property;
 
         public MacroExpansionResult Expand(AttachedMacroContext context)
             => MacroExpansionResult.Empty;

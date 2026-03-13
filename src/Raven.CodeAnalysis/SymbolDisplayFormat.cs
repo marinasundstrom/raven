@@ -12,7 +12,9 @@ public class SymbolDisplayFormat
         MemberOptions = SymbolDisplayMemberOptions.IncludeType |
                     SymbolDisplayMemberOptions.IncludeParameters |
                     SymbolDisplayMemberOptions.IncludeModifiers,
-        ParameterOptions = SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType |
+                           SymbolDisplayParameterOptions.IncludeName |
+                           SymbolDisplayParameterOptions.IncludeParamsRefOut,
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
                            SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
@@ -114,7 +116,10 @@ public class SymbolDisplayFormat
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes,
         PropertyStyle = SymbolDisplayPropertyStyle.ShowReadWriteDescriptor,
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
-        ParameterOptions = SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName | SymbolDisplayParameterOptions.IncludeExtensionThis
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType |
+                           SymbolDisplayParameterOptions.IncludeName |
+                           SymbolDisplayParameterOptions.IncludeExtensionThis |
+                           SymbolDisplayParameterOptions.IncludeParamsRefOut
     };
 
     public static SymbolDisplayFormat MinimallyQualifiedFormat { get; } =
@@ -152,6 +157,7 @@ public class SymbolDisplayFormat
                 SymbolDisplayParameterOptions.IncludeType
                 | SymbolDisplayParameterOptions.IncludeName
                 | SymbolDisplayParameterOptions.IncludeExtensionThis
+                | SymbolDisplayParameterOptions.IncludeParamsRefOut
         };
 
     public SymbolDisplayDelegateStyle DelegateStyle { get; private set; }

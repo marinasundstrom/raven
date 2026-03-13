@@ -87,6 +87,119 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void AttachedMacroContext_ExposesArgumentList()
+    {
+        ArgumentCapturingAttachedMacro.LastCapturedArguments = null;
+        ArgumentCapturingAttachedMacro.LastParsedArguments = default;
+
+        var (compilation, tree) = CreateCompilation("""
+            #[AddEquatable("Widget", Notify: true)]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ArgumentCapturingMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+
+        _ = model.GetMacroExpansion(attribute);
+
+        var capturedArguments = Assert.IsType<ArgumentListSyntax>(ArgumentCapturingAttachedMacro.LastCapturedArguments);
+        Assert.Equal(2, capturedArguments.Arguments.Count);
+        Assert.Equal("\"Widget\"", capturedArguments.Arguments[0].Expression.ToString());
+        Assert.Equal("Notify", capturedArguments.Arguments[1].NameColon?.Name.Identifier.ValueText);
+        Assert.Equal("true", capturedArguments.Arguments[1].Expression.ToString());
+
+        Assert.Equal(2, ArgumentCapturingAttachedMacro.LastParsedArguments.Length);
+        Assert.Null(ArgumentCapturingAttachedMacro.LastParsedArguments[0].Name);
+        Assert.Equal("\"Widget\"", ArgumentCapturingAttachedMacro.LastParsedArguments[0].Expression.ToString());
+        Assert.True(ArgumentCapturingAttachedMacro.LastParsedArguments[0].HasValue);
+        Assert.Equal(TypedConstantKind.Primitive, ArgumentCapturingAttachedMacro.LastParsedArguments[0].ValueKind);
+        Assert.Equal("Widget", ArgumentCapturingAttachedMacro.LastParsedArguments[0].Value);
+        Assert.True(ArgumentCapturingAttachedMacro.LastParsedArguments[1].IsNamed);
+        Assert.Equal("Notify", ArgumentCapturingAttachedMacro.LastParsedArguments[1].Name);
+        Assert.Equal("true", ArgumentCapturingAttachedMacro.LastParsedArguments[1].Expression.ToString());
+        Assert.True(ArgumentCapturingAttachedMacro.LastParsedArguments[1].HasValue);
+        Assert.Equal(TypedConstantKind.Primitive, ArgumentCapturingAttachedMacro.LastParsedArguments[1].ValueKind);
+        Assert.Equal(true, ArgumentCapturingAttachedMacro.LastParsedArguments[1].Value);
+    }
+
+    [Fact]
+    public void MacroArgument_ConstantValue_IsAvailableDuringExpansion_WithoutRecursiveBinding()
+    {
+        ConstantReadingAttachedMacro.LastCapturedValue = null;
+
+        var (compilation, tree) = CreateCompilation("""
+            #[AddEquatable("Widget")]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ConstantReadingMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+
+        var expansion = model.GetMacroExpansion(attribute);
+
+        Assert.NotNull(expansion);
+        Assert.Equal("Widget", ConstantReadingAttachedMacro.LastCapturedValue);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void RawMacro_ArgumentsRequireExplicitOptIn()
+    {
+        var (compilation, _) = CreateCompilation("""
+            #[AddEquatable("Widget")]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TestMacroPlugin)));
+        var diagnostics = compilation.GetDiagnostics();
+
+        var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVM012"));
+        Assert.Contains("AddEquatable", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void TypedMacroParameters_BindPositionalAndNamedArguments()
+    {
+        TypedParameterAttachedMacro.LastCapturedParameters = null;
+
+        var (compilation, tree) = CreateCompilation("""
+            #[Observable("TitleChanged", Notify: false)]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TypedParameterMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+
+        var expansion = model.GetMacroExpansion(attribute);
+
+        Assert.NotNull(expansion);
+        var parameters = Assert.IsType<ObservableMacroParameters>(TypedParameterAttachedMacro.LastCapturedParameters);
+        Assert.Equal("TitleChanged", parameters.Name);
+        Assert.False(parameters.Notify);
+    }
+
+    [Fact]
+    public void TypedMacroParameters_UnknownNamedArgument_ReportsDiagnostic()
+    {
+        var (compilation, _) = CreateCompilation("""
+            #[Observable("TitleChanged", Unknown: true)]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TypedParameterMacroPlugin)));
+        var diagnostics = compilation.GetDiagnostics();
+
+        var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVM032"));
+        Assert.Contains("Unknown", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void TypeMacro_IntroducedMembers_AppearOnDeclaredType()
     {
         var (compilation, tree) = CreateCompilation("""
@@ -208,6 +321,70 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             => [new ExpandingAttachedMacro()];
     }
 
+    public sealed class ConstantReadingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "ConstantReadingMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new ConstantReadingAttachedMacro()];
+    }
+
+    public sealed class ConstantReadingAttachedMacro : IAttachedDeclarationMacro
+    {
+        public static object? LastCapturedValue { get; set; }
+
+        public string Name => "AddEquatable";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public bool AcceptsArguments => true;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            LastCapturedValue = context.Arguments[0].Constant.Value;
+            return MacroExpansionResult.Empty;
+        }
+    }
+
+    public sealed class TypedParameterMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "TypedParameterMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new TypedParameterAttachedMacro()];
+    }
+
+    public sealed class ObservableMacroParameters
+    {
+        public ObservableMacroParameters(string name)
+        {
+            Name = name;
+        }
+
+        public string Name { get; }
+
+        public bool Notify { get; set; } = true;
+    }
+
+    public sealed class TypedParameterAttachedMacro : IAttachedDeclarationMacro<ObservableMacroParameters>
+    {
+        public static ObservableMacroParameters? LastCapturedParameters { get; set; }
+
+        public string Name => "Observable";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext<ObservableMacroParameters> context)
+        {
+            LastCapturedParameters = context.Parameters;
+            return MacroExpansionResult.Empty;
+        }
+    }
+
     public sealed class ExpandingAttachedMacro : IAttachedDeclarationMacro
     {
         public string Name => "AddEquatable";
@@ -285,6 +462,35 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
         public MacroExpansionResult Expand(AttachedMacroContext context)
             => throw new InvalidOperationException("plugin boom");
+    }
+
+    public sealed class ArgumentCapturingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "ArgumentCapturingMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new ArgumentCapturingAttachedMacro()];
+    }
+
+    public sealed class ArgumentCapturingAttachedMacro : IAttachedDeclarationMacro
+    {
+        public static ArgumentListSyntax? LastCapturedArguments { get; set; }
+        public static ImmutableArray<MacroArgument> LastParsedArguments { get; set; }
+
+        public string Name => "AddEquatable";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public bool AcceptsArguments => true;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            LastCapturedArguments = context.ArgumentList;
+            LastParsedArguments = context.Arguments;
+            return MacroExpansionResult.Empty;
+        }
     }
 
     public sealed class ReplacingMacroPlugin : IRavenMacroPlugin

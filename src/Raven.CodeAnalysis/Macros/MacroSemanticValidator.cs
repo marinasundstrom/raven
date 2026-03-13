@@ -26,6 +26,16 @@ internal static class MacroSemanticValidator
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor s_macroArgumentsNotSupported = DiagnosticDescriptor.Create(
+        "RAVM012",
+        "Macro arguments not supported",
+        "",
+        "",
+        "Macro '{0}' does not accept arguments.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
     public static void ValidateAttribute(
         Compilation compilation,
         AttributeSyntax attribute,
@@ -69,6 +79,15 @@ internal static class MacroSemanticValidator
                 attribute.Name.GetLocation(),
                 macroName,
                 DescribeTarget(targetDeclaration)));
+            return false;
+        }
+
+        if (attribute.ArgumentList is { Arguments.Count: > 0 } && !loaded.Macro.AcceptsArguments)
+        {
+            diagnostics?.Report(Diagnostic.Create(
+                s_macroArgumentsNotSupported,
+                attribute.ArgumentList.GetLocation(),
+                macroName));
             return false;
         }
 

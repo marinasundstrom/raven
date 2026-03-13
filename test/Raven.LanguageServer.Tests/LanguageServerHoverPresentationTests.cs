@@ -212,6 +212,35 @@ class C {
     }
 
     [Fact]
+    public void GenericMethodHover_IncludesOutParameterModifier()
+    {
+        const string code = """
+class MacroArgument {
+    func TryParseValue<T>(out value: int) -> bool { false }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var symbol = semanticModel.GetDeclaredSymbol(method).ShouldBeAssignableTo<IMethodSymbol>();
+
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignature.Invoke(null, [symbol, method, semanticModel])!;
+        signature.ShouldStartWith("func TryParseValue<T>(");
+        signature.ShouldContain("out value:");
+    }
+
+    [Fact]
     public void ContinueWithBody_ResultHover_ResolvesTaskResultProperty()
     {
         const string code = """

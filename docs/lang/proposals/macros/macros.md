@@ -94,6 +94,36 @@ Example argument forms:
 
 The compiler parses and preserves these arguments generically. Their meaning is defined entirely by the macro plugin.
 
+For attached declaration macros, the raw parsed arguments are exposed directly on `AttachedMacroContext.ArgumentList`, and a convenience parsed view is exposed on `AttachedMacroContext.Arguments`. Each parsed `MacroArgument` exposes a richer constant representation through `Constant`, plus the evaluated CLR value directly through `Value` as a convenience.
+
+The next contract direction is typed parameter objects, exposed through generic macro definitions:
+
+```csharp
+public sealed class ObservableMacroParameters
+{
+    public bool Notify { get; init; } = true;
+    public string? Name { get; init; }
+}
+
+public sealed class ObservableMacro : IAttachedDeclarationMacro<ObservableMacroParameters>
+{
+    ...
+}
+```
+
+The initial binding slice for this direction supports:
+
+* one public constructor for positional arguments
+* public writable properties for named arguments
+* constant conversion into common CLR primitive/reference types
+
+This is intended to let the compiler eventually bind macro arguments the same way it binds normal attribute arguments:
+
+* positional/named parameter validation before expansion
+* constant conversion diagnostics before expansion
+* editor completion and signature help based on the declared parameter object
+* strongly typed access to parameters in the plugin
+
 ## Invocation Macros (future / Rust-style)
 
 ```raven

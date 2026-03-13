@@ -485,6 +485,24 @@ public partial class SemanticModel
         return new TypeInfo(naturalType, convertedType, conversion);
     }
 
+    internal TypedConstant GetConstantValue(ExpressionSyntax expression)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+
+        if (ConstantValueEvaluator.TryEvaluate(expression, out var value))
+        {
+            var typeInfo = GetTypeInfo(expression);
+            return TypedConstant.CreatePrimitive(typeInfo.ConvertedType ?? typeInfo.Type, value);
+        }
+
+        EnsureDiagnosticsCollected();
+
+        if (GetBoundNode(expression) is not BoundExpression boundExpression)
+            return TypedConstant.CreateError(null);
+
+        return CreateTypedConstantCore(boundExpression);
+    }
+
     /// <summary>
     /// Gets type information about a type syntax.
     /// </summary>
@@ -525,6 +543,23 @@ public partial class SemanticModel
             return new Conversion(isImplicit: true, isIdentity: true);
 
         return Conversion.None;
+    }
+
+    private static TypedConstant CreateTypedConstantCore(BoundExpression expression)
+    {
+        if (expression is BoundConversionExpression conversion)
+            expression = conversion.Expression;
+
+        return expression switch
+        {
+            BoundLiteralExpression literal when literal.Kind == BoundLiteralExpressionKind.NullLiteral
+                => TypedConstant.CreateNull(literal.GetConvertedType() ?? literal.Type),
+            BoundLiteralExpression literal
+                => TypedConstant.CreatePrimitive(literal.GetConvertedType() ?? literal.Type, literal.Value),
+            BoundFieldAccess fieldAccess when fieldAccess.Field is { IsConst: true } field
+                => TypedConstant.CreatePrimitive(fieldAccess.Type, field.GetConstantValue()),
+            _ => TypedConstant.CreateError(expression.Type)
+        };
     }
 
     /// <summary>

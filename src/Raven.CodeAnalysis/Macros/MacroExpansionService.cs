@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 
 using Raven.CodeAnalysis.Syntax;
@@ -33,7 +35,9 @@ internal static class MacroExpansionService
         try
         {
             var context = new AttachedMacroContext(compilation, semanticModel, attribute, targetDeclaration, cancellationToken);
-            var result = loaded.Macro.Expand(context) ?? MacroExpansionResult.Empty;
+            var result = ExpandWithTypedParametersIfAvailable(loaded.Macro, context, diagnostics)
+                ?? loaded.Macro.Expand(context)
+                ?? MacroExpansionResult.Empty;
             result = ContextualizeExpansionResult(targetDeclaration, result);
             RegisterGeneratedSyntaxTrees(compilation, semanticModel, result);
 
@@ -51,6 +55,44 @@ internal static class MacroExpansionService
                 ex.Message));
             return null;
         }
+    }
+
+    private static MacroExpansionResult? ExpandWithTypedParametersIfAvailable(
+        IAttachedDeclarationMacro macro,
+        AttachedMacroContext context,
+        DiagnosticBag diagnostics)
+    {
+        var typedMacroInterface = macro.GetType()
+            .GetInterfaces()
+            .FirstOrDefault(static i =>
+                i.IsGenericType &&
+                i.GetGenericTypeDefinition() == typeof(IAttachedDeclarationMacro<>));
+
+        if (typedMacroInterface is null)
+            return null;
+
+        var parametersType = typedMacroInterface.GetGenericArguments()[0];
+        if (!MacroParameterBinder.TryBind(macro.Name, parametersType, context, diagnostics, out var parameters))
+            return MacroExpansionResult.Empty;
+
+        var typedContextType = typeof(AttachedMacroContext<>).MakeGenericType(parametersType);
+        var typedContext = Activator.CreateInstance(
+            typedContextType,
+            context.Compilation,
+            context.SemanticModel,
+            context.Syntax,
+            context.TargetDeclaration,
+            parameters!,
+            context.CancellationToken);
+
+        var expandMethod = typedMacroInterface.GetMethod(
+            nameof(IAttachedDeclarationMacro.Expand),
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            [typedContextType],
+            modifiers: null);
+
+        return (MacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
     }
 
     private static MacroExpansionResult ContextualizeExpansionResult(

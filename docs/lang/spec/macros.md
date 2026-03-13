@@ -65,10 +65,42 @@ Both positional and named arguments are supported:
 ```raven
 #[Observable]
 #[Observable("TitleChanged")]
-#[Observable(Name = "TitleChanged", Notify = true)]
+#[Observable(Name: "TitleChanged", Notify: true)]
 ```
 
 The compiler parses and preserves these arguments generically. Their interpretation is defined by the macro implementation.
+
+For attached declaration macros, plugins currently receive the raw parsed arguments through `AttachedMacroContext.ArgumentList` and a convenience parsed view through `AttachedMacroContext.Arguments`. Each parsed `MacroArgument` exposes a richer constant representation through `Constant`, plus the evaluated CLR value directly through `Value` as a convenience.
+
+This raw-argument model is transitional. The intended direction is typed macro parameter objects, so macro signatures can be validated and presented like normal attributes in completion and signature help. The public contract now includes `IMacroDefinition<TParameters>` and `IAttachedDeclarationMacro<TParameters>` for that bound-parameter model.
+
+Example direction:
+
+```csharp
+public sealed class ObservableMacroParameters
+{
+    public bool Notify { get; init; } = true;
+    public string? Name { get; init; }
+}
+
+public sealed class ObservableMacro : IAttachedDeclarationMacro<ObservableMacroParameters>
+{
+    ...
+}
+```
+
+The current typed-parameter binding slice supports:
+
+* one public constructor for positional arguments
+* public writable properties for named arguments
+* constant conversion into common CLR primitive/reference types
+
+The target experience is that macro arguments bind like attribute arguments:
+
+* completion for named arguments
+* signature help for supported shapes
+* diagnostics for unknown names, missing required arguments, and invalid constant conversions
+* typed parameter access in the macro implementation
 
 ## Expansion model
 

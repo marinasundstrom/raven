@@ -104,4 +104,24 @@ class Base {
         methods["PrivateProtectedRun"].ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat)
             .ShouldBe("private protected PrivateProtectedRun() -> ()");
     }
+
+    [Fact]
+    public void Method_ToDisplayString_IncludesOutParameterModifiers()
+    {
+        const string source = """
+class MacroArgument {
+    func TryParseValue<T>(out value: int) -> bool { false }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+
+        symbol.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
+            .ShouldBe("func TryParseValue<T>(out value: int) -> bool");
+        symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
+            .ShouldBe("TryParseValue<T>(out value: int) -> bool");
+    }
 }

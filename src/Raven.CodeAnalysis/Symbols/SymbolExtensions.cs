@@ -1064,6 +1064,7 @@ public static partial class SymbolExtensions
     {
         var includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType);
         var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName);
+        var includeRefKind = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeParamsRefOut);
 
         var builder = new StringBuilder();
 
@@ -1081,10 +1082,9 @@ public static partial class SymbolExtensions
         if (parameter.IsVarParams)
             core = $"params {core}";
 
-        // Optionally prepend modifiers (out / val / var / etc.) when requested
-        if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeModifiers))
+        if (includeRefKind)
         {
-            var modifiers = GetMemberModifiers(parameter);
+            var modifiers = GetParameterModifiers(parameter);
             if (!string.IsNullOrEmpty(modifiers))
             {
                 builder.Append(modifiers);
@@ -1103,6 +1103,19 @@ public static partial class SymbolExtensions
         }
 
         return builder.ToString();
+    }
+
+    private static string GetParameterModifiers(IParameterSymbol parameter)
+    {
+        return parameter.RefKind switch
+        {
+            RefKind.Out => "out",
+            RefKind.Ref => "ref",
+            RefKind.In => "in",
+            RefKind.RefReadOnly => "ref readonly",
+            RefKind.RefReadOnlyParameter => "ref readonly",
+            _ => string.Empty
+        };
     }
 
     private static string FormatConstant(object? value, ITypeSymbol type, SymbolDisplayFormat format)
