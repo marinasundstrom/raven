@@ -221,6 +221,7 @@ public static class CompletionProvider
                    method.Name.StartsWith("add_", StringComparison.Ordinal) ||
                    method.Name.StartsWith("remove_", StringComparison.Ordinal) ||
                    method.Name.StartsWith("op_", StringComparison.Ordinal) ||
+                   string.Equals(method.Name, "Finalize", StringComparison.Ordinal) ||
                    string.Equals(method.Name, ".ctor", StringComparison.Ordinal) ||
                    string.Equals(method.Name, ".cctor", StringComparison.Ordinal);
         }

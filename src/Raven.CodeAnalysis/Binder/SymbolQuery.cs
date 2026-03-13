@@ -51,11 +51,21 @@ internal readonly record struct SymbolQuery(
         if (arity.HasValue)
             symbols = symbols.Where(s => s is IMethodSymbol m && SupportsArgumentCount(m.Parameters, arity.Value));
 
+        symbols = symbols.Where(static symbol =>
+            symbol is not IMethodSymbol method || !IsNeverInvocableRuntimeMethod(method));
+
         return symbols;
     }
 
     public IEnumerable<IMethodSymbol> LookupMethods(Binder binder) =>
-        Lookup(binder).OfType<IMethodSymbol>();
+        Lookup(binder)
+            .OfType<IMethodSymbol>()
+            .Where(static method => !IsNeverInvocableRuntimeMethod(method));
+
+    private static bool IsNeverInvocableRuntimeMethod(IMethodSymbol method)
+    {
+        return string.Equals(method.Name, "Finalize", StringComparison.Ordinal);
+    }
 
     private static IEnumerable<ISymbol> ResolveInstanceMembersIncludingInterfaces(ITypeSymbol type, string name)
     {
