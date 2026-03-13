@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 
 using Microsoft.Extensions.Logging;
 
@@ -80,12 +81,20 @@ internal sealed class DocumentStore
         }
     }
 
-    private static bool ShouldReport(CodeDiagnostic diagnostic, SyntaxTree syntaxTree)
+    internal static bool ShouldReport(CodeDiagnostic diagnostic, SyntaxTree syntaxTree)
     {
-        if (diagnostic.Location.SourceTree is null)
+        if (diagnostic.Location.SourceTree == syntaxTree)
+            return true;
+
+        var syntaxTreePath = syntaxTree.FilePath;
+        if (string.IsNullOrWhiteSpace(syntaxTreePath))
             return false;
 
-        return diagnostic.Location.SourceTree == syntaxTree;
+        if (PathsEqual(diagnostic.Location.SourceTree?.FilePath, syntaxTreePath))
+            return true;
+
+        var lineSpanPath = diagnostic.Location.GetLineSpan().Path;
+        return PathsEqual(lineSpanPath, syntaxTreePath);
     }
 
     private static LspDiagnostic MapDiagnostic(CodeDiagnostic diagnostic)
@@ -123,6 +132,23 @@ internal sealed class DocumentStore
             CodeDiagnosticSeverity.Hidden => LspDiagnosticSeverity.Hint,
             _ => null
         };
+
+    private static bool PathsEqual(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            return false;
+
+        return string.Equals(
+            NormalizePath(left),
+            NormalizePath(right),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePath(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        return fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
 
     private sealed class CompilerAccessLease : IDisposable
     {
