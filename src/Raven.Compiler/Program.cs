@@ -1649,7 +1649,7 @@ static IEnumerable<string> GetDotNetRootsForDependencyCopy()
 static void PrintHelp()
 {
     Console.WriteLine("Usage: rvn [options] <source-files|project-file.rvnproj>");
-    Console.WriteLine("       rvn init [--name <project-name>] [--framework <tfm>] [--force]");
+    Console.WriteLine("       rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--force]");
     Console.WriteLine();
     Console.WriteLine("Options:");
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
@@ -1711,12 +1711,14 @@ static void PrintHelp()
     Console.WriteLine();
     Console.WriteLine("Init command:");
     Console.WriteLine("  init              Create a .rvnproj project scaffold in the current directory.");
+    Console.WriteLine("  init [console|classlib]");
+    Console.WriteLine("                    Choose the scaffold type (default: console).");
     Console.WriteLine("  init --name <name>");
     Console.WriteLine("                    Override the generated project/assembly name.");
     Console.WriteLine("  init --framework <tfm>");
     Console.WriteLine("                    Set TargetFramework in the generated project file.");
-    Console.WriteLine("  init --type <app|classlib>");
-    Console.WriteLine("                    Set OutputKind in the generated project file (default: app).");
+    Console.WriteLine("  init --type <console|classlib>");
+    Console.WriteLine("                    Compatibility alias for selecting the scaffold type.");
     Console.WriteLine("  init --force      Overwrite existing scaffold files.");
 }
 
@@ -1771,6 +1773,7 @@ static int RunInitCommand(string[] args)
     var framework = TargetFrameworkUtil.GetLatestFramework();
     var isClassLibrary = false;
     var force = false;
+    var typeSpecified = false;
 
     for (var i = 1; i < args.Length; i++)
     {
@@ -1809,26 +1812,25 @@ static int RunInitCommand(string[] args)
                 }
 
                 var typeValue = args[++i];
-                if (string.Equals(typeValue, "app", StringComparison.OrdinalIgnoreCase))
+                if (!TryParseInitProjectType(typeValue, out isClassLibrary))
                 {
-                    isClassLibrary = false;
-                }
-                else if (string.Equals(typeValue, "classlib", StringComparison.OrdinalIgnoreCase))
-                {
-                    isClassLibrary = true;
-                }
-                else
-                {
-                    AnsiConsole.MarkupLine($"[red]Invalid --type '{Markup.Escape(typeValue)}'. Use 'app' or 'classlib'.[/]");
+                    AnsiConsole.MarkupLine($"[red]Invalid --type '{Markup.Escape(typeValue)}'. Use 'console' or 'classlib'.[/]");
                     PrintInitHelp();
                     return 1;
                 }
 
+                typeSpecified = true;
                 break;
             case "--force":
                 force = true;
                 break;
             default:
+                if (!args[i].StartsWith('-') && !typeSpecified && TryParseInitProjectType(args[i], out isClassLibrary))
+                {
+                    typeSpecified = true;
+                    break;
+                }
+
                 AnsiConsole.MarkupLine($"[red]Unknown init option '{Markup.Escape(args[i])}'.[/]");
                 PrintInitHelp();
                 return 1;
@@ -1894,7 +1896,7 @@ static int RunInitCommand(string[] args)
 
 static void PrintInitHelp()
 {
-    Console.WriteLine("Usage: rvn init [--name <project-name>] [--framework <tfm>] [--type <app|classlib>] [--force]");
+    Console.WriteLine("Usage: rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type <console|classlib>] [--force]");
     Console.WriteLine();
     Console.WriteLine("Creates a Raven project scaffold in the current directory:");
     Console.WriteLine("  - <project-name>.rvnproj");
@@ -1902,10 +1904,30 @@ static void PrintInitHelp()
     Console.WriteLine("  - bin/.gitkeep");
     Console.WriteLine();
     Console.WriteLine("Options:");
+    Console.WriteLine("  console|classlib           Select the scaffold type (default: console).");
     Console.WriteLine("  --name <project-name>      Override generated project/assembly name.");
     Console.WriteLine("  --framework <tfm>          Set TargetFramework (default: latest installed).");
-    Console.WriteLine("  --type <app|classlib>      Set MSBuild OutputType (default: app).");
+    Console.WriteLine("  --type <console|classlib>  Compatibility alias for selecting the scaffold type.");
     Console.WriteLine("  --force                    Overwrite scaffold files.");
+}
+
+static bool TryParseInitProjectType(string value, out bool isClassLibrary)
+{
+    if (string.Equals(value, "console", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "app", StringComparison.OrdinalIgnoreCase))
+    {
+        isClassLibrary = false;
+        return true;
+    }
+
+    if (string.Equals(value, "classlib", StringComparison.OrdinalIgnoreCase))
+    {
+        isClassLibrary = true;
+        return true;
+    }
+
+    isClassLibrary = false;
+    return false;
 }
 
 static string SanitizeProjectName(string name)

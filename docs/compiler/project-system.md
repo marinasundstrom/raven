@@ -270,5 +270,6 @@ Options:
 
 - `--name <project-name>`: set explicit project/assembly name.
 - `--framework <tfm>`: set `TargetFramework` in the generated `.rvnproj`.
-- `--type <app|classlib>`: set MSBuild `OutputType` (`app` default).
+- `console|classlib`: select the scaffold type (`console` default).
+- `--type <console|classlib>`: compatibility alias for selecting the scaffold type.
 - `--force`: overwrite scaffold files when they already exist.

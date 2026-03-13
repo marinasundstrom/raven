@@ -12,7 +12,7 @@ For temporary C# interop, see the project-system page's MSBuild bridge section (
 
 ```bash
 rvn [options] <source-files>
-rvn init [--name <project-name>] [--framework <tfm>] [--type <app|classlib>] [--force]
+rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type <console|classlib>] [--force]
 ```
 
 ## Options
@@ -57,7 +57,8 @@ Useful init options:
 
 - `--name <project-name>` &ndash; override generated project and assembly name
 - `--framework <tfm>` &ndash; set `TargetFramework` in the generated project file
-- `--type <app|classlib>` &ndash; set MSBuild `OutputType` (`app` = `Exe`, `classlib` = `Library`; default `app`)
+- `console|classlib` &ndash; select the scaffold type (`console` default)
+- `--type <console|classlib>` &ndash; compatibility alias for selecting the scaffold type
 - `--force` &ndash; overwrite scaffold files if they already exist
 
 Creating a `.debug/` directory in the current or parent folder causes the
