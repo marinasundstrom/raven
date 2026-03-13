@@ -46,8 +46,10 @@ internal sealed class WorkspaceManager
 
             foreach (var root in roots)
             {
-                var projectId = TryOpenRootProject(root, loadedProjects) ?? CreateProjectForRoot(root);
-                _projectsByRoot[root] = projectId;
+                if (TryOpenProjectsForRoot(root, loadedProjects, out var projectId))
+                    _projectsByRoot[root] = projectId;
+                else
+                    _projectsByRoot[root] = CreateProjectForRoot(root);
             }
 
             if (_projectsByRoot.Count == 0)
@@ -57,34 +59,43 @@ internal sealed class WorkspaceManager
         _logger.LogInformation("Workspace initialized with {RootCount} root(s).", roots.Count);
     }
 
-    private ProjectId? TryOpenRootProject(string root, Dictionary<string, ProjectId> loadedProjects)
+    private bool TryOpenProjectsForRoot(string root, Dictionary<string, ProjectId> loadedProjects, out ProjectId projectId)
     {
-        var projectFilePath = TryFindRootProjectFile(root);
-        if (projectFilePath is null)
-            return null;
-
         var projectSystem = _workspace.Services.ProjectSystemService;
         if (projectSystem is null)
         {
             _logger.LogWarning("No project system service is available. Falling back to inferred workspace for root '{Root}'.", root);
-            return null;
+            projectId = default;
+            return false;
+        }
+
+        var projectFilePaths = FindWorkspaceProjectFiles(root, projectSystem);
+        if (projectFilePaths.Length == 0)
+        {
+            projectId = default;
+            return false;
         }
 
         var stack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            var projectId = OpenProjectWithReferences(projectFilePath, projectSystem, loadedProjects, stack);
+            foreach (var projectFilePath in projectFilePaths)
+                _ = OpenProjectWithReferences(projectFilePath, projectSystem, loadedProjects, stack);
+
+            var primaryProjectPath = SelectPrimaryProjectPath(root, projectFilePaths);
+            projectId = loadedProjects[NormalizePath(primaryProjectPath)];
             _logger.LogInformation(
-                "Opened Raven project '{ProjectFilePath}' for root '{Root}' with {ProjectCount} loaded project(s).",
-                projectFilePath,
+                "Opened {ProjectCount} Raven project(s) for root '{Root}'. Primary project: '{ProjectFilePath}'.",
+                loadedProjects.Count,
                 root,
-                loadedProjects.Count);
-            return projectId;
+                primaryProjectPath);
+            return true;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to open Raven project '{ProjectFilePath}' for root '{Root}'. Falling back to inferred workspace.", projectFilePath, root);
-            return null;
+            _logger.LogWarning(ex, "Failed to open Raven project(s) for root '{Root}'. Falling back to inferred workspace.", root);
+            projectId = default;
+            return false;
         }
     }
 
@@ -160,41 +171,48 @@ internal sealed class WorkspaceManager
         }
     }
 
-    private string? TryFindRootProjectFile(string root)
+    internal static string[] FindWorkspaceProjectFiles(string root, IProjectSystemService projectSystem)
     {
         if (!Directory.Exists(root))
-            return null;
-
-        var projectSystem = _workspace.Services.ProjectSystemService;
-        if (projectSystem is null)
-            return null;
+            return [];
 
         var candidates = Directory
-            .EnumerateFiles(root, "*.*proj", SearchOption.TopDirectoryOnly)
+            .EnumerateFiles(root, "*.*proj", SearchOption.AllDirectories)
             .Where(projectSystem.CanOpenProject)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        if (candidates.Length == 0)
-            return null;
+        return candidates;
+    }
 
-        if (candidates.Length == 1)
-            return candidates[0];
+    internal static string SelectPrimaryProjectPath(string root, IReadOnlyList<string> candidates)
+    {
+        if (candidates.Count == 0)
+            throw new InvalidOperationException("At least one project candidate is required.");
 
-        var directoryName = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var normalizedRoot = NormalizePath(root);
+        var directoryName = Path.GetFileName(normalizedRoot);
+        var topLevelCandidates = candidates
+            .Where(path => string.Equals(
+                NormalizePath(Path.GetDirectoryName(path) ?? string.Empty),
+                normalizedRoot,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        var candidateSet = topLevelCandidates.Length > 0 ? topLevelCandidates : candidates.ToArray();
+
         if (!string.IsNullOrWhiteSpace(directoryName))
         {
-            var preferred = candidates.FirstOrDefault(path =>
+            var preferred = candidateSet.FirstOrDefault(path =>
                 string.Equals(Path.GetFileNameWithoutExtension(path), directoryName, StringComparison.OrdinalIgnoreCase));
             if (preferred is not null)
                 return preferred;
         }
 
-        _logger.LogWarning(
-            "Multiple Raven projects found in root '{Root}'. Using '{SelectedProject}'.",
-            root,
-            candidates[0]);
-        return candidates[0];
+        return candidateSet
+            .OrderBy(path => GetDirectoryDepth(normalizedRoot, path))
+            .ThenBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .First();
     }
 
     public Document UpsertDocument(DocumentUri uri, string text)
@@ -583,6 +601,21 @@ internal sealed class WorkspaceManager
 
         var prefix = rootPath + Path.DirectorySeparatorChar;
         return documentPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int GetDirectoryDepth(string normalizedRoot, string projectFilePath)
+    {
+        var projectDirectory = NormalizePath(Path.GetDirectoryName(projectFilePath) ?? string.Empty);
+        if (string.Equals(projectDirectory, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            return 0;
+
+        var relative = Path.GetRelativePath(normalizedRoot, projectDirectory);
+        if (string.IsNullOrWhiteSpace(relative) || relative == ".")
+            return 0;
+
+        return relative
+            .Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)
+            .Length;
     }
 
     private readonly record struct OwnedDocument(DocumentId DocumentId, ProjectId ProjectId);

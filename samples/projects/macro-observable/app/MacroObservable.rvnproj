@@ -6,6 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="macros/ObservableMacros.rvnproj" />
+    <RavenMacro Include="../macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>

@@ -29,8 +29,8 @@ Current status:
 
 Files:
 
-- `MacroObservable.rvnproj`: Raven application using `[@Observable]`
-- `src/main.rvn`: `ObservableBase` plus `MyViewModel`
+- `app/MacroObservable.rvnproj`: Raven application using `[@Observable]`
+- `app/src/main.rvn`: `ObservableBase` plus `MyViewModel`
 - `macros/ObservableMacros.rvnproj`: Raven macro plugin project
 - `macros/main.rvn`: plugin implementation of `IRavenMacroPlugin` / `IAttachedDeclarationMacro`
 
@@ -43,11 +43,11 @@ dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property 
 Then analyze, build, or run the executable sample project:
 
 ```bash
-dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- MacroObservable.rvnproj --no-emit
+dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- app/MacroObservable.rvnproj --no-emit
 ```
 
 ```bash
-dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- MacroObservable.rvnproj
+dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- app/MacroObservable.rvnproj
 ```
 
 Expected output:
