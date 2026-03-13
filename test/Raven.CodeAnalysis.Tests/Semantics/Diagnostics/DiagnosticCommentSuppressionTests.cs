@@ -101,6 +101,43 @@ func Main() {
     }
 
     [Fact]
+    public void PragmaDisable_SupportsMultipleDiagnosticIdsOnOneLine()
+    {
+        var source = """
+func Main() {
+    #pragma warning disable RAV0168 RAV9019
+    val x = 1
+    func unused() -> () {}
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV0168");
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV9019");
+    }
+
+    [Fact]
+    public void PragmaDisableNextLine_SupportsMultipleDiagnosticIdsOnOneLine()
+    {
+        var source = """
+func Main() {
+    val x = 1
+    #pragma warning disable-next-line RAV0168 RAV9012
+    val x = 2
+    val x = 3
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        var diagnostics = compilation.GetDiagnostics().Where(diagnostic => diagnostic.Id == "RAV0168").ToArray();
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("x", diagnostic.Location.SourceTree!.GetText()!.ToString(diagnostic.Location.SourceSpan));
+    }
+
+    [Fact]
     public void PragmaDisableComment_DoesNotSuppressErrorDiagnostic()
     {
         var source = """

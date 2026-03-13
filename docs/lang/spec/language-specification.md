@@ -136,8 +136,10 @@ val greeting = "hello"  // 😀 emoji and other symbols are fine
 Raven supports C#-style warning pragmas as directive trivia to suppress diagnostics in source:
 
 * `#pragma warning disable RAV0103`
+* `#pragma warning disable RAV9019 RAV9012`
 * `#pragma warning restore RAV0103`
 * `#pragma warning disable-next-line RAV0103`
+* `#pragma warning disable-next-line RAV9019 RAV9012`
 * `#pragma warning disable` (suppresses all diagnostics until restore)
 * `#pragma warning restore` (restores all diagnostics)
 * `// pragma warning disable ...` and `// pragma warning restore ...` are also accepted.

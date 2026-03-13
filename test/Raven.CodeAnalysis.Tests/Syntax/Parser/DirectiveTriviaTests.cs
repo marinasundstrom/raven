@@ -26,6 +26,25 @@ func Main() {}
     }
 
     [Fact]
+    public void HashLine_WithMultipleDiagnosticIds_IsLexedAsSingleDirectiveTrivia()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+#pragma warning disable-next-line RAV9019 RAV9012
+func Main() {}
+""");
+
+        Assert.Empty(tree.GetDiagnostics());
+
+        var trivia = Assert.Single(
+            tree.GetRoot()
+                .DescendantTrivia()
+                .Where(item => item.Kind == SyntaxKind.DirectiveTrivia));
+
+        Assert.Equal("#pragma warning disable-next-line RAV9019 RAV9012", trivia.Text);
+    }
+
+    [Fact]
     public void HashLine_WithArbitraryText_DoesNotProduceSyntaxDiagnostics()
     {
         var tree = SyntaxTree.ParseText(
