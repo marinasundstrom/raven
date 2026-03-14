@@ -80,7 +80,10 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         foreach (var macroReferencePath in evaluation.MacroReferencePaths)
         {
             var resolvedMacroReferencePath = ResolveMacroReferencePath(macroReferencePath, evaluation, raven);
-            solution = solution.AddMacroReference(projectId, MacroReference.CreateFromFile(resolvedMacroReferencePath));
+            var sourceProjectFilePath = IsProjectFileExtension(Path.GetExtension(macroReferencePath))
+                ? macroReferencePath
+                : null;
+            solution = solution.AddMacroReference(projectId, MacroReference.CreateFromFile(resolvedMacroReferencePath, sourceProjectFilePath));
         }
 
         var packageReferences = NuGetPackageResolver.ResolveReferences(

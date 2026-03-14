@@ -1273,6 +1273,7 @@ public partial class Compilation
                     {
                         var compilation = cr.Compilation;
                         compilation.EnsureSetup();
+                        compilation.EnsureSourceTypesInitialized();
                         symbol = compilation.Assembly;
                         break;
                     }
@@ -1761,23 +1762,7 @@ public partial class Compilation
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
         EnsureSetup();
-
-        if (!_sourceTypesInitialized && !_isPopulatingSourceTypes)
-        {
-            try
-            {
-                _isPopulatingSourceTypes = true;
-
-                foreach (var syntaxTree in _syntaxTrees)
-                    _ = GetSemanticModel(syntaxTree);
-
-                _sourceTypesInitialized = true;
-            }
-            finally
-            {
-                _isPopulatingSourceTypes = false;
-            }
-        }
+        EnsureSourceTypesInitialized();
 
         if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceType)
             return sourceType;
@@ -1805,6 +1790,32 @@ public partial class Compilation
         }
 
         return bestMatch;
+    }
+
+    private void EnsureSourceTypesInitialized()
+    {
+        if (_sourceTypesInitialized || _isPopulatingSourceTypes)
+            return;
+
+        try
+        {
+            _isPopulatingSourceTypes = true;
+
+            foreach (var syntaxTree in _syntaxTrees)
+            {
+                var semanticModel = GetSemanticModel(syntaxTree);
+                var root = syntaxTree.GetRoot();
+
+                foreach (var declaration in root.DescendantNodesAndSelf().OfType<MemberDeclarationSyntax>())
+                    _ = semanticModel.GetDeclaredSymbol(declaration);
+            }
+
+            _sourceTypesInitialized = true;
+        }
+        finally
+        {
+            _isPopulatingSourceTypes = false;
+        }
     }
 
     private INamedTypeSymbol? GetTypeByMetadataName(string metadataName, string preferredAssembly)

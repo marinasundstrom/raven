@@ -10,14 +10,15 @@ public sealed class MacroReference
 {
     private readonly Func<IEnumerable<IRavenMacroPlugin>> _pluginFactory;
     private readonly string? _display;
+    private readonly string? _sourceProjectFilePath;
 
     public MacroReference(IRavenMacroPlugin plugin)
-        : this(() => [plugin], plugin.GetType().Assembly.FullName)
+        : this(() => [plugin], plugin.GetType().Assembly.FullName, sourceProjectFilePath: null)
     {
     }
 
     public MacroReference(Type pluginType)
-        : this(() => [(IRavenMacroPlugin)Activator.CreateInstance(pluginType)!], pluginType.Assembly.FullName)
+        : this(() => [(IRavenMacroPlugin)Activator.CreateInstance(pluginType)!], pluginType.Assembly.FullName, sourceProjectFilePath: null)
     {
         if (!typeof(IRavenMacroPlugin).IsAssignableFrom(pluginType))
             throw new ArgumentException("Type must implement IRavenMacroPlugin", nameof(pluginType));
@@ -28,19 +29,24 @@ public sealed class MacroReference
             assembly.GetTypes()
                 .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
                 .Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!),
-            assembly.Location)
+            assembly.Location,
+            sourceProjectFilePath: null)
     {
     }
 
-    private MacroReference(Func<IEnumerable<IRavenMacroPlugin>> pluginFactory, string? display)
+    private MacroReference(Func<IEnumerable<IRavenMacroPlugin>> pluginFactory, string? display, string? sourceProjectFilePath)
     {
         _pluginFactory = pluginFactory ?? throw new ArgumentNullException(nameof(pluginFactory));
         _display = display;
+        _sourceProjectFilePath = string.IsNullOrWhiteSpace(sourceProjectFilePath)
+            ? null
+            : Path.GetFullPath(sourceProjectFilePath);
     }
 
     public string Display => _display ?? "<macro-reference>";
+    public string? SourceProjectFilePath => _sourceProjectFilePath;
 
-    public static MacroReference CreateFromFile(string assemblyPath)
+    public static MacroReference CreateFromFile(string assemblyPath, string? sourceProjectFilePath = null)
     {
         if (string.IsNullOrWhiteSpace(assemblyPath))
             throw new ArgumentException("Assembly path is required.", nameof(assemblyPath));
@@ -55,7 +61,8 @@ public sealed class MacroReference
                     .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
                     .Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!);
             },
-            fullPath);
+            fullPath,
+            sourceProjectFilePath);
     }
 
     public IEnumerable<IRavenMacroPlugin> GetPlugins() => _pluginFactory();
