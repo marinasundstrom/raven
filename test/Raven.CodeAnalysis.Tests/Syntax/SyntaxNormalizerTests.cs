@@ -116,4 +116,73 @@ class Foo {
 
         Assert.Equal("val odds = [for n in nums if n % 2 == 1 => n * 10]", normalized);
     }
+
+    [Fact]
+    public void Formatter_Format_FormatsOnlyAnnotatedNode()
+    {
+        const string source = """
+func  First( )->() {val x=1}
+func  Second( )->() {val y=2}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var functions = root.DescendantNodes().Where(static node => node is FunctionStatementSyntax).Cast<FunctionStatementSyntax>().ToArray();
+        var annotatedSecond = (FunctionStatementSyntax)functions[1].WithAdditionalAnnotations(Formatter.Annotation);
+        var updatedRoot = root.ReplaceNode(functions[1], annotatedSecond);
+
+        var formatted = Formatter.Format(updatedRoot).ToFullString();
+
+        var expected = """
+func  First( )->() {val x=1}
+func Second() -> () {
+    val y = 2
+}
+""";
+
+        Assert.Equal(expected, formatted);
+    }
+
+    [Fact]
+    public void Formatter_Format_RewritesElasticTriviaOutsideAnnotatedNode()
+    {
+        const string source = """
+val  first=1
+val  second=2
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var globals = root.DescendantNodes().Where(static node => node is GlobalStatementSyntax).Cast<GlobalStatementSyntax>().ToArray();
+        var firstWithElasticTrivia = globals[0].ReplaceTokens(globals[0].DescendantTokens(), static (original, _) =>
+            original
+                .WithLeadingTrivia(ToElasticTrivia(original.LeadingTrivia))
+                .WithTrailingTrivia(ToElasticTrivia(original.TrailingTrivia)));
+        var annotatedSecond = globals[1].WithAdditionalAnnotations(Formatter.Annotation);
+        var updatedRoot = root
+            .ReplaceNode(globals[0], firstWithElasticTrivia)
+            .ReplaceNode(globals[1], annotatedSecond);
+
+        var formatted = Formatter.Format(updatedRoot).ToFullString();
+
+        Assert.Equal(
+            """
+val first = 1
+val second = 2
+""",
+            formatted);
+    }
+
+    private static SyntaxTriviaList ToElasticTrivia(SyntaxTriviaList triviaList)
+    {
+        return SyntaxFactory.TriviaList(triviaList.Select(static trivia => trivia.Kind switch
+        {
+            SyntaxKind.WhitespaceTrivia => SyntaxFactory.ElasticWhitespace(trivia.Text),
+            SyntaxKind.TabTrivia => SyntaxFactory.ElasticTab,
+            SyntaxKind.LineFeedTrivia => SyntaxFactory.ElasticLineFeed,
+            SyntaxKind.CarriageReturnTrivia => SyntaxFactory.ElasticCarriageReturn,
+            SyntaxKind.CarriageReturnLineFeedTrivia => SyntaxFactory.ElasticCarriageReturnLineFeed,
+            _ => trivia
+        }));
+    }
 }

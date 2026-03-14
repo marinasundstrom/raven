@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-13**.
 
 ## 2026-03-13
 
+- Added Roslyn-style syntax formatting hooks: `Formatter.Annotation`,
+  `SyntaxAnnotation.ElasticAnnotation`, and elastic trivia helpers on
+  `SyntaxFactory`, with `SyntaxNormalizer` updated to honor formatter
+  annotations and elastic whitespace.
+- Clarified the syntax API docs to state that `SyntaxFactory` creates raw
+  structured nodes that callers must format or attach trivia to explicitly.
+
 ### Added
 - Added initial macro-system scaffolding: `#[MacroName]` syntax is now recognized as a distinct macro-style annotation surface, and public .NET plugin contracts were introduced under `Raven.CodeAnalysis.Macros`.
 - Added targeted parser/semantic tests for macro-style attributes and plugin reference discovery.

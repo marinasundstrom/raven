@@ -12,8 +12,9 @@ internal class SyntaxTrivia : GreenNode
     public SyntaxTrivia(
         SyntaxKind kind,
         string text,
-        IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(kind, 0, diagnostics)
+        IEnumerable<DiagnosticInfo>? diagnostics = null,
+        IEnumerable<SyntaxAnnotation>? annotations = null)
+        : base(kind, 0, diagnostics, annotations)
     {
         Text = text;
 
@@ -60,7 +61,7 @@ internal class SyntaxTrivia : GreenNode
     {
         if (_structuredTrivia is null)
         {
-            return new SyntaxTrivia(Kind, Text, diagnostics);
+            return new SyntaxTrivia(Kind, Text, diagnostics, _annotations);
         }
 
         return new SyntaxTrivia(_structuredTrivia, diagnostics, _annotations);
@@ -75,10 +76,20 @@ internal class SyntaxTrivia : GreenNode
 
         if (_structuredTrivia is null)
         {
-            return new SyntaxTrivia(Kind, Text, diagnostics ?? _diagnostics);
+            return new SyntaxTrivia(Kind, Text, diagnostics ?? _diagnostics, annotations ?? _annotations);
         }
 
         return new SyntaxTrivia(_structuredTrivia, diagnostics ?? _diagnostics, annotations ?? _annotations);
+    }
+
+    internal override GreenNode WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
+    {
+        if (_structuredTrivia is null)
+        {
+            return new SyntaxTrivia(Kind, Text, _diagnostics, annotations);
+        }
+
+        return new SyntaxTrivia(_structuredTrivia, _diagnostics, annotations);
     }
 
     private string GetDebuggerDisplay() => $"{GetType().Name} {GetValueText()}";

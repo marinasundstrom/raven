@@ -215,6 +215,30 @@ var newCompilationUnit = root.ReplaceNode(oldNode, newNode);
 var newTree = SyntaxTree.Create(newCompilationUnit);
 ```
 
+### Formatting factory-built syntax
+
+`SyntaxFactory` produces raw structured syntax. That is useful for analyzers,
+rewriters, and code generation, but it also means the resulting text usually
+needs explicit trivia or a formatting pass before it is readable.
+
+For full normalization:
+
+```csharp
+var prettyNode = rawNode.NormalizeWhitespace();
+```
+
+For targeted formatting, annotate the nodes you want formatted and use elastic
+trivia where spacing/newlines should be computed by the formatter:
+
+```csharp
+var updatedNode = rawNode.WithAdditionalAnnotations(Formatter.Annotation);
+var prettyNode = Formatter.Format(updatedNode);
+```
+
+Use `SyntaxFactory.ElasticSpace`, `SyntaxFactory.ElasticLineFeed`, and related
+helpers when constructing tokens or lists that should pick up formatter-managed
+whitespace.
+
 ### Applying Changes from Source Text
 
 You can update a tree directly from modified source text. The compiler efficiently reuses syntax nodes:

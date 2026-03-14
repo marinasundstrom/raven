@@ -56,6 +56,28 @@ public struct SyntaxTrivia
 
     public bool HasStructure => Green.HasStructuredTrivia;
 
+    public IEnumerable<SyntaxAnnotation> GetAnnotations(IEnumerable<string> annotationKinds)
+    {
+        return Green.GetAnnotations(annotationKinds);
+    }
+
+    public SyntaxAnnotation? GetAnnotation(string kind)
+    {
+        return Green.GetAnnotation(kind);
+    }
+
+    public bool HasAnnotation(SyntaxAnnotation annotation)
+    {
+        return Green.HasAnnotation(annotation);
+    }
+
+    public bool IsElastic => HasAnnotation(SyntaxAnnotation.ElasticAnnotation);
+
+    public SyntaxTrivia WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
+    {
+        return new SyntaxTrivia((InternalSyntax.SyntaxTrivia)Green.WithAdditionalAnnotations(annotations), _token ?? default, _position);
+    }
+
     public override string ToString()
     {
         if (HasStructure)
@@ -92,11 +114,17 @@ public struct SyntaxTrivia
 public static partial class SyntaxFactory
 {
     public static SyntaxTrivia Whitespace(string text) => (SyntaxTrivia)InternalSyntax.SyntaxFactory.Whitespace(text);
+    public static SyntaxTrivia ElasticWhitespace(string text) => Whitespace(text).WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation);
     public static readonly SyntaxTrivia LineFeed = (SyntaxTrivia)InternalSyntax.SyntaxFactory.LineFeed;
+    public static readonly SyntaxTrivia ElasticLineFeed = LineFeed.WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation);
     public static readonly SyntaxTrivia CarriageReturn = (SyntaxTrivia)InternalSyntax.SyntaxFactory.CarriageReturn;
+    public static readonly SyntaxTrivia ElasticCarriageReturn = CarriageReturn.WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation);
     public static readonly SyntaxTrivia CarriageReturnLineFeed = (SyntaxTrivia)InternalSyntax.SyntaxFactory.CarriageReturnLineFeed;
+    public static readonly SyntaxTrivia ElasticCarriageReturnLineFeed = CarriageReturnLineFeed.WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation);
     public static readonly SyntaxTrivia Space = (SyntaxTrivia)InternalSyntax.SyntaxFactory.Space;
+    public static readonly SyntaxTrivia ElasticSpace = Space.WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation);
     public static readonly SyntaxTrivia Tab = (SyntaxTrivia)InternalSyntax.SyntaxFactory.Tab;
+    public static readonly SyntaxTrivia ElasticTab = Tab.WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation);
     public static SyntaxTrivia Comment(string text) => (SyntaxTrivia)InternalSyntax.SyntaxFactory.SingleLineComment(text);
 }
 

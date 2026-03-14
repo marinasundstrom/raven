@@ -5,6 +5,7 @@
 * [Language specification](spec/language-specification.md)
 * [Macros](spec/macros.md)
 * [Type system](spec/type-system.md)
+* [Style guide](style-guide.md)
 * [Proposals](proposals)
 
 ### Vision

@@ -48,6 +48,30 @@ correct syntax tree, the binder can reason about declarations and expressions;
 trivia influences parsing decisions but carries no meaning for the compiler
 itself.
 
+## Formatting and trivia
+
+`SyntaxFactory` creates raw structured nodes. Unless you explicitly attach
+trivia yourself, factory-built nodes generally have minimal whitespace and are
+not intended to be human-formatted out of the box.
+
+Use `NormalizeWhitespace()` when you want a fully normalized presentation of a
+node or subtree:
+
+```csharp
+var formatted = rawNode.NormalizeWhitespace();
+```
+
+For targeted formatting, Raven also exposes Roslyn-style formatting markers:
+
+- `Formatter.Annotation` marks nodes or tokens that should be formatted.
+- `SyntaxAnnotation.ElasticAnnotation` marks trivia as formatter-managed.
+- `SyntaxFactory.ElasticSpace`, `SyntaxFactory.ElasticLineFeed`, and related
+  helpers create elastic trivia directly.
+
+`Formatter.Format(root)` formats annotated regions and rewrites elastic trivia
+into normal spaces/newlines while preserving unannotated concrete trivia
+outside those regions.
+
 ## Visitors and rewriters
 
 The compiler ships source-generated visitor bases that align with Roslyn's

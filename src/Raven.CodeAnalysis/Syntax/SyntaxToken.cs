@@ -135,6 +135,26 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         return SyntaxTree!.GetLocation(Span);
     }
 
+    public IEnumerable<SyntaxAnnotation> GetAnnotations(IEnumerable<string> annotationKinds)
+    {
+        return Green.GetAnnotations(annotationKinds);
+    }
+
+    public SyntaxAnnotation? GetAnnotation(string kind)
+    {
+        return Green.GetAnnotation(kind);
+    }
+
+    public bool HasAnnotation(SyntaxAnnotation annotation)
+    {
+        return Green.HasAnnotation(annotation);
+    }
+
+    public SyntaxToken WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
+    {
+        return new SyntaxToken((InternalSyntax.SyntaxToken)Green.With(Array.Empty<GreenNode>(), null, annotations), Parent, Position);
+    }
+
     public static bool operator ==(SyntaxToken left, SyntaxToken? right) => Equals(left, right);
 
     public static bool operator !=(SyntaxToken left, SyntaxToken? right) => !Equals(left, right);

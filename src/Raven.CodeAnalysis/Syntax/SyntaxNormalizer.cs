@@ -12,6 +12,8 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     private int _pendingLineBreaks;
     private bool _isFirstToken = true;
     private SyntaxToken _previousToken;
+    private bool _useFormatterAnnotation;
+    private bool _hasFormatterAnnotation;
 
     public SyntaxNormalizer(int indentSize = 4)
     {
@@ -21,7 +23,15 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     public TSyntax Visit<TSyntax>(TSyntax syntax)
         where TSyntax : SyntaxNode
     {
+        return Format(syntax, useFormatterAnnotation: false);
+    }
+
+    public TSyntax Format<TSyntax>(TSyntax syntax, bool useFormatterAnnotation)
+        where TSyntax : SyntaxNode
+    {
         ResetState();
+        _useFormatterAnnotation = useFormatterAnnotation;
+        _hasFormatterAnnotation = useFormatterAnnotation && HasFormatterAnnotation(syntax);
 
         var tokens = syntax.DescendantTokens().ToArray();
         if (tokens.Length == 0)
@@ -69,7 +79,13 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return normalizedNewLine;
         }
 
-        if (HasNonWhitespaceTrivia(token.LeadingTrivia) || HasNonWhitespaceTrivia(token.TrailingTrivia))
+        if (!ShouldRewriteToken(token))
+        {
+            TrackTokenFlow(token);
+            return token;
+        }
+
+        if (HasMeaningfulTrivia(token.LeadingTrivia) || HasMeaningfulTrivia(token.TrailingTrivia))
         {
             TrackTokenFlow(token);
             return token;
@@ -79,7 +95,6 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         if (token.Kind == SyntaxKind.CloseBraceToken && effectiveIndent > 0)
         {
             effectiveIndent--;
-            _indentLevel = effectiveIndent;
         }
 
         var leading = CreateLeadingTrivia(token, effectiveIndent);
@@ -94,6 +109,11 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     private void TrackTokenFlow(SyntaxToken token)
     {
+        if (token.Kind == SyntaxKind.CloseBraceToken && _indentLevel > 0)
+        {
+            _indentLevel--;
+        }
+
         if (token.Kind == SyntaxKind.OpenBraceToken)
         {
             _indentLevel++;
@@ -153,10 +173,71 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             : SyntaxFactory.TriviaList();
     }
 
-    private static bool HasNonWhitespaceTrivia(SyntaxTriviaList triviaList)
+    private static bool HasFormatterAnnotation(SyntaxNode syntax)
+    {
+        if (syntax.GetAnnotation(Formatter.Annotation.Kind) is not null)
+        {
+            return true;
+        }
+
+        return syntax.DescendantNodes().Any(node => node.GetAnnotation(Formatter.Annotation.Kind) is not null);
+    }
+
+    private bool ShouldRewriteToken(SyntaxToken token)
+    {
+        if (!_useFormatterAnnotation || !_hasFormatterAnnotation)
+        {
+            return true;
+        }
+
+        if (TokenOrAncestorsHaveFormatterAnnotation(token))
+        {
+            return true;
+        }
+
+        return ContainsElasticTrivia(token.LeadingTrivia) || ContainsElasticTrivia(token.TrailingTrivia);
+    }
+
+    private static bool TokenOrAncestorsHaveFormatterAnnotation(SyntaxToken token)
+    {
+        if (token.GetAnnotation(Formatter.Annotation.Kind) is not null)
+        {
+            return true;
+        }
+
+        for (var current = token.Parent; current is not null; current = current.Parent)
+        {
+            if (current.GetAnnotation(Formatter.Annotation.Kind) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsElasticTrivia(SyntaxTriviaList triviaList)
     {
         foreach (var trivia in triviaList)
         {
+            if (trivia.IsElastic)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasMeaningfulTrivia(SyntaxTriviaList triviaList)
+    {
+        foreach (var trivia in triviaList)
+        {
+            if (trivia.IsElastic)
+            {
+                continue;
+            }
+
             if (!IsWhitespaceTrivia(trivia.Kind))
             {
                 return true;

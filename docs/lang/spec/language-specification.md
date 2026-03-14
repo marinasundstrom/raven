@@ -8,6 +8,9 @@ An overview of available types, literal semantics, and conversions can be found 
 
 Attached macro syntax and expansion rules are documented in [macros.md](macros.md).
 
+Recommended source layout and spacing conventions are documented in the
+[style guide](../style-guide.md).
+
 ## Document conventions
 
 * **Normative requirements** use key words such as “must”, “may”, and “should” to describe observable language behaviour.

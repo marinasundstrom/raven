@@ -9,6 +9,8 @@ namespace Raven.CodeAnalysis.Syntax;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public sealed class SyntaxAnnotation : IEquatable<SyntaxAnnotation>
 {
+    public static readonly SyntaxAnnotation ElasticAnnotation = new("Elastic");
+
     public string Kind { get; }
     public string? Data { get; }
 

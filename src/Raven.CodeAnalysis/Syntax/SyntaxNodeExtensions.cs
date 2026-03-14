@@ -39,7 +39,7 @@ public static class SyntaxNodeExtensions
     public static TSyntax NormalizeWhitespace<TSyntax>(this TSyntax node)
         where TSyntax : SyntaxNode
     {
-        return new SyntaxNormalizer().Visit(node);
+        return new SyntaxNormalizer().Format(node, useFormatterAnnotation: false);
     }
 
     public static IEnumerable<SyntaxNode> AncestorNodesAndSelf(this SyntaxNode node)
