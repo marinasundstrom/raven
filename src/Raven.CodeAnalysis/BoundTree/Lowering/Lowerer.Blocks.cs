@@ -159,18 +159,7 @@ internal sealed partial class Lowerer
             return ImmutableArray<BoundStatement>.Empty;
 
         var compilation = GetCompilation();
-        var disposableType = compilation.GetSpecialType(SpecialType.System_IDisposable);
-        if (disposableType.TypeKind == TypeKind.Error)
-            return ImmutableArray<BoundStatement>.Empty;
-
-        var disposeMethod = disposableType
-            .GetMembers(nameof(IDisposable.Dispose))
-            .OfType<IMethodSymbol>()
-            .FirstOrDefault(m => m.Parameters.Length == 0);
-
-        if (disposeMethod is null)
-            return ImmutableArray<BoundStatement>.Empty;
-
+        var preferAsyncDispose = PrefersAsyncUseDisposal();
         var builder = ImmutableArray.CreateBuilder<BoundStatement>(declarators.Length);
 
         for (var i = declarators.Length - 1; i >= 0; i--)
@@ -179,7 +168,13 @@ internal sealed partial class Lowerer
             if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
                 continue;
 
-            var disposeStatement = CreateDisposeStatement(local, disposeMethod, compilation);
+            if (!UseDisposalUtilities.TryResolveUseDisposeMethod(compilation, local.Type, preferAsyncDispose, out var disposeMethod, out var useAwait) ||
+                disposeMethod is null)
+            {
+                continue;
+            }
+
+            var disposeStatement = CreateDisposeStatement(local, disposeMethod, useAwait, preferAsyncDispose, compilation);
             if (disposeStatement is not null)
                 builder.Add(disposeStatement);
         }
@@ -187,13 +182,20 @@ internal sealed partial class Lowerer
         return builder.ToImmutable();
     }
 
-    private BoundStatement? CreateDisposeStatement(ILocalSymbol local, IMethodSymbol disposeMethod, Compilation compilation)
+    private BoundStatement? CreateDisposeStatement(
+        ILocalSymbol local,
+        IMethodSymbol disposeMethod,
+        bool useAwait,
+        bool preferAsyncDispose,
+        Compilation compilation)
     {
         if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
             return null;
 
         var disposeCall = new BoundExpressionStatement(
-            new BoundInvocationExpression(disposeMethod, Array.Empty<BoundExpression>(), new BoundLocalAccess(local)));
+            preferAsyncDispose
+                ? UseDisposalUtilities.CreateBlockingDisposeInvocationExpression(compilation, new BoundLocalAccess(local), disposeMethod, useAwait)
+                : UseDisposalUtilities.CreateDisposeInvocationExpression(compilation, new BoundLocalAccess(local), disposeMethod, useAwait));
 
         if (local.Type.IsReferenceType || local.Type.TypeKind == TypeKind.Null)
         {
@@ -218,6 +220,16 @@ internal sealed partial class Lowerer
         }
 
         return disposeCall;
+    }
+
+    private bool PrefersAsyncUseDisposal()
+    {
+        return _containingSymbol switch
+        {
+            ILambdaSymbol lambda => lambda.IsAsync,
+            IMethodSymbol method => method.IsAsync,
+            _ => false,
+        };
     }
 
     public override BoundNode? VisitIfStatement(BoundIfStatement node)

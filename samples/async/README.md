@@ -18,6 +18,7 @@ Keep them when the combination is distinct; merge only true duplicates.
 
 ## Resource management and exceptions
 - `async-file-io.rav` -> async file API usage
+- `async-use-dispose-async-preferred.rav` -> async `use` prefers `DisposeAsync()` and falls back to `Dispose()`
 - `async-try-catch.rav` -> `await` inside `try/catch`
 
 ## HTTP combinations

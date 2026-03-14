@@ -1,0 +1,32 @@
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+// Feature: async `use` prefers IAsyncDisposable.DisposeAsync() and
+// falls back to IDisposable.Dispose() when async disposal is unavailable.
+
+await UseAsyncDisposable()
+await UseSyncDisposable()
+
+async func UseAsyncDisposable() -> Task {
+    use probe = AsyncProbe()
+    await Task.Delay(1)
+}
+
+async func UseSyncDisposable() -> Task {
+    use probe = SyncProbe()
+    await Task.Delay(1)
+}
+
+class AsyncProbe : System.IAsyncDisposable, System.IDisposable {
+    func Dispose() -> unit => WriteLine("Dispose")
+
+    func DisposeAsync() -> ValueTask {
+        WriteLine("DisposeAsync")
+        return ValueTask.CompletedTask
+    }
+}
+
+class SyncProbe : System.IDisposable {
+    func Dispose() -> unit => WriteLine("Dispose")
+}

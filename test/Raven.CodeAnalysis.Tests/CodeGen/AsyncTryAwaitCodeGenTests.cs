@@ -154,6 +154,56 @@ class Program {
     }
 
     [Fact]
+    public void AsyncUse_PrefersDisposeAsync_WhenAvailable()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class AsyncProbe : IAsyncDisposable, IDisposable {
+    public func Dispose() -> unit => Console.WriteLine("Dispose")
+    public func DisposeAsync() -> ValueTask {
+        Console.WriteLine("DisposeAsync")
+        return ValueTask.CompletedTask
+    }
+}
+
+class Program {
+    static async func Main() -> Task {
+        use probe = AsyncProbe()
+        await Task.Delay(1)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "DisposeAsync" }, output);
+    }
+
+    [Fact]
+    public void AsyncUse_FallsBackToDispose_WhenDisposeAsyncIsUnavailable()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Probe : IDisposable {
+    public func Dispose() -> unit => Console.WriteLine("Dispose")
+}
+
+class Program {
+    static async func Main() -> Task {
+        use probe = Probe()
+        await Task.Delay(1)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "Dispose" }, output);
+    }
+
+    [Fact]
     public void Async_ConditionalAccessThenPropagate_UsesSameOutStorage()
     {
         const string code = """

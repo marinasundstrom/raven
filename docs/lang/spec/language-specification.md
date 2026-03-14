@@ -3675,7 +3675,15 @@ exposes an `IsDiscard` helper when analyzers need to detect this pattern.
 A `use` declaration introduces a **scoped disposable resource**.  
 The declaration resembles a local variable binding and **must include an initializer**.
 
-The initializer’s type — and any explicit type annotation — must be convertible to `System.IDisposable`. If the conversion fails, Raven reports the same diagnostic used for other implicit conversions. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L188-L224】
+In a synchronous context, the initializer’s type — and any explicit type
+annotation — must be convertible to `System.IDisposable`.
+
+In an async context, Raven prefers `System.IAsyncDisposable.DisposeAsync()` when
+the resource supports `IAsyncDisposable`; otherwise it falls back to
+`System.IDisposable.Dispose()`. The declared type and initializer type must
+therefore be convertible to at least one of those disposal shapes. If the
+conversion fails, Raven reports the same diagnostic used for other implicit
+conversions. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L188-L224】
 
 Resources created with `use` behave like ordinary locals: they remain in scope for the enclosing block and participate in definite-assignment rules. When control leaves the block, the resource is **automatically disposed**. Disposal occurs in **reverse declaration order**, ensuring that later resources observe earlier ones still alive.
 
@@ -3688,7 +3696,17 @@ use reader = System.IO.StreamReader(stream)
 val text = reader.ReadToEnd()
 
 // reader.Dispose() and stream.Dispose() run automatically when the scope ends
-````
+```
+
+```raven
+async func Load(path: string) -> Task<string> {
+    use stream = OpenAsyncStream(path)
+    return await stream.ReadAllTextAsync()
+}
+```
+
+In the async example above, Raven uses `DisposeAsync()` when `stream`
+implements `IAsyncDisposable`; otherwise it uses `Dispose()`.
 
 ## Types
 

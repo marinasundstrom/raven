@@ -1218,6 +1218,43 @@ class C {
     }
 
     [Fact]
+    public void Rewrite_AsyncMethodWithAsyncDisposableUse_BindsWithoutDiagnostics()
+    {
+        const string source = """
+import System.*
+import System.Threading.Tasks.*
+
+class AsyncProbe : IAsyncDisposable {
+    public func DisposeAsync() -> ValueTask => ValueTask.CompletedTask
+}
+
+class C {
+    async func Compute() -> Task {
+        use probe = AsyncProbe()
+        await Task.CompletedTask
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.ValueText == "Compute");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        var rewritten = AsyncLowerer.Rewrite(methodSymbol, boundBody);
+        Assert.NotNull(rewritten);
+    }
+
+    [Fact]
     public void GetConstructedMembers_GenericAsyncMethod_SubstitutesStateMachineMembers()
     {
         const string source = """

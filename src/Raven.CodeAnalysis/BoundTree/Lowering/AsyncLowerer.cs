@@ -246,16 +246,16 @@ internal static class AsyncLowerer
         }
 
         var hadUsingDeclaration = ContainsUsingDeclaration(body);
+        var normalizedUseDeclarations = hadUsingDeclaration
+            ? new AsyncUseDeclarationLowerer(compilation).Rewrite(body)
+            : body;
 
         // Normalize using declarations into try/finally before await/state-machine
         // rewriting so dispatch guards are computed against final protected regions.
-        var lowerer = new AsyncUseDeclarationLowerer(compilation);
-        var normalized = lowerer.Rewrite(body);
-
         // Match constructs must be lowered before async state-machine rewriting so
         // MoveNext bodies don't carry BoundMatch* nodes into codegen.
         var matchLowerer = new AsyncMatchLowerer(symbol);
-        var withMatchLowered = matchLowerer.Rewrite(normalized);
+        var withMatchLowered = matchLowerer.Rewrite(normalizedUseDeclarations);
 
         // Lower propagate and other general block constructs after the async pre-normalization
         // steps so introduced locals/flow align with the final pre-state-machine shape.
@@ -549,18 +549,6 @@ internal static class AsyncLowerer
             if (declarators.Length == 0)
                 return ImmutableArray<BoundStatement>.Empty;
 
-            var disposableType = _compilation.GetSpecialType(SpecialType.System_IDisposable);
-            if (disposableType.TypeKind == TypeKind.Error)
-                return ImmutableArray<BoundStatement>.Empty;
-
-            var disposeMethod = disposableType
-                .GetMembers(nameof(IDisposable.Dispose))
-                .OfType<IMethodSymbol>()
-                .FirstOrDefault(m => m.Parameters.Length == 0);
-
-            if (disposeMethod is null)
-                return ImmutableArray<BoundStatement>.Empty;
-
             var builder = ImmutableArray.CreateBuilder<BoundStatement>(declarators.Length);
 
             for (var i = declarators.Length - 1; i >= 0; i--)
@@ -569,7 +557,13 @@ internal static class AsyncLowerer
                 if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
                     continue;
 
-                var disposeStatement = CreateDisposeStatement(local, disposeMethod);
+                if (!UseDisposalUtilities.TryResolveUseDisposeMethod(_compilation, local.Type, preferAsync: true, out var disposeMethod, out var useAwait) ||
+                    disposeMethod is null)
+                {
+                    continue;
+                }
+
+                var disposeStatement = CreateDisposeStatement(local, disposeMethod, useAwait);
                 if (disposeStatement is not null)
                     builder.Add(disposeStatement);
             }
@@ -577,13 +571,13 @@ internal static class AsyncLowerer
             return builder.ToImmutable();
         }
 
-        private BoundStatement? CreateDisposeStatement(ILocalSymbol local, IMethodSymbol disposeMethod)
+        private BoundStatement? CreateDisposeStatement(ILocalSymbol local, IMethodSymbol disposeMethod, bool useAwait)
         {
             if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
                 return null;
 
             var disposeCall = new BoundExpressionStatement(
-                new BoundInvocationExpression(disposeMethod, Array.Empty<BoundExpression>(), new BoundLocalAccess(local)));
+                UseDisposalUtilities.CreateDisposeInvocationExpression(_compilation, new BoundLocalAccess(local), disposeMethod, useAwait));
 
             if (local.Type.IsReferenceType || local.Type.TypeKind == TypeKind.Null)
             {
@@ -1333,27 +1327,20 @@ internal static class AsyncLowerer
         SynthesizedAsyncStateMachineTypeSymbol stateMachine,
         IEnumerable<SourceFieldSymbol> fields)
     {
-        var compilation = stateMachine.Compilation;
-        var disposableType = compilation.GetSpecialType(SpecialType.System_IDisposable);
-        if (disposableType.TypeKind == TypeKind.Error)
-            yield break;
-
-        IMethodSymbol? disposeMethod = null;
-        foreach (var member in disposableType.GetMembers(nameof(IDisposable.Dispose)))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 0 } method)
-            {
-                disposeMethod = method;
-                break;
-            }
-        }
-
-        if (disposeMethod is null)
-            yield break;
-
         foreach (var field in fields)
         {
-            yield return CreateDisposeStatement(stateMachine, field, disposeMethod);
+            if (!UseDisposalUtilities.TryResolveUseDisposeMethod(
+                    stateMachine.Compilation,
+                    field.Type,
+                    preferAsync: true,
+                    out var disposeMethod,
+                    out var useAwait) ||
+                disposeMethod is null)
+            {
+                continue;
+            }
+
+            yield return CreateDisposeStatement(stateMachine, field, disposeMethod, useAwait);
         }
     }
 
@@ -1369,12 +1356,13 @@ internal static class AsyncLowerer
     private static BoundStatement CreateDisposeStatement(
         SynthesizedAsyncStateMachineTypeSymbol stateMachine,
         SourceFieldSymbol field,
-        IMethodSymbol disposeMethod)
+        IMethodSymbol disposeMethod,
+        bool useAwait)
     {
         var compilation = stateMachine.Compilation;
         var receiver = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), field);
-        var invocation = new BoundInvocationExpression(disposeMethod, Array.Empty<BoundExpression>(), receiver);
-        var disposeCall = new BoundExpressionStatement(invocation);
+        var disposeCall = new BoundExpressionStatement(
+            UseDisposalUtilities.CreateBlockingDisposeInvocationExpression(compilation, receiver, disposeMethod, useAwait));
 
         BoundStatement? clearStatement = null;
         var defaultValue = CreateDefaultValueExpression(field.Type);

@@ -356,29 +356,29 @@ partial class BlockBinder : Binder
 
         if (isUseDeclaration)
         {
-            var disposableType = Compilation.GetSpecialType(SpecialType.System_IDisposable);
-            if (disposableType.TypeKind != TypeKind.Error)
-            {
-                var initializerSupportsDispose = initializerValueType is not null &&
-                    initializerValueType.TypeKind != TypeKind.Error &&
-                    IsAssignable(disposableType, initializerValueType, out _);
+            var preferAsyncDispose = PrefersAsyncUseDisposal();
+            var expectedTargetDisplay = UseDisposalUtilities.GetExpectedUseTargetDisplay(Compilation, preferAsyncDispose);
 
-                if (!initializerSupportsDispose && initializerValueType is not null && initializerValueType.TypeKind != TypeKind.Error)
-                {
-                    ReportCannotConvertFromTypeToType(
-                        initializerValueType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        disposableType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        initializer?.Value.GetLocation() ?? variableDeclarator.Identifier.GetLocation());
-                    shouldDispose = false;
-                }
-                else if (type.TypeKind != TypeKind.Error && !IsAssignable(disposableType, type, out _))
-                {
-                    ReportCannotConvertFromTypeToType(
-                        type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        disposableType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        variableDeclarator.Identifier.GetLocation());
-                    shouldDispose = false;
-                }
+            var initializerSupportsDispose = initializerValueType is not null &&
+                initializerValueType.TypeKind != TypeKind.Error &&
+                UseDisposalUtilities.SupportsUseDisposal(Compilation, initializerValueType, preferAsyncDispose);
+
+            if (!initializerSupportsDispose && initializerValueType is not null && initializerValueType.TypeKind != TypeKind.Error)
+            {
+                ReportCannotConvertFromTypeToType(
+                    initializerValueType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    expectedTargetDisplay,
+                    initializer?.Value.GetLocation() ?? variableDeclarator.Identifier.GetLocation());
+                shouldDispose = false;
+            }
+            else if (type.TypeKind != TypeKind.Error &&
+                     !UseDisposalUtilities.SupportsUseDisposal(Compilation, type, preferAsyncDispose))
+            {
+                ReportCannotConvertFromTypeToType(
+                    type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    expectedTargetDisplay,
+                    variableDeclarator.Identifier.GetLocation());
+                shouldDispose = false;
             }
         }
 
@@ -394,6 +394,22 @@ partial class BlockBinder : Binder
         CacheBoundNode(variableDeclarator, declarator);
 
         return declarator;
+    }
+
+    private bool PrefersAsyncUseDisposal()
+    {
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            switch (current.ContainingSymbol)
+            {
+                case ILambdaSymbol lambda:
+                    return lambda.IsAsync;
+                case IMethodSymbol method:
+                    return method.IsAsync;
+            }
+        }
+
+        return false;
     }
 
     protected ITypeSymbol EnsureTypeAccessible(ITypeSymbol type, Location location)
