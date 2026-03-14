@@ -25,43 +25,11 @@ class ObservableMacro : IAttachedDeclarationMacro {
         val backingFieldName = "_${propertyName}"
         val backingFieldMember = CreateBackingField(property, backingFieldName)
         val replacement = CreateReplacementProperty(property, backingFieldName)
-        val rootedMembers = RootGeneratedMembers(
-            SyntaxFactory.List<MemberDeclarationSyntax>([backingFieldMember, replacement]))
-        val rootedBackingField = rootedMembers[0] as PropertyDeclarationSyntax
-        val rootedReplacement = rootedMembers[1] as PropertyDeclarationSyntax
-        if rootedBackingField is null || rootedReplacement is null {
-            return MacroExpansionResult.Empty
-        }
 
         MacroExpansionResult {
-            ReplacementDeclaration = rootedReplacement
-            IntroducedMembers = [rootedBackingField]
+            ReplacementDeclaration = replacement
+            IntroducedMembers = [backingFieldMember]
         }
-    }
-
-    func RootGeneratedMembers(members: SyntaxList<MemberDeclarationSyntax>) -> SyntaxList<MemberDeclarationSyntax> {
-        val container = SyntaxFactory.ClassDeclaration(
-            SyntaxFactory.List<AttributeListSyntax>(),
-            SyntaxFactory.TokenList(),
-            SyntaxFactory.Token(SyntaxKind.ClassKeyword),
-            SyntaxFactory.Identifier("__GeneratedContainer"),
-            SyntaxFactory.List<TypeParameterConstraintClauseSyntax>(),
-            members)
-
-        val compilationUnit = SyntaxFactory.CompilationUnit(
-            SyntaxFactory.List<ImportDirectiveSyntax>(),
-            SyntaxFactory.List<AliasDirectiveSyntax>(),
-            SyntaxFactory.List<AttributeListSyntax>(),
-            SyntaxFactory.List<MemberDeclarationSyntax>([container]))
-
-        val tree = SyntaxTree.Create(compilationUnit.NormalizeWhitespace())
-        val root = tree.GetRoot()
-        val generatedContainer = root.Members[0] as ClassDeclarationSyntax
-        if generatedContainer is null {
-            return SyntaxFactory.List<MemberDeclarationSyntax>()
-        }
-
-        generatedContainer.Members
     }
 
     func CreateBackingField(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {

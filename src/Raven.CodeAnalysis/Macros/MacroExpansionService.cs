@@ -117,7 +117,7 @@ internal static class MacroExpansionService
 
         foreach (var member in containingType.Members)
         {
-            if (!ReferenceEquals(member, targetMember))
+            if (!IsTargetMember(member, targetMember))
             {
                 rewrittenMembers.Add(member);
                 continue;
@@ -150,6 +150,27 @@ internal static class MacroExpansionService
             PeerDeclarations = SliceMembers(contextualMembers, peerStartIndex, result.PeerDeclarations.Length),
             Diagnostics = result.Diagnostics
         };
+    }
+
+    private static bool IsTargetMember(MemberDeclarationSyntax candidate, MemberDeclarationSyntax target)
+    {
+        if (ReferenceEquals(candidate, target))
+            return true;
+
+        if (candidate.Kind != target.Kind)
+            return false;
+
+        if (candidate.SyntaxTree is not null &&
+            target.SyntaxTree is not null &&
+            ReferenceEquals(candidate.SyntaxTree, target.SyntaxTree) &&
+            candidate.Span == target.Span)
+        {
+            return true;
+        }
+
+        return candidate.Position == target.Position &&
+               candidate.FullSpan == target.FullSpan &&
+               string.Equals(candidate.ToFullString(), target.ToFullString(), StringComparison.Ordinal);
     }
 
     private static ImmutableArray<MemberDeclarationSyntax> SliceMembers(

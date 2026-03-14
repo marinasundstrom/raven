@@ -495,7 +495,10 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
                 _ => null
             };
 
-            var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
+            if (syntax.SyntaxTree is not { } syntaxTree)
+                continue;
+
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
             IEnumerable<AttributeSyntax> returnAttributes = declarationReturnTargetLists.SelectMany(static list => list.Attributes);
             if (returnClause is not null && returnClause.AttributeLists.Count > 0)

@@ -172,6 +172,48 @@ public sealed class MacroCodeGenTests
         Assert.Equal(1, method!.Invoke(null, null));
     }
 
+    [Fact]
+    public void AttachedPropertyMacro_WithDetachedSyntaxFactoryNodes_DoesNotRequireSyntheticRooting()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            open class ObservableBase {
+                var Count: int
+
+                protected func RaisePropertyChanged(propertyName: string, oldValue: object?, newValue: object?) -> unit {
+                    Count = Count + 1
+                }
+            }
+
+            class MyViewModel : ObservableBase {
+                #[Observable]
+                var Title: string = ""
+            }
+
+            class Harness {
+                static func Run() -> int {
+                    val model = MyViewModel()
+                    model.Title = "Hello"
+                    return model.Count
+                }
+            }
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(DetachedSyntaxFactoryObservableMacroPlugin)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var method = assembly.GetType("Harness", true)!.GetMethod("Run", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.Equal(1, method!.Invoke(null, null));
+    }
+
     private static void AssertObservablePropertyShape(Compilation compilation, SyntaxTree syntaxTree)
     {
         var model = compilation.GetSemanticModel(syntaxTree);
@@ -329,6 +371,104 @@ public sealed class MacroCodeGenTests
             return new MacroExpansionResult
             {
                 ReplacementDeclaration = property,
+                IntroducedMembers = [backingStorage]
+            };
+        }
+    }
+
+    public sealed class DetachedSyntaxFactoryObservableMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "DetachedSyntaxFactoryObservableMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new DetachedSyntaxFactoryObservablePropertyMacro()];
+    }
+
+    private sealed class DetachedSyntaxFactoryObservablePropertyMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "Observable";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var property = Assert.IsType<PropertyDeclarationSyntax>(context.TargetDeclaration);
+            var propertyName = property.Identifier.ValueText;
+            var backingFieldName = "_" + propertyName;
+
+            var backingStorage = SyntaxFactory.PropertyDeclaration(
+                SyntaxFactory.List<AttributeListSyntax>(),
+                SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)),
+                SyntaxFactory.Token(SyntaxKind.VarKeyword),
+                explicitInterfaceSpecifier: null,
+                SyntaxFactory.Identifier(backingFieldName),
+                property.Type,
+                accessorList: null,
+                expressionBody: null,
+                initializer: property.Initializer,
+                terminatorToken: SyntaxFactory.Token(SyntaxKind.None));
+
+            var replacement = property
+                .WithAttributeLists(SyntaxFactory.List<AttributeListSyntax>())
+                .WithAccessorList(SyntaxFactory.AccessorList(
+                    SyntaxFactory.List<AccessorDeclarationSyntax>(
+                    [
+                        SyntaxFactory.AccessorDeclaration(
+                            SyntaxKind.GetAccessorDeclaration,
+                            SyntaxFactory.List<AttributeListSyntax>(),
+                            SyntaxFactory.TokenList(),
+                            SyntaxFactory.Token(SyntaxKind.GetKeyword),
+                            body: null,
+                            expressionBody: SyntaxFactory.ArrowExpressionClause(SyntaxFactory.IdentifierName(backingFieldName)),
+                            terminatorToken: SyntaxFactory.Token(SyntaxKind.None)),
+                        SyntaxFactory.AccessorDeclaration(
+                            SyntaxKind.SetAccessorDeclaration,
+                            SyntaxFactory.List<AttributeListSyntax>(),
+                            SyntaxFactory.TokenList(),
+                            SyntaxFactory.Token(SyntaxKind.SetKeyword),
+                            body: SyntaxFactory.BlockStatement(
+                                SyntaxFactory.List<StatementSyntax>(
+                                [
+                                    SyntaxFactory.LocalDeclarationStatement(
+                                        SyntaxFactory.VariableDeclaration(
+                                            SyntaxFactory.Token(SyntaxKind.ValKeyword),
+                                            SyntaxFactory.SeparatedList<VariableDeclaratorSyntax>(
+                                            [
+                                                new SyntaxNodeOrToken(SyntaxFactory.VariableDeclarator(
+                                                    SyntaxFactory.Identifier("oldValue"),
+                                                    typeAnnotation: null,
+                                                    initializer: SyntaxFactory.EqualsValueClause(SyntaxFactory.IdentifierName(backingFieldName))))
+                                            ]))),
+                                    SyntaxFactory.AssignmentStatement(
+                                        SyntaxKind.SimpleAssignmentStatement,
+                                        SyntaxFactory.IdentifierName(backingFieldName),
+                                        SyntaxFactory.Token(SyntaxKind.EqualsToken),
+                                        SyntaxFactory.IdentifierName("value")),
+                                    SyntaxFactory.ExpressionStatement(
+                                        SyntaxFactory.InvocationExpression(
+                                            SyntaxFactory.IdentifierName("RaisePropertyChanged"),
+                                            SyntaxFactory.ArgumentList(
+                                                SyntaxFactory.SeparatedList<ArgumentSyntax>(
+                                                [
+                                                    new SyntaxNodeOrToken(SyntaxFactory.Argument(SyntaxFactory.NameOfExpression(SyntaxFactory.IdentifierName(propertyName)))),
+                                                    new SyntaxNodeOrToken(SyntaxFactory.Token(SyntaxKind.CommaToken)),
+                                                    new SyntaxNodeOrToken(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("oldValue"))),
+                                                    new SyntaxNodeOrToken(SyntaxFactory.Token(SyntaxKind.CommaToken)),
+                                                    new SyntaxNodeOrToken(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("value")))
+                                                ]))))
+                                ])),
+                            expressionBody: null,
+                            terminatorToken: SyntaxFactory.Token(SyntaxKind.None))
+                    ])))
+                .WithExpressionBody(null)
+                .WithInitializer(null)
+                .WithTerminatorToken(SyntaxFactory.Token(SyntaxKind.None));
+
+            return new MacroExpansionResult
+            {
+                ReplacementDeclaration = replacement,
                 IntroducedMembers = [backingStorage]
             };
         }

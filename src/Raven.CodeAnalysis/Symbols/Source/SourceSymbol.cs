@@ -75,7 +75,10 @@ internal abstract class SourceSymbol : Symbol
             if (attributeLists is null)
                 continue;
 
-            var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
+            if (syntax.SyntaxTree is not { } syntaxTree)
+                continue;
+
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
             foreach (var attribute in attributeLists.SelectMany(static list => list.Attributes))
             {
@@ -120,7 +123,7 @@ internal abstract class SourceSymbol : Symbol
     private static ParseOptions GetParseOptions(IEnumerable<SyntaxReference> declaringSyntaxReferences)
     {
         var reference = declaringSyntaxReferences.FirstOrDefault();
-        if (reference is not null && reference.SyntaxTree.Options is { } options)
+        if (reference?.SyntaxTree?.Options is { } options)
             return options;
 
         return new ParseOptions();

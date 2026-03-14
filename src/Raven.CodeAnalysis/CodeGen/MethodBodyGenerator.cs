@@ -786,7 +786,7 @@ internal class MethodBodyGenerator
                 return true;
 
             var syntax = _owner.TryGetSyntax(node);
-            if (syntax is null || syntax.Span.Length == 0)
+            if (syntax is null || syntax.Span.Length == 0 || syntax.SyntaxTree is null)
                 return false;
 
             var location = syntax.GetLocation();
