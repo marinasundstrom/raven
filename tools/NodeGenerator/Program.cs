@@ -8,10 +8,12 @@ using NodesShared;
 using Raven.Generators;
 
 var model = LoadSyntaxNodesFromXml("Model.xml");
+var factories = LoadFactoriesFromXml("Factories.xml");
 var tokens = LoadTokenKindsFromXml("Tokens.xml");
 var nodeKinds = LoadNodeKindsFromXml("NodeKinds.xml");
 ValidateModel(model);
-string hash = await GetHashAsync(model, tokens, nodeKinds);
+ValidateFactoryDefinitions(model, factories);
+string hash = await GetHashAsync(model, factories, tokens, nodeKinds);
 
 var force = args.Contains("-f");
 
@@ -38,7 +40,7 @@ if (force)
     Console.WriteLine("Forcing generation");
 }
 
-var stats = await GenerateCode(model, tokens, nodeKinds);
+var stats = await GenerateCode(model, factories, tokens, nodeKinds);
 
 // Write new hash to .stamp
 Directory.CreateDirectory(Path.GetDirectoryName(stampPath)!);
@@ -71,14 +73,19 @@ static async Task GenerateGreenNode(Dictionary<string, SyntaxNodeModel> nodesByN
     }
 }
 
-static async Task GenerateRedNode(Dictionary<string, SyntaxNodeModel> nodesByName, SyntaxNodeModel node, GenerationStats stats)
+static async Task GenerateRedNode(
+    Dictionary<string, SyntaxNodeModel> nodesByName,
+    IReadOnlyDictionary<string, FactoryDefinitionModel> factoriesByNode,
+    SyntaxNodeModel node,
+    GenerationStats stats)
 {
     var source = RedNodeGenerator.GenerateRedNode(node);
 
     await File.WriteAllTextAsync($"./generated/{node.Name}Syntax.g.cs", source.ToFullString());
     stats.RedNodes++;
 
-    var unit = RedNodeGenerator.GenerateRedFactoryMethod(node);
+    factoriesByNode.TryGetValue(node.Name, out var factoryDefinition);
+    var unit = RedNodeGenerator.GenerateRedFactoryMethod(node, factoryDefinition);
     if (unit is not null)
     {
         await File.WriteAllTextAsync($"./generated/{node.Name}Syntax.SyntaxFactory.g.cs", unit.ToFullString());
@@ -86,7 +93,11 @@ static async Task GenerateRedNode(Dictionary<string, SyntaxNodeModel> nodesByNam
     }
 }
 
-static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKindModel> tokens, List<NodeKindModel> nodeKinds)
+static async Task<string> GetHashAsync(
+    List<SyntaxNodeModel> model,
+    List<FactoryDefinitionModel> factories,
+    List<TokenKindModel> tokens,
+    List<NodeKindModel> nodeKinds)
 {
     using var memoryStream = new MemoryStream();
 
@@ -111,14 +122,53 @@ static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKi
             new XAttribute("Name", n.Name),
             new XAttribute("Type", n.Type)))));
 
+    var factoriesRoot = new XElement("Factories");
+    foreach (var factory in factories)
+    {
+        var factoryElement = new XElement(
+            "Factory",
+            new XAttribute("Node", factory.Node));
+
+        foreach (var overload in factory.Overloads)
+        {
+            var overloadElement = new XElement("Overload");
+            foreach (var parameter in overload.Parameters)
+            {
+                overloadElement.Add(
+                    new XElement(
+                        "Parameter",
+                        new XAttribute("Slot", parameter.Slot)));
+            }
+
+            foreach (var @default in overload.Defaults)
+            {
+                overloadElement.Add(
+                    new XElement(
+                        "Default",
+                        new XAttribute("Slot", @default.Slot),
+                        @default.Token is null ? null : new XAttribute("Token", @default.Token),
+                        @default.Null ? new XAttribute("Null", @default.Null) : null));
+            }
+
+            factoryElement.Add(overloadElement);
+        }
+
+        factoriesRoot.Add(factoryElement);
+    }
+
+    var factoriesDoc = new XDocument(factoriesRoot);
+
     using var tokensStream = new MemoryStream();
     tokensDoc.Save(tokensStream);
     using var nodeKindsStream = new MemoryStream();
     nodeKindsDoc.Save(nodeKindsStream);
+    using var factoriesStream = new MemoryStream();
+    factoriesDoc.Save(factoriesStream);
 
     var assemblyBytes = File.ReadAllBytes(Assembly.GetExecutingAssembly().Location);
 
     var combined = memoryStream.ToArray()
+        .Concat(factoriesStream.ToArray())
         .Concat(tokensStream.ToArray())
         .Concat(nodeKindsStream.ToArray())
         .Concat(assemblyBytes)
@@ -128,7 +178,11 @@ static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKi
     return hash;
 }
 
-static async Task<GenerationStats> GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel> tokens, List<NodeKindModel> nodeKinds)
+static async Task<GenerationStats> GenerateCode(
+    List<SyntaxNodeModel> model,
+    List<FactoryDefinitionModel> factories,
+    List<TokenKindModel> tokens,
+    List<NodeKindModel> nodeKinds)
 {
     if (!Directory.Exists("InternalSyntax/generated"))
         Directory.CreateDirectory("InternalSyntax/generated");
@@ -138,10 +192,11 @@ static async Task<GenerationStats> GenerateCode(List<SyntaxNodeModel> model, Lis
 
     var stats = new GenerationStats();
     var nodesByName = model.ToDictionary(n => n.Name);
+    var factoriesByNode = factories.ToDictionary(f => f.Node);
     foreach (var node in model)
     {
         await GenerateGreenNode(nodesByName, node, stats);
-        await GenerateRedNode(nodesByName, node, stats);
+        await GenerateRedNode(nodesByName, factoriesByNode, node, stats);
     }
 
     var internalTokens = TokenGenerator.GenerateInternalFactory(tokens);
@@ -241,6 +296,40 @@ List<SyntaxNodeModel> LoadSyntaxNodesFromXml(string path)
     return result;
 }
 
+List<FactoryDefinitionModel> LoadFactoriesFromXml(string path)
+{
+    if (!File.Exists(path))
+        return [];
+
+    var doc = XDocument.Load(path);
+    var result = new List<FactoryDefinitionModel>();
+
+    foreach (var factoryElement in doc.Descendants("Factory"))
+    {
+        var factory = new FactoryDefinitionModel
+        {
+            Node = factoryElement.Attribute("Node")?.Value ?? throw new Exception("Factory missing Node"),
+            Overloads = factoryElement.Elements("Overload").Select(overloadElement => new FactoryOverloadModel
+            {
+                Parameters = overloadElement.Elements("Parameter").Select(parameterElement => new FactoryParameterModel
+                {
+                    Slot = parameterElement.Attribute("Slot")?.Value ?? throw new Exception("Factory parameter missing Slot")
+                }).ToList(),
+                Defaults = overloadElement.Elements("Default").Select(defaultElement => new FactoryDefaultModel
+                {
+                    Slot = defaultElement.Attribute("Slot")?.Value ?? throw new Exception("Factory default missing Slot"),
+                    Token = defaultElement.Attribute("Token")?.Value,
+                    Null = ParseBool(defaultElement.Attribute("Null"))
+                }).ToList()
+            }).ToList()
+        };
+
+        result.Add(factory);
+    }
+
+    return result;
+}
+
 List<TokenKindModel> LoadTokenKindsFromXml(string path)
 {
     var doc = XDocument.Load(path);
@@ -328,6 +417,141 @@ void ValidateModel(List<SyntaxNodeModel> model)
             "Invalid syntax model configuration detected:\n" +
             string.Join(Environment.NewLine, errors.Select(e => $"  - {e}"));
         throw new InvalidOperationException(message);
+    }
+}
+
+void ValidateFactoryDefinitions(List<SyntaxNodeModel> model, List<FactoryDefinitionModel> factories)
+{
+    var errors = new List<string>();
+    var nodesByName = model.ToDictionary(n => n.Name);
+
+    foreach (var duplicateGroup in factories.GroupBy(f => f.Node).Where(g => g.Count() > 1))
+    {
+        errors.Add($"Factory definitions for node '{duplicateGroup.Key}' must be unique.");
+    }
+
+    foreach (var factory in factories)
+    {
+        if (!nodesByName.TryGetValue(factory.Node, out var node))
+        {
+            errors.Add($"Factory definition references unknown node '{factory.Node}'.");
+            continue;
+        }
+
+        if (node.IsAbstract)
+        {
+            errors.Add($"Factory definition for node '{factory.Node}' is invalid because the node is abstract.");
+            continue;
+        }
+
+        for (var overloadIndex = 0; overloadIndex < factory.Overloads.Count; overloadIndex++)
+        {
+            var overload = factory.Overloads[overloadIndex];
+            var referenced = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var parameter in overload.Parameters)
+            {
+                ValidateFactorySlotReference(node, parameter.Slot, errors, factory.Node, overloadIndex, "parameter");
+                if (!referenced.Add(parameter.Slot))
+                {
+                    errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: slot '{parameter.Slot}' is referenced more than once.");
+                }
+            }
+
+            foreach (var @default in overload.Defaults)
+            {
+                ValidateFactorySlotReference(node, @default.Slot, errors, factory.Node, overloadIndex, "default");
+                if (!referenced.Add(@default.Slot))
+                {
+                    errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: slot '{@default.Slot}' is referenced more than once.");
+                }
+
+                if (@default.Slot == "Kind")
+                {
+                    if (@default.Token is null)
+                    {
+                        errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: explicit kind defaults must use Token=\"...\".");
+                    }
+
+                    if (@default.Null)
+                    {
+                        errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: explicit kind cannot use Null=\"true\".");
+                    }
+
+                    continue;
+                }
+
+                var slot = node.Slots.Single(s => s.Name == @default.Slot);
+                if (@default.Token is not null && slot.Type != "Token")
+                {
+                    errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: slot '{@default.Slot}' can only use Token=\"...\" when the slot type is Token.");
+                }
+
+                if (@default.Null && (!slot.IsNullable && !(slot.Type == "Token" && slot.IsOptionalToken)))
+                {
+                    errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: slot '{@default.Slot}' can only use Null=\"true\" when the slot is nullable or an optional token.");
+                }
+
+                if (@default.Token is null && !@default.Null)
+                {
+                    errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: default for slot '{@default.Slot}' must specify Token=\"...\" or Null=\"true\".");
+                }
+            }
+
+            var expected = node.Slots.Count + (node.HasExplicitKind ? 1 : 0);
+            if (referenced.Count != expected)
+            {
+                var missing = new List<string>();
+                if (node.HasExplicitKind && !referenced.Contains("Kind"))
+                    missing.Add("Kind");
+                missing.AddRange(node.Slots.Where(s => !referenced.Contains(s.Name)).Select(s => s.Name));
+
+                errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: every slot must be mapped exactly once. Missing: {string.Join(", ", missing)}.");
+            }
+
+            var nonNullBindings = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var parameter in overload.Parameters)
+                nonNullBindings.Add(parameter.Slot);
+            foreach (var @default in overload.Defaults.Where(d => !d.Null))
+                nonNullBindings.Add(@default.Slot);
+
+            if (nonNullBindings.Contains("Body") && nonNullBindings.Contains("ExpressionBody"))
+            {
+                errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: 'Body' and 'ExpressionBody' cannot both be non-null in the same overload.");
+            }
+        }
+    }
+
+    if (errors.Count > 0)
+    {
+        var message =
+            "Invalid syntax factory configuration detected:\n" +
+            string.Join(Environment.NewLine, errors.Select(e => $"  - {e}"));
+        throw new InvalidOperationException(message);
+    }
+}
+
+void ValidateFactorySlotReference(
+    SyntaxNodeModel node,
+    string slotName,
+    List<string> errors,
+    string factoryNode,
+    int overloadIndex,
+    string referenceKind)
+{
+    if (slotName == "Kind")
+    {
+        if (!node.HasExplicitKind)
+        {
+            errors.Add($"Factory '{factoryNode}' overload {overloadIndex + 1}: '{referenceKind}' references pseudo-slot 'Kind' but node '{node.Name}' does not have an explicit kind.");
+        }
+
+        return;
+    }
+
+    if (node.Slots.All(s => s.Name != slotName))
+    {
+        errors.Add($"Factory '{factoryNode}' overload {overloadIndex + 1}: '{referenceKind}' references unknown slot '{slotName}'.");
     }
 }
 

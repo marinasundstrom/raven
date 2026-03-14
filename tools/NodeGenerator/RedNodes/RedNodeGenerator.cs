@@ -466,7 +466,7 @@ public static class RedNodeGenerator
                 SwitchExpressionArm(DiscardPattern(), ThrowExpression(ObjectCreationExpression(IdentifierName("Exception"))
                     .WithArgumentList(ArgumentList())))))))));
 
-    public static CompilationUnitSyntax GenerateRedFactoryMethod(SyntaxNodeModel node)
+    public static CompilationUnitSyntax GenerateRedFactoryMethod(SyntaxNodeModel node, FactoryDefinitionModel? factoryDefinition = null)
     {
         if (node.IsAbstract)
             return null!; // skip abstract nodes
@@ -501,15 +501,15 @@ public static class RedNodeGenerator
 
             constructorArguments.Add(Argument(IdentifierName(parameterName)));
 
-            if (prop.Type == "Token" && prop.IsOptionalToken)
-            {
-                requiresConvenienceOverload = true;
-                invocationArguments.Add(Argument(CreateMissingTokenExpression()));
-            }
-            else if (prop.Type == "Token" && prop.DefaultToken is { } defaultToken)
+            if (prop.Type == "Token" && prop.DefaultToken is { } defaultToken)
             {
                 requiresConvenienceOverload = true;
                 invocationArguments.Add(Argument(CreateDefaultTokenExpression(defaultToken)));
+            }
+            else if (prop.Type == "Token" && prop.IsOptionalToken)
+            {
+                requiresConvenienceOverload = true;
+                invocationArguments.Add(Argument(CreateMissingTokenExpression()));
             }
             else if (prop.IsNullable)
             {
@@ -533,9 +533,13 @@ public static class RedNodeGenerator
                     .WithArgumentList(ArgumentList(SeparatedList(constructorArguments)))))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
-        var members = new List<MemberDeclarationSyntax> { method };
+        var members = new List<MemberDeclarationSyntax>();
 
-        if (requiresConvenienceOverload && minimalParameters.Count < parameters.Count)
+        if (factoryDefinition is not null)
+        {
+            members.AddRange(GenerateExplicitFactoryOverloads(node, factoryDefinition));
+        }
+        else if (requiresConvenienceOverload && minimalParameters.Count < parameters.Count)
         {
             var minimalMethod = MethodDeclaration(IdentifierName(typeName), methodName)
                 .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
@@ -545,8 +549,10 @@ public static class RedNodeGenerator
                         .WithArgumentList(ArgumentList(SeparatedList(invocationArguments)))))
                 .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
-            members.Insert(0, minimalMethod);
+            members.Add(minimalMethod);
         }
+
+        members.Add(method);
 
         var factoryClass = ClassDeclaration("SyntaxFactory")
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword), Token(SyntaxKind.PartialKeyword))
@@ -582,6 +588,77 @@ public static class RedNodeGenerator
                     SyntaxKind.SimpleMemberAccessExpression,
                     IdentifierName("SyntaxKind"),
                     IdentifierName(defaultTokenName))))));
+
+    private static IEnumerable<MethodDeclarationSyntax> GenerateExplicitFactoryOverloads(
+        SyntaxNodeModel node,
+        FactoryDefinitionModel factoryDefinition)
+    {
+        var typeName = node.Name + "Syntax";
+        var overloads = new List<MethodDeclarationSyntax>();
+
+        foreach (var overload in factoryDefinition.Overloads)
+        {
+            var parameters = new List<ParameterSyntax>();
+            var argumentMap = new Dictionary<string, ArgumentSyntax>(StringComparer.Ordinal);
+
+            foreach (var parameterDefinition in overload.Parameters)
+            {
+                if (parameterDefinition.Slot == "Kind")
+                {
+                    parameters.Add(
+                        Parameter(Identifier("kind"))
+                            .WithType(IdentifierName("SyntaxKind")));
+                    argumentMap["Kind"] = Argument(IdentifierName("kind"));
+                    continue;
+                }
+
+                var slot = node.Slots.Single(s => s.Name == parameterDefinition.Slot);
+                parameters.Add(
+                    Parameter(Identifier(ToCamelCase(slot.Name)))
+                        .WithType(IdentifierName(MapRedType(slot.FullTypeName, slot.IsNullable))));
+                argumentMap[slot.Name] = Argument(IdentifierName(ToCamelCase(slot.Name)));
+            }
+
+            foreach (var defaultDefinition in overload.Defaults)
+            {
+                if (defaultDefinition.Slot == "Kind")
+                {
+                    argumentMap["Kind"] = Argument(CreateDefaultFactoryExpression(defaultDefinition));
+                    continue;
+                }
+
+                var slot = node.Slots.Single(s => s.Name == defaultDefinition.Slot);
+                argumentMap[slot.Name] = Argument(CreateDefaultFactoryExpression(defaultDefinition));
+            }
+
+            var invocationArguments = new List<ArgumentSyntax>();
+            if (node.HasExplicitKind)
+                invocationArguments.Add(argumentMap["Kind"]);
+            invocationArguments.AddRange(node.Slots.Select(slot => argumentMap[slot.Name]));
+
+            overloads.Add(
+                MethodDeclaration(IdentifierName(typeName), node.Name)
+                    .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
+                    .WithParameterList(ParameterList(SeparatedList(parameters)))
+                    .WithExpressionBody(ArrowExpressionClause(
+                        InvocationExpression(IdentifierName(node.Name))
+                            .WithArgumentList(ArgumentList(SeparatedList(invocationArguments)))))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)));
+        }
+
+        return overloads;
+    }
+
+    private static ExpressionSyntax CreateDefaultFactoryExpression(FactoryDefaultModel defaultDefinition)
+    {
+        if (defaultDefinition.Token is { } tokenName)
+            return CreateDefaultTokenExpression(tokenName);
+
+        if (defaultDefinition.Null)
+            return LiteralExpression(SyntaxKind.NullLiteralExpression);
+
+        throw new InvalidOperationException($"Factory default for slot '{defaultDefinition.Slot}' is missing a supported value.");
+    }
 
     private static string MapRedType(string rawType, bool nullable) => rawType switch
     {

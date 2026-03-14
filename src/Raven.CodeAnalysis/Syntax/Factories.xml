@@ -1,0 +1,386 @@
+<Factories>
+  <Factory Node="EmptyStatement">
+    <Overload>
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="ExpressionStatement">
+    <Overload>
+      <Parameter Slot="Expression" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="AssignmentStatement">
+    <Overload>
+      <Parameter Slot="Kind" />
+      <Parameter Slot="Left" />
+      <Parameter Slot="OperatorToken" />
+      <Parameter Slot="Right" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="PatternDeclarationAssignmentStatement">
+    <Overload>
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Left" />
+      <Parameter Slot="Right" />
+      <Default Slot="OperatorToken" Token="EqualsToken" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="IfStatement">
+    <Overload>
+      <Parameter Slot="Condition" />
+      <Parameter Slot="ThenStatement" />
+      <Default Slot="IfKeyword" Token="IfKeyword" />
+      <Default Slot="ElseClause" Null="true" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="WhileStatement">
+    <Overload>
+      <Parameter Slot="Condition" />
+      <Parameter Slot="Statement" />
+      <Default Slot="WhileKeyword" Token="WhileKeyword" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="LocalDeclarationStatement">
+    <Overload>
+      <Parameter Slot="Declaration" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="ReturnStatement">
+    <Overload>
+      <Parameter Slot="Expression" />
+      <Default Slot="ReturnKeyword" Token="ReturnKeyword" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+    <Overload>
+      <Default Slot="ReturnKeyword" Token="ReturnKeyword" />
+      <Default Slot="Expression" Null="true" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="BreakStatement">
+    <Overload>
+      <Default Slot="BreakKeyword" Token="BreakKeyword" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="ContinueStatement">
+    <Overload>
+      <Default Slot="ContinueKeyword" Token="ContinueKeyword" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="ThrowStatement">
+    <Overload>
+      <Parameter Slot="Expression" />
+      <Default Slot="ThrowKeyword" Token="ThrowKeyword" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="Parameter">
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Identifier" />
+      <Default Slot="AccessibilityKeyword" Token="None" />
+      <Default Slot="RefKindKeyword" Token="None" />
+      <Default Slot="ParamsKeyword" Token="None" />
+      <Default Slot="BindingKeyword" Token="None" />
+      <Default Slot="Pattern" Null="true" />
+      <Default Slot="TypeAnnotation" Null="true" />
+      <Default Slot="DotDotDotToken" Token="None" />
+      <Default Slot="DefaultValue" Null="true" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="TypeAnnotation" />
+      <Default Slot="AccessibilityKeyword" Token="None" />
+      <Default Slot="RefKindKeyword" Token="None" />
+      <Default Slot="ParamsKeyword" Token="None" />
+      <Default Slot="Pattern" Null="true" />
+      <Default Slot="DotDotDotToken" Token="None" />
+      <Default Slot="DefaultValue" Null="true" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="AccessorDeclaration">
+    <Overload>
+      <Parameter Slot="Kind" />
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="Keyword" />
+      <Default Slot="Body" Null="true" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="Kind" />
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="Keyword" />
+      <Parameter Slot="Body" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="Kind" />
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="Keyword" />
+      <Parameter Slot="ExpressionBody" />
+      <Default Slot="Body" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="DelegateDeclaration">
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="ParameterList" />
+      <Parameter Slot="ConstraintClauses" />
+      <Default Slot="DelegateKeyword" Token="DelegateKeyword" />
+      <Default Slot="TypeParameterList" Null="true" />
+      <Default Slot="ReturnType" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="ParameterList" />
+      <Parameter Slot="ReturnType" />
+      <Parameter Slot="ConstraintClauses" />
+      <Default Slot="DelegateKeyword" Token="DelegateKeyword" />
+      <Default Slot="TypeParameterList" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="ConstructorDeclaration">
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="ParameterList" />
+      <Default Slot="InitKeyword" Token="InitKeyword" />
+      <Default Slot="Initializer" Null="true" />
+      <Default Slot="Body" Null="true" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="ParameterList" />
+      <Parameter Slot="Initializer" />
+      <Parameter Slot="Body" />
+      <Default Slot="InitKeyword" Token="InitKeyword" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="ParameterList" />
+      <Parameter Slot="ExpressionBody" />
+      <Default Slot="InitKeyword" Token="InitKeyword" />
+      <Default Slot="Initializer" Null="true" />
+      <Default Slot="Body" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="ParameterlessConstructorDeclaration">
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Default Slot="InitKeyword" Token="InitKeyword" />
+      <Default Slot="Body" Null="true" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="Body" />
+      <Default Slot="InitKeyword" Token="InitKeyword" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="ExpressionBody" />
+      <Default Slot="InitKeyword" Token="InitKeyword" />
+      <Default Slot="Body" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="MethodDeclaration">
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="FuncKeyword" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="ParameterList" />
+      <Parameter Slot="ConstraintClauses" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="TypeParameterList" Null="true" />
+      <Default Slot="ReturnType" Null="true" />
+      <Default Slot="Body" Null="true" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="FuncKeyword" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="ParameterList" />
+      <Parameter Slot="ConstraintClauses" />
+      <Parameter Slot="Body" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="TypeParameterList" Null="true" />
+      <Default Slot="ReturnType" Null="true" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="FuncKeyword" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="ParameterList" />
+      <Parameter Slot="ConstraintClauses" />
+      <Parameter Slot="ExpressionBody" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="TypeParameterList" Null="true" />
+      <Default Slot="ReturnType" Null="true" />
+      <Default Slot="Body" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="PropertyDeclaration">
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="Type" />
+      <Default Slot="BindingKeyword" Token="None" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="AccessorList" Null="true" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="Initializer" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="Type" />
+      <Parameter Slot="AccessorList" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="Initializer" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="Type" />
+      <Parameter Slot="ExpressionBody" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="AccessorList" Null="true" />
+      <Default Slot="Initializer" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="IndexerDeclaration">
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="ParameterList" />
+      <Parameter Slot="Type" />
+      <Default Slot="BindingKeyword" Token="None" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="AccessorList" Null="true" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="Initializer" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="ParameterList" />
+      <Parameter Slot="Type" />
+      <Parameter Slot="AccessorList" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="Initializer" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="ParameterList" />
+      <Parameter Slot="Type" />
+      <Parameter Slot="ExpressionBody" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="AccessorList" Null="true" />
+      <Default Slot="Initializer" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="EventDeclaration">
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="Type" />
+      <Default Slot="EventKeyword" Token="EventKeyword" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="AccessorList" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="Type" />
+      <Parameter Slot="AccessorList" />
+      <Default Slot="EventKeyword" Token="EventKeyword" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+  </Factory>
+</Factories>

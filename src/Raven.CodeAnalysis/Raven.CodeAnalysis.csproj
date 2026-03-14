@@ -38,7 +38,7 @@
     Condition="'$(DesignTimeBuild)' != 'true'" />
 
   <Target Name="RunNodeGenerator"
-    Inputs="Syntax/Model.xml;Syntax/Tokens.xml;Syntax/NodeKinds.xml;../../tools/NodeGenerator/**/*.cs;../../tools/NodeGenerator/NodeGenerator.csproj;../../tools/NodesShared/**/*.cs;../../tools/NodesShared/NodesShared.csproj"
+    Inputs="Syntax/Model.xml;Syntax/Factories.xml;Syntax/Tokens.xml;Syntax/NodeKinds.xml;../../tools/NodeGenerator/**/*.cs;../../tools/NodeGenerator/NodeGenerator.csproj;../../tools/NodesShared/**/*.cs;../../tools/NodesShared/NodesShared.csproj"
     Outputs="Syntax/generated/.stamp"
     Condition="'$(DesignTimeBuild)' != 'true'">
     <MakeDir Directories="Syntax/generated" />
