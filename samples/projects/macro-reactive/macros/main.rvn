@@ -22,13 +22,15 @@ class ObservableMacro : IAttachedDeclarationMacro {
 
         val propertyName = property.Identifier.ValueText
         val backingFieldName = "_${propertyName}"
+        val signalStorageName = "_${propertyName}Changed"
         val signalMemberName = "${propertyName}Changed"
 
         MacroExpansionResult {
-            ReplacementDeclaration = CreateReplacementProperty(property, backingFieldName, signalMemberName)
+            ReplacementDeclaration = CreateReplacementProperty(property, backingFieldName, signalStorageName)
             IntroducedMembers = [
                 CreateBackingField(property, backingFieldName),
-                CreateSignalProperty(property, signalMemberName)
+                CreateSignalStorage(property, signalStorageName),
+                CreateSignalProperty(property, signalStorageName, signalMemberName)
             ]
         }
     }
@@ -47,8 +49,27 @@ class ObservableMacro : IAttachedDeclarationMacro {
             Token(SyntaxKind.None))
     }
 
-    func CreateSignalProperty(property: PropertyDeclarationSyntax, signalMemberName: string) -> PropertyDeclarationSyntax {
-        val signalType = CreateSignalType(property.Type.Type)
+    func CreateSignalStorage(property: PropertyDeclarationSyntax, signalStorageName: string) -> PropertyDeclarationSyntax {
+        val subjectType = CreateSubjectType(property.Type.Type)
+
+        PropertyDeclaration(
+            List<AttributeListSyntax>(),
+            TokenList([PrivateKeyword]),
+            ValKeyword,
+            null,
+            Identifier(signalStorageName),
+            TypeAnnotationClause(subjectType),
+            null,
+            null,
+            EqualsValueClause(
+                ObjectCreationExpression(
+                    subjectType,
+                    ArgumentList(SeparatedList<ArgumentSyntax>()))),
+            Token(SyntaxKind.None))
+    }
+
+    func CreateSignalProperty(property: PropertyDeclarationSyntax, signalStorageName: string, signalMemberName: string) -> PropertyDeclarationSyntax {
+        val observableType = CreateObservableType(property.Type.Type)
 
         PropertyDeclaration(
             List<AttributeListSyntax>(),
@@ -56,26 +77,23 @@ class ObservableMacro : IAttachedDeclarationMacro {
             ValKeyword,
             null,
             Identifier(signalMemberName),
-            TypeAnnotationClause(signalType),
+            TypeAnnotationClause(observableType),
             null,
+            ArrowExpressionClause(IdentifierName(signalStorageName)),
             null,
-            EqualsValueClause(
-                ObjectCreationExpression(
-                    signalType,
-                    ArgumentList(SeparatedList<ArgumentSyntax>()))),
             Token(SyntaxKind.None))
     }
 
-    func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string, signalMemberName: string) -> PropertyDeclarationSyntax {
+    func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string, signalStorageName: string) -> PropertyDeclarationSyntax {
         property
             .WithAttributeLists(List<AttributeListSyntax>())
-            .WithAccessorList(CreateAccessorList(backingFieldName, signalMemberName))
+            .WithAccessorList(CreateAccessorList(backingFieldName, signalStorageName))
             .WithExpressionBody(null)
             .WithInitializer(null)
             .WithTerminatorToken(Token(SyntaxKind.None))
     }
 
-    func CreateAccessorList(backingFieldName: string, signalMemberName: string) -> AccessorListSyntax {
+    func CreateAccessorList(backingFieldName: string, signalStorageName: string) -> AccessorListSyntax {
         AccessorList(
             List<AccessorDeclarationSyntax>([
                 AccessorDeclaration(
@@ -89,11 +107,11 @@ class ObservableMacro : IAttachedDeclarationMacro {
                     List<AttributeListSyntax>(),
                     TokenList(),
                     SetKeyword,
-                    CreateSetterBody(backingFieldName, signalMemberName))
+                    CreateSetterBody(backingFieldName, signalStorageName))
             ]))
     }
 
-    func CreateSetterBody(backingFieldName: string, signalMemberName: string) -> BlockStatementSyntax {
+    func CreateSetterBody(backingFieldName: string, signalStorageName: string) -> BlockStatementSyntax {
         BlockStatement(
             List<StatementSyntax>([
                 IfStatement(
@@ -124,9 +142,9 @@ class ObservableMacro : IAttachedDeclarationMacro {
                                 InvocationExpression(
                                     MemberAccessExpression(
                                         SyntaxKind.SimpleMemberAccessExpression,
-                                        IdentifierName(signalMemberName),
+                                        IdentifierName(signalStorageName),
                                         DotToken,
-                                        IdentifierName("Emit")),
+                                        IdentifierName("OnNext")),
                                     ArgumentList(
                                         SeparatedList<ArgumentSyntax>([
                                             SyntaxNodeOrToken(Argument(IdentifierName("value")))
@@ -137,9 +155,18 @@ class ObservableMacro : IAttachedDeclarationMacro {
             ]))
     }
 
-    func CreateSignalType(valueType: TypeSyntax) -> TypeSyntax {
+    func CreateSubjectType(valueType: TypeSyntax) -> TypeSyntax {
         GenericName(
-            Identifier("Signal"),
+            Identifier("Subject"),
+            TypeArgumentList(
+                SeparatedList<TypeArgumentSyntax>([
+                    SyntaxNodeOrToken(TypeArgument(valueType))
+                ])))
+    }
+
+    func CreateObservableType(valueType: TypeSyntax) -> TypeSyntax {
+        GenericName(
+            Identifier("IObservable"),
             TypeArgumentList(
                 SeparatedList<TypeArgumentSyntax>([
                     SyntaxNodeOrToken(TypeArgument(valueType))

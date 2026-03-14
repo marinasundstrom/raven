@@ -7,5 +7,6 @@
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
     <RavenMacro Include="../macros/ReactiveMacros.rvnproj" />
+    <PackageReference Include="System.Reactive" Version="6.1.0" />
   </ItemGroup>
 </Project>

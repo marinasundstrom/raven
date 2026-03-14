@@ -1,6 +1,8 @@
 import System.*
 import System.Console.*
-import System.Collections.Generic.*
+import System.Reactive.*
+import System.Reactive.Subjects.*
+import System.Reactive.Linq.*
 
 func Main() -> () {
     val viewModel = CounterViewModel()
@@ -17,41 +19,4 @@ func Main() -> () {
 class CounterViewModel {
     #[Observable]
     var Count: int = 0
-}
-
-class Signal<T> {
-    private val handlers: List<Action<T>> = List<Action<T>>()
-
-    func Subscribe(handler: Action<T>) -> IDisposable {
-        handlers.Add(handler)
-        Subscription<T>(self, handler)
-    }
-
-    func Emit(value: T) -> unit {
-        for handler in handlers {
-            handler(value)
-        }
-    }
-
-    func Unsubscribe(handler: Action<T>) -> unit {
-        handlers.Remove(handler)
-    }
-}
-
-class Subscription<T> : IDisposable {
-    private val owner: Signal<T>
-    private val handler: Action<T>
-    private var disposed: bool = false
-
-    init(owner: Signal<T>, handler: Action<T>) {
-        self.owner = owner
-        self.handler = handler
-    }
-
-    func Dispose() -> unit {
-        if !disposed {
-            disposed = true
-            owner.Unsubscribe(handler)
-        }
-    }
 }

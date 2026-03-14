@@ -26,10 +26,10 @@ class CounterViewModel {
 Current status:
 
 - The macro plugin is written in Raven, not C#.
-- `#[Observable]` introduces a companion `CountChanged` signal next to the property.
+- `#[Observable]` introduces a companion `CountChanged: IObservable<int>` member next to the property.
 - The property replacement setter only pushes when the value actually changes.
-- `#subscribe(...)` expands structurally from a property access like `viewModel.Count` to `viewModel.CountChanged.Subscribe(...)`.
-- The sample is self-contained and does not depend on a base class or external reactive package.
+- `#subscribe(...)` expands structurally from a property access like `viewModel.Count` to `Subscribe(viewModel.CountChanged, ...)`.
+- The sample takes a dependency on `System.Reactive` and uses `Subject<T>` as the backing push mechanism.
 
 Files:
 
