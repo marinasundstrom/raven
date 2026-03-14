@@ -24,7 +24,9 @@ Current status:
 
 - The macro plugin is written in Raven, not C#.
 - `#[Observable]` is resolved from a `RavenMacro` assembly reference.
+- The plugin builds its expansion with the syntax API instead of parsing a generated source string.
 - The plugin returns both an introduced backing field and a replacement property declaration through `MacroExpansionResult`.
+- The original property initializer is transferred onto the generated backing storage.
 - The expanded setter now calls `RaisePropertyChanged(...)` through the replacement declaration.
 
 Files:

@@ -1,6 +1,7 @@
 import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 class ObservableMacroPlugin : IRavenMacroPlugin {
     val Name: string => "SampleMacros.Observable"
@@ -21,38 +22,142 @@ class ObservableMacro : IAttachedDeclarationMacro {
         }
 
         val propertyName = property.Identifier.ValueText
-        val propertyType = property.Type.Type.ToString()
         val backingFieldName = "_${propertyName}"
-
-        val tree = SyntaxFactory.ParseSyntaxTree("""
-            class __GeneratedContainer {
-                private var ${backingFieldName}: ${propertyType}
-
-                var ${propertyName}: ${propertyType} {
-                    get => ${backingFieldName}
-                    set {
-                        val oldValue = ${backingFieldName}
-                        ${backingFieldName} = value
-                        RaisePropertyChanged(nameof(${propertyName}), oldValue, value)
-                    }
-                }
-            }
-            """)
-
-        val container = tree.GetRoot().Members[0] as ClassDeclarationSyntax
-        if container is null {
-            return MacroExpansionResult.Empty
-        }
-
-        val backingFieldMember = container.Members[0] as PropertyDeclarationSyntax
-        val replacement = container.Members[1] as PropertyDeclarationSyntax
-        if backingFieldMember is null || replacement is null {
+        val backingFieldMember = CreateBackingField(property, backingFieldName)
+        val replacement = CreateReplacementProperty(property, backingFieldName)
+        val rootedMembers = RootGeneratedMembers(
+            SyntaxFactory.List<MemberDeclarationSyntax>([backingFieldMember, replacement]))
+        val rootedBackingField = rootedMembers[0] as PropertyDeclarationSyntax
+        val rootedReplacement = rootedMembers[1] as PropertyDeclarationSyntax
+        if rootedBackingField is null || rootedReplacement is null {
             return MacroExpansionResult.Empty
         }
 
         MacroExpansionResult {
-            ReplacementDeclaration = replacement
-            IntroducedMembers = [backingFieldMember]
+            ReplacementDeclaration = rootedReplacement
+            IntroducedMembers = [rootedBackingField]
         }
+    }
+
+    func RootGeneratedMembers(members: SyntaxList<MemberDeclarationSyntax>) -> SyntaxList<MemberDeclarationSyntax> {
+        val container = SyntaxFactory.ClassDeclaration(
+            SyntaxFactory.List<AttributeListSyntax>(),
+            SyntaxFactory.TokenList(),
+            SyntaxFactory.Token(SyntaxKind.ClassKeyword),
+            SyntaxFactory.Identifier("__GeneratedContainer"),
+            SyntaxFactory.List<TypeParameterConstraintClauseSyntax>(),
+            members)
+
+        val compilationUnit = SyntaxFactory.CompilationUnit(
+            SyntaxFactory.List<ImportDirectiveSyntax>(),
+            SyntaxFactory.List<AliasDirectiveSyntax>(),
+            SyntaxFactory.List<AttributeListSyntax>(),
+            SyntaxFactory.List<MemberDeclarationSyntax>([container]))
+
+        val tree = SyntaxTree.Create(compilationUnit.NormalizeWhitespace())
+        val root = tree.GetRoot()
+        val generatedContainer = root.Members[0] as ClassDeclarationSyntax
+        if generatedContainer is null {
+            return SyntaxFactory.List<MemberDeclarationSyntax>()
+        }
+
+        generatedContainer.Members
+    }
+
+    func CreateBackingField(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
+        SyntaxFactory.PropertyDeclaration(
+            List<AttributeListSyntax>(),
+            TokenList([Token(SyntaxKind.PrivateKeyword)]),
+            Token(SyntaxKind.VarKeyword),
+            null,
+            Identifier(backingFieldName),
+            property.Type,
+            null,
+            null,
+            property.Initializer,
+            Token(SyntaxKind.None))
+    }
+
+    func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
+        property
+            .WithAttributeLists(List<AttributeListSyntax>())
+            .WithAccessorList(CreateAccessorList(backingFieldName, property.Identifier.ValueText))
+            .WithExpressionBody(null)
+            .WithInitializer(null)
+            .WithTerminatorToken(Token(SyntaxKind.None))
+    }
+
+    func CreateAccessorList(backingFieldName: string, propertyName: string) -> AccessorListSyntax {
+        AccessorList(
+            List<AccessorDeclarationSyntax>([
+                CreateGetterAccessor(backingFieldName),
+                CreateSetterAccessor(backingFieldName, propertyName)
+            ]))
+    }
+
+    func CreateGetterAccessor(backingFieldName: string) -> AccessorDeclarationSyntax {
+        AccessorDeclaration(
+            SyntaxKind.GetAccessorDeclaration,
+            List<AttributeListSyntax>(),
+            TokenList(),
+            Token(SyntaxKind.GetKeyword),
+            null,
+            ArrowExpressionClause(IdentifierName(backingFieldName)),
+            Token(SyntaxKind.None))
+    }
+
+    func CreateSetterAccessor(backingFieldName: string, propertyName: string) -> AccessorDeclarationSyntax {
+        AccessorDeclaration(
+            SyntaxKind.SetAccessorDeclaration,
+            List<AttributeListSyntax>(),
+            TokenList(),
+            Token(SyntaxKind.SetKeyword),
+            CreateSetterBody(backingFieldName, propertyName),
+            null,
+            Token(SyntaxKind.None))
+    }
+
+    func CreateSetterBody(backingFieldName: string, propertyName: string) -> BlockStatementSyntax {
+        BlockStatement(
+            List<StatementSyntax>([
+                CreateOldValueDeclaration(backingFieldName),
+                CreateBackingFieldAssignment(backingFieldName),
+                CreateRaisePropertyChangedStatement(propertyName)
+            ]))
+    }
+
+    func CreateOldValueDeclaration(backingFieldName: string) -> LocalDeclarationStatementSyntax {
+        LocalDeclarationStatement(
+            VariableDeclaration(
+                Token(SyntaxKind.ValKeyword),
+                SeparatedList<VariableDeclaratorSyntax>([
+                    SyntaxNodeOrToken(
+                        VariableDeclarator(
+                            Identifier("oldValue"),
+                            null,
+                            EqualsValueClause(IdentifierName(backingFieldName))))
+                ])))
+    }
+
+    func CreateBackingFieldAssignment(backingFieldName: string) -> AssignmentStatementSyntax {
+        AssignmentStatement(
+            SyntaxKind.SimpleAssignmentStatement,
+            IdentifierName(backingFieldName),
+            Token(SyntaxKind.EqualsToken),
+            IdentifierName("value"))
+    }
+
+    func CreateRaisePropertyChangedStatement(propertyName: string) -> ExpressionStatementSyntax {
+        ExpressionStatement(
+            InvocationExpression(
+                IdentifierName("RaisePropertyChanged"),
+                ArgumentList(
+                    SeparatedList<ArgumentSyntax>([
+                        SyntaxNodeOrToken(Argument(NameOfExpression(IdentifierName(propertyName)))),
+                        SyntaxNodeOrToken(Token(SyntaxKind.CommaToken)),
+                        SyntaxNodeOrToken(Argument(IdentifierName("oldValue"))),
+                        SyntaxNodeOrToken(Token(SyntaxKind.CommaToken)),
+                        SyntaxNodeOrToken(Argument(IdentifierName("value")))
+                    ]))))
     }
 }
