@@ -42,14 +42,11 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
         try
         {
             using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
-            if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+            if (!_documents.TryGetDocumentContext(request.TextDocument.Uri, out var document, out var compilation) || compilation is null)
                 return null;
 
             var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
             if (syntaxTree is null)
-                return null;
-
-            if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
                 return null;
 
             var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
@@ -95,14 +92,11 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
             if (!RenameService.IsValidIdentifier(request.NewName))
                 return null;
 
-            if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+            if (!_documents.TryGetDocumentContext(request.TextDocument.Uri, out var document, out var compilation) || compilation is null)
                 return null;
 
             var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
             if (syntaxTree is null)
-                return null;
-
-            if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
                 return null;
 
             var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);

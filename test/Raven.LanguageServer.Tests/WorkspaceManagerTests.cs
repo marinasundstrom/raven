@@ -158,6 +158,79 @@ class MacroPlugin { }
         Should.NotThrow(() => compilation.GetSemanticModel(syntaxTree!));
     }
 
+    [Fact]
+    public async Task SwitchingBetweenSiblingProjectDocuments_DoesNotDetachAppDocumentFromCompilation()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        WriteMacroFreestandingLayout(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var appPath = Path.Combine(_tempRoot, "app", "src", "main.rvn");
+        var macroPath = Path.Combine(_tempRoot, "macros", "main.rvn");
+        var appUri = DocumentUri.FromFileSystemPath(appPath);
+        var macroUri = DocumentUri.FromFileSystemPath(macroPath);
+
+        _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
+        _ = manager.UpsertDocument(macroUri, File.ReadAllText(macroPath));
+        manager.RemoveDocument(macroUri).ShouldBeTrue();
+        _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
+
+        manager.TryGetDocument(appUri, out var document).ShouldBeTrue();
+        document.ShouldNotBeNull();
+        manager.TryGetCompilation(appUri, out var compilation).ShouldBeTrue();
+        compilation.ShouldNotBeNull();
+
+        var syntaxTree = await document.GetSyntaxTreeAsync();
+        syntaxTree.ShouldNotBeNull();
+        Should.NotThrow(() => compilation.GetSemanticModel(syntaxTree!));
+    }
+
+    [Fact]
+    public async Task TryGetDocumentContext_ReturnsMatchingDocumentAndCompilationAfterSiblingSwitch()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        WriteMacroFreestandingLayout(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var appPath = Path.Combine(_tempRoot, "app", "src", "main.rvn");
+        var macroPath = Path.Combine(_tempRoot, "macros", "main.rvn");
+        var appUri = DocumentUri.FromFileSystemPath(appPath);
+        var macroUri = DocumentUri.FromFileSystemPath(macroPath);
+
+        _ = store.UpsertDocument(appUri, File.ReadAllText(appPath));
+        _ = store.UpsertDocument(macroUri, File.ReadAllText(macroPath));
+        store.RemoveDocument(macroUri).ShouldBeTrue();
+
+        store.TryGetDocumentContext(appUri, out var document, out var compilation).ShouldBeTrue();
+        document.ShouldNotBeNull();
+        compilation.ShouldNotBeNull();
+
+        var syntaxTree = await document.GetSyntaxTreeAsync();
+        syntaxTree.ShouldNotBeNull();
+        Should.NotThrow(() => compilation.GetSemanticModel(syntaxTree!));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))
@@ -234,6 +307,66 @@ class ObservableMacro: IAttachedDeclarationMacro {
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
         MacroExpansionResult.Empty
+    }
+}
+""");
+    }
+
+    private static void WriteMacroFreestandingLayout(string root)
+    {
+        var ravenCodeAnalysisPath = typeof(RavenWorkspace).Assembly.Location;
+
+        _ = WriteProject(Path.Combine(root, "app"), "MacroFreestanding", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>MacroFreestanding</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+    <RavenMacro Include="../macros/FreestandingMacros.rvnproj" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(root, "app", "src", "main.rvn"), """
+func Main() -> int => #answer()
+""");
+
+        _ = WriteProject(Path.Combine(root, "macros"), "FreestandingMacros", $$"""
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>FreestandingMacros</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="main.rvn" />
+    <Reference Include="Raven.CodeAnalysis">
+      <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(root, "macros", "main.rvn"), """
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+
+class FreestandingMacroPlugin: IRavenMacroPlugin {
+    val Name: string => "SampleMacros.Answer"
+
+    func GetMacros() -> ImmutableArray<IMacroDefinition> {
+        ImmutableArray.Create<IMacroDefinition>(AnswerMacro())
+    }
+}
+
+class AnswerMacro: IFreestandingExpressionMacro {
+    val Name: string => "answer"
+    val Kind: MacroKind => MacroKind.FreestandingExpression
+    val Targets: MacroTarget => MacroTarget.None
+
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.Empty
     }
 }
 """);

@@ -1,10 +1,13 @@
 using Raven.CodeAnalysis.Text;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
 /// <summary>Immutable metadata about a document (file path, name, etc.).</summary>
 public sealed class DocumentInfo
 {
+    private SyntaxTree? _syntaxTree;
+
     public DocumentInfo(DocumentAttributes attributes) => Attributes = attributes;
 
     public DocumentAttributes Attributes { get; }
@@ -24,6 +27,12 @@ public sealed class DocumentInfo
     public DocumentInfo WithName(string newName) => new(Attributes.WithName(newName));
 
     public DocumentInfo WithFilePath(string? newPath) => new(Attributes.WithFilePath(newPath));
+
+    internal SyntaxTree? GetOrCreateSyntaxTree(Func<SyntaxTree?> factory)
+    {
+        _syntaxTree ??= factory();
+        return _syntaxTree;
+    }
 
     /// <summary>Record that actually stores the data. Immutable for structural sharing.</summary>
     public sealed record DocumentAttributes(

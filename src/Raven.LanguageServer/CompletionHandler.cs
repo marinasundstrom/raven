@@ -49,7 +49,7 @@ internal sealed class CompletionHandler : ICompletionHandler
                 request.Context?.TriggerKind,
                 request.Context?.TriggerCharacter);
 
-            if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+            if (!_documents.TryGetDocumentContext(request.TextDocument.Uri, out var document, out var compilation) || compilation is null)
                 return new CompletionList();
 
             var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
@@ -58,8 +58,6 @@ internal sealed class CompletionHandler : ICompletionHandler
 
             var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
             var position = PositionHelper.ToOffset(text, request.Position);
-            if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
-                return new CompletionList();
 
             var items = (await _completionService.GetCompletionsAsync(compilation, syntaxTree, position, cancellationToken).ConfigureAwait(false))
                 .Select(item => CompletionItemMapper.ToLspCompletion(item, text))

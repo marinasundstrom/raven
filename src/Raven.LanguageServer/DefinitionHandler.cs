@@ -40,14 +40,11 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         try
         {
             using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
-            if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+            if (!_documents.TryGetDocumentContext(request.TextDocument.Uri, out var document, out var compilation) || compilation is null)
                 return new LocationOrLocationLinks();
 
             var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
             if (syntaxTree is null)
-                return new LocationOrLocationLinks();
-
-            if (!_documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) || compilation is null)
                 return new LocationOrLocationLinks();
 
             var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);

@@ -41,23 +41,30 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         => new(uri, "raven");
 
     public override Task<Unit> Handle(DidOpenTextDocumentParams notification, CancellationToken cancellationToken)
+        => HandleDidOpenAsync(notification, cancellationToken);
+
+    private async Task<Unit> HandleDidOpenAsync(DidOpenTextDocumentParams notification, CancellationToken cancellationToken)
     {
         try
         {
-            _documents.UpsertDocument(notification.TextDocument.Uri, notification.TextDocument.Text);
-            if (notification.TextDocument.Version is { } openVersion)
-                _documentVersions[notification.TextDocument.Uri] = openVersion;
-            _logger.LogDebug(
-                "DidOpen {Uri} (version={Version}, length={Length}).",
-                notification.TextDocument.Uri,
-                notification.TextDocument.Version,
-                notification.TextDocument.Text?.Length ?? 0);
-            return PublishDiagnosticsAsync(notification.TextDocument.Uri, CancellationToken.None, expectedVersion: notification.TextDocument.Version);
+            using (await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false))
+            {
+                _documents.UpsertDocument(notification.TextDocument.Uri, notification.TextDocument.Text);
+                if (notification.TextDocument.Version is { } openVersion)
+                    _documentVersions[notification.TextDocument.Uri] = openVersion;
+                _logger.LogDebug(
+                    "DidOpen {Uri} (version={Version}, length={Length}).",
+                    notification.TextDocument.Uri,
+                    notification.TextDocument.Version,
+                    notification.TextDocument.Text?.Length ?? 0);
+            }
+
+            return await PublishDiagnosticsAsync(notification.TextDocument.Uri, CancellationToken.None, expectedVersion: notification.TextDocument.Version).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "DidOpen handling failed for {Uri}.", notification.TextDocument.Uri);
-            return Task.FromResult(Unit.Value);
+            return Unit.Value;
         }
     }
 
@@ -71,6 +78,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
         try
         {
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
             if (notification.TextDocument.Version is { } incomingVersion &&
                 _documentVersions.TryGetValue(notification.TextDocument.Uri, out var currentVersion) &&
                 incomingVersion < currentVersion)
@@ -146,9 +154,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     }
 
     public override Task<Unit> Handle(DidCloseTextDocumentParams notification, CancellationToken cancellationToken)
+        => HandleDidCloseAsync(notification, cancellationToken);
+
+    private async Task<Unit> HandleDidCloseAsync(DidCloseTextDocumentParams notification, CancellationToken cancellationToken)
     {
         try
         {
+            using var lease = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
             CancelPendingDiagnostics(notification.TextDocument.Uri);
             _documents.RemoveDocument(notification.TextDocument.Uri);
             _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
@@ -167,11 +179,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             _logger.LogError(ex, "DidClose handling failed for {Uri}.", notification.TextDocument.Uri);
         }
 
-        return Task.FromResult(Unit.Value);
+        return Unit.Value;
     }
 
-    public override Task<Unit> Handle(DidSaveTextDocumentParams notification, CancellationToken cancellationToken)
-        => PublishDiagnosticsAsync(notification.TextDocument.Uri, CancellationToken.None);
+    public override async Task<Unit> Handle(DidSaveTextDocumentParams notification, CancellationToken cancellationToken)
+    {
+        return await PublishDiagnosticsAsync(notification.TextDocument.Uri, CancellationToken.None).ConfigureAwait(false);
+    }
 
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)
         => new()

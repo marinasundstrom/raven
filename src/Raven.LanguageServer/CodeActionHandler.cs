@@ -51,7 +51,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
         try
         {
             using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
-            if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+            if (!_documents.TryGetDocumentContext(request.TextDocument.Uri, out var document, out var compilation) || compilation is null)
                 return new CommandOrCodeActionContainer();
 
             var documentText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
@@ -66,9 +66,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
             var actions = new List<CommandOrCodeAction>(filteredFixes.Length + 1);
 
             var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-            if (syntaxTree is not null &&
-                _documents.TryGetCompilation(request.TextDocument.Uri, out var compilation) &&
-                compilation is not null)
+            if (syntaxTree is not null)
             {
                 var semanticModel = compilation.GetSemanticModel(syntaxTree);
                 var root = syntaxTree.GetRoot(cancellationToken);

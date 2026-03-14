@@ -123,6 +123,38 @@ public class WorkspaceTest
     }
 
     [Fact]
+    public async Task GetCompilation_ShouldPreserveSyntaxTreeInstanceWhenVersionMatchesAcrossSolutionSnapshots()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var docId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(docId, "Main.rvn", SourceText.From("func Main() -> () { }"), "Main.rvn");
+        workspace.TryApplyChanges(solution);
+
+        var originalDocument = workspace.CurrentSolution.GetDocument(docId)!;
+        var originalTree = await originalDocument.GetSyntaxTreeAsync();
+        var compilation1 = workspace.GetCompilation(projectId);
+        Assert.Same(originalTree, Assert.Single(compilation1.SyntaxTrees));
+
+        solution = workspace.CurrentSolution.WithCompilationOptions(projectId, new CompilationOptions(OutputKind.ConsoleApplication));
+        workspace.TryApplyChanges(solution);
+
+        var reparsedDocument = workspace.CurrentSolution.GetDocument(docId)!;
+        var reparsedTree = await reparsedDocument.GetSyntaxTreeAsync();
+        Assert.Same(originalTree, reparsedTree);
+
+        var compilation2 = workspace.GetCompilation(projectId);
+        var compilationTree = Assert.Single(compilation2.SyntaxTrees);
+
+        Assert.Same(originalTree, compilationTree);
+        Assert.Same(compilation2.GetSemanticModel(reparsedTree!), compilation2.GetSemanticModel(compilationTree));
+    }
+
+    [Fact]
     public void WorkspaceEvents_ShouldRaiseOnProjectAdded()
     {
         WorkspaceChangeEventArgs? args = null;

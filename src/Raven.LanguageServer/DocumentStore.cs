@@ -36,6 +36,12 @@ internal sealed class DocumentStore
     public bool TryGetDocument(DocumentUri uri, [NotNullWhen(true)] out Document? document)
         => _workspaceManager.TryGetDocument(uri, out document);
 
+    public bool TryGetDocumentContext(
+        DocumentUri uri,
+        [NotNullWhen(true)] out Document? document,
+        [NotNullWhen(true)] out Compilation? compilation)
+        => _workspaceManager.TryGetDocumentContext(uri, out document, out compilation);
+
     public bool TryGetCompilation(DocumentUri uri, [NotNullWhen(true)] out Compilation? compilation)
         => _workspaceManager.TryGetCompilation(uri, out compilation);
 

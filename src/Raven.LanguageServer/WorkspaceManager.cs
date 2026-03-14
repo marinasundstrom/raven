@@ -328,6 +328,23 @@ internal sealed class WorkspaceManager
         return false;
     }
 
+    public bool TryGetDocumentContext(DocumentUri uri, out Document? document, out Compilation? compilation)
+    {
+        if (TryResolveOwnedDocument(uri, out var ownedDocument))
+        {
+            document = _workspace.CurrentSolution.GetDocument(ownedDocument.DocumentId);
+            if (document is not null)
+            {
+                compilation = _workspace.GetCompilation(document.Project.Id);
+                return true;
+            }
+        }
+
+        document = null;
+        compilation = null;
+        return false;
+    }
+
     public bool TryGetCompilation(DocumentUri uri, out Compilation? compilation)
     {
         if (TryResolveOwnedDocument(uri, out var ownedDocument))

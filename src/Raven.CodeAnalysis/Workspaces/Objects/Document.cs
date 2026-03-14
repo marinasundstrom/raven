@@ -60,8 +60,8 @@ public sealed class Document
     {
         get
         {
-            if (_syntaxTree is null)
-                _syntaxTree = Solution.Services.SyntaxTreeProvider.TryParse(Name, Text, FilePath);
+            _syntaxTree ??= _info.GetOrCreateSyntaxTree(() =>
+                Solution.Services.SyntaxTreeProvider.TryParse(Name, Text, FilePath));
             return _syntaxTree;
         }
     }
