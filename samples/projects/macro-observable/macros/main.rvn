@@ -35,8 +35,8 @@ class ObservableMacro : IAttachedDeclarationMacro {
     func CreateBackingField(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
         SyntaxFactory.PropertyDeclaration(
             List<AttributeListSyntax>(),
-            TokenList([Token(SyntaxKind.PrivateKeyword)]),
-            Token(SyntaxKind.VarKeyword),
+            TokenList([PrivateKeyword]),
+            VarKeyword,
             null,
             Identifier(backingFieldName),
             property.Type,
@@ -68,7 +68,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             SyntaxKind.GetAccessorDeclaration,
             List<AttributeListSyntax>(),
             TokenList(),
-            Token(SyntaxKind.GetKeyword),
+            GetKeyword,
             null,
             ArrowExpressionClause(IdentifierName(backingFieldName)),
             NewLineToken)
@@ -79,7 +79,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             SyntaxKind.SetAccessorDeclaration,
             List<AttributeListSyntax>(),
             TokenList(),
-            Token(SyntaxKind.SetKeyword),
+            SetKeyword,
             CreateSetterBody(backingFieldName, propertyName),
             null,
             Token(SyntaxKind.None))
@@ -97,7 +97,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     func CreateOldValueDeclaration(backingFieldName: string) -> LocalDeclarationStatementSyntax {
         LocalDeclarationStatement(
             VariableDeclaration(
-                Token(SyntaxKind.ValKeyword),
+                ValKeyword,
                 SeparatedList<VariableDeclaratorSyntax>([
                     SyntaxNodeOrToken(
                         VariableDeclarator(
@@ -112,7 +112,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
         AssignmentStatement(
             SyntaxKind.SimpleAssignmentStatement,
             IdentifierName(backingFieldName),
-            Token(SyntaxKind.EqualsToken),
+            EqualsToken,
             IdentifierName("value"),
             NewLineToken)
     }
@@ -124,9 +124,9 @@ class ObservableMacro : IAttachedDeclarationMacro {
                 ArgumentList(
                     SeparatedList<ArgumentSyntax>([
                         SyntaxNodeOrToken(Argument(NameOfExpression(IdentifierName(propertyName)))),
-                        SyntaxNodeOrToken(Token(SyntaxKind.CommaToken)),
+                        SyntaxNodeOrToken(CommaToken),
                         SyntaxNodeOrToken(Argument(IdentifierName("oldValue"))),
-                        SyntaxNodeOrToken(Token(SyntaxKind.CommaToken)),
+                        SyntaxNodeOrToken(CommaToken),
                         SyntaxNodeOrToken(Argument(IdentifierName("value")))
                     ]))))
     }
