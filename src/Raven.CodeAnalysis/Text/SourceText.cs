@@ -85,6 +85,25 @@ public class SourceText
         return TextUtils.GetLineAndColumn(_lineStarts, position);
     }
 
+    public int GetLineCount() => _lineStarts.Count;
+
+    public int GetLineLength(int zeroBasedLine)
+    {
+        if (zeroBasedLine < 0)
+            return 0;
+
+        if (zeroBasedLine >= _lineStarts.Count)
+            return 0;
+
+        var start = _lineStarts[zeroBasedLine];
+        var end = zeroBasedLine + 1 < _lineStarts.Count ? _lineStarts[zeroBasedLine + 1] : _text.Length;
+
+        while (end > start && (_text[end - 1] == '\n' || _text[end - 1] == '\r'))
+            end--;
+
+        return Math.Max(0, end - start);
+    }
+
     public TextReader GetTextReader()
     {
         return new StringReader(_text);

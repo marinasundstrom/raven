@@ -214,6 +214,42 @@ public sealed class MacroCodeGenTests
         Assert.Equal(1, method!.Invoke(null, null));
     }
 
+    [Fact]
+    public void AttachedPropertyMacro_WithIntroducedGenericInitializer_EmitsWithoutSequencePointCrash()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import System.Collections.Generic.*
+
+            class MyViewModel {
+                #[Reactive]
+                var Title: string = ""
+            }
+
+            class Harness {
+                static func Run() -> string {
+                    val model = MyViewModel()
+                    model.Title = "Hello"
+                    return model.Title
+                }
+            }
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(GenericInitializerMacroPlugin)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var method = assembly.GetType("Harness", true)!.GetMethod("Run", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.Equal("Hello", method!.Invoke(null, null));
+    }
+
     private static void AssertObservablePropertyShape(Compilation compilation, SyntaxTree syntaxTree)
     {
         var model = compilation.GetSemanticModel(syntaxTree);
@@ -470,6 +506,53 @@ public sealed class MacroCodeGenTests
             {
                 ReplacementDeclaration = replacement,
                 IntroducedMembers = [backingStorage]
+            };
+        }
+    }
+
+    public sealed class GenericInitializerMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "GenericInitializerMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new GenericInitializerReactivePropertyMacro()];
+    }
+
+    private sealed class GenericInitializerReactivePropertyMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "Reactive";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var tree = SyntaxFactory.ParseSyntaxTree("""
+                class __GeneratedContainer {
+                    private val _TitleChanged: List<string> = List<string>()
+
+                    var Title: string {
+                        get => _Title
+                        set {
+                            _Title = value
+                            _TitleChanged.Add(value)
+                        }
+                    }
+
+                    private var _Title: string = ""
+                }
+                """);
+
+            var container = Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members.Single());
+            var changedList = Assert.IsType<PropertyDeclarationSyntax>(container.Members[0]);
+            var property = Assert.IsType<PropertyDeclarationSyntax>(container.Members[1]);
+            var backingStorage = Assert.IsType<PropertyDeclarationSyntax>(container.Members[2]);
+
+            return new MacroExpansionResult
+            {
+                ReplacementDeclaration = property,
+                IntroducedMembers = [changedList, backingStorage]
             };
         }
     }

@@ -243,12 +243,13 @@ internal class MethodBodyGenerator
         var document = GetOrAddDocument(syntax.SyntaxTree);
 
         var lineSpan = location.GetLineSpan();
+        var (startLine, startColumn, endLine, endColumn) = NormalizeSequencePoint(lineSpan, syntax.SyntaxTree);
         var signature = new SequencePointSignature(
             syntax.SyntaxTree.FilePath ?? string.Empty,
-            lineSpan.StartLinePosition.Line + 1,
-            lineSpan.StartLinePosition.Character + 1,
-            lineSpan.EndLinePosition.Line + 1,
-            lineSpan.EndLinePosition.Character + 1);
+            startLine,
+            startColumn,
+            endLine,
+            endColumn);
         if (_emittedSequencePoints.Contains(signature))
             return;
 
@@ -266,12 +267,21 @@ internal class MethodBodyGenerator
             if (spanLines >= 8)
             {
                 Console.Error.WriteLine(
-                    $"[SEQ-WIDE] method={MethodSymbol.Name} syntax={syntax.GetType().Name} span={lineSpan.StartLinePosition.Line + 1}:{lineSpan.StartLinePosition.Character + 1}-{lineSpan.EndLinePosition.Line + 1}:{lineSpan.EndLinePosition.Character + 1} file={syntax.SyntaxTree.FilePath}");
+                    $"[SEQ-WIDE] method={MethodSymbol.Name} syntax={syntax.GetType().Name} span={startLine}:{startColumn}-{endLine}:{endColumn} file={syntax.SyntaxTree.FilePath}");
             }
         }
 
         ILGenerator.Emit(OpCodes.Nop);
-        ILGenerator.MarkSequencePoint(document, lineSpan.StartLinePosition.Line + 1, lineSpan.StartLinePosition.Character + 1, lineSpan.EndLinePosition.Line + 1, lineSpan.EndLinePosition.Character + 1);
+        try
+        {
+            ILGenerator.MarkSequencePoint(document, startLine, startColumn, endLine, endColumn);
+        }
+        catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "endColumn")
+        {
+            throw new InvalidOperationException(
+                $"Invalid sequence point for {syntax.GetType().Name} in {syntax.SyntaxTree.FilePath}: {startLine}:{startColumn}-{endLine}:{endColumn} (text length: {syntax.SyntaxTree.GetText()?.Length ?? 0})",
+                ex);
+        }
         _lastSequencePoint = signature;
         _emittedSequencePoints.Add(signature);
     }
@@ -302,6 +312,50 @@ internal class MethodBodyGenerator
             return leftLine.CompareTo(rightLine);
 
         return leftColumn.CompareTo(rightColumn);
+    }
+
+    private static (int startLine, int startColumn, int endLine, int endColumn) NormalizeSequencePoint(
+        FileLinePositionSpan lineSpan,
+        SyntaxTree syntaxTree)
+    {
+        var text = syntaxTree.GetText();
+
+        var startLine = Math.Max(1, lineSpan.StartLinePosition.Line + 1);
+        var endLine = Math.Max(1, lineSpan.EndLinePosition.Line + 1);
+
+        var startColumn = Math.Max(1, lineSpan.StartLinePosition.Character + 1);
+        var endColumn = Math.Max(1, lineSpan.EndLinePosition.Character + 1);
+
+        var endLineLength = 0;
+        if (text is not null)
+        {
+            startLine = Math.Min(startLine, Math.Max(1, text.GetLineCount()));
+            endLine = Math.Min(endLine, Math.Max(1, text.GetLineCount()));
+
+            var startLineLength = text.GetLineLength(startLine - 1);
+            endLineLength = text.GetLineLength(endLine - 1);
+
+            startColumn = Math.Min(startColumn, Math.Max(1, startLineLength + 1));
+            endColumn = Math.Min(endColumn, Math.Max(1, endLineLength + 1));
+        }
+
+        if (endLine < startLine)
+            endLine = startLine;
+
+        if (endLine == startLine && endColumn <= startColumn)
+        {
+            if (endLineLength > 0)
+            {
+                startColumn = Math.Min(startColumn, endLineLength);
+                endColumn = Math.Min(endLineLength + 1, startColumn + 1);
+            }
+            else
+            {
+                endColumn = startColumn + 1;
+            }
+        }
+
+        return (startLine, startColumn, endLine, endColumn);
     }
 
     private static SyntaxNode NormalizeSequencePointSyntaxForEmission(SyntaxNode syntax)
