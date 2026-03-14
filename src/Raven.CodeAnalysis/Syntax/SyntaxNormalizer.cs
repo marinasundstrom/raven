@@ -141,6 +141,10 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         {
             lineBreaks = 0;
         }
+        else if (ShouldStartNewLineBefore(token))
+        {
+            lineBreaks = Math.Max(lineBreaks, 1);
+        }
         else if (token.Kind == SyntaxKind.CloseBraceToken
             && _previousToken.Kind != SyntaxKind.OpenBraceToken
             && !IsNewLineToken(_previousToken.Kind))
@@ -263,6 +267,27 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             && token.Kind is SyntaxKind.ElseKeyword or SyntaxKind.CatchKeyword or SyntaxKind.FinallyKeyword;
     }
 
+    private bool ShouldStartNewLineBefore(SyntaxToken token)
+    {
+        if (TryGetEnclosingAccessor(_previousToken, out var previousAccessor) &&
+            TryGetEnclosingAccessor(token, out var currentAccessor) &&
+            !ReferenceEquals(previousAccessor, currentAccessor) &&
+            ReferenceEquals(previousAccessor.Parent, currentAccessor.Parent))
+        {
+            return true;
+        }
+
+        if (TryGetEnclosingBlockStatement(_previousToken, out var previousStatement, out var previousBlock) &&
+            TryGetEnclosingBlockStatement(token, out var currentStatement, out var currentBlock) &&
+            !ReferenceEquals(previousStatement, currentStatement) &&
+            ReferenceEquals(previousBlock, currentBlock))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     private int GetPendingLineBreaksAfter(SyntaxToken token)
     {
         if (token.Kind == SyntaxKind.EndOfFileToken)
@@ -300,22 +325,28 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     private bool IsImplicitLineBreakToken(SyntaxToken token)
     {
-        if (token.Parent is null)
+        for (var current = token.Parent; current is not null; current = current.Parent)
         {
-            return false;
+            if (current.GetLastToken(includeZeroWidth: false) != token)
+                continue;
+
+            if (current is AccessorDeclarationSyntax)
+                return true;
+
+            if (current is StatementSyntax statement && statement.Parent is BlockStatementSyntax)
+                return true;
+
+            if (current.Kind is SyntaxKind.ImportDirective
+                or SyntaxKind.AliasDirective
+                or SyntaxKind.GlobalStatement
+                or SyntaxKind.EnumMemberDeclaration
+                or SyntaxKind.UnionCaseClause)
+            {
+                return true;
+            }
         }
 
-        if (token.Parent.GetLastToken(includeZeroWidth: true) != token)
-        {
-            return false;
-        }
-
-        // Keep directive/member forms and top-level statements line-oriented.
-        return token.Parent.Kind is SyntaxKind.ImportDirective
-            or SyntaxKind.AliasDirective
-            or SyntaxKind.GlobalStatement
-            or SyntaxKind.EnumMemberDeclaration
-            or SyntaxKind.UnionCaseClause;
+        return false;
     }
 
     private bool NeedsSpace(SyntaxToken previous, SyntaxToken current)
@@ -357,6 +388,11 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         }
 
         if (previous.Kind == SyntaxKind.CommaToken)
+        {
+            return true;
+        }
+
+        if (previous.Kind == SyntaxKind.SemicolonToken)
         {
             return true;
         }
@@ -424,6 +460,46 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             or SyntaxKind.LineFeedToken
             or SyntaxKind.CarriageReturnToken
             or SyntaxKind.CarriageReturnLineFeedToken;
+    }
+
+    private static bool TryGetEnclosingAccessor(SyntaxToken token, out AccessorDeclarationSyntax accessor)
+    {
+        for (var current = token.Parent; current is not null; current = current.Parent)
+        {
+            if (current is AccessorDeclarationSyntax found)
+            {
+                accessor = found;
+                return true;
+            }
+        }
+
+        accessor = null!;
+        return false;
+    }
+
+    private static bool TryGetEnclosingBlockStatement(
+        SyntaxToken token,
+        out StatementSyntax statement,
+        out BlockStatementSyntax block)
+    {
+        StatementSyntax? foundStatement = null;
+
+        for (var current = token.Parent; current is not null; current = current.Parent)
+        {
+            if (current is StatementSyntax currentStatement)
+                foundStatement ??= currentStatement;
+
+            if (current is BlockStatementSyntax currentBlock && foundStatement is not null)
+            {
+                statement = foundStatement;
+                block = currentBlock;
+                return true;
+            }
+        }
+
+        statement = null!;
+        block = null!;
+        return false;
     }
 
     private bool IsOperator(SyntaxToken token)

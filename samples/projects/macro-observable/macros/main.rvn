@@ -71,7 +71,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             Token(SyntaxKind.GetKeyword),
             null,
             ArrowExpressionClause(IdentifierName(backingFieldName)),
-            Token(SyntaxKind.None))
+            NewLineToken)
     }
 
     func CreateSetterAccessor(backingFieldName: string, propertyName: string) -> AccessorDeclarationSyntax {
@@ -104,7 +104,8 @@ class ObservableMacro : IAttachedDeclarationMacro {
                             Identifier("oldValue"),
                             null,
                             EqualsValueClause(IdentifierName(backingFieldName))))
-                ])))
+                ])),
+            NewLineToken)
     }
 
     func CreateBackingFieldAssignment(backingFieldName: string) -> AssignmentStatementSyntax {
@@ -112,7 +113,8 @@ class ObservableMacro : IAttachedDeclarationMacro {
             SyntaxKind.SimpleAssignmentStatement,
             IdentifierName(backingFieldName),
             Token(SyntaxKind.EqualsToken),
-            IdentifierName("value"))
+            IdentifierName("value"),
+            NewLineToken)
     }
 
     func CreateRaisePropertyChangedStatement(propertyName: string) -> ExpressionStatementSyntax {

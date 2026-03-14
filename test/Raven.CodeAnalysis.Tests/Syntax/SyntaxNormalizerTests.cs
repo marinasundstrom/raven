@@ -173,6 +173,56 @@ val second = 2
             formatted);
     }
 
+    [Fact]
+    public void NormalizeWhitespace_FormatsAccessorListsAndRawBlockStatements()
+    {
+        const string source = """
+class MyViewModel {
+    var Title: string {
+        get => _Title;
+        set {
+            val oldValue = _Title
+            _Title = value
+            RaisePropertyChanged(nameof(Title), oldValue, value)
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var accessors = property.AccessorList!.Accessors;
+        var setAccessor = accessors[1];
+        var statements = setAccessor.Body!.Statements;
+
+        var rawProperty = property
+            .WithAccessorList(SyntaxFactory.AccessorList(
+                SyntaxFactory.List([
+                    accessors[0].WithTerminatorToken(SyntaxFactory.Token(SyntaxKind.None)),
+                    setAccessor.WithTerminatorToken(SyntaxFactory.Token(SyntaxKind.None)).WithBody(
+                        setAccessor.Body.WithStatements(SyntaxFactory.List<StatementSyntax>([
+                            ((LocalDeclarationStatementSyntax)statements[0]).WithTerminatorToken(SyntaxFactory.Token(SyntaxKind.None)),
+                            ((AssignmentStatementSyntax)statements[1]).WithTerminatorToken(SyntaxFactory.Token(SyntaxKind.None)),
+                            ((ExpressionStatementSyntax)statements[2]).WithTerminatorToken(SyntaxFactory.Token(SyntaxKind.None))
+                        ])))
+                ])));
+
+        var normalized = rawProperty.NormalizeWhitespace().ToFullString();
+
+        var expected = """
+var Title: string {
+    get => _Title
+    set {
+        val oldValue = _Title
+        _Title = value
+        RaisePropertyChanged(nameof(Title), oldValue, value)
+    }
+}
+""";
+
+        Assert.Equal(expected, normalized);
+    }
+
     private static SyntaxTriviaList ToElasticTrivia(SyntaxTriviaList triviaList)
     {
         return SyntaxFactory.TriviaList(triviaList.Select(static trivia => trivia.Kind switch

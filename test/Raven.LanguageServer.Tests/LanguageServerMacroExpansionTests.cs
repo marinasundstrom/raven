@@ -86,6 +86,42 @@ class MyViewModel {
         display.FullText.ShouldContain("set {");
     }
 
+    [Fact]
+    public void MacroExpansionDisplayService_FormatsDetachedSyntaxFactoryExpansion()
+    {
+        const string code = """
+class MyViewModel {
+    #[Observable]
+    var Title: string = ""
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(typeof(DetachedObservableMacroPlugin)));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var sourceText = SourceText.From(code);
+        var root = syntaxTree.GetRoot();
+        var attribute = root.DescendantNodes().OfType<AttributeSyntax>().Single();
+
+        var success = MacroExpansionDisplayService.TryCreateForOffset(
+            sourceText,
+            semanticModel,
+            root,
+            attribute.Span.Start + 2,
+            out var display);
+
+        success.ShouldBeTrue();
+        display.FullText.ShouldContain("private var _Title: string = \"\"");
+        display.FullText.ShouldContain("var Title: string");
+        display.FullText.ShouldContain("get => _Title");
+        display.FullText.ShouldContain("set {");
+        display.FullText.ShouldNotContain("privatevar_Title");
+        display.FullText.ShouldNotContain("valoldValue");
+    }
+
     public sealed class ObservableMacroPlugin : IRavenMacroPlugin
     {
         public string Name => "ObservableMacroPlugin";
@@ -122,6 +158,105 @@ class MyViewModel {
             {
                 IntroducedMembers = [(FieldDeclarationSyntax)container.Members[0]],
                 ReplacementDeclaration = (PropertyDeclarationSyntax)container.Members[1]
+            };
+        }
+    }
+
+    public sealed class DetachedObservableMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "DetachedObservableMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new DetachedObservableMacro()];
+    }
+
+    public sealed class DetachedObservableMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "Observable";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var property = (PropertyDeclarationSyntax)context.TargetDeclaration;
+            var propertyName = property.Identifier.ValueText;
+            var backingFieldName = "_" + propertyName;
+            var propertyType = property.Type;
+
+            var backingField = SyntaxFactory.PropertyDeclaration(
+                SyntaxFactory.List<AttributeListSyntax>(),
+                SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)),
+                SyntaxFactory.Token(SyntaxKind.VarKeyword),
+                explicitInterfaceSpecifier: null,
+                SyntaxFactory.Identifier(backingFieldName),
+                propertyType,
+                accessorList: null,
+                expressionBody: null,
+                initializer: property.Initializer,
+                terminatorToken: SyntaxFactory.Token(SyntaxKind.None));
+
+            var replacement = property
+                .WithAttributeLists(SyntaxFactory.List<AttributeListSyntax>())
+                .WithAccessorList(SyntaxFactory.AccessorList(
+                    SyntaxFactory.List<AccessorDeclarationSyntax>(
+                    [
+                        SyntaxFactory.AccessorDeclaration(
+                            SyntaxKind.GetAccessorDeclaration,
+                            SyntaxFactory.List<AttributeListSyntax>(),
+                            SyntaxFactory.TokenList(),
+                            SyntaxFactory.Token(SyntaxKind.GetKeyword),
+                            body: null,
+                            expressionBody: SyntaxFactory.ArrowExpressionClause(SyntaxFactory.IdentifierName(backingFieldName)),
+                            terminatorToken: SyntaxFactory.Token(SyntaxKind.None)),
+                        SyntaxFactory.AccessorDeclaration(
+                            SyntaxKind.SetAccessorDeclaration,
+                            SyntaxFactory.List<AttributeListSyntax>(),
+                            SyntaxFactory.TokenList(),
+                            SyntaxFactory.Token(SyntaxKind.SetKeyword),
+                            body: SyntaxFactory.BlockStatement(
+                                SyntaxFactory.List<StatementSyntax>(
+                                [
+                                    SyntaxFactory.LocalDeclarationStatement(
+                                        SyntaxFactory.VariableDeclaration(
+                                            SyntaxFactory.Token(SyntaxKind.ValKeyword),
+                                            SyntaxFactory.SeparatedList<VariableDeclaratorSyntax>(
+                                            [
+                                                new SyntaxNodeOrToken(SyntaxFactory.VariableDeclarator(
+                                                    SyntaxFactory.Identifier("oldValue"),
+                                                    typeAnnotation: null,
+                                                    initializer: SyntaxFactory.EqualsValueClause(SyntaxFactory.IdentifierName(backingFieldName))))
+                                            ]))),
+                                    SyntaxFactory.AssignmentStatement(
+                                        SyntaxKind.SimpleAssignmentStatement,
+                                        SyntaxFactory.IdentifierName(backingFieldName),
+                                        SyntaxFactory.Token(SyntaxKind.EqualsToken),
+                                        SyntaxFactory.IdentifierName("value")),
+                                    SyntaxFactory.ExpressionStatement(
+                                        SyntaxFactory.InvocationExpression(
+                                            SyntaxFactory.IdentifierName("RaisePropertyChanged"),
+                                            SyntaxFactory.ArgumentList(
+                                                SyntaxFactory.SeparatedList<ArgumentSyntax>(
+                                                [
+                                                    new SyntaxNodeOrToken(SyntaxFactory.Argument(SyntaxFactory.NameOfExpression(SyntaxFactory.IdentifierName(propertyName)))),
+                                                    new SyntaxNodeOrToken(SyntaxFactory.Token(SyntaxKind.CommaToken)),
+                                                    new SyntaxNodeOrToken(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("oldValue"))),
+                                                    new SyntaxNodeOrToken(SyntaxFactory.Token(SyntaxKind.CommaToken)),
+                                                    new SyntaxNodeOrToken(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("value")))
+                                                ]))))
+                                ])),
+                            expressionBody: null,
+                            terminatorToken: SyntaxFactory.Token(SyntaxKind.None))
+                    ])))
+                .WithExpressionBody(null)
+                .WithInitializer(null)
+                .WithTerminatorToken(SyntaxFactory.Token(SyntaxKind.None));
+
+            return new MacroExpansionResult
+            {
+                IntroducedMembers = [backingField],
+                ReplacementDeclaration = replacement
             };
         }
     }

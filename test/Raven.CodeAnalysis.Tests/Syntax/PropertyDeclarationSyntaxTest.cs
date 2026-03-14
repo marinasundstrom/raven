@@ -123,4 +123,47 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         Assert.Equal("kind", valueExpression.Identifier.Text);
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void SameLineAutoAccessors_PreserveSemicolonTerminator()
+    {
+        const string code =
+            """
+            class Foo {
+                var Value: int { get; set }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var property = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PropertyDeclarationSyntax>()
+            .Single();
+
+        var accessors = property.AccessorList!.Accessors;
+        Assert.Equal(SyntaxKind.SemicolonToken, accessors[0].TerminatorToken.Kind);
+        Assert.Equal(SyntaxKind.None, accessors[1].TerminatorToken.Kind);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void SameLineAccessors_WithoutSemicolon_InsertMissingTerminator()
+    {
+        const string code =
+            """
+            class Foo {
+                var Value: int { get set }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var property = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PropertyDeclarationSyntax>()
+            .Single();
+
+        var accessors = property.AccessorList!.Accessors;
+        Assert.True(accessors[0].TerminatorToken.IsMissing);
+        Assert.Equal(SyntaxKind.SemicolonToken, accessors[0].TerminatorToken.Kind);
+    }
 }

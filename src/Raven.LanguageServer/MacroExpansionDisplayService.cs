@@ -79,12 +79,12 @@ internal static class MacroExpansionDisplayService
             return false;
 
         var sections = new List<string>();
-        sections.AddRange(expansion.IntroducedMembers.Select(static member => member.ToString()));
+        sections.AddRange(expansion.IntroducedMembers.Select(FormatNode));
 
         if (expansion.ReplacementDeclaration is { } replacement)
-            sections.Add(replacement.ToString());
+            sections.Add(FormatNode(replacement));
 
-        sections.AddRange(expansion.PeerDeclarations.Select(static declaration => declaration.ToString()));
+        sections.AddRange(expansion.PeerDeclarations.Select(FormatNode));
 
         if (sections.Count == 0)
             return false;
@@ -99,6 +99,12 @@ internal static class MacroExpansionDisplayService
             previewText,
             fullText);
         return true;
+    }
+
+    private static string FormatNode(SyntaxNode node)
+    {
+        var normalized = node.NormalizeWhitespace().ToFullString().Trim();
+        return normalized.Length == 0 ? node.ToFullString().Trim() : normalized;
     }
 
     private static AttributeSyntax? FindMacroAttribute(SyntaxNode root, int offset)

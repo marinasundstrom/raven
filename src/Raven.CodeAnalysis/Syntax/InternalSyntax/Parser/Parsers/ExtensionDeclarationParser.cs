@@ -395,7 +395,17 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         }
 
         SetTreatNewlinesAsTokens(true);
-        TryConsumeTerminator(out var terminatorToken);
+
+        SyntaxToken terminatorToken;
+        if (RequiresSameLineAccessorSeparator())
+        {
+            ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out terminatorToken);
+        }
+        else
+        {
+            TryConsumeTerminator(out terminatorToken);
+        }
+
         SetTreatNewlinesAsTokens(false);
 
         var accessorKind = keyword.Kind switch
@@ -408,6 +418,20 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         };
 
         return AccessorDeclaration(accessorKind, attributeLists, modifiers, keyword, body, expressionBody, terminatorToken);
+    }
+
+    private bool RequiresSameLineAccessorSeparator()
+    {
+        var next = PeekToken();
+        return IsAccessorKeyword(next) && !HasLeadingEndOfLineTrivia(next);
+    }
+
+    private static bool IsAccessorKeyword(SyntaxToken token)
+    {
+        return token.Kind is SyntaxKind.GetKeyword
+            or SyntaxKind.SetKeyword
+            or SyntaxKind.AddKeyword
+            or SyntaxKind.RemoveKeyword;
     }
 
     private SyntaxList ParseAccessorModifiers()

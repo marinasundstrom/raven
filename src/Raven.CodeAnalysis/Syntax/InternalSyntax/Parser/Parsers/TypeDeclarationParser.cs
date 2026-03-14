@@ -979,7 +979,15 @@ internal class TypeDeclarationParser : SyntaxParser
 
             SetTreatNewlinesAsTokens(true);
 
-            var terminatorToken = ConsumeMemberTerminator();
+            SyntaxToken terminatorToken;
+            if (RequiresSameLineAccessorSeparator())
+            {
+                ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out terminatorToken);
+            }
+            else
+            {
+                terminatorToken = ConsumeMemberTerminator();
+            }
 
             SetTreatNewlinesAsTokens(false);
 
@@ -1032,6 +1040,21 @@ internal class TypeDeclarationParser : SyntaxParser
         SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
 
         return AccessorList(openBraceToken, List(accessorList.ToArray()), closeBraceToken);
+    }
+
+    private bool RequiresSameLineAccessorSeparator()
+    {
+        var next = PeekToken();
+        return IsAccessorKeyword(next) && !HasLeadingEndOfLineTrivia(next);
+    }
+
+    private static bool IsAccessorKeyword(SyntaxToken token)
+    {
+        return token.Kind is SyntaxKind.GetKeyword
+            or SyntaxKind.SetKeyword
+            or SyntaxKind.InitKeyword
+            or SyntaxKind.AddKeyword
+            or SyntaxKind.RemoveKeyword;
     }
 
     public ParameterListSyntax ParseParameterList(SyntaxToken? openParenToken = null, bool allowAccessModifiers = false)
