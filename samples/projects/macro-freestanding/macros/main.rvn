@@ -1,0 +1,35 @@
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+class FreestandingMacroPlugin : IRavenMacroPlugin {
+    val Name: string => "SampleMacros.Freestanding"
+
+    func GetMacros() -> ImmutableArray<IMacroDefinition>
+        => [AddMacro()]
+}
+
+class AddMacro : IFreestandingExpressionMacro {
+    val Name: string => "add"
+    val Kind: MacroKind => MacroKind.FreestandingExpression
+    val Targets: MacroTarget => MacroTarget.None
+    val AcceptsArguments: bool => true
+
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
+        if context.Arguments.Length != 2 {
+            return FreestandingMacroExpansionResult.Empty
+        }
+
+        val left = context.Arguments[0].Expression
+        val right = context.Arguments[1].Expression
+
+        FreestandingMacroExpansionResult {
+            Expression = InfixOperatorExpression(
+                SyntaxKind.AddExpression,
+                left,
+                PlusToken,
+                right)
+        }
+    }
+}

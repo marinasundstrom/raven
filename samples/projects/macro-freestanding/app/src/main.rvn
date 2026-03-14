@@ -1,0 +1,6 @@
+import System.Console.*
+
+func Main() -> unit {
+    val answer = #add(20, Right: 22)
+    WriteLine(answer)
+}

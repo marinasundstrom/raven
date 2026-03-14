@@ -171,6 +171,9 @@
       }
     },
     "configurationDefaults": {
+      "[raven]": {
+        "editor.colorDecorators": false
+      },
       "files.associations": {
         "*.rvnproj": "xml",
         "*.ravenproj": "xml"
