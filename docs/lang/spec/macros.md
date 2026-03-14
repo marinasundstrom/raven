@@ -11,6 +11,11 @@ Macros are distinct from .NET attributes:
 
 Macros are resolved from referenced `RavenMacro` assemblies. Their meaning is defined by the referenced macro implementation, not by the parser.
 
+`MacroKind` remains part of the common `IMacroDefinition` surface, but it is implied by the specialized macro interface:
+
+* `IAttachedDeclarationMacro` implies `AttachedDeclaration`
+* `IFreestandingExpressionMacro` implies `FreestandingExpression`
+
 ## Attached macro syntax
 
 An attached macro uses a `#` directly followed by an attribute list:

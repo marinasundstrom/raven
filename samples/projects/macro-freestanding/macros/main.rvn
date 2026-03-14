@@ -12,7 +12,6 @@ class FreestandingMacroPlugin : IRavenMacroPlugin {
 
 class AddMacro : IFreestandingExpressionMacro {
     val Name: string => "add"
-    val Kind: MacroKind => MacroKind.FreestandingExpression
     val Targets: MacroTarget => MacroTarget.None
     val AcceptsArguments: bool => true
 

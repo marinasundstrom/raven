@@ -4,6 +4,8 @@ namespace Raven.CodeAnalysis.Macros;
 
 public interface IFreestandingExpressionMacro : IMacroDefinition
 {
+    MacroKind IMacroDefinition.Kind => MacroKind.FreestandingExpression;
+
     FreestandingMacroExpansionResult Expand(FreestandingMacroContext context);
 }
 
