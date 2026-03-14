@@ -767,7 +767,7 @@
     <Slot Name="EqualsValue" Type="EqualsValueClause" IsNullable="true" />
   </Node>
   <Node Name="ArrowExpressionClause" Inherits="Node">
-    <Slot Name="ArrowToken" Type="Token" DefaultToken="ArrowToken" />
+    <Slot Name="ArrowToken" Type="Token" DefaultToken="FatArrowToken" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="Pattern" Inherits="ExpressionOrPattern" IsAbstract="true" />
