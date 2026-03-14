@@ -39,7 +39,7 @@ internal static class TokenGenerator
         sb.AppendLine("{");
         foreach (var t in tokens.Where(t => t.Text != null && !t.IsTrivia))
         {
-            sb.AppendLine($"    public static readonly SyntaxToken {t.Name} = (SyntaxToken)InternalSyntax.SyntaxFactory.{t.Name};");
+            sb.AppendLine($"    public static SyntaxToken {t.Name} => Token(SyntaxKind.{t.Name});");
         }
         sb.AppendLine("}");
         return sb.ToString();

@@ -59,6 +59,17 @@ public class SyntaxTokenTest
     }
 
     [Fact]
+    public void TokenConvenienceMembers_ReturnFreshTokens()
+    {
+        var first = SyntaxFactory.CommaToken;
+        var second = SyntaxFactory.CommaToken;
+
+        first.ShouldNotBeSameAs(second);
+        first.Kind.ShouldBe(SyntaxKind.CommaToken);
+        second.Kind.ShouldBe(SyntaxKind.CommaToken);
+    }
+
+    [Fact]
     public void AddLeadingTriviaToToken()
     {
         var originalToken = SyntaxFactory.ReturnKeyword;

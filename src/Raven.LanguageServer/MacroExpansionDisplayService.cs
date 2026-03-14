@@ -103,8 +103,15 @@ internal static class MacroExpansionDisplayService
 
     private static string FormatNode(SyntaxNode node)
     {
-        var normalized = node.NormalizeWhitespace().ToFullString().Trim();
-        return normalized.Length == 0 ? node.ToFullString().Trim() : normalized;
+        try
+        {
+            var normalized = node.NormalizeWhitespace().ToFullString().Trim();
+            return normalized.Length == 0 ? node.ToFullString().Trim() : normalized;
+        }
+        catch
+        {
+            return node.ToFullString().Trim();
+        }
     }
 
     private static AttributeSyntax? FindMacroAttribute(SyntaxNode root, int offset)
