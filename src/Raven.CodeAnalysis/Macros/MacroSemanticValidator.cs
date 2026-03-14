@@ -94,6 +94,39 @@ internal static class MacroSemanticValidator
         return true;
     }
 
+    public static bool TryResolveFreestandingMacro(
+        Compilation compilation,
+        FreestandingMacroExpressionSyntax expression,
+        DiagnosticBag? diagnostics,
+        out LoadedFreestandingMacro loaded)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+
+        if (!expression.TryGetMacroName(out var macroName))
+        {
+            loaded = default;
+            return false;
+        }
+
+        var registry = compilation.GetMacroRegistry();
+        if (!registry.TryResolveFreestandingMacro(macroName, out loaded))
+        {
+            diagnostics?.Report(Diagnostic.Create(s_unknownMacro, expression.Name.GetLocation(), macroName));
+            return false;
+        }
+
+        if (expression.ArgumentList.Arguments.Count > 0 && !loaded.Macro.AcceptsArguments)
+        {
+            diagnostics?.Report(Diagnostic.Create(
+                s_macroArgumentsNotSupported,
+                expression.ArgumentList.GetLocation(),
+                macroName));
+            return false;
+        }
+
+        return true;
+    }
+
     private static MacroTarget GetTarget(SyntaxNode targetDeclaration)
         => targetDeclaration switch
         {

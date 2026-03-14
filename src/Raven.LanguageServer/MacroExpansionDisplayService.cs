@@ -16,6 +16,7 @@ internal static class MacroExpansionDisplayService
 {
     internal readonly record struct MacroExpansionDisplay(
         string MacroName,
+        string InvocationDisplay,
         TextSpan Span,
         string PreviewText,
         string FullText);
@@ -30,10 +31,14 @@ internal static class MacroExpansionDisplayService
         display = default;
 
         var attribute = FindMacroAttribute(root, offset);
-        if (attribute is null)
+        if (attribute is not null)
+            return TryCreateDisplay(semanticModel, attribute, out display);
+
+        var macroExpression = FindFreestandingMacroExpression(root, offset);
+        if (macroExpression is null)
             return false;
 
-        return TryCreateDisplay(semanticModel, attribute, out display);
+        return TryCreateDisplay(semanticModel, macroExpression, out display);
     }
 
     public static bool TryCreateForRange(
@@ -61,10 +66,23 @@ internal static class MacroExpansionDisplayService
                     attributeSyntax.Span.Start <= end &&
                     start <= attributeSyntax.Span.End);
 
-        if (attribute is null)
+        if (attribute is not null)
+            return TryCreateDisplay(semanticModel, attribute, out display);
+
+        var macroExpression = FindFreestandingMacroExpression(root, start)
+            ?? FindFreestandingMacroExpression(root, start + ((end - start) / 2))
+            ?? FindFreestandingMacroExpression(root, end)
+            ?? FindFreestandingMacroExpression(root, end > start ? end - 1 : end)
+            ?? root.DescendantNodes()
+                .OfType<FreestandingMacroExpressionSyntax>()
+                .FirstOrDefault(expressionSyntax =>
+                    expressionSyntax.Span.Start <= end &&
+                    start <= expressionSyntax.Span.End);
+
+        if (macroExpression is null)
             return false;
 
-        return TryCreateDisplay(semanticModel, attribute, out display);
+        return TryCreateDisplay(semanticModel, macroExpression, out display);
     }
 
     private static bool TryCreateDisplay(
@@ -95,8 +113,36 @@ internal static class MacroExpansionDisplayService
 
         display = new MacroExpansionDisplay(
             macroName ?? attribute.Name.ToString(),
+            $"#[{macroName ?? attribute.Name.ToString()}]",
             attribute.Span,
             previewText,
+            fullText);
+        return true;
+    }
+
+    private static bool TryCreateDisplay(
+        SemanticModel semanticModel,
+        FreestandingMacroExpressionSyntax macroExpression,
+        out MacroExpansionDisplay display)
+    {
+        display = default;
+
+        var expansion = semanticModel.GetMacroExpansion(macroExpression);
+        if (expansion?.Expression is null)
+            return false;
+
+        if (!macroExpression.TryGetMacroName(out var macroName))
+            macroName = macroExpression.Name.ToString();
+
+        var fullText = FormatNode(expansion.Expression);
+        if (string.IsNullOrWhiteSpace(fullText))
+            return false;
+
+        display = new MacroExpansionDisplay(
+            macroName,
+            $"#{macroName}(...)",
+            macroExpression.Span,
+            CreatePreview(fullText),
             fullText);
         return true;
     }
@@ -131,6 +177,28 @@ internal static class MacroExpansionDisplayService
             var attribute = token.Parent?.AncestorsAndSelf().OfType<AttributeSyntax>().FirstOrDefault(static attr => attr.IsMacroAttribute());
             if (attribute is not null)
                 return attribute;
+        }
+
+        return null;
+    }
+
+    private static FreestandingMacroExpressionSyntax? FindFreestandingMacroExpression(SyntaxNode root, int offset)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var expression = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
+            if (expression is not null)
+                return expression;
         }
 
         return null;

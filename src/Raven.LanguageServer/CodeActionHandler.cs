@@ -160,7 +160,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
         action = new CommandOrCodeAction(new Command
         {
             Name = ShowMacroExpansionCommand,
-            Title = $"Show macro expansion for #[{display.MacroName}]",
+            Title = $"Show macro expansion for {display.InvocationDisplay}",
             Arguments = new JArray(uri.ToString(), display.MacroName, display.FullText)
         });
 

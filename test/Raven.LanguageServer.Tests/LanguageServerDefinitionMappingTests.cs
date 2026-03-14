@@ -166,6 +166,75 @@ class MyViewModel {
         links[0].LocationLink!.TargetUri.ShouldBe(DocumentUri.FromFileSystemPath(macroPath));
     }
 
+    [Fact]
+    public async Task DefinitionHandler_FreestandingMacro_ResolvesToMacroDeclarationProject()
+    {
+        using var fixture = new DefinitionWorkspaceFixture();
+        var ravenCodeAnalysisPath = typeof(RavenWorkspace).Assembly.Location;
+
+        fixture.WriteProject(Path.Combine(fixture.Root, "macros"), "AnswerMacros", $$"""
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>AnswerMacros</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="main.rvn" />
+    <Reference Include="Raven.CodeAnalysis">
+      <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
+""");
+        var macroPath = Path.Combine(fixture.Root, "macros", "main.rvn");
+        fixture.WriteRavenFile(macroPath, """
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
+class AnswerMacroPlugin : IRavenMacroPlugin {
+    val Name: string => "SampleMacros.Answer"
+
+    func GetMacros() -> ImmutableArray<IMacroDefinition> => [AnswerMacro()]
+}
+
+class AnswerMacro : IFreestandingExpressionMacro {
+    val Name: string => "answer"
+    val Kind: MacroKind => MacroKind.FreestandingExpression
+    val Targets: MacroTarget => MacroTarget.None
+
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.Empty
+    }
+}
+""");
+
+        fixture.WriteProject(Path.Combine(fixture.Root, "app"), "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+    <RavenMacro Include="../macros/AnswerMacros.rvnproj" />
+  </ItemGroup>
+</Project>
+""");
+        var appPath = Path.Combine(fixture.Root, "app", "src", "main.rvn");
+        fixture.WriteRavenFile(appPath, """
+func Main() -> int => #answer()
+""");
+
+        var result = await fixture.GetDefinitionAsync(appPath, "answer");
+
+        result.ShouldNotBeNull();
+        var links = result!.ToArray();
+        links.ShouldNotBeEmpty();
+        links[0].LocationLink.ShouldNotBeNull();
+        links[0].LocationLink!.TargetUri.ShouldBe(DocumentUri.FromFileSystemPath(macroPath));
+    }
+
     private sealed class DefinitionWorkspaceFixture : IDisposable
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), $"raven-def-ls-{Guid.NewGuid():N}");

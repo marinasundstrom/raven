@@ -106,19 +106,29 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             return false;
         }
 
+        string? macroName = null;
+        TextSpan originSpan = default;
+
         var attribute = token.Parent?.AncestorsAndSelf().OfType<AttributeSyntax>()
             .FirstOrDefault(static candidate => candidate.IsMacroAttribute());
-        if (attribute is null || !attribute.Name.Span.Contains(token.Span))
-            return false;
+        if (attribute is not null && attribute.Name.Span.Contains(token.Span) && attribute.TryGetMacroName(out var attributeMacroName))
+        {
+            macroName = attributeMacroName;
+            originSpan = attribute.Name.Span;
+        }
+        else
+        {
+            var freestandingMacro = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
+            if (freestandingMacro is null || !freestandingMacro.Name.Span.Contains(token.Span) || !freestandingMacro.TryGetMacroName(out var freestandingMacroName))
+                return false;
 
-        if (!attribute.TryGetMacroName(out var macroName))
-            return false;
+            macroName = freestandingMacroName;
+            originSpan = freestandingMacro.Name.Span;
+        }
 
         var workspace = project.Solution.Workspace;
         if (workspace is null)
             return false;
-
-        var originSpan = attribute.Name.Span;
 
         foreach (var macroReference in project.MacroReferences)
         {
@@ -129,7 +139,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
                     string.Equals(candidate.FilePath, macroReference.SourceProjectFilePath, StringComparison.OrdinalIgnoreCase));
             }
 
-            foreach (var loadedMacro in TryGetAttachedMacros(macroReference, macroName))
+            foreach (var loadedMacro in TryGetMacros(macroReference, macroName))
             {
                 var metadataNames = new[] { loadedMacro.GetType().FullName, loadedMacro.GetType().Name }
                     .Where(static name => !string.IsNullOrWhiteSpace(name))
@@ -157,14 +167,13 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         return false;
     }
 
-    private static IEnumerable<IAttachedDeclarationMacro> TryGetAttachedMacros(MacroReference macroReference, string macroName)
+    private static IEnumerable<IMacroDefinition> TryGetMacros(MacroReference macroReference, string macroName)
     {
         try
         {
             return macroReference.GetPlugins()
                 .SelectMany(static plugin => plugin.GetMacros())
-                .OfType<IAttachedDeclarationMacro>()
-                .Where(attached => string.Equals(attached.Name, macroName, StringComparison.Ordinal))
+                .Where(macro => string.Equals(macro.Name, macroName, StringComparison.Ordinal))
                 .ToArray();
         }
         catch

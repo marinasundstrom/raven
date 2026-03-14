@@ -57,6 +57,41 @@ internal static class MacroExpansionService
         }
     }
 
+    public static FreestandingMacroExpansionResult? ExpandFreestandingMacro(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        FreestandingMacroExpressionSyntax expression,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken = default)
+    {
+        if (!MacroSemanticValidator.TryResolveFreestandingMacro(compilation, expression, diagnostics, out var loaded))
+            return null;
+
+        try
+        {
+            var context = new FreestandingMacroContext(compilation, semanticModel, expression, cancellationToken);
+            var result = ExpandWithTypedParametersIfAvailable(loaded.Macro, context, diagnostics)
+                ?? loaded.Macro.Expand(context)
+                ?? FreestandingMacroExpansionResult.Empty;
+            result = ContextualizeExpansionResult(expression, result);
+            RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Expression);
+
+            foreach (var diagnostic in result.Diagnostics)
+                diagnostics.Report(diagnostic);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            diagnostics.Report(Diagnostic.Create(
+                s_macroExpansionFailed,
+                expression.Name.GetLocation(),
+                loaded.Macro.Name,
+                ex.Message));
+            return null;
+        }
+    }
+
     private static MacroExpansionResult? ExpandWithTypedParametersIfAvailable(
         IAttachedDeclarationMacro macro,
         AttachedMacroContext context,
@@ -93,6 +128,43 @@ internal static class MacroExpansionService
             modifiers: null);
 
         return (MacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+    }
+
+    private static FreestandingMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
+        IFreestandingExpressionMacro macro,
+        FreestandingMacroContext context,
+        DiagnosticBag diagnostics)
+    {
+        var typedMacroInterface = macro.GetType()
+            .GetInterfaces()
+            .FirstOrDefault(static i =>
+                i.IsGenericType &&
+                i.GetGenericTypeDefinition() == typeof(IFreestandingExpressionMacro<>));
+
+        if (typedMacroInterface is null)
+            return null;
+
+        var parametersType = typedMacroInterface.GetGenericArguments()[0];
+        if (!MacroParameterBinder.TryBind(macro.Name, parametersType, context, diagnostics, out var parameters))
+            return FreestandingMacroExpansionResult.Empty;
+
+        var typedContextType = typeof(FreestandingMacroContext<>).MakeGenericType(parametersType);
+        var typedContext = Activator.CreateInstance(
+            typedContextType,
+            context.Compilation,
+            context.SemanticModel,
+            context.Syntax,
+            parameters!,
+            context.CancellationToken);
+
+        var expandMethod = typedMacroInterface.GetMethod(
+            nameof(IFreestandingExpressionMacro.Expand),
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            [typedContextType],
+            modifiers: null);
+
+        return (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
     }
 
     private static MacroExpansionResult ContextualizeExpansionResult(
@@ -216,6 +288,21 @@ internal static class MacroExpansionService
             RegisterSyntaxTree(compilation, semanticModel, declaration);
     }
 
+    private static FreestandingMacroExpansionResult ContextualizeExpansionResult(
+        FreestandingMacroExpressionSyntax macroExpression,
+        FreestandingMacroExpansionResult result)
+    {
+        if (result.Expression is null)
+            return result;
+
+        var contextualExpression = (ExpressionSyntax)result.Expression.WithParent(macroExpression.Parent, macroExpression.Position);
+        return new FreestandingMacroExpansionResult
+        {
+            Expression = contextualExpression,
+            Diagnostics = result.Diagnostics
+        };
+    }
+
     private static void RegisterSyntaxTree(
         Compilation compilation,
         SemanticModel semanticModel,
@@ -225,5 +312,13 @@ internal static class MacroExpansionService
             return;
 
         compilation.RegisterGeneratedSyntaxTree(syntaxTree, semanticModel);
+    }
+
+    private static void RegisterGeneratedSyntaxTree(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        SyntaxNode? node)
+    {
+        RegisterSyntaxTree(compilation, semanticModel, node);
     }
 }

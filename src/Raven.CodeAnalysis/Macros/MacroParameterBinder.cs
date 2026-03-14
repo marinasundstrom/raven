@@ -86,6 +86,35 @@ internal static class MacroParameterBinder
         AttachedMacroContext context,
         DiagnosticBag diagnostics,
         out object? parameters)
+        => TryBindCore(
+            macroName,
+            parametersType,
+            context.Syntax.Name.GetLocation(),
+            context.Arguments,
+            diagnostics,
+            out parameters);
+
+    public static bool TryBind(
+        string macroName,
+        Type parametersType,
+        FreestandingMacroContext context,
+        DiagnosticBag diagnostics,
+        out object? parameters)
+        => TryBindCore(
+            macroName,
+            parametersType,
+            context.Syntax.Name.GetLocation(),
+            context.Arguments,
+            diagnostics,
+            out parameters);
+
+    private static bool TryBindCore(
+        string macroName,
+        Type parametersType,
+        Location macroNameLocation,
+        IReadOnlyList<MacroArgument> arguments,
+        DiagnosticBag diagnostics,
+        out object? parameters)
     {
         parameters = null;
 
@@ -93,7 +122,7 @@ internal static class MacroParameterBinder
         {
             diagnostics.Report(Diagnostic.Create(
                 s_invalidParameterObjectType,
-                context.Syntax.Name.GetLocation(),
+                macroNameLocation,
                 macroName,
                 parametersType.FullName ?? parametersType.Name));
             return false;
@@ -108,15 +137,15 @@ internal static class MacroParameterBinder
         {
             diagnostics.Report(Diagnostic.Create(
                 s_noSuitableConstructor,
-                context.Syntax.Name.GetLocation(),
+                macroNameLocation,
                 macroName,
                 parametersType.FullName ?? parametersType.Name));
             return false;
         }
 
         var constructor = constructors.SingleOrDefault();
-        var positionalArguments = context.Arguments.Where(static argument => !argument.IsNamed).ToArray();
-        var namedArguments = context.Arguments.Where(static argument => argument.IsNamed).ToArray();
+        var positionalArguments = arguments.Where(static argument => !argument.IsNamed).ToArray();
+        var namedArguments = arguments.Where(static argument => argument.IsNamed).ToArray();
 
         if (constructor is null)
         {
@@ -138,7 +167,7 @@ internal static class MacroParameterBinder
             {
                 diagnostics.Report(Diagnostic.Create(
                     s_invalidParameterObjectType,
-                    context.Syntax.Name.GetLocation(),
+                    macroNameLocation,
                     macroName,
                     parametersType.FullName ?? parametersType.Name));
                 return false;
@@ -187,7 +216,7 @@ internal static class MacroParameterBinder
 
                 diagnostics.Report(Diagnostic.Create(
                     s_missingRequiredArgument,
-                    context.Syntax.Name.GetLocation(),
+                    macroNameLocation,
                     macroName,
                     ctorParameter.Name ?? $"arg{index}"));
                 return false;

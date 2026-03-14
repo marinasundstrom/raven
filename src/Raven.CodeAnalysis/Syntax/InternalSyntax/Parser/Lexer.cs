@@ -320,6 +320,9 @@ internal class Lexer : ILexer
                         if (PeekChar(out ch2) && ch2 == '[')
                             return new Token(SyntaxKind.HashToken, chStr);
 
+                        if (!LooksLikeDirective())
+                            return new Token(SyntaxKind.HashToken, chStr);
+
                         _stringBuilder.Append('#');
 
                         while (PeekChar(out var c))
@@ -1704,6 +1707,20 @@ internal class Lexer : ILexer
         }
         ch = (char)value;
         return true;
+    }
+
+    private bool LooksLikeDirective()
+    {
+        const string pragma = "pragma";
+
+        for (var i = 0; i < pragma.Length; i++)
+        {
+            if (!_textSource.PeekChar(i, out var ch) || ch != pragma[i])
+                return false;
+        }
+
+        return !_textSource.PeekChar(pragma.Length, out var trailing) ||
+               !SyntaxFacts.IsIdentifierPartCharacter(trailing);
     }
 
 

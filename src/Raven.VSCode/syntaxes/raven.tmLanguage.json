@@ -13,6 +13,9 @@
             "include": "#macroAttributes"
         },
         {
+            "include": "#freestandingMacros"
+        },
+        {
             "include": "#strings"
         },
         {
@@ -81,6 +84,22 @@
                             "include": "#types"
                         }
                     ]
+                }
+            ]
+        },
+        "freestandingMacros": {
+            "patterns": [
+                {
+                    "name": "meta.macro.freestanding.raven",
+                    "match": "(#)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()",
+                    "captures": {
+                        "1": {
+                            "name": "punctuation.definition.macro.raven"
+                        },
+                        "2": {
+                            "name": "entity.name.function.macro.raven"
+                        }
+                    }
                 }
             ]
         },

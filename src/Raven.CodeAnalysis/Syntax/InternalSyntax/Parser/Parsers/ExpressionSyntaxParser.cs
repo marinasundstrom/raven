@@ -1974,6 +1974,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.IdentifierToken:
                 return new NameSyntaxParser(this).ParseSimpleName();
 
+            case SyntaxKind.HashToken:
+                return ParseFreestandingMacroExpression();
+
             case SyntaxKind.SelfKeyword:
                 ReadToken();
                 return SelfExpression(token);
@@ -2378,6 +2381,17 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return expr;
+    }
+
+    private ExpressionSyntax ParseFreestandingMacroExpression()
+    {
+        var hashToken = ReadToken();
+        var name = new NameSyntaxParser(this).ParseSimpleName();
+        var argumentList = PeekToken().IsKind(SyntaxKind.OpenParenToken)
+            ? ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false)
+            : CreateMissingArgumentList();
+
+        return FreestandingMacroExpression(hashToken, name, argumentList);
     }
 
     private bool TryReadEncodedStringSuffix(

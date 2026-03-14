@@ -26,6 +26,7 @@ public partial class SemanticModel
     private readonly ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _loweredBoundNodeCache2 = new();
     private readonly ConcurrentDictionary<SyntaxNodeMapKey, byte> _asyncLoweringInProgress = new();
     private readonly ConcurrentDictionary<AttributeSyntax, MacroExpansionResult?> _macroExpansionCache = new();
+    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, FreestandingMacroExpansionResult?> _freestandingMacroExpansionCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, SyntaxNode> _macroReplacementSyntaxMap = new();
     private readonly ConcurrentDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
 
@@ -439,6 +440,23 @@ public partial class SemanticModel
                 state.Model._declarationDiagnostics,
                 state.CancellationToken),
             (Model: this, TargetDeclaration: targetDeclaration, CancellationToken: cancellationToken));
+    }
+
+    public FreestandingMacroExpansionResult? GetMacroExpansion(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+
+        return _freestandingMacroExpansionCache.GetOrAdd(
+            expression,
+            static (syntax, state) => MacroExpansionService.ExpandFreestandingMacro(
+                state.Model.Compilation,
+                state.Model,
+                syntax,
+                state.Model._declarationDiagnostics,
+                state.CancellationToken),
+            (Model: this, CancellationToken: cancellationToken));
     }
 
     internal bool TryGetMacroReplacementSyntax(SyntaxNode node, out SyntaxNode replacement)

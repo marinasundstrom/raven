@@ -861,6 +861,7 @@ partial class BlockBinder : Binder
             SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
             ReceiverBindingExpressionSyntax receiverBindingExpression => BindReceiverBindingExpression(receiverBindingExpression),
             DiscardExpressionSyntax discardExpression => BindDiscardExpression(discardExpression),
+            FreestandingMacroExpressionSyntax freestandingMacroExpression => BindFreestandingMacroExpression(freestandingMacroExpression),
             UnitExpressionSyntax unitExpression => BindUnitExpression(unitExpression),
             ExpressionSyntax.Missing missing => BindMissingExpression(missing),
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
@@ -895,6 +896,24 @@ partial class BlockBinder : Binder
     {
         _diagnostics.ReportInvalidInvocation(syntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindFreestandingMacroExpression(FreestandingMacroExpressionSyntax syntax)
+    {
+        var expansion = SemanticModel.GetMacroExpansion(syntax);
+        if (expansion?.Expression is null)
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+
+        SemanticModel.RegisterMacroReplacementSyntax(syntax, expansion.Expression);
+
+        var bound = BindExpressionWithTargetType(
+            expansion.Expression,
+            _targetTypeStack.Count > 0 ? _targetTypeStack.Peek() : null,
+            allowReturn: _allowReturnsInExpression,
+            allowReturnInBlockExpressionsOnly: _allowReturnsInBlockExpressionsOnly);
+
+        CacheBoundNode(expansion.Expression, bound);
+        return bound;
     }
 
     private BoundExpression BindNullCoalesceExpression(NullCoalesceExpressionSyntax coalesce)

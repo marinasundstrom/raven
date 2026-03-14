@@ -9,6 +9,7 @@ Current implementation status:
 * Macro-style attributes are kept out of the normal CLR attribute binding/emission pipeline.
 * Initial .NET plugin contracts exist under `Raven.CodeAnalysis.Macros`.
 * Project files can reference macro assemblies with `RavenMacro` items and the compiler now resolves attached macros against those plugin assemblies.
+* Freestanding expression macros now use `#name(...)` syntax, resolve through the same plugin registry, and support the same typed parameter-object binding direction as attached macros.
 * Unknown macros, duplicate exports, invalid targets, plugin load failures, and plugin-thrown expansion failures now produce compiler diagnostics.
 * Attached macros are invoked through a generic semantic-model expansion path and expansion results are cached per compilation.
 * `MacroExpansionResult` now models both additive members and optional declaration replacement.

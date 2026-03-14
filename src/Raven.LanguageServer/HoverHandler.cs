@@ -193,7 +193,7 @@ internal sealed class HoverHandler : IHoverHandler
         var hoverText = string.Join(
             "\n\n",
             $"```raven\n{display.PreviewText}\n```",
-            $"Macro `#[{display.MacroName}]` expansion preview.",
+            $"Macro `{display.InvocationDisplay}` expansion preview.",
             "Use `Show macro expansion` to inspect the full expansion.");
 
         return new Hover

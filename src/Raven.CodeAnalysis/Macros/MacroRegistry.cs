@@ -27,12 +27,15 @@ internal sealed class MacroRegistry
         true);
 
     private readonly ImmutableDictionary<string, LoadedAttachedMacro> _attachedMacros;
+    private readonly ImmutableDictionary<string, LoadedFreestandingMacro> _freestandingMacros;
 
     private MacroRegistry(
         ImmutableDictionary<string, LoadedAttachedMacro> attachedMacros,
+        ImmutableDictionary<string, LoadedFreestandingMacro> freestandingMacros,
         ImmutableArray<Diagnostic> diagnostics)
     {
         _attachedMacros = attachedMacros;
+        _freestandingMacros = freestandingMacros;
         Diagnostics = diagnostics;
     }
 
@@ -42,6 +45,7 @@ internal sealed class MacroRegistry
     {
         var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
         var attachedMacros = ImmutableDictionary.CreateBuilder<string, LoadedAttachedMacro>(StringComparer.Ordinal);
+        var freestandingMacros = ImmutableDictionary.CreateBuilder<string, LoadedFreestandingMacro>(StringComparer.Ordinal);
 
         foreach (var reference in references)
         {
@@ -51,21 +55,38 @@ internal sealed class MacroRegistry
                 {
                     foreach (var macro in plugin.GetMacros())
                     {
-                        if (macro is not IAttachedDeclarationMacro attached)
-                            continue;
-
-                        if (attachedMacros.TryGetValue(attached.Name, out var existing))
+                        switch (macro)
                         {
-                            diagnostics.Add(Diagnostic.Create(
-                                s_duplicateMacroName,
-                                Location.None,
-                                attached.Name,
-                                existing.Plugin.Name,
-                                plugin.Name));
-                            continue;
-                        }
+                            case IAttachedDeclarationMacro attached:
+                                if (attachedMacros.TryGetValue(attached.Name, out var existingAttached))
+                                {
+                                    diagnostics.Add(Diagnostic.Create(
+                                        s_duplicateMacroName,
+                                        Location.None,
+                                        attached.Name,
+                                        existingAttached.Plugin.Name,
+                                        plugin.Name));
+                                    continue;
+                                }
 
-                        attachedMacros.Add(attached.Name, new LoadedAttachedMacro(plugin, attached));
+                                attachedMacros.Add(attached.Name, new LoadedAttachedMacro(plugin, attached));
+                                break;
+
+                            case IFreestandingExpressionMacro freestanding:
+                                if (freestandingMacros.TryGetValue(freestanding.Name, out var existingFreestanding))
+                                {
+                                    diagnostics.Add(Diagnostic.Create(
+                                        s_duplicateMacroName,
+                                        Location.None,
+                                        freestanding.Name,
+                                        existingFreestanding.Plugin.Name,
+                                        plugin.Name));
+                                    continue;
+                                }
+
+                                freestandingMacros.Add(freestanding.Name, new LoadedFreestandingMacro(plugin, freestanding));
+                                break;
+                        }
                     }
                 }
             }
@@ -75,11 +96,15 @@ internal sealed class MacroRegistry
             }
         }
 
-        return new MacroRegistry(attachedMacros.ToImmutable(), diagnostics.ToImmutable());
+        return new MacroRegistry(attachedMacros.ToImmutable(), freestandingMacros.ToImmutable(), diagnostics.ToImmutable());
     }
 
     public bool TryResolveAttachedMacro(string macroName, out LoadedAttachedMacro macro)
         => _attachedMacros.TryGetValue(macroName, out macro);
+
+    public bool TryResolveFreestandingMacro(string macroName, out LoadedFreestandingMacro macro)
+        => _freestandingMacros.TryGetValue(macroName, out macro);
 }
 
 internal readonly record struct LoadedAttachedMacro(IRavenMacroPlugin Plugin, IAttachedDeclarationMacro Macro);
+internal readonly record struct LoadedFreestandingMacro(IRavenMacroPlugin Plugin, IFreestandingExpressionMacro Macro);

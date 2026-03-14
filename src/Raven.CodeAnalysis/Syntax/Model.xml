@@ -137,6 +137,11 @@
   <Node Name="DiscardExpression" Inherits="Expression">
     <Slot Name="UnderscoreToken" Type="Token" DefaultToken="UnderscoreToken" />
   </Node>
+  <Node Name="FreestandingMacroExpression" Inherits="Expression">
+    <Slot Name="HashToken" Type="Token" DefaultToken="HashToken" />
+    <Slot Name="Name" Type="SimpleName" />
+    <Slot Name="ArgumentList" Type="ArgumentList" />
+  </Node>
   <Node Name="ExtensionDeclaration" Inherits="MemberDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />

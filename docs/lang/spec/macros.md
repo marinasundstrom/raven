@@ -1,10 +1,8 @@
 # Macros
 
-> ⚠️ This section describes the currently implemented attached-macro surface. Freestanding macros and token-based DSL macros are not part of the language specification yet.
-
 ## Overview
 
-Raven supports attached declaration macros. A macro is a compiler-driven expansion that is applied to a declaration and produces ordinary Raven syntax before normal semantic analysis continues.
+Raven supports attached declaration macros and freestanding expression macros. A macro is a compiler-driven expansion that produces ordinary Raven syntax before normal semantic analysis continues.
 
 Macros are distinct from .NET attributes:
 
@@ -39,6 +37,16 @@ var Title: string
 
 `#pragma` and other directive forms remain directives. They do not parse as macros.
 
+## Freestanding macro syntax
+
+A freestanding expression macro uses `#name(...)` in expression position:
+
+```raven
+func Main() -> int => #answer()
+```
+
+The expression expands to an ordinary Raven expression before normal expression binding continues.
+
 ## Placement rules
 
 Macro attributes follow the same placement rules as declaration attributes:
@@ -70,9 +78,13 @@ Both positional and named arguments are supported:
 
 The compiler parses and preserves these arguments generically. Their interpretation is defined by the macro implementation.
 
-For attached declaration macros, plugins currently receive the raw parsed arguments through `AttachedMacroContext.ArgumentList` and a convenience parsed view through `AttachedMacroContext.Arguments`. Each parsed `MacroArgument` exposes a richer constant representation through `Constant`, plus the evaluated CLR value directly through `Value` as a convenience.
+For attached declaration macros, plugins currently receive the raw parsed arguments through `AttachedMacroContext.ArgumentList` and a convenience parsed view through `AttachedMacroContext.Arguments`.
 
-This raw-argument model is transitional. The intended direction is typed macro parameter objects, so macro signatures can be validated and presented like normal attributes in completion and signature help. The public contract now includes `IMacroDefinition<TParameters>` and `IAttachedDeclarationMacro<TParameters>` for that bound-parameter model.
+For freestanding expression macros, the equivalent APIs are `FreestandingMacroContext.ArgumentList` and `FreestandingMacroContext.Arguments`.
+
+Each parsed `MacroArgument` exposes a richer constant representation through `Constant`, plus the evaluated CLR value directly through `Value` as a convenience.
+
+This raw-argument model is transitional. The intended direction is typed macro parameter objects, so macro signatures can be validated and presented like normal attributes in completion and signature help. The public contract now includes `IMacroDefinition<TParameters>`, `IAttachedDeclarationMacro<TParameters>`, and `IFreestandingExpressionMacro<TParameters>` for that bound-parameter model.
 
 Example direction:
 
@@ -104,7 +116,7 @@ The target experience is that macro arguments bind like attribute arguments:
 
 ## Expansion model
 
-Macro expansion is not a preprocessor step. The source file is parsed normally first. After parsing, the compiler resolves attached macros from referenced macro assemblies and requests expansions using structured Raven syntax.
+Macro expansion is not a preprocessor step. The source file is parsed normally first. After parsing, the compiler resolves macros from referenced macro assemblies and requests expansions using structured Raven syntax.
 
 The current attached-macro system supports these generic result shapes:
 
@@ -113,6 +125,11 @@ The current attached-macro system supports these generic result shapes:
 * replacement of the annotated declaration
 
 Expansion must remain generic. The compiler does not hardcode macro-specific behaviors such as property notification or equality semantics.
+
+Freestanding expression macros return a generic expression-expansion result shape:
+
+* diagnostics
+* replacement expression
 
 ## Project references
 

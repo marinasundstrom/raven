@@ -36,4 +36,13 @@ public static class AttributeSyntaxExtensions
             AliasQualifiedNameSyntax aliasQualified => $"{aliasQualified.Alias.Identifier.ValueText}::{GetNormalizedName(aliasQualified.Name)}",
             _ => name.ToString()
         };
+
+    public static bool TryGetMacroName(this FreestandingMacroExpressionSyntax macroExpression, out string macroName)
+    {
+        if (macroExpression is null)
+            throw new ArgumentNullException(nameof(macroExpression));
+
+        macroName = GetNormalizedName(macroExpression.Name);
+        return !string.IsNullOrWhiteSpace(macroName);
+    }
 }

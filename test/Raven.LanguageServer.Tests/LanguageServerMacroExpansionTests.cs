@@ -122,6 +122,38 @@ class MyViewModel {
         display.FullText.ShouldNotContain("valoldValue");
     }
 
+    [Fact]
+    public void MacroExpansionDisplayService_BuildsPreviewForFreestandingMacroExpression()
+    {
+        const string code = """
+class Harness {
+    func Run() -> int => #answer()
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(typeof(FreestandingMacroPlugin)));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var sourceText = SourceText.From(code);
+        var root = syntaxTree.GetRoot();
+        var expression = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+
+        var success = MacroExpansionDisplayService.TryCreateForOffset(
+            sourceText,
+            semanticModel,
+            root,
+            expression.Span.Start + 1,
+            out var display);
+
+        success.ShouldBeTrue();
+        display.MacroName.ShouldBe("answer");
+        display.InvocationDisplay.ShouldBe("#answer(...)");
+        display.FullText.ShouldBe("42");
+    }
+
     public sealed class ObservableMacroPlugin : IRavenMacroPlugin
     {
         public string Name => "ObservableMacroPlugin";
@@ -259,5 +291,26 @@ class MyViewModel {
                 ReplacementDeclaration = replacement
             };
         }
+    }
+
+    public sealed class FreestandingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "FreestandingMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new AnswerMacro()];
+    }
+
+    public sealed class AnswerMacro : IFreestandingExpressionMacro
+    {
+        public string Name => "answer";
+        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+            => new()
+            {
+                Expression = SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(42))
+            };
     }
 }
