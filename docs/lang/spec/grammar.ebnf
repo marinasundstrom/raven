@@ -4,6 +4,8 @@
    NOTE: Non-normative. Context-sensitive parsing and validation live outside this EBNF. *)
 
 CompilationUnit          ::= {ImportDirective} {AliasDirective} {Declaration | Statement} EOF ;
+(* `#pragma` remains a directive form. `#[` starts an attached macro, and
+   `#` Identifier `(` starts a freestanding macro expression. *)
 
 ImportDirective          ::= 'import' QualifiedName ('.' '*')? ; (* Namespace imports require '.*'; applying '.*' to a type imports its static members and nested types *)
 AliasDirective           ::= 'alias' Identifier '=' Type ; (* Target may be a fully qualified name, type expression, or predefined type: bool | byte | char | decimal | double | float | int | long | nint | nuint | object | sbyte | short | string | uint | ulong | unit | ushort | '()' *)
@@ -40,7 +42,7 @@ Declaration              ::= NamespaceDeclaration
 
 NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective} {AliasDirective} {Declaration | Statement} '}' ;
 
-FunctionDeclaration      ::= {AttributeList}
+FunctionDeclaration      ::= {AttributeList | MacroAttributeList}
                              FunctionModifiers?
                              'func' Identifier TypeParameterList?
                              '(' ParameterList? ')'
@@ -92,6 +94,8 @@ ParameterBindingKeyword  ::= 'let' | 'val' | 'var' | 'const' ;
 
 AttributeList            ::= '[' Attribute {',' Attribute} ']' ;
 Attribute                ::= QualifiedName [AttributeArgumentList] ;
+MacroAttributeList       ::= '#[' MacroAttribute {',' MacroAttribute} ']' ;
+MacroAttribute           ::= Identifier [TypeArgumentList] [AttributeArgumentList] ;
 
 EnumDeclaration          ::= TypeModifiers?
                              'enum' Identifier EnumBaseList?
@@ -311,7 +315,7 @@ ThrowStatement           ::= 'throw' Expression ;
 BreakStatement           ::= 'break' ;
 ContinueStatement        ::= 'continue' ;
 
-FunctionStatement        ::= {AttributeList}
+FunctionStatement        ::= {AttributeList | MacroAttributeList}
                              ('async' | 'unsafe' | 'extern')*
                              'func' Identifier TypeParameterList?
                              '(' ParameterList? ')'
@@ -573,6 +577,7 @@ PrimaryExpression        ::= Literal
                            | DefaultExpression
                            | TypeOfExpression
                            | NameOfExpression
+                           | FreestandingMacroExpression
                            | CollectionExpression
                            | Identifier
                            | MemberBindingExpression
@@ -590,6 +595,8 @@ DefaultExpression        ::= 'default' | 'default' '(' Type ')' ;
 
 TypeOfExpression         ::= 'typeof' '(' Type ')' ;
 NameOfExpression         ::= 'nameof' '(' NameOfOperand ')' ;
+FreestandingMacroExpression
+                         ::= '#' Identifier [TypeArgumentList] ArgumentList ;
 
 (* `nameof` is a compile-time-only expression that produces the unqualified name of the referenced symbol.
    The operand is syntactic and is validated by the binder. *)
