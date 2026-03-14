@@ -1,0 +1,57 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+
+func Main() -> () {
+    val viewModel = CounterViewModel()
+
+    use subscription = #subscribe(viewModel.Count, (value) => {
+        WriteLine(value)
+    })
+
+    viewModel.Count = 1
+    viewModel.Count = 1
+    viewModel.Count = 2
+}
+
+class CounterViewModel {
+    #[Observable]
+    var Count: int = 0
+}
+
+class Signal<T> {
+    private val handlers: List<Action<T>> = List<Action<T>>()
+
+    func Subscribe(handler: Action<T>) -> IDisposable {
+        handlers.Add(handler)
+        Subscription<T>(self, handler)
+    }
+
+    func Emit(value: T) -> unit {
+        for handler in handlers {
+            handler(value)
+        }
+    }
+
+    func Unsubscribe(handler: Action<T>) -> unit {
+        handlers.Remove(handler)
+    }
+}
+
+class Subscription<T> : IDisposable {
+    private val owner: Signal<T>
+    private val handler: Action<T>
+    private var disposed: bool = false
+
+    init(owner: Signal<T>, handler: Action<T>) {
+        self.owner = owner
+        self.handler = handler
+    }
+
+    func Dispose() -> unit {
+        if !disposed {
+            disposed = true
+            owner.Unsubscribe(handler)
+        }
+    }
+}

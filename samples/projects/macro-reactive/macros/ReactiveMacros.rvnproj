@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ReactiveMacros</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="main.rvn" />
+    <Reference Include="Raven.CodeAnalysis">
+      <HintPath>../../../../src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,191 @@
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+class ReactiveMacroPlugin : IRavenMacroPlugin {
+    val Name: string => "SampleMacros.Reactive"
+
+    func GetMacros() -> ImmutableArray<IMacroDefinition>
+        => ImmutableArray.Create<IMacroDefinition>(ObservableMacro(), SubscribeMacro())
+}
+
+class ObservableMacro : IAttachedDeclarationMacro {
+    val Name: string => "Observable"
+    val Targets: MacroTarget => MacroTarget.Property
+
+    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
+        val property = context.TargetDeclaration as PropertyDeclarationSyntax
+        if property is null {
+            return MacroExpansionResult.Empty
+        }
+
+        val propertyName = property.Identifier.ValueText
+        val backingFieldName = "_${propertyName}"
+        val signalMemberName = "${propertyName}Changed"
+
+        MacroExpansionResult {
+            ReplacementDeclaration = CreateReplacementProperty(property, backingFieldName, signalMemberName)
+            IntroducedMembers = [
+                CreateBackingField(property, backingFieldName),
+                CreateSignalProperty(property, signalMemberName)
+            ]
+        }
+    }
+
+    func CreateBackingField(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
+        PropertyDeclaration(
+            List<AttributeListSyntax>(),
+            TokenList([PrivateKeyword]),
+            VarKeyword,
+            null,
+            Identifier(backingFieldName),
+            property.Type,
+            null,
+            null,
+            property.Initializer,
+            Token(SyntaxKind.None))
+    }
+
+    func CreateSignalProperty(property: PropertyDeclarationSyntax, signalMemberName: string) -> PropertyDeclarationSyntax {
+        val signalType = CreateSignalType(property.Type.Type)
+
+        PropertyDeclaration(
+            List<AttributeListSyntax>(),
+            TokenList(),
+            ValKeyword,
+            null,
+            Identifier(signalMemberName),
+            TypeAnnotationClause(signalType),
+            null,
+            null,
+            EqualsValueClause(
+                ObjectCreationExpression(
+                    signalType,
+                    ArgumentList(SeparatedList<ArgumentSyntax>()))),
+            Token(SyntaxKind.None))
+    }
+
+    func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string, signalMemberName: string) -> PropertyDeclarationSyntax {
+        property
+            .WithAttributeLists(List<AttributeListSyntax>())
+            .WithAccessorList(CreateAccessorList(backingFieldName, signalMemberName))
+            .WithExpressionBody(null)
+            .WithInitializer(null)
+            .WithTerminatorToken(Token(SyntaxKind.None))
+    }
+
+    func CreateAccessorList(backingFieldName: string, signalMemberName: string) -> AccessorListSyntax {
+        AccessorList(
+            List<AccessorDeclarationSyntax>([
+                AccessorDeclaration(
+                    SyntaxKind.GetAccessorDeclaration,
+                    List<AttributeListSyntax>(),
+                    TokenList(),
+                    GetKeyword,
+                    ArrowExpressionClause(IdentifierName(backingFieldName))),
+                AccessorDeclaration(
+                    SyntaxKind.SetAccessorDeclaration,
+                    List<AttributeListSyntax>(),
+                    TokenList(),
+                    SetKeyword,
+                    CreateSetterBody(backingFieldName, signalMemberName))
+            ]))
+    }
+
+    func CreateSetterBody(backingFieldName: string, signalMemberName: string) -> BlockStatementSyntax {
+        BlockStatement(
+            List<StatementSyntax>([
+                IfStatement(
+                    IfKeyword,
+                    InfixOperatorExpression(
+                        SyntaxKind.NotEqualsExpression,
+                        IdentifierName("value"),
+                        NotEqualsToken,
+                        IdentifierName(backingFieldName)),
+                    BlockStatement(
+                        List<StatementSyntax>([
+                            LocalDeclarationStatement(
+                                VariableDeclaration(
+                                    ValKeyword,
+                                    SeparatedList<VariableDeclaratorSyntax>([
+                                        SyntaxNodeOrToken(
+                                            VariableDeclarator(
+                                                Identifier("oldValue"),
+                                                null,
+                                                EqualsValueClause(IdentifierName(backingFieldName))))
+                                    ]))),
+                            AssignmentStatement(
+                                SyntaxKind.SimpleAssignmentStatement,
+                                IdentifierName(backingFieldName),
+                                EqualsToken,
+                                IdentifierName("value")),
+                            ExpressionStatement(
+                                InvocationExpression(
+                                    MemberAccessExpression(
+                                        SyntaxKind.SimpleMemberAccessExpression,
+                                        IdentifierName(signalMemberName),
+                                        DotToken,
+                                        IdentifierName("Emit")),
+                                    ArgumentList(
+                                        SeparatedList<ArgumentSyntax>([
+                                            SyntaxNodeOrToken(Argument(IdentifierName("value")))
+                                        ]))))
+                        ])),
+                    null,
+                    NewLineToken)
+            ]))
+    }
+
+    func CreateSignalType(valueType: TypeSyntax) -> TypeSyntax {
+        GenericName(
+            Identifier("Signal"),
+            TypeArgumentList(
+                SeparatedList<TypeArgumentSyntax>([
+                    SyntaxNodeOrToken(TypeArgument(valueType))
+                ])))
+    }
+}
+
+class SubscribeMacro : IFreestandingExpressionMacro {
+    val Name: string => "subscribe"
+    val Targets: MacroTarget => MacroTarget.None
+    val AcceptsArguments: bool => true
+
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
+        if context.Arguments.Length != 2 {
+            return FreestandingMacroExpansionResult.Empty
+        }
+
+        val propertyAccess = context.Arguments[0].Expression as MemberAccessExpressionSyntax
+        val callback = context.Arguments[1].Expression
+
+        if propertyAccess is null {
+            return FreestandingMacroExpansionResult.Empty
+        }
+
+        val propertyIdentifier = propertyAccess.Name as IdentifierNameSyntax
+        if propertyIdentifier is null {
+            return FreestandingMacroExpansionResult.Empty
+        }
+
+        val signalName = "${propertyIdentifier.Identifier.ValueText}Changed"
+
+        FreestandingMacroExpansionResult {
+            Expression = InvocationExpression(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        propertyAccess.Expression,
+                        DotToken,
+                        IdentifierName(signalName)),
+                    DotToken,
+                    IdentifierName("Subscribe")),
+                ArgumentList(
+                    SeparatedList<ArgumentSyntax>([
+                        SyntaxNodeOrToken(Argument(callback))
+                    ])))
+        }
+    }
+}

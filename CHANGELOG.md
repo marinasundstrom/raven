@@ -216,5 +216,6 @@ Impact:
 - For compiler API integrations, prefer current Operations API names/shapes aligned to match-oriented semantics.
 - Changed: invocation arguments for `ref`, `out`, and `in` parameters now use explicit call-site keywords instead of `&` at ordinary call sites. Raven now supports `Set(ref value)`, `TryParse(text, out result)`, and declaration forms like `TryParse(text, out var result)` and `TryParse(text, out val result)`.
 - Added a sibling-project `samples/projects/macro-freestanding` sample showing a Raven-authored freestanding expression macro plugin and executable app project using `#add(...)`.
+- Added a sibling-project `samples/projects/macro-reactive` sample showing an attached property macro and a freestanding subscription macro working together in Raven-authored projects.
 - Changed the VS Code extension defaults to disable color decorators in Raven files so freestanding macros like `#add(...)` do not trigger hex-color pickers.
 - Changed macro contracts so `MacroKind` is inferred from `IAttachedDeclarationMacro` and `IFreestandingExpressionMacro`, removing redundant boilerplate from implementations.
