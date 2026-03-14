@@ -17,7 +17,7 @@ class MyViewModel : ObservableBase {
     var Title: string = ""
 }
 
-open class ObservableBase : INotifyPropertyChanged {
+abstract class ObservableBase : INotifyPropertyChanged {
     event PropertyChanged: PropertyChangedEventHandler?
 
     #pragma warning disable-next-line RAV9019 RAV9012
