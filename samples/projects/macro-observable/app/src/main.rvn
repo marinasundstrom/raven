@@ -8,6 +8,7 @@ func Main() -> () {
         WriteLine(args.PropertyName ?? "")
     }
     viewModel.Title = "Hello from Raven"
+    viewModel.Title = "Hello from Raven"
     WriteLine(viewModel.Title)
 }
 

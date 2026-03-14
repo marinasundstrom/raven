@@ -11,6 +11,7 @@ func Main() -> unit {
         WriteLine(args.PropertyName ?? "")
     }
     viewModel.Title = "Hello from Raven"
+    viewModel.Title = "Hello from Raven"
     WriteLine(viewModel.Title)
 }
 
@@ -27,7 +28,7 @@ Current status:
 - The plugin builds its expansion with the syntax API instead of parsing a generated source string.
 - The plugin returns both an introduced backing field and a replacement property declaration through `MacroExpansionResult`.
 - The original property initializer is transferred onto the generated backing storage.
-- The expanded setter now calls `RaisePropertyChanged(...)` through the replacement declaration.
+- The expanded setter guards against duplicate assignments before calling `RaisePropertyChanged(...)`.
 
 Files:
 

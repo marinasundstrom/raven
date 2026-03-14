@@ -88,10 +88,30 @@ class ObservableMacro : IAttachedDeclarationMacro {
     func CreateSetterBody(backingFieldName: string, propertyName: string) -> BlockStatementSyntax {
         BlockStatement(
             List<StatementSyntax>([
-                CreateOldValueDeclaration(backingFieldName),
-                CreateBackingFieldAssignment(backingFieldName),
-                CreateRaisePropertyChangedStatement(propertyName)
+                CreateValueChangedGuard(backingFieldName, propertyName)
             ]))
+    }
+
+    func CreateValueChangedGuard(backingFieldName: string, propertyName: string) -> IfStatementSyntax {
+        IfStatement(
+            IfKeyword,
+            CreateValueChangedCondition(backingFieldName),
+            BlockStatement(
+                List<StatementSyntax>([
+                    CreateOldValueDeclaration(backingFieldName),
+                    CreateBackingFieldAssignment(backingFieldName),
+                    CreateRaisePropertyChangedStatement(propertyName)
+                ])),
+            null,
+            Token(SyntaxKind.None))
+    }
+
+    func CreateValueChangedCondition(backingFieldName: string) -> ExpressionSyntax {
+        InfixOperatorExpression(
+            SyntaxKind.NotEqualsExpression,
+            IdentifierName("value"),
+            NotEqualsToken,
+            IdentifierName(backingFieldName))
     }
 
     func CreateOldValueDeclaration(backingFieldName: string) -> LocalDeclarationStatementSyntax {
