@@ -261,7 +261,7 @@ class C {
         }
 
         val x = f(value).ContinueWith(x => {
-            x.Result
+            return x.Result
         })
 
         x
@@ -298,19 +298,27 @@ class C {
     public void ContinueWithBody_ReceiverHover_ResolvesLambdaParameter()
     {
         const string code = """
-import System.Threading.Tasks.*
+class Payload()
+
+class ContinuationContext(var Result: Payload)
+
+class Computation(var Value: ContinuationContext) {
+    func ContinueWith(continuationFunction: (ContinuationContext) -> Payload) -> Payload {
+        continuationFunction(Value)
+    }
+}
 
 class C {
-    async func Run() -> Task<int> {
-        val f = async func (a: int, b: int) {
-            await Task.FromResult(a + b)
+    func Run(value: ContinuationContext) -> Payload {
+        val f = func (x: ContinuationContext) {
+            Computation(x)
         }
 
-        val x = f(2, 3).ContinueWith(x => {
-            x.Result
+        val x = f(value).ContinueWith(x => {
+            return x.Result
         })
 
-        await x
+        x
     }
 }
 """;
@@ -336,7 +344,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(
             semanticModel,
             root,
-            receiverIdentifier.Identifier.SpanStart + 1);
+            receiverIdentifier.Identifier.SpanStart);
 
         resolution.ShouldNotBeNull();
         resolution!.Value.Symbol.Name.ShouldBe("x");
@@ -345,8 +353,8 @@ class C {
             .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
         var signature = (string)buildSignatureForHover.Invoke(
             null,
-            [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, receiverIdentifier.Identifier.SpanStart + 1])!;
-        signature.ShouldContain("x: Error");
+            [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, receiverIdentifier.Identifier.SpanStart])!;
+        signature.ShouldContain("x: ContinuationContext");
     }
 
     [Fact]
@@ -448,25 +456,17 @@ class C {
     {
         const string code = """
 import System.*
-import System.ComponentModel.*
 
-open class ObservableBase : INotifyPropertyChanged {
-    event PropertyChanged: PropertyChangedEventHandler?
+class ChangedArgs(var PropertyName: string)
 
-    protected func RaisePropertyChanged(propertyName: string) -> unit {
-        PropertyChanged?(self, PropertyChangedEventArgs(propertyName))
-    }
-}
-
-class MyViewModel : ObservableBase {
-    var Title: string = ""
-}
+delegate PropertyChangedHandler(sender: object?, e: ChangedArgs) -> unit
 
 class Program {
+    static func Log(value: string) -> unit { }
+
     static func Main() -> unit {
-        val viewModel = MyViewModel()
-        viewModel.PropertyChanged += (sender, args) => {
-            Console.WriteLine(args.PropertyName ?? "")
+        val handler: PropertyChangedHandler = (sender, args) => {
+            Log(args.PropertyName ?? "")
         }
     }
 }
@@ -496,20 +496,15 @@ class Program {
             .DescendantNodes()
             .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single()).ShouldBeAssignableTo<ILambdaOperation>();
-        lambdaOperation.Parameters[0].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("object?");
-        lambdaOperation.Parameters[1].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("PropertyChangedEventArgs");
+        lambdaOperation.Parameters[1].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("ChangedArgs");
 
-        var senderParameter = semanticModel.GetFunctionExpressionParameterSymbol(lambdaParameters[0]);
         var argsParameter = semanticModel.GetFunctionExpressionParameterSymbol(lambdaParameters[1]);
-        senderParameter.ShouldNotBeNull();
         argsParameter.ShouldNotBeNull();
-        senderParameter!.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("object?");
-        argsParameter!.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("PropertyChangedEventArgs");
+        argsParameter!.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("ChangedArgs");
 
         foreach (var (parameterName, expectedType) in new[]
                  {
-                     ("sender", "object?"),
-                     ("args", "PropertyChangedEventArgs")
+                     ("args", "ChangedArgs")
                  })
         {
             var lambdaParameter = lambdaParameters.Single(parameter => parameter.Identifier.ValueText == parameterName);

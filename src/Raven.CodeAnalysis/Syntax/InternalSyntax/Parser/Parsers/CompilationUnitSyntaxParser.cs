@@ -308,6 +308,21 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             if (statement is null)
                 return;
 
+            if (attributeLists.GetChildren().Any() &&
+                statement is not FunctionStatementSyntax &&
+                nextToken.Kind is SyntaxKind.OpenBracketToken or SyntaxKind.HashToken)
+            {
+                checkpoint.Rewind();
+
+                var recoveredStatement = new StatementSyntaxParser(this).ParseStatement();
+                if (recoveredStatement is not null)
+                {
+                    AddGlobalMember(memberDeclarations, SyntaxList.Empty, SyntaxList.Empty, recoveredStatement);
+                    order = MemberOrder.Members;
+                    return;
+                }
+            }
+
             AddGlobalMember(memberDeclarations, attributeLists, modifiers, statement);
             order = MemberOrder.Members;
         }

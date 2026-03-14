@@ -1107,7 +1107,7 @@ internal sealed class HoverHandler : IHoverHandler
         var argumentIndex = 0;
         foreach (var current in argumentList.Arguments)
         {
-            if (ReferenceEquals(current, argument))
+            if (current.Span == argument.Span && current.Kind == argument.Kind)
                 break;
 
             argumentIndex++;
@@ -1192,13 +1192,15 @@ internal sealed class HoverHandler : IHoverHandler
         ExpressionSyntax? targetExpression = null;
 
         if (functionExpression.Parent is AssignmentExpressionSyntax assignmentExpression &&
-            ReferenceEquals(assignmentExpression.Right, functionExpression) &&
+            assignmentExpression.Right.Span == functionExpression.Span &&
+            assignmentExpression.Right.Kind == functionExpression.Kind &&
             assignmentExpression.Left is ExpressionSyntax assignmentExpressionLeft)
         {
             targetExpression = assignmentExpressionLeft;
         }
         else if (functionExpression.Parent is AssignmentStatementSyntax assignmentStatement &&
-                 ReferenceEquals(assignmentStatement.Right, functionExpression) &&
+                 assignmentStatement.Right.Span == functionExpression.Span &&
+                 assignmentStatement.Right.Kind == functionExpression.Kind &&
                  assignmentStatement.Left is ExpressionSyntax assignmentStatementLeft)
         {
             targetExpression = assignmentStatementLeft;
@@ -1287,13 +1289,12 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static int GetLambdaParameterIndex(FunctionExpressionSyntax functionExpression, string parameterName)
     {
-        var parameters = functionExpression switch
-        {
-            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters,
-            _ => default
-        };
+        if (functionExpression is not ParenthesizedFunctionExpressionSyntax parenthesized ||
+            parenthesized.ParameterList is null)
+            return -1;
 
-        if (parameters.Count == 0)
+        var parameters = parenthesized.ParameterList.Parameters;
+        if (parameters.Green is null || parameters.Count == 0)
             return -1;
 
         for (var i = 0; i < parameters.Count; i++)
@@ -1334,7 +1335,8 @@ internal sealed class HoverHandler : IHoverHandler
         {
             IdentifierNameSyntax identifier
                 when identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
-                     ReferenceEquals(memberAccess.Expression, identifier) &&
+                     memberAccess.Expression.Span == identifier.Span &&
+                     memberAccess.Expression.Kind == identifier.Kind &&
                      string.Equals(identifier.Identifier.ValueText, symbolName, StringComparison.Ordinal)
                 => identifier,
             MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax identifier }
@@ -1344,7 +1346,8 @@ internal sealed class HoverHandler : IHoverHandler
                 .OfType<IdentifierNameSyntax>()
                 .FirstOrDefault(identifier =>
                     identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
-                    ReferenceEquals(memberAccess.Expression, identifier) &&
+                    memberAccess.Expression.Span == identifier.Span &&
+                    memberAccess.Expression.Kind == identifier.Kind &&
                     string.Equals(identifier.Identifier.ValueText, symbolName, StringComparison.Ordinal))
         };
 

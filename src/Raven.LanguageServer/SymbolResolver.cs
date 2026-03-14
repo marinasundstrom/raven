@@ -12,6 +12,9 @@ internal static class SymbolResolver
 {
     public static SymbolResolutionResult? ResolveSymbolAtPosition(SemanticModel semanticModel, SyntaxNode root, int offset)
     {
+        if (TryResolveExactTokenMemberSymbol(semanticModel, root, offset, out var exactMemberResolution))
+            return exactMemberResolution;
+
         foreach (var candidate in GetCandidateNodes(root, offset))
         {
             if (TryResolveMemberTokenFastPath(semanticModel, candidate.Token, out var memberTokenSymbol))
@@ -37,6 +40,52 @@ internal static class SymbolResolver
         return null;
     }
 
+    private static bool TryResolveExactTokenMemberSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Parent is not IdentifierNameSyntax identifier ||
+                identifier.Parent is not MemberAccessExpressionSyntax memberAccess)
+            {
+                continue;
+            }
+
+            if (HaveEquivalentSpan(memberAccess.Name, identifier))
+            {
+                var nameInfo = semanticModel.GetSymbolInfo(memberAccess.Name);
+                var symbol = ProjectSymbolForDisplay(nameInfo.Symbol)
+                    ?? ProjectSymbolForDisplay(ChoosePreferredSymbol(nameInfo.Symbol, nameInfo.CandidateSymbols, memberAccess.Name))
+                    ?? ProjectSymbolForDisplay(semanticModel.GetSymbolInfo(memberAccess).Symbol)
+                    ?? ProjectSymbolForDisplay(FindReferencedSymbolAtToken(semanticModel.GetOperation(memberAccess), token.Span));
+
+                if (symbol is not null)
+                {
+                    resolution = new SymbolResolutionResult(symbol.UnderlyingSymbol, identifier);
+                    return true;
+                }
+            }
+
+        }
+
+        return false;
+    }
+
     private static bool TryResolveMemberTokenFastPath(
         SemanticModel semanticModel,
         SyntaxToken token,
@@ -46,9 +95,25 @@ internal static class SymbolResolver
 
         if (token.Parent is not IdentifierNameSyntax identifier ||
             identifier.Parent is not MemberAccessExpressionSyntax memberAccess ||
-            !ReferenceEquals(memberAccess.Name, identifier))
+            !HaveEquivalentSpan(memberAccess.Name, identifier))
         {
             return false;
+        }
+
+        var nameInfo = semanticModel.GetSymbolInfo(memberAccess.Name);
+        if (nameInfo.Symbol is not null || !nameInfo.CandidateSymbols.IsDefaultOrEmpty)
+        {
+            symbol = ProjectSymbolForDisplay(ChoosePreferredSymbol(nameInfo.Symbol, nameInfo.CandidateSymbols, memberAccess.Name));
+            if (symbol is not null)
+                return true;
+        }
+
+        var operationSymbol = FindReferencedSymbolAtToken(semanticModel.GetOperation(memberAccess), identifier.Identifier.Span);
+        if (operationSymbol is not null)
+        {
+            symbol = ProjectSymbolForDisplay(operationSymbol);
+            if (symbol is not null)
+                return true;
         }
 
         if (!TryResolveMemberFromReceiverType(semanticModel, memberAccess, out var resolved))
@@ -171,14 +236,14 @@ internal static class SymbolResolver
         if (TryResolveTypePositionSymbol(semanticModel, node, token, out var typePositionSymbol))
             return typePositionSymbol;
 
-        if (TryResolveFromEnclosingBlockLocals(semanticModel, node, token, out var blockLocalSymbol))
-            return blockLocalSymbol;
-
         if (TryResolveMemberSegmentSymbol(semanticModel, node, token, out var memberSegmentSymbol))
             return memberSegmentSymbol;
 
         if (TryResolveMemberReceiverSymbol(semanticModel, node, token, out var receiverSymbol))
             return receiverSymbol;
+
+        if (TryResolveFromEnclosingBlockLocals(semanticModel, node, token, out var blockLocalSymbol))
+            return blockLocalSymbol;
 
         var symbolInfo = semanticModel.GetSymbolInfo(node);
         if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
@@ -233,6 +298,9 @@ internal static class SymbolResolver
         if (!parameter.Span.Contains(token.Span))
             return false;
 
+        if (parameter.Pattern?.Span.Contains(token.Span) == true)
+            return false;
+
         // Let nested syntax keep their own hover identity:
         // parameter type annotation should hover the type, and default values
         // should hover symbols inside the expression.
@@ -257,7 +325,7 @@ internal static class SymbolResolver
 
         if (node is not IdentifierNameSyntax identifier ||
             identifier.Parent is not MemberAccessExpressionSyntax memberAccess ||
-            !ReferenceEquals(memberAccess.Expression, identifier) ||
+            !HaveEquivalentSpan(memberAccess.Expression, identifier) ||
             !identifier.Span.Contains(token.Span))
         {
             return false;
@@ -288,6 +356,12 @@ internal static class SymbolResolver
     private static bool IsTypeContext(SyntaxNode node)
         => node.AncestorsAndSelf().OfType<TypeSyntax>().Any();
 
+    private static bool HaveEquivalentSpan(SyntaxNode? left, SyntaxNode? right)
+        => left is not null &&
+           right is not null &&
+           left.Kind == right.Kind &&
+           left.Span == right.Span;
+
     private static ISymbol ProjectTypeContextSymbol(ISymbol symbol)
     {
         if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
@@ -310,12 +384,12 @@ internal static class SymbolResolver
                 when memberBinding.Name.Span.Contains(token.Span) || memberBinding.OperatorToken == token => memberBinding,
             IdentifierNameSyntax identifier
                 when identifier.Parent is MemberBindingExpressionSyntax memberBinding &&
-                     memberBinding.Name == identifier => memberBinding,
+                     HaveEquivalentSpan(memberBinding.Name, identifier) => memberBinding,
             MemberAccessExpressionSyntax memberAccess
                 when memberAccess.Name.Span.Contains(token.Span) || memberAccess.OperatorToken == token => memberAccess,
             IdentifierNameSyntax identifier
                 when identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
-                     memberAccess.Name == identifier => memberAccess,
+                     HaveEquivalentSpan(memberAccess.Name, identifier) => memberAccess,
             _ => null
         };
 
@@ -414,6 +488,9 @@ internal static class SymbolResolver
             return false;
 
         if (!parameter.Span.Contains(token.Span))
+            return false;
+
+        if (parameter.Pattern?.Span.Contains(token.Span) == true)
             return false;
 
         if (parameter.TypeAnnotation?.Type.Span.Contains(token.Span) == true)
@@ -600,7 +677,7 @@ internal static class SymbolResolver
             MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax parent } => parent,
             IdentifierNameSyntax identifier
                 when identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
-                     memberAccess.Name == identifier &&
+                     HaveEquivalentSpan(memberAccess.Name, identifier) &&
                      memberAccess.Parent is InvocationExpressionSyntax parent => parent,
             _ => null
         };
@@ -782,7 +859,7 @@ internal static class SymbolResolver
         var argumentIndex = 0;
         foreach (var candidate in argumentList.Arguments)
         {
-            if (ReferenceEquals(candidate, argument))
+            if (HaveEquivalentSpan(candidate, argument))
                 break;
 
             argumentIndex++;

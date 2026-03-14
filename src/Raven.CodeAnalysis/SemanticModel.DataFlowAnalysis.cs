@@ -195,18 +195,18 @@ internal sealed class DataFlowWalker : SyntaxWalker
 {
     private readonly SemanticModel _semanticModel;
 
-    private readonly HashSet<ISymbol> _variablesDeclared = new();
-    private readonly HashSet<ISymbol> _readInside = new();
-    private readonly HashSet<ISymbol> _readOutside = new();
-    private readonly HashSet<ISymbol> _writtenOutside = new();
-    private readonly HashSet<ISymbol> _dataFlowsOut = new();
-    private readonly HashSet<ISymbol> _captured = new();
+    private readonly HashSet<ISymbol> _variablesDeclared = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<ISymbol> _readInside = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<ISymbol> _readOutside = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<ISymbol> _writtenOutside = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<ISymbol> _dataFlowsOut = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<ISymbol> _captured = new(SymbolEqualityComparer.Default);
 
-    private HashSet<ISymbol> _writtenInside = new();
-    private readonly HashSet<ISymbol> _dataFlowsIn = new();
-    private HashSet<ISymbol> _definitelyAssignedOnEntry = new();
-    private HashSet<ISymbol> _definitelyAssignedOnExit = new();
-    private HashSet<ISymbol> _assignedOnEntry = new();
+    private HashSet<ISymbol> _writtenInside = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<ISymbol> _dataFlowsIn = new(SymbolEqualityComparer.Default);
+    private HashSet<ISymbol> _definitelyAssignedOnEntry = new(SymbolEqualityComparer.Default);
+    private HashSet<ISymbol> _definitelyAssignedOnExit = new(SymbolEqualityComparer.Default);
+    private HashSet<ISymbol> _assignedOnEntry = new(SymbolEqualityComparer.Default);
 
     public Compilation Compilation => _semanticModel.Compilation;
 
@@ -217,22 +217,22 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitBlock(BlockSyntax node)
     {
-        _definitelyAssignedOnEntry = _writtenInside.Union(_assignedOnEntry).ToHashSet();
+        _definitelyAssignedOnEntry = _writtenInside.Union(_assignedOnEntry).ToHashSet(SymbolEqualityComparer.Default);
 
         foreach (var statement in node.Statements)
             Visit(statement);
 
-        _definitelyAssignedOnExit = _writtenInside.ToHashSet();
+        _definitelyAssignedOnExit = _writtenInside.ToHashSet(SymbolEqualityComparer.Default);
     }
 
     public override void VisitBlockStatement(BlockStatementSyntax node)
     {
-        _definitelyAssignedOnEntry = _writtenInside.Union(_assignedOnEntry).ToHashSet();
+        _definitelyAssignedOnEntry = _writtenInside.Union(_assignedOnEntry).ToHashSet(SymbolEqualityComparer.Default);
 
         foreach (var statement in node.Statements)
             Visit(statement);
 
-        _definitelyAssignedOnExit = _writtenInside.ToHashSet();
+        _definitelyAssignedOnExit = _writtenInside.ToHashSet(SymbolEqualityComparer.Default);
     }
 
     public override void VisitVariableDeclarator(VariableDeclaratorSyntax node)
@@ -343,9 +343,9 @@ internal sealed class DataFlowWalker : SyntaxWalker
     {
         Visit(node.Condition);
 
-        var writtenBefore = _writtenInside.ToHashSet();
+        var writtenBefore = _writtenInside.ToHashSet(SymbolEqualityComparer.Default);
         Visit(node.Expression);
-        var writtenAfterThen = _writtenInside.ToHashSet();
+        var writtenAfterThen = _writtenInside.ToHashSet(SymbolEqualityComparer.Default);
 
         _writtenInside.Clear();
         foreach (var sym in writtenBefore)
@@ -360,10 +360,10 @@ internal sealed class DataFlowWalker : SyntaxWalker
     public override void VisitWhileStatement(WhileStatementSyntax node)
     {
         Visit(node.Condition);
-        var assignedBefore = _writtenInside.Union(_assignedOnEntry).ToHashSet();
+        var assignedBefore = _writtenInside.Union(_assignedOnEntry).ToHashSet(SymbolEqualityComparer.Default);
 
         _assignedOnEntry = assignedBefore;
-        _writtenInside = assignedBefore.ToHashSet();
+        _writtenInside = assignedBefore.ToHashSet(SymbolEqualityComparer.Default);
 
         Visit(node.Statement);
     }
@@ -374,10 +374,10 @@ internal sealed class DataFlowWalker : SyntaxWalker
         if (node.StepExpression is not null)
             Visit(node.StepExpression);
 
-        var assignedBefore = _writtenInside.Union(_assignedOnEntry).ToHashSet();
+        var assignedBefore = _writtenInside.Union(_assignedOnEntry).ToHashSet(SymbolEqualityComparer.Default);
 
         _assignedOnEntry = assignedBefore;
-        _writtenInside = assignedBefore.ToHashSet();
+        _writtenInside = assignedBefore.ToHashSet(SymbolEqualityComparer.Default);
 
         Visit(node.Body);
     }

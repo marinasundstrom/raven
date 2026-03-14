@@ -204,10 +204,15 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var outArgument = new BoundAddressOfExpression(
             new FakeParameterSymbol("value", intType, RefKind.None, isVarParams: false),
             intType);
+        var arguments = new[]
+        {
+            new BoundArgument(stringArgument, RefKind.None, name: null),
+            new BoundArgument(outArgument, RefKind.Out, name: null),
+        };
 
         var result = OverloadResolver.ResolveOverload(
             tryParseMethods,
-            CreateArguments(stringArgument, outArgument),
+            arguments,
             compilation);
 
         Assert.True(result.Success);
