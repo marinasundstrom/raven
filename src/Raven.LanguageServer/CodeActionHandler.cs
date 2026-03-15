@@ -75,7 +75,9 @@ internal sealed class CodeActionHandler : ICodeActionHandler
             var actions = new List<CommandOrCodeAction>(filteredFixes.Length + filteredRefactorings.Length + 1);
 
             var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-            if (syntaxTree is not null && SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite))
+            if (syntaxTree is not null &&
+                SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite) &&
+                compilation.SyntaxTrees.Contains(syntaxTree))
             {
                 var semanticModel = compilation.GetSemanticModel(syntaxTree);
                 var root = syntaxTree.GetRoot(cancellationToken);

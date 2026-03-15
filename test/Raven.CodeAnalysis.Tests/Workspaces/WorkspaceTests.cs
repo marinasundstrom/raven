@@ -288,6 +288,27 @@ public class WorkspaceTest
     }
 
     [Fact]
+    public void GetRefactorings_IgnoresProviderFailures()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From("func Main() -> () { }"));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new ThrowingRefactoringProvider(), new TestRefactoringProvider()],
+            new TextSpan(0, 4));
+
+        var refactoring = Assert.Single(refactorings);
+        Assert.Equal("Test refactoring", refactoring.Action.Title);
+    }
+
+    [Fact]
     public async Task GetRefactorings_ExpressionBodyProvider_RewritesSelectedDeclaration()
     {
         var workspace = new AdhocWorkspace();
@@ -409,6 +430,14 @@ public class WorkspaceTest
         public override void RegisterRefactorings(CodeRefactoringContext context)
         {
             context.RegisterRefactoring(CodeAction.Create("Test refactoring", static (solution, _) => solution));
+        }
+    }
+
+    private sealed class ThrowingRefactoringProvider : CodeRefactoringProvider
+    {
+        public override void RegisterRefactorings(CodeRefactoringContext context)
+        {
+            throw new NotSupportedException("boom");
         }
     }
 }

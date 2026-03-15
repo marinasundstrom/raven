@@ -16,7 +16,7 @@ public sealed class TargetTypedUnionCaseRefactoringProvider : CodeRefactoringPro
 
         if (node.FirstAncestorOrSelf<LocalDeclarationStatementSyntax>() is { } localDeclaration &&
             RefactoringSelectionHelper.IntersectsSelection(context, localDeclaration.Span) &&
-            PreferTargetTypedUnionCaseAnalyzer.TryCreateSuggestion(localDeclaration, semanticModel, out var declarationSuggestion))
+            TryCreateDeclarationSuggestion(localDeclaration, semanticModel, out var declarationSuggestion))
         {
             context.RegisterRefactoring(
                 CodeAction.CreateTextChange(
@@ -30,7 +30,7 @@ public sealed class TargetTypedUnionCaseRefactoringProvider : CodeRefactoringPro
             if (!RefactoringSelectionHelper.IntersectsSelection(context, expression.Span))
                 continue;
 
-            if (!PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer.TryCreateSuggestion(expression, semanticModel, out var expressionSuggestion))
+            if (!TryCreateExpressionSuggestion(expression, semanticModel, out var expressionSuggestion))
                 continue;
 
             context.RegisterRefactoring(
@@ -39,6 +39,38 @@ public sealed class TargetTypedUnionCaseRefactoringProvider : CodeRefactoringPro
                     context.Document.Id,
                     new TextChange(expression.Span, expressionSuggestion.RewrittenExpressionText)));
             break;
+        }
+    }
+
+    private static bool TryCreateDeclarationSuggestion(
+        LocalDeclarationStatementSyntax localDeclaration,
+        SemanticModel semanticModel,
+        out PreferTargetTypedUnionCaseAnalyzer.Suggestion suggestion)
+    {
+        try
+        {
+            return PreferTargetTypedUnionCaseAnalyzer.TryCreateSuggestion(localDeclaration, semanticModel, out suggestion);
+        }
+        catch (NotSupportedException)
+        {
+            suggestion = default;
+            return false;
+        }
+    }
+
+    private static bool TryCreateExpressionSuggestion(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel,
+        out PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer.Suggestion suggestion)
+    {
+        try
+        {
+            return PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer.TryCreateSuggestion(expression, semanticModel, out suggestion);
+        }
+        catch (NotSupportedException)
+        {
+            suggestion = default;
+            return false;
         }
     }
 }

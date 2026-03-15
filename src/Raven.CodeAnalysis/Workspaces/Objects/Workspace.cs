@@ -374,7 +374,18 @@ public class Workspace
                 actionBucket.Add,
                 cancellationToken);
 
-            provider.RegisterRefactorings(context);
+            try
+            {
+                provider.RegisterRefactorings(context);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                continue;
+            }
 
             foreach (var action in actionBucket)
                 refactorings.Add(new CodeRefactoring(documentId, span, action, provider));
