@@ -126,4 +126,26 @@ Additional details live in the main body.
         Assert.Single(structure.See);
         Assert.Equal("M:Samples.Docs.Widget.GetTitle", structure.See[0].Reference);
     }
+
+    [Fact]
+    public void DocumentationStructureExtractor_RecognizesMarkdownHeadingSections()
+    {
+        var comment = DocumentationComment.Create(
+            DocumentationFormat.Markdown,
+            """
+Prints information about [Widget](xref:T:Samples.Docs.Widget) values.
+
+### Remarks
+
+This consumer project exists to exercise cross-project documentation links
+and metadata loading scenarios.
+""");
+
+        var structure = DocumentationStructureExtractor.Extract(comment);
+
+        Assert.Equal("Prints information about [Widget](xref:T:Samples.Docs.Widget) values.", structure.Summary);
+        Assert.Equal("This consumer project exists to exercise cross-project documentation links\nand metadata loading scenarios.", structure.Remarks);
+        Assert.True(string.IsNullOrWhiteSpace(structure.AdditionalBody));
+        Assert.DoesNotContain("### Remarks", structure.Body);
+    }
 }

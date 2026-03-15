@@ -23,8 +23,11 @@ public static class DocumentationDisplayFormatter
     {
         var structure = DocumentationStructureExtractor.Extract(documentation);
         var sections = new List<string>();
-        if (!string.IsNullOrWhiteSpace(structure.Body))
-            sections.Add(RewriteXrefsForDisplay(structure.Body.Trim(), linkXrefs));
+        if (!string.IsNullOrWhiteSpace(structure.Summary))
+            sections.Add(RewriteXrefsForDisplay(structure.Summary.Trim(), linkXrefs));
+
+        if (!string.IsNullOrWhiteSpace(structure.AdditionalBody))
+            sections.Add(RewriteXrefsForDisplay(structure.AdditionalBody.Trim(), linkXrefs));
 
         AppendEntrySection(sections, "Type Parameters", structure.TypeParameters, includeName: true, linkXrefs);
         AppendEntrySection(sections, "Parameters", structure.Parameters, includeName: true, linkXrefs);

@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace Raven.CodeAnalysis.Documentation;
@@ -20,8 +22,9 @@ public static class DocumentationStructureExtractor
 
     private static DocumentationStructure FromMarkdown(DocumentationComment documentation)
     {
-        var summary = MarkdownDocumentationStructureExtractor.GetFirstParagraph(documentation.Body);
-        var additionalBody = MarkdownDocumentationStructureExtractor.GetRemainingParagraphs(documentation.Body);
+        var markdownSections = SplitMarkdownSections(documentation.Body);
+        var summary = MarkdownDocumentationStructureExtractor.GetFirstParagraph(markdownSections.Body);
+        var additionalBody = MarkdownDocumentationStructureExtractor.GetRemainingParagraphs(markdownSections.Body);
 
         var returns = documentation.Tags.FirstOrDefault(static tag => tag.Kind == DocumentationTagKind.Returns)?.Content;
         var value = documentation.Tags.FirstOrDefault(static tag => tag.Kind == DocumentationTagKind.Value)?.Content;
@@ -29,13 +32,25 @@ public static class DocumentationStructureExtractor
         var example = documentation.Tags.FirstOrDefault(static tag => tag.Kind == DocumentationTagKind.Example)?.Content;
         var inheritDocReference = NormalizeReference(documentation.Tags.FirstOrDefault(static tag => tag.Kind == DocumentationTagKind.InheritDoc)?.Argument);
 
+        if (string.IsNullOrWhiteSpace(returns))
+            returns = markdownSections.Returns;
+
+        if (string.IsNullOrWhiteSpace(value))
+            value = markdownSections.Value;
+
+        if (string.IsNullOrWhiteSpace(remarks))
+            remarks = markdownSections.Remarks;
+
+        if (string.IsNullOrWhiteSpace(example))
+            example = markdownSections.Example;
+
         if (string.IsNullOrWhiteSpace(remarks) && !string.IsNullOrWhiteSpace(additionalBody))
             remarks = additionalBody;
 
         return new DocumentationStructure(
             SourceFormat: DocumentationFormat.Markdown,
             Summary: summary,
-            Body: documentation.Body,
+            Body: markdownSections.Body,
             AdditionalBody: additionalBody,
             Returns: EmptyToNull(returns),
             Value: EmptyToNull(value),
@@ -47,6 +62,94 @@ public static class DocumentationStructureExtractor
             Exceptions: ConvertEntries(documentation.Tags.Where(static tag => tag.Kind == DocumentationTagKind.Exception)),
             See: ConvertEntries(documentation.Tags.Where(static tag => tag.Kind == DocumentationTagKind.See)),
             SeeAlso: ConvertEntries(documentation.Tags.Where(static tag => tag.Kind == DocumentationTagKind.SeeAlso)));
+    }
+
+    private static MarkdownSectionSplit SplitMarkdownSections(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return new MarkdownSectionSplit(string.Empty, null, null, null, null);
+
+        var normalizedBody = body.Replace("\r\n", "\n", StringComparison.Ordinal);
+        var lines = normalizedBody.Split('\n');
+        var bodyBuilder = new StringBuilder();
+        var sectionBuilder = new StringBuilder();
+        string? currentSection = null;
+        string? remarks = null;
+        string? returns = null;
+        string? value = null;
+        string? example = null;
+
+        void FlushSection()
+        {
+            if (currentSection is null)
+                return;
+
+            var content = sectionBuilder.ToString().Trim();
+            switch (currentSection)
+            {
+                case "remarks":
+                    remarks ??= EmptyToNull(content);
+                    break;
+                case "returns":
+                    returns ??= EmptyToNull(content);
+                    break;
+                case "value":
+                    value ??= EmptyToNull(content);
+                    break;
+                case "example":
+                    example ??= EmptyToNull(content);
+                    break;
+            }
+
+            sectionBuilder.Clear();
+            currentSection = null;
+        }
+
+        foreach (var line in lines)
+        {
+            var headingSection = TryGetRecognizedHeadingSection(line);
+            if (headingSection is not null)
+            {
+                FlushSection();
+                currentSection = headingSection;
+                continue;
+            }
+
+            if (currentSection is not null)
+            {
+                sectionBuilder.AppendLine(line);
+            }
+            else
+            {
+                bodyBuilder.AppendLine(line);
+            }
+        }
+
+        FlushSection();
+
+        return new MarkdownSectionSplit(
+            Body: bodyBuilder.ToString().Trim(),
+            Returns: returns,
+            Value: value,
+            Remarks: remarks,
+            Example: example);
+    }
+
+    private static string? TryGetRecognizedHeadingSection(string line)
+    {
+        var match = Regex.Match(line, @"^\s{0,3}#{1,6}\s+(?<name>.+?)\s*$");
+        if (!match.Success)
+            return null;
+
+        var heading = match.Groups["name"].Value.Trim();
+        return heading.ToLowerInvariant() switch
+        {
+            "remarks" => "remarks",
+            "returns" => "returns",
+            "value" => "value",
+            "example" or "examples" => "example",
+            _ => null
+        };
     }
 
     private static DocumentationStructure FromXml(DocumentationComment documentation)
@@ -131,4 +234,11 @@ public static class DocumentationStructureExtractor
 
     private static string? EmptyToNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private sealed record MarkdownSectionSplit(
+        string Body,
+        string? Returns,
+        string? Value,
+        string? Remarks,
+        string? Example);
 }

@@ -75,4 +75,28 @@ See [Widget](xref:T:Samples.Docs.Widget).
         formatted.ShouldContain("target=T%3ASamples.Docs.Widget");
         formatted.ShouldContain("target=M%3ASamples.Docs.Widget.GetTitle");
     }
+
+    [Fact]
+    public void MarkdownDocumentation_RecognizedHeadingSections_AreNotDuplicatedInDisplay()
+    {
+        var comment = DocumentationComment.Create(
+            DocumentationFormat.Markdown,
+            """
+Prints information about [Widget](xref:T:Samples.Docs.Widget) values.
+
+### Remarks
+
+This consumer project exists to exercise cross-project documentation links
+and metadata loading scenarios.
+""");
+
+        var formatted = DocumentationDisplayFormatter.FormatForMarkdown(comment);
+
+        formatted.ShouldNotBeNull();
+        formatted.ShouldContain("Prints information about `Widget` values.");
+        formatted.ShouldContain("**Remarks**");
+        formatted.ShouldContain("This consumer project exists to exercise cross-project documentation links");
+        formatted.ShouldNotContain("### Remarks");
+        formatted.Split("**Remarks**", StringSplitOptions.None).Length.ShouldBe(2);
+    }
 }
