@@ -18,9 +18,7 @@ class Widget(val Title: string) {
     ///
     /// @returns The title that was supplied when the widget was created.
     /// @see xref:T:Samples.Docs.Consumer.WidgetPrinter
-    func GetTitle() -> string {
-        Title
-    }
+    func GetTitle() -> string => Title
 }
 
 /// Creates ready-made [Widget](xref:T:Samples.Docs.Widget) instances.
