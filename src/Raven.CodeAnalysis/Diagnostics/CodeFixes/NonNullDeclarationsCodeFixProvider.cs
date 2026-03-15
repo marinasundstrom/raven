@@ -1,5 +1,8 @@
 using System.Collections.Immutable;
+using System.Globalization;
+using System.Linq;
 
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Diagnostics;
@@ -29,5 +32,441 @@ public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
                 $"Replace with '{suggestedType}'",
                 context.Document.Id,
                 change));
+
+        var syntaxTree = context.Document.GetSyntaxTreeAsync(context.CancellationToken).GetAwaiter().GetResult();
+        var root = syntaxTree?.GetRoot(context.CancellationToken);
+        if (root is null)
+            return;
+
+        if (!TryCreateRewriteToOptionAction(context.Document, root, diagnostic, suggestedType, out var rewriteAction))
+            return;
+
+        context.RegisterCodeFix(rewriteAction);
     }
+
+    private static bool TryCreateRewriteToOptionAction(
+        Document document,
+        SyntaxNode root,
+        Diagnostic diagnostic,
+        string suggestedType,
+        out CodeAction action)
+    {
+        action = null!;
+
+        var declarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .FirstOrDefault(candidate =>
+            {
+                var typeSpan = candidate.TypeAnnotation?.Type.Span;
+                if (typeSpan is null)
+                    return false;
+
+                return typeSpan.Value == diagnostic.Location.SourceSpan
+                    || (typeSpan.Value.Start <= diagnostic.Location.SourceSpan.Start && typeSpan.Value.End >= diagnostic.Location.SourceSpan.End)
+                    || (diagnostic.Location.SourceSpan.Start <= typeSpan.Value.Start && diagnostic.Location.SourceSpan.End >= typeSpan.Value.End);
+            });
+        if (declarator is null)
+            return false;
+
+        var typeSyntax = declarator.TypeAnnotation?.Type;
+        if (declarator.TypeAnnotation?.Type != typeSyntax)
+            return false;
+
+        if (typeSyntax is null)
+            return false;
+
+        if (declarator.Ancestors().OfType<LocalDeclarationStatementSyntax>().FirstOrDefault() is not { } localDeclaration)
+            return false;
+
+        if (localDeclaration.Declaration.Declarators.Count != 1)
+            return false;
+
+        if (localDeclaration.Declaration.BindingKeyword.Kind is not (SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.LetKeyword))
+            return false;
+
+        var localName = declarator.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(localName))
+        {
+            return false;
+        }
+
+        if (localDeclaration.Parent is not BlockStatementSyntax block)
+            return false;
+
+        var statementIndex = IndexOfStatement(block, localDeclaration);
+        if (statementIndex < 0)
+            return false;
+
+        var ifStatement = FindFirstGuardIfStatement(block, statementIndex + 1, localName);
+        if (ifStatement is null)
+            return false;
+
+        if (!TryAnalyzeCondition(sourceText: document.GetTextAsync().GetAwaiter().GetResult(), ifStatement.Condition, localName, out var conditionRewrite))
+            return false;
+
+        var maybeName = CreateMaybeName(localName);
+        if (string.IsNullOrWhiteSpace(maybeName) || string.Equals(maybeName, localName, StringComparison.Ordinal))
+            return false;
+
+        if (HasNameConflict(localDeclaration, block, maybeName))
+            return false;
+
+        if (!AreAllReferencesContained(block, localName, ifStatement))
+            return false;
+
+        var sourceText = document.GetTextAsync().GetAwaiter().GetResult();
+        var bindingKeyword = localDeclaration.Declaration.BindingKeyword.Text;
+        var changes = CreateRewriteChanges(sourceText, typeSyntax, declarator, ifStatement, suggestedType, maybeName, conditionRewrite);
+        if (changes is null)
+            return false;
+
+        action = CodeAction.Create(
+            "Rewrite to use Option<T>",
+            (solution, cancellationToken) =>
+            {
+                var updatedDocument = solution.GetDocument(document.Id);
+                if (updatedDocument is null)
+                    return solution;
+
+                var text = updatedDocument.GetTextAsync(cancellationToken).GetAwaiter().GetResult();
+                foreach (var textChange in changes.OrderByDescending(change => change.Span.Start))
+                    text = text.WithChange(textChange);
+
+                return solution.WithDocumentText(document.Id, text);
+            });
+
+        return true;
+    }
+
+    private static TextChange[]? CreateRewriteChanges(
+        SourceText sourceText,
+        TypeSyntax typeSyntax,
+        VariableDeclaratorSyntax declarator,
+        IfStatementSyntax ifStatement,
+        string suggestedType,
+        string maybeName,
+        ConditionRewrite conditionRewrite)
+    {
+        if (ifStatement.ElseClause is null)
+        {
+            var patternText = $"{maybeName} is {conditionRewrite.SomePattern}";
+            return
+            [
+                new TextChange(typeSyntax.Span, suggestedType),
+                new TextChange(declarator.Identifier.Span, maybeName),
+                new TextChange(ifStatement.Condition.Span, patternText)
+            ];
+        }
+
+        if (TryGetReturnedExpression(ifStatement.ThenStatement, sourceText, out var thenExpressionText) &&
+            TryGetReturnedExpression(ifStatement.ElseClause.Statement, sourceText, out var elseExpressionText))
+        {
+            var matchIndent = GetIndentation(sourceText, ifStatement.Span.Start);
+            var returnMatch = $"return {maybeName} match {{{Environment.NewLine}{matchIndent}    {conditionRewrite.SomePattern} => {thenExpressionText}{Environment.NewLine}{matchIndent}    {conditionRewrite.ElsePattern} => {elseExpressionText}{Environment.NewLine}{matchIndent}" + "}" + Environment.NewLine;
+            return
+            [
+                new TextChange(typeSyntax.Span, suggestedType),
+                new TextChange(declarator.Identifier.Span, maybeName),
+                new TextChange(ifStatement.Span, returnMatch)
+            ];
+        }
+
+        if (TryGetAssignedExpression(ifStatement.ThenStatement, sourceText, out var thenAssignment) &&
+            TryGetAssignedExpression(ifStatement.ElseClause.Statement, sourceText, out var elseAssignment) &&
+            string.Equals(thenAssignment.LeftText, elseAssignment.LeftText, StringComparison.Ordinal))
+        {
+            var matchIndent = GetIndentation(sourceText, ifStatement.Span.Start);
+            var assignmentMatch = $"{thenAssignment.LeftText} = {maybeName} match {{{Environment.NewLine}{matchIndent}    {conditionRewrite.SomePattern} => {thenAssignment.RightText}{Environment.NewLine}{matchIndent}    {conditionRewrite.ElsePattern} => {elseAssignment.RightText}{Environment.NewLine}{matchIndent}" + "}" + Environment.NewLine;
+            return
+            [
+                new TextChange(typeSyntax.Span, suggestedType),
+                new TextChange(declarator.Identifier.Span, maybeName),
+                new TextChange(ifStatement.Span, assignmentMatch)
+            ];
+        }
+
+        var indent = GetIndentation(sourceText, ifStatement.Span.Start);
+        var thenText = IndentStatementText(sourceText.GetSubText(ifStatement.ThenStatement.Span), indent);
+        var elseText = IndentStatementText(sourceText.GetSubText(ifStatement.ElseClause.Statement.Span), indent);
+        var replacement = $"match {maybeName} {{{Environment.NewLine}{indent}    {conditionRewrite.SomePattern} => {thenText}{Environment.NewLine}{indent}    {conditionRewrite.ElsePattern} => {elseText}{Environment.NewLine}{indent}" + "}" + Environment.NewLine;
+
+        return
+        [
+            new TextChange(typeSyntax.Span, suggestedType),
+            new TextChange(declarator.Identifier.Span, maybeName),
+            new TextChange(ifStatement.Span, replacement)
+        ];
+    }
+
+    private static bool TryAnalyzeCondition(
+        SourceText sourceText,
+        ExpressionSyntax condition,
+        string localName,
+        out ConditionRewrite rewrite)
+    {
+        if (TryGetNullCheck(condition, localName))
+        {
+            rewrite = new ConditionRewrite($"Some(val {localName})", "None");
+            return true;
+        }
+
+        if (condition is not IsPatternExpressionSyntax isPattern)
+        {
+            rewrite = default;
+            return false;
+        }
+
+        if (TryGetReferencedIdentifier(isPattern.Expression) is not { } identifier ||
+            !string.Equals(identifier, localName, StringComparison.Ordinal))
+        {
+            rewrite = default;
+            return false;
+        }
+
+        if (isPattern.Pattern is DeclarationPatternSyntax declarationPattern)
+        {
+            var patternText = sourceText.GetSubText(declarationPattern.Span);
+            rewrite = new ConditionRewrite($"Some({patternText})", "_");
+            return true;
+        }
+
+        rewrite = default;
+        return false;
+    }
+
+    private static bool TryGetNullCheck(
+        ExpressionSyntax condition,
+        string localName)
+    {
+        if (condition is not InfixOperatorExpressionSyntax binary)
+            return false;
+
+        if (binary.OperatorToken.Kind != SyntaxKind.NotEqualsToken)
+            return false;
+
+        if (TryGetReferencedIdentifier(binary.Left) is { } leftIdentifier &&
+            string.Equals(leftIdentifier, localName, StringComparison.Ordinal) &&
+            IsNullLiteral(binary.Right))
+        {
+            return true;
+        }
+
+        if (TryGetReferencedIdentifier(binary.Right) is { } rightIdentifier &&
+            string.Equals(rightIdentifier, localName, StringComparison.Ordinal) &&
+            IsNullLiteral(binary.Left))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool AreAllReferencesContained(
+        BlockStatementSyntax block,
+        string localName,
+        IfStatementSyntax ifStatement)
+    {
+        foreach (var identifier in block.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            if (!string.Equals(identifier.Identifier.ValueText, localName, StringComparison.Ordinal))
+                continue;
+
+            if (ifStatement.Condition.FullSpan.Contains(identifier.Span))
+                continue;
+
+            if (ifStatement.ThenStatement.FullSpan.Contains(identifier.Span))
+                continue;
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool HasNameConflict(
+        LocalDeclarationStatementSyntax localDeclaration,
+        BlockStatementSyntax block,
+        string maybeName)
+    {
+        foreach (var declarator in block.DescendantNodes().OfType<VariableDeclaratorSyntax>())
+        {
+            if (declarator.Span == localDeclaration.Declaration.Declarators[0].Span &&
+                declarator.Kind == localDeclaration.Declaration.Declarators[0].Kind)
+            {
+                continue;
+            }
+
+            if (string.Equals(declarator.Identifier.ValueText, maybeName, StringComparison.Ordinal))
+                return true;
+        }
+
+        foreach (var designation in block.DescendantNodes().OfType<SingleVariableDesignationSyntax>())
+        {
+            if (string.Equals(designation.Identifier.ValueText, maybeName, StringComparison.Ordinal))
+                return true;
+        }
+
+        var callable = localDeclaration.Ancestors().FirstOrDefault(static ancestor =>
+            ancestor is FunctionStatementSyntax or MethodDeclarationSyntax or ConstructorDeclarationSyntax or FunctionExpressionSyntax);
+        if (callable is null)
+            return false;
+
+        foreach (var parameter in callable.DescendantNodes().OfType<ParameterSyntax>())
+        {
+            if (string.Equals(parameter.Identifier.ValueText, maybeName, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static int IndexOfStatement(BlockStatementSyntax block, StatementSyntax statement)
+    {
+        for (var i = 0; i < block.Statements.Count; i++)
+        {
+            if (block.Statements[i].Span == statement.Span &&
+                block.Statements[i].Kind == statement.Kind)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static IfStatementSyntax? FindFirstGuardIfStatement(BlockStatementSyntax block, int startIndex, string localName)
+    {
+        for (var i = startIndex; i < block.Statements.Count; i++)
+        {
+            var statement = block.Statements[i];
+            if (statement is IfStatementSyntax ifStatement)
+                return ifStatement;
+
+            if (ContainsIdentifierReference(statement, localName))
+                return null;
+        }
+
+        return null;
+    }
+
+    private static bool ContainsIdentifierReference(SyntaxNode node, string localName)
+    {
+        return node.DescendantNodesAndSelf()
+            .OfType<IdentifierNameSyntax>()
+            .Any(identifier => string.Equals(identifier.Identifier.ValueText, localName, StringComparison.Ordinal));
+    }
+
+    private static string? TryGetReferencedIdentifier(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+            expression = parenthesized.Expression;
+
+        if (expression is not IdentifierNameSyntax identifier)
+            return null;
+
+        return identifier.Identifier.ValueText;
+    }
+
+    private static bool IsNullLiteral(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+            expression = parenthesized.Expression;
+
+        return expression.Kind == SyntaxKind.NullLiteralExpression;
+    }
+
+    private static string CreateMaybeName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) ||
+            name.StartsWith("maybe", StringComparison.Ordinal))
+        {
+            return string.Empty;
+        }
+
+        var first = char.ToUpper(name[0], CultureInfo.InvariantCulture);
+        return $"maybe{first}{name[1..]}";
+    }
+
+    private static string GetIndentation(SourceText sourceText, int position)
+    {
+        var lineStart = position;
+        while (lineStart > 0)
+        {
+            var previous = sourceText.GetSubText(lineStart - 1, 1)[0];
+            if (previous is '\n' or '\r')
+                break;
+
+            lineStart--;
+        }
+
+        var indentEnd = lineStart;
+        while (indentEnd < sourceText.Length)
+        {
+            var current = sourceText.GetSubText(indentEnd, 1)[0];
+            if (current is not (' ' or '\t'))
+                break;
+
+            indentEnd++;
+        }
+
+        return sourceText.GetSubText(lineStart, indentEnd - lineStart);
+    }
+
+    private static string IndentStatementText(string statementText, string indent)
+    {
+        var newLine = statementText.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        return statementText.Replace(newLine, $"{newLine}{indent}", StringComparison.Ordinal);
+    }
+
+    private static bool TryGetReturnedExpression(StatementSyntax statement, SourceText sourceText, out string expressionText)
+    {
+        if (statement is BlockStatementSyntax block)
+        {
+            if (block.Statements.Count != 1)
+            {
+                expressionText = string.Empty;
+                return false;
+            }
+
+            statement = block.Statements[0];
+        }
+
+        if (statement is ReturnStatementSyntax { Expression: { } expression })
+        {
+            expressionText = sourceText.GetSubText(expression.Span);
+            return true;
+        }
+
+        expressionText = string.Empty;
+        return false;
+    }
+
+    private static bool TryGetAssignedExpression(StatementSyntax statement, SourceText sourceText, out AssignmentRewrite assignment)
+    {
+        if (statement is BlockStatementSyntax block)
+        {
+            if (block.Statements.Count != 1)
+            {
+                assignment = default;
+                return false;
+            }
+
+            statement = block.Statements[0];
+        }
+
+        if (statement is AssignmentStatementSyntax { Kind: SyntaxKind.SimpleAssignmentStatement } assignmentStatement &&
+            assignmentStatement.OperatorToken.Kind == SyntaxKind.EqualsToken)
+        {
+            assignment = new AssignmentRewrite(
+                sourceText.GetSubText(assignmentStatement.Left.Span),
+                sourceText.GetSubText(assignmentStatement.Right.Span));
+            return true;
+        }
+
+        assignment = default;
+        return false;
+    }
+
+    private readonly record struct ConditionRewrite(string SomePattern, string ElsePattern);
+    private readonly record struct AssignmentRewrite(string LeftText, string RightText);
 }
