@@ -10,9 +10,9 @@ func Main(args: string[]) {
     val builder = WebApplication.CreateBuilder(args)
     val app = builder.Build()
 
-    app.MapGet("/", () => "Hello from Raven Minimal API")
+    app.MapGet("/", func () => "Hello from Raven Minimal API")
 
-    app.MapGet("/del", (context: HttpContext) => context.Response.WriteAsync("Hello World"))
+    app.MapGet("/del", func (context: HttpContext) => context.Response.WriteAsync("Hello World"))
 
     func ping(name: string) -> PingResult {
         PingResult("pong ${name}")
@@ -29,24 +29,24 @@ func Main(args: string[]) {
 
     app.MapGet("/ping1", ping1)
 
-    app.MapGet("/ping", (name: string) => "pong ${name}")
+    app.MapGet("/ping", func (name: string) => "pong ${name}")
 
-    app.MapGet("/ping2", (no: int = 2) => "pong ${no}")
+    app.MapGet("/ping2", func (no: int = 2) => "pong ${no}")
 
-    app.MapGet("/async", async () => {
+    app.MapGet("/async", async func () => {
         await Task.Delay(1)
         return "Hello from async MapGet"
     })
 
-    app.MapPost("/submit", async (context: HttpContext) => {
+    app.MapPost("/submit", async func (context: HttpContext) => {
         use reader = StreamReader(context.Request.Body, Encoding.UTF8, true, 1024, false)
         val content = await reader.ReadToEndAsync()
         return "submitted: $content"
     })
 
-    app.MapPost("/submit2", (data: Data) => "submitted: ${data.Value}")
+    app.MapPost("/submit2", func (data: Data) => "submitted: ${data.Value}")
 
-    app.MapPost("/submit-async", async (content: string) => {
+    app.MapPost("/submit-async", async func (content: string) => {
         await Task.Delay(1)
         return "submitted async: $content"
     })

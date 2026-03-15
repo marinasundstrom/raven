@@ -9,7 +9,7 @@ func Main() -> Result<(), Err> {
             user.Foo += func (s, args) => WriteLine(args.Arg)
             user.RaiseEvent("Test")
         }
-        Error(var error) => WriteLine(error)
+        Error(val error) => WriteLine(error)
     }
 
     return Ok
