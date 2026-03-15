@@ -550,9 +550,12 @@ public static class RedNodeGenerator
                 .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
             members.Add(minimalMethod);
+            members.Add(method);
         }
-
-        members.Add(method);
+        else
+        {
+            members.Add(method);
+        }
 
         var factoryClass = ClassDeclaration("SyntaxFactory")
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword), Token(SyntaxKind.PartialKeyword))
@@ -641,7 +644,7 @@ public static class RedNodeGenerator
                     .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
                     .WithParameterList(ParameterList(SeparatedList(parameters)))
                     .WithExpressionBody(ArrowExpressionClause(
-                        InvocationExpression(IdentifierName(node.Name))
+                        ObjectCreationExpression(IdentifierName(typeName))
                             .WithArgumentList(ArgumentList(SeparatedList(invocationArguments)))))
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)));
         }

@@ -7,7 +7,7 @@ public partial class SyntaxNodeTest
     [Fact]
     public void EffectiveSpan_ExcludesNewlineTerminator()
     {
-        var returnStatement = ReturnStatement(
+        var returnStatement = new ReturnStatementSyntax(
             ReturnKeyword,
             LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(1)),
             NewLineToken);
@@ -22,7 +22,7 @@ public partial class SyntaxNodeTest
     [Fact]
     public void EffectiveSpan_IncludesNonNewlineTerminator()
     {
-        var returnStatement = ReturnStatement(
+        var returnStatement = new ReturnStatementSyntax(
             ReturnKeyword,
             LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(1)),
             SemicolonToken);

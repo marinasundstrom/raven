@@ -299,6 +299,18 @@
       <Parameter Slot="BindingKeyword" />
       <Parameter Slot="Identifier" />
       <Parameter Slot="Type" />
+      <Parameter Slot="Initializer" />
+      <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
+      <Default Slot="AccessorList" Null="true" />
+      <Default Slot="ExpressionBody" Null="true" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="AttributeLists" />
+      <Parameter Slot="Modifiers" />
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Identifier" />
+      <Parameter Slot="Type" />
       <Parameter Slot="AccessorList" />
       <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
       <Default Slot="ExpressionBody" Null="true" />

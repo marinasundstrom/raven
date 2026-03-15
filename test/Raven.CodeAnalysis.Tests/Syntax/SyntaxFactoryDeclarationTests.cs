@@ -37,6 +37,22 @@ public sealed class SyntaxFactoryDeclarationTests
     }
 
     [Fact]
+    public void PropertyDeclaration_WithInitializer_LeavesAccessorListAndExpressionBodyNull()
+    {
+        var property = PropertyDeclaration(
+            List<AttributeListSyntax>(),
+            TokenList(PrivateKeyword),
+            VarKeyword,
+            Identifier("title"),
+            TypeAnnotationClause(ColonToken, PredefinedType(StringKeyword)),
+            EqualsValueClause(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(string.Empty))));
+
+        property.AccessorList.ShouldBeNull();
+        property.ExpressionBody.ShouldBeNull();
+        property.Initializer.ShouldNotBeNull();
+    }
+
+    [Fact]
     public void MethodDeclaration_WithBody_LeavesExpressionBodyNull()
     {
         var method = MethodDeclaration(

@@ -40,13 +40,9 @@ class ObservableMacro : IAttachedDeclarationMacro {
             List<AttributeListSyntax>(),
             TokenList([PrivateKeyword]),
             VarKeyword,
-            null,
             Identifier(backingFieldName),
             property.Type,
-            null,
-            null,
-            property.Initializer,
-            Token(SyntaxKind.None))
+            property.Initializer)
     }
 
     func CreateSignalStorage(property: PropertyDeclarationSyntax, signalStorageName: string) -> PropertyDeclarationSyntax {
@@ -56,16 +52,12 @@ class ObservableMacro : IAttachedDeclarationMacro {
             List<AttributeListSyntax>(),
             TokenList([PrivateKeyword]),
             ValKeyword,
-            null,
             Identifier(signalStorageName),
             TypeAnnotationClause(subjectType),
-            null,
-            null,
             EqualsValueClause(
                 ObjectCreationExpression(
                     subjectType,
-                    ArgumentList(SeparatedList<ArgumentSyntax>()))),
-            Token(SyntaxKind.None))
+                    ArgumentList(SeparatedList<ArgumentSyntax>()))))
     }
 
     func CreateSignalProperty(property: PropertyDeclarationSyntax, signalStorageName: string, signalMemberName: string) -> PropertyDeclarationSyntax {
@@ -75,13 +67,9 @@ class ObservableMacro : IAttachedDeclarationMacro {
             List<AttributeListSyntax>(),
             TokenList(),
             ValKeyword,
-            null,
             Identifier(signalMemberName),
             TypeAnnotationClause(observableType),
-            null,
-            ArrowExpressionClause(IdentifierName(signalStorageName)),
-            null,
-            Token(SyntaxKind.None))
+            ArrowExpressionClause(IdentifierName(signalStorageName)))
     }
 
     func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string, signalStorageName: string) -> PropertyDeclarationSyntax {
@@ -115,7 +103,6 @@ class ObservableMacro : IAttachedDeclarationMacro {
         BlockStatement(
             List<StatementSyntax>([
                 IfStatement(
-                    IfKeyword,
                     InfixOperatorExpression(
                         SyntaxKind.NotEqualsExpression,
                         IdentifierName("value"),
@@ -149,9 +136,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
                                         SeparatedList<ArgumentSyntax>([
                                             SyntaxNodeOrToken(Argument(IdentifierName("value")))
                                         ]))))
-                        ])),
-                    null,
-                    NewLineToken)
+                        ])))
             ]))
     }
 

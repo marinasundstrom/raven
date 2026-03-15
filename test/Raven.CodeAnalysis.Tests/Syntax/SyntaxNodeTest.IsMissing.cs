@@ -7,7 +7,7 @@ public partial class SyntaxNodeTest
     [Fact]
     public void ReturnStatement_AllChildrenMissing_ShouldBeMarkedAsMissing()
     {
-        var block = ReturnStatement(
+        var block = new ReturnStatementSyntax(
             MissingToken(SyntaxKind.ReturnKeyword),
             expression: null,
             MissingToken(SyntaxKind.SemicolonToken));
@@ -36,7 +36,7 @@ public partial class SyntaxNodeTest
         var block = Block(
             MissingToken(SyntaxKind.OpenBraceToken),
             List<StatementSyntax>(
-                ReturnStatement(
+                new ReturnStatementSyntax(
                     MissingToken(SyntaxKind.ReturnKeyword),
                     expression: null,
                     MissingToken(SyntaxKind.SemicolonToken))
@@ -54,7 +54,7 @@ public partial class SyntaxNodeTest
         var block = Block(
             OpenBraceToken,
             List<StatementSyntax>(
-                ReturnStatement(
+                new ReturnStatementSyntax(
                     MissingToken(SyntaxKind.ReturnKeyword),
                     expression: null,
                     MissingToken(SyntaxKind.NewLineToken))
@@ -72,7 +72,7 @@ public partial class SyntaxNodeTest
         var block = Block(
             OpenBraceToken,
             List<StatementSyntax>(
-                ReturnStatement(ReturnKeyword, null, MissingToken(SyntaxKind.SemicolonToken))
+                new ReturnStatementSyntax(ReturnKeyword, null, MissingToken(SyntaxKind.SemicolonToken))
             ),
             MissingToken(SyntaxKind.CloseBraceToken));
 

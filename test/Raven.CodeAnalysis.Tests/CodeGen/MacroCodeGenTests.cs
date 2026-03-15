@@ -328,8 +328,6 @@ public sealed class MacroCodeGenTests
     {
         public string Name => "Observable";
 
-        public MacroKind Kind => MacroKind.AttachedDeclaration;
-
         public MacroTarget Targets => MacroTarget.Property;
 
         public MacroExpansionResult Expand(AttachedMacroContext context)
@@ -438,13 +436,9 @@ public sealed class MacroCodeGenTests
                 SyntaxFactory.List<AttributeListSyntax>(),
                 SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)),
                 SyntaxFactory.Token(SyntaxKind.VarKeyword),
-                explicitInterfaceSpecifier: null,
                 SyntaxFactory.Identifier(backingFieldName),
                 property.Type,
-                accessorList: null,
-                expressionBody: null,
-                initializer: property.Initializer,
-                terminatorToken: SyntaxFactory.Token(SyntaxKind.None));
+                property.Initializer);
 
             var replacement = property
                 .WithAttributeLists(SyntaxFactory.List<AttributeListSyntax>())
@@ -456,15 +450,13 @@ public sealed class MacroCodeGenTests
                             SyntaxFactory.List<AttributeListSyntax>(),
                             SyntaxFactory.TokenList(),
                             SyntaxFactory.Token(SyntaxKind.GetKeyword),
-                            body: null,
-                            expressionBody: SyntaxFactory.ArrowExpressionClause(SyntaxFactory.IdentifierName(backingFieldName)),
-                            terminatorToken: SyntaxFactory.Token(SyntaxKind.None)),
+                            SyntaxFactory.ArrowExpressionClause(SyntaxFactory.IdentifierName(backingFieldName))),
                         SyntaxFactory.AccessorDeclaration(
                             SyntaxKind.SetAccessorDeclaration,
                             SyntaxFactory.List<AttributeListSyntax>(),
                             SyntaxFactory.TokenList(),
                             SyntaxFactory.Token(SyntaxKind.SetKeyword),
-                            body: SyntaxFactory.BlockStatement(
+                            SyntaxFactory.BlockStatement(
                                 SyntaxFactory.List<StatementSyntax>(
                                 [
                                     SyntaxFactory.LocalDeclarationStatement(
@@ -494,9 +486,7 @@ public sealed class MacroCodeGenTests
                                                     new SyntaxNodeOrToken(SyntaxFactory.Token(SyntaxKind.CommaToken)),
                                                     new SyntaxNodeOrToken(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("value")))
                                                 ]))))
-                                ])),
-                            expressionBody: null,
-                            terminatorToken: SyntaxFactory.Token(SyntaxKind.None))
+                                ])))
                     ])))
                 .WithExpressionBody(null)
                 .WithInitializer(null)
