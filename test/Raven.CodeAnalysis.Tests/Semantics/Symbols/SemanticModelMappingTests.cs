@@ -65,4 +65,60 @@ func Main(value: int) -> int {
         Assert.Same(matchStatement.SyntaxTree, syntax!.SyntaxTree);
         Assert.NotEqual(methodBlockSyntax.Span, syntax.Span);
     }
+
+    [Fact]
+    public void GetDeclaredSymbol_DeclarationPatternDesignation_UsesDeclaredType()
+    {
+        const string code = """
+class C {
+    func Run(value: object) -> int {
+        if value is string text {
+            return text.Length
+        }
+
+        return 0
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(designation => designation.Identifier.ValueText == "text");
+
+        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+
+        Assert.Equal("text", symbol.Name);
+        Assert.Equal("string", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_MatchSequenceRestDesignation_UsesSliceType()
+    {
+        const string code = """
+class C {
+    func Run(values: int[]) -> int {
+        return values match {
+            [val head, ..val rest] => rest.Length + head
+            _ => 0
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(designation => designation.Identifier.ValueText == "rest");
+
+        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+
+        Assert.Equal("rest", symbol.Name);
+        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(symbol.Type);
+        Assert.Equal(SpecialType.System_Int32, arrayType.ElementType.SpecialType);
+    }
 }

@@ -65,12 +65,14 @@ internal sealed class HoverHandler : IHoverHandler
             if (literalHover is not null)
                 return literalHover;
 
-            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
-            if (resolution is null)
-            {
-                var patternHover = TryBuildPatternDeclarationHover(sourceText, semanticModel, root, offset);
+            var patternHover = TryBuildPatternDeclarationHover(sourceText, semanticModel, root, offset);
+            if (patternHover is not null)
                 return patternHover;
-            }
+
+            var resolution = TryResolveDeclaredHoverSymbol(semanticModel, root, offset)
+                ?? SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
+            if (resolution is null)
+                return null;
 
             var symbol = resolution.Value.Symbol;
             var signature = BuildSignatureForHover(symbol, resolution.Value.Node, semanticModel, root, offset);
@@ -220,6 +222,45 @@ internal sealed class HoverHandler : IHoverHandler
                 continue;
             }
 
+            if (token.Kind == SyntaxKind.IdentifierToken &&
+                token.Parent?.AncestorsAndSelf().OfType<SingleVariableDesignationSyntax>().FirstOrDefault() is { } designation)
+            {
+                var binding = designation.BindingKeyword.Kind == SyntaxKind.VarKeyword ? "var" : "val";
+                string? patternTypeDisplay = null;
+                if (designation.GetAncestor<DeclarationPatternSyntax>() is { } declarationPattern)
+                {
+                    patternTypeDisplay = TryResolveTypeSymbolFromSyntax(semanticModel, declarationPattern.Type, out var declaredType)
+                        ? declaredType.ToDisplayString(plainTypeFormat)
+                        : declarationPattern.Type.ToString();
+                }
+                else if (TryInferPatternDeclaredLocalType(designation, semanticModel, out var designationType))
+                {
+                    patternTypeDisplay = designationType.ToDisplayString(plainTypeFormat);
+                }
+
+                if (patternTypeDisplay is null)
+                    continue;
+
+                var designationSignature = $"{binding} {designation.Identifier.ValueText}: {patternTypeDisplay}";
+                var designationHoverText = BuildHoverText(
+                    designationSignature,
+                    kind: "Local",
+                    containing: null,
+                    documentation: null,
+                    capturedVariables: ImmutableArray<ISymbol>.Empty,
+                    isCapturedVariable: false);
+
+                return new Hover
+                {
+                    Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+                    {
+                        Kind = MarkupKind.Markdown,
+                        Value = designationHoverText
+                    }),
+                    Range = PositionHelper.ToRange(sourceText, designation.Identifier.Span)
+                };
+            }
+
             if (token.Kind != SyntaxKind.IdentifierToken ||
                 token.Parent is not IdentifierNameSyntax identifierName ||
                 identifierName.Parent is not ConstantPatternSyntax)
@@ -255,6 +296,42 @@ internal sealed class HoverHandler : IHoverHandler
                 }),
                 Range = PositionHelper.ToRange(sourceText, token.Span)
             };
+        }
+
+        return null;
+    }
+
+    private static SymbolResolutionResult? TryResolveDeclaredHoverSymbol(SemanticModel semanticModel, SyntaxNode root, int offset)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Kind != SyntaxKind.IdentifierToken)
+                continue;
+
+            if (token.Parent is SingleVariableDesignationSyntax single &&
+                token == single.Identifier &&
+                semanticModel.GetDeclaredSymbol(single) is { } singleSymbol)
+            {
+                return new SymbolResolutionResult(singleSymbol, single);
+            }
+
+            if (token.Parent is TypedVariableDesignationSyntax typed &&
+                typed.Designation is SingleVariableDesignationSyntax typedSingle &&
+                token == typedSingle.Identifier &&
+                semanticModel.GetDeclaredSymbol(typedSingle) is { } typedSymbol)
+            {
+                return new SymbolResolutionResult(typedSymbol, typedSingle);
+            }
         }
 
         return null;
@@ -417,6 +494,16 @@ internal sealed class HoverHandler : IHoverHandler
             var binding = local.IsMutable ? "var" : "val";
             var localTypeSymbol = local.Type;
             if (localTypeSymbol.ContainsErrorType() &&
+                TryInferPatternDeclaredLocalType(
+                    contextNode.AncestorsAndSelf().OfType<SingleVariableDesignationSyntax>().FirstOrDefault()
+                    ?? local.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).OfType<SingleVariableDesignationSyntax>().FirstOrDefault(),
+                    semanticModel,
+                    out var patternLocalType))
+            {
+                localTypeSymbol = patternLocalType;
+            }
+
+            if (localTypeSymbol.ContainsErrorType() &&
                 TryInferDeclaredTypeFromContext(contextNode, semanticModel, out var declaredLocalType))
             {
                 localTypeSymbol = declaredLocalType;
@@ -473,6 +560,51 @@ internal sealed class HoverHandler : IHoverHandler
         return symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
     }
 
+    private static bool TryInferPatternDeclaredLocalType(
+        SingleVariableDesignationSyntax? designation,
+        SemanticModel semanticModel,
+        out ITypeSymbol inferredType)
+    {
+        inferredType = null!;
+
+        if (designation is null)
+            return false;
+
+        if (designation.GetAncestor<DeclarationPatternSyntax>() is { } declarationPattern &&
+            TryResolveTypeSymbolFromSyntax(semanticModel, declarationPattern.Type, out var declaredType))
+        {
+            inferredType = declaredType;
+            return true;
+        }
+
+        if (designation.GetAncestor<SequencePatternElementSyntax>() is { } sequenceElement &&
+            designation.GetAncestor<SequencePatternSyntax>() is { } sequencePattern &&
+            TryGetPatternInputType(semanticModel, sequencePattern, out var sequenceInputType) &&
+            TryGetSequencePatternElementType(sequenceInputType, semanticModel, out var sequenceElementType))
+        {
+            inferredType = sequenceElement.Prefix.DotDotToken.Kind != SyntaxKind.None
+                ? GetSequenceSliceType(sequenceInputType, sequenceElementType, semanticModel)
+                : sequenceElementType;
+            return true;
+        }
+
+        if (designation.GetAncestor<PositionalPatternSyntax>() is { } positionalPattern &&
+            TryGetPatternInputType(semanticModel, positionalPattern, out var positionalInputType))
+        {
+            var tupleElementTypes = GetTupleElementTypes(positionalInputType);
+            for (var i = 0; i < positionalPattern.Elements.Count && i < tupleElementTypes.Length; i++)
+            {
+                if (!positionalPattern.Elements[i].Span.Contains(designation.Span))
+                    continue;
+
+                inferredType = tupleElementTypes[i];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static string BuildSignatureForHover(
         ISymbol symbol,
         SyntaxNode contextNode,
@@ -480,6 +612,27 @@ internal sealed class HoverHandler : IHoverHandler
         SyntaxNode root,
         int offset)
     {
+        if (contextNode.AncestorsAndSelf().OfType<SingleVariableDesignationSyntax>().FirstOrDefault() is { } single &&
+            semanticModel.GetDeclaredSymbol(single) is { } declaredSymbol)
+        {
+            symbol = declaredSymbol;
+        }
+
+        if (symbol is ILocalSymbol local &&
+            local.Type.ContainsErrorType() &&
+            TryInferPatternDeclaredLocalTypeAtOffset(root, offset, semanticModel, out var localTypeAtOffset))
+        {
+            var plainTypeFormat = CreatePlainTypeFormat();
+            var binding = local.IsMutable ? "var" : "val";
+            return $"{binding} {local.Name}: {localTypeAtOffset.ToDisplayString(plainTypeFormat)}";
+        }
+
+        if (symbol is ILocalSymbol declarationLocal &&
+            TryBuildPatternDeclarationSignatureOverride(declarationLocal, root, offset, semanticModel, out var patternDeclarationSignature))
+        {
+            return patternDeclarationSignature;
+        }
+
         if (TryBuildDeclaredTypeHoverSignatureOverride(symbol, semanticModel, root, offset, out var declaredTypeSignature))
             return declaredTypeSignature;
 
@@ -526,6 +679,369 @@ internal sealed class HoverHandler : IHoverHandler
 
         signature = bindingPrefix + declaredType.ToDisplayString(plainTypeFormat);
         return true;
+    }
+
+    private static bool TryGetPatternInputType(
+        SemanticModel semanticModel,
+        SyntaxNode patternNode,
+        out ITypeSymbol inputType)
+    {
+        inputType = null!;
+
+        if (patternNode.GetAncestor<PatternDeclarationAssignmentStatementSyntax>() is { } patternAssignment)
+        {
+            var type = GetExpressionType(semanticModel, patternAssignment.Right);
+            if (type is not null && type.TypeKind != TypeKind.Error)
+            {
+                inputType = type;
+                return true;
+            }
+        }
+
+        if (patternNode.GetAncestor<IsPatternExpressionSyntax>() is { } isPattern)
+        {
+            var type = GetExpressionType(semanticModel, isPattern.Expression);
+            if (type is not null && type.TypeKind != TypeKind.Error)
+            {
+                inputType = type;
+                return true;
+            }
+        }
+
+        if (patternNode.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+        {
+            var type = GetExpressionType(semanticModel, matchExpression.Expression);
+            if (type is not null && type.TypeKind != TypeKind.Error)
+            {
+                inputType = type;
+                return true;
+            }
+        }
+
+        if (patternNode.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+        {
+            var type = GetExpressionType(semanticModel, matchStatement.Expression);
+            if (type is not null && type.TypeKind != TypeKind.Error)
+            {
+                inputType = type;
+                return true;
+            }
+        }
+
+        if (patternNode.GetAncestor<ForStatementSyntax>() is { } forStatement &&
+            forStatement.Target is PatternSyntax)
+        {
+            var collectionType = GetExpressionType(semanticModel, forStatement.Expression);
+            if (TryGetForIterationElementType(collectionType, semanticModel, out var elementType))
+            {
+                inputType = elementType;
+                return true;
+            }
+        }
+
+        if (patternNode.GetAncestor<ParameterSyntax>() is { Pattern: not null } parameterSyntax &&
+            semanticModel.GetDeclaredSymbol(parameterSyntax) is IParameterSymbol parameterSymbol &&
+            parameterSymbol.Type is { TypeKind: not TypeKind.Error } parameterType)
+        {
+            inputType = parameterType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static ITypeSymbol? GetExpressionType(SemanticModel semanticModel, ExpressionSyntax expression)
+    {
+        var type = semanticModel.GetTypeInfo(expression).Type;
+        if (type is not null && type.TypeKind != TypeKind.Error)
+            return type;
+
+        var operationType = semanticModel.GetOperation(expression)?.Type;
+        if (operationType is not null && operationType.TypeKind != TypeKind.Error)
+            return operationType;
+
+        var symbol = semanticModel.GetSymbolInfo(expression).Symbol;
+        return symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            IPropertySymbol property => property.Type,
+            IFieldSymbol field => field.Type,
+            IEventSymbol ev => ev.Type,
+            _ => TryGetReferencedIdentifierDeclaredType(semanticModel, expression) ?? type
+        };
+    }
+
+    private static ITypeSymbol? TryGetReferencedIdentifierDeclaredType(SemanticModel semanticModel, ExpressionSyntax expression)
+    {
+        if (expression is not IdentifierNameSyntax identifier)
+            return null;
+
+        var root = expression.SyntaxTree!.GetRoot();
+        var name = identifier.Identifier.ValueText;
+
+        var parameterType = root.DescendantNodes()
+            .OfType<ParameterSyntax>()
+            .Where(parameter => parameter.Identifier.ValueText == name &&
+                                parameter.Span.Start <= expression.Span.Start &&
+                                parameter.TypeAnnotation is not null)
+            .Select(parameter => parameter.TypeAnnotation!.Type)
+            .Select(typeSyntax => TryResolveTypeSymbolFromSyntax(semanticModel, typeSyntax, out var resolvedType) ? resolvedType : null)
+            .LastOrDefault(type => type is not null);
+        if (parameterType is not null)
+            return parameterType;
+
+        var localType = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Where(declarator => declarator.Identifier.ValueText == name &&
+                                 declarator.Span.Start <= expression.Span.Start &&
+                                 declarator.TypeAnnotation is not null)
+            .Select(declarator => declarator.TypeAnnotation!.Type)
+            .Select(typeSyntax => TryResolveTypeSymbolFromSyntax(semanticModel, typeSyntax, out var resolvedType) ? resolvedType : null)
+            .LastOrDefault(type => type is not null);
+
+        return localType;
+    }
+
+    private static bool TryBuildPatternDeclarationSignatureOverride(
+        ILocalSymbol local,
+        SyntaxNode root,
+        int offset,
+        SemanticModel semanticModel,
+        out string signature)
+    {
+        signature = string.Empty;
+        var plainTypeFormat = CreatePlainTypeFormat();
+
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var designation = token.Parent?.AncestorsAndSelf().OfType<SingleVariableDesignationSyntax>().FirstOrDefault();
+            if (designation is null || !string.Equals(designation.Identifier.ValueText, local.Name, StringComparison.Ordinal))
+                continue;
+
+            var binding = local.IsMutable || designation.BindingKeyword.Kind == SyntaxKind.VarKeyword ? "var" : "val";
+
+            if (designation.GetAncestor<DeclarationPatternSyntax>() is { } declarationPattern)
+            {
+                var typeDisplay = TryResolveTypeSymbolFromSyntax(semanticModel, declarationPattern.Type, out var declaredType)
+                    ? declaredType.ToDisplayString(plainTypeFormat)
+                    : declarationPattern.Type.ToString();
+                signature = $"{binding} {local.Name}: {typeDisplay}";
+                return true;
+            }
+
+            if (designation.GetAncestor<SequencePatternElementSyntax>() is { } sequenceElement &&
+                designation.GetAncestor<SequencePatternSyntax>() is { } sequencePattern &&
+                TryGetPatternInputType(semanticModel, sequencePattern, out var sequenceInputType) &&
+                TryGetSequencePatternElementType(sequenceInputType, semanticModel, out var sequenceElementType))
+            {
+                var elementType = sequenceElement.Prefix.DotDotToken.Kind != SyntaxKind.None
+                    ? GetSequenceSliceType(sequenceInputType, sequenceElementType, semanticModel)
+                    : sequenceElementType;
+                signature = $"{binding} {local.Name}: {elementType.ToDisplayString(plainTypeFormat)}";
+                return true;
+            }
+
+            if (designation.GetAncestor<PositionalPatternSyntax>() is { } positionalPattern &&
+                TryGetPatternInputType(semanticModel, positionalPattern, out var positionalInputType))
+            {
+                var tupleElementTypes = GetTupleElementTypes(positionalInputType);
+                for (var i = 0; i < positionalPattern.Elements.Count && i < tupleElementTypes.Length; i++)
+                {
+                    if (!positionalPattern.Elements[i].Span.Contains(designation.Span))
+                        continue;
+
+                    signature = $"{binding} {local.Name}: {tupleElementTypes[i].ToDisplayString(plainTypeFormat)}";
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryInferPatternDeclaredLocalTypeAtOffset(
+        SyntaxNode root,
+        int offset,
+        SemanticModel semanticModel,
+        out ITypeSymbol inferredType)
+    {
+        inferredType = null!;
+
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Parent?.AncestorsAndSelf().OfType<SingleVariableDesignationSyntax>().FirstOrDefault() is not { } designation)
+                continue;
+
+            if (TryInferPatternDeclaredLocalType(designation, semanticModel, out inferredType))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetForIterationElementType(
+        ITypeSymbol? collectionType,
+        SemanticModel semanticModel,
+        out ITypeSymbol elementType)
+    {
+        elementType = null!;
+        if (collectionType is null || collectionType.TypeKind == TypeKind.Error)
+            return false;
+
+        if (collectionType is IArrayTypeSymbol arrayType)
+        {
+            elementType = arrayType.ElementType;
+            return true;
+        }
+
+        if (collectionType.SpecialType == SpecialType.System_String)
+        {
+            elementType = semanticModel.Compilation.GetSpecialType(SpecialType.System_Char);
+            return true;
+        }
+
+        if (collectionType is INamedTypeSymbol namedType)
+        {
+            foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
+            {
+                if (candidate.TypeArguments.Length == 1 &&
+                    candidate.Name is "IEnumerable" or "IAsyncEnumerable")
+                {
+                    elementType = candidate.TypeArguments[0];
+                    return true;
+                }
+            }
+        }
+
+        return false;
+
+        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        {
+            yield return type;
+            foreach (var iface in type.AllInterfaces)
+                yield return iface;
+        }
+    }
+
+    private static bool TryGetSequencePatternElementType(
+        ITypeSymbol inputType,
+        SemanticModel semanticModel,
+        out ITypeSymbol elementType)
+    {
+        elementType = null!;
+
+        if (inputType.TypeKind == TypeKind.Error)
+            return false;
+
+        if (inputType is IArrayTypeSymbol arrayType)
+        {
+            elementType = arrayType.ElementType;
+            return true;
+        }
+
+        if (inputType.SpecialType == SpecialType.System_String)
+        {
+            elementType = semanticModel.Compilation.GetSpecialType(SpecialType.System_Char);
+            return true;
+        }
+
+        if (inputType is INamedTypeSymbol namedType)
+        {
+            foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
+            {
+                if (TryGetIndexableElementType(candidate, out var indexerElementType))
+                {
+                    elementType = indexerElementType;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+
+        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        {
+            yield return type;
+            foreach (var iface in type.AllInterfaces)
+                yield return iface;
+        }
+
+        static bool TryGetIndexableElementType(INamedTypeSymbol type, out ITypeSymbol indexerElementType)
+        {
+            indexerElementType = null!;
+
+            var hasCount = type
+                .GetMembers("Count")
+                .OfType<IPropertySymbol>()
+                .Any(static property =>
+                    property.Parameters.Length == 0 &&
+                    property.Type.SpecialType == SpecialType.System_Int32 &&
+                    property.GetMethod is not null);
+
+            if (!hasCount)
+                return false;
+
+            var indexer = type
+                .GetMembers("Item")
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(static property =>
+                    property.Parameters.Length == 1 &&
+                    property.Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
+                    property.GetMethod is not null);
+
+            if (indexer is null)
+                return false;
+
+            indexerElementType = indexer.Type;
+            return true;
+        }
+    }
+
+    private static ITypeSymbol GetSequenceSliceType(
+        ITypeSymbol valueType,
+        ITypeSymbol elementType,
+        SemanticModel semanticModel)
+    {
+        if (valueType.SpecialType == SpecialType.System_String)
+            return semanticModel.Compilation.GetSpecialType(SpecialType.System_String);
+
+        return semanticModel.Compilation.CreateArrayTypeSymbol(elementType);
+    }
+
+    private static ImmutableArray<ITypeSymbol> GetTupleElementTypes(ITypeSymbol expectedType)
+    {
+        if (expectedType is ITupleTypeSymbol tupleType)
+            return tupleType.TupleElements.Select(static element => element.Type).ToImmutableArray();
+
+        if (expectedType is INamedTypeSymbol namedType &&
+            namedType.IsTupleType &&
+            !namedType.TupleElements.IsDefaultOrEmpty)
+        {
+            return namedType.TupleElements.Select(static element => element.Type).ToImmutableArray();
+        }
+
+        return ImmutableArray<ITypeSymbol>.Empty;
     }
 
     private static bool TryBuildReceiverErrorSignatureOverride(

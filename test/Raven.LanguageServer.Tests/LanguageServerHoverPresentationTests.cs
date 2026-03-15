@@ -888,4 +888,154 @@ class C {
         }
     }
 
+    [Fact]
+    public void IsPatternDeclaration_HoverResolvesBoundLocal()
+    {
+        const string code = """
+class C {
+    func Run(value: (int, int)) -> int {
+        if value is (val x, 0) {
+            return x
+        }
+
+        return 0
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var declarationToken = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "x" &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is IsPatternExpressionSyntax) == true);
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, declarationToken.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("x");
+    }
+
+    [Fact]
+    public void MatchArmPatternDeclaration_HoverResolvesBoundLocal()
+    {
+        const string code = """
+class C {
+    func Run(values: int[]) -> int {
+        return values match {
+            [val head, ..val rest] => head + rest.Length
+            _ => 0
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var tokens = new[] { "head", "rest" };
+
+        foreach (var name in tokens)
+        {
+            var declarationToken = root.DescendantTokens().First(t =>
+                t.Kind == SyntaxKind.IdentifierToken &&
+                t.ValueText == name &&
+                t.Parent?.AncestorsAndSelf().Any(static n => n is MatchArmSyntax) == true &&
+                t.Parent?.AncestorsAndSelf().Any(static n => n is PatternSyntax) == true);
+
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, declarationToken.SpanStart + 1);
+
+            resolution.ShouldNotBeNull();
+            resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe(name);
+        }
+    }
+
+    [Fact]
+    public void ForPatternTargetDeclaration_HoverResolvesBoundLocal()
+    {
+        const string code = """
+class C {
+    func Run(points: (int, int)[]) -> int {
+        var total = 0
+        for (val x, 0) in points {
+            total += x
+        }
+
+        return total
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var declarationToken = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "x" &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is ForStatementSyntax) == true &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is PatternSyntax) == true);
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, declarationToken.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("x");
+    }
+
+    [Fact]
+    public void DeclarationPatternHover_UsesDeclaredType()
+    {
+        const string code = """
+class C {
+    func Run(value: object) -> int {
+        if value is string text {
+            return text.Length
+        }
+
+        return 0
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var token = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "text" &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is DeclarationPatternSyntax) == true);
+        var tryBuildPatternDeclarationHover = typeof(HoverHandler)
+            .GetMethod("TryBuildPatternDeclarationHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var hover = tryBuildPatternDeclarationHover.Invoke(
+            null,
+            [syntaxTree.GetText(), semanticModel, root, token.SpanStart + 1]);
+
+        hover.ShouldNotBeNull();
+        hover.ToString().ShouldContain("val text: string");
+    }
+
 }
