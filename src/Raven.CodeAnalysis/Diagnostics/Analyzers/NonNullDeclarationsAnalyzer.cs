@@ -26,6 +26,10 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
             SyntaxKind.TypeAnnotationClause);
 
         context.RegisterSyntaxNodeAction(
+            AnalyzeVariableDeclarator,
+            SyntaxKind.VariableDeclarator);
+
+        context.RegisterSyntaxNodeAction(
             AnalyzeArrowTypeClause,
             SyntaxKind.ArrowTypeClause);
 
@@ -73,6 +77,43 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
             return;
 
         AnalyzeTypeSyntax(context, catchDeclaration.Type);
+    }
+
+    private static void AnalyzeVariableDeclarator(SyntaxNodeAnalysisContext context)
+    {
+        if (context.Node is not VariableDeclaratorSyntax declarator)
+            return;
+
+        if (declarator.TypeAnnotation is not null)
+            return;
+
+        if (declarator.Parent is not VariableDeclarationSyntax declaration ||
+            declaration.Parent is not LocalDeclarationStatementSyntax)
+        {
+            return;
+        }
+
+        if (context.SemanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local)
+            return;
+
+        var type = local.Type;
+        if (type is null || type is ErrorTypeSymbol)
+            return;
+
+        if (!IsNullableDeclarationType(type))
+            return;
+
+        var fromDisplay = FormatType(type);
+        if (!TryBuildOptionSuggestion(type, out var optionSuggestion))
+            return;
+
+        var diagnostic = Diagnostic.Create(
+            Descriptor,
+            declarator.Identifier.GetLocation(),
+            optionSuggestion,
+            fromDisplay);
+
+        context.ReportDiagnostic(diagnostic);
     }
 
     private static void AnalyzeTypeSyntax(SyntaxNodeAnalysisContext context, TypeSyntax typeSyntax)

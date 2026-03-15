@@ -24,7 +24,7 @@ func Test() {
 }
 """;
 
-        var verifier = CreateCodeFixVerifier<NonNullDeclarationsAnalyzer, NonNullDeclarationsCodeFixProvider>(
+        var verifier = CreateCodeFixVerifier<NonNullDeclarationsAnalyzer, PreferOptionOverNullableCodeFixProvider>(
             code,
             fixedCode,
             [new DiagnosticResult(NonNullDeclarationsAnalyzer.DiagnosticId).WithAnySpan()]);
@@ -46,7 +46,29 @@ func Test() {
 
         var fixes = GetAvailableCodeFixes(code);
 
-        Assert.Contains(fixes, fix => fix.Action.Title == "Replace with 'Option<string>'");
+        Assert.Contains(fixes, fix => fix.Action.Title == "Use 'Option<string>'");
+        Assert.Contains(fixes, fix => fix.Action.Title == "Rewrite to use Option<T>");
+    }
+
+    [Fact]
+    public void RegistersOnlyRewriteToUseOptionFix_ForInferredNullableFlow()
+    {
+        var code = """
+func Test() {
+    val text = GetName()
+    if text != null {
+        Console.WriteLine(text)
+    }
+}
+
+func GetName() -> string? {
+    return null
+}
+""";
+
+        var fixes = GetAvailableCodeFixes(code);
+
+        Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Use 'Option<string>'");
         Assert.Contains(fixes, fix => fix.Action.Title == "Rewrite to use Option<T>");
     }
 
@@ -68,6 +90,44 @@ func Test() {
     if maybeText is Some(val text) {
         Console.WriteLine(text)
     }
+}
+""";
+
+        var result = GetCodeFixResult(
+            code,
+            fix => fix.Action.Title == "Rewrite to use Option<T>");
+
+        Assert.Equal(1, result.AppliedFixCount);
+        Assert.Equal("Rewrite to use Option<T>", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
+    }
+
+    [Fact]
+    public void AppliesRewriteToUseOptionFix_ForInferredNullableFlow()
+    {
+        var code = """
+func Test() {
+    val text = GetName()
+    if text != null {
+        Console.WriteLine(text)
+    }
+}
+
+func GetName() -> string? {
+    return null
+}
+""";
+
+        var expected = """
+func Test() {
+    val maybeText: Option<string> = GetName()
+    if maybeText is Some(val text) {
+        Console.WriteLine(text)
+    }
+}
+
+func GetName() -> string? {
+    return null
 }
 """;
 
@@ -278,7 +338,7 @@ func Test() -> string {
     private static IReadOnlyList<CodeFix> GetAvailableCodeFixes(string code)
     {
         var (workspace, projectId, _) = CreateWorkspace(code);
-        return workspace.GetCodeFixes(projectId, [new NonNullDeclarationsCodeFixProvider()]);
+        return workspace.GetCodeFixes(projectId, [new PreferOptionOverNullableCodeFixProvider()]);
     }
 
     private static TestCodeFixResult GetCodeFixResult(
@@ -289,7 +349,7 @@ func Test() -> string {
 
         var applyResult = workspace.ApplyCodeFixes(
             projectId,
-            [new NonNullDeclarationsCodeFixProvider()],
+            [new PreferOptionOverNullableCodeFixProvider()],
             predicate: predicate);
 
         workspace.TryApplyChanges(applyResult.Solution);

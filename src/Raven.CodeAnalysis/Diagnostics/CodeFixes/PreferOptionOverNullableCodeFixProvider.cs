@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Diagnostics;
 
-public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
+public sealed class PreferOptionOverNullableCodeFixProvider : CodeFixProvider
 {
     private static readonly ImmutableArray<string> FixableIds = [NonNullDeclarationsAnalyzer.DiagnosticId];
 
@@ -26,17 +26,24 @@ public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
         if (args.Length < 1 || args[0] is not string suggestedType || string.IsNullOrWhiteSpace(suggestedType))
             return;
 
-        var change = new TextChange(diagnostic.Location.SourceSpan, suggestedType);
-        context.RegisterCodeFix(
-            CodeAction.CreateTextChange(
-                $"Replace with '{suggestedType}'",
-                context.Document.Id,
-                change));
-
         var syntaxTree = context.Document.GetSyntaxTreeAsync(context.CancellationToken).GetAwaiter().GetResult();
         var root = syntaxTree?.GetRoot(context.CancellationToken);
         if (root is null)
             return;
+
+        if (!TryFindTargetDeclarator(root, diagnostic.Location.SourceSpan, out var declarator))
+            return;
+
+        if (declarator.TypeAnnotation?.Type is { } explicitTypeSyntax &&
+            Intersects(explicitTypeSyntax.Span, diagnostic.Location.SourceSpan))
+        {
+            var change = new TextChange(explicitTypeSyntax.Span, suggestedType);
+            context.RegisterCodeFix(
+                CodeAction.CreateTextChange(
+                    $"Use '{suggestedType}'",
+                    context.Document.Id,
+                    change));
+        }
 
         if (!TryCreateRewriteToOptionAction(context.Document, root, diagnostic, suggestedType, out var rewriteAction))
             return;
@@ -53,26 +60,13 @@ public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
     {
         action = null!;
 
-        var declarator = root.DescendantNodes()
-            .OfType<VariableDeclaratorSyntax>()
-            .FirstOrDefault(candidate =>
-            {
-                var typeSpan = candidate.TypeAnnotation?.Type.Span;
-                if (typeSpan is null)
-                    return false;
+        if (!TryFindTargetDeclarator(root, diagnostic.Location.SourceSpan, out var declarator))
+            return false;
 
-                return typeSpan.Value == diagnostic.Location.SourceSpan
-                    || (typeSpan.Value.Start <= diagnostic.Location.SourceSpan.Start && typeSpan.Value.End >= diagnostic.Location.SourceSpan.End)
-                    || (diagnostic.Location.SourceSpan.Start <= typeSpan.Value.Start && diagnostic.Location.SourceSpan.End >= typeSpan.Value.End);
-            });
         if (declarator is null)
             return false;
 
-        var typeSyntax = declarator.TypeAnnotation?.Type;
-        if (declarator.TypeAnnotation?.Type != typeSyntax)
-            return false;
-
-        if (typeSyntax is null)
+        if (!TryCreateTypeRewriteChange(declarator, suggestedType, out var typeRewrite))
             return false;
 
         if (declarator.Ancestors().OfType<LocalDeclarationStatementSyntax>().FirstOrDefault() is not { } localDeclaration)
@@ -115,8 +109,7 @@ public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
             return false;
 
         var sourceText = document.GetTextAsync().GetAwaiter().GetResult();
-        var bindingKeyword = localDeclaration.Declaration.BindingKeyword.Text;
-        var changes = CreateRewriteChanges(sourceText, typeSyntax, declarator, ifStatement, suggestedType, maybeName, conditionRewrite);
+        var changes = CreateRewriteChanges(sourceText, typeRewrite, declarator, ifStatement, maybeName, conditionRewrite);
         if (changes is null)
             return false;
 
@@ -140,10 +133,9 @@ public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
 
     private static TextChange[]? CreateRewriteChanges(
         SourceText sourceText,
-        TypeSyntax typeSyntax,
+        TextChange typeRewrite,
         VariableDeclaratorSyntax declarator,
         IfStatementSyntax ifStatement,
-        string suggestedType,
         string maybeName,
         ConditionRewrite conditionRewrite)
     {
@@ -152,7 +144,7 @@ public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
             var patternText = $"{maybeName} is {conditionRewrite.SomePattern}";
             return
             [
-                new TextChange(typeSyntax.Span, suggestedType),
+                typeRewrite,
                 new TextChange(declarator.Identifier.Span, maybeName),
                 new TextChange(ifStatement.Condition.Span, patternText)
             ];
@@ -165,7 +157,7 @@ public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
             var returnMatch = $"return {maybeName} match {{{Environment.NewLine}{matchIndent}    {conditionRewrite.SomePattern} => {thenExpressionText}{Environment.NewLine}{matchIndent}    {conditionRewrite.ElsePattern} => {elseExpressionText}{Environment.NewLine}{matchIndent}" + "}" + Environment.NewLine;
             return
             [
-                new TextChange(typeSyntax.Span, suggestedType),
+                typeRewrite,
                 new TextChange(declarator.Identifier.Span, maybeName),
                 new TextChange(ifStatement.Span, returnMatch)
             ];
@@ -179,7 +171,7 @@ public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
             var assignmentMatch = $"{thenAssignment.LeftText} = {maybeName} match {{{Environment.NewLine}{matchIndent}    {conditionRewrite.SomePattern} => {thenAssignment.RightText}{Environment.NewLine}{matchIndent}    {conditionRewrite.ElsePattern} => {elseAssignment.RightText}{Environment.NewLine}{matchIndent}" + "}" + Environment.NewLine;
             return
             [
-                new TextChange(typeSyntax.Span, suggestedType),
+                typeRewrite,
                 new TextChange(declarator.Identifier.Span, maybeName),
                 new TextChange(ifStatement.Span, assignmentMatch)
             ];
@@ -192,10 +184,58 @@ public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
 
         return
         [
-            new TextChange(typeSyntax.Span, suggestedType),
+            typeRewrite,
             new TextChange(declarator.Identifier.Span, maybeName),
             new TextChange(ifStatement.Span, replacement)
         ];
+    }
+
+    private static bool TryFindTargetDeclarator(
+        SyntaxNode root,
+        TextSpan diagnosticSpan,
+        out VariableDeclaratorSyntax declarator)
+    {
+        declarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .FirstOrDefault(candidate =>
+            {
+                var typeSpan = candidate.TypeAnnotation?.Type.Span;
+                if (typeSpan is not null &&
+                    (typeSpan.Value == diagnosticSpan
+                     || (typeSpan.Value.Start <= diagnosticSpan.Start && typeSpan.Value.End >= diagnosticSpan.End)
+                     || (diagnosticSpan.Start <= typeSpan.Value.Start && diagnosticSpan.End >= typeSpan.Value.End)))
+                {
+                    return true;
+                }
+
+                var identifierSpan = candidate.Identifier.Span;
+                return identifierSpan == diagnosticSpan
+                    || (identifierSpan.Start <= diagnosticSpan.Start && identifierSpan.End >= diagnosticSpan.End)
+                    || (diagnosticSpan.Start <= identifierSpan.Start && diagnosticSpan.End >= identifierSpan.End);
+            })!;
+
+        return declarator is not null;
+    }
+
+    private static bool TryCreateTypeRewriteChange(
+        VariableDeclaratorSyntax declarator,
+        string suggestedType,
+        out TextChange change)
+    {
+        if (declarator.TypeAnnotation?.Type is { } typeSyntax)
+        {
+            change = new TextChange(typeSyntax.Span, suggestedType);
+            return true;
+        }
+
+        var identifierSpan = declarator.Identifier.Span;
+        change = new TextChange(new TextSpan(identifierSpan.End, 0), $": {suggestedType}");
+        return true;
+    }
+
+    private static bool Intersects(TextSpan left, TextSpan right)
+    {
+        return left.Start < right.End && right.Start < left.End;
     }
 
     private static bool TryAnalyzeCondition(
