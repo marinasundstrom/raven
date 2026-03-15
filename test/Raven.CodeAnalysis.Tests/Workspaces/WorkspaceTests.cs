@@ -313,6 +313,27 @@ public class WorkspaceTest
     }
 
     [Fact]
+    public void GetRefactorings_ExpressionBodyProvider_IsAvailableFromDeclarationHeader()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = "func Value() -> int => 1";
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new ExpressionBodyToBlockBodyRefactoringProvider()],
+            new TextSpan(code.IndexOf("Value", StringComparison.Ordinal), 0));
+
+        Assert.Contains(refactorings, refactoring => refactoring.Action.Title == "Convert to block body");
+    }
+
+    [Fact]
     public async Task GetRefactorings_SingleStatementBlockProvider_RewritesSelectedDeclaration()
     {
         var workspace = new AdhocWorkspace();
@@ -335,6 +356,27 @@ public class WorkspaceTest
         var updatedText = await updated.GetDocument(documentId)!.GetTextAsync();
 
         Assert.Equal("func Value() -> int => 1", updatedText.ToString());
+    }
+
+    [Fact]
+    public void GetRefactorings_SingleStatementBlockProvider_IsAvailableFromDeclarationHeader()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = "func Value() -> int {\n    return 1\n}";
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new SingleStatementBlockBodyRefactoringProvider()],
+            new TextSpan(code.IndexOf("Value", StringComparison.Ordinal), 0));
+
+        Assert.Contains(refactorings, refactoring => refactoring.Action.Title == "Convert to expression body");
     }
 
     [Fact]

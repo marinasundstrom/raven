@@ -661,6 +661,37 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('raven.showCodeActionPreview', async (_uri?: string, actionTitle?: string, beforeText?: string, afterText?: string) => {
+      if (typeof beforeText !== 'string' || typeof afterText !== 'string') {
+        void vscode.window.showInformationMessage('No code action preview is available.');
+        return;
+      }
+
+      const beforeDocument = await vscode.workspace.openTextDocument({
+        content: beforeText,
+        language: 'raven'
+      });
+
+      const afterDocument = await vscode.workspace.openTextDocument({
+        content: afterText,
+        language: 'raven'
+      });
+
+      const title = actionTitle && actionTitle.trim().length > 0
+        ? `Preview: ${actionTitle}`
+        : 'Code Action Preview';
+
+      await vscode.commands.executeCommand(
+        'vscode.diff',
+        beforeDocument.uri,
+        afterDocument.uri,
+        title,
+        { preview: true }
+      );
+    })
+  );
+
   const documentationProvider = new RavenDocumentationContentProvider();
   context.subscriptions.push(
     vscode.workspace.registerTextDocumentContentProvider('raven-doc', documentationProvider)

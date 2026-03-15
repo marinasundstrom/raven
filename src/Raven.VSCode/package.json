@@ -18,6 +18,7 @@
     "onCommand:raven.build.activeTarget",
     "onCommand:raven.build.clean",
     "onCommand:raven.showMacroExpansion",
+    "onCommand:raven.showCodeActionPreview",
     "onCommand:raven.openDocumentation"
   ],
   "main": "./out/extension.js",
@@ -56,6 +57,10 @@
       {
         "command": "raven.showMacroExpansion",
         "title": "Raven: Show Macro Expansion"
+      },
+      {
+        "command": "raven.showCodeActionPreview",
+        "title": "Raven: Show Code Action Preview"
       }
     ],
     "menus": {

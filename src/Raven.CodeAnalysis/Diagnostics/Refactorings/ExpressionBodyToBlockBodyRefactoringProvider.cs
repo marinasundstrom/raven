@@ -17,7 +17,8 @@ public sealed class ExpressionBodyToBlockBodyRefactoringProvider : CodeRefactori
         var declaration = ExpressionBodyToBlockBodyCodeFixProvider.FindDeclaration(node);
         if (declaration is null ||
             !ExpressionBodyToBlockBodyCodeFixProvider.TryGetExpressionBody(declaration, out var expressionBody) ||
-            !RefactoringSelectionHelper.IntersectsSelection(context, expressionBody.Span))
+            (!RefactoringSelectionHelper.IntersectsSelection(context, expressionBody.Span) &&
+             !RefactoringSelectionHelper.IntersectsSelection(context, declaration.Span)))
         {
             return;
         }

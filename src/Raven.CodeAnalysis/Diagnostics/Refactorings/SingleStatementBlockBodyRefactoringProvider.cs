@@ -11,8 +11,15 @@ public sealed class SingleStatementBlockBodyRefactoringProvider : CodeRefactorin
             return;
 
         var block = SingleStatementBlockBodyCodeFixProvider.TryGetBodyBlock(node) ?? node.FirstAncestorOrSelf<BlockStatementSyntax>();
-        if (block is null || !RefactoringSelectionHelper.IntersectsSelection(context, block.Span))
+        var declaration = block?.Parent;
+        if (block is null ||
+            (declaration is null && !RefactoringSelectionHelper.IntersectsSelection(context, block.Span)) ||
+            (declaration is not null &&
+             !RefactoringSelectionHelper.IntersectsSelection(context, block.Span) &&
+             !RefactoringSelectionHelper.IntersectsSelection(context, declaration.Span)))
+        {
             return;
+        }
 
         if (!SingleStatementBlockBodyAnalyzer.TryGetConvertibleExpression(block, out var expression))
             return;

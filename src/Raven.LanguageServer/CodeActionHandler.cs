@@ -26,6 +26,7 @@ namespace Raven.LanguageServer;
 internal sealed class CodeActionHandler : ICodeActionHandler
 {
     private const string ShowMacroExpansionCommand = "raven.showMacroExpansion";
+    private const string ShowCodeActionPreviewCommand = "raven.showCodeActionPreview";
     private readonly DocumentStore _documents;
     private readonly WorkspaceManager _workspaceManager;
     private readonly ILogger<CodeActionHandler> _logger;
@@ -96,6 +97,15 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                         cancellationToken).ConfigureAwait(false);
                     if (action is not null)
                         actions.Add(action);
+
+                    var preview = await TryCreatePreviewCommandAsync(
+                        request.TextDocument.Uri,
+                        document,
+                        fix.DocumentId,
+                        fix.Action,
+                        cancellationToken).ConfigureAwait(false);
+                    if (preview is not null)
+                        actions.Add(preview);
                 }
             }
 
@@ -111,6 +121,15 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                     cancellationToken).ConfigureAwait(false);
                 if (action is not null)
                     actions.Add(action);
+
+                var preview = await TryCreatePreviewCommandAsync(
+                    request.TextDocument.Uri,
+                    document,
+                    refactoring.DocumentId,
+                    refactoring.Action,
+                    cancellationToken).ConfigureAwait(false);
+                if (preview is not null)
+                    actions.Add(preview);
             }
 
             return new CommandOrCodeActionContainer(actions);
@@ -286,5 +305,35 @@ internal sealed class CodeActionHandler : ICodeActionHandler
             };
 
         return new CommandOrCodeAction(codeAction);
+    }
+
+    private static async Task<CommandOrCodeAction?> TryCreatePreviewCommandAsync(
+        DocumentUri uri,
+        Document currentDocument,
+        DocumentId documentId,
+        CodeFixAction action,
+        CancellationToken cancellationToken)
+    {
+        var currentSolution = currentDocument.Project.Solution;
+        var updatedSolution = action.GetChangedSolution(currentSolution, cancellationToken);
+        if (updatedSolution.Version == currentSolution.Version)
+            return null;
+
+        var updatedDocument = updatedSolution.GetDocument(documentId);
+        var currentDocumentForAction = currentSolution.GetDocument(documentId);
+        if (updatedDocument is null || currentDocumentForAction is null)
+            return null;
+
+        var currentText = await currentDocumentForAction.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        var updatedText = await updatedDocument.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        if (string.Equals(currentText.ToString(), updatedText.ToString(), StringComparison.Ordinal))
+            return null;
+
+        return new CommandOrCodeAction(new Command
+        {
+            Name = ShowCodeActionPreviewCommand,
+            Title = $"Preview: {action.Title}",
+            Arguments = new JArray(uri.ToString(), action.Title, currentText.ToString(), updatedText.ToString())
+        });
     }
 }
