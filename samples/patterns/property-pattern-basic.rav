@@ -20,7 +20,7 @@ func PrintRoutingMessage(candidate: object?) {
         WriteLine("Priority flag: $flag")
     }
 
-    if candidate is Shipment { Window: (startHour, endHour) } {
+    if candidate is Shipment { Window: (val startHour, val endHour) } {
         WriteLine("Window: $startHour-$endHour")
     }
 

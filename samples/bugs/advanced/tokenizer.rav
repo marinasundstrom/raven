@@ -16,8 +16,8 @@ Console.WriteLine(token)
 val token2 = lexer.ReadToken()
 
 val value = token match {
-    .Number(text, value) => "Number $value"
-    .Identifier(text) => "Identifier $text"
+    .Number(val text, val value) => "Number $value"
+    .Identifier(val text) => "Identifier $text"
     _ => "Misc"
 }
 

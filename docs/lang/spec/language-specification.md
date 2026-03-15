@@ -2392,16 +2392,18 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     (including as an extension method), the positional pattern uses that method
     to obtain positional values.
 
-  * ✅ `(a, b)` (implicit immutable bindings)
   * ✅ `(val a, var b)` (explicit mutability)
   * ✅ `(a: int, b: string)` (inline type annotations)
   * ✅ `(int a, string b)` (type-pattern + capture)
   * ✅ `(a: int, _)`
-  * ✅ `(a, == existingValue)` (explicit value pattern)
+  * ✅ `(val a, == existingValue)` (explicit capture + value pattern)
+  * ✅ `(existingA, == existingValue)` (existing-value comparison)
 
-  In positional deconstruction elements, a bare identifier binds by default
-  (equivalent to `val identifier`). Use `== expr` when you want a value pattern
-  instead of introducing a new binding.
+  In freestanding and inline positional patterns, captured variables must use an
+  explicit binding keyword (`val`, `var`, or `let`). A bare identifier is
+  treated as a value pattern against an existing in-scope value. In assignment
+  and declaration deconstruction (`val (a, b) = expr`, `(a, b) = expr`), bare
+  identifiers continue to act as deconstruction targets.
   To constrain by type and capture a value in an element, both forms are valid:
   `val name: Type` (Raven-native typed binding style) and `Type name`
   (type-pattern style).
@@ -2430,9 +2432,10 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   * In the syntax tree, bracketed patterns are represented as `SequencePatternSyntax`
     (with `SequencePatternElementSyntax`), distinct from parenthesized positional
     patterns (`PositionalPatternSyntax`).
-  * Each element is a full pattern. In deconstruction element positions, bare
-    identifiers bind by default; use `== expr` for explicit value matching.
-    Type-constrained captures may be written as `val x: T` or `T x`.
+  * Each element is a full pattern. In freestanding and inline collection
+    patterns, captures must use `val`/`var`/`let`; bare identifiers are treated
+    as value patterns against existing values. Type-constrained captures may be
+    written as `val x: T` or `T x`.
   * Length must match exactly.
 
 #### Property patterns
@@ -3617,13 +3620,15 @@ Nested sequence/positional patterns can also be combined:
 val [(first, second), [head, ..tail]] = value
 ```
 
-In deconstruction element positions, plain identifiers are binding targets by
-default (immutable unless `var` is specified). To match against an existing
-runtime value instead, use an explicit value pattern:
+In freestanding and inline patterns, plain identifiers are value patterns, not
+new bindings. Use `val`/`var`/`let` to capture a value. In assignment and
+declaration deconstruction, plain identifiers remain binding targets by
+default. To match against an existing runtime value in a positional pattern,
+you can still use an explicit value pattern:
 
 ```raven
 match x {
-    (a, == existingValue) => ...
+    (val a, == existingValue) => ...
 }
 ```
 
@@ -3634,7 +3639,7 @@ It also does not capture that element. If you need the value later, bind it and
 compare in a guard/condition (`(a, b) when b == existingValue`, or
 `if t is (a, b) && b == existingValue`).
 
-Collection patterns also support a rest segment with `..name` or `...name`:
+Collection patterns also support a rest segment with `..val name` or `...val name`:
 
 ```raven
 val [first, second, ..rest] = values
@@ -3642,8 +3647,9 @@ val [first, second, ...rest2] = values
 val [first, ..middle, last] = values
 ```
 
-`..name`/`...name` captures the remaining elements as an array slice. `.._`/`..._` discards the
-remaining segment.
+In inline/freestanding collection patterns, spell rest captures as `..val name`
+or `...val name`. In deconstruction assignments/declarations, bare `..rest` and
+`...rest` remain valid.
 
 Nested deconstruction uses the same recursive compatibility rules in all valid
 positions:

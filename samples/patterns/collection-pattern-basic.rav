@@ -4,7 +4,7 @@ import System.Console.*
 val lineItemQuantities: int[] = [1, 2]
 
 val totalUnits = lineItemQuantities match {
-    [first, second] => first + second
+    [val first, val second] => first + second
     _ => 0
 }
 

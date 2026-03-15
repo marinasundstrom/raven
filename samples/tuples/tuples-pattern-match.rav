@@ -4,8 +4,8 @@ import System.Console.*
 val customerTuple: (id: int, tier: string) = (42, "Gold")
 
 val result = customerTuple match {
-    (42, tier) => "Priority customer: ${tier}"
-    (id, tier) => "Customer ${id}: ${tier}"
+    (42, val tier) => "Priority customer: ${tier}"
+    (val id, val tier) => "Customer ${id}: ${tier}"
 }
 
 WriteLine(result)

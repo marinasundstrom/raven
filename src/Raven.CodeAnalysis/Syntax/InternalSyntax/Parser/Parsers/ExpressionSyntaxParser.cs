@@ -453,7 +453,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             return false;
         }
 
-        var parsedPattern = new PatternSyntaxParser(this).ParsePattern();
+        var parsedPattern = new PatternSyntaxParser(this, allowImplicitDeconstructionElementBindings: true).ParsePattern();
 
         if (!PeekToken().IsKind(SyntaxKind.EqualsToken))
         {

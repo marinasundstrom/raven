@@ -687,7 +687,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 SyntaxToken name;
                 if (canStartDestructuringPattern)
                 {
-                    pattern = new PatternSyntaxParser(this).ParsePattern();
+                    pattern = new PatternSyntaxParser(this, allowImplicitDeconstructionElementBindings: true).ParsePattern();
                     name = MissingToken(SyntaxKind.IdentifierToken);
                 }
                 else if (CanTokenBeIdentifier(PeekToken()))
@@ -910,7 +910,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
-        var left = new PatternSyntaxParser(this).ParsePattern();
+        var left = new PatternSyntaxParser(this, allowImplicitDeconstructionElementBindings: true).ParsePattern();
 
         ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out var operatorToken);
 

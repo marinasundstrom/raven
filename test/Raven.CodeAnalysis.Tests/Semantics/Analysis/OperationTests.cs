@@ -245,7 +245,7 @@ match value {
         const string source = """
 var tuple = (1, 2)
 var result = tuple match {
-    (a, b) => a
+    (val a, val b) => a
     _ => 0
 }
 """;
@@ -381,7 +381,7 @@ record class Person(Name: string, Age: int)
 var expected = 2
 var tuple = (1, 2)
 var result = tuple match {
-    (a, == expected) => a
+    (val a, == expected) => a
     _ => 0
 }
 """;

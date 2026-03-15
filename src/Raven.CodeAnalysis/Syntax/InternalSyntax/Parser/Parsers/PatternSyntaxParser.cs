@@ -9,9 +9,11 @@ using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class PatternSyntaxParser : SyntaxParser
 {
-    public PatternSyntaxParser(ParseContext parent) : base(parent)
-    {
+    private readonly bool _allowImplicitDeconstructionElementBindings;
 
+    public PatternSyntaxParser(ParseContext parent, bool allowImplicitDeconstructionElementBindings = false) : base(parent)
+    {
+        _allowImplicitDeconstructionElementBindings = allowImplicitDeconstructionElementBindings;
     }
 
     public PatternSyntax ParsePattern()
@@ -391,7 +393,8 @@ internal class PatternSyntaxParser : SyntaxParser
         {
             restPattern = ParseVariablePattern();
         }
-        else if (CanTokenBeIdentifier(PeekToken()))
+        else if (_allowImplicitDeconstructionElementBindings &&
+                 CanTokenBeIdentifier(PeekToken()))
         {
             var identifier = ReadIdentifierToken();
             restPattern = VariablePattern(
@@ -444,12 +447,12 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
         {
-            arguments.Add(new PatternSyntaxParser(this).ParsePattern());
+            arguments.Add(new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern());
 
             while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
             {
                 arguments.Add(commaToken);
-                arguments.Add(new PatternSyntaxParser(this).ParsePattern());
+                arguments.Add(new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern());
             }
         }
 
@@ -466,12 +469,12 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
         {
-            arguments.Add(new PatternSyntaxParser(this).ParsePattern());
+            arguments.Add(new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern());
 
             while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
             {
                 arguments.Add(commaToken);
-                arguments.Add(new PatternSyntaxParser(this).ParsePattern());
+                arguments.Add(new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern());
             }
         }
 
@@ -571,7 +574,8 @@ internal class PatternSyntaxParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.EqualsEqualsToken))
             return ParseExplicitValuePattern();
 
-        if (CanTokenBeIdentifier(PeekToken()))
+        if (_allowImplicitDeconstructionElementBindings &&
+            CanTokenBeIdentifier(PeekToken()))
         {
             var identifier = ReadIdentifierToken();
             return VariablePattern(
@@ -579,7 +583,7 @@ internal class PatternSyntaxParser : SyntaxParser
                 SingleVariableDesignation(Token(SyntaxKind.None), identifier));
         }
 
-        return new PatternSyntaxParser(this).ParsePattern();
+        return new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern();
     }
 
     private PatternSyntax ParseExplicitValuePattern()

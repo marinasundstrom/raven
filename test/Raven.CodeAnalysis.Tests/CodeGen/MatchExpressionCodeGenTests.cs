@@ -150,7 +150,7 @@ class Describer {
 class Formatter {
     public func Describe(values: int[]) -> string {
         return values match {
-            [first, second] => (first + second).ToString()
+            [val first, val second] => (first + second).ToString()
             _ => "none"
         }
     }
@@ -178,7 +178,7 @@ class Program {
 class Formatter {
     public func Describe(values: int[]) -> string {
         return values match {
-            [first, ..middle, last] => (first + middle[0] + last).ToString()
+            [val first, ..val middle, val last] => (first + middle[0] + last).ToString()
             _ => "none"
         }
     }
@@ -208,7 +208,7 @@ import System.Collections.Generic.*
 class Formatter {
     public func Describe(values: List<int>) -> string {
         return values match {
-            [first, ..middle, last] => (first + middle[0] + last).ToString()
+            [val first, ..val middle, val last] => (first + middle[0] + last).ToString()
             _ => "none"
         }
     }

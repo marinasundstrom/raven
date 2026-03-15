@@ -405,7 +405,7 @@ func Test(y: int) -> int {
 val items: int[] = [1, 2]
 
 val result = items match {
-    [first, second] => first + second
+    [val first, val second] => first + second
     _ => 0
 }
 """;
@@ -449,7 +449,7 @@ val result = items match {
 val items: int[] = [1, 2, 3, 4]
 
 val result = items match {
-    [first, ..middle, last] => first + middle[0] + last
+    [val first, ..val middle, val last] => first + middle[0] + last
     _ => 0
 }
 """;
@@ -485,7 +485,7 @@ import System.Collections.Generic.*
 val items: List<int> = [1, 2, 3, 4]
 
 val result = items match {
-    [first, ..middle, last] => first + middle[0] + last
+    [val first, ..val middle, val last] => first + middle[0] + last
     _ => 0
 }
 """;
@@ -522,7 +522,7 @@ import System.Linq.*
 val items: IEnumerable<int> = [1, 2, 3].Where(v => v > 0)
 
 val result = items match {
-    [first, second] => first + second
+    [val first, val second] => first + second
     _ => 0
 }
 """;
@@ -1209,14 +1209,14 @@ val result = pair match {
     }
 
     [Fact]
-    public void MatchExpression_WithPositionalPattern_ImplicitBindingAndExplicitValuePattern_BindsCorrectly()
+    public void MatchExpression_WithPositionalPattern_ExplicitBindingAndExplicitValuePattern_BindsCorrectly()
     {
         const string code = """
 val existingValue = 2
 val pair: (int, int) = (1, 2)
 
 val result = pair match {
-    (a, == existingValue) => a
+    (val a, == existingValue) => a
     _ => 0
 }
 """;
@@ -1239,6 +1239,38 @@ val result = pair match {
         var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstElement.Designator);
         Assert.Equal("a", firstDesignator.Local.Name);
 
+        Assert.IsType<BoundConstantPattern>(tuplePattern.Elements[1]);
+    }
+
+    [Fact]
+    public void MatchExpression_WithPositionalPattern_WithoutBindingKeyword_TreatsIdentifierAsValuePattern()
+    {
+        const string code = """
+val a = 1
+val existingValue = 2
+val pair: (int, int) = (1, 2)
+
+val result = pair match {
+    (a, == existingValue) => 1
+    _ => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "tuple_match_value_pattern",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(boundMatch.Arms[0].Pattern);
+
+        Assert.IsType<BoundConstantPattern>(tuplePattern.Elements[0]);
         Assert.IsType<BoundConstantPattern>(tuplePattern.Elements[1]);
     }
 
