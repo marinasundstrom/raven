@@ -12,11 +12,15 @@ internal static class ExternalDocumentationEmitter
     private const string InvariantLocale = "invariant";
     private const string SymbolsPath = "symbols";
 
-    public static string WriteDocumentation(Compilation compilation, DocumentationFormat format, string outputPath)
+    public static string WriteDocumentation(
+        Compilation compilation,
+        DocumentationFormat format,
+        string outputPath,
+        bool includeMarkdownWhenEmittingXml = true)
     {
         return format == DocumentationFormat.Markdown
             ? WriteMarkdownDocumentation(compilation, outputPath)
-            : WriteXmlDocumentation(compilation, outputPath);
+            : WriteXmlDocumentation(compilation, outputPath, includeMarkdownWhenEmittingXml);
     }
 
     public static string WriteMarkdownDocumentation(Compilation compilation, string outputPath)
@@ -60,14 +64,14 @@ internal static class ExternalDocumentationEmitter
         return docsRoot;
     }
 
-    public static string WriteXmlDocumentation(Compilation compilation, string outputPath)
+    public static string WriteXmlDocumentation(Compilation compilation, string outputPath, bool includeMarkdownWhenEmittingXml = true)
     {
         var xmlPath = NormalizeXmlOutputPath(outputPath);
         var directory = Path.GetDirectoryName(xmlPath);
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
 
-        var entries = Collect(compilation)
+        var entries = Collect(compilation, includeMarkdownWhenEmittingXml)
             .OrderBy(static entry => entry.MemberId, StringComparer.Ordinal)
             .ToList();
 
@@ -97,7 +101,7 @@ internal static class ExternalDocumentationEmitter
         return xmlPath;
     }
 
-    private static IEnumerable<DocumentationEntry> Collect(Compilation compilation)
+    private static IEnumerable<DocumentationEntry> Collect(Compilation compilation, bool includeMarkdown = true)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var symbol in EnumerateDocumentableSymbols(compilation.Assembly.GlobalNamespace))
@@ -107,6 +111,11 @@ internal static class ExternalDocumentationEmitter
 
             var comment = symbol.GetDocumentationComment();
             if (comment is null || string.IsNullOrWhiteSpace(comment.Content))
+                continue;
+
+            if (!includeMarkdown &&
+                comment.Format == DocumentationFormat.Markdown &&
+                !LooksLikeXmlDocumentation(comment.Content))
                 continue;
 
             if (!DocumentationCommentIdBuilder.TryGetMemberId(symbol, out var memberId))
@@ -195,27 +204,27 @@ internal static class ExternalDocumentationEmitter
     {
         var structure = MarkdownDocumentationStructureExtractor.Extract(comment);
 
-        AppendXmlElement(builder, "summary", structure.Summary);
+        AppendXmlElement(builder, "summary", MarkdownDocumentationTextConverter.ToPlainText(structure.Summary));
 
         foreach (var entry in structure.TypeParameters)
-            AppendXmlElement(builder, "typeparam", entry.Content, ("name", entry.Name));
+            AppendXmlElement(builder, "typeparam", MarkdownDocumentationTextConverter.ToPlainText(entry.Content), ("name", entry.Name));
 
         foreach (var entry in structure.Parameters)
-            AppendXmlElement(builder, "param", entry.Content, ("name", entry.Name));
+            AppendXmlElement(builder, "param", MarkdownDocumentationTextConverter.ToPlainText(entry.Content), ("name", entry.Name));
 
-        AppendXmlElement(builder, "returns", structure.Returns);
-        AppendXmlElement(builder, "value", structure.Value);
-        AppendXmlElement(builder, "remarks", structure.Remarks);
-        AppendXmlElement(builder, "example", structure.Example);
+        AppendXmlElement(builder, "returns", MarkdownDocumentationTextConverter.ToPlainText(structure.Returns));
+        AppendXmlElement(builder, "value", MarkdownDocumentationTextConverter.ToPlainText(structure.Value));
+        AppendXmlElement(builder, "remarks", MarkdownDocumentationTextConverter.ToPlainText(structure.Remarks));
+        AppendXmlElement(builder, "example", MarkdownDocumentationTextConverter.ToPlainText(structure.Example));
 
         foreach (var entry in structure.Exceptions)
-            AppendXmlElement(builder, "exception", entry.Content, ("cref", entry.Reference));
+            AppendXmlElement(builder, "exception", MarkdownDocumentationTextConverter.ToPlainText(entry.Content), ("cref", entry.Reference));
 
         foreach (var entry in structure.See)
-            AppendXmlElement(builder, "see", entry.Content, ("cref", entry.Reference));
+            AppendXmlElement(builder, "see", MarkdownDocumentationTextConverter.ToPlainText(entry.Content), ("cref", entry.Reference));
 
         foreach (var entry in structure.SeeAlso)
-            AppendXmlElement(builder, "seealso", entry.Content, ("cref", entry.Reference));
+            AppendXmlElement(builder, "seealso", MarkdownDocumentationTextConverter.ToPlainText(entry.Content), ("cref", entry.Reference));
 
         if (!string.IsNullOrWhiteSpace(structure.InheritDocReference))
             AppendXmlElement(builder, "inheritdoc", attributes: [("cref", structure.InheritDocReference)]);
@@ -227,6 +236,12 @@ internal static class ExternalDocumentationEmitter
         string? content = null,
         params (string Name, string? Value)[] attributes)
     {
+        var hasAnyAttributes = attributes.Any(static attribute => !string.IsNullOrWhiteSpace(attribute.Name) && !string.IsNullOrWhiteSpace(attribute.Value));
+        var normalizedContent = string.IsNullOrWhiteSpace(content) ? null : content.Trim();
+
+        if (normalizedContent is null && !hasAnyAttributes)
+            return;
+
         builder.Append("      <");
         builder.Append(elementName);
 
@@ -242,14 +257,14 @@ internal static class ExternalDocumentationEmitter
             builder.Append('"');
         }
 
-        if (string.IsNullOrWhiteSpace(content))
+        if (normalizedContent is null)
         {
             builder.AppendLine(" />");
             return;
         }
 
         builder.Append('>');
-        builder.Append(SecurityElement.Escape(content.Trim()));
+        builder.Append(SecurityElement.Escape(normalizedContent));
         builder.Append("</");
         builder.Append(elementName);
         builder.AppendLine(">");
@@ -271,6 +286,14 @@ internal static class ExternalDocumentationEmitter
         {
             return false;
         }
+    }
+
+    private static bool LooksLikeXmlDocumentation(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return false;
+
+        return content.TrimStart().StartsWith("<", StringComparison.Ordinal);
     }
 
     private static string NormalizeMarkdownOutputPath(string outputPath)

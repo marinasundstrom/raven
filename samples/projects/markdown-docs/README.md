@@ -34,6 +34,14 @@ The Markdown sidecars preserve authored Markdown, including `xref:` links and
 structured tags such as `@param` and `@returns`. The XML files remain standard
 .NET XML documentation output.
 
+This sample explicitly sets:
+
+- `GenerateXmlDocumentationFromMarkdownComments=true`
+
+so the project also demonstrates Markdown-to-XML projection. Without that
+property, Markdown-authored comments still emit to `.docs`, but they are not
+projected into the emitted `.xml` file.
+
 Each emitted Markdown symbol file may also begin with metadata-only frontmatter
 such as:
 

@@ -212,6 +212,10 @@ The first project-system knobs for this convention are:
   Emits adjacent XML documentation.
 - `GenerateMarkdownDocumentationFile`
   Emits assembly-adjacent Markdown sidecars.
+- `GenerateXmlDocumentationFromMarkdownComments`
+  Opts into projecting Markdown-authored documentation comments into emitted
+  XML documentation. Without this flag, XML emission only includes XML-authored
+  documentation comments.
 - `DocumentationFile`
   Optional explicit XML output path.
 - `MarkdownDocumentationOutputPath`

@@ -5,6 +5,7 @@
     <OutputType>Library</OutputType>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
+    <GenerateXmlDocumentationFromMarkdownComments>true</GenerateXmlDocumentationFromMarkdownComments>
     <DocumentationFile>docs/MarkdownDocs.Consumer.xml</DocumentationFile>
     <MarkdownDocumentationOutputPath>docs/MarkdownDocs.Consumer.docs</MarkdownDocumentationOutputPath>
   </PropertyGroup>

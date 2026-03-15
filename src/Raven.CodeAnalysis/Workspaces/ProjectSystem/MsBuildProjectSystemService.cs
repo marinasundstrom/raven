@@ -192,6 +192,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         var documentationOptions = project.DocumentationOptions;
         UpdateProperty(root, "GenerateDocumentationFile", ((documentationOptions?.GenerateXmlDocumentation) ?? false).ToString().ToLowerInvariant());
         UpdateProperty(root, "GenerateMarkdownDocumentationFile", ((documentationOptions?.GenerateMarkdownDocumentation) ?? false).ToString().ToLowerInvariant());
+        UpdateProperty(root, "GenerateXmlDocumentationFromMarkdownComments", ((documentationOptions?.GenerateXmlDocumentationFromMarkdownComments) ?? false).ToString().ToLowerInvariant());
 
         if (!string.IsNullOrWhiteSpace(documentationOptions?.XmlDocumentationFile))
             UpdateProperty(root, "DocumentationFile", documentationOptions!.XmlDocumentationFile);

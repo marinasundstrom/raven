@@ -49,6 +49,7 @@ internal static class ProjectFile
             project.AssemblyName is string asm ? new XAttribute("Output", asm) : null,
             project.DocumentationOptions?.GenerateXmlDocumentation == true ? new XAttribute("GenerateDocumentationFile", true) : null,
             project.DocumentationOptions?.GenerateMarkdownDocumentation == true ? new XAttribute("GenerateMarkdownDocumentationFile", true) : null,
+            project.DocumentationOptions?.GenerateXmlDocumentationFromMarkdownComments == true ? new XAttribute("GenerateXmlDocumentationFromMarkdownComments", true) : null,
             project.DocumentationOptions?.XmlDocumentationFile is string xmlDocFile ? new XAttribute("DocumentationFile", xmlDocFile) : null,
             project.DocumentationOptions?.MarkdownDocumentationOutputPath is string markdownDocPath ? new XAttribute("MarkdownDocumentationOutputPath", markdownDocPath) : null);
 
@@ -99,6 +100,7 @@ internal static class ProjectFile
         configuration = RavenProjectConventions.Default.NormalizeConfiguration(configuration);
         var generateDocumentationFileAttr = (string?)root.Attribute("GenerateDocumentationFile");
         var generateMarkdownDocumentationFileAttr = (string?)root.Attribute("GenerateMarkdownDocumentationFile");
+        var generateXmlDocumentationFromMarkdownCommentsAttr = (string?)root.Attribute("GenerateXmlDocumentationFromMarkdownComments");
         var documentationFileAttr = (string?)root.Attribute("DocumentationFile");
         var markdownDocumentationOutputPathAttr = (string?)root.Attribute("MarkdownDocumentationOutputPath");
         var outputKindAttr = (string?)root.Attribute("OutputKind");
@@ -197,6 +199,7 @@ internal static class ProjectFile
         var documentationOptions = new ProjectDocumentationOptions(
             GenerateXmlDocumentation: generateDocumentationFileAttr is string gdf && bool.TryParse(gdf, out var generateXmlDocs) && generateXmlDocs,
             GenerateMarkdownDocumentation: generateMarkdownDocumentationFileAttr is string gmdf && bool.TryParse(gmdf, out var generateMarkdownDocs) && generateMarkdownDocs,
+            GenerateXmlDocumentationFromMarkdownComments: generateXmlDocumentationFromMarkdownCommentsAttr is string gxdfmc && bool.TryParse(gxdfmc, out var generateXmlFromMarkdown) && generateXmlFromMarkdown,
             XmlDocumentationFile: documentationFileAttr,
             MarkdownDocumentationOutputPath: markdownDocumentationOutputPathAttr);
 

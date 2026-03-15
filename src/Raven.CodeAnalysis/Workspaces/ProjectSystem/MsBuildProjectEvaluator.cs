@@ -116,6 +116,7 @@ internal static class MsBuildProjectEvaluator
         var documentationOptions = new ProjectDocumentationOptions(
             GenerateXmlDocumentation: GetBooleanProperty(project, "GenerateDocumentationFile") ?? false,
             GenerateMarkdownDocumentation: GetBooleanProperty(project, "GenerateMarkdownDocumentationFile") ?? false,
+            GenerateXmlDocumentationFromMarkdownComments: GetBooleanProperty(project, "GenerateXmlDocumentationFromMarkdownComments") ?? false,
             XmlDocumentationFile: GetOptionalProperty(project, "DocumentationFile"),
             MarkdownDocumentationOutputPath: GetOptionalProperty(project, "MarkdownDocumentationOutputPath"));
 

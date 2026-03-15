@@ -4,6 +4,7 @@
     <AssemblyName>MarkdownDocs.Library</AssemblyName>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
+    <GenerateXmlDocumentationFromMarkdownComments>true</GenerateXmlDocumentationFromMarkdownComments>
     <DocumentationFile>docs/MarkdownDocs.Library.xml</DocumentationFile>
     <MarkdownDocumentationOutputPath>docs/MarkdownDocs.Library.docs</MarkdownDocumentationOutputPath>
   </PropertyGroup>

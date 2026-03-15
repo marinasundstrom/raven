@@ -169,6 +169,8 @@ class Widget {
 
             Assert.True(File.Exists(Path.Combine(docsRoot, "manifest.json")));
             Assert.True(File.Exists(xmlPath));
+            var xml = File.ReadAllText(xmlPath);
+            Assert.DoesNotContain("<member name=\"T:Widget\">", xml, StringComparison.Ordinal);
         }
         finally
         {
@@ -211,6 +213,7 @@ public class WidgetParser {
                     <OutputType>Library</OutputType>
                     <GenerateDocumentationFile>true</GenerateDocumentationFile>
                     <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
+                    <GenerateXmlDocumentationFromMarkdownComments>true</GenerateXmlDocumentationFromMarkdownComments>
                     <DocumentationFile>artifacts/docs/DocsProject.xml</DocumentationFile>
                     <MarkdownDocumentationOutputPath>artifacts/docs/DocsProject.docs</MarkdownDocumentationOutputPath>
                   </PropertyGroup>
@@ -244,6 +247,81 @@ public class WidgetParser {
             Assert.Contains("<returns>The parsed title.</returns>", xml, StringComparison.Ordinal);
             Assert.DoesNotContain("@param", xml, StringComparison.Ordinal);
             Assert.DoesNotContain("///", xml, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void MsBuildProject_EmitsCleanXmlFromMarkdownHeadingsAndLinks()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var sourcePath = Path.Combine(root, "main.rvn");
+            File.WriteAllText(sourcePath, """
+/// ## Widget
+///
+/// A small type used to demonstrate Raven Markdown documentation comments.
+///
+/// ### Usage
+///
+/// Use [WidgetFactory](xref:T:Samples.Docs.WidgetFactory) to create sample widgets.
+class Widget(val Title: string) {
+    /// Returns the current title.
+    ///
+    /// @returns The title that was supplied when the widget was created.
+    /// @see xref:T:Samples.Docs.Consumer.WidgetPrinter
+    func GetTitle() -> string => Title
+}
+""");
+
+            var projectPath = Path.Combine(root, "Docs.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>DocsProject</AssemblyName>
+                    <OutputType>Library</OutputType>
+                    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+                    <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
+                    <GenerateXmlDocumentationFromMarkdownComments>true</GenerateXmlDocumentationFromMarkdownComments>
+                    <DocumentationFile>artifacts/docs/DocsProject.xml</DocumentationFile>
+                    <MarkdownDocumentationOutputPath>artifacts/docs/DocsProject.docs</MarkdownDocumentationOutputPath>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="main.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var compilerDllPath = EnsureCompilerBuilt();
+            var outputDirectory = Path.Combine(root, "bin");
+            Directory.CreateDirectory(outputDirectory);
+
+            var result = RunProcess(
+                "dotnet",
+                $"\"{compilerDllPath}\" \"{projectPath}\" -o \"{outputDirectory}\"",
+                root,
+                300_000);
+
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+            Assert.Equal(0, result.ExitCode);
+
+            var xmlPath = Path.Combine(outputDirectory, "artifacts", "docs", "DocsProject.xml");
+            var xml = File.ReadAllText(xmlPath);
+
+            Assert.Contains("<summary>Widget</summary>", xml, StringComparison.Ordinal);
+            Assert.Contains("<remarks>A small type used to demonstrate Raven Markdown documentation comments.", xml, StringComparison.Ordinal);
+            Assert.DoesNotContain("## Widget", xml, StringComparison.Ordinal);
+            Assert.DoesNotContain("### Usage", xml, StringComparison.Ordinal);
+            Assert.DoesNotContain("xref:", xml, StringComparison.Ordinal);
+            Assert.DoesNotContain("<value />", xml, StringComparison.Ordinal);
+            Assert.DoesNotContain("<example />", xml, StringComparison.Ordinal);
+            Assert.Contains("<see cref=\"T:Samples.Docs.Consumer.WidgetPrinter\" />", xml, StringComparison.Ordinal);
         }
         finally
         {

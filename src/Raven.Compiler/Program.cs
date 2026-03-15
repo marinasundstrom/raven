@@ -1043,7 +1043,14 @@ if (!emitDocs && automaticDocumentationOutputs.Count > 0)
 {
     foreach (var (docFormat, docOutputPath) in automaticDocumentationOutputs)
     {
-        var actualDocumentationPath = DocumentationEmitter.WriteDocumentation(compilation, docFormat, docOutputPath);
+        var includeMarkdownWhenEmittingXml =
+            docFormat != DocumentationFormat.Xml ||
+            projectDocumentationOptions?.GenerateXmlDocumentationFromMarkdownComments == true;
+        var actualDocumentationPath = DocumentationEmitter.WriteDocumentation(
+            compilation,
+            docFormat,
+            docOutputPath,
+            includeMarkdownWhenEmittingXml);
         AnsiConsole.MarkupLine($"[green]Documentation written to '{actualDocumentationPath}'.[/]");
     }
 }
