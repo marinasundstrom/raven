@@ -61,6 +61,61 @@ class C {
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_OnTupleLocal_ReturnsTupleMembers()
+    {
+        const string code = """
+class C {
+    func Run() -> int {
+        val point = (2, 3)
+        point.
+
+        return 0
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var service = new CompletionService();
+        var position = code.IndexOf("point.", StringComparison.Ordinal) + "point.".Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        items.ShouldContain(item => item.DisplayText == "Item1");
+        items.ShouldContain(item => item.DisplayText == "Item2");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnTupleForIterationLocal_ReturnsTupleMembers()
+    {
+        const string code = """
+class C {
+    func Run(points: (int, int)[]) -> int {
+        for x in points {
+            x.
+        }
+
+        return 0
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var service = new CompletionService();
+        var position = code.IndexOf("x.", StringComparison.Ordinal) + 2;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        items.ShouldContain(item => item.DisplayText == "Item1");
+        items.ShouldContain(item => item.DisplayText == "Item2");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnIsPatternDeclarationLocal_ReturnsInstanceMembers()
     {
         const string code = """

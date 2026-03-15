@@ -14,17 +14,15 @@ internal sealed class TupleFieldSymbol : PEFieldSymbol, IFieldSymbol
 
     public override string Name { get; }
 
+    public override string MetadataName => _underlyingField.MetadataName;
+
+    public override Accessibility DeclaredAccessibility => _underlyingField.DeclaredAccessibility;
+
     public override bool IsStatic => _underlyingField.IsStatic;
     public override bool IsConst => _underlyingField.IsConst;
+    public override bool IsReadOnly => _underlyingField.IsReadOnly;
 
     public override ITypeSymbol Type => _underlyingField.Type;
 
     public IFieldSymbol UnderlyingField => _underlyingField;
-
-    /*
-    public override FieldInfo GetFieldInfo()
-    {
-        return ((SubstitutedFieldSymbol)_underlyingField).GetFieldInfo();
-    }
-    */
 }

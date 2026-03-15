@@ -20,7 +20,7 @@ func Main() {
         WriteLine(no)
     }
 
-    val str = "FooBar"
+    val str = "FooBar42"
     val [ch, ..2 start, ...end] = str
 
     WriteLine("ch: $ch, start: $start, and end: $end")
