@@ -36,7 +36,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     }
 
     func CreateBackingField(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
-        PropertyDeclaration(
+        StoredPropertyDeclaration(
             List<AttributeListSyntax>(),
             TokenList([PrivateKeyword]),
             VarKeyword,

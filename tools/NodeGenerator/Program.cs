@@ -311,6 +311,8 @@ List<FactoryDefinitionModel> LoadFactoriesFromXml(string path)
             Node = factoryElement.Attribute("Node")?.Value ?? throw new Exception("Factory missing Node"),
             Overloads = factoryElement.Elements("Overload").Select(overloadElement => new FactoryOverloadModel
             {
+                Alias = overloadElement.Attribute("Alias")?.Value,
+                Summary = overloadElement.Attribute("Summary")?.Value,
                 Parameters = overloadElement.Elements("Parameter").Select(parameterElement => new FactoryParameterModel
                 {
                     Slot = parameterElement.Attribute("Slot")?.Value ?? throw new Exception("Factory parameter missing Slot")
@@ -449,6 +451,19 @@ void ValidateFactoryDefinitions(List<SyntaxNodeModel> model, List<FactoryDefinit
             var overload = factory.Overloads[overloadIndex];
             var referenced = new HashSet<string>(StringComparer.Ordinal);
 
+            if (!string.IsNullOrWhiteSpace(overload.Alias))
+            {
+                if (!Microsoft.CodeAnalysis.CSharp.SyntaxFacts.IsValidIdentifier(overload.Alias))
+                {
+                    errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: alias '{overload.Alias}' is not a valid C# identifier.");
+                }
+
+                if (string.Equals(overload.Alias, factory.Node, StringComparison.Ordinal))
+                {
+                    errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: alias '{overload.Alias}' must differ from the canonical factory name.");
+                }
+            }
+
             foreach (var parameter in overload.Parameters)
             {
                 ValidateFactorySlotReference(node, parameter.Slot, errors, factory.Node, overloadIndex, "parameter");
@@ -519,6 +534,14 @@ void ValidateFactoryDefinitions(List<SyntaxNodeModel> model, List<FactoryDefinit
             {
                 errors.Add($"Factory '{factory.Node}' overload {overloadIndex + 1}: 'Body' and 'ExpressionBody' cannot both be non-null in the same overload.");
             }
+        }
+
+        foreach (var duplicateAliasGroup in factory.Overloads
+                     .Where(o => !string.IsNullOrWhiteSpace(o.Alias))
+                     .GroupBy(o => o.Alias!, StringComparer.Ordinal)
+                     .Where(g => g.Count() > 1))
+        {
+            errors.Add($"Factory '{factory.Node}': alias '{duplicateAliasGroup.Key}' must be unique within the factory.");
         }
     }
 

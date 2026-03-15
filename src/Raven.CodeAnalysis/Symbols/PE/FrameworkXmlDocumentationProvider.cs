@@ -211,11 +211,11 @@ internal static class XmlDocumentationCommentIdBuilder
                 : "``" + type.GenericParameterPosition;
 
         if (type.IsNested && type.DeclaringType is not null)
-            return GetTypeName(type.DeclaringType) + "." + type.Name;
+            return GetTypeName(type.DeclaringType) + "." + GetTypeNameSegment(type, includeGenericArity: true);
 
         return string.IsNullOrEmpty(type.Namespace)
-            ? type.Name
-            : type.Namespace + "." + type.Name;
+            ? GetTypeNameSegment(type, includeGenericArity: true)
+            : type.Namespace + "." + GetTypeNameSegment(type, includeGenericArity: true);
     }
 
     private static string GetParameterTypeName(Type type)
@@ -246,7 +246,27 @@ internal static class XmlDocumentationCommentIdBuilder
         var genericTypeDefinition = type.GetGenericTypeDefinition();
         var typeArguments = type.GetGenericArguments();
         var formattedArguments = string.Join(",", typeArguments.Select(GetParameterTypeName));
-        return $"{GetTypeName(genericTypeDefinition)}{{{formattedArguments}}}";
+        return $"{GetParameterTypeDefinitionName(genericTypeDefinition)}{{{formattedArguments}}}";
+    }
+
+    private static string GetParameterTypeDefinitionName(Type type)
+    {
+        if (type.IsNested && type.DeclaringType is not null)
+            return GetParameterTypeDefinitionName(type.DeclaringType) + "." + GetTypeNameSegment(type, includeGenericArity: false);
+
+        return string.IsNullOrEmpty(type.Namespace)
+            ? GetTypeNameSegment(type, includeGenericArity: false)
+            : type.Namespace + "." + GetTypeNameSegment(type, includeGenericArity: false);
+    }
+
+    private static string GetTypeNameSegment(Type type, bool includeGenericArity)
+    {
+        var name = type.Name;
+        var tickIndex = name.IndexOf('`');
+        if (tickIndex >= 0 && !includeGenericArity)
+            return name[..tickIndex];
+
+        return name;
     }
 }
 

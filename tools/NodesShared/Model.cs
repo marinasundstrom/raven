@@ -43,6 +43,8 @@ public class FactoryDefinitionModel
 
 public class FactoryOverloadModel
 {
+    public string? Alias { get; set; }
+    public string? Summary { get; set; }
     public List<FactoryParameterModel> Parameters { get; set; } = new();
     public List<FactoryDefaultModel> Defaults { get; set; } = new();
 }

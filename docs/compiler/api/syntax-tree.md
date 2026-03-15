@@ -72,6 +72,22 @@ For targeted formatting, Raven also exposes Roslyn-style formatting markers:
 into normal spaces/newlines while preserving unannotated concrete trivia
 outside those regions.
 
+## SyntaxFactory overloads
+
+Public red `SyntaxFactory` overloads are intended to be valid-by-construction.
+For nodes that opt into explicit factory definitions, the generated public API
+only exposes the overloads declared in `Syntax/Factories.xml` instead of a raw
+full-slot helper.
+
+`Factories.xml` can also attach documentation metadata to an overload:
+
+- `Summary="..."` adds XML documentation to the canonical factory overload.
+- `Alias="..."` adds a second descriptive factory name for the same overload.
+
+Aliases are only convenience names. They do not define a different syntax kind
+or shape, and the generated XML docs call out that the canonical factory name is
+still preferred unless the alias is clearer at the call site.
+
 ## Visitors and rewriters
 
 The compiler ships source-generated visitor bases that align with Roslyn's

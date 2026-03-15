@@ -39,7 +39,7 @@ public sealed class SyntaxFactoryDeclarationTests
     [Fact]
     public void PropertyDeclaration_WithInitializer_LeavesAccessorListAndExpressionBodyNull()
     {
-        var property = PropertyDeclaration(
+        var property = StoredPropertyDeclaration(
             List<AttributeListSyntax>(),
             TokenList(PrivateKeyword),
             VarKeyword,

@@ -149,4 +149,33 @@ WriteLine(message)
                 Directory.Delete(hostDirectory, recursive: true);
         }
     }
+
+    [Fact]
+    public void MetadataReferences_LoadSidecarXmlDocumentation_ForRavenCodeAnalysis()
+    {
+        var ravenCodeAnalysisPath = typeof(Compilation).Assembly.Location;
+        Assert.True(File.Exists(ravenCodeAnalysisPath), $"Expected Raven.CodeAnalysis assembly at '{ravenCodeAnalysisPath}'.");
+        Assert.True(
+            File.Exists(Path.ChangeExtension(ravenCodeAnalysisPath, ".xml")),
+            $"Expected XML documentation next to '{ravenCodeAnalysisPath}'.");
+
+        var compilation = Compilation.Create(
+            "consumer",
+            syntaxTrees: [],
+            references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(ravenCodeAnalysisPath)],
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var syntaxFactory = compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.SyntaxFactory");
+        Assert.NotNull(syntaxFactory);
+
+        var storedPropertyDeclaration = syntaxFactory!
+            .GetMembers("StoredPropertyDeclaration")
+            .OfType<IMethodSymbol>()
+            .Single();
+
+        var documentation = storedPropertyDeclaration.GetDocumentationComment();
+        Assert.NotNull(documentation);
+        Assert.Contains("stored property", documentation!.Content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("PropertyDeclaration", documentation.Content, StringComparison.Ordinal);
+    }
 }

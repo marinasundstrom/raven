@@ -11,6 +11,9 @@ Raven has two formatting layers for syntax trees:
 
 - `SyntaxFactory` returns raw structured syntax. Do not assume factory-built
   trees are ready to print without explicit trivia or a formatting pass.
+- Red `SyntaxFactory` convenience overloads should stay valid-by-construction.
+  If a node needs descriptive or restricted public shapes, define them in
+  `Syntax/Factories.xml` instead of exposing a raw full-slot overload.
 - Prefer elastic trivia for generated whitespace that should be owned by the
   formatter.
 - Preserve concrete comments, directives, and other non-whitespace trivia.

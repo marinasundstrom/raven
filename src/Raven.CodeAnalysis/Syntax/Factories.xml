@@ -59,12 +59,12 @@
   </Factory>
 
   <Factory Node="ReturnStatement">
-    <Overload>
+    <Overload Summary="Creates a return statement that returns a value expression.">
       <Parameter Slot="Expression" />
       <Default Slot="ReturnKeyword" Token="ReturnKeyword" />
       <Default Slot="TerminatorToken" Token="NewLineToken" />
     </Overload>
-    <Overload>
+    <Overload Summary="Creates a bare return statement with no value expression.">
       <Default Slot="ReturnKeyword" Token="ReturnKeyword" />
       <Default Slot="Expression" Null="true" />
       <Default Slot="TerminatorToken" Token="NewLineToken" />
@@ -121,7 +121,7 @@
   </Factory>
 
   <Factory Node="AccessorDeclaration">
-    <Overload>
+    <Overload Summary="Creates an accessor declaration with no body or expression body.">
       <Parameter Slot="Kind" />
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Modifiers" />
@@ -130,7 +130,7 @@
       <Default Slot="ExpressionBody" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
     </Overload>
-    <Overload>
+    <Overload Summary="Creates an accessor declaration with a block body.">
       <Parameter Slot="Kind" />
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Modifiers" />
@@ -139,7 +139,7 @@
       <Default Slot="ExpressionBody" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
     </Overload>
-    <Overload>
+    <Overload Summary="Creates an accessor declaration with an expression body.">
       <Parameter Slot="Kind" />
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Modifiers" />
@@ -236,7 +236,7 @@
   </Factory>
 
   <Factory Node="MethodDeclaration">
-    <Overload>
+    <Overload Summary="Creates a method declaration without a body.">
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Modifiers" />
       <Parameter Slot="FuncKeyword" />
@@ -250,7 +250,7 @@
       <Default Slot="ExpressionBody" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
     </Overload>
-    <Overload>
+    <Overload Summary="Creates a method declaration with a block body.">
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Modifiers" />
       <Parameter Slot="FuncKeyword" />
@@ -264,7 +264,7 @@
       <Default Slot="ExpressionBody" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
     </Overload>
-    <Overload>
+    <Overload Summary="Creates a method declaration with an expression body.">
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Modifiers" />
       <Parameter Slot="FuncKeyword" />
@@ -281,7 +281,7 @@
   </Factory>
 
   <Factory Node="PropertyDeclaration">
-    <Overload>
+    <Overload Summary="Creates a property declaration without accessors, expression body, or initializer.">
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Modifiers" />
       <Parameter Slot="Identifier" />
@@ -293,7 +293,7 @@
       <Default Slot="Initializer" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
     </Overload>
-    <Overload>
+    <Overload Alias="StoredPropertyDeclaration" Summary="Creates a stored property declaration with an initializer.">
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Modifiers" />
       <Parameter Slot="BindingKeyword" />
@@ -305,7 +305,7 @@
       <Default Slot="ExpressionBody" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
     </Overload>
-    <Overload>
+    <Overload Summary="Creates a property declaration with an accessor list.">
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Modifiers" />
       <Parameter Slot="BindingKeyword" />
@@ -317,7 +317,7 @@
       <Default Slot="Initializer" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
     </Overload>
-    <Overload>
+    <Overload Summary="Creates a property declaration with an expression body.">
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Modifiers" />
       <Parameter Slot="BindingKeyword" />

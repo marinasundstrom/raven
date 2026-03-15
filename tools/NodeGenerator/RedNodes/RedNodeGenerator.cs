@@ -639,17 +639,67 @@ public static class RedNodeGenerator
                 invocationArguments.Add(argumentMap["Kind"]);
             invocationArguments.AddRange(node.Slots.Select(slot => argumentMap[slot.Name]));
 
-            overloads.Add(
-                MethodDeclaration(IdentifierName(typeName), node.Name)
-                    .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
-                    .WithParameterList(ParameterList(SeparatedList(parameters)))
-                    .WithExpressionBody(ArrowExpressionClause(
-                        ObjectCreationExpression(IdentifierName(typeName))
-                            .WithArgumentList(ArgumentList(SeparatedList(invocationArguments)))))
-                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)));
+            var canonicalMethod = CreateExplicitFactoryMethod(node.Name, typeName, parameters, invocationArguments);
+            if (!string.IsNullOrWhiteSpace(overload.Summary))
+                canonicalMethod = canonicalMethod.WithLeadingTrivia(CreateSummaryDocumentationTrivia(overload.Summary!));
+
+            overloads.Add(canonicalMethod);
+
+            if (!string.IsNullOrWhiteSpace(overload.Alias))
+            {
+                overloads.Add(
+                    CreateExplicitFactoryMethod(overload.Alias!, typeName, parameters, invocationArguments)
+                        .WithLeadingTrivia(CreateAliasDocumentationTrivia(node.Name, overload)));
+            }
         }
 
         return overloads;
+    }
+
+    private static MethodDeclarationSyntax CreateExplicitFactoryMethod(
+        string methodName,
+        string typeName,
+        List<ParameterSyntax> parameters,
+        List<ArgumentSyntax> invocationArguments) =>
+        MethodDeclaration(IdentifierName(typeName), methodName)
+            .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
+            .WithParameterList(ParameterList(SeparatedList(parameters)))
+            .WithExpressionBody(ArrowExpressionClause(
+                ObjectCreationExpression(IdentifierName(typeName))
+                    .WithArgumentList(ArgumentList(SeparatedList(invocationArguments)))))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+    private static SyntaxTriviaList CreateSummaryDocumentationTrivia(string summary)
+    {
+        var escapedSummary = System.Security.SecurityElement.Escape(summary) ?? summary;
+        var documentation = $$"""
+/// <summary>
+/// {{escapedSummary}}
+/// </summary>
+ 
+""";
+
+        return ParseLeadingTrivia(documentation);
+    }
+
+    private static SyntaxTriviaList CreateAliasDocumentationTrivia(string canonicalFactoryName, FactoryOverloadModel overload)
+    {
+        var summary = !string.IsNullOrWhiteSpace(overload.Summary)
+            ? overload.Summary!
+            : $"Alias for {canonicalFactoryName}.";
+
+        var escapedSummary = System.Security.SecurityElement.Escape(summary) ?? summary;
+        var documentation = $$"""
+/// <summary>
+/// {{escapedSummary}}
+/// </summary>
+/// <remarks>
+/// Alias for <c>{{canonicalFactoryName}}</c>. Prefer the canonical factory name unless the alias is clearer at the call site.
+/// </remarks>
+
+""";
+
+        return ParseLeadingTrivia(documentation);
     }
 
     private static ExpressionSyntax CreateDefaultFactoryExpression(FactoryDefaultModel defaultDefinition)
