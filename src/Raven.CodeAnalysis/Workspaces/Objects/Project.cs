@@ -50,6 +50,9 @@ public sealed class Project
     /// <summary>The explicit assembly name for this project, if any.</summary>
     public string? AssemblyName => _info.AssemblyName;
 
+    /// <summary>Documentation emission settings for this project, if any.</summary>
+    public ProjectDocumentationOptions? DocumentationOptions => _info.DocumentationOptions;
+
     /// <summary>All documents in the project.</summary>
     public IEnumerable<Document> Documents => _documentInfos.Values.Select(info => GetDocument(info.Id)!);
 
@@ -129,6 +132,12 @@ public sealed class Project
     public Project WithCompilationOptions(CompilationOptions? options)
     {
         var newSolution = Solution.WithCompilationOptions(Id, options);
+        return newSolution.GetProject(Id)!;
+    }
+
+    public Project WithDocumentationOptions(ProjectDocumentationOptions? options)
+    {
+        var newSolution = Solution.WithDocumentationOptions(Id, options);
         return newSolution.GetProject(Id)!;
     }
 

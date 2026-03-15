@@ -46,7 +46,11 @@ internal static class ProjectFile
         var projectElement = new XElement("Project",
             new XAttribute("Name", project.Name),
             targetFramework is string tfm ? new XAttribute("TargetFramework", tfm) : null,
-            project.AssemblyName is string asm ? new XAttribute("Output", asm) : null);
+            project.AssemblyName is string asm ? new XAttribute("Output", asm) : null,
+            project.DocumentationOptions?.GenerateXmlDocumentation == true ? new XAttribute("GenerateDocumentationFile", true) : null,
+            project.DocumentationOptions?.GenerateMarkdownDocumentation == true ? new XAttribute("GenerateMarkdownDocumentationFile", true) : null,
+            project.DocumentationOptions?.XmlDocumentationFile is string xmlDocFile ? new XAttribute("DocumentationFile", xmlDocFile) : null,
+            project.DocumentationOptions?.MarkdownDocumentationOutputPath is string markdownDocPath ? new XAttribute("MarkdownDocumentationOutputPath", markdownDocPath) : null);
 
         if (project.CompilationOptions is { } opts)
         {
@@ -93,6 +97,10 @@ internal static class ProjectFile
             enableDefaultRavItems = parsedEnableDefaultRavItems;
         var configuration = (string?)root.Attribute("Configuration");
         configuration = RavenProjectConventions.Default.NormalizeConfiguration(configuration);
+        var generateDocumentationFileAttr = (string?)root.Attribute("GenerateDocumentationFile");
+        var generateMarkdownDocumentationFileAttr = (string?)root.Attribute("GenerateMarkdownDocumentationFile");
+        var documentationFileAttr = (string?)root.Attribute("DocumentationFile");
+        var markdownDocumentationOutputPathAttr = (string?)root.Attribute("MarkdownDocumentationOutputPath");
         var outputKindAttr = (string?)root.Attribute("OutputKind");
         var allowUnsafeAttr = (string?)root.Attribute("AllowUnsafe");
         var allowGlobalStatementsAttr = (string?)root.Attribute("AllowGlobalStatements");
@@ -186,8 +194,14 @@ internal static class ProjectFile
             .Select(p => Path.IsPathRooted(p) ? p : Path.GetFullPath(Path.Combine(projectDir, p)))
             .ToImmutableArray();
 
+        var documentationOptions = new ProjectDocumentationOptions(
+            GenerateXmlDocumentation: generateDocumentationFileAttr is string gdf && bool.TryParse(gdf, out var generateXmlDocs) && generateXmlDocs,
+            GenerateMarkdownDocumentation: generateMarkdownDocumentationFileAttr is string gmdf && bool.TryParse(gmdf, out var generateMarkdownDocs) && generateMarkdownDocs,
+            XmlDocumentationFile: documentationFileAttr,
+            MarkdownDocumentationOutputPath: markdownDocumentationOutputPathAttr);
+
         var attrInfo = new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create());
-        var info = new ProjectInfo(attrInfo, documents, filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: options, assemblyName: output);
+        var info = new ProjectInfo(attrInfo, documents, filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: options, assemblyName: output, documentationOptions: documentationOptions);
         return new ProjectFileInfo(info, projectRefs, metadataRefs, macroRefs, packageRefs, frameworkRefs, configuration);
     }
 }

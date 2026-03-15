@@ -979,6 +979,8 @@ if (allowConsoleOutputPreBinding && (printSyntaxTree || printSyntaxTreeInternal)
 var compilation = workspace.GetCompilation(projectId);
 
 var diagnostics = workspace.GetDiagnostics(projectId);
+var projectDocumentationOptions = project.DocumentationOptions;
+var automaticDocumentationOutputs = new List<(DocumentationFormat Format, string OutputPath)>();
 
 EmitResult? result = null;
 if (!noEmit)
@@ -994,6 +996,30 @@ if (!noEmit)
     diagnostics = diagnostics.Concat(result!.Diagnostics).Distinct().ToImmutableArray();
 }
 
+if (!emitDocs &&
+    projectFileInput is not null &&
+    projectDocumentationOptions is not null &&
+    (projectDocumentationOptions.GenerateMarkdownDocumentation || projectDocumentationOptions.GenerateXmlDocumentation))
+{
+    if (projectDocumentationOptions.GenerateMarkdownDocumentation)
+    {
+        automaticDocumentationOutputs.Add((DocumentationFormat.Markdown, ResolveDocumentationOutputPath(
+            outputDirectory!,
+            outputFilePath,
+            projectDocumentationOptions.MarkdownDocumentationOutputPath,
+            DocumentationFormat.Markdown)));
+    }
+
+    if (projectDocumentationOptions.GenerateXmlDocumentation)
+    {
+        automaticDocumentationOutputs.Add((DocumentationFormat.Xml, ResolveDocumentationOutputPath(
+            outputDirectory!,
+            outputFilePath,
+            projectDocumentationOptions.XmlDocumentationFile,
+            DocumentationFormat.Xml)));
+    }
+}
+
 if (emitDocs)
 {
     if (documentationTool == DocumentationTool.RavenDoc)
@@ -1004,11 +1030,21 @@ if (emitDocs)
     }
     else
     {
-        var formatExtension = documentationFormat == DocumentationFormat.Markdown ? ".md" : ".xml";
-        documentationOutputPath ??= Path.ChangeExtension(outputFilePath, formatExtension);
+        documentationOutputPath ??= documentationFormat == DocumentationFormat.Markdown
+            ? Path.Combine(outputDirectory!, $"{assemblyName}.docs")
+            : Path.ChangeExtension(outputFilePath, ".xml");
 
-        DocumentationEmitter.WriteDocumentation(project.Documents, documentationFormat, documentationOutputPath);
-        AnsiConsole.MarkupLine($"[green]Documentation written to '{documentationOutputPath}'.[/]");
+        var actualDocumentationPath = DocumentationEmitter.WriteDocumentation(compilation, documentationFormat, documentationOutputPath);
+        AnsiConsole.MarkupLine($"[green]Documentation written to '{actualDocumentationPath}'.[/]");
+    }
+}
+
+if (!emitDocs && automaticDocumentationOutputs.Count > 0)
+{
+    foreach (var (docFormat, docOutputPath) in automaticDocumentationOutputs)
+    {
+        var actualDocumentationPath = DocumentationEmitter.WriteDocumentation(compilation, docFormat, docOutputPath);
+        AnsiConsole.MarkupLine($"[green]Documentation written to '{actualDocumentationPath}'.[/]");
     }
 }
 
@@ -2171,6 +2207,25 @@ static bool TryParseNonNegativeInt(string[] args, ref int index, out int value)
         return false;
 
     return true;
+}
+
+static string ResolveDocumentationOutputPath(
+    string outputDirectory,
+    string outputFilePath,
+    string? configuredPath,
+    DocumentationFormat format)
+{
+    if (!string.IsNullOrWhiteSpace(configuredPath))
+    {
+        var path = configuredPath!;
+        return Path.IsPathRooted(path)
+            ? path
+            : Path.GetFullPath(Path.Combine(outputDirectory, path));
+    }
+
+    return format == DocumentationFormat.Markdown
+        ? Path.Combine(outputDirectory, $"{Path.GetFileNameWithoutExtension(outputFilePath)}.docs")
+        : Path.ChangeExtension(outputFilePath, ".xml");
 }
 
 enum SyntaxTreeFormat

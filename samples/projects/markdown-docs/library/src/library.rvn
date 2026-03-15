@@ -1,0 +1,34 @@
+namespace Samples.Docs
+
+/// ## Widget
+///
+/// A small type used to demonstrate Raven Markdown documentation comments.
+///
+/// ### Usage
+///
+/// Use [WidgetFactory](xref:T:Samples.Docs.WidgetFactory) to create sample
+/// widgets for tests and examples.
+///
+/// ### Related
+///
+/// - [WidgetFactory.CreateDefault](xref:M:Samples.Docs.WidgetFactory.CreateDefault)
+/// - [WidgetPrinter](xref:T:Samples.Docs.Consumer.WidgetPrinter)
+class Widget(val Title: string) {
+    /// Returns the current title.
+    ///
+    /// @returns The title that was supplied when the widget was created.
+    /// @see xref:T:Samples.Docs.Consumer.WidgetPrinter
+    func GetTitle() -> string {
+        Title
+    }
+}
+
+/// Creates ready-made [Widget](xref:T:Samples.Docs.Widget) instances.
+class WidgetFactory {
+    /// Creates a default widget for samples.
+    ///
+    /// @returns A [Widget](xref:T:Samples.Docs.Widget) instance with a sample title.
+    static func CreateDefault() -> Widget {
+        Widget("Hello from docs")
+    }
+}

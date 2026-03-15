@@ -210,23 +210,15 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
     private static StringOrMarkupContent? FormatDocumentation(DocumentationComment? documentation)
     {
-        if (documentation is null || string.IsNullOrWhiteSpace(documentation.Content))
+        var formatted = DocumentationMarkdownFormatter.FormatForEditor(documentation);
+        if (string.IsNullOrWhiteSpace(formatted))
             return null;
 
-        return documentation.Format switch
+        return new StringOrMarkupContent(new MarkupContent
         {
-            DocumentationFormat.Markdown => new StringOrMarkupContent(new MarkupContent
-            {
-                Kind = MarkupKind.Markdown,
-                Value = documentation.Content.Trim()
-            }),
-            DocumentationFormat.Xml => new StringOrMarkupContent(new MarkupContent
-            {
-                Kind = MarkupKind.Markdown,
-                Value = $"```xml\n{documentation.Content.Trim()}\n```"
-            }),
-            _ => new StringOrMarkupContent(documentation.Content.Trim())
-        };
+            Kind = MarkupKind.Markdown,
+            Value = formatted
+        });
     }
 
     private static ImmutableArray<IMethodSymbol> GetCandidateMethods(

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -9,11 +11,19 @@ namespace Raven.CodeAnalysis.Documentation;
 
 public sealed class DocumentationComment
 {
-    private DocumentationComment(DocumentationFormat format, string rawText, string content, bool isMultiline)
+    private DocumentationComment(
+        DocumentationFormat format,
+        string rawText,
+        string content,
+        string body,
+        ImmutableArray<DocumentationTag> tags,
+        bool isMultiline)
     {
         Format = format;
         RawText = rawText;
         Content = content;
+        Body = body;
+        Tags = tags;
         IsMultiline = isMultiline;
     }
 
@@ -22,6 +32,10 @@ public sealed class DocumentationComment
     public string RawText { get; }
 
     public string Content { get; }
+
+    public string Body { get; }
+
+    public ImmutableArray<DocumentationTag> Tags { get; }
 
     public bool IsMultiline { get; }
 
@@ -33,7 +47,8 @@ public sealed class DocumentationComment
         var normalizedContent = content ?? string.Empty;
         var normalizedRaw = rawText ?? normalizedContent;
         var isMultiline = normalizedContent.AsSpan().IndexOfAny('\n', '\r') >= 0;
-        return new DocumentationComment(format, normalizedRaw, normalizedContent, isMultiline);
+        ParseStructuredParts(format, normalizedContent, out var body, out var tags);
+        return new DocumentationComment(format, normalizedRaw, normalizedContent, body, tags, isMultiline);
     }
 
     internal static DocumentationComment Merge(DocumentationFormat format, IReadOnlyList<DocumentationComment> comments)
@@ -46,9 +61,11 @@ public sealed class DocumentationComment
 
         var raw = string.Join(Environment.NewLine, comments.Select(static c => c.RawText));
         var content = string.Join(Environment.NewLine, comments.Select(static c => c.Content));
+        var body = string.Join(Environment.NewLine, comments.Select(static c => c.Body));
+        var tags = comments.SelectMany(static c => c.Tags).ToImmutableArray();
         var isMultiline = comments.Any(static c => c.IsMultiline);
 
-        return new DocumentationComment(format, raw, content, isMultiline);
+        return new DocumentationComment(format, raw, content, body, tags, isMultiline);
     }
 
     public static bool TryParse(SyntaxTrivia trivia, DocumentationFormat format, out DocumentationComment? comment)
@@ -62,9 +79,25 @@ public sealed class DocumentationComment
         // Doc comments are represented by a single trivia kind; treat a block as multiline if it spans multiple lines.
         var isMultiline = raw.AsSpan().IndexOfAny('\n', '\r') >= 0;
         var content = Normalize(raw);
-
-        comment = new DocumentationComment(format, raw, content, isMultiline);
+        ParseStructuredParts(format, content, out var body, out var tags);
+        comment = new DocumentationComment(format, raw, content, body, tags, isMultiline);
         return true;
+    }
+
+    private static void ParseStructuredParts(
+        DocumentationFormat format,
+        string content,
+        out string body,
+        out ImmutableArray<DocumentationTag> tags)
+    {
+        if (format != DocumentationFormat.Markdown || string.IsNullOrWhiteSpace(content))
+        {
+            body = content;
+            tags = ImmutableArray<DocumentationTag>.Empty;
+            return;
+        }
+
+        ParseMarkdownTags(content, out body, out tags);
     }
 
     private static bool IsDocumentationTrivia(SyntaxKind kind) => kind is SyntaxKind.DocumentationCommentTrivia;
@@ -233,5 +266,148 @@ public sealed class DocumentationComment
             return text.Substring((prefix + " ").Length);
 
         return text;
+    }
+
+    private static void ParseMarkdownTags(
+        string content,
+        out string body,
+        out ImmutableArray<DocumentationTag> tags)
+    {
+        var normalized = content.Replace("\r\n", "\n", StringComparison.Ordinal);
+        var lines = normalized.Split('\n');
+        var bodyLines = new List<string>();
+        var tagBuilder = ImmutableArray.CreateBuilder<DocumentationTag>();
+        DocumentationTagBuilder? currentTag = null;
+
+        foreach (var line in lines)
+        {
+            if (TryParseTagHeader(line, out var header))
+            {
+                if (currentTag is not null)
+                    tagBuilder.Add(currentTag.Build());
+
+                currentTag = header;
+                continue;
+            }
+
+            if (currentTag is not null)
+            {
+                currentTag.AppendLine(line);
+            }
+            else
+            {
+                bodyLines.Add(line);
+            }
+        }
+
+        if (currentTag is not null)
+            tagBuilder.Add(currentTag.Build());
+
+        body = TrimBlankLines(string.Join("\n", bodyLines));
+        tags = tagBuilder.ToImmutable();
+    }
+
+    private static bool TryParseTagHeader(string line, out DocumentationTagBuilder? tag)
+    {
+        tag = null;
+        if (string.IsNullOrWhiteSpace(line))
+            return false;
+
+        var match = Regex.Match(line, @"^\s*@(?<name>[A-Za-z][A-Za-z0-9]*)\b(?<rest>.*)$");
+        if (!match.Success)
+            return false;
+
+        var name = match.Groups["name"].Value;
+        var rest = match.Groups["rest"].Value.Trim();
+        var kind = GetTagKind(name);
+        string? argument = null;
+        var content = rest;
+
+        if (kind is DocumentationTagKind.Param or DocumentationTagKind.TypeParam or DocumentationTagKind.Exception or DocumentationTagKind.See or DocumentationTagKind.SeeAlso)
+        {
+            SplitArgument(rest, out argument, out content);
+        }
+
+        tag = new DocumentationTagBuilder(kind, name, argument, content);
+        return true;
+    }
+
+    private static DocumentationTagKind GetTagKind(string name)
+    {
+        return name switch
+        {
+            "param" => DocumentationTagKind.Param,
+            "typeparam" => DocumentationTagKind.TypeParam,
+            "returns" => DocumentationTagKind.Returns,
+            "value" => DocumentationTagKind.Value,
+            "remarks" => DocumentationTagKind.Remarks,
+            "example" => DocumentationTagKind.Example,
+            "exception" => DocumentationTagKind.Exception,
+            "see" => DocumentationTagKind.See,
+            "seealso" => DocumentationTagKind.SeeAlso,
+            "inheritdoc" => DocumentationTagKind.InheritDoc,
+            _ => DocumentationTagKind.Unknown
+        };
+    }
+
+    private static void SplitArgument(string rest, out string? argument, out string content)
+    {
+        argument = null;
+        content = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(rest))
+            return;
+
+        var separatorIndex = rest.IndexOfAny([' ', '\t']);
+        if (separatorIndex < 0)
+        {
+            argument = rest;
+            return;
+        }
+
+        argument = rest[..separatorIndex].Trim();
+        content = rest[(separatorIndex + 1)..].Trim();
+    }
+
+    private static string TrimBlankLines(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return string.Empty;
+
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
+        while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[0]))
+            lines.RemoveAt(0);
+        while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[^1]))
+            lines.RemoveAt(lines.Count - 1);
+        return string.Join("\n", lines);
+    }
+
+    private sealed class DocumentationTagBuilder
+    {
+        private readonly StringBuilder _contentBuilder = new();
+
+        public DocumentationTagBuilder(DocumentationTagKind kind, string name, string? argument, string firstLineContent)
+        {
+            Kind = kind;
+            Name = name;
+            Argument = string.IsNullOrWhiteSpace(argument) ? null : argument;
+            if (!string.IsNullOrWhiteSpace(firstLineContent))
+                _contentBuilder.Append(firstLineContent.Trim());
+        }
+
+        public DocumentationTagKind Kind { get; }
+        public string Name { get; }
+        public string? Argument { get; }
+
+        public void AppendLine(string line)
+        {
+            if (_contentBuilder.Length > 0)
+                _contentBuilder.Append('\n');
+
+            _contentBuilder.Append(line);
+        }
+
+        public DocumentationTag Build()
+            => new(Kind, Name, Argument, TrimBlankLines(_contentBuilder.ToString()));
     }
 }

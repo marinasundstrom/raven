@@ -43,9 +43,24 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     }
 
     public ProjectId OpenProject(Workspace workspace, string projectFilePath)
+        => OpenProject(workspace, projectFilePath, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+
+    private ProjectId OpenProject(Workspace workspace, string projectFilePath, HashSet<string> loadingProjectPaths)
     {
         if (workspace is not RavenWorkspace raven)
             throw new NotSupportedException("Project persistence requires a RavenWorkspace.");
+
+        var normalizedProjectPath = Path.GetFullPath(projectFilePath);
+        if (!loadingProjectPaths.Add(normalizedProjectPath))
+            throw new InvalidOperationException($"Cyclic project reference detected while opening '{projectFilePath}'.");
+
+        var existingProject = raven.CurrentSolution.Projects.FirstOrDefault(
+            project => string.Equals(project.FilePath, normalizedProjectPath, StringComparison.OrdinalIgnoreCase));
+        if (existingProject is not null)
+        {
+            loadingProjectPaths.Remove(normalizedProjectPath);
+            return existingProject.Id;
+        }
 
         MsBuildLocatorRegistration.EnsureRegistered();
         var evaluation = MsBuildProjectEvaluator.Evaluate(projectFilePath, _conventions);
@@ -54,7 +69,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             projectFilePath,
             evaluation.AssemblyName,
             evaluation.CompilationOptions,
-            evaluation.TargetFramework);
+            evaluation.TargetFramework,
+            evaluation.DocumentationOptions);
 
         var solution = workspace.CurrentSolution;
         foreach (var document in evaluation.Documents)
@@ -106,6 +122,14 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
                 continue;
             }
 
+            if (CanOpenProject(referencedProjectPath))
+            {
+                var loadedProjectId = OpenProject(workspace, referencedProjectPath, loadingProjectPaths);
+                solution = workspace.CurrentSolution;
+                solution = solution.AddProjectReference(projectId, new ProjectReference(loadedProjectId));
+                continue;
+            }
+
             var metadataPath = MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
                 referencedProjectPath,
                 evaluation.Configuration,
@@ -116,6 +140,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         }
 
         workspace.TryApplyChanges(solution);
+        loadingProjectPaths.Remove(normalizedProjectPath);
         return projectId;
     }
 
@@ -163,6 +188,20 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             RemoveProperty(root, "MembersPublicByDefault");
             RemoveProperty(root, "RavenMembersPublicByDefault");
         }
+
+        var documentationOptions = project.DocumentationOptions;
+        UpdateProperty(root, "GenerateDocumentationFile", ((documentationOptions?.GenerateXmlDocumentation) ?? false).ToString().ToLowerInvariant());
+        UpdateProperty(root, "GenerateMarkdownDocumentationFile", ((documentationOptions?.GenerateMarkdownDocumentation) ?? false).ToString().ToLowerInvariant());
+
+        if (!string.IsNullOrWhiteSpace(documentationOptions?.XmlDocumentationFile))
+            UpdateProperty(root, "DocumentationFile", documentationOptions!.XmlDocumentationFile);
+        else
+            RemoveProperty(root, "DocumentationFile");
+
+        if (!string.IsNullOrWhiteSpace(documentationOptions?.MarkdownDocumentationOutputPath))
+            UpdateProperty(root, "MarkdownDocumentationOutputPath", documentationOptions!.MarkdownDocumentationOutputPath);
+        else
+            RemoveProperty(root, "MarkdownDocumentationOutputPath");
 
         RewriteRavenCompileItems(root, project, projectDirectory);
         RewriteManagedProjectReferences(root, project, projectDirectory);

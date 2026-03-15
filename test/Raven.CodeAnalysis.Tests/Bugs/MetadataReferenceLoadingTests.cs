@@ -1,8 +1,12 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -175,7 +179,144 @@ WriteLine(message)
 
         var documentation = storedPropertyDeclaration.GetDocumentationComment();
         Assert.NotNull(documentation);
+        Assert.Equal(Raven.CodeAnalysis.DocumentationFormat.Xml, documentation!.Format);
         Assert.Contains("stored property", documentation!.Content, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("PropertyDeclaration", documentation.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MetadataReferences_PreferMarkdownSidecarDocumentation_WhenAvailable()
+    {
+        var sourceAssemblyPath = typeof(Compilation).Assembly.Location;
+        var sourceXmlPath = Path.ChangeExtension(sourceAssemblyPath, ".xml");
+        Assert.True(File.Exists(sourceAssemblyPath));
+        Assert.True(File.Exists(sourceXmlPath));
+
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-markdown-docs-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        var assemblyPath = Path.Combine(directory, Path.GetFileName(sourceAssemblyPath));
+        var xmlPath = Path.Combine(directory, Path.GetFileName(sourceXmlPath));
+        File.Copy(sourceAssemblyPath, assemblyPath);
+        File.Copy(sourceXmlPath, xmlPath);
+
+        var docsRoot = Path.Combine(directory, "Raven.CodeAnalysis.docs");
+        var symbolsRoot = Path.Combine(docsRoot, "invariant", "symbols", "M");
+        Directory.CreateDirectory(symbolsRoot);
+
+        var manifest = new
+        {
+            formatVersion = 1,
+            assemblyName = "Raven.CodeAnalysis",
+            documentationFormat = "markdown",
+            idFormat = "doc-comment-id",
+            defaultLocale = "invariant",
+            locales = new[] { "invariant" },
+            symbolsPath = "symbols"
+        };
+
+        File.WriteAllText(
+            Path.Combine(docsRoot, "manifest.json"),
+            JsonSerializer.Serialize(manifest));
+
+        const string memberId =
+            "M:Raven.CodeAnalysis.Syntax.SyntaxFactory.StoredPropertyDeclaration(Raven.CodeAnalysis.Syntax.SyntaxList{Raven.CodeAnalysis.Syntax.AttributeListSyntax},Raven.CodeAnalysis.Syntax.SyntaxTokenList,Raven.CodeAnalysis.Syntax.SyntaxToken,Raven.CodeAnalysis.Syntax.SyntaxToken,Raven.CodeAnalysis.Syntax.TypeAnnotationClauseSyntax,Raven.CodeAnalysis.Syntax.EqualsValueClauseSyntax)";
+        var encodedName = DocumentationCommentIdBuilder.GetMarkdownPathHash(memberId) + ".md";
+        File.WriteAllText(
+            Path.Combine(symbolsRoot, encodedName),
+            """
+            # StoredPropertyDeclaration
+
+            Markdown sidecar documentation wins over XML.
+            """);
+
+        try
+        {
+            var compilation = Compilation.Create(
+                "consumer",
+                syntaxTrees: [],
+                references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(assemblyPath)],
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            var syntaxFactory = compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.SyntaxFactory");
+            Assert.NotNull(syntaxFactory);
+
+            var storedPropertyDeclaration = syntaxFactory!
+                .GetMembers("StoredPropertyDeclaration")
+                .OfType<IMethodSymbol>()
+                .Single();
+
+            var documentation = storedPropertyDeclaration.GetDocumentationComment();
+            Assert.NotNull(documentation);
+            Assert.Equal(Raven.CodeAnalysis.DocumentationFormat.Markdown, documentation!.Format);
+            Assert.Contains("Markdown sidecar documentation wins over XML.", documentation.Content, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ExternalDocumentationEmitter_EmitsMarkdownSidecar_LoadableFromMetadata()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+/// Creates a widget value.
+public class Widget {
+    /// Returns the current title.
+    public func GetTitle() -> string {
+        return "Hello"
+    }
+}
+""",
+            new ParseOptions
+            {
+                DocumentationMode = true,
+                DocumentationFormat = DocumentationFormat.Markdown
+            });
+
+        var compilation = Compilation.Create(
+            "WidgetLibrary",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        using var pdbStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream, pdbStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-emitted-markdown-docs-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        var assemblyPath = Path.Combine(directory, "WidgetLibrary.dll");
+        File.WriteAllBytes(assemblyPath, peStream.ToArray());
+        ExternalDocumentationEmitter.WriteMarkdownDocumentation(compilation, Path.Combine(directory, "WidgetLibrary.docs"));
+
+        try
+        {
+            var consumerCompilation = Compilation.Create(
+                "consumer",
+                syntaxTrees: [],
+                references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(assemblyPath)],
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            var widgetType = consumerCompilation.GetTypeByMetadataName("Widget");
+            Assert.NotNull(widgetType);
+            Assert.Contains("widget value", widgetType!.GetDocumentationComment()!.Content, StringComparison.OrdinalIgnoreCase);
+
+            var getTitle = Assert.Single(widgetType.GetMembers("GetTitle").OfType<IMethodSymbol>());
+            var documentation = getTitle.GetDocumentationComment();
+            Assert.NotNull(documentation);
+            Assert.Equal(Raven.CodeAnalysis.DocumentationFormat.Markdown, documentation!.Format);
+            Assert.Contains("current title", documentation.Content, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
     }
 }

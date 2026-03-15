@@ -55,18 +55,18 @@ public sealed class Solution
     public Document? GetDocument(DocumentId id) => GetProject(id.ProjectId)?.GetDocument(id);
 
     /// <summary>Adds a new project with the specified name.</summary>
-    public Solution AddProject(string name, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
+    public Solution AddProject(string name, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null, ProjectDocumentationOptions? documentationOptions = null)
     {
         var projectId = ProjectId.CreateNew(Id);
-        return AddProject(projectId, name, filePath, assemblyName, compilationOptions);
+        return AddProject(projectId, name, filePath, assemblyName, compilationOptions, documentationOptions);
     }
 
     /// <summary>Adds a new project with the specified id and name.</summary>
-    public Solution AddProject(ProjectId id, string name, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
+    public Solution AddProject(ProjectId id, string name, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null, ProjectDocumentationOptions? documentationOptions = null)
     {
         if (_projectInfos.ContainsKey(id)) return this;
         var projAttr = new ProjectInfo.ProjectAttributes(id, name, VersionStamp.Create());
-        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>(), filePath: filePath, analyzerReferences: null, macroReferences: null, targetFramework: null, compilationOptions: compilationOptions, assemblyName: assemblyName);
+        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>(), filePath: filePath, analyzerReferences: null, macroReferences: null, targetFramework: null, compilationOptions: compilationOptions, assemblyName: assemblyName, documentationOptions: documentationOptions);
         var newInfos = _projectInfos.Add(id, projInfo);
         var newInfo = _info.WithProjects(newInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
@@ -174,7 +174,20 @@ public sealed class Solution
             throw new InvalidOperationException("Project not found");
 
         var attr = projInfo.Attributes with { Version = projInfo.Version.GetNewerVersion() };
-        projInfo = new ProjectInfo(attr, projInfo.Documents, projInfo.ProjectReferences, projInfo.MetadataReferences, projInfo.MacroReferences, projInfo.AnalyzerReferences, projInfo.FilePath, projInfo.TargetFramework, compilationOptions, projInfo.AssemblyName);
+        projInfo = new ProjectInfo(attr, projInfo.Documents, projInfo.ProjectReferences, projInfo.MetadataReferences, projInfo.MacroReferences, projInfo.AnalyzerReferences, projInfo.FilePath, projInfo.TargetFramework, compilationOptions, projInfo.AssemblyName, projInfo.DocumentationOptions);
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
+    public Solution WithDocumentationOptions(ProjectId projectId, ProjectDocumentationOptions? documentationOptions)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+
+        projInfo = projInfo
+            .WithDocumentationOptions(documentationOptions)
+            .WithVersion(projInfo.Version.GetNewerVersion());
         var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);

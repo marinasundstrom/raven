@@ -564,6 +564,7 @@ internal partial class BaseParseContext : ParseContext
 
         var indentBuilder = new StringBuilder();
         string? baselineIndent = null;
+        var firstLine = true;
 
         var startPosition = Position;
         var consumedWidth = 0; // chars consumed from the lexer within this doc-comment block
@@ -585,8 +586,19 @@ internal partial class BaseParseContext : ParseContext
             }
 
             var indent = indentBuilder.ToString();
+            var currentToken = _lexer.PeekToken(0);
+            var firstLineIndentUnavailable = firstLine &&
+                                            indentTokenCount == 0 &&
+                                            currentToken.Kind == SyntaxKind.DocumentationCommentTrivia;
 
-            if (baselineIndent is null)
+            if (firstLineIndentUnavailable)
+            {
+                // The indentation for the first line of a leading documentation block has already
+                // been consumed by the outer trivia reader, so there is nothing meaningful to
+                // compare yet. Establish the baseline from the next line that exposes indentation
+                // tokens explicitly.
+            }
+            else if (baselineIndent is null)
             {
                 baselineIndent = indent;
             }
@@ -616,6 +628,7 @@ internal partial class BaseParseContext : ParseContext
             _lexer.ReadToken();
             sb.Append(comment.Text);
             consumedWidth += comment.Length;
+            firstLine = false;
 
             // The lexer token already contains the whole line up to (but not including) the newline.
             // Next token must be a newline sequence (or EOF).

@@ -17,7 +17,8 @@ public sealed class ProjectInfo
         string? filePath = null,
         string? targetFramework = null,
         CompilationOptions? compilationOptions = null,
-        string? assemblyName = null)
+        string? assemblyName = null,
+        ProjectDocumentationOptions? documentationOptions = null)
     {
         Attributes = attributes;
         Documents = documents.ToImmutableArray();
@@ -29,6 +30,7 @@ public sealed class ProjectInfo
         TargetFramework = targetFramework;
         CompilationOptions = compilationOptions;
         AssemblyName = assemblyName;
+        DocumentationOptions = documentationOptions;
     }
 
     public ProjectAttributes Attributes { get; }
@@ -44,13 +46,14 @@ public sealed class ProjectInfo
     public ImmutableArray<AnalyzerReference> AnalyzerReferences { get; }
     public CompilationOptions? CompilationOptions { get; }
     public string? AssemblyName { get; }
+    public ProjectDocumentationOptions? DocumentationOptions { get; }
     public ParseOptions? ParseOptions { get; internal set; }
     public string? DefaultNamespace { get; internal set; }
     public string? FilePath { get; }
     public string? TargetFramework { get; }
 
     public ProjectInfo WithDocuments(IEnumerable<DocumentInfo> docs) =>
-        new(Attributes, docs, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
+        new(Attributes, docs, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions);
 
     public ProjectInfo WithVersion(VersionStamp version)
     {
@@ -58,26 +61,29 @@ public sealed class ProjectInfo
         {
             Version = version
         };
-        return new ProjectInfo(newAttributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
+        return new ProjectInfo(newAttributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions);
     }
 
     public ProjectInfo WithProjectReferences(IEnumerable<ProjectReference> projectReferences) =>
-        new(Attributes, Documents, projectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
+        new(Attributes, Documents, projectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions);
 
     public ProjectInfo WithMetadataReferences(IEnumerable<MetadataReference> metadataReferences) =>
-        new(Attributes, Documents, ProjectReferences, metadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
+        new(Attributes, Documents, ProjectReferences, metadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions);
 
     public ProjectInfo WithMacroReferences(IEnumerable<MacroReference> macroReferences) =>
-        new(Attributes, Documents, ProjectReferences, MetadataReferences, macroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, macroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions);
 
     public ProjectInfo WithCompilationOptions(CompilationOptions? compilationOptions) =>
-        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, compilationOptions, AssemblyName);
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, compilationOptions, AssemblyName, DocumentationOptions);
 
     public ProjectInfo WithAnalyzerReferences(IEnumerable<AnalyzerReference> analyzerReferences) =>
-        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, analyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, analyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions);
 
     public ProjectInfo WithTargetFramework(string? targetFramework) =>
-        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, targetFramework, CompilationOptions, AssemblyName);
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, targetFramework, CompilationOptions, AssemblyName, DocumentationOptions);
+
+    public ProjectInfo WithDocumentationOptions(ProjectDocumentationOptions? documentationOptions) =>
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, documentationOptions);
 
     public sealed record ProjectAttributes(ProjectId Id, string Name, VersionStamp Version);
 }

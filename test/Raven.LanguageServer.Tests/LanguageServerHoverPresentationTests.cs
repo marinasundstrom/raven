@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Syntax;
 using Raven.LanguageServer;
@@ -238,6 +239,85 @@ class MacroArgument {
         var signature = (string)buildSignature.Invoke(null, [symbol, method, semanticModel])!;
         signature.ShouldStartWith("func TryParseValue<T>(");
         signature.ShouldContain("out value:");
+    }
+
+    [Fact]
+    public void XmlDocumentationHover_IsRenderedAsMarkdownInsteadOfRawXml()
+    {
+        const string code = """
+/// <summary>
+/// Creates a stored property declaration with an initializer.
+/// </summary>
+/// <remarks>
+/// Alias for <c>PropertyDeclaration</c>. Prefer the canonical factory name unless the alias is clearer at the call site.
+/// </remarks>
+class Widget
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(
+            code,
+            new ParseOptions { DocumentationFormat = DocumentationFormat.Xml },
+            path: "/workspace/test.rav");
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var typeDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var documentation = semanticModel.GetDeclaredSymbol(typeDeclaration)!.GetDocumentationComment();
+
+        var formatDocumentation = typeof(HoverHandler)
+            .GetMethod("FormatDocumentation", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var formatted = (string?)formatDocumentation.Invoke(null, [documentation]);
+
+        formatted.ShouldNotBeNull();
+        formatted.ShouldContain("Creates a stored property declaration with an initializer.");
+        formatted.ShouldContain("**Remarks**");
+        formatted.ShouldContain("`PropertyDeclaration`");
+        formatted.ShouldNotContain("<summary>");
+        formatted.ShouldNotContain("<remarks>");
+    }
+
+    [Fact]
+    public void MarkdownDocumentationHover_RewritesXrefsToOpenDocumentationCommands()
+    {
+        const string code = """
+/// See [Widget](xref:T:Samples.Docs.Widget).
+///
+/// @see xref:M:Samples.Docs.Widget.GetTitle
+class Widget
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(
+            code,
+            new ParseOptions { DocumentationFormat = DocumentationFormat.Markdown },
+            path: "/workspace/test.rav");
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var typeDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var documentation = semanticModel.GetDeclaredSymbol(typeDeclaration)!.GetDocumentationComment();
+
+        var formatDocumentation = typeof(HoverHandler)
+            .GetMethod("FormatDocumentation", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var formatted = (string?)formatDocumentation.Invoke(null, [documentation]);
+
+        formatted.ShouldNotBeNull();
+        formatted.ShouldContain("[Widget](command:raven.openDocumentation?");
+        formatted.ShouldContain("raven-doc%3A%2F%2F%2Fxref.md%3Ftarget%3DT%253ASamples.Docs.Widget");
+        formatted.ShouldContain("raven-doc%3A%2F%2F%2Fxref.md%3Ftarget%3DM%253ASamples.Docs.Widget.GetTitle");
     }
 
     [Fact]

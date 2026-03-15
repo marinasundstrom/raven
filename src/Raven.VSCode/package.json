@@ -17,7 +17,8 @@
     "onCommand:raven.debug.compileAndDebug",
     "onCommand:raven.build.activeTarget",
     "onCommand:raven.build.clean",
-    "onCommand:raven.showMacroExpansion"
+    "onCommand:raven.showMacroExpansion",
+    "onCommand:raven.openDocumentation"
   ],
   "main": "./out/extension.js",
   "contributes": {

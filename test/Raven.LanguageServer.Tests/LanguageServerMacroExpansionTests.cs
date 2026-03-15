@@ -217,17 +217,13 @@ class Harness {
             var backingFieldName = "_" + propertyName;
             var propertyType = property.Type;
 
-            var backingField = SyntaxFactory.PropertyDeclaration(
+            var backingField = SyntaxFactory.StoredPropertyDeclaration(
                 SyntaxFactory.List<AttributeListSyntax>(),
                 SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)),
                 SyntaxFactory.Token(SyntaxKind.VarKeyword),
-                explicitInterfaceSpecifier: null,
                 SyntaxFactory.Identifier(backingFieldName),
                 propertyType,
-                accessorList: null,
-                expressionBody: null,
-                initializer: property.Initializer,
-                terminatorToken: SyntaxFactory.Token(SyntaxKind.None));
+                property.Initializer);
 
             var replacement = property
                 .WithAttributeLists(SyntaxFactory.List<AttributeListSyntax>())
@@ -239,15 +235,13 @@ class Harness {
                             SyntaxFactory.List<AttributeListSyntax>(),
                             SyntaxFactory.TokenList(),
                             SyntaxFactory.Token(SyntaxKind.GetKeyword),
-                            body: null,
-                            expressionBody: SyntaxFactory.ArrowExpressionClause(SyntaxFactory.IdentifierName(backingFieldName)),
-                            terminatorToken: SyntaxFactory.Token(SyntaxKind.None)),
+                            SyntaxFactory.ArrowExpressionClause(SyntaxFactory.IdentifierName(backingFieldName))),
                         SyntaxFactory.AccessorDeclaration(
                             SyntaxKind.SetAccessorDeclaration,
                             SyntaxFactory.List<AttributeListSyntax>(),
                             SyntaxFactory.TokenList(),
                             SyntaxFactory.Token(SyntaxKind.SetKeyword),
-                            body: SyntaxFactory.BlockStatement(
+                            SyntaxFactory.BlockStatement(
                                 SyntaxFactory.List<StatementSyntax>(
                                 [
                                     SyntaxFactory.LocalDeclarationStatement(
@@ -277,9 +271,7 @@ class Harness {
                                                     new SyntaxNodeOrToken(SyntaxFactory.Token(SyntaxKind.CommaToken)),
                                                     new SyntaxNodeOrToken(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("value")))
                                                 ]))))
-                                ])),
-                            expressionBody: null,
-                            terminatorToken: SyntaxFactory.Token(SyntaxKind.None))
+                                ])))
                     ])))
                 .WithExpressionBody(null)
                 .WithInitializer(null)

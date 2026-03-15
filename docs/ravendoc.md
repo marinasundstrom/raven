@@ -57,6 +57,38 @@ Notes:
 * The prefix is stripped before Markdown processing
 * Blank documentation lines must still use `///`
 
+### Markdown doc tags
+
+Raven Markdown documentation also supports a lightweight block-tag layer for
+structured member data.
+
+Example:
+
+```raven
+/// Parses a widget title.
+///
+/// @param text Input text to parse.
+/// @returns The parsed title.
+/// @remarks This is culture-invariant.
+func ParseTitle(text: string) -> string
+```
+
+Supported tags currently include:
+
+* `@param name`
+* `@typeparam name`
+* `@returns`
+* `@value`
+* `@remarks`
+* `@example`
+* `@exception TypeName`
+* `@see SymbolOrLink`
+* `@seealso SymbolOrLink`
+* `@inheritdoc`
+
+These tags are parsed structurally by the compiler while still preserving the
+original Markdown content as authored.
+
 ---
 
 ## Accessing documentation from symbols
@@ -74,6 +106,31 @@ var rawContent = comment?.RawContent; // Original text, with "///"
 ```
 
 RavenDoc uses the processed Markdown content (`Content`) for rendering.
+
+## Relationship to metadata sidecars
+
+Raven’s compiler and IDE can also load Markdown documentation for metadata
+references from assembly-adjacent `.docs/` sidecars. The built-in compiler
+comment emitter now produces that structure for Markdown output, and RavenDoc is
+the intended future integration point for exporting richer Raven-authored
+documentation into the same metadata-friendly layout.
+
+Important separation:
+
+* Markdown sidecars are authored presentation content.
+* XML sidecars are structured interoperability data.
+* RavenDoc consumes Markdown plus symbol data; it does not redefine the storage
+  format for either Markdown or XML documentation.
+
+RavenDoc should be able to operate over:
+
+* source symbols with attached Markdown comments
+* PE symbols with Markdown sidecars
+* PE symbols with XML sidecars, while still querying symbol metadata normally
+
+For the editor-facing documentation view that should share the same underlying
+model without depending on published HTML, see
+[Editor Documentation Experience](./compiler/design/editor-documentation-experience.md).
 
 ---
 

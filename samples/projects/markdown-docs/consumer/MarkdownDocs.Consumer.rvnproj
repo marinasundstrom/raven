@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>MarkdownDocs.Consumer</AssemblyName>
+    <OutputType>Library</OutputType>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
+    <DocumentationFile>docs/MarkdownDocs.Consumer.xml</DocumentationFile>
+    <MarkdownDocumentationOutputPath>docs/MarkdownDocs.Consumer.docs</MarkdownDocumentationOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+    <ProjectReference Include="../library/MarkdownDocs.Library.rvnproj" />
+  </ItemGroup>
+</Project>

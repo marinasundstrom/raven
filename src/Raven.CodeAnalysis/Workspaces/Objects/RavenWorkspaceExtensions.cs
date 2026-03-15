@@ -13,7 +13,7 @@ public static class RavenWorkspaceExtensions
         var raven = RavenWorkspace.Create(sdkVersion, targetFramework);
         foreach (var project in workspace.CurrentSolution.Projects)
         {
-            var projectId = raven.AddProject(project.Name, project.FilePath, project.AssemblyName, project.CompilationOptions);
+            var projectId = raven.AddProject(project.Name, project.FilePath, project.AssemblyName, project.CompilationOptions, documentationOptions: project.DocumentationOptions);
             var solution = raven.CurrentSolution;
             foreach (var reference in project.MetadataReferences)
                 solution = solution.AddMetadataReference(projectId, reference);
@@ -27,4 +27,3 @@ public static class RavenWorkspaceExtensions
         return raven;
     }
 }
-

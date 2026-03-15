@@ -37,7 +37,8 @@ public sealed class RavenProjectSystemService : IProjectSystemService
             projectFilePath,
             projInfo.Info.AssemblyName,
             projInfo.Info.CompilationOptions,
-            projInfo.Info.TargetFramework);
+            projInfo.Info.TargetFramework,
+            projInfo.Info.DocumentationOptions);
 
         var solution = workspace.CurrentSolution;
         foreach (var doc in projInfo.Info.Documents)

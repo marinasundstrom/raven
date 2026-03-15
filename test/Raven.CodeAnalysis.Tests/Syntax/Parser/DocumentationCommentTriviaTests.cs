@@ -236,4 +236,24 @@ func Foo() {}
         docTrivia.Text.ShouldStartWith("/// ");
         docTrivia.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length.ShouldBeGreaterThanOrEqualTo(40);
     }
+
+    [Fact]
+    public void NestedMemberDocumentationComment_WithConsistentIndentation_DoesNotReportIndentationDiagnostic()
+    {
+        var code = """
+class Widget(val Title: string) {
+    /// Returns the current title.
+    ///
+    /// @returns The title that was supplied when the widget was created.
+    /// @see xref:T:Samples.Docs.Consumer.WidgetPrinter
+    func GetTitle() -> string => Title
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+
+        Assert.DoesNotContain(
+            tree.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.DocumentationCommentInconsistentIndentation);
+    }
 }

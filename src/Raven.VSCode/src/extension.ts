@@ -11,6 +11,50 @@ const execFileAsync = promisify(execFile);
 const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
 
+class RavenDocumentationContentProvider implements vscode.TextDocumentContentProvider {
+  provideTextDocumentContent(uri: vscode.Uri): string {
+    const params = new URLSearchParams(uri.query);
+    const label = params.get('label')?.trim() || 'Documentation';
+    const target = params.get('target')?.trim() || '';
+
+    const lines = [
+      `# ${label}`,
+      '',
+      'This editor link targets the following symbol reference:',
+      '',
+      target.length > 0 ? `- Symbol: \`${target}\`` : '- Symbol: unavailable',
+      '',
+      'Full symbol-page resolution will be provided by the dedicated Raven documentation view.'
+    ];
+
+    return `${lines.join('\n')}\n`;
+  }
+}
+
+function parseDocumentationUriArgument(value: unknown): vscode.Uri | undefined {
+  if (value instanceof vscode.Uri) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    try {
+      return vscode.Uri.parse(value);
+    } catch {
+      return undefined;
+    }
+  }
+
+  if (value && typeof value === 'object' && 'scheme' in value) {
+    try {
+      return vscode.Uri.from(value as { scheme: string; authority?: string; path?: string; query?: string; fragment?: string });
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
 function resolveServerPath(context: vscode.ExtensionContext, output: vscode.OutputChannel): string {
   const configuration = vscode.workspace.getConfiguration('raven');
   const configuredPath = configuration.get<string>('languageServerPath')?.trim();
@@ -610,6 +654,27 @@ export function activate(context: vscode.ExtensionContext): void {
         language: 'raven'
       });
 
+      await vscode.window.showTextDocument(document, {
+        preview: true,
+        viewColumn: vscode.ViewColumn.Beside
+      });
+    })
+  );
+
+  const documentationProvider = new RavenDocumentationContentProvider();
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider('raven-doc', documentationProvider)
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('raven.openDocumentation', async (uriOrString?: unknown) => {
+      const uri = parseDocumentationUriArgument(uriOrString);
+      if (!uri) {
+        void vscode.window.showErrorMessage('Unable to open Raven documentation for this symbol.');
+        return;
+      }
+
+      const document = await vscode.workspace.openTextDocument(uri);
       await vscode.window.showTextDocument(document, {
         preview: true,
         viewColumn: vscode.ViewColumn.Beside

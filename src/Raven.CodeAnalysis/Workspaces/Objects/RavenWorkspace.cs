@@ -84,13 +84,14 @@ public sealed class RavenWorkspace : Workspace
         string? filePath = null,
         string? assemblyName = null,
         CompilationOptions? compilationOptions = null,
-        string? targetFramework = null)
+        string? targetFramework = null,
+        ProjectDocumentationOptions? documentationOptions = null)
     {
         var options = compilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication);
 
         var solution = CurrentSolution;
         var projectId = ProjectId.CreateNew(solution.Id);
-        solution = solution.AddProject(projectId, name, filePath, assemblyName, options);
+        solution = solution.AddProject(projectId, name, filePath, assemblyName, options, documentationOptions);
         solution = solution.WithTargetFramework(projectId, targetFramework);
         TryApplyChanges(solution);
         return projectId;

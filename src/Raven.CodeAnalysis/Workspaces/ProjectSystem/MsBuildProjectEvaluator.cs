@@ -113,6 +113,11 @@ internal static class MsBuildProjectEvaluator
         var generatedSourceDirectory = GetGeneratedSourceDirectory(projectDirectory, intermediateOutputPath, configuration, conventions);
         var name = GetProjectName(project, projectFilePath);
         var assemblyName = GetPropertyOrDefault(project, "AssemblyName", Path.GetFileNameWithoutExtension(projectFilePath));
+        var documentationOptions = new ProjectDocumentationOptions(
+            GenerateXmlDocumentation: GetBooleanProperty(project, "GenerateDocumentationFile") ?? false,
+            GenerateMarkdownDocumentation: GetBooleanProperty(project, "GenerateMarkdownDocumentationFile") ?? false,
+            XmlDocumentationFile: GetOptionalProperty(project, "DocumentationFile"),
+            MarkdownDocumentationOutputPath: GetOptionalProperty(project, "MarkdownDocumentationOutputPath"));
 
         return new MsBuildProjectEvaluationResult(
             name,
@@ -126,7 +131,8 @@ internal static class MsBuildProjectEvaluator
             macroReferencePaths,
             packageReferences,
             frameworkReferences,
-            generatedSourceDirectory);
+            generatedSourceDirectory,
+            documentationOptions);
     }
 
     public static string? TryResolveReferencedProjectOutputPath(
@@ -234,6 +240,12 @@ internal static class MsBuildProjectEvaluator
         return string.IsNullOrWhiteSpace(value) ? defaultValue : value;
     }
 
+    private static string? GetOptionalProperty(MSBuildProject project, string propertyName)
+    {
+        var value = project.GetPropertyValue(propertyName);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
     private static OutputKind ParseOutputKind(string outputType)
     {
         if (string.Equals(outputType, "Library", StringComparison.OrdinalIgnoreCase))
@@ -269,4 +281,5 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ImmutableArray<string> MacroReferencePaths,
     ImmutableArray<ProjectFile.PackageReferenceInfo> PackageReferences,
     ImmutableArray<ProjectFile.FrameworkReferenceInfo> FrameworkReferences,
-    string GeneratedSourceDirectory);
+    string GeneratedSourceDirectory,
+    ProjectDocumentationOptions DocumentationOptions);

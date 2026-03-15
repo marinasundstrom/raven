@@ -1,0 +1,26 @@
+namespace Samples.Docs.Consumer
+
+import System.Console.*
+import Samples.Docs.*
+
+/// Creates a sample consumer flow over [Widget](xref:T:Samples.Docs.Widget).
+func RenderSample() -> unit {
+    val widget = WidgetFactory.CreateDefault()
+    WidgetPrinter.Print(widget)
+}
+
+/// Prints information about [Widget](xref:T:Samples.Docs.Widget) values.
+///
+/// ### Remarks
+///
+/// This consumer project exists to exercise cross-project documentation links
+/// and metadata loading scenarios.
+class WidgetPrinter {
+    /// Prints the widget title.
+    ///
+    /// @param widget The [Widget](xref:T:Samples.Docs.Widget) instance to print.
+    /// @see xref:M:Samples.Docs.Widget.GetTitle
+    static func Print(widget: Widget) -> unit {
+        WriteLine(widget.GetTitle())
+    }
+}

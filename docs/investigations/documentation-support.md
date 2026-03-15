@@ -35,7 +35,10 @@ Capture the requirements and design options for adding documentation comments (X
 
    * Normalize doc comments into a structured payload that records the chosen documentation format (Markdown by default) and trims common prefixes (leading `///` or `/**`). Raw text is preserved so future diagnostics can map back to source spans.
    * Support the common XML elements Roslyn validates (`<summary>`, `<param>`, `<typeparam>`, `<returns>`, `<value>`, `<remarks>`, `<see>`, `<inheritdoc>`, `<exception>`, `<example>`), but treat unrecognized tags as well-formed text rather than hard errors initially.
-   * For Markdown, preserve fenced code blocks, inline links, and embedded doc tags so that **external renderers** can process them later.
+  * For Markdown, preserve fenced code blocks, inline links, and embedded doc tags so that **external renderers** can process them later.
+  * Parse Javadoc-style block tags using .NET-oriented names such as `@param`,
+    `@typeparam`, `@returns`, `@value`, `@remarks`, `@example`, `@exception`,
+    `@see`, `@seealso`, and `@inheritdoc`.
 3. ☐ **Binding to symbols**
 
    * During symbol creation, attach the nearest leading documentation trivia to the declared symbol. For partial types/members, merge documentation blocks in declaration order; emit a diagnostic on conflicting summaries to match Roslyn’s duplicate documentation rules.

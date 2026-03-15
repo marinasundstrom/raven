@@ -26,14 +26,18 @@ public sealed class MsBuildProjectSystemServiceTests
             var projectPath = Path.Combine(root, "App.rvnproj");
             File.WriteAllText(projectPath, """
                                           <Project Sdk="Microsoft.NET.Sdk">
-                                            <PropertyGroup>
-                                              <TargetFramework>net10.0</TargetFramework>
-                                              <AssemblyName>App.Assembly</AssemblyName>
-                                              <OutputType>Library</OutputType>
-                                              <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-                                              <RavenAllowGlobalStatements>false</RavenAllowGlobalStatements>
-                                              <MembersPublicByDefault>false</MembersPublicByDefault>
-                                            </PropertyGroup>
+                                          <PropertyGroup>
+                                            <TargetFramework>net10.0</TargetFramework>
+                                            <AssemblyName>App.Assembly</AssemblyName>
+                                            <OutputType>Library</OutputType>
+                                            <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+                                            <RavenAllowGlobalStatements>false</RavenAllowGlobalStatements>
+                                            <MembersPublicByDefault>false</MembersPublicByDefault>
+                                            <GenerateDocumentationFile>true</GenerateDocumentationFile>
+                                            <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
+                                            <DocumentationFile>artifacts/App.xml</DocumentationFile>
+                                            <MarkdownDocumentationOutputPath>artifacts/App.docs</MarkdownDocumentationOutputPath>
+                                          </PropertyGroup>
                                             <ItemGroup>
                                               <RavenCompile Include="src/**/*.rvn" />
                                             </ItemGroup>
@@ -52,6 +56,11 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.False(project.CompilationOptions.AllowGlobalStatements);
             Assert.True(project.CompilationOptions.MembersPublicByDefaultConfigured);
             Assert.False(project.CompilationOptions.MembersPublicByDefault);
+            Assert.NotNull(project.DocumentationOptions);
+            Assert.True(project.DocumentationOptions!.GenerateXmlDocumentation);
+            Assert.True(project.DocumentationOptions.GenerateMarkdownDocumentation);
+            Assert.Equal("artifacts/App.xml", project.DocumentationOptions.XmlDocumentationFile);
+            Assert.Equal("artifacts/App.docs", project.DocumentationOptions.MarkdownDocumentationOutputPath);
             Assert.Contains(project.Documents, document => string.Equals(document.FilePath, mainPath, StringComparison.OrdinalIgnoreCase));
             Assert.Contains(project.Documents, document => string.Equals(document.FilePath, helperPath, StringComparison.OrdinalIgnoreCase));
             Assert.Contains(
@@ -119,6 +128,76 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
+    public void OpenProject_MsBuildProjectReference_RecursivelyLoadsReferencedRavenProject()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var libDirectory = Path.Combine(root, "Lib");
+            var appDirectory = Path.Combine(root, "App");
+            Directory.CreateDirectory(libDirectory);
+            Directory.CreateDirectory(appDirectory);
+
+            File.WriteAllText(Path.Combine(libDirectory, "lib.rvn"), """
+namespace Samples.Docs
+
+public class WidgetFactory {
+    static func CreateDefault() -> int => 42
+}
+""");
+
+            File.WriteAllText(Path.Combine(appDirectory, "app.rvn"), """
+import Samples.Docs.*
+
+val value = WidgetFactory.CreateDefault()
+""");
+
+            var libProjectPath = Path.Combine(libDirectory, "Lib.rvnproj");
+            var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
+
+            File.WriteAllText(libProjectPath, """
+                                             <Project Sdk="Microsoft.NET.Sdk">
+                                               <PropertyGroup>
+                                                 <TargetFramework>net10.0</TargetFramework>
+                                               </PropertyGroup>
+                                               <ItemGroup>
+                                                 <RavenCompile Include="lib.rvn" />
+                                               </ItemGroup>
+                                             </Project>
+                                             """);
+
+            File.WriteAllText(appProjectPath, $$"""
+                                             <Project Sdk="Microsoft.NET.Sdk">
+                                               <PropertyGroup>
+                                                 <TargetFramework>net10.0</TargetFramework>
+                                               </PropertyGroup>
+                                               <ItemGroup>
+                                                 <RavenCompile Include="app.rvn" />
+                                                 <ProjectReference Include="{{Path.GetRelativePath(appDirectory, libProjectPath)}}" />
+                                               </ItemGroup>
+                                             </Project>
+                                             """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var appProjectId = workspace.OpenProject(appProjectPath);
+
+            var appProject = workspace.CurrentSolution.GetProject(appProjectId)!;
+            var projectReference = Assert.Single(appProject.ProjectReferences);
+            var libProject = workspace.CurrentSolution.GetProject(projectReference.ProjectId);
+
+            Assert.NotNull(libProject);
+            Assert.True(string.Equals(libProject!.FilePath, libProjectPath, StringComparison.OrdinalIgnoreCase));
+
+            var compilation = workspace.GetCompilation(appProjectId);
+            Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0103");
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void SaveProject_MsBuildProject_RewritesRavenStateAndPreservesUnrelatedItems()
     {
         var root = CreateTempDirectory();
@@ -159,11 +238,12 @@ public sealed class MsBuildProjectSystemServiceTests
 
             File.WriteAllText(appProjectPath, $$"""
                                              <Project Sdk="Microsoft.NET.Sdk">
-                                               <PropertyGroup>
-                                                 <TargetFramework>net10.0</TargetFramework>
-                                                 <OutputType>Exe</OutputType>
-                                                 <RavenAllowGlobalStatements>true</RavenAllowGlobalStatements>
-                                               </PropertyGroup>
+                                             <PropertyGroup>
+                                               <TargetFramework>net10.0</TargetFramework>
+                                               <OutputType>Exe</OutputType>
+                                               <RavenAllowGlobalStatements>true</RavenAllowGlobalStatements>
+                                               <GenerateDocumentationFile>false</GenerateDocumentationFile>
+                                             </PropertyGroup>
                                                <ItemGroup>
                                                  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
                                                  <ProjectReference Include="{{Path.GetRelativePath(appDirectory, csProjectPath)}}" />
@@ -186,6 +266,12 @@ public sealed class MsBuildProjectSystemServiceTests
                     .WithAllowUnsafe(true)
                     .WithAllowGlobalStatements(false)
                     .WithMembersPublicByDefault(true));
+            updatedProject = updatedProject.WithDocumentationOptions(
+                new ProjectDocumentationOptions(
+                    GenerateXmlDocumentation: true,
+                    GenerateMarkdownDocumentation: true,
+                    XmlDocumentationFile: "artifacts/App.xml",
+                    MarkdownDocumentationOutputPath: "artifacts/App.docs"));
             workspace.TryApplyChanges(updatedProject.Solution);
 
             workspace.SaveProject(appProjectId, appProjectPath);
@@ -209,6 +295,10 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "AllowUnsafeBlocks").Value);
             Assert.Equal("false", rootElement.Descendants().First(e => e.Name.LocalName == "RavenAllowGlobalStatements").Value);
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "MembersPublicByDefault").Value);
+            Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "GenerateDocumentationFile").Value);
+            Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "GenerateMarkdownDocumentationFile").Value);
+            Assert.Equal("artifacts/App.xml", rootElement.Descendants().First(e => e.Name.LocalName == "DocumentationFile").Value);
+            Assert.Equal("artifacts/App.docs", rootElement.Descendants().First(e => e.Name.LocalName == "MarkdownDocumentationOutputPath").Value);
 
             Assert.True(File.Exists(Path.Combine(appDirectory, "extra.rvn")));
             Assert.Contains("extra", File.ReadAllText(Path.Combine(appDirectory, "extra.rvn")));

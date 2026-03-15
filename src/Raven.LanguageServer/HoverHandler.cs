@@ -1406,18 +1406,7 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static string? FormatDocumentation(DocumentationComment? documentation)
     {
-        if (documentation is null)
-            return null;
-
-        if (string.IsNullOrWhiteSpace(documentation.Content))
-            return null;
-
-        return documentation.Format switch
-        {
-            DocumentationFormat.Markdown => documentation.Content.Trim(),
-            DocumentationFormat.Xml => $"```xml\n{documentation.Content.Trim()}\n```",
-            _ => documentation.Content.Trim()
-        };
+        return DocumentationMarkdownFormatter.FormatForEditor(documentation);
     }
 
     private static string? FormatCaptureText(

@@ -110,7 +110,7 @@ internal abstract class PESymbol : Symbol
         if (_documentationInitialized)
             return _lazyDocumentationComment;
 
-        _lazyDocumentationComment = FrameworkXmlDocumentationProvider.GetDocumentationComment(this);
+        _lazyDocumentationComment = ExternalDocumentationProvider.GetDocumentationComment(this);
         _documentationInitialized = true;
         return _lazyDocumentationComment;
     }

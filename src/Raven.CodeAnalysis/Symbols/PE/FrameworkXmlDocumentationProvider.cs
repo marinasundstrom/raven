@@ -1,15 +1,17 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Xml.Linq;
 
 using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal static class FrameworkXmlDocumentationProvider
+internal static class ExternalDocumentationProvider
 {
-    private static readonly ConcurrentDictionary<string, Lazy<FrameworkXmlDocumentationFile?>> s_files =
+    private static readonly ConcurrentDictionary<string, Lazy<ExternalDocumentationSet?>> s_files =
         new(StringComparer.OrdinalIgnoreCase);
 
     public static DocumentationComment? GetDocumentationComment(PESymbol symbol)
@@ -20,21 +22,14 @@ internal static class FrameworkXmlDocumentationProvider
         if (!TryGetAssemblyLocation(symbol, out var assemblyLocation))
             return null;
 
-        var file = s_files.GetOrAdd(
+        var docs = s_files.GetOrAdd(
             assemblyLocation,
-            static path => new Lazy<FrameworkXmlDocumentationFile?>(() => FrameworkXmlDocumentationFile.TryLoad(path))).Value;
+            static path => new Lazy<ExternalDocumentationSet?>(() => ExternalDocumentationSet.TryLoad(path))).Value;
 
-        if (file is null || !file.TryGetMember(memberId, out var member))
+        if (docs is null)
             return null;
 
-        var markdown = XmlDocumentationMarkdownFormatter.Format(member);
-        if (string.IsNullOrWhiteSpace(markdown))
-            return null;
-
-        return DocumentationComment.Create(
-            DocumentationFormat.Markdown,
-            markdown,
-            rawText: member.ToString(SaveOptions.DisableFormatting));
+        return docs.GetDocumentationComment(memberId);
     }
 
     private static bool TryGetAssemblyLocation(PESymbol symbol, out string assemblyLocation)
@@ -60,15 +55,210 @@ internal static class FrameworkXmlDocumentationProvider
     {
         memberId = symbol switch
         {
-            PENamedTypeSymbol type => XmlDocumentationCommentIdBuilder.GetTypeMemberId(type.GetTypeInfo().AsType()),
-            PEMethodSymbol method => XmlDocumentationCommentIdBuilder.GetMethodMemberId(method.ReflectionMethodBase),
-            PEPropertySymbol property => XmlDocumentationCommentIdBuilder.GetPropertyMemberId(property.GetPropertyInfo()),
-            PEFieldSymbol field => XmlDocumentationCommentIdBuilder.GetFieldMemberId(field.GetFieldInfo()),
-            PEEventSymbol @event => XmlDocumentationCommentIdBuilder.GetEventMemberId(@event.GetEventInfo()),
+            PENamedTypeSymbol type => DocumentationCommentIdBuilder.GetTypeMemberId(type.GetTypeInfo().AsType()),
+            PEMethodSymbol method => DocumentationCommentIdBuilder.GetMethodMemberId(method.ReflectionMethodBase),
+            PEPropertySymbol property => DocumentationCommentIdBuilder.GetPropertyMemberId(property.GetPropertyInfo()),
+            PEFieldSymbol field => DocumentationCommentIdBuilder.GetFieldMemberId(field.GetFieldInfo()),
+            PEEventSymbol @event => DocumentationCommentIdBuilder.GetEventMemberId(@event.GetEventInfo()),
             _ => string.Empty
         };
 
         return memberId.Length > 0;
+    }
+}
+
+internal sealed class ExternalDocumentationSet
+{
+    private readonly MarkdownDocumentationFile? _markdown;
+    private readonly FrameworkXmlDocumentationFile? _xml;
+
+    private ExternalDocumentationSet(MarkdownDocumentationFile? markdown, FrameworkXmlDocumentationFile? xml)
+    {
+        _markdown = markdown;
+        _xml = xml;
+    }
+
+    public static ExternalDocumentationSet? TryLoad(string assemblyPath)
+    {
+        var markdown = MarkdownDocumentationFile.TryLoad(assemblyPath);
+        var xml = FrameworkXmlDocumentationFile.TryLoad(assemblyPath);
+
+        if (markdown is null && xml is null)
+            return null;
+
+        return new ExternalDocumentationSet(markdown, xml);
+    }
+
+    public DocumentationComment? GetDocumentationComment(string memberId)
+    {
+        if (_markdown?.TryGetMember(memberId, out var markdownComment) == true)
+            return markdownComment;
+
+        if (_xml?.TryGetMember(memberId, out var member) == true)
+        {
+            var xmlContent = XmlDocumentationMarkdownFormatter.GetXmlContent(member);
+            if (!string.IsNullOrWhiteSpace(xmlContent))
+            {
+                return DocumentationComment.Create(
+                    DocumentationFormat.Xml,
+                    xmlContent,
+                    rawText: member.ToString(SaveOptions.DisableFormatting));
+            }
+        }
+
+        return null;
+    }
+}
+
+internal sealed class MarkdownDocumentationFile
+{
+    private readonly ImmutableArray<string> _symbolsRootPaths;
+    private readonly ConcurrentDictionary<string, DocumentationComment?> _cache = new(StringComparer.Ordinal);
+
+    private MarkdownDocumentationFile(ImmutableArray<string> symbolsRootPaths)
+    {
+        _symbolsRootPaths = symbolsRootPaths;
+    }
+
+    public static MarkdownDocumentationFile? TryLoad(string assemblyPath)
+    {
+        var directory = Path.GetDirectoryName(assemblyPath);
+        var assemblyName = Path.GetFileNameWithoutExtension(assemblyPath);
+        if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(assemblyName))
+            return null;
+
+        var docsRoot = Path.Combine(directory, $"{assemblyName}.docs");
+        var manifestPath = Path.Combine(docsRoot, "manifest.json");
+        if (!File.Exists(manifestPath))
+            return null;
+
+        try
+        {
+            using var stream = File.OpenRead(manifestPath);
+            using var document = JsonDocument.Parse(stream);
+            var root = document.RootElement;
+
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var formatVersion = root.TryGetProperty("formatVersion", out var formatVersionElement) &&
+                                formatVersionElement.ValueKind == JsonValueKind.Number
+                ? formatVersionElement.GetInt32()
+                : 1;
+
+            if (formatVersion != 1)
+                return null;
+
+            var symbolsPath = root.TryGetProperty("symbolsPath", out var symbolsPathElement) &&
+                              symbolsPathElement.ValueKind == JsonValueKind.String
+                ? symbolsPathElement.GetString()
+                : "symbols";
+
+            if (string.IsNullOrWhiteSpace(symbolsPath))
+                return null;
+
+            var localeRoots = ResolveLocaleRoots(root, docsRoot, symbolsPath!);
+            if (localeRoots.IsDefaultOrEmpty)
+                return null;
+
+            return new MarkdownDocumentationFile(localeRoots);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public bool TryGetMember(string memberId, out DocumentationComment? comment)
+    {
+        comment = _cache.GetOrAdd(memberId, CreateDocumentationComment);
+        return comment is not null;
+    }
+
+    private DocumentationComment? CreateDocumentationComment(string memberId)
+    {
+        foreach (var path in GetSymbolPaths(memberId))
+        {
+            if (!File.Exists(path))
+                continue;
+
+            try
+            {
+                var content = File.ReadAllText(path);
+                if (string.IsNullOrWhiteSpace(content))
+                    continue;
+
+                return DocumentationComment.Create(
+                    DocumentationFormat.Markdown,
+                    content,
+                    rawText: content);
+            }
+            catch
+            {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
+    private IEnumerable<string> GetSymbolPaths(string memberId)
+    {
+        if (memberId.Length < 3 || memberId[1] != ':')
+            return [];
+
+        var category = memberId[0].ToString();
+        var encoded = DocumentationCommentIdBuilder.GetMarkdownPathHash(memberId) + ".md";
+        return _symbolsRootPaths.Select(root => Path.Combine(root, category, encoded));
+    }
+
+    private static ImmutableArray<string> ResolveLocaleRoots(JsonElement root, string docsRoot, string symbolsPath)
+    {
+        var availableLocales = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (root.TryGetProperty("locales", out var localesElement) && localesElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var locale in localesElement.EnumerateArray())
+            {
+                if (locale.ValueKind == JsonValueKind.String &&
+                    !string.IsNullOrWhiteSpace(locale.GetString()))
+                {
+                    availableLocales.Add(locale.GetString()!);
+                }
+            }
+        }
+
+        if (availableLocales.Count == 0)
+            return [Path.Combine(docsRoot, symbolsPath)];
+
+        var defaultLocale = root.TryGetProperty("defaultLocale", out var defaultLocaleElement) &&
+                            defaultLocaleElement.ValueKind == JsonValueKind.String &&
+                            !string.IsNullOrWhiteSpace(defaultLocaleElement.GetString())
+            ? defaultLocaleElement.GetString()!
+            : "invariant";
+
+        var orderedLocales = new List<string>();
+        var currentCulture = System.Globalization.CultureInfo.CurrentUICulture;
+        while (!string.IsNullOrWhiteSpace(currentCulture.Name))
+        {
+            orderedLocales.Add(currentCulture.Name);
+            currentCulture = currentCulture.Parent;
+        }
+
+        orderedLocales.Add(defaultLocale);
+        if (!string.Equals(defaultLocale, "invariant", StringComparison.OrdinalIgnoreCase))
+            orderedLocales.Add("invariant");
+
+        var builder = ImmutableArray.CreateBuilder<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var locale in orderedLocales)
+        {
+            if (!availableLocales.Contains(locale) || !seen.Add(locale))
+                continue;
+
+            builder.Add(Path.Combine(docsRoot, locale, symbolsPath));
+        }
+
+        return builder.ToImmutable();
     }
 }
 
@@ -112,166 +302,15 @@ internal sealed class FrameworkXmlDocumentationFile
         => _members.TryGetValue(memberId, out member!);
 }
 
-internal static class XmlDocumentationCommentIdBuilder
-{
-    public static string GetTypeMemberId(Type type)
-        => "T:" + GetTypeName(type);
-
-    public static string GetMethodMemberId(MethodBase method)
-    {
-        var declaringType = method.DeclaringType;
-        if (declaringType is null)
-            return string.Empty;
-
-        var builder = new StringBuilder();
-        builder.Append("M:");
-        builder.Append(GetTypeName(declaringType));
-        builder.Append('.');
-        builder.Append(GetMethodName(method));
-
-        AppendParameterList(builder, method.GetParameters().Select(static p => p.ParameterType));
-
-        if (method.Name is "op_Implicit" or "op_Explicit" && method is MethodInfo methodInfo)
-        {
-            builder.Append('~');
-            builder.Append(GetParameterTypeName(methodInfo.ReturnType));
-        }
-
-        return builder.ToString();
-    }
-
-    public static string GetPropertyMemberId(PropertyInfo property)
-    {
-        var declaringType = property.DeclaringType;
-        if (declaringType is null)
-            return string.Empty;
-
-        var builder = new StringBuilder();
-        builder.Append("P:");
-        builder.Append(GetTypeName(declaringType));
-        builder.Append('.');
-        builder.Append(property.Name.Replace('.', '#'));
-        AppendParameterList(builder, property.GetIndexParameters().Select(static p => p.ParameterType));
-        return builder.ToString();
-    }
-
-    public static string GetFieldMemberId(FieldInfo field)
-    {
-        var declaringType = field.DeclaringType;
-        if (declaringType is null)
-            return string.Empty;
-
-        return $"F:{GetTypeName(declaringType)}.{field.Name.Replace('.', '#')}";
-    }
-
-    public static string GetEventMemberId(EventInfo @event)
-    {
-        var declaringType = @event.DeclaringType;
-        if (declaringType is null)
-            return string.Empty;
-
-        return $"E:{GetTypeName(declaringType)}.{@event.Name.Replace('.', '#')}";
-    }
-
-    private static string GetMethodName(MethodBase method)
-    {
-        if (method.IsConstructor)
-            return method.IsStatic ? "#cctor" : "#ctor";
-
-        var name = method.Name.Replace('.', '#');
-        if (method.IsGenericMethod)
-            name += "``" + method.GetGenericArguments().Length;
-
-        return name;
-    }
-
-    private static void AppendParameterList(StringBuilder builder, IEnumerable<Type> parameterTypes)
-    {
-        var parameters = parameterTypes.ToArray();
-        if (parameters.Length == 0)
-            return;
-
-        builder.Append('(');
-        for (var i = 0; i < parameters.Length; i++)
-        {
-            if (i > 0)
-                builder.Append(',');
-
-            builder.Append(GetParameterTypeName(parameters[i]));
-        }
-
-        builder.Append(')');
-    }
-
-    private static string GetTypeName(Type type)
-    {
-        if (type.IsGenericParameter)
-            return type.DeclaringMethod is null
-                ? "`" + type.GenericParameterPosition
-                : "``" + type.GenericParameterPosition;
-
-        if (type.IsNested && type.DeclaringType is not null)
-            return GetTypeName(type.DeclaringType) + "." + GetTypeNameSegment(type, includeGenericArity: true);
-
-        return string.IsNullOrEmpty(type.Namespace)
-            ? GetTypeNameSegment(type, includeGenericArity: true)
-            : type.Namespace + "." + GetTypeNameSegment(type, includeGenericArity: true);
-    }
-
-    private static string GetParameterTypeName(Type type)
-    {
-        if (type.IsByRef)
-            return GetParameterTypeName(type.GetElementType()!) + "@";
-
-        if (type.IsPointer)
-            return GetParameterTypeName(type.GetElementType()!) + "*";
-
-        if (type.IsArray)
-        {
-            var elementType = GetParameterTypeName(type.GetElementType()!);
-            if (type.GetArrayRank() == 1)
-                return elementType + "[]";
-
-            return elementType + "[" + string.Join(",", Enumerable.Repeat("0:", type.GetArrayRank())) + "]";
-        }
-
-        if (type.IsGenericParameter)
-            return type.DeclaringMethod is null
-                ? "`" + type.GenericParameterPosition
-                : "``" + type.GenericParameterPosition;
-
-        if (!type.IsGenericType)
-            return GetTypeName(type);
-
-        var genericTypeDefinition = type.GetGenericTypeDefinition();
-        var typeArguments = type.GetGenericArguments();
-        var formattedArguments = string.Join(",", typeArguments.Select(GetParameterTypeName));
-        return $"{GetParameterTypeDefinitionName(genericTypeDefinition)}{{{formattedArguments}}}";
-    }
-
-    private static string GetParameterTypeDefinitionName(Type type)
-    {
-        if (type.IsNested && type.DeclaringType is not null)
-            return GetParameterTypeDefinitionName(type.DeclaringType) + "." + GetTypeNameSegment(type, includeGenericArity: false);
-
-        return string.IsNullOrEmpty(type.Namespace)
-            ? GetTypeNameSegment(type, includeGenericArity: false)
-            : type.Namespace + "." + GetTypeNameSegment(type, includeGenericArity: false);
-    }
-
-    private static string GetTypeNameSegment(Type type, bool includeGenericArity)
-    {
-        var name = type.Name;
-        var tickIndex = name.IndexOf('`');
-        if (tickIndex >= 0 && !includeGenericArity)
-            return name[..tickIndex];
-
-        return name;
-    }
-}
-
 internal static class XmlDocumentationMarkdownFormatter
 {
+    public static string GetXmlContent(XElement member)
+    {
+        return string.Join(
+            Environment.NewLine,
+            member.Nodes().Select(static node => node.ToString(SaveOptions.DisableFormatting))).Trim();
+    }
+
     public static string Format(XElement member)
     {
         var sections = new List<string>();
