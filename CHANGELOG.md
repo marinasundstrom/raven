@@ -263,3 +263,7 @@ Impact:
   `GenerateDocumentationFile`, `GenerateMarkdownDocumentationFile`,
   `DocumentationFile`, and `MarkdownDocumentationOutputPath` on open/save so
   documentation emission settings round-trip cleanly through project editing.
+## Unreleased
+
+### Added
+- Added a separate context-driven code refactoring provider pipeline so editor suggestions can appear without requiring a backing diagnostic. The workspace and language server now surface diagnostic-backed quick fixes and diagnostic-free refactorings as distinct code action sources.

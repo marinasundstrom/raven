@@ -1,7 +1,10 @@
-using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Text;
 using System;
 using System.Linq;
+
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -258,5 +261,36 @@ public class WorkspaceTest
         workspace.TryApplyChanges(solution);
 
         Assert.Throws<InvalidOperationException>(() => workspace.GetCompilation(aId));
+    }
+
+    [Fact]
+    public void GetRefactorings_ReturnsRegisteredContextActions()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From("func Main() -> () { }"));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new TestRefactoringProvider()],
+            new TextSpan(0, 4));
+
+        var refactoring = Assert.Single(refactorings);
+        Assert.Equal(documentId, refactoring.DocumentId);
+        Assert.Equal("Test refactoring", refactoring.Action.Title);
+        Assert.Equal(new TextSpan(0, 4), refactoring.Span);
+    }
+
+    private sealed class TestRefactoringProvider : CodeRefactoringProvider
+    {
+        public override void RegisterRefactorings(CodeRefactoringContext context)
+        {
+            context.RegisterRefactoring(CodeAction.Create("Test refactoring", static (solution, _) => solution));
+        }
     }
 }

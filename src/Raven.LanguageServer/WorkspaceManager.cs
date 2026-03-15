@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
@@ -21,16 +22,32 @@ internal sealed class WorkspaceManager
     private readonly RavenWorkspace _workspace;
     private readonly ILogger<WorkspaceManager> _logger;
     private readonly object _gate = new();
-    private readonly ImmutableArray<CodeFixProvider> _builtInCodeFixProviders = BuiltInCodeFixProviders.CreateDefault();
+    private readonly ImmutableArray<CodeFixProvider> _builtInCodeFixProviders;
+    private readonly ImmutableArray<CodeRefactoringProvider> _builtInCodeRefactoringProviders;
     private readonly Dictionary<string, ProjectId> _projectsByRoot = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
     private readonly ConcurrentDictionary<ProjectId, CachedDiagnostics> _diagnosticsCache = new();
     private ProjectId? _fallbackProjectId;
 
     public WorkspaceManager(RavenWorkspace workspace, ILogger<WorkspaceManager> logger)
+        : this(
+            workspace,
+            logger,
+            BuiltInCodeFixProviders.CreateDefault(),
+            BuiltInCodeRefactoringProviders.CreateDefault())
+    {
+    }
+
+    internal WorkspaceManager(
+        RavenWorkspace workspace,
+        ILogger<WorkspaceManager> logger,
+        ImmutableArray<CodeFixProvider> builtInCodeFixProviders,
+        ImmutableArray<CodeRefactoringProvider> builtInCodeRefactoringProviders)
     {
         _workspace = workspace;
         _logger = logger;
+        _builtInCodeFixProviders = builtInCodeFixProviders;
+        _builtInCodeRefactoringProviders = builtInCodeRefactoringProviders;
     }
 
     public void Initialize(InitializeParams request)
@@ -402,6 +419,23 @@ internal sealed class WorkspaceManager
         }
 
         codeFixes = ImmutableArray<CodeFix>.Empty;
+        return false;
+    }
+
+    public bool TryGetRefactorings(
+        DocumentUri uri,
+        TextSpan span,
+        out ImmutableArray<CodeRefactoring> refactorings,
+        CancellationToken cancellationToken = default)
+    {
+        if (_documents.TryGetValue(uri, out var ownedDocument))
+        {
+            refactorings = _workspace
+                .GetRefactorings(ownedDocument.DocumentId, _builtInCodeRefactoringProviders, span, cancellationToken);
+            return true;
+        }
+
+        refactorings = ImmutableArray<CodeRefactoring>.Empty;
         return false;
     }
 

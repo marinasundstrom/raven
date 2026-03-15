@@ -345,6 +345,47 @@ public class Workspace
     }
 
     /// <summary>
+    /// Gets context-driven refactorings for the specified document and selection span.
+    /// </summary>
+    public ImmutableArray<CodeRefactoring> GetRefactorings(
+        DocumentId documentId,
+        IEnumerable<CodeRefactoringProvider> providers,
+        TextSpan span,
+        CancellationToken cancellationToken = default)
+    {
+        if (providers is null)
+            throw new ArgumentNullException(nameof(providers));
+
+        var providerList = providers.ToImmutableArray();
+        if (providerList.Length == 0)
+            return ImmutableArray<CodeRefactoring>.Empty;
+
+        var document = CurrentSolution.GetDocument(documentId)
+            ?? throw new ArgumentException("Document not found", nameof(documentId));
+
+        var refactorings = ImmutableArray.CreateBuilder<CodeRefactoring>();
+
+        foreach (var provider in providerList)
+        {
+            var actionBucket = new List<CodeAction>();
+            var context = new CodeRefactoringContext(
+                document,
+                span,
+                actionBucket.Add,
+                cancellationToken);
+
+            provider.RegisterRefactorings(context);
+
+            foreach (var action in actionBucket)
+                refactorings.Add(new CodeRefactoring(documentId, span, action, provider));
+        }
+
+        return refactorings
+            .OrderBy(x => x.Action.Title, StringComparer.Ordinal)
+            .ToImmutableArray();
+    }
+
+    /// <summary>
     /// Applies code fixes one-at-a-time, reanalyzing between each application.
     /// </summary>
     public ApplyCodeFixesResult ApplyCodeFixes(

@@ -28,6 +28,50 @@ Raven currently provides analyzers for two different contexts:
 The `Raven.Compiler` CLI uses `RavenWorkspace` to attach analyzers during compilation. Any
 analyzer diagnostics appear alongside regular compilation errors and warnings.
 
+## Diagnostic vs refactoring boundary
+
+Not every built-in rewrite should stay diagnostic-backed. The current rule is:
+
+- Keep an analyzer when the user should see a problem or policy signal in the diagnostics list.
+- Use a context-driven refactoring/suggestion when the rewrite is primarily stylistic, reversible,
+  and not meaningfully "wrong" code.
+
+Built-in analyzers that should remain diagnostic-backed include:
+
+- `MissingReturnTypeAnnotationAnalyzer`
+- `EventDelegateMustBeNullableAnalyzer`
+- `NonNullDeclarationsAnalyzer`
+- `VarCanBeValAnalyzer`
+- `MatchExhaustivenessAnalyzer`
+- `PreferValInsteadOfLetAnalyzer`
+- `AutoPropertyInitializationAnalyzer`
+- `PreferNewLineBetweenDeclarationsAnalyzer`
+- `ThrowStatementUseResultAnalyzer`
+- `MemberCanBePrivateAnalyzer`
+- `MemberCanBeStaticAnalyzer`
+- `UnusedPropertyAnalyzer`
+- `UnusedMethodAnalyzer`
+- `PreferDuLinqExtensionsAnalyzer`
+- `PreferIsNullOverEqualityAnalyzer`
+- `ConstructorParameterNamingAnalyzer`
+
+Built-in analyzers that are strong promotion candidates for the refactoring/suggestion pipeline are:
+
+- `PreferTargetTypedUnionCaseAnalyzer`
+- `PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer`
+- `SingleStatementBlockBodyAnalyzer`
+- `ExpressionBodyToBlockBodyAnalyzer`
+- `RedundantAccessorDeclarationAnalyzer`
+- `StringConcatenationAnalyzer` (`RAV9021` / `RAV9022`)
+
+These are better treated as editor actions because they mostly express alternative source shapes,
+not correctness or policy violations. They should show up as on-demand suggestions rather than
+occupying the normal diagnostics stream.
+
+`PreferNewLineBetweenDeclarationsAnalyzer` is intentionally not in that promotion list: it is closer
+to formatting policy than refactoring and should eventually be handled by formatting configuration
+instead of either diagnostics or refactoring providers.
+
 Built-in code fixes currently include:
 - `RAV9016` (`Make member private`)
 - `RAV9017` (`Make member static`)

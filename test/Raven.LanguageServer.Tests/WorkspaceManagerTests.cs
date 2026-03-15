@@ -4,7 +4,10 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Raven.LanguageServer;
+
+using CodeFixAction = Raven.CodeAnalysis.CodeAction;
 
 namespace Raven.Editor.Tests;
 
@@ -96,7 +99,7 @@ class MacroPlugin { }
     }
 
     [Fact]
-    public async Task TryGetDocument_ResolvesSiblingProjectDocumentByUri()
+    public async Task TryGetDocument_ResolvesSiblingProjectDocumentByUriAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         WriteMacroObservableLayout(_tempRoot);
@@ -125,7 +128,7 @@ class MacroPlugin { }
     }
 
     [Fact]
-    public async Task RemoveDocument_DoesNotRemoveProjectBackedSiblingProjectDocument()
+    public async Task RemoveDocument_DoesNotRemoveProjectBackedSiblingProjectDocumentAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         WriteMacroObservableLayout(_tempRoot);
@@ -159,7 +162,7 @@ class MacroPlugin { }
     }
 
     [Fact]
-    public async Task SwitchingBetweenSiblingProjectDocuments_DoesNotDetachAppDocumentFromCompilation()
+    public async Task SwitchingBetweenSiblingProjectDocuments_DoesNotDetachAppDocumentFromCompilationAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         WriteMacroFreestandingLayout(_tempRoot);
@@ -196,7 +199,7 @@ class MacroPlugin { }
     }
 
     [Fact]
-    public async Task TryGetDocumentContext_ReturnsMatchingDocumentAndCompilationAfterSiblingSwitch()
+    public async Task TryGetDocumentContext_ReturnsMatchingDocumentAndCompilationAfterSiblingSwitchAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         WriteMacroFreestandingLayout(_tempRoot);
@@ -229,6 +232,37 @@ class MacroPlugin { }
         var syntaxTree = await document.GetSyntaxTreeAsync();
         syntaxTree.ShouldNotBeNull();
         Should.NotThrow(() => compilation.GetSemanticModel(syntaxTree!));
+    }
+
+    [Fact]
+    public void TryGetRefactorings_ReturnsContextActionsForOpenDocument()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        File.WriteAllText(filePath, "func Main() -> () { }");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(
+            workspace,
+            NullLogger<WorkspaceManager>.Instance,
+            [],
+            [new TestRefactoringProvider()]);
+
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        _ = manager.UpsertDocument(uri, File.ReadAllText(filePath));
+
+        manager.TryGetRefactorings(uri, new TextSpan(0, 4), out var refactorings).ShouldBeTrue();
+        refactorings.Length.ShouldBe(1);
+        refactorings[0].Action.Title.ShouldBe("Test refactoring");
     }
 
     public void Dispose()
@@ -370,5 +404,13 @@ class AnswerMacro: IFreestandingExpressionMacro {
     }
 }
 """);
+    }
+
+    private sealed class TestRefactoringProvider : CodeRefactoringProvider
+    {
+        public override void RegisterRefactorings(CodeRefactoringContext context)
+        {
+            context.RegisterRefactoring(CodeFixAction.Create("Test refactoring", static (solution, _) => solution));
+        }
     }
 }

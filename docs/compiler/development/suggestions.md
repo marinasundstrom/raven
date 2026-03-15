@@ -1,14 +1,45 @@
 # Suggestions
 
-Raven suggestions are analyzer diagnostics that carry an optional educational rewrite payload.
-They are intended to show "you wrote X, write Y instead" guidance and support future interactive
-fix workflows.
+Raven currently has two different "suggestion-like" mechanisms:
+
+- analyzer-backed suggestions: diagnostics that carry an optional educational rewrite payload
+- context-driven refactorings: code actions that are not backed by any diagnostic
+
+Analyzer-backed suggestions are intended to show "you wrote X, write Y instead" guidance and support
+future interactive fix workflows. Context-driven refactorings are for changes that should appear in
+the action list without also showing up as errors, warnings, or informational diagnostics.
 
 ## Purpose
 
 - Keep suggestion logic in analyzers, not in parser/binder error paths.
 - Let the CLI and other hosts render suggestions consistently.
 - Keep support open for external analyzers by using shared diagnostic properties.
+- Keep purely stylistic or reversible transforms out of the diagnostics list when they are better
+  expressed as on-demand refactorings.
+
+## Choosing the mechanism
+
+Use an analyzer-backed suggestion when:
+
+- the user should see a diagnostic in the problems list
+- the suggestion is part of a policy or language guidance rule
+- the suggestion benefits from `EnableSuggestions` gating or educational rewrite payloads
+
+Use a context-driven refactoring when:
+
+- the action is purely optional and not a problem report
+- the transform is reversible and mostly about source shape
+- showing a diagnostic would create noise without adding signal
+
+Current built-in promotion candidates for the refactoring path are:
+
+- target-typed union-case rewrites
+- expression-body/block-body conversions
+- redundant accessor removal
+- string concatenation rewrites
+
+These should eventually move out of the analyzer diagnostics stream and into standard refactoring
+providers.
 
 ## Convention
 
@@ -40,3 +71,6 @@ External analyzers can participate by:
 3. Optionally checking `compilation.Options.EnableSuggestions` before doing expensive suggestion work.
 
 No special compiler hook is required beyond the shared property convention.
+
+Context-driven refactorings use `/Users/robert/Projects/Raven/src/Raven.CodeAnalysis/Workspaces/CodeFixes/CodeRefactoringProvider.cs`
+and are surfaced by the workspace/language server without requiring a backing diagnostic.

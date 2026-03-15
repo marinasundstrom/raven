@@ -14,6 +14,8 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
+using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
+using CodeFixAction = Raven.CodeAnalysis.CodeAction;
 using LspCodeAction = OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeAction;
 using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -55,18 +57,24 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                 return new CommandOrCodeActionContainer();
 
             var documentText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            var selectionSpan = GetRequestedSpan(documentText, request.Range);
             if (!_workspaceManager.TryGetCodeFixes(request.TextDocument.Uri, out var fixes, cancellationToken: cancellationToken))
+                return new CommandOrCodeActionContainer();
+            if (!_workspaceManager.TryGetRefactorings(request.TextDocument.Uri, selectionSpan, out var refactorings, cancellationToken))
                 return new CommandOrCodeActionContainer();
 
             var filteredFixes = fixes
                 .Where(fix => IsFixInRequestedRange(fix, request.Range, documentText))
                 .Where(fix => MatchesRequestedDiagnostics(fix, request.Context?.Diagnostics, documentText))
                 .ToArray();
+            var filteredRefactorings = SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite)
+                ? refactorings.ToArray()
+                : [];
 
-            var actions = new List<CommandOrCodeAction>(filteredFixes.Length + 1);
+            var actions = new List<CommandOrCodeAction>(filteredFixes.Length + filteredRefactorings.Length + 1);
 
             var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-            if (syntaxTree is not null)
+            if (syntaxTree is not null && SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite))
             {
                 var semanticModel = compilation.GetSemanticModel(syntaxTree);
                 var root = syntaxTree.GetRoot(cancellationToken);
@@ -74,9 +82,33 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                     actions.Add(macroAction);
             }
 
-            foreach (var fix in filteredFixes)
+            if (SupportsKind(request.Context?.Only, CodeActionKind.QuickFix))
             {
-                var action = await TryCreateLspCodeActionAsync(request.TextDocument.Uri, document, fix, cancellationToken).ConfigureAwait(false);
+                foreach (var fix in filteredFixes)
+                {
+                    var action = await TryCreateLspCodeActionAsync(
+                        request.TextDocument.Uri,
+                        document,
+                        fix.DocumentId,
+                        fix.Action,
+                        CodeActionKind.QuickFix,
+                        fix.Diagnostic,
+                        cancellationToken).ConfigureAwait(false);
+                    if (action is not null)
+                        actions.Add(action);
+                }
+            }
+
+            foreach (var refactoring in filteredRefactorings)
+            {
+                var action = await TryCreateLspCodeActionAsync(
+                    request.TextDocument.Uri,
+                    document,
+                    refactoring.DocumentId,
+                    refactoring.Action,
+                    CodeActionKind.RefactorRewrite,
+                    diagnostic: null,
+                    cancellationToken).ConfigureAwait(false);
                 if (action is not null)
                     actions.Add(action);
             }
@@ -142,6 +174,29 @@ internal sealed class CodeActionHandler : ICodeActionHandler
     private static bool SpansOverlap(int leftStart, int leftEnd, int rightStart, int rightEnd)
         => leftStart <= rightEnd && rightStart <= leftEnd;
 
+    private static TextSpan GetRequestedSpan(SourceText text, LspRange requestRange)
+    {
+        var start = PositionHelper.ToOffset(text, requestRange.Start);
+        var end = PositionHelper.ToOffset(text, requestRange.End);
+        if (end < start)
+            (start, end) = (end, start);
+
+        return new TextSpan(start, end - start);
+    }
+
+    private static bool SupportsKind(Container<CodeActionKind>? requestedKinds, CodeActionKind kind)
+    {
+        if (requestedKinds is null || !requestedKinds.Any())
+            return true;
+
+        var kindText = kind.ToString();
+        return requestedKinds.Any(requestedKind =>
+        {
+            var requestedText = requestedKind.ToString();
+            return kindText.StartsWith(requestedText, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
     private static bool TryCreateMacroExpansionAction(
         DocumentUri uri,
         SourceText documentText,
@@ -168,19 +223,22 @@ internal sealed class CodeActionHandler : ICodeActionHandler
     private static async Task<CommandOrCodeAction?> TryCreateLspCodeActionAsync(
         DocumentUri uri,
         Document currentDocument,
-        CodeFix fix,
+        DocumentId documentId,
+        CodeFixAction action,
+        CodeActionKind kind,
+        CodeDiagnostic? diagnostic,
         CancellationToken cancellationToken)
     {
         var currentSolution = currentDocument.Project.Solution;
-        var updatedSolution = fix.Action.GetChangedSolution(currentSolution, cancellationToken);
+        var updatedSolution = action.GetChangedSolution(currentSolution, cancellationToken);
         if (updatedSolution.Version == currentSolution.Version)
             return null;
 
-        var updatedDocument = updatedSolution.GetDocument(fix.DocumentId);
+        var updatedDocument = updatedSolution.GetDocument(documentId);
         if (updatedDocument is null)
             return null;
 
-        var currentDocumentForFix = currentSolution.GetDocument(fix.DocumentId);
+        var currentDocumentForFix = currentSolution.GetDocument(documentId);
         if (currentDocumentForFix is null)
             return null;
 
@@ -205,20 +263,27 @@ internal sealed class CodeActionHandler : ICodeActionHandler
             }
         };
 
-        var codeAction = new LspCodeAction
-        {
-            Title = fix.Action.Title,
-            Kind = CodeActionKind.QuickFix,
-            Edit = workspaceEdit,
-            Diagnostics = new Container<LspDiagnostic>(
-                new LspDiagnostic
-                {
-                    Message = fix.Diagnostic.GetMessage(),
-                    Source = "raven",
-                    Code = fix.Diagnostic.Id,
-                    Range = PositionHelper.ToRange(currentText, fix.Diagnostic.Location.SourceSpan)
-                })
-        };
+        var codeAction = diagnostic is null
+            ? new LspCodeAction
+            {
+                Title = action.Title,
+                Kind = kind,
+                Edit = workspaceEdit
+            }
+            : new LspCodeAction
+            {
+                Title = action.Title,
+                Kind = kind,
+                Edit = workspaceEdit,
+                Diagnostics = new Container<LspDiagnostic>(
+                    new LspDiagnostic
+                    {
+                        Message = diagnostic.GetMessage(),
+                        Source = "raven",
+                        Code = diagnostic.Id,
+                        Range = PositionHelper.ToRange(currentText, diagnostic.Location.SourceSpan)
+                    })
+            };
 
         return new CommandOrCodeAction(codeAction);
     }
