@@ -209,8 +209,22 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             source,
             (_, previous) =>
             {
-                previous.Cancel();
-                previous.Dispose();
+                try
+                {
+                    previous.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+
+                try
+                {
+                    previous.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+
                 return source;
             });
 

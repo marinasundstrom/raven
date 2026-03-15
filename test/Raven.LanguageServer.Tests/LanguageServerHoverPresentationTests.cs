@@ -647,6 +647,26 @@ class Program {
     }
 
     [Fact]
+    public void GetLambdaParameterIndex_SkipsMissingParameterIdentifiers()
+    {
+        var functionExpression = SyntaxFactory.ParenthesizedFunctionExpression(
+            SyntaxFactory.ParameterList(
+                SyntaxFactory.SeparatedList<ParameterSyntax>([
+                    SyntaxFactory.Parameter(SyntaxFactory.List<AttributeListSyntax>(), SyntaxFactory.Token(SyntaxKind.None)),
+                    SyntaxFactory.CommaToken,
+                    SyntaxFactory.Parameter(SyntaxFactory.List<AttributeListSyntax>(), SyntaxFactory.Identifier("value"))
+                ])),
+            SyntaxFactory.List<TypeParameterConstraintClauseSyntax>());
+
+        var getLambdaParameterIndex = typeof(HoverHandler)
+            .GetMethod("GetLambdaParameterIndex", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var index = (int)getLambdaParameterIndex.Invoke(null, [functionExpression, "value"])!;
+
+        index.ShouldBe(1);
+    }
+
+    [Fact]
     public void SymbolResolver_DoesNotThrowInsideAssignmentStatement()
     {
         const string code = """

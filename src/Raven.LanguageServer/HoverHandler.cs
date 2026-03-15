@@ -1296,7 +1296,15 @@ internal sealed class HoverHandler : IHoverHandler
 
         for (var i = 0; i < parameters.Count; i++)
         {
-            if (string.Equals(parameters[i].Identifier.ValueText, parameterName, StringComparison.Ordinal))
+            var parameter = parameters[i];
+            if (parameter is null)
+                continue;
+
+            var identifier = parameter.Identifier;
+            if (identifier.Kind == SyntaxKind.None || identifier.IsMissing)
+                continue;
+
+            if (string.Equals(identifier.ValueText, parameterName, StringComparison.Ordinal))
                 return i;
         }
 
