@@ -648,9 +648,9 @@
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
   <Node Name="TypeArgumentList" Inherits="Node">
-    <Slot Name="GreaterThanToken" Type="Token" DefaultToken="GreaterThanToken" />
-    <Slot Name="Arguments" Type="SeparatedList" ElementType="TypeArgument" />
     <Slot Name="LessThanToken" Type="Token" DefaultToken="LessThanToken" />
+    <Slot Name="Arguments" Type="SeparatedList" ElementType="TypeArgument" />
+    <Slot Name="GreaterThanToken" Type="Token" DefaultToken="GreaterThanToken" />
   </Node>
   <Node Name="BracketedArgumentList" Inherits="Node">
     <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken" />
