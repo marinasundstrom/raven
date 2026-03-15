@@ -1,0 +1,15 @@
+import System.*
+import System.Console.*
+import System.Linq.*
+
+func Main() -> () {
+    val result = [1, 2, 3] 
+        |> Where(x => x == 2)
+
+    WriteLine(result.Count())
+
+    val result2 = "FooBAR"
+        |> func ([val a, ...val rest]) => char.ToLower(a) + rest
+
+    WriteLine(result2)
+}
