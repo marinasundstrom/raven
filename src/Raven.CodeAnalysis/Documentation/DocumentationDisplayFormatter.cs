@@ -21,7 +21,7 @@ public static class DocumentationDisplayFormatter
 
     private static string FormatMarkdownForDisplay(DocumentationComment documentation, bool linkXrefs)
     {
-        var structure = MarkdownDocumentationStructureExtractor.Extract(documentation);
+        var structure = DocumentationStructureExtractor.Extract(documentation);
         var sections = new List<string>();
         if (!string.IsNullOrWhiteSpace(structure.Body))
             sections.Add(RewriteXrefsForDisplay(structure.Body.Trim(), linkXrefs));
@@ -248,7 +248,7 @@ public static class DocumentationDisplayFormatter
         sections.Add($"**{heading}**\n\n{RewriteXrefsForDisplay(content.Trim(), linkXrefs)}");
     }
 
-    private static void AppendEntrySection(List<string> sections, string heading, IEnumerable<MarkdownDocumentationEntry> entries, bool includeName, bool linkXrefs)
+    private static void AppendEntrySection(List<string> sections, string heading, IEnumerable<DocumentationEntry> entries, bool includeName, bool linkXrefs)
     {
         var lines = entries
             .Select(entry =>

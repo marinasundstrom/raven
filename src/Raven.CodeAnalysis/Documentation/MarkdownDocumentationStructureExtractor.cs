@@ -5,65 +5,7 @@ namespace Raven.CodeAnalysis.Documentation;
 
 public static class MarkdownDocumentationStructureExtractor
 {
-    public static MarkdownDocumentationStructure Extract(DocumentationComment? documentation)
-    {
-        if (documentation is null || documentation.Format != DocumentationFormat.Markdown)
-        {
-            return new MarkdownDocumentationStructure(
-                Summary: string.Empty,
-                Body: string.Empty,
-                AdditionalBody: string.Empty,
-                Returns: null,
-                Value: null,
-                Remarks: null,
-                Example: null,
-                InheritDocReference: null,
-                TypeParameters: ImmutableArray<MarkdownDocumentationEntry>.Empty,
-                Parameters: ImmutableArray<MarkdownDocumentationEntry>.Empty,
-                Exceptions: ImmutableArray<MarkdownDocumentationEntry>.Empty,
-                See: ImmutableArray<MarkdownDocumentationEntry>.Empty,
-                SeeAlso: ImmutableArray<MarkdownDocumentationEntry>.Empty);
-        }
-
-        var summary = GetFirstParagraph(documentation.Body);
-        var additionalBody = GetRemainingParagraphs(documentation.Body);
-
-        var returns = documentation.Tags.FirstOrDefault(static tag => tag.Kind == DocumentationTagKind.Returns)?.Content;
-        var value = documentation.Tags.FirstOrDefault(static tag => tag.Kind == DocumentationTagKind.Value)?.Content;
-        var remarks = documentation.Tags.FirstOrDefault(static tag => tag.Kind == DocumentationTagKind.Remarks)?.Content;
-        var example = documentation.Tags.FirstOrDefault(static tag => tag.Kind == DocumentationTagKind.Example)?.Content;
-        var inheritDocReference = NormalizeReference(documentation.Tags.FirstOrDefault(static tag => tag.Kind == DocumentationTagKind.InheritDoc)?.Argument);
-
-        if (string.IsNullOrWhiteSpace(remarks) && !string.IsNullOrWhiteSpace(additionalBody))
-            remarks = additionalBody;
-
-        return new MarkdownDocumentationStructure(
-            Summary: summary,
-            Body: documentation.Body,
-            AdditionalBody: additionalBody,
-            Returns: EmptyToNull(returns),
-            Value: EmptyToNull(value),
-            Remarks: EmptyToNull(remarks),
-            Example: EmptyToNull(example),
-            InheritDocReference: EmptyToNull(inheritDocReference),
-            TypeParameters: ConvertEntries(documentation.Tags.Where(static tag => tag.Kind == DocumentationTagKind.TypeParam)),
-            Parameters: ConvertEntries(documentation.Tags.Where(static tag => tag.Kind == DocumentationTagKind.Param)),
-            Exceptions: ConvertEntries(documentation.Tags.Where(static tag => tag.Kind == DocumentationTagKind.Exception)),
-            See: ConvertEntries(documentation.Tags.Where(static tag => tag.Kind == DocumentationTagKind.See)),
-            SeeAlso: ConvertEntries(documentation.Tags.Where(static tag => tag.Kind == DocumentationTagKind.SeeAlso)));
-    }
-
-    private static ImmutableArray<MarkdownDocumentationEntry> ConvertEntries(IEnumerable<DocumentationTag> tags)
-    {
-        return tags
-            .Select(static tag => new MarkdownDocumentationEntry(
-                Name: EmptyToNull(tag.Argument),
-                Reference: NormalizeReference(tag.Argument),
-                Content: tag.Content))
-            .ToImmutableArray();
-    }
-
-    private static string GetFirstParagraph(string body)
+    internal static string GetFirstParagraph(string body)
     {
         if (string.IsNullOrWhiteSpace(body))
             return string.Empty;
@@ -72,7 +14,7 @@ public static class MarkdownDocumentationStructureExtractor
         return paragraphs.Count > 0 ? paragraphs[0] : string.Empty;
     }
 
-    private static string GetRemainingParagraphs(string body)
+    internal static string GetRemainingParagraphs(string body)
     {
         if (string.IsNullOrWhiteSpace(body))
             return string.Empty;
@@ -84,6 +26,25 @@ public static class MarkdownDocumentationStructureExtractor
         return string.Join(Environment.NewLine + Environment.NewLine, paragraphs.Skip(1));
     }
 
+    public static MarkdownDocumentationStructure Extract(DocumentationComment? documentation)
+    {
+        var structure = DocumentationStructureExtractor.Extract(documentation);
+        return new MarkdownDocumentationStructure(
+            Summary: structure.Summary,
+            Body: structure.Body,
+            AdditionalBody: structure.AdditionalBody,
+            Returns: structure.Returns,
+            Value: structure.Value,
+            Remarks: structure.Remarks,
+            Example: structure.Example,
+            InheritDocReference: structure.InheritDocReference,
+            TypeParameters: structure.TypeParameters.Select(static e => new MarkdownDocumentationEntry(e.Name, e.Reference, e.Content)).ToImmutableArray(),
+            Parameters: structure.Parameters.Select(static e => new MarkdownDocumentationEntry(e.Name, e.Reference, e.Content)).ToImmutableArray(),
+            Exceptions: structure.Exceptions.Select(static e => new MarkdownDocumentationEntry(e.Name, e.Reference, e.Content)).ToImmutableArray(),
+            See: structure.See.Select(static e => new MarkdownDocumentationEntry(e.Name, e.Reference, e.Content)).ToImmutableArray(),
+            SeeAlso: structure.SeeAlso.Select(static e => new MarkdownDocumentationEntry(e.Name, e.Reference, e.Content)).ToImmutableArray());
+    }
+
     private static List<string> SplitParagraphs(string body)
     {
         return Regex.Split(body.Trim(), @"(?:\r?\n){2,}")
@@ -92,16 +53,4 @@ public static class MarkdownDocumentationStructureExtractor
             .ToList();
     }
 
-    private static string? NormalizeReference(string? reference)
-    {
-        if (string.IsNullOrWhiteSpace(reference))
-            return null;
-
-        return reference.StartsWith("xref:", StringComparison.OrdinalIgnoreCase)
-            ? reference["xref:".Length..].Trim()
-            : reference.Trim();
-    }
-
-    private static string? EmptyToNull(string? value)
-        => string.IsNullOrWhiteSpace(value) ? null : value;
 }

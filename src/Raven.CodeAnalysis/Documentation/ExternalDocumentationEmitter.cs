@@ -202,7 +202,7 @@ internal static class ExternalDocumentationEmitter
 
     private static void AppendMarkdownAsXml(StringBuilder builder, DocumentationComment comment)
     {
-        var structure = MarkdownDocumentationStructureExtractor.Extract(comment);
+        var structure = DocumentationStructureExtractor.Extract(comment);
 
         AppendXmlElement(builder, "summary", MarkdownDocumentationTextConverter.ToPlainText(structure.Summary));
 

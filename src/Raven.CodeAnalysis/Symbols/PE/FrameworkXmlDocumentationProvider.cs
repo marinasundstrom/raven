@@ -322,10 +322,10 @@ internal static class XmlDocumentationMarkdownFormatter
     {
         var sections = new List<string>();
 
-        AddIfNotEmpty(sections, RenderBlock(member.Element("summary")));
+        AddIfNotEmpty(sections, RenderElementBody(member.Element("summary")));
 
         var typeParameters = member.Elements("typeparam")
-            .Select(param => (Name: param.Attribute("name")?.Value, Text: RenderBlock(param)))
+            .Select(param => (Name: param.Attribute("name")?.Value, Text: RenderElementBody(param)))
             .Where(static item => !string.IsNullOrWhiteSpace(item.Name) && !string.IsNullOrWhiteSpace(item.Text))
             .Select(static item => $"- `{item.Name}`: {item.Text}")
             .ToArray();
@@ -333,23 +333,23 @@ internal static class XmlDocumentationMarkdownFormatter
             sections.Add("**Type Parameters**\n" + string.Join('\n', typeParameters));
 
         var parameters = member.Elements("param")
-            .Select(param => (Name: param.Attribute("name")?.Value, Text: RenderBlock(param)))
+            .Select(param => (Name: param.Attribute("name")?.Value, Text: RenderElementBody(param)))
             .Where(static item => !string.IsNullOrWhiteSpace(item.Name) && !string.IsNullOrWhiteSpace(item.Text))
             .Select(static item => $"- `{item.Name}`: {item.Text}")
             .ToArray();
         if (parameters.Length > 0)
             sections.Add("**Parameters**\n" + string.Join('\n', parameters));
 
-        AddIfNotEmpty(sections, Prefix("**Returns**", RenderBlock(member.Element("returns"))));
-        AddIfNotEmpty(sections, Prefix("**Value**", RenderBlock(member.Element("value"))));
-        AddIfNotEmpty(sections, Prefix("**Remarks**", RenderBlock(member.Element("remarks"))));
-        AddIfNotEmpty(sections, Prefix("**Example**", RenderBlock(member.Element("example"))));
+        AddIfNotEmpty(sections, Prefix("**Returns**", RenderElementBody(member.Element("returns"))));
+        AddIfNotEmpty(sections, Prefix("**Value**", RenderElementBody(member.Element("value"))));
+        AddIfNotEmpty(sections, Prefix("**Remarks**", RenderElementBody(member.Element("remarks"))));
+        AddIfNotEmpty(sections, Prefix("**Example**", RenderElementBody(member.Element("example"))));
 
         var exceptions = member.Elements("exception")
             .Select(ex =>
             {
                 var cref = NormalizeCref(ex.Attribute("cref")?.Value);
-                var text = RenderBlock(ex);
+                var text = RenderElementBody(ex);
                 return (cref, text);
             })
             .Where(static item => !string.IsNullOrWhiteSpace(item.cref) || !string.IsNullOrWhiteSpace(item.text))
@@ -382,7 +382,7 @@ internal static class XmlDocumentationMarkdownFormatter
             sections.Add(value);
     }
 
-    private static string RenderBlock(XElement? element)
+    internal static string RenderElementBody(XElement? element)
     {
         if (element is null)
             return string.Empty;

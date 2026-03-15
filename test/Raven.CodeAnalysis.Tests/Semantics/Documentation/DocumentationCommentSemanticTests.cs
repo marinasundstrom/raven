@@ -100,4 +100,30 @@ Additional details live in the main body.
         Assert.Single(structure.See);
         Assert.Equal("M:Samples.Docs.Widget.GetTitle", structure.See[0].Reference);
     }
+
+    [Fact]
+    public void DocumentationStructureExtractor_ExtractsSharedStructure_FromXml()
+    {
+        var comment = DocumentationComment.Create(
+            DocumentationFormat.Xml,
+            """
+<summary>Parses a widget title.</summary>
+<param name="text">Input text to parse.</param>
+<returns>The parsed title.</returns>
+<remarks>This is culture-invariant.</remarks>
+<see cref="M:Samples.Docs.Widget.GetTitle" />
+""");
+
+        var structure = DocumentationStructureExtractor.Extract(comment);
+
+        Assert.Equal(DocumentationFormat.Xml, structure.SourceFormat);
+        Assert.Equal("Parses a widget title.", structure.Summary);
+        Assert.Equal("The parsed title.", structure.Returns);
+        Assert.Equal("This is culture-invariant.", structure.Remarks);
+        Assert.Single(structure.Parameters);
+        Assert.Equal("text", structure.Parameters[0].Name);
+        Assert.Equal("Input text to parse.", structure.Parameters[0].Content);
+        Assert.Single(structure.See);
+        Assert.Equal("M:Samples.Docs.Widget.GetTitle", structure.See[0].Reference);
+    }
 }
