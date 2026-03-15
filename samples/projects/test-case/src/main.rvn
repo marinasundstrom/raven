@@ -29,6 +29,11 @@ func Main() {
     for (val x, 0) in points {
         WriteLine(x)
     }
+
+    val persons = [Person(1, "John Doe", 20)]
+    for Person(1, val name, _) in persons {
+        WriteLine(name)
+    }
 }
 
 func Tuple() {
