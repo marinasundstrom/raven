@@ -4,7 +4,7 @@ import System.Collections.Generic.*
 import System.Linq.Expressions.*
 import Microsoft.EntityFrameworkCore.*
 
-func Seed(db: AppDbContext) -> () {
+func Seed(db: AppDbContext) {
     db.Users.Add(User(1, "Ana", 29, true))
     db.Users.Add(User(2, "Bob", 17, true))
     db.Users.Add(User(3, "Cara", 42, false))
@@ -12,7 +12,7 @@ func Seed(db: AppDbContext) -> () {
     db.SaveChanges()
 }
 
-func Main() -> () {
+func Main() {
     val db = AppDbContext()
     db.Database.EnsureDeleted()
     db.Database.EnsureCreated()
@@ -43,7 +43,7 @@ class AppDbContext : DbContext {
     #pragma warning disable-next-line RAV9006
     var Users: DbSet<User>
 
-    protected override func OnConfiguring(optionsBuilder: DbContextOptionsBuilder) -> () {
+    protected override func OnConfiguring(optionsBuilder: DbContextOptionsBuilder) {
         optionsBuilder.UseInMemoryDatabase("Raven.ExpressionTrees.Stage1")
     }
 }

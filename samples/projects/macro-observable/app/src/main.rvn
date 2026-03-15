@@ -2,7 +2,7 @@ import System.*
 import System.Console.*
 import System.ComponentModel.*
 
-func Main() -> () {
+func Main() {
     val viewModel = MyViewModel()
     viewModel.PropertyChanged += func (sender, args) => {
         WriteLine(args.PropertyName ?? "")

@@ -1,7 +1,7 @@
 import System.*
 import System.Console.*
 
-func Main() -> () {
+func Main() {
     var a = 1, b = 2
     WriteLine("a: $a, b: $b")
     

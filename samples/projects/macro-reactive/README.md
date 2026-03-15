@@ -5,7 +5,7 @@ This sample shows attached and freestanding macros working together in a Raven-a
 The sample shape is:
 
 ```raven
-func Main() -> () {
+func Main() {
     val viewModel = CounterViewModel()
 
     use subscription = #subscribe(viewModel.Count, (value) => {

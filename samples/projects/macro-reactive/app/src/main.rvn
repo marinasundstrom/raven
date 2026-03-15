@@ -4,7 +4,7 @@ import System.Reactive.*
 import System.Reactive.Subjects.*
 import System.Reactive.Linq.*
 
-func Main() -> () {
+func Main() {
     val viewModel = CounterViewModel()
 
     use subscription = #subscribe(viewModel.Count, (value) => {

@@ -1,6 +1,6 @@
 import System.Console.*
 
-func Main() -> () {
+func Main() {
     val user = User("Ada", 37)
     WriteLine(user.Name)
 }
