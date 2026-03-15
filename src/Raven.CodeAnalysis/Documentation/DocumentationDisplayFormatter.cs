@@ -21,19 +21,20 @@ public static class DocumentationDisplayFormatter
 
     private static string FormatMarkdownForDisplay(DocumentationComment documentation, bool linkXrefs)
     {
+        var structure = MarkdownDocumentationStructureExtractor.Extract(documentation);
         var sections = new List<string>();
-        if (!string.IsNullOrWhiteSpace(documentation.Body))
-            sections.Add(RewriteXrefsForDisplay(documentation.Body.Trim(), linkXrefs));
+        if (!string.IsNullOrWhiteSpace(structure.Body))
+            sections.Add(RewriteXrefsForDisplay(structure.Body.Trim(), linkXrefs));
 
-        AppendTagSection(sections, "Type Parameters", documentation.Tags.Where(static t => t.Kind == DocumentationTagKind.TypeParam), includeArgument: true, linkXrefs);
-        AppendTagSection(sections, "Parameters", documentation.Tags.Where(static t => t.Kind == DocumentationTagKind.Param), includeArgument: true, linkXrefs);
-        AppendSingleSection(sections, "Returns", documentation.Tags.FirstOrDefault(static t => t.Kind == DocumentationTagKind.Returns), linkXrefs);
-        AppendSingleSection(sections, "Value", documentation.Tags.FirstOrDefault(static t => t.Kind == DocumentationTagKind.Value), linkXrefs);
-        AppendSingleSection(sections, "Remarks", documentation.Tags.FirstOrDefault(static t => t.Kind == DocumentationTagKind.Remarks), linkXrefs);
-        AppendSingleSection(sections, "Example", documentation.Tags.FirstOrDefault(static t => t.Kind == DocumentationTagKind.Example), linkXrefs);
-        AppendTagSection(sections, "Exceptions", documentation.Tags.Where(static t => t.Kind == DocumentationTagKind.Exception), includeArgument: true, linkXrefs);
-        AppendTagSection(sections, "See Also", documentation.Tags.Where(static t => t.Kind is DocumentationTagKind.See or DocumentationTagKind.SeeAlso), includeArgument: true, linkXrefs);
-        AppendSingleSection(sections, "Inherited Documentation", documentation.Tags.FirstOrDefault(static t => t.Kind == DocumentationTagKind.InheritDoc), linkXrefs);
+        AppendEntrySection(sections, "Type Parameters", structure.TypeParameters, includeName: true, linkXrefs);
+        AppendEntrySection(sections, "Parameters", structure.Parameters, includeName: true, linkXrefs);
+        AppendSingleSection(sections, "Returns", structure.Returns, linkXrefs);
+        AppendSingleSection(sections, "Value", structure.Value, linkXrefs);
+        AppendSingleSection(sections, "Remarks", structure.Remarks, linkXrefs);
+        AppendSingleSection(sections, "Example", structure.Example, linkXrefs);
+        AppendEntrySection(sections, "Exceptions", structure.Exceptions, includeName: true, linkXrefs);
+        AppendEntrySection(sections, "See Also", structure.See.Concat(structure.SeeAlso), includeName: true, linkXrefs);
+        AppendSingleSection(sections, "Inherited Documentation", structure.InheritDocReference is null ? null : $"xref:{structure.InheritDocReference}", linkXrefs);
 
         return string.Join("\n\n", sections.Where(static s => !string.IsNullOrWhiteSpace(s)));
     }
@@ -239,27 +240,30 @@ public static class DocumentationDisplayFormatter
         return System.Text.RegularExpressions.Regex.Replace(text, "\\s+", " ").Trim();
     }
 
-    private static void AppendSingleSection(List<string> sections, string heading, DocumentationTag? tag, bool linkXrefs)
+    private static void AppendSingleSection(List<string> sections, string heading, string? content, bool linkXrefs)
     {
-        if (tag is null || string.IsNullOrWhiteSpace(tag.Content))
+        if (string.IsNullOrWhiteSpace(content))
             return;
 
-        sections.Add($"**{heading}**\n\n{RewriteXrefsForDisplay(tag.Content.Trim(), linkXrefs)}");
+        sections.Add($"**{heading}**\n\n{RewriteXrefsForDisplay(content.Trim(), linkXrefs)}");
     }
 
-    private static void AppendTagSection(List<string> sections, string heading, IEnumerable<DocumentationTag> tags, bool includeArgument, bool linkXrefs)
+    private static void AppendEntrySection(List<string> sections, string heading, IEnumerable<MarkdownDocumentationEntry> entries, bool includeName, bool linkXrefs)
     {
-        var entries = tags
-            .Select(tag =>
+        var lines = entries
+            .Select(entry =>
             {
-                var label = includeArgument && !string.IsNullOrWhiteSpace(tag.Argument)
-                    ? FormatTagArgument(tag.Argument!, linkXrefs)
+                var label = includeName && !string.IsNullOrWhiteSpace(entry.Name)
+                    ? FormatTagArgument(
+                        entry.Reference is null ? entry.Name! : $"xref:{entry.Reference}",
+                        linkXrefs,
+                        preserveLabel: entry.Reference is null ? entry.Name : null)
                     : null;
 
-                if (string.IsNullOrWhiteSpace(tag.Content))
+                if (string.IsNullOrWhiteSpace(entry.Content))
                     return label is null ? null : $"- {label}";
 
-                var content = RewriteXrefsForDisplay(tag.Content.Trim(), linkXrefs);
+                var content = RewriteXrefsForDisplay(entry.Content.Trim(), linkXrefs);
                 return label is null
                     ? $"- {content}"
                     : $"- {label}: {content}";
@@ -268,16 +272,16 @@ public static class DocumentationDisplayFormatter
             .Cast<string>()
             .ToList();
 
-        if (entries.Count == 0)
+        if (lines.Count == 0)
             return;
 
-        sections.Add($"**{heading}**\n\n{string.Join("\n", entries)}");
+        sections.Add($"**{heading}**\n\n{string.Join("\n", lines)}");
     }
 
-    private static string FormatTagArgument(string argument, bool linkXrefs)
+    private static string FormatTagArgument(string argument, bool linkXrefs, string? preserveLabel = null)
     {
         if (argument.StartsWith("xref:", StringComparison.OrdinalIgnoreCase))
-            return FormatXrefTarget(argument["xref:".Length..], linkXrefs);
+            return FormatXrefTarget(argument["xref:".Length..], linkXrefs, preserveLabel);
 
         return $"`{argument}`";
     }
@@ -305,12 +309,15 @@ public static class DocumentationDisplayFormatter
             match => FormatXrefTarget(match.Groups["target"].Value, linkXrefs));
     }
 
-    private static string FormatXrefTarget(string target, bool linkXrefs)
+    private static string FormatXrefTarget(string target, bool linkXrefs, string? preserveLabel = null)
     {
         var value = target.Trim();
         var colon = value.IndexOf(':');
         if (colon >= 0 && colon < value.Length - 1)
             value = value[(colon + 1)..];
+
+        if (!string.IsNullOrWhiteSpace(preserveLabel))
+            value = preserveLabel!;
 
         return linkXrefs
             ? $"[{value}]({CreateDocumentationUri(target.Trim(), value)})"

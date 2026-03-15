@@ -71,4 +71,33 @@ class C {
         Assert.Equal(DocumentationTagKind.Remarks, comment.Tags[2].Kind);
         Assert.Equal("This is culture-invariant.", comment.Tags[2].Content);
     }
+
+    [Fact]
+    public void MarkdownDocumentationStructureExtractor_ExtractsSharedStructure()
+    {
+        var comment = DocumentationComment.Create(
+            DocumentationFormat.Markdown,
+            """
+Parses a widget title.
+
+Additional details live in the main body.
+
+@param text Input text to parse.
+@returns The parsed title.
+@remarks This is culture-invariant.
+@see xref:M:Samples.Docs.Widget.GetTitle
+""");
+
+        var structure = MarkdownDocumentationStructureExtractor.Extract(comment);
+
+        Assert.Equal("Parses a widget title.", structure.Summary);
+        Assert.Equal("Additional details live in the main body.", structure.AdditionalBody);
+        Assert.Equal("This is culture-invariant.", structure.Remarks);
+        Assert.Equal("The parsed title.", structure.Returns);
+        Assert.Single(structure.Parameters);
+        Assert.Equal("text", structure.Parameters[0].Name);
+        Assert.Equal("Input text to parse.", structure.Parameters[0].Content);
+        Assert.Single(structure.See);
+        Assert.Equal("M:Samples.Docs.Widget.GetTitle", structure.See[0].Reference);
+    }
 }

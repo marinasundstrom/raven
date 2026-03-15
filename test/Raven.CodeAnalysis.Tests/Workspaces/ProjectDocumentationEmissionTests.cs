@@ -176,6 +176,81 @@ class Widget {
         }
     }
 
+    [Fact]
+    public void MsBuildProject_EmitsStructuredXmlFromMarkdownDocumentation_WhenBothOutputsAreEnabled()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var sourcePath = Path.Combine(root, "main.rvn");
+            File.WriteAllText(sourcePath, """
+/// Parses a widget title.
+///
+/// Accepts plain titles and quoted titles.
+///
+/// @param text Input text to parse.
+/// @returns The parsed title.
+/// @remarks This is culture-invariant.
+public class WidgetParser {
+    /// Parses a widget title.
+    ///
+    /// @param text Input text to parse.
+    /// @returns The parsed title.
+    public func Parse(text: string) -> string {
+        text
+    }
+}
+""");
+
+            var projectPath = Path.Combine(root, "Docs.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>DocsProject</AssemblyName>
+                    <OutputType>Library</OutputType>
+                    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+                    <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
+                    <DocumentationFile>artifacts/docs/DocsProject.xml</DocumentationFile>
+                    <MarkdownDocumentationOutputPath>artifacts/docs/DocsProject.docs</MarkdownDocumentationOutputPath>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="main.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var compilerDllPath = EnsureCompilerBuilt();
+            var outputDirectory = Path.Combine(root, "bin");
+            Directory.CreateDirectory(outputDirectory);
+
+            var result = RunProcess(
+                "dotnet",
+                $"\"{compilerDllPath}\" \"{projectPath}\" -o \"{outputDirectory}\"",
+                root,
+                300_000);
+
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+            Assert.Equal(0, result.ExitCode);
+
+            var xmlPath = Path.Combine(outputDirectory, "artifacts", "docs", "DocsProject.xml");
+            Assert.True(File.Exists(xmlPath));
+            var xml = File.ReadAllText(xmlPath);
+
+            Assert.Contains("<summary>Parses a widget title.</summary>", xml, StringComparison.Ordinal);
+            Assert.Contains("<remarks>This is culture-invariant.</remarks>", xml, StringComparison.Ordinal);
+            Assert.Contains("<param name=\"text\">Input text to parse.</param>", xml, StringComparison.Ordinal);
+            Assert.Contains("<returns>The parsed title.</returns>", xml, StringComparison.Ordinal);
+            Assert.DoesNotContain("@param", xml, StringComparison.Ordinal);
+            Assert.DoesNotContain("///", xml, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
     private static string EnsureCompilerBuilt()
     {
         var repoRoot = GetRepositoryRoot();

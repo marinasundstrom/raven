@@ -180,9 +180,79 @@ internal static class ExternalDocumentationEmitter
             return;
         }
 
+        if (comment.Format == DocumentationFormat.Markdown)
+        {
+            AppendMarkdownAsXml(builder, comment);
+            return;
+        }
+
         builder.Append("      <summary>");
         builder.Append(SecurityElement.Escape(body));
         builder.AppendLine("</summary>");
+    }
+
+    private static void AppendMarkdownAsXml(StringBuilder builder, DocumentationComment comment)
+    {
+        var structure = MarkdownDocumentationStructureExtractor.Extract(comment);
+
+        AppendXmlElement(builder, "summary", structure.Summary);
+
+        foreach (var entry in structure.TypeParameters)
+            AppendXmlElement(builder, "typeparam", entry.Content, ("name", entry.Name));
+
+        foreach (var entry in structure.Parameters)
+            AppendXmlElement(builder, "param", entry.Content, ("name", entry.Name));
+
+        AppendXmlElement(builder, "returns", structure.Returns);
+        AppendXmlElement(builder, "value", structure.Value);
+        AppendXmlElement(builder, "remarks", structure.Remarks);
+        AppendXmlElement(builder, "example", structure.Example);
+
+        foreach (var entry in structure.Exceptions)
+            AppendXmlElement(builder, "exception", entry.Content, ("cref", entry.Reference));
+
+        foreach (var entry in structure.See)
+            AppendXmlElement(builder, "see", entry.Content, ("cref", entry.Reference));
+
+        foreach (var entry in structure.SeeAlso)
+            AppendXmlElement(builder, "seealso", entry.Content, ("cref", entry.Reference));
+
+        if (!string.IsNullOrWhiteSpace(structure.InheritDocReference))
+            AppendXmlElement(builder, "inheritdoc", attributes: [("cref", structure.InheritDocReference)]);
+    }
+
+    private static void AppendXmlElement(
+        StringBuilder builder,
+        string elementName,
+        string? content = null,
+        params (string Name, string? Value)[] attributes)
+    {
+        builder.Append("      <");
+        builder.Append(elementName);
+
+        foreach (var (name, value) in attributes)
+        {
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(value))
+                continue;
+
+            builder.Append(' ');
+            builder.Append(name);
+            builder.Append("=\"");
+            builder.Append(SecurityElement.Escape(value));
+            builder.Append('"');
+        }
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            builder.AppendLine(" />");
+            return;
+        }
+
+        builder.Append('>');
+        builder.Append(SecurityElement.Escape(content.Trim()));
+        builder.Append("</");
+        builder.Append(elementName);
+        builder.AppendLine(">");
     }
 
     private static bool TryNormalizeXmlFragment(string content, out string? fragment)
