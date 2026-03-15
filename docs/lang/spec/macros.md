@@ -89,6 +89,8 @@ For freestanding expression macros, the equivalent APIs are `FreestandingMacroCo
 
 Each parsed `MacroArgument` exposes a richer constant representation through `Constant`, plus the evaluated CLR value directly through `Value` as a convenience.
 
+For argument and usage validation inside the macro itself, plugins may also report macro-owned expansion diagnostics through `MacroExpansionResult.MacroDiagnostics` / `FreestandingMacroExpansionResult.MacroDiagnostics`. The helper methods `CreateDiagnostic(...)` and `CreateArgumentDiagnostic(...)` on both macro contexts create these diagnostics at either the macro site or a specific argument site.
+
 This raw-argument model is transitional. The intended direction is typed macro parameter objects, so macro signatures can be validated and presented like normal attributes in completion and signature help. The public contract now includes `IMacroDefinition<TParameters>`, `IAttachedDeclarationMacro<TParameters>`, and `IFreestandingExpressionMacro<TParameters>` for that bound-parameter model.
 
 Example direction:
@@ -119,13 +121,29 @@ The target experience is that macro arguments bind like attribute arguments:
 * diagnostics for unknown names, missing required arguments, and invalid constant conversions
 * typed parameter access in the macro implementation
 
+Example macro-side validation:
+
+```csharp
+return new MacroExpansionResult
+{
+    MacroDiagnostics =
+    [
+        context.CreateArgumentDiagnostic(
+            context.Arguments[0],
+            "name cannot be empty",
+            code: "VAL001")
+    ]
+};
+```
+
 ## Expansion model
 
 Macro expansion is not a preprocessor step. The source file is parsed normally first. After parsing, the compiler resolves macros from referenced macro assemblies and requests expansions using structured Raven syntax.
 
 The current attached-macro system supports these generic result shapes:
 
-* diagnostics
+* compiler-owned macro expansion diagnostics with custom messages and precise locations
+* raw compiler diagnostics for advanced scenarios
 * introduced members
 * replacement of the annotated declaration
 
@@ -133,7 +151,8 @@ Expansion must remain generic. The compiler does not hardcode macro-specific beh
 
 Freestanding expression macros return a generic expression-expansion result shape:
 
-* diagnostics
+* compiler-owned macro expansion diagnostics with custom messages and precise locations
+* raw compiler diagnostics for advanced scenarios
 * replacement expression
 
 ## Project references
@@ -149,6 +168,8 @@ Example:
 ```
 
 The compiler loads the referenced macro assembly, resolves exported macros by name, validates target compatibility, and reports failures as ordinary diagnostics.
+
+Macro-reported validation failures currently surface through the shared compiler diagnostic `RAVM021`, with the macro name and custom message embedded in the diagnostic text. The diagnostic location may point either at the macro site or at a specific argument.
 
 ## Example
 

@@ -10,7 +10,7 @@ Current implementation status:
 * Initial .NET plugin contracts exist under `Raven.CodeAnalysis.Macros`.
 * Project files can reference macro assemblies with `RavenMacro` items and the compiler now resolves attached macros against those plugin assemblies.
 * Freestanding expression macros now use `#name(...)` syntax, resolve through the same plugin registry, and support the same typed parameter-object binding direction as attached macros.
-* Unknown macros, duplicate exports, invalid targets, plugin load failures, and plugin-thrown expansion failures now produce compiler diagnostics.
+* Unknown macros, duplicate exports, invalid targets, plugin load failures, plugin-thrown expansion failures, and macro-reported validation failures now produce compiler diagnostics.
 * Attached macros are invoked through a generic semantic-model expansion path and expansion results are cached per compilation.
 * `MacroExpansionResult` now models both additive members and optional declaration replacement.
 * Generated-member and replacement integration into normal binding/codegen is not implemented yet.
@@ -97,6 +97,8 @@ The compiler parses and preserves these arguments generically. Their meaning is 
 
 For attached declaration macros, the raw parsed arguments are exposed directly on `AttachedMacroContext.ArgumentList`, and a convenience parsed view is exposed on `AttachedMacroContext.Arguments`. Each parsed `MacroArgument` exposes a richer constant representation through `Constant`, plus the evaluated CLR value directly through `Value` as a convenience.
 
+For macro-authored validation errors, the expansion result can also carry `MacroExpansionDiagnostic` entries. `AttachedMacroContext.CreateDiagnostic(...)` and `AttachedMacroContext.CreateArgumentDiagnostic(...)` provide the intended convenience path for reporting a custom message at either the macro site or a specific argument.
+
 The next contract direction is typed parameter objects, exposed through generic macro definitions:
 
 ```csharp
@@ -124,6 +126,8 @@ This is intended to let the compiler eventually bind macro arguments the same wa
 * constant conversion diagnostics before expansion
 * editor completion and signature help based on the declared parameter object
 * strongly typed access to parameters in the plugin
+
+Current validation diagnostics reported by the macro itself are surfaced through a shared compiler-owned diagnostic ID, with the specific macro name and message carried in the formatted text rather than through plugin-defined descriptor IDs.
 
 ## Invocation Macros (future / Rust-style)
 
@@ -313,6 +317,8 @@ Today the flow is:
 4. Invoke the plugin with structured Raven syntax
 5. Cache the resulting `MacroExpansionResult` on the semantic model
 6. Surface plugin diagnostics through normal compiler diagnostics
+
+In the current implementation slice, “plugin diagnostics” primarily means macro-owned expansion diagnostics lowered to the compiler’s shared macro-expansion diagnostic (`RAVM021`) with source-accurate locations.
 
 This makes macro expansion available to tooling and inspection without yet committing Raven to generated-member substitution inside binding/codegen.
 

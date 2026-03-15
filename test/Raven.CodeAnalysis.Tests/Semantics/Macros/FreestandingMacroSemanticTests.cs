@@ -76,6 +76,28 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.Contains("answer", diagnostic.GetMessage());
     }
 
+    [Fact]
+    public void FreestandingMacroReportedArgumentValidationDiagnostic_UsesMacroDiagnosticPath()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #repeat(0)
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ValidatingFreestandingMacroPlugin)));
+        var diagnostics = compilation.GetDiagnostics();
+
+        var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVM021"));
+        Assert.Contains("repeat", diagnostic.GetMessage());
+        Assert.Contains("REP001: count must be greater than zero", diagnostic.GetMessage(), StringComparison.Ordinal);
+
+        var argument = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ArgumentSyntax>()
+            .Single();
+
+        Assert.Equal(argument.Span, diagnostic.Location.SourceSpan);
+    }
+
     public sealed class AnswerMacroPlugin : IRavenMacroPlugin
     {
         public string Name => nameof(AnswerMacroPlugin);
@@ -128,6 +150,48 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         public int Count { get; } = count;
 
         public string? Label { get; set; }
+    }
+
+    public sealed class ValidatingFreestandingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(ValidatingFreestandingMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new ValidatingFreestandingMacro()];
+    }
+
+    public sealed class ValidatingFreestandingMacroParameters(int count)
+    {
+        public int Count { get; } = count;
+    }
+
+    public sealed class ValidatingFreestandingMacro : IFreestandingExpressionMacro<ValidatingFreestandingMacroParameters>
+    {
+        public string Name => "repeat";
+        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<ValidatingFreestandingMacroParameters> context)
+        {
+            if (context.Parameters.Count <= 0)
+            {
+                return new FreestandingMacroExpansionResult
+                {
+                    MacroDiagnostics =
+                    [
+                        context.CreateArgumentDiagnostic(
+                            context.Arguments[0],
+                            "count must be greater than zero",
+                            code: "REP001")
+                    ]
+                };
+            }
+
+            return new FreestandingMacroExpansionResult
+            {
+                Expression = ParseExpression("42")
+            };
+        }
     }
 
     private static ExpressionSyntax ParseExpression(string expressionText)

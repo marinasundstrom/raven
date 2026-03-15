@@ -14,5 +14,7 @@ public sealed class MacroExpansionResult
 
     public ImmutableArray<MemberDeclarationSyntax> PeerDeclarations { get; set; } = ImmutableArray<MemberDeclarationSyntax>.Empty;
 
+    public ImmutableArray<MacroExpansionDiagnostic> MacroDiagnostics { get; set; } = ImmutableArray<MacroExpansionDiagnostic>.Empty;
+
     public ImmutableArray<Diagnostic> Diagnostics { get; set; } = ImmutableArray<Diagnostic>.Empty;
 }

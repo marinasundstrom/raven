@@ -37,6 +37,23 @@ public class AttachedMacroContext
 
     public CancellationToken CancellationToken { get; }
 
+    public MacroExpansionDiagnostic CreateDiagnostic(
+        string message,
+        DiagnosticSeverity severity = DiagnosticSeverity.Error,
+        SyntaxNode? syntax = null,
+        string? code = null)
+        => new(severity, message, syntax?.GetLocation() ?? Syntax.Name.GetLocation(), code);
+
+    public MacroExpansionDiagnostic CreateArgumentDiagnostic(
+        MacroArgument argument,
+        string message,
+        DiagnosticSeverity severity = DiagnosticSeverity.Error,
+        string? code = null)
+    {
+        ArgumentNullException.ThrowIfNull(argument);
+        return new MacroExpansionDiagnostic(severity, message, argument.Syntax.GetLocation(), code);
+    }
+
     private static ImmutableArray<MacroArgument> CreateArguments(ArgumentListSyntax? argumentList, SemanticModel semanticModel)
     {
         if (argumentList is null)

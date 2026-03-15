@@ -11,6 +11,16 @@ namespace Raven.CodeAnalysis.Macros;
 
 internal static class MacroExpansionService
 {
+    private static readonly DiagnosticDescriptor s_macroReportedDiagnostic = DiagnosticDescriptor.Create(
+        "RAVM021",
+        "Macro reported diagnostic",
+        "",
+        "",
+        "Macro '{0}': {1}",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
     private static readonly DiagnosticDescriptor s_macroExpansionFailed = DiagnosticDescriptor.Create(
         "RAVM020",
         "Macro expansion failed",
@@ -40,6 +50,8 @@ internal static class MacroExpansionService
                 ?? MacroExpansionResult.Empty;
             result = ContextualizeExpansionResult(targetDeclaration, result);
             RegisterGeneratedSyntaxTrees(compilation, semanticModel, result);
+
+            ReportMacroDiagnostics(diagnostics, loaded.Macro.Name, attribute.Name.GetLocation(), result.MacroDiagnostics);
 
             foreach (var diagnostic in result.Diagnostics)
                 diagnostics.Report(diagnostic);
@@ -75,6 +87,8 @@ internal static class MacroExpansionService
                 ?? FreestandingMacroExpansionResult.Empty;
             result = ContextualizeExpansionResult(expression, result);
             RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Expression);
+
+            ReportMacroDiagnostics(diagnostics, loaded.Macro.Name, expression.Name.GetLocation(), result.MacroDiagnostics);
 
             foreach (var diagnostic in result.Diagnostics)
                 diagnostics.Report(diagnostic);
@@ -220,6 +234,7 @@ internal static class MacroExpansionService
             ReplacementDeclaration = contextualMembers[replacementIndex],
             IntroducedMembers = SliceMembers(contextualMembers, introducedStartIndex, result.IntroducedMembers.Length),
             PeerDeclarations = SliceMembers(contextualMembers, peerStartIndex, result.PeerDeclarations.Length),
+            MacroDiagnostics = result.MacroDiagnostics,
             Diagnostics = result.Diagnostics
         };
     }
@@ -299,8 +314,31 @@ internal static class MacroExpansionService
         return new FreestandingMacroExpansionResult
         {
             Expression = contextualExpression,
+            MacroDiagnostics = result.MacroDiagnostics,
             Diagnostics = result.Diagnostics
         };
+    }
+
+    private static void ReportMacroDiagnostics(
+        DiagnosticBag diagnostics,
+        string macroName,
+        Location fallbackLocation,
+        ImmutableArray<MacroExpansionDiagnostic> macroDiagnostics)
+    {
+        foreach (var macroDiagnostic in macroDiagnostics)
+        {
+            var location = macroDiagnostic.Location ?? fallbackLocation;
+            var message = macroDiagnostic.Code is { Length: > 0 }
+                ? $"{macroDiagnostic.Code}: {macroDiagnostic.Message}"
+                : macroDiagnostic.Message;
+
+            diagnostics.Report(Diagnostic.Create(
+                s_macroReportedDiagnostic,
+                location,
+                macroDiagnostic.Severity,
+                macroName,
+                message));
+        }
     }
 
     private static void RegisterSyntaxTree(

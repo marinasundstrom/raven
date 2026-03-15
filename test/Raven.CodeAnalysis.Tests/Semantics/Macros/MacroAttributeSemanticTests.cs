@@ -280,6 +280,29 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void MacroReportedArgumentValidationDiagnostic_UsesMacroDiagnosticPath()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            #[ValidateName("")]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ValidationMacroPlugin)));
+        var diagnostics = compilation.GetDiagnostics();
+
+        var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVM021"));
+        Assert.Contains("ValidateName", diagnostic.GetMessage());
+        Assert.Contains("VAL001: name cannot be empty", diagnostic.GetMessage(), StringComparison.Ordinal);
+
+        var argument = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ArgumentSyntax>()
+            .Single();
+
+        Assert.Equal(argument.Span, diagnostic.Location.SourceSpan);
+    }
+
+    [Fact]
     public void MacroExpansionFailure_ReportsDiagnostic()
     {
         var (compilation, _) = CreateCompilation("""
@@ -462,6 +485,47 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
         public MacroExpansionResult Expand(AttachedMacroContext context)
             => throw new InvalidOperationException("plugin boom");
+    }
+
+    public sealed class ValidationMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "ValidationMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new ValidationAttachedMacro()];
+    }
+
+    public sealed class ValidationAttachedMacroParameters(string name)
+    {
+        public string Name { get; } = name;
+    }
+
+    public sealed class ValidationAttachedMacro : IAttachedDeclarationMacro<ValidationAttachedMacroParameters>
+    {
+        public string Name => "ValidateName";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext<ValidationAttachedMacroParameters> context)
+        {
+            if (string.IsNullOrEmpty(context.Parameters.Name))
+            {
+                return new MacroExpansionResult
+                {
+                    MacroDiagnostics =
+                    [
+                        context.CreateArgumentDiagnostic(
+                            context.Arguments[0],
+                            "name cannot be empty",
+                            code: "VAL001")
+                    ]
+                };
+            }
+
+            return MacroExpansionResult.Empty;
+        }
     }
 
     public sealed class ArgumentCapturingMacroPlugin : IRavenMacroPlugin

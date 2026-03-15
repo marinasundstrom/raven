@@ -10,5 +10,7 @@ public sealed class FreestandingMacroExpansionResult
 
     public ExpressionSyntax? Expression { get; set; }
 
+    public ImmutableArray<MacroExpansionDiagnostic> MacroDiagnostics { get; set; } = ImmutableArray<MacroExpansionDiagnostic>.Empty;
+
     public ImmutableArray<Diagnostic> Diagnostics { get; set; } = ImmutableArray<Diagnostic>.Empty;
 }
