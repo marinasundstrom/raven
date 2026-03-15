@@ -124,7 +124,7 @@ public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
         parts.Add(expr);
     }
 
-    private static bool IsStringType(ITypeSymbol? type)
+    internal static bool IsStringType(ITypeSymbol? type)
     {
         if (type is null)
             return false;
@@ -153,7 +153,7 @@ public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool CanMergeIntoStringText(ExpressionSyntax expression, SemanticModel semanticModel)
+    internal static bool CanMergeIntoStringText(ExpressionSyntax expression, SemanticModel semanticModel)
     {
         if (IsStringLiteral(expression))
             return true;

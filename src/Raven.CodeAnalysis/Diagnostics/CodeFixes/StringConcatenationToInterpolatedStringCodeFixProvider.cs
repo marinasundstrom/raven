@@ -70,7 +70,7 @@ public sealed class StringConcatenationToInterpolatedStringCodeFixProvider : Cod
                 change));
     }
 
-    private static InfixOperatorExpressionSyntax GetTopmostConcat(InfixOperatorExpressionSyntax expr)
+    internal static InfixOperatorExpressionSyntax GetTopmostConcat(InfixOperatorExpressionSyntax expr)
     {
         // If Raven has Parent typed as SyntaxNode, this works.
         var current = expr;
@@ -84,7 +84,7 @@ public sealed class StringConcatenationToInterpolatedStringCodeFixProvider : Cod
         return current;
     }
 
-    private static void FlattenConcat(ExpressionSyntax expr, List<ExpressionSyntax> parts)
+    internal static void FlattenConcat(ExpressionSyntax expr, List<ExpressionSyntax> parts)
     {
         if (expr is InfixOperatorExpressionSyntax add &&
             add.Kind == SyntaxKind.AddExpression)
@@ -97,7 +97,7 @@ public sealed class StringConcatenationToInterpolatedStringCodeFixProvider : Cod
         parts.Add(expr);
     }
 
-    private static bool TryBuildInterpolatedString(List<ExpressionSyntax> parts, SemanticModel semanticModel, out string replacement)
+    internal static bool TryBuildInterpolatedString(List<ExpressionSyntax> parts, SemanticModel semanticModel, out string replacement)
     {
         var sb = new StringBuilder();
         sb.Append('"');

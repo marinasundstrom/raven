@@ -9,8 +9,6 @@ public static class BuiltInCodeFixProviders
         return
         [
             new MissingReturnTypeAnnotationCodeFixProvider(),
-            new PreferTargetTypedUnionCaseCodeFixProvider(),
-            new PreferTargetTypedUnionCaseInTargetTypedContextCodeFixProvider(),
             new PreferValInsteadOfLetCodeFixProvider(),
             new VarCanBeValCodeFixProvider(),
             new MemberCanBePrivateCodeFixProvider(),
@@ -20,14 +18,9 @@ public static class BuiltInCodeFixProviders
             new NonNullDeclarationsCodeFixProvider(),
             new PreferDuLinqExtensionsCodeFixProvider(),
             new PreferIsNullOverEqualityCodeFixProvider(),
-            new RedundantAccessorDeclarationCodeFixProvider(),
-            new StringConcatenationToInterpolatedStringCodeFixProvider(),
-            new MergeStringLiteralConcatenationCodeFixProvider(),
             new ConstructorParameterNamingCodeFixProvider(),
             new ConversionCastCodeFixProvider(),
-            new SingleStatementBlockBodyCodeFixProvider(),
-            new ExpressionBodyToBlockBodyCodeFixProvider(),
             new PragmaWarningSuppressionCodeFixProvider(),
         ];
-}
+    }
 }

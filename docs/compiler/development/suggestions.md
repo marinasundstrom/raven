@@ -31,15 +31,15 @@ Use a context-driven refactoring when:
 - the transform is reversible and mostly about source shape
 - showing a diagnostic would create noise without adding signal
 
-Current built-in promotion candidates for the refactoring path are:
+Current built-in refactorings include:
 
 - target-typed union-case rewrites
 - expression-body/block-body conversions
 - redundant accessor removal
 - string concatenation rewrites
 
-These should eventually move out of the analyzer diagnostics stream and into standard refactoring
-providers.
+These are implemented as standard refactoring providers and no longer depend on the built-in analyzer
+diagnostics stream.
 
 ## Convention
 

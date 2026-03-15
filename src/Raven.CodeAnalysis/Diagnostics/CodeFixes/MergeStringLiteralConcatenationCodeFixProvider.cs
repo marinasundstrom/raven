@@ -75,7 +75,7 @@ public sealed class MergeStringLiteralConcatenationCodeFixProvider : CodeFixProv
         parts.Add(expression);
     }
 
-    private static bool TryGetTextPart(ExpressionSyntax expression, SemanticModel semanticModel, out string text)
+    internal static bool TryGetTextPart(ExpressionSyntax expression, SemanticModel semanticModel, out string text)
     {
         if (expression is ParenthesizedExpressionSyntax parenthesized)
             return TryGetTextPart(parenthesized.Expression, semanticModel, out text);
@@ -156,7 +156,7 @@ public sealed class MergeStringLiteralConcatenationCodeFixProvider : CodeFixProv
         }
     }
 
-    private static string EscapeStringLiteral(string text)
+    internal static string EscapeStringLiteral(string text)
     {
         var builder = new StringBuilder(text.Length);
 

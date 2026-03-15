@@ -77,7 +77,7 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
         }
     }
 
-    private static bool TryCreateSuggestion(
+    internal static bool TryCreateSuggestion(
         ExpressionSyntax expression,
         ITypeSymbol targetType,
         SemanticModel semanticModel,
@@ -112,6 +112,20 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
         var targetTypeText = targetUnion.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
         suggestion = new Suggestion(expression.GetLocation(), original, rewritten, targetTypeText);
         return true;
+    }
+
+    internal static bool TryCreateSuggestion(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel,
+        out Suggestion suggestion)
+    {
+        suggestion = default;
+
+        var typeInfo = semanticModel.GetTypeInfo(expression);
+        if (typeInfo.ConvertedType is null || typeInfo.ConvertedType.TypeKind == TypeKind.Error)
+            return false;
+
+        return TryCreateSuggestion(expression, typeInfo.ConvertedType, semanticModel, out suggestion);
     }
 
     private static void AnalyzeLocalDeclaration(SyntaxNodeAnalysisContext context)

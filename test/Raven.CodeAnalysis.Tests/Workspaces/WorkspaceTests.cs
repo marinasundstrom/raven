@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -284,6 +285,81 @@ public class WorkspaceTest
         Assert.Equal(documentId, refactoring.DocumentId);
         Assert.Equal("Test refactoring", refactoring.Action.Title);
         Assert.Equal(new TextSpan(0, 4), refactoring.Span);
+    }
+
+    [Fact]
+    public async Task GetRefactorings_ExpressionBodyProvider_RewritesSelectedDeclaration()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = "func Value() -> int => 1";
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new ExpressionBodyToBlockBodyRefactoringProvider()],
+            new TextSpan(code.IndexOf("=>", StringComparison.Ordinal), 2));
+
+        var refactoring = Assert.Single(refactorings);
+        var updated = refactoring.Action.GetChangedSolution(workspace.CurrentSolution);
+        var updatedText = await updated.GetDocument(documentId)!.GetTextAsync();
+
+        Assert.Equal("func Value() -> int {\n    return 1\n}", updatedText.ToString());
+    }
+
+    [Fact]
+    public async Task GetRefactorings_SingleStatementBlockProvider_RewritesSelectedDeclaration()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = "func Value() -> int { return 1 }";
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new SingleStatementBlockBodyRefactoringProvider()],
+            new TextSpan(code.IndexOf("return", StringComparison.Ordinal), 6));
+
+        var refactoring = Assert.Single(refactorings);
+        var updated = refactoring.Action.GetChangedSolution(workspace.CurrentSolution);
+        var updatedText = await updated.GetDocument(documentId)!.GetTextAsync();
+
+        Assert.Equal("func Value() -> int => 1", updatedText.ToString());
+    }
+
+    [Fact]
+    public async Task GetRefactorings_StringConcatenationProvider_RewritesSelectedExpression()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = "func Main() -> () {\n    val text = \"a\" + \"b\"\n}";
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new StringConcatenationRefactoringProvider()],
+            new TextSpan(code.IndexOf("+", StringComparison.Ordinal), 1));
+
+        var refactoring = Assert.Single(refactorings);
+        var updated = refactoring.Action.GetChangedSolution(workspace.CurrentSolution);
+        var updatedText = await updated.GetDocument(documentId)!.GetTextAsync();
+
+        Assert.Equal("func Main() -> () {\n    val text = \"ab\"\n}", updatedText.ToString());
     }
 
     private sealed class TestRefactoringProvider : CodeRefactoringProvider

@@ -55,7 +55,8 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `PreferIsNullOverEqualityAnalyzer`
 - `ConstructorParameterNamingAnalyzer`
 
-Built-in analyzers that are strong promotion candidates for the refactoring/suggestion pipeline are:
+The following built-in rewrites are now exposed through the refactoring/suggestion pipeline instead of
+the built-in analyzer set:
 
 - `PreferTargetTypedUnionCaseAnalyzer`
 - `PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer`
@@ -64,9 +65,9 @@ Built-in analyzers that are strong promotion candidates for the refactoring/sugg
 - `RedundantAccessorDeclarationAnalyzer`
 - `StringConcatenationAnalyzer` (`RAV9021` / `RAV9022`)
 
-These are better treated as editor actions because they mostly express alternative source shapes,
-not correctness or policy violations. They should show up as on-demand suggestions rather than
-occupying the normal diagnostics stream.
+These are treated as editor actions because they mostly express alternative source shapes, not
+correctness or policy violations. They show up as on-demand suggestions rather than occupying the
+normal diagnostics stream.
 
 `PreferNewLineBetweenDeclarationsAnalyzer` is intentionally not in that promotion list: it is closer
 to formatting policy than refactoring and should eventually be handled by formatting configuration
@@ -76,6 +77,12 @@ Built-in code fixes currently include:
 - `RAV9016` (`Make member private`)
 - `RAV9017` (`Make member static`)
 - `RAV9018` (`Remove unused property`)
+
+Built-in refactorings currently include:
+- target-typed union-case rewrites
+- expression-body/block-body conversions
+- redundant accessor removal
+- string concatenation rewrites
 
 For suggestion payload conventions (`--suggestions`, rewrite property keys, and option
 gating), see `docs/compiler/development/suggestions.md`.

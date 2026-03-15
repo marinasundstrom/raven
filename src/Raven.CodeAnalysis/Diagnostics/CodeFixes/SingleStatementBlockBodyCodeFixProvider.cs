@@ -41,7 +41,7 @@ public sealed class SingleStatementBlockBodyCodeFixProvider : CodeFixProvider
                 change));
     }
 
-    private static BlockStatementSyntax? TryGetBodyBlock(SyntaxNode node)
+    internal static BlockStatementSyntax? TryGetBodyBlock(SyntaxNode node)
     {
         return node switch
         {

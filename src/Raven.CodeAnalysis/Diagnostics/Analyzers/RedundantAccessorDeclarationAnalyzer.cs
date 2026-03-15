@@ -66,7 +66,7 @@ public sealed class RedundantAccessorDeclarationAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(diagnostic);
     }
 
-    private static bool TryGetRedundantAccessorList(
+    internal static bool TryGetRedundantAccessorList(
         SyntaxKind bindingKeywordKind,
         AccessorListSyntax? accessorList,
         out AccessorListSyntax redundantAccessorList)

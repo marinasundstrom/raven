@@ -22,17 +22,12 @@ public static class BuiltInAnalyzers
         project = AddAnalyzerIfMissing<UnusedPropertyAnalyzer>(project);
         project = AddAnalyzerIfMissing<UnusedMethodAnalyzer>(project);
         project = AddAnalyzerIfMissing<PreferDuLinqExtensionsAnalyzer>(project);
-        project = AddAnalyzerIfMissing<RedundantAccessorDeclarationAnalyzer>(project);
-        project = AddAnalyzerIfMissing<SingleStatementBlockBodyAnalyzer>(project);
-        project = AddAnalyzerIfMissing<ExpressionBodyToBlockBodyAnalyzer>(project);
-        project = AddAnalyzerIfMissing<StringConcatenationAnalyzer>(project);
         project = AddAnalyzerIfMissing<ConstructorParameterNamingAnalyzer>(project);
 
         if (!enableSuggestions)
             return project;
 
-        project = AddAnalyzerIfMissing<PreferTargetTypedUnionCaseAnalyzer>(project);
-        return AddAnalyzerIfMissing<PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer>(project);
+        return project;
     }
 
     private static Project AddAnalyzerIfMissing<TAnalyzer>(Project project)

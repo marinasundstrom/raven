@@ -47,7 +47,7 @@ public sealed class ExpressionBodyToBlockBodyCodeFixProvider : CodeFixProvider
                 change));
     }
 
-    private static SyntaxNode? FindDeclaration(SyntaxNode node)
+    internal static SyntaxNode? FindDeclaration(SyntaxNode node)
     {
         if (node is MethodDeclarationSyntax or
             FunctionStatementSyntax or
@@ -73,7 +73,7 @@ public sealed class ExpressionBodyToBlockBodyCodeFixProvider : CodeFixProvider
         return node.FirstAncestorOrSelf<ConversionOperatorDeclarationSyntax>();
     }
 
-    private static bool TryGetExpressionBody(SyntaxNode declaration, out ArrowExpressionClauseSyntax expressionBody)
+    internal static bool TryGetExpressionBody(SyntaxNode declaration, out ArrowExpressionClauseSyntax expressionBody)
     {
         expressionBody = declaration switch
         {
@@ -89,7 +89,7 @@ public sealed class ExpressionBodyToBlockBodyCodeFixProvider : CodeFixProvider
         return expressionBody is not null;
     }
 
-    private static TextSpan GetExpressionBodyReplacementSpan(SyntaxNode declaration, ArrowExpressionClauseSyntax expressionBody)
+    internal static TextSpan GetExpressionBodyReplacementSpan(SyntaxNode declaration, ArrowExpressionClauseSyntax expressionBody)
     {
         var spanStart = expressionBody.Span.Start;
         var terminator = GetTerminatorToken(declaration);
@@ -114,7 +114,7 @@ public sealed class ExpressionBodyToBlockBodyCodeFixProvider : CodeFixProvider
         };
     }
 
-    private static string BuildBlockBodyText(
+    internal static string BuildBlockBodyText(
         SyntaxNode declaration,
         ExpressionSyntax expression,
         SemanticModel semanticModel,
