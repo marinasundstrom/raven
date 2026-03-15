@@ -86,6 +86,9 @@ public static class CompletionProvider
             if (symbol is not null)
                 return symbol;
 
+            if (TryResolveEnclosingPatternOrLoopLocalSymbol(receiverExpression, name) is { } enclosingSymbol)
+                return enclosingSymbol;
+
             var containingBlock = receiverExpression.GetAncestor<BlockStatementSyntax>();
             if (containingBlock is null)
                 return null;
@@ -102,6 +105,132 @@ public static class CompletionProvider
             return localDeclarator is not null
                 ? model.GetDeclaredSymbol(localDeclarator)
                 : null;
+        }
+
+        ISymbol? TryResolveEnclosingPatternOrLoopLocalSymbol(
+            ExpressionSyntax receiverExpression,
+            string name)
+        {
+            foreach (var ancestor in receiverExpression.Ancestors())
+            {
+                switch (ancestor)
+                {
+                    case ForStatementSyntax forStatement
+                        when forStatement.Body.Span.Contains(receiverExpression.Span):
+                        {
+                            if (TryResolveForTargetSymbol(forStatement, receiverExpression, name) is { } forSymbol)
+                                return forSymbol;
+
+                            break;
+                        }
+
+                    case IfStatementSyntax ifStatement
+                        when ifStatement.ThenStatement.Span.Contains(receiverExpression.Span):
+                        {
+                            if (TryResolvePatternDesignationSymbol(ifStatement.Condition, receiverExpression, name) is { } ifPatternSymbol)
+                                return ifPatternSymbol;
+
+                            break;
+                        }
+
+                    case MatchArmSyntax matchArm:
+                        {
+                            if (TryResolvePatternDesignationSymbol(matchArm.Pattern, receiverExpression, name) is { } armPatternSymbol)
+                                return armPatternSymbol;
+
+                            break;
+                        }
+                }
+            }
+
+            return null;
+        }
+
+        ISymbol? TryResolveForTargetSymbol(
+            ForStatementSyntax forStatement,
+            ExpressionSyntax receiverExpression,
+            string name)
+        {
+            if (forStatement.Target is IdentifierNameSyntax target &&
+                target.Identifier.ValueText == name)
+            {
+                var iterationType = TryGetForIterationElementType(forStatement.Expression);
+                return iterationType is not null
+                    ? CreateSyntheticReceiverLocalSymbol(name, iterationType)
+                    : null;
+            }
+
+            if (forStatement.Target is PatternSyntax pattern)
+                return TryResolvePatternDesignationSymbol(pattern, receiverExpression, name);
+
+            return null;
+        }
+
+        ISymbol? TryResolvePatternDesignationSymbol(
+            SyntaxNode patternRoot,
+            ExpressionSyntax receiverExpression,
+            string name)
+        {
+            var designation = patternRoot
+                .DescendantNodesAndSelf()
+                .OfType<SingleVariableDesignationSyntax>()
+                .Where(single =>
+                    single.Identifier.ValueText == name &&
+                    single.Span.Start <= receiverExpression.Span.Start)
+                .OrderByDescending(static single => single.Span.Start)
+                .FirstOrDefault();
+
+            return designation is not null
+                ? model.GetDeclaredSymbol(designation)
+                : null;
+        }
+
+        ILocalSymbol CreateSyntheticReceiverLocalSymbol(string name, ITypeSymbol type)
+        {
+            var containingSymbol = binder.ContainingSymbol;
+            return new SourceLocalSymbol(
+                name,
+                type,
+                isMutable: false,
+                containingSymbol,
+                containingSymbol.ContainingType,
+                containingSymbol.ContainingNamespace,
+                locations: [],
+                declaringSyntaxReferences: []);
+        }
+
+        ITypeSymbol? TryGetForIterationElementType(ExpressionSyntax expression)
+        {
+            var collectionType = model.GetTypeInfo(expression).Type;
+            if (collectionType is null || collectionType.TypeKind == TypeKind.Error)
+                return null;
+
+            if (collectionType is IArrayTypeSymbol arrayType)
+                return arrayType.ElementType;
+
+            if (collectionType.SpecialType == SpecialType.System_String)
+                return model.Compilation.GetSpecialType(SpecialType.System_Char);
+
+            if (collectionType is INamedTypeSymbol namedType)
+            {
+                foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
+                {
+                    if (candidate.TypeArguments.Length == 1 &&
+                        candidate.Name is "IEnumerable" or "IAsyncEnumerable")
+                    {
+                        return candidate.TypeArguments[0];
+                    }
+                }
+            }
+
+            return null;
+
+            static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+            {
+                yield return type;
+                foreach (var iface in type.AllInterfaces)
+                    yield return iface;
+            }
         }
 
         var tokenText = token.Text;

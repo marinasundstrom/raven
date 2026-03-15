@@ -1,0 +1,115 @@
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Testing;
+
+namespace Raven.CodeAnalysis.Tests.Completion;
+
+public class CompletionServicePatternTests
+{
+    [Fact]
+    public void GetCompletions_AfterDot_OnForPatternLocal_ReturnsInstanceMembers()
+    {
+        const string code = """
+class C {
+    func Run(points: (int, int)[]) -> int {
+        for (val x, 0) in points {
+            x.
+        }
+
+        return 0
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var service = new CompletionService();
+        var position = code.IndexOf("x.", StringComparison.Ordinal) + 2;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        items.ShouldContain(item => item.DisplayText == "CompareTo");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnForIterationLocal_ReturnsInstanceMembers()
+    {
+        const string code = """
+class C {
+    func Run(points: int[]) -> int {
+        for x in points {
+            x.
+        }
+
+        return 0
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var service = new CompletionService();
+        var position = code.IndexOf("x.", StringComparison.Ordinal) + 2;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        items.ShouldContain(item => item.DisplayText == "CompareTo");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnIsPatternDeclarationLocal_ReturnsInstanceMembers()
+    {
+        const string code = """
+class C {
+    func Run(value: object) -> int {
+        if value is string text {
+            text.
+        }
+
+        return 0
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var service = new CompletionService();
+        var position = code.IndexOf("text.", StringComparison.Ordinal) + 5;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        items.ShouldContain(item => item.DisplayText == "Length");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnSequenceRestPatternLocal_ReturnsInstanceMembers()
+    {
+        const string code = """
+class C {
+    func Run(values: int[]) -> int {
+        return values match {
+            [val head, ..val rest] => rest.
+            _ => 0
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var service = new CompletionService();
+        var position = code.IndexOf("rest.", StringComparison.Ordinal) + 5;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        items.ShouldContain(item => item.DisplayText == "Length");
+    }
+}
