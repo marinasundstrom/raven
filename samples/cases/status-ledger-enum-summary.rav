@@ -5,7 +5,7 @@ import System.Text.*
 val data = [3, 27, 51]
 val builder = StringBuilder()
 
-for each value in data {
+for value in data {
     val status = getStatus(value)
     builder.AppendLine("Value: ${value.ToString()}, Status: ${status.ToString()}")
 

@@ -121,7 +121,7 @@ import System.Collections.Generic.*
 
 func Main() {
     val values = List<int>()
-    for each value in values {
+    for value in values {
         break;
     }
 }
@@ -189,7 +189,7 @@ import System.Collections.Generic.*
 
 func Main() {
     val values = List<int>()
-    for each value in values {
+    for value in values {
         continue;
     }
 }

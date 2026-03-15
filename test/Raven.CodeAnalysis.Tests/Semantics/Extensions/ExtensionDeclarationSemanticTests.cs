@@ -82,7 +82,7 @@ val count = items.CountItems()
 extension MyEnumerableExt<T> for IEnumerable<T> {
     func CountItems() -> int {
         var total: int = 0
-        for each x in self {
+        for x in self {
             total = total + 1
         }
         return total

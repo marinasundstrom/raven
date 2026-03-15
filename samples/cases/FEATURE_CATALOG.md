@@ -40,6 +40,7 @@ Pattern note:
 - `samples/patterns/property-pattern-basic.rav`
 - `samples/patterns/match-nullable-pattern-basic.rav`
 - `samples/patterns/collection-pattern-basic.rav`
+- `samples/patterns/for-pattern-targets.rav`
 - `samples/patterns/sequence-segment-patterns.rav`
 - `samples/patterns/try-expression-match.rav`
 - `samples/cases/character-filter-patterns.rav`

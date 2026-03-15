@@ -8,6 +8,6 @@ list.Add(3)
 
 WriteLine(list.Count)
 
-for each item in list {
+for item in list {
     WriteLine(item)
 }

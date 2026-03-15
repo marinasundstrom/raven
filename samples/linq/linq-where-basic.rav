@@ -3,7 +3,7 @@ import System.Console.*
 import System.Collections.Generic.*
 import System.Linq.*
 
-// Feature: LINQ `Where` with `for each` iteration.
+// Feature: LINQ `Where` with `for` iteration.
 val numbers = List<int>()
 numbers.Add(3)
 numbers.Add(-1)
@@ -12,6 +12,6 @@ numbers.Add(1)
 
 val positives = numbers.Where(value => value > 0)
 
-for each value in positives {
+for value in positives {
     WriteLine(value)
 }

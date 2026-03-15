@@ -1,0 +1,14 @@
+import System.Console.*
+
+val points = [(0, 0), (1, 0), (1, 1), (2, 0)]
+
+for (val x, 0) in points {
+    WriteLine(x)
+}
+
+val words = ["raven", "lang", "rvn", "compiler"]
+
+for [val first, ..val rest] in words {
+    WriteLine(first)
+    WriteLine(rest)
+}

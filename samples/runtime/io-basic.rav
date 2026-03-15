@@ -10,7 +10,7 @@ if args.Length != 1 {
     val fullPath = Path.GetFullPath(args[0])
     val files = Directory.GetFiles(fullPath)
 
-    for each file in files {
+    for file in files {
         val path = Path.GetRelativePath(Environment.CurrentDirectory, file)
         Console.WriteLine(path)
         fileList.Add(file)

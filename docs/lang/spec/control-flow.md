@@ -320,7 +320,7 @@ values.
 
 ```raven
 func firstOrNone(values: IEnumerable<int>) -> IEnumerable<int> {
-    for each value in values {
+    for value in values {
         yield return value
         yield break
     }
@@ -360,7 +360,7 @@ diagnostic `RAV2600`.
 loop's re-check point.
 
 ```raven
-for each value in values {
+for value in values {
     if value.isOdd {
         continue
     }

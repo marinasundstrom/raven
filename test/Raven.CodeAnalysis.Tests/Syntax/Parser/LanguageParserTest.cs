@@ -92,16 +92,16 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
         forStmt.ShouldNotBeNull();
-        forStmt!.Identifier.Text.ShouldBe("x");
-        forStmt.EachKeyword.Kind.ShouldBe(SyntaxKind.None);
+        var target = Assert.IsType<IdentifierNameSyntax>(forStmt!.Target);
+        target.Identifier.Text.ShouldBe("x");
     }
 
     [Fact]
-    public void ParseForEachInExpression()
+    public void ParseForInExpression_WithIdentifierTarget()
     {
         var code = """
                    val arr = [1, 2, 3];
-                   for each x in arr {
+                   for x in arr {
                        x
                    }
                    """;
@@ -111,16 +111,16 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
         forStmt.ShouldNotBeNull();
-        forStmt!.Identifier.Text.ShouldBe("x");
-        forStmt.EachKeyword.Kind.ShouldBe(SyntaxKind.EachKeyword);
+        var target = Assert.IsType<IdentifierNameSyntax>(forStmt!.Target);
+        target.Identifier.Text.ShouldBe("x");
     }
 
     [Fact]
-    public void ParseForEachWithDiscardIdentifier()
+    public void ParseForWithDiscardTarget()
     {
         var code = """
                    val arr = [1, 2, 3];
-                   for each _ in arr {
+                   for _ in arr {
                        0
                    }
                    """;
@@ -130,15 +130,15 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
         forStmt.ShouldNotBeNull();
-        forStmt!.Identifier.Kind.ShouldBe(SyntaxKind.UnderscoreToken);
+        Assert.IsType<DiscardPatternSyntax>(forStmt!.Target);
     }
 
     [Fact]
-    public void ParseForEachWithoutIdentifier()
+    public void ParseForWithoutTarget()
     {
         var code = """
                    val arr = [1, 2, 3];
-                   for each in arr {
+                   for in arr {
                        0
                    }
                    """;
@@ -148,7 +148,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
         forStmt.ShouldNotBeNull();
-        forStmt!.Identifier.Kind.ShouldBe(SyntaxKind.None);
+        forStmt!.Target.ShouldBeNull();
     }
 
     [Fact]
@@ -208,16 +208,16 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         forStmt.ShouldNotBeNull();
         forStmt!.AwaitKeyword.Kind.ShouldBe(SyntaxKind.AwaitKeyword);
         forStmt.ForKeyword.Kind.ShouldBe(SyntaxKind.ForKeyword);
-        forStmt.EachKeyword.Kind.ShouldBe(SyntaxKind.None);
-        forStmt.Identifier.Text.ShouldBe("x");
+        var target = Assert.IsType<IdentifierNameSyntax>(forStmt.Target);
+        target.Identifier.Text.ShouldBe("x");
     }
 
     [Fact]
-    public void ParseAwaitForEachInExpression_Legacy()
+    public void ParseAwaitForInExpression_WithIdentifierTarget()
     {
         var code = """
                    async func Run(values: System.Collections.Generic.IAsyncEnumerable<int>) {
-                       await for each x in values {
+                       await for x in values {
                            x
                        }
                    }
@@ -231,7 +231,25 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         forStmt.ShouldNotBeNull();
         forStmt!.AwaitKeyword.Kind.ShouldBe(SyntaxKind.AwaitKeyword);
         forStmt.ForKeyword.Kind.ShouldBe(SyntaxKind.ForKeyword);
-        forStmt.EachKeyword.Kind.ShouldBe(SyntaxKind.EachKeyword);
-        forStmt.Identifier.Text.ShouldBe("x");
+        var target = Assert.IsType<IdentifierNameSyntax>(forStmt.Target);
+        target.Identifier.Text.ShouldBe("x");
+    }
+
+    [Fact]
+    public void ParseForPatternTarget()
+    {
+        var code = """
+                   val points = [(0, 0), (1, 0)];
+                   for (val x, 0) in points {
+                       x
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.Target.ShouldBeOfType<PositionalPatternSyntax>();
     }
 }

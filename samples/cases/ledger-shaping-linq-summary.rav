@@ -7,7 +7,7 @@ alias LedgerEntry = (label: string, value: int)
 
 func shape(values: List<int>) -> List<LedgerEntry> {
     val result = List<LedgerEntry>()
-    for each value in values {
+    for value in values {
         val label = if value < 0 "debit" else "credit"
         result.Add((label: label, value: value))
     }

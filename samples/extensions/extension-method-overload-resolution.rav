@@ -21,7 +21,7 @@ WriteLine(inferredOverload)
 extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T> {
     func CountItems() -> int {
         var total: int = 0
-        for each in self {
+        for in self {
             total = total + 1
         }
         return total

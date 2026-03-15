@@ -147,7 +147,7 @@ class C {
         var code = """
 class C {
     func Test(items: int[]) {
-        for each item in items {
+        for item in items {
             ()
         }
     }

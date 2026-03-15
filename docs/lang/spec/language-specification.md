@@ -63,11 +63,10 @@ classifies each keyword as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
-| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `each`, `else`, `enum`, `false`, `finally`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `permits`, `return`, `sbyte`, `self`, `short`, `sizeof`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
+| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `else`, `enum`, `false`, `finally`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `permits`, `return`, `sbyte`, `self`, `short`, `sizeof`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
 | Contextual | `abstract`, `alias`, `explicit`, `final`, `get`, `implicit`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `operator`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `use`, `val`, `virtual` |
 
-Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
-their presence optional (for example, omitting `each` in a `for` expression). Contextual keywords behave like ordinary
+Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers. Contextual keywords behave like ordinary
 identifiers except in the syntactic positions that demand their special meaning—for example, accessibility modifiers
 (`public`, `internal`, `protected`, `private`) or accessor modifiers (`get`, `set`). The `partial` keyword is only recognised
 when declaring types and controls whether multiple declarations of the same class merge; see [Partial classes](classes-and-members.md#partial-classes).
@@ -1905,40 +1904,43 @@ while i < list.Length {
 
 ### `for` expression
 
-Iterates over each element of a collection, binding it to a fresh local. The optional
-`each` keyword improves readability.
+Iterates over each element of a collection. The iteration target may bind a fresh
+local, discard the element, omit the target entirely, or match a pattern
+against each iterated value.
 
 ```raven
-for each item in items {
+for item in items {
     Console.WriteLine(item)
 }
 ```
 
-The `each` keyword may be omitted:
+Pattern targets use the same pattern syntax as `is` and `match`. Matching
+elements execute the body; non-matching elements are skipped.
 
 ```raven
-for item in items {
-    doSomething(item)
+for (val x, 0) in points {
+    Console.WriteLine(x)
 }
 ```
 
 `for` evaluates the collection once, then executes the body for every element.
-The loop variable type is resolved from arrays, `IEnumerable<T>`, and
-enumerator-pattern `Current` members; non-generic fallbacks use `object`.
-If the element value is unused, the iteration variable may be written as `_`
-or omitted entirely:
+Simple identifier targets resolve their element type from arrays,
+`IEnumerable<T>`, and enumerator-pattern `Current` members; non-generic
+fallbacks use `object`. If the element value is unused, the iteration target
+may be written as `_` or omitted entirely:
 
 ```raven
-for each _ in items {
+for _ in items {
     log("processing")
 }
 
-for each in items {
+for in items {
     log("processing")
 }
 ```
 
 Both forms still enumerate the collection but do not introduce a new binding.
+Pattern targets are lowered as a per-element `is` check around the loop body.
 Like other looping constructs, a `for` expression evaluates to `()`.
 
 Async enumeration uses `await for`:
@@ -1955,9 +1957,6 @@ async func Process(values: IAsyncEnumerable<int>) -> Task {
 (`GetAsyncEnumerator`, `MoveNextAsync`, and `Current`). The loop is lowered
 before async state-machine rewriting so it works in both classic async lowering
 and runtime-async mode.
-`await for each` is still accepted for legacy compatibility, but `await for`
-is the canonical form.
-
 When the collection is a range with explicit, from-start bounds, the loop
 iterates over integral, floating-point, `char`, or `decimal` values beginning
 at the range's lower bound and continuing through the upper bound. `..` uses an

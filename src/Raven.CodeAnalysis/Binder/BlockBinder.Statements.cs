@@ -558,12 +558,36 @@ partial class BlockBinder
         }
 
         ILocalSymbol? local = null;
-        if (forStmt.Identifier.Kind is not SyntaxKind.None and not SyntaxKind.UnderscoreToken)
-        {
-            local = loopBinder.CreateLocalSymbol(forStmt, forStmt.Identifier.ValueText, isMutable: false, iteration.ElementType);
-        }
+        BoundStatement body;
 
-        var body = loopBinder.BindStatementInLoop(forStmt.Body);
+        switch (forStmt.Target)
+        {
+            case null:
+                body = loopBinder.BindStatementInLoop(forStmt.Body);
+                break;
+
+            case DiscardPatternSyntax:
+                body = loopBinder.BindStatementInLoop(forStmt.Body);
+                break;
+
+            case IdentifierNameSyntax identifierName:
+                local = loopBinder.CreateLocalSymbol(forStmt, identifierName.Identifier.ValueText, isMutable: false, iteration.ElementType);
+                body = loopBinder.BindStatementInLoop(forStmt.Body);
+                break;
+
+            case PatternSyntax patternSyntax:
+                local = loopBinder.CreateLocalSymbol(forStmt, $"__forPattern{loopBinder._tempCounter++}", isMutable: false, iteration.ElementType);
+                var pattern = loopBinder.BindPattern(patternSyntax, iteration.ElementType);
+                var loweredBody = loopBinder.BindStatementInLoop(forStmt.Body);
+                var condition = new BoundIsPatternExpression(new BoundLocalAccess(local), pattern, Compilation.GetSpecialType(SpecialType.System_Boolean));
+                body = new BoundIfStatement(condition, loweredBody);
+                break;
+
+            default:
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(forStmt.Target.GetLocation());
+                body = loopBinder.BindStatementInLoop(forStmt.Body);
+                break;
+        }
 
         return new BoundForStatement(local, iteration, collection, body);
     }

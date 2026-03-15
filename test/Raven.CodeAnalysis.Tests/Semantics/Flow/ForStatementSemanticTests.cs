@@ -15,14 +15,14 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class ForStatementSemanticTests : CompilationTestBase
 {
     [Fact]
-    public void ForEach_WithDiscardIdentifier_DoesNotCreateLocal()
+    public void For_WithDiscardTarget_DoesNotCreateLocal()
     {
         const string source = """
 import System.Collections.Generic.*
 
 val numbers = List<System.Int32>()
 
-for each _ in numbers {
+for _ in numbers {
     val value = 0
 }
 """;
@@ -42,14 +42,14 @@ for each _ in numbers {
     }
 
     [Fact]
-    public void ForEach_WithoutIdentifier_DoesNotCreateLocal()
+    public void For_WithoutTarget_DoesNotCreateLocal()
     {
         const string source = """
 import System.Collections.Generic.*
 
 val numbers = List<System.Int32>()
 
-for each in numbers {
+for in numbers {
     val value = 0
 }
 """;
@@ -256,13 +256,13 @@ for x in 0..10 by 0 {
     }
 
     [Fact]
-    public void ForEach_WithByClause_ReportsDiagnostic()
+    public void For_WithByClause_ReportsDiagnostic()
     {
         const string source = """
 import System.Collections.Generic.*
 
 val items = List<int>()
-for each x in items by 2 {
+for x in items by 2 {
 }
 """;
 
@@ -307,7 +307,7 @@ class C {
     }
 
     [Fact]
-    public void ForEach_PrefersInstanceGetEnumeratorPattern()
+    public void For_PrefersInstanceGetEnumeratorPattern()
     {
         const string source = """
 import System.Collections.Generic.*
@@ -330,7 +330,7 @@ class Runner {
         counter.Add(1)
         counter.Add(2)
 
-        for each item in counter {
+        for item in counter {
             val value = item
         }
     }
@@ -354,7 +354,7 @@ class Runner {
     }
 
     [Fact]
-    public void ForEach_UsesExtensionGetEnumeratorPattern_WhenInstanceMissing()
+    public void For_UsesExtensionGetEnumeratorPattern_WhenInstanceMissing()
     {
         const string source = """
 import System.Collections.Generic.*
@@ -383,7 +383,7 @@ class Runner {
         counter.Add(1)
         counter.Add(2)
 
-        for each item in counter {
+        for item in counter {
             val value = item
         }
     }
@@ -406,12 +406,12 @@ class Runner {
     }
 
     [Fact]
-    public void ForEach_WithNonEnumerableCollection_ReportsDiagnostic()
+    public void For_WithNonEnumerableCollection_ReportsDiagnostic()
     {
         const string source = """
 val number = 42
 
-for each item in number {
+for item in number {
 }
 """;
 
@@ -420,5 +420,34 @@ for each item in number {
 
         var diagnostics = compilation.GetDiagnostics();
         diagnostics.Select(d => d.Id).ShouldContain("RAV1503");
+    }
+
+    [Fact]
+    public void For_WithPatternTarget_LowersBodyToPatternGuard()
+    {
+        const string source = """
+val points = [(0, 0), (1, 0), (1, 1)]
+
+for (val x, 0) in points {
+    _ = x
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+
+        boundFor.Local.ShouldNotBeNull();
+        var guard = boundFor.Body.ShouldBeOfType<BoundIfStatement>();
+        var isPattern = guard.Condition.ShouldBeOfType<BoundIsPatternExpression>();
+        isPattern.Expression.ShouldBeOfType<BoundLocalAccess>()
+            .Local.ShouldBe(boundFor.Local);
+        isPattern.Pattern.ShouldBeOfType<BoundPositionalPattern>();
     }
 }

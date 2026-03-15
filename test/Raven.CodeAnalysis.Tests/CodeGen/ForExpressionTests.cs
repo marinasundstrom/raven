@@ -13,14 +13,14 @@ namespace Raven.CodeAnalysis.Tests;
 public class ForExpressionTests
 {
     [Fact]
-    public void ForEach_OverArray_UsesTypedElement()
+    public void For_OverArray_UsesTypedElement()
     {
         var code = """
 class Foo {
     func Run() -> int {
         var items = [1, 2, 3]
         var total: int = 0
-        for each item in items {
+        for item in items {
             total = total + item
         }
         return total
@@ -150,14 +150,14 @@ for x in 6..<2 by -2 {
     }
 
     [Fact]
-    public void ForEach_BreakAndContinue_Work()
+    public void For_BreakAndContinue_Work()
     {
         var code = """
 class C {
     static func Sum() -> int {
         var values = [1, 2, 3, 4, 5]
         var total: int = 0
-        for each value in values {
+        for value in values {
             if value == 2 {
                 continue
             }
@@ -246,7 +246,7 @@ class C {
     }
 
     [Fact]
-    public void ForEach_OverGenericIEnumerable_UsesTypedCurrentGetter()
+    public void For_OverGenericIEnumerable_UsesTypedCurrentGetter()
     {
         // Regression test: IEnumerator<T>.Current was resolved to the non-generic
         // IEnumerator.Current (returning object), causing castclass !!T instead of the typed
@@ -347,6 +347,23 @@ func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
         // Dictionary iteration order is not guaranteed, so sort before asserting.
         var sorted = output.OrderBy(x => x).ToArray();
         Assert.Equal(["1", "2"], sorted);
+    }
+
+    [Fact]
+    public void For_WithPatternTarget_FiltersAndBinds()
+    {
+        var code = """
+import System.Console.*
+
+val points = [(0, 0), (1, 0), (1, 1), (2, 0)]
+
+for (val x, 0) in points {
+    WriteLine(x)
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["0", "1", "2"], output);
     }
 
     private static string[] CompileAndRun(string code, OutputKind outputKind = OutputKind.ConsoleApplication)

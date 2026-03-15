@@ -14,7 +14,7 @@ public class GlobalStatementDataFlowTests
 import System.Console.*
 val numbers = [1, 2, 3]
 val total = 0
-for each number in numbers {
+for number in numbers {
     total = total + number
 }
 """;

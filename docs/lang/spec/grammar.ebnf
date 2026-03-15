@@ -331,8 +331,8 @@ IfStatement              ::= 'if' Expression Statement ['else' Statement] ;
    or after headers such as if/while/for) begins a block statement/body and is not parsed as an ObjectInitializer trailer.
    This disambiguation is performed by the parser (context-sensitive), not by this EBNF. *)
 WhileStatement           ::= 'while' Expression Statement ;
-ForStatement             ::= 'await'? 'for' 'each'? ForIterationVariable? 'in' Expression ForStepClause? Statement ;
-ForIterationVariable     ::= Identifier | '_' ;
+ForStatement             ::= 'await'? 'for' ForIterationTarget? 'in' Expression ForStepClause? Statement ;
+ForIterationTarget       ::= Identifier | Pattern ;
 ForStepClause            ::= 'by' Expression ;
 
 TryStatement             ::= 'try' Block (CatchClauseList [FinallyClause] | FinallyClause) ;

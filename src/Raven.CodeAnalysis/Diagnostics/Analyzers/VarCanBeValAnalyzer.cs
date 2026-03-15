@@ -276,6 +276,7 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
         public override void VisitForStatement(ForStatementSyntax node)
         {
+            VisitMaybe(node.Target);
             VisitMaybe(node.Expression);
             VisitMaybe(node.StepExpression);
 

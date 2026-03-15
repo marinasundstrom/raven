@@ -345,7 +345,7 @@
                 },
                 {
                     "name": "keyword.control.raven",
-                    "match": "\\b(if|else|match|when|where|for|each|in|as|is|by|while|do|try|catch|finally|with|return|throw|break|continue|await)\\b"
+                    "match": "\\b(if|else|match|when|where|for|in|as|is|by|while|do|try|catch|finally|with|return|throw|break|continue|await)\\b"
                 },
                 {
                     "name": "keyword.other.expression.raven",

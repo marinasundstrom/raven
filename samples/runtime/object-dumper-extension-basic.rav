@@ -23,7 +23,7 @@ extension Dumper<T> for T {
         } else {
             WriteLine("$obj")  
         }
-        for each propertyInfo in type
+        for propertyInfo in type
             .GetProperties()
             .Where(pi => !(pi.GetMethod?.IsStatic ?? false) && pi.GetMethod?.GetParameters()?.Length == 0) 
         {

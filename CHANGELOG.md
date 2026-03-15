@@ -1,6 +1,15 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-03-13**.
+Behavior-focused timeline covering **2025-09-12** to **2026-03-15**.
+
+## 2026-03-15
+
+### Changed
+- `for` loop headers now accept pattern targets in addition to simple identifiers, so forms like `for (val x, 0) in points { ... }` and `for [val head, ..val tail] in values { ... }` lower to per-element pattern guards instead of requiring a manual `if value is ...` inside the loop body.
+- Removed the legacy `for each` / `await for each` syntax. Raven now uses `for` and `await for` exclusively, with `_` or an omitted target for element-discarding loops.
+
+Impact:
+- Collection iteration can now express filtering and deconstruction directly in the loop header, and the published grammar/editor tooling no longer advertises the retired `each` keyword.
 
 ## 2026-03-13
 

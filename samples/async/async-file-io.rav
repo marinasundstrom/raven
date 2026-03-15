@@ -12,7 +12,7 @@ val file = await File.ReadAllLinesAsync(tempFile)
 
 await Task.Delay(100)
 
-for each line in file {
+for line in file {
     WriteLine(line)
 }
 

@@ -370,6 +370,9 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitForStatement(ForStatementSyntax node)
     {
+        if (node.Target is not null)
+            Visit(node.Target);
+
         Visit(node.Expression);
         if (node.StepExpression is not null)
             Visit(node.StepExpression);

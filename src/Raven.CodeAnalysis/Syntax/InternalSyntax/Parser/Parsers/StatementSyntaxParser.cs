@@ -445,29 +445,23 @@ internal class StatementSyntaxParser : SyntaxParser
         awaitKeyword ??= Token(SyntaxKind.None);
         var forKeyword = ReadToken();
 
-        SyntaxToken eachKeyword;
-        if (IsNextToken(SyntaxKind.EachKeyword, out _))
-            eachKeyword = ReadToken();
-        else
-            eachKeyword = Token(SyntaxKind.None);
-
-        SyntaxToken identifier;
+        ExpressionOrPatternSyntax? target;
         var current = PeekToken();
         if (current.Kind is SyntaxKind.InKeyword)
         {
-            identifier = Token(SyntaxKind.None);
+            target = null;
         }
         else if (current.Kind is SyntaxKind.UnderscoreToken)
         {
-            identifier = ReadToken();
+            target = DiscardPattern(ReadToken());
         }
-        else if (CanTokenBeIdentifier(current))
+        else if (CanTokenBeIdentifier(current) && PeekToken(1).Kind is SyntaxKind.InKeyword)
         {
-            identifier = ReadIdentifierToken();
+            target = IdentifierName(ReadIdentifierToken());
         }
         else
         {
-            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+            target = new PatternSyntaxParser(this).ParsePattern();
         }
 
         ConsumeTokenOrMissing(SyntaxKind.InKeyword, out var inKeyword);
@@ -491,7 +485,7 @@ internal class StatementSyntaxParser : SyntaxParser
         SetTreatNewlinesAsTokens(true);
         TryConsumeTerminator(out var terminatorToken);
 
-        return ForStatement(awaitKeyword, forKeyword, eachKeyword, identifier, inKeyword, expression!, byKeyword, stepExpression, body!, terminatorToken);
+        return ForStatement(awaitKeyword, forKeyword, target, inKeyword, expression!, byKeyword, stepExpression, body!, terminatorToken);
     }
 
     private StatementSyntax? ParseFunctionSyntax(SyntaxList attributeLists, SyntaxList modifiers)
