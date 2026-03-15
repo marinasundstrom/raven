@@ -73,12 +73,13 @@ class ObservableMacro : IAttachedDeclarationMacro {
     }
 
     func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string, signalStorageName: string) -> PropertyDeclarationSyntax {
-        property
-            .WithAttributeLists(List<AttributeListSyntax>())
-            .WithAccessorList(CreateAccessorList(backingFieldName, signalStorageName))
-            .WithExpressionBody(null)
-            .WithInitializer(null)
-            .WithTerminatorToken(Token(SyntaxKind.None))
+        property with {
+            AttributeLists = List<AttributeListSyntax>()
+            AccessorList = CreateAccessorList(backingFieldName, signalStorageName)
+            ExpressionBody = null
+            Initializer = null
+            TerminatorToken = Token(SyntaxKind.None)
+        }
     }
 
     func CreateAccessorList(backingFieldName: string, signalStorageName: string) -> AccessorListSyntax {
