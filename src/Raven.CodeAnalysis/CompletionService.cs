@@ -37,6 +37,7 @@ public class CompletionService
         var searchPosition = Math.Max(0, position - 1);
         var sourceText = syntaxTree.GetText();
         var content = sourceText.ToString();
+        var isWhitespaceOnlyLinePosition = IsWhitespaceOnlyLinePosition(content, position);
         while (searchPosition > 0 &&
                searchPosition < content.Length &&
                char.IsWhiteSpace(content[searchPosition]))
@@ -46,7 +47,11 @@ public class CompletionService
         {
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-            return CompletionProvider.GetCompletions(token, semanticModel, position);
+            return CompletionProvider.GetCompletions(
+                token,
+                semanticModel,
+                position,
+                forceInsertionAtCaret: isWhitespaceOnlyLinePosition);
         }
         catch
         {
@@ -54,6 +59,26 @@ public class CompletionService
             // may fail (for example, missing metadata references).
             return GetBasicKeywordCompletions(token, position);
         }
+    }
+
+    private static bool IsWhitespaceOnlyLinePosition(string content, int position)
+    {
+        if ((uint)position > (uint)content.Length)
+            return false;
+
+        for (var i = position - 1; i >= 0; i--)
+        {
+            var ch = content[i];
+            if (ch is ' ' or '\t')
+                continue;
+
+            if (ch is '\r' or '\n')
+                return true;
+
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>

@@ -617,4 +617,30 @@ text?[
         var updated = ApplyCompletion(code, x);
         Assert.EndsWith("text?[x", updated, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void GetCompletions_OnIndentedBlankLine_InsertsAtCaret()
+    {
+        var code = """
+func Main() -> unit {
+    
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.IndexOf("    ", StringComparison.Ordinal) + 4;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var @return = Assert.Single(items.Where(i => i.DisplayText == "return"));
+
+        Assert.Equal(new TextSpan(position, 0), @return.ReplacementSpan);
+
+        var updated = ApplyCompletion(code, @return);
+        Assert.Contains("\n    return\n", updated, StringComparison.Ordinal);
+    }
 }

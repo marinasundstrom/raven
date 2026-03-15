@@ -7,7 +7,11 @@ namespace Raven.CodeAnalysis;
 
 public static class CompletionProvider
 {
-    public static IEnumerable<CompletionItem> GetCompletions(SyntaxToken token, SemanticModel model, int position)
+    public static IEnumerable<CompletionItem> GetCompletions(
+        SyntaxToken token,
+        SemanticModel model,
+        int position,
+        bool forceInsertionAtCaret = false)
     {
         var binder = model.GetBinder(token.Parent);
         var completions = new List<CompletionItem>();
@@ -233,9 +237,11 @@ public static class CompletionProvider
             }
         }
 
-        var tokenText = token.Text;
-        var tokenValueText = token.ValueText;
-        var replacementSpan = new TextSpan(token.Position, tokenText.Length);
+        var tokenText = forceInsertionAtCaret ? string.Empty : token.Text;
+        var tokenValueText = forceInsertionAtCaret ? string.Empty : token.ValueText;
+        var replacementSpan = forceInsertionAtCaret
+            ? new TextSpan(position, 0)
+            : new TextSpan(token.Position, tokenText.Length);
         var literalReplacementSpan = new TextSpan(position, 0);
         var isInvocationArgumentStartToken =
             token.Parent is ArgumentListSyntax argumentList &&
