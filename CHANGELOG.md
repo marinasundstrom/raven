@@ -6,6 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-13**.
 
 ### Changed
 - Inline and freestanding positional/list/record/member patterns now require an explicit binding keyword (`val`, `var`, or `let`) to capture variables; bare identifiers in those pattern positions are interpreted as existing-value matches instead. Assignment/declaration deconstruction shorthand such as `(a, b) = expr`, `val (a, b) = expr`, `[a, b] = expr`, and `val [a, b] = expr` is unchanged, and inline collection rest captures now use forms like `..val rest`.
+- Collection patterns and collection deconstruction now support fixed-size sequence segments with operator-first syntax such as `[..2 val start, val end]`, alongside `..val rest` / `...val rest`. Strings participate in the same model: single-element captures bind `char`, while fixed/rest segment captures bind `string`.
 
 - Added Roslyn-style syntax formatting hooks: `Formatter.Annotation`,
   `SyntaxAnnotation.ElasticAnnotation`, and elastic trivia helpers on

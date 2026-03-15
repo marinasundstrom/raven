@@ -44,7 +44,7 @@ if expr is int _ {
 ### Tuple patterns
 
 ```raven
-if expr is (int x, y, 0) {
+if expr is (int x, val y, 0) {
     // first element must be int (bound as x)
     // second element bound as y
     // third must equal literal 0
@@ -52,6 +52,23 @@ if expr is (int x, y, 0) {
 ```
 
 Each element follows the standard `type name` convention.
+
+### Collection and sequence-segment patterns
+
+```raven
+if expr is [val first, ..val rest] {
+    Console.WriteLine(first)
+}
+
+if expr is [..2 val start, val end] {
+    Console.WriteLine(start[0] + start[1] + end)
+}
+```
+
+Plain element patterns consume one element. `..N pattern` consumes a fixed-size
+subsequence, while `..pattern` / `...pattern` consume the remaining subsequence.
+Inline captures remain explicit, so a segment capture is written `..2 val start`
+or `..val rest`.
 
 ### Property patterns
 

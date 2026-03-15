@@ -513,6 +513,42 @@ val result = items match {
     }
 
     [Fact]
+    public void MatchExpression_WithStringCollectionFixedSegment_BindsStringSliceDesignation()
+    {
+        const string code = """
+val text = "rune"
+
+val result = text match {
+    [val first, ..2 val middle, val last] => middle
+    _ => ""
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "string_collection_match_fixed_segment",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(bound.Arms[0].Pattern);
+        Assert.Equal(BoundPositionalPattern.SequenceElementKind.Single, collectionPattern.ElementKinds[0]);
+        Assert.Equal(BoundPositionalPattern.SequenceElementKind.FixedSegment, collectionPattern.ElementKinds[1]);
+        Assert.Equal(BoundPositionalPattern.SequenceElementKind.Single, collectionPattern.ElementKinds[2]);
+
+        var middlePattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var middleDesignator = Assert.IsType<BoundSingleVariableDesignator>(middlePattern.Designator);
+        Assert.Equal("middle", middleDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_String, middleDesignator.Local.Type.SpecialType);
+    }
+
+    [Fact]
     public void MatchExpression_WithCollectionPatternOnEnumerable_ReportsDiagnostic()
     {
         const string code = """

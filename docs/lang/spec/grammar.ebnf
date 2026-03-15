@@ -420,13 +420,22 @@ DeclarationPattern       ::= Type [VariableDesignation] ;
 PositionalPattern        ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' ;
 PatternElement           ::= [PositionalPatternElementDesignation] Pattern ;
 
-CollectionPattern        ::= '[' PatternList? ']' ;
+CollectionPattern        ::= '[' SequencePatternElementList? ']' ;
+SequencePatternElementList
+                         ::= SequencePatternElement {',' SequencePatternElement} ;
+SequencePatternElement   ::= [SequencePatternPrefix] Pattern ;
+SequencePatternPrefix    ::= '..' [IntegerLiteral]
+                           | '...' ;
 
 (* Positional element designations introduce a new binding for the element.
    To avoid ambiguity with value/constant patterns, the binding keyword is required.
    For example: (val a: bool, _) is permitted, but (a: bool, _) is an error. *)
 PositionalPatternElementDesignation
                          ::= BindingKeyword Identifier ':' ;
+
+(* Binder note: at most one open-ended rest segment (`.. pattern` / `... pattern`)
+   is permitted in a collection pattern. Fixed-size segments use `..N pattern`
+   and may appear multiple times. *)
 
 DiscardPattern           ::= '_' | Type '_' ;
 

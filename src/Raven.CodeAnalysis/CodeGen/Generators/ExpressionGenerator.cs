@@ -4598,6 +4598,13 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitPositionalPatternAssignment(BoundPositionalPattern tuplePattern, IILocal valueLocal, ITypeSymbol valueType)
     {
+        if (GetPatternValueType(valueType)?.SpecialType == SpecialType.System_String &&
+            GetPatternValueType(tuplePattern.Type)?.SpecialType == SpecialType.System_String)
+        {
+            EmitStringPositionalPatternAssignment(tuplePattern, valueLocal);
+            return;
+        }
+
         if (GetPatternValueType(valueType) is IArrayTypeSymbol arrayType &&
             GetPatternValueType(tuplePattern.Type) is IArrayTypeSymbol)
         {
@@ -4605,16 +4612,10 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        if (GetPatternValueType(tuplePattern.Type) is not ITupleTypeSymbol &&
-            GetPatternValueType(tuplePattern.Type) is not IArrayTypeSymbol)
+        if (GetPatternValueType(valueType) is { } collectionType &&
+            TryGetIndexableCollectionAccess(collectionType, out var access))
         {
-            var inferredElementType = tuplePattern.Elements
-                .Select(static element => element?.Type)
-                .Select(GetPatternValueType)
-                .FirstOrDefault(static t => t is not null && t.TypeKind != TypeKind.Error)
-                ?? Compilation.GetSpecialType(SpecialType.System_Object);
-
-            EmitCollectionPositionalPatternAssignment(tuplePattern, valueLocal, GetPatternValueType(valueType), inferredElementType);
+            EmitCollectionPositionalPatternAssignment(tuplePattern, valueLocal, collectionType, access.ElementType);
             return;
         }
 
@@ -4657,54 +4658,46 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitArrayPositionalPatternAssignment(BoundPositionalPattern pattern, IILocal arrayLocal, ITypeSymbol elementType)
     {
-        var restIndex = pattern.RestIndex;
-        if (restIndex < 0)
-        {
-            for (var i = 0; i < pattern.Elements.Length; i++)
-            {
-                var elementPattern = pattern.Elements[i];
-                if (elementPattern is null or BoundDiscardPattern)
-                    continue;
-
-                ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
-                ILGenerator.Emit(OpCodes.Ldc_I4, i);
-                EmitLoadElement(elementType);
-
-                var elementValueType = GetPatternValueType(elementType);
-                if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
-                {
-                    ILGenerator.Emit(OpCodes.Pop);
-                    continue;
-                }
-
-                if (TryEmitDirectPatternStoreFromStack(elementPattern, elementValueType))
-                    continue;
-
-                var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementValueType));
-                ILGenerator.Emit(OpCodes.Stloc, elementLocal);
-                EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
-            }
-
-            return;
-        }
-
         var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
         ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
         ILGenerator.Emit(OpCodes.Ldlen);
         ILGenerator.Emit(OpCodes.Conv_I4);
         ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
 
-        var prefixCount = restIndex;
-        var suffixCount = pattern.Elements.Length - restIndex - 1;
-
-        for (var i = 0; i < prefixCount; i++)
+        for (var i = 0; i < pattern.Elements.Length; i++)
         {
             var elementPattern = pattern.Elements[i];
             if (elementPattern is null or BoundDiscardPattern)
                 continue;
 
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.RestSegment)
+            {
+                var restLengthLocal = ILGenerator.DeclareLocal(typeof(int));
+                ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+                ILGenerator.Emit(OpCodes.Ldc_I4, GetSequenceFixedWidth(pattern));
+                ILGenerator.Emit(OpCodes.Sub);
+                ILGenerator.Emit(OpCodes.Stloc, restLengthLocal);
+
+                var restArrayType = Compilation.CreateArrayTypeSymbol(elementType);
+                var restArrayLocal = EmitArraySlice(arrayLocal, elementType, GetSequencePrefixWidth(pattern, i), restLengthLocal);
+                EmitPatternAssignment(elementPattern, restArrayLocal, restArrayType);
+                continue;
+            }
+
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.FixedSegment)
+            {
+                var segmentArrayType = Compilation.CreateArrayTypeSymbol(elementType);
+                var segmentArrayLocal = EmitArraySlice(
+                    arrayLocal,
+                    elementType,
+                    GetSequenceElementStartIndex(pattern, i, lengthLocal),
+                    pattern.ElementWidths[i]);
+                EmitPatternAssignment(elementPattern, segmentArrayLocal, segmentArrayType);
+                continue;
+            }
+
             ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4, i);
+            EmitLoadIndex(GetSequenceElementStartIndex(pattern, i, lengthLocal));
             EmitLoadElement(elementType);
 
             var elementValueType = GetPatternValueType(elementType);
@@ -4721,68 +4714,57 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Stloc, elementLocal);
             EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
         }
+    }
 
-        var restPattern = pattern.Elements[restIndex];
-        if (restPattern is not null and not BoundDiscardPattern)
+    private void EmitStringPositionalPatternAssignment(BoundPositionalPattern pattern, IILocal stringLocal)
+    {
+        var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+        var charType = Compilation.GetSpecialType(SpecialType.System_Char);
+
+        ILGenerator.Emit(OpCodes.Ldloc, stringLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, typeof(string).GetProperty(nameof(string.Length))!.GetMethod!);
+        ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
+
+        for (var i = 0; i < pattern.Elements.Length; i++)
         {
-            var restLengthLocal = ILGenerator.DeclareLocal(typeof(int));
-            ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4, prefixCount);
-            ILGenerator.Emit(OpCodes.Sub);
-            ILGenerator.Emit(OpCodes.Ldc_I4, suffixCount);
-            ILGenerator.Emit(OpCodes.Sub);
-            ILGenerator.Emit(OpCodes.Stloc, restLengthLocal);
-
-            var clrElementType = ResolveClrType(elementType);
-            var restArrayType = Compilation.CreateArrayTypeSymbol(elementType);
-            var restArrayLocal = ILGenerator.DeclareLocal(ResolveClrType(restArrayType));
-
-            ILGenerator.Emit(OpCodes.Ldloc, restLengthLocal);
-            ILGenerator.Emit(OpCodes.Newarr, clrElementType);
-            ILGenerator.Emit(OpCodes.Stloc, restArrayLocal);
-
-            var arrayCopyMethod = typeof(Array).GetMethod(
-                "Copy",
-                [typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int)])
-                ?? throw new InvalidOperationException("Unable to resolve System.Array.Copy overload.");
-
-            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4, prefixCount);
-            ILGenerator.Emit(OpCodes.Ldloc, restArrayLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4_0);
-            ILGenerator.Emit(OpCodes.Ldloc, restLengthLocal);
-            ILGenerator.Emit(OpCodes.Call, arrayCopyMethod);
-
-            EmitPatternAssignment(restPattern, restArrayLocal, restArrayType);
-        }
-
-        for (var i = 0; i < suffixCount; i++)
-        {
-            var elementPattern = pattern.Elements[restIndex + 1 + i];
+            var elementPattern = pattern.Elements[i];
             if (elementPattern is null or BoundDiscardPattern)
                 continue;
 
-            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4, suffixCount);
-            ILGenerator.Emit(OpCodes.Sub);
-            ILGenerator.Emit(OpCodes.Ldc_I4, i);
-            ILGenerator.Emit(OpCodes.Add);
-            EmitLoadElement(elementType);
-
-            var elementValueType = GetPatternValueType(elementType);
-            if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.RestSegment)
             {
-                ILGenerator.Emit(OpCodes.Pop);
+                var restLengthLocal = ILGenerator.DeclareLocal(typeof(int));
+                ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+                ILGenerator.Emit(OpCodes.Ldc_I4, GetSequenceFixedWidth(pattern));
+                ILGenerator.Emit(OpCodes.Sub);
+                ILGenerator.Emit(OpCodes.Stloc, restLengthLocal);
+
+                var restLocal = EmitStringSlice(stringLocal, GetSequencePrefixWidth(pattern, i), restLengthLocal);
+                EmitPatternAssignment(elementPattern, restLocal, stringType);
                 continue;
             }
 
-            if (TryEmitDirectPatternStoreFromStack(elementPattern, elementValueType))
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.FixedSegment)
+            {
+                var sliceLocal = EmitStringSlice(
+                    stringLocal,
+                    GetSequenceElementStartIndex(pattern, i, lengthLocal),
+                    pattern.ElementWidths[i]);
+                EmitPatternAssignment(elementPattern, sliceLocal, stringType);
+                continue;
+            }
+
+            ILGenerator.Emit(OpCodes.Ldloc, stringLocal);
+            EmitLoadIndex(GetSequenceElementStartIndex(pattern, i, lengthLocal));
+            ILGenerator.Emit(OpCodes.Callvirt, typeof(string).GetProperty("Chars")!.GetMethod!);
+
+            if (TryEmitDirectPatternStoreFromStack(elementPattern, charType))
                 continue;
 
-            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementValueType));
+            var elementLocal = ILGenerator.DeclareLocal(typeof(char));
             ILGenerator.Emit(OpCodes.Stloc, elementLocal);
-            EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
+            EmitPatternAssignment(elementPattern, elementLocal, charType);
         }
     }
 
@@ -4815,146 +4797,45 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
         }
 
-        if (pattern.RestIndex < 0)
-        {
-            for (var i = 0; i < pattern.Elements.Length; i++)
-            {
-                var elementPattern = pattern.Elements[i];
-                if (elementPattern is null or BoundDiscardPattern)
-                    continue;
-
-                ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-                ILGenerator.Emit(OpCodes.Ldc_I4, i);
-                ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.IndexerGetter));
-
-                var elementValueType = GetPatternValueType(elementType);
-                if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
-                {
-                    ILGenerator.Emit(OpCodes.Pop);
-                    continue;
-                }
-
-                if (TryEmitDirectPatternStoreFromStack(elementPattern, elementValueType))
-                    continue;
-
-                var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementValueType));
-                ILGenerator.Emit(OpCodes.Stloc, elementLocal);
-                EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
-            }
-
-            return;
-        }
-
         var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        var indexLocal = ILGenerator.DeclareLocal(typeof(int));
+        var arrayType = (IArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(elementType);
+        var arrayLocal = ILGenerator.DeclareLocal(ResolveClrType(arrayType));
+
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.CountGetter));
         ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
 
-        var restIndex = pattern.RestIndex;
-        var prefixCount = restIndex;
-        var suffixCount = pattern.Elements.Length - restIndex - 1;
+        ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+        ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
+        ILGenerator.Emit(OpCodes.Stloc, arrayLocal);
 
-        for (var i = 0; i < prefixCount; i++)
-        {
-            var elementPattern = pattern.Elements[i];
-            if (elementPattern is null or BoundDiscardPattern)
-                continue;
+        var loopStart = ILGenerator.DefineLabel();
+        var loopDone = ILGenerator.DefineLabel();
 
-            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4, i);
-            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.IndexerGetter));
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
 
-            var elementValueType = GetPatternValueType(elementType);
-            if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
-            {
-                ILGenerator.Emit(OpCodes.Pop);
-                continue;
-            }
+        ILGenerator.MarkLabel(loopStart);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+        ILGenerator.Emit(OpCodes.Bge, loopDone);
 
-            if (TryEmitDirectPatternStoreFromStack(elementPattern, elementValueType))
-                continue;
+        ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.IndexerGetter));
+        EmitStoreElement(elementType);
 
-            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementValueType));
-            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
-            EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
-        }
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Add);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Br, loopStart);
 
-        var restPattern = pattern.Elements[restIndex];
-        if (restPattern is not null and not BoundDiscardPattern)
-        {
-            var restLengthLocal = ILGenerator.DeclareLocal(typeof(int));
-            ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4, prefixCount);
-            ILGenerator.Emit(OpCodes.Sub);
-            ILGenerator.Emit(OpCodes.Ldc_I4, suffixCount);
-            ILGenerator.Emit(OpCodes.Sub);
-            ILGenerator.Emit(OpCodes.Stloc, restLengthLocal);
-
-            var restArrayType = Compilation.CreateArrayTypeSymbol(elementType);
-            var restArrayLocal = ILGenerator.DeclareLocal(ResolveClrType(restArrayType));
-            var restIndexLocal = ILGenerator.DeclareLocal(typeof(int));
-            var restLoopStart = ILGenerator.DefineLabel();
-            var restLoopDone = ILGenerator.DefineLabel();
-
-            ILGenerator.Emit(OpCodes.Ldloc, restLengthLocal);
-            ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
-            ILGenerator.Emit(OpCodes.Stloc, restArrayLocal);
-
-            ILGenerator.Emit(OpCodes.Ldc_I4_0);
-            ILGenerator.Emit(OpCodes.Stloc, restIndexLocal);
-
-            ILGenerator.MarkLabel(restLoopStart);
-            ILGenerator.Emit(OpCodes.Ldloc, restIndexLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, restLengthLocal);
-            ILGenerator.Emit(OpCodes.Bge, restLoopDone);
-
-            ILGenerator.Emit(OpCodes.Ldloc, restArrayLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, restIndexLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4, prefixCount);
-            ILGenerator.Emit(OpCodes.Ldloc, restIndexLocal);
-            ILGenerator.Emit(OpCodes.Add);
-            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.IndexerGetter));
-            EmitStoreElement(elementType);
-
-            ILGenerator.Emit(OpCodes.Ldloc, restIndexLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4_1);
-            ILGenerator.Emit(OpCodes.Add);
-            ILGenerator.Emit(OpCodes.Stloc, restIndexLocal);
-            ILGenerator.Emit(OpCodes.Br, restLoopStart);
-
-            ILGenerator.MarkLabel(restLoopDone);
-            EmitPatternAssignment(restPattern, restArrayLocal, restArrayType);
-        }
-
-        for (var i = 0; i < suffixCount; i++)
-        {
-            var elementPattern = pattern.Elements[restIndex + 1 + i];
-            if (elementPattern is null or BoundDiscardPattern)
-                continue;
-
-            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4, suffixCount);
-            ILGenerator.Emit(OpCodes.Sub);
-            ILGenerator.Emit(OpCodes.Ldc_I4, i);
-            ILGenerator.Emit(OpCodes.Add);
-            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.IndexerGetter));
-
-            var elementValueType = GetPatternValueType(elementType);
-            if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
-            {
-                ILGenerator.Emit(OpCodes.Pop);
-                continue;
-            }
-
-            if (TryEmitDirectPatternStoreFromStack(elementPattern, elementValueType))
-                continue;
-
-            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementValueType));
-            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
-            EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
-        }
+        ILGenerator.MarkLabel(loopDone);
+        EmitArrayPositionalPatternAssignment(pattern, arrayLocal, elementType);
     }
 
     private bool TryGetIndexableCollectionAccess(ITypeSymbol collectionType, out (INamedTypeSymbol InterfaceType, IMethodSymbol CountGetter, IMethodSymbol IndexerGetter, ITypeSymbol ElementType) access)

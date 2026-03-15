@@ -3112,17 +3112,13 @@ partial class BlockBinder : Binder
 
                         var patternElements = tuplePattern.Elements;
                         var elementCount = Math.Min(patternElements.Length, collectionSyntax.Elements.Count);
-                        var restIndex = tuplePattern.RestIndex;
-                        var hasRest = restIndex >= 0;
-                        var restType = hasRest
-                            ? Compilation.CreateArrayTypeSymbol(elementType)
-                            : Compilation.ErrorTypeSymbol;
+                        var sliceType = GetSequenceSliceType(scrutineeType, elementType);
 
                         for (var i = 0; i < elementCount; i++)
                         {
-                            var expectedType = hasRest && i == restIndex
-                                ? restType
-                                : elementType;
+                            var expectedType = tuplePattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.Single
+                                ? elementType
+                                : sliceType;
                             EnsureMatchArmPatternValid(expectedType, collectionSyntax.Elements[i].Pattern, patternElements[i]);
                         }
 
@@ -8500,8 +8496,8 @@ partial class BlockBinder : Binder
         var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(elementCount);
         var elementType = Compilation.ErrorTypeSymbol;
         var patternType = valueType;
-        var restIndex = GetSequenceRestElementIndex(elements);
-        var hasRest = restIndex >= 0;
+        var (elementWidths, elementKinds, restIndex) = GetSequencePatternLayout(elements);
+        var sliceType = Compilation.ErrorTypeSymbol;
 
         if (TryGetSequenceDeconstructionElementType(valueType, out var sequenceElementType))
         {
@@ -8516,12 +8512,14 @@ partial class BlockBinder : Binder
             patternType = Compilation.ErrorTypeSymbol;
         }
 
+        sliceType = GetSequenceSliceType(valueType, elementType);
+
         for (var i = 0; i < elementCount; i++)
         {
             var elementSyntax = elements[i];
-            var expectedType = hasRest && i == restIndex
-                ? Compilation.CreateArrayTypeSymbol(elementType)
-                : elementType;
+            var expectedType = elementKinds[i] == BoundPositionalPattern.SequenceElementKind.Single
+                ? elementType
+                : sliceType;
             var boundElement = BindPatternForAssignment(
                 elementSyntax.Pattern,
                 expectedType,
@@ -8530,7 +8528,12 @@ partial class BlockBinder : Binder
             boundElements.Add(boundElement);
         }
 
-        return new BoundPositionalPattern(patternType, boundElements.ToImmutable(), restIndex: restIndex);
+        return new BoundPositionalPattern(
+            patternType,
+            boundElements.ToImmutable(),
+            restIndex: restIndex,
+            elementWidths: elementWidths,
+            elementKinds: elementKinds);
     }
 
     private bool TryGetSequenceDeconstructionElementType(ITypeSymbol valueType, out ITypeSymbol elementType)
@@ -8543,6 +8546,12 @@ partial class BlockBinder : Binder
         if (valueType is IArrayTypeSymbol arrayType)
         {
             elementType = arrayType.ElementType;
+            return true;
+        }
+
+        if (valueType.SpecialType == SpecialType.System_String)
+        {
+            elementType = Compilation.GetSpecialType(SpecialType.System_Char);
             return true;
         }
 
@@ -8599,6 +8608,14 @@ partial class BlockBinder : Binder
 
     }
 
+    private ITypeSymbol GetSequenceSliceType(ITypeSymbol valueType, ITypeSymbol elementType)
+    {
+        if (valueType.SpecialType == SpecialType.System_String)
+            return Compilation.GetSpecialType(SpecialType.System_String);
+
+        return Compilation.CreateArrayTypeSymbol(elementType);
+    }
+
     private static int GetSequenceRestElementIndex(SeparatedSyntaxList<SequencePatternElementSyntax> elements)
     {
         var index = -1;
@@ -8614,6 +8631,43 @@ partial class BlockBinder : Binder
         }
 
         return index;
+    }
+
+    private static (ImmutableArray<int> Widths, ImmutableArray<BoundPositionalPattern.SequenceElementKind> Kinds, int RestIndex)
+        GetSequencePatternLayout(SeparatedSyntaxList<SequencePatternElementSyntax> elements)
+    {
+        var widths = ImmutableArray.CreateBuilder<int>(elements.Count);
+        var kinds = ImmutableArray.CreateBuilder<BoundPositionalPattern.SequenceElementKind>(elements.Count);
+        var restIndex = -1;
+
+        for (var i = 0; i < elements.Count; i++)
+        {
+            var element = elements[i];
+            var dotDotKind = element.DotDotToken.Kind;
+            if (dotDotKind is not SyntaxKind.DotDotToken and not SyntaxKind.DotDotDotToken)
+            {
+                widths.Add(1);
+                kinds.Add(BoundPositionalPattern.SequenceElementKind.Single);
+                continue;
+            }
+
+            if (element.SegmentLengthToken.Kind == SyntaxKind.NumericLiteralToken)
+            {
+                var width = int.TryParse(element.SegmentLengthToken.Text, out var parsedWidth)
+                    ? parsedWidth
+                    : 0;
+                widths.Add(width);
+                kinds.Add(BoundPositionalPattern.SequenceElementKind.FixedSegment);
+                continue;
+            }
+
+            widths.Add(-1);
+            kinds.Add(BoundPositionalPattern.SequenceElementKind.RestSegment);
+            if (restIndex < 0)
+                restIndex = i;
+        }
+
+        return (widths.ToImmutable(), kinds.ToImmutable(), restIndex);
     }
 
     private static bool IsSequenceRestElement(SequencePatternElementSyntax element)

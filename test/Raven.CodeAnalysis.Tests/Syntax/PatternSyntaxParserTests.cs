@@ -213,6 +213,27 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void SequencePattern_WithFixedSegmentElement_Parses()
+    {
+        var (pattern, tree) = ParsePattern("[..2 val start, val end]");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var collectionPattern = Assert.IsType<SequencePatternSyntax>(pattern);
+        Assert.Equal("[..2 val start, val end]", sourceText.ToString(collectionPattern.Span));
+        Assert.Equal(2, collectionPattern.Elements.Count);
+
+        var segmentElement = collectionPattern.Elements[0];
+        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, segmentElement.SegmentLengthToken.Kind);
+
+        var segmentPattern = Assert.IsType<VariablePatternSyntax>(segmentElement.Pattern);
+        var segmentDesignation = Assert.IsType<SingleVariableDesignationSyntax>(segmentPattern.Designation);
+        Assert.Equal("start", segmentDesignation.Identifier.ValueText);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void PositionalPattern_WithExplicitBindingAndExplicitValuePattern_Parses()
     {
         var (pattern, tree) = ParsePattern("(val a, == existingValue)");

@@ -349,6 +349,91 @@ first + middle[0] + last
     }
 
     [Fact]
+    public void CollectionPatternDeclarationShorthand_WithFixedSegment_BindsSliceLocal()
+    {
+        const string source = """
+val values: int[] = [1, 2, 3]
+val [..2 start, tail] = values
+tail
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
+            .Single();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        Assert.Equal(BoundPositionalPattern.SequenceElementKind.FixedSegment, collectionPattern.ElementKinds[0]);
+        Assert.Equal(2, collectionPattern.ElementWidths[0]);
+
+        var startPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[0]);
+        var startDesignator = Assert.IsType<BoundSingleVariableDesignator>(startPattern.Designator);
+        Assert.Equal("start", startDesignator.Local.Name);
+        Assert.True(startDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+
+        var tailPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var tailDesignator = Assert.IsType<BoundSingleVariableDesignator>(tailPattern.Designator);
+        Assert.Equal("tail", tailDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, tailDesignator.Local.Type.SpecialType);
+    }
+
+    [Fact]
+    public void StringPatternDeclarationShorthand_WithFixedSegment_BindsCharAndStringLocals()
+    {
+        const string source = """
+val text = "rune"
+val [first, ..2 middle, last] = text
+middle
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
+            .Single();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        Assert.Equal(BoundPositionalPattern.SequenceElementKind.Single, collectionPattern.ElementKinds[0]);
+        Assert.Equal(BoundPositionalPattern.SequenceElementKind.FixedSegment, collectionPattern.ElementKinds[1]);
+        Assert.Equal(BoundPositionalPattern.SequenceElementKind.Single, collectionPattern.ElementKinds[2]);
+
+        var firstPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[0]);
+        var middlePattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var lastPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[2]);
+
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstPattern.Designator);
+        var middleDesignator = Assert.IsType<BoundSingleVariableDesignator>(middlePattern.Designator);
+        var lastDesignator = Assert.IsType<BoundSingleVariableDesignator>(lastPattern.Designator);
+
+        Assert.Equal(SpecialType.System_Char, firstDesignator.Local.Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, middleDesignator.Local.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Char, lastDesignator.Local.Type.SpecialType);
+    }
+
+    [Fact]
     public void CollectionPatternDeclarationShorthand_OnEnumerable_ReportsDiagnostic()
     {
         const string source = """

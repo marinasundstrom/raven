@@ -169,19 +169,36 @@ internal partial class BoundDeclarationPattern : BoundPattern
 
 internal sealed class BoundPositionalPattern : BoundPattern
 {
+    internal enum SequenceElementKind
+    {
+        Single = 0,
+        FixedSegment = 1,
+        RestSegment = 2,
+    }
+
     public BoundPositionalPattern(
         ITypeSymbol tupleType,
         ImmutableArray<BoundPattern> elements,
         BoundExpressionReason reason = BoundExpressionReason.None,
-        int restIndex = -1)
+        int restIndex = -1,
+        ImmutableArray<int> elementWidths = default,
+        ImmutableArray<SequenceElementKind> elementKinds = default)
         : base(tupleType, reason)
     {
         Elements = elements;
         RestIndex = restIndex;
+        ElementWidths = elementWidths.IsDefaultOrEmpty
+            ? ImmutableArray.CreateRange(Enumerable.Repeat(1, elements.Length))
+            : elementWidths;
+        ElementKinds = elementKinds.IsDefaultOrEmpty
+            ? ImmutableArray.CreateRange(Enumerable.Repeat(SequenceElementKind.Single, elements.Length))
+            : elementKinds;
     }
 
     public ImmutableArray<BoundPattern> Elements { get; }
     public int RestIndex { get; }
+    public ImmutableArray<int> ElementWidths { get; }
+    public ImmutableArray<SequenceElementKind> ElementKinds { get; }
 
     public override IEnumerable<BoundDesignator> GetDesignators()
     {
@@ -873,9 +890,9 @@ internal partial class BlockBinder
         var elementPatterns = ImmutableArray.CreateBuilder<BoundPattern>(syntax.Elements.Count);
         var patternType = inputType;
         var reason = BoundExpressionReason.None;
-        var restIndex = GetSequenceRestElementIndex(syntax.Elements);
-        var hasRest = restIndex >= 0;
+        var (elementWidths, elementKinds, restIndex) = GetSequencePatternLayout(syntax.Elements);
         var elementType = Compilation.ErrorTypeSymbol;
+        var sliceType = Compilation.ErrorTypeSymbol;
 
         if (!TryGetSequencePatternElementType(inputType, out elementType))
         {
@@ -891,17 +908,25 @@ internal partial class BlockBinder
             reason = BoundExpressionReason.TypeMismatch;
         }
 
+        sliceType = GetSequenceSliceType(inputType, elementType);
+
         for (var i = 0; i < syntax.Elements.Count; i++)
         {
             var elementSyntax = syntax.Elements[i];
-            var expectedType = hasRest && i == restIndex
-                ? Compilation.CreateArrayTypeSymbol(elementType)
-                : elementType;
+            var expectedType = elementKinds[i] == BoundPositionalPattern.SequenceElementKind.Single
+                ? elementType
+                : sliceType;
             var boundElement = BindPositionalPatternElement(elementSyntax.Pattern, expectedType);
             elementPatterns.Add(boundElement);
         }
 
-        return new BoundPositionalPattern(patternType, elementPatterns.ToImmutable(), reason, restIndex);
+        return new BoundPositionalPattern(
+            patternType,
+            elementPatterns.ToImmutable(),
+            reason,
+            restIndex,
+            elementWidths,
+            elementKinds);
     }
 
     private bool TryGetSequencePatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)
@@ -914,6 +939,12 @@ internal partial class BlockBinder
         if (inputType is IArrayTypeSymbol arrayType)
         {
             elementType = arrayType.ElementType;
+            return true;
+        }
+
+        if (inputType.SpecialType == SpecialType.System_String)
+        {
+            elementType = Compilation.GetSpecialType(SpecialType.System_Char);
             return true;
         }
 

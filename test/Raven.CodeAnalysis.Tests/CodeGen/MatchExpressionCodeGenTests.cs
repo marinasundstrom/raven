@@ -230,6 +230,62 @@ class Program {
     }
 
     [Fact]
+    public void MatchExpression_WithArrayCollectionFixedSegment_EmitsAndRuns()
+    {
+        const string code = """
+class Formatter {
+    public func Describe(values: int[]) -> string {
+        return values match {
+            [..2 val start, val end] => (start[0] + start[1] + end).ToString()
+            _ => "none"
+        }
+    }
+}
+
+class Program {
+    static func Main() {
+        val formatter = Formatter()
+        System.Console.WriteLine(formatter.Describe([2, 3, 4]))
+    }
+}
+""";
+
+        var output = EmitAndRun(code, "match_array_collection_pattern_fixed_segment");
+        if (output is null)
+            return;
+
+        Assert.Equal("9", output);
+    }
+
+    [Fact]
+    public void MatchExpression_WithStringCollectionFixedSegment_EmitsAndRuns()
+    {
+        const string code = """
+class Formatter {
+    public func Describe(text: string) -> string {
+        return text match {
+            [val first, ..2 val middle, val last] => first.ToString() + ":" + middle + ":" + last.ToString()
+            _ => "none"
+        }
+    }
+}
+
+class Program {
+    static func Main() {
+        val formatter = Formatter()
+        System.Console.WriteLine(formatter.Describe("rune"))
+    }
+}
+""";
+
+        var output = EmitAndRun(code, "match_string_collection_pattern_fixed_segment");
+        if (output is null)
+            return;
+
+        Assert.Equal("r:un:e", output);
+    }
+
+    [Fact]
     public void MatchExpression_WithDiscriminatedUnion_UsesTryGetAndCaseProperties()
     {
         const string code = """

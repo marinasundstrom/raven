@@ -2890,7 +2890,9 @@ internal static class AsyncLowerer
                             changed |= !ReferenceEquals(e, elems[i]);
                         }
 
-                        return changed ? new BoundPositionalPattern(t.Type!, b.ToImmutable(), t.Reason) : t;
+                        return changed
+                            ? new BoundPositionalPattern(t.Type!, b.ToImmutable(), t.Reason, t.RestIndex, t.ElementWidths, t.ElementKinds)
+                            : t;
                     }
 
                 case BoundConstantPattern c:

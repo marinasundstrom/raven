@@ -381,36 +381,18 @@ internal class PatternSyntaxParser : SyntaxParser
     {
         if (!TryConsumeSequenceRestToken(out var dotDotToken))
         {
-            return SequencePatternElement(Token(SyntaxKind.None), ParseDeconstructionElementPattern());
+            return SequencePatternElement(Token(SyntaxKind.None), Token(SyntaxKind.None), ParseDeconstructionElementPattern());
         }
 
-        PatternSyntax restPattern;
-        if (PeekToken().IsKind(SyntaxKind.UnderscoreToken))
+        var segmentLengthToken = Token(SyntaxKind.None);
+        if (dotDotToken.Kind == SyntaxKind.DotDotToken &&
+            PeekToken().Kind == SyntaxKind.NumericLiteralToken)
         {
-            restPattern = DiscardPattern(ReadToken());
-        }
-        else if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
-        {
-            restPattern = ParseVariablePattern();
-        }
-        else if (_allowImplicitDeconstructionElementBindings &&
-                 CanTokenBeIdentifier(PeekToken()))
-        {
-            var identifier = ReadIdentifierToken();
-            restPattern = VariablePattern(
-                Token(SyntaxKind.None),
-                SingleVariableDesignation(Token(SyntaxKind.None), identifier));
-        }
-        else
-        {
-            restPattern = CreateMissingPattern();
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.IdentifierExpected,
-                    GetEndOfLastToken()));
+            segmentLengthToken = ReadToken();
         }
 
-        return SequencePatternElement(dotDotToken, restPattern);
+        var pattern = ParseDeconstructionElementPattern();
+        return SequencePatternElement(dotDotToken, segmentLengthToken, pattern);
     }
 
     private bool TryConsumeSequenceRestToken(out SyntaxToken token)

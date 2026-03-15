@@ -837,6 +837,7 @@
   </Node>
   <Node Name="SequencePatternElement" Inherits="Node">
     <Slot Name="DotDotToken" Type="Token" IsOptionalToken="true" />
+    <Slot Name="SegmentLengthToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Pattern" Type="Pattern" />
   </Node>
   <Node Name="MemberPatternPath" Inherits="Node">

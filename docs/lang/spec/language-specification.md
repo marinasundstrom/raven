@@ -2420,23 +2420,38 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
 #### Collection patterns
 
 * `[pattern1, pattern2, …]` — **collection pattern**. Matches when the scrutinee
-  is a sequence-deconstructable, indexable collection with the same length and
-  each element pattern matches the corresponding element.
+  is a sequence-deconstructable, indexable collection and each sequence element
+  pattern matches the corresponding element or segment.
 
-  * Collection patterns are supported for arrays (`T[]`) and indexable
+  * Collection patterns are supported for arrays (`T[]`), `string`, and indexable
     collection types (`Count` + integer indexer, for example `IList<T>` /
     `IReadOnlyList<T>`).
   * The same bracketed shape is also used for collection deconstruction
     assignments and declarations (`[val a, val b] = values`), which support
-    arrays and indexable collection types.
+    arrays, `string`, and indexable collection types.
   * In the syntax tree, bracketed patterns are represented as `SequencePatternSyntax`
     (with `SequencePatternElementSyntax`), distinct from parenthesized positional
     patterns (`PositionalPatternSyntax`).
-  * Each element is a full pattern. In freestanding and inline collection
+  * A plain element pattern consumes exactly one element.
+  * A fixed-size segment pattern `..N pattern` consumes exactly `N` elements as a
+    subsequence.
+  * An open rest segment `..pattern` or `...pattern` consumes the remaining
+    unmatched subsequence. At most one open rest segment is permitted.
+  * Fixed-size segments may appear multiple times because their widths are fully
+    determined by the syntax.
+  * In freestanding and inline collection
     patterns, captures must use `val`/`var`/`let`; bare identifiers are treated
     as value patterns against existing values. Type-constrained captures may be
-    written as `val x: T` or `T x`.
-  * Length must match exactly.
+    written as `val x: T` or `T x`. The same rule applies inside segment forms,
+    for example `..2 val start` and `..val rest`.
+  * If a collection pattern contains no open rest segment, the input length must
+    match the total fixed width exactly.
+  * If a collection pattern contains an open rest segment, the input length must
+    be at least the total fixed width of the non-rest elements.
+  * For arrays and indexable collections, single-element captures bind the element
+    type and segment captures bind an array slice.
+  * For `string`, single-element captures bind `char` and segment captures bind
+    `string`, even for `..1`.
 
 #### Property patterns
 
@@ -3639,17 +3654,21 @@ It also does not capture that element. If you need the value later, bind it and
 compare in a guard/condition (`(a, b) when b == existingValue`, or
 `if t is (a, b) && b == existingValue`).
 
-Collection patterns also support a rest segment with `..val name` or `...val name`:
+Collection patterns support both fixed-size and rest segments:
 
 ```raven
-val [first, second, ..rest] = values
-val [first, second, ...rest2] = values
+val [..2 start, last] = values
+val [first, ..rest] = values
+val [first, ...rest2] = values
 val [first, ..middle, last] = values
+val [first, ..2 middle, last] = "rune"
 ```
 
-In inline/freestanding collection patterns, spell rest captures as `..val name`
-or `...val name`. In deconstruction assignments/declarations, bare `..rest` and
-`...rest` remain valid.
+In inline/freestanding collection patterns, spell captures explicitly:
+`..2 val name`, `..val rest`, or `...val rest`. In deconstruction
+assignments/declarations, bare `..2 name`, `..rest`, and `...rest` remain valid
+as binding targets. For strings, a plain element binds `char`, while `..N` and
+rest segments bind `string`.
 
 Nested deconstruction uses the same recursive compatibility rules in all valid
 positions:

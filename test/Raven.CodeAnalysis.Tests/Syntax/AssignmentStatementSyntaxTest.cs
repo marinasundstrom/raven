@@ -82,6 +82,24 @@ public class AssignmentStatementSyntaxTest
     }
 
     [Fact]
+    public void ParsesSequencePatternDeclarationShorthand_WithFixedSegment()
+    {
+        var tree = SyntaxTree.ParseText("val [..2 start, tail] = numbers");
+        var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
+        Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
+
+        var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
+        Assert.Equal(2, pattern.Elements.Count);
+
+        var segmentElement = pattern.Elements[0];
+        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, segmentElement.SegmentLengthToken.Kind);
+
+        var start = Assert.IsType<VariablePatternSyntax>(segmentElement.Pattern);
+        Assert.Equal(SyntaxKind.None, start.BindingKeyword.Kind);
+    }
+
+    [Fact]
     public void ParsesPositionalPatternDeclarationShorthandAssignmentStatement()
     {
         var tree = SyntaxTree.ParseText("var (first, second, _) = tuple");

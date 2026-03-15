@@ -420,6 +420,12 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundPositionalPattern tuplePattern)
         {
+            if (inputType.SpecialType == SpecialType.System_String)
+            {
+                EmitStringCollectionPattern(tuplePattern, scope);
+                return;
+            }
+
             if (inputType is IArrayTypeSymbol arrayType)
             {
                 EmitArrayCollectionPattern(tuplePattern, arrayType, scope);
@@ -520,97 +526,61 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Conv_I4);
         ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
 
+        var fixedWidth = GetSequenceFixedWidth(pattern);
         if (!hasRest)
         {
             ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4, pattern.Elements.Length);
+            ILGenerator.Emit(OpCodes.Ldc_I4, fixedWidth);
             ILGenerator.Emit(OpCodes.Bne_Un, labelFail);
         }
         else
         {
-            var prefixCount = restIndex;
-            var suffixCount = pattern.Elements.Length - restIndex - 1;
             ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4, prefixCount + suffixCount);
+            ILGenerator.Emit(OpCodes.Ldc_I4, fixedWidth);
             ILGenerator.Emit(OpCodes.Blt, labelFail);
         }
 
-        if (!hasRest)
+        for (var i = 0; i < pattern.Elements.Length; i++)
         {
-            for (var i = 0; i < pattern.Elements.Length; i++)
-            {
-                ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
-                ILGenerator.Emit(OpCodes.Ldc_I4, i);
-                EmitLoadElement(elementType);
+            var elementPattern = pattern.Elements[i];
+            if (elementPattern is BoundDiscardPattern)
+                continue;
 
-                EmitPattern(pattern.Elements[i], elementType, scope);
-                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
-            }
-        }
-        else
-        {
-            var prefixCount = restIndex;
-            var suffixCount = pattern.Elements.Length - restIndex - 1;
-
-            for (var i = 0; i < prefixCount; i++)
-            {
-                ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
-                ILGenerator.Emit(OpCodes.Ldc_I4, i);
-                EmitLoadElement(elementType);
-
-                EmitPattern(pattern.Elements[i], elementType, scope);
-                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
-            }
-
-            var restPattern = pattern.Elements[restIndex];
-            if (restPattern is not BoundDiscardPattern)
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.RestSegment)
             {
                 var restLengthLocal = ILGenerator.DeclareLocal(typeof(int));
                 ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
-                ILGenerator.Emit(OpCodes.Ldc_I4, prefixCount);
-                ILGenerator.Emit(OpCodes.Sub);
-                ILGenerator.Emit(OpCodes.Ldc_I4, suffixCount);
+                ILGenerator.Emit(OpCodes.Ldc_I4, fixedWidth);
                 ILGenerator.Emit(OpCodes.Sub);
                 ILGenerator.Emit(OpCodes.Stloc, restLengthLocal);
 
                 var restArrayType = Compilation.CreateArrayTypeSymbol(elementType);
-                var restArrayLocal = ILGenerator.DeclareLocal(ResolveClrType(restArrayType));
-                var clrElementType = ResolveClrType(elementType);
-
-                ILGenerator.Emit(OpCodes.Ldloc, restLengthLocal);
-                ILGenerator.Emit(OpCodes.Newarr, clrElementType);
-                ILGenerator.Emit(OpCodes.Stloc, restArrayLocal);
-
-                var arrayCopyMethod = typeof(Array).GetMethod(
-                    "Copy",
-                    [typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int)])
-                    ?? throw new InvalidOperationException("Unable to resolve System.Array.Copy overload.");
-
-                ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
-                ILGenerator.Emit(OpCodes.Ldc_I4, prefixCount);
+                var restArrayLocal = EmitArraySlice(arrayLocal, elementType, GetSequencePrefixWidth(pattern, i), restLengthLocal);
                 ILGenerator.Emit(OpCodes.Ldloc, restArrayLocal);
-                ILGenerator.Emit(OpCodes.Ldc_I4_0);
-                ILGenerator.Emit(OpCodes.Ldloc, restLengthLocal);
-                ILGenerator.Emit(OpCodes.Call, arrayCopyMethod);
-
-                ILGenerator.Emit(OpCodes.Ldloc, restArrayLocal);
-                EmitPattern(restPattern, restArrayType, scope);
+                EmitPattern(elementPattern, restArrayType, scope);
                 ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+                continue;
             }
 
-            for (var i = 0; i < suffixCount; i++)
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.FixedSegment)
             {
-                ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
-                ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
-                ILGenerator.Emit(OpCodes.Ldc_I4, suffixCount);
-                ILGenerator.Emit(OpCodes.Sub);
-                ILGenerator.Emit(OpCodes.Ldc_I4, i);
-                ILGenerator.Emit(OpCodes.Add);
-                EmitLoadElement(elementType);
-
-                EmitPattern(pattern.Elements[restIndex + 1 + i], elementType, scope);
+                var segmentArrayType = Compilation.CreateArrayTypeSymbol(elementType);
+                var segmentArrayLocal = EmitArraySlice(
+                    arrayLocal,
+                    elementType,
+                    GetSequenceElementStartIndex(pattern, i, lengthLocal),
+                    pattern.ElementWidths[i]);
+                ILGenerator.Emit(OpCodes.Ldloc, segmentArrayLocal);
+                EmitPattern(elementPattern, segmentArrayType, scope);
                 ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+                continue;
             }
+
+            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+            EmitLoadIndex(GetSequenceElementStartIndex(pattern, i, lengthLocal));
+            EmitLoadElement(elementType);
+            EmitPattern(elementPattern, elementType, scope);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
         }
 
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -684,6 +654,195 @@ internal partial class ExpressionGenerator
         ILGenerator.MarkLabel(nullCollectionLabel);
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
         ILGenerator.MarkLabel(doneLabel);
+    }
+
+    private void EmitStringCollectionPattern(BoundPositionalPattern pattern, Generator scope)
+    {
+        var stringLocal = ILGenerator.DeclareLocal(typeof(string));
+        var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        var labelFail = ILGenerator.DefineLabel();
+        var labelDone = ILGenerator.DefineLabel();
+        var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+        var charType = Compilation.GetSpecialType(SpecialType.System_Char);
+        var restIndex = pattern.RestIndex;
+        var hasRest = restIndex >= 0;
+        var fixedWidth = GetSequenceFixedWidth(pattern);
+
+        ILGenerator.Emit(OpCodes.Stloc, stringLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, stringLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+        ILGenerator.Emit(OpCodes.Ldloc, stringLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, typeof(string).GetProperty(nameof(string.Length))!.GetMethod!);
+        ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4, fixedWidth);
+        ILGenerator.Emit(hasRest ? OpCodes.Blt : OpCodes.Bne_Un, labelFail);
+
+        for (var i = 0; i < pattern.Elements.Length; i++)
+        {
+            var elementPattern = pattern.Elements[i];
+            if (elementPattern is BoundDiscardPattern)
+                continue;
+
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.RestSegment)
+            {
+                var restLengthLocal = ILGenerator.DeclareLocal(typeof(int));
+                ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+                ILGenerator.Emit(OpCodes.Ldc_I4, fixedWidth);
+                ILGenerator.Emit(OpCodes.Sub);
+                ILGenerator.Emit(OpCodes.Stloc, restLengthLocal);
+
+                var restLocal = EmitStringSlice(stringLocal, GetSequencePrefixWidth(pattern, i), restLengthLocal);
+                ILGenerator.Emit(OpCodes.Ldloc, restLocal);
+                EmitPattern(elementPattern, stringType, scope);
+                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+                continue;
+            }
+
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.FixedSegment)
+            {
+                var sliceLocal = EmitStringSlice(
+                    stringLocal,
+                    GetSequenceElementStartIndex(pattern, i, lengthLocal),
+                    pattern.ElementWidths[i]);
+                ILGenerator.Emit(OpCodes.Ldloc, sliceLocal);
+                EmitPattern(elementPattern, stringType, scope);
+                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+                continue;
+            }
+
+            ILGenerator.Emit(OpCodes.Ldloc, stringLocal);
+            EmitLoadIndex(GetSequenceElementStartIndex(pattern, i, lengthLocal));
+            ILGenerator.Emit(OpCodes.Callvirt, typeof(string).GetProperty("Chars")!.GetMethod!);
+            EmitPattern(elementPattern, charType, scope);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Br, labelDone);
+
+        ILGenerator.MarkLabel(labelFail);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.MarkLabel(labelDone);
+    }
+
+    private int GetSequenceFixedWidth(BoundPositionalPattern pattern)
+    {
+        var total = 0;
+        for (var i = 0; i < pattern.Elements.Length; i++)
+        {
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.RestSegment)
+                continue;
+
+            total += pattern.ElementWidths[i];
+        }
+
+        return total;
+    }
+
+    private int GetSequencePrefixWidth(BoundPositionalPattern pattern, int index)
+    {
+        var total = 0;
+        for (var i = 0; i < index; i++)
+        {
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.RestSegment)
+                continue;
+
+            total += pattern.ElementWidths[i];
+        }
+
+        return total;
+    }
+
+    private int GetSequenceSuffixWidth(BoundPositionalPattern pattern, int index)
+    {
+        var total = 0;
+        for (var i = index; i < pattern.Elements.Length; i++)
+        {
+            if (pattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.RestSegment)
+                continue;
+
+            total += pattern.ElementWidths[i];
+        }
+
+        return total;
+    }
+
+    private object GetSequenceElementStartIndex(BoundPositionalPattern pattern, int index, IILocal totalLengthLocal)
+    {
+        if (pattern.RestIndex < 0 || index < pattern.RestIndex)
+            return GetSequencePrefixWidth(pattern, index);
+
+        var suffixWidth = GetSequenceSuffixWidth(pattern, index);
+        var startLocal = ILGenerator.DeclareLocal(typeof(int));
+        ILGenerator.Emit(OpCodes.Ldloc, totalLengthLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4, suffixWidth);
+        ILGenerator.Emit(OpCodes.Sub);
+        ILGenerator.Emit(OpCodes.Stloc, startLocal);
+        return startLocal;
+    }
+
+    private void EmitLoadIndex(object index)
+    {
+        if (index is int constant)
+        {
+            ILGenerator.Emit(OpCodes.Ldc_I4, constant);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, (IILocal)index);
+    }
+
+    private IILocal EmitArraySlice(IILocal arrayLocal, ITypeSymbol elementType, object startIndex, int length)
+    {
+        var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        ILGenerator.Emit(OpCodes.Ldc_I4, length);
+        ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
+        return EmitArraySlice(arrayLocal, elementType, startIndex, lengthLocal);
+    }
+
+    private IILocal EmitArraySlice(IILocal arrayLocal, ITypeSymbol elementType, object startIndex, IILocal lengthLocal)
+    {
+        var sliceType = Compilation.CreateArrayTypeSymbol(elementType);
+        var sliceLocal = ILGenerator.DeclareLocal(ResolveClrType(sliceType));
+
+        ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+        ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
+        ILGenerator.Emit(OpCodes.Stloc, sliceLocal);
+
+        var arrayCopyMethod = typeof(Array).GetMethod(
+            "Copy",
+            [typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int)])
+            ?? throw new InvalidOperationException("Unable to resolve System.Array.Copy overload.");
+
+        ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+        EmitLoadIndex(startIndex);
+        ILGenerator.Emit(OpCodes.Ldloc, sliceLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+        ILGenerator.Emit(OpCodes.Call, arrayCopyMethod);
+
+        return sliceLocal;
+    }
+
+    private IILocal EmitStringSlice(IILocal stringLocal, object startIndex, int length)
+    {
+        var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        ILGenerator.Emit(OpCodes.Ldc_I4, length);
+        ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
+        return EmitStringSlice(stringLocal, startIndex, lengthLocal);
+    }
+
+    private IILocal EmitStringSlice(IILocal stringLocal, object startIndex, IILocal lengthLocal)
+    {
+        var sliceLocal = ILGenerator.DeclareLocal(typeof(string));
+        ILGenerator.Emit(OpCodes.Ldloc, stringLocal);
+        EmitLoadIndex(startIndex);
+        ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, typeof(string).GetMethod(nameof(string.Substring), [typeof(int), typeof(int)])!);
+        ILGenerator.Emit(OpCodes.Stloc, sliceLocal);
+        return sliceLocal;
     }
 
     private void EmitPatternTestBranchFalse(

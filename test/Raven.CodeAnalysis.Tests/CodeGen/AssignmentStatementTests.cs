@@ -212,4 +212,74 @@ class Foo {
         var value = (int)method!.Invoke(instance, Array.Empty<object>())!;
         Assert.Equal(7, value);
     }
+
+    [Fact]
+    public void CollectionPatternDeclaration_WithFixedSegment_EmitsAndRuns()
+    {
+        var code = """
+class Foo {
+    func Run() -> int {
+        val values: int[] = [1, 2, 3]
+        val [..2 start, tail] = values
+        return start[0] + start[1] + tail
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
+        var value = (int)method!.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal(6, value);
+    }
+
+    [Fact]
+    public void StringPatternDeclaration_WithFixedSegment_EmitsAndRuns()
+    {
+        var code = """
+class Foo {
+    func Run() -> string {
+        val text = "rune"
+        val [first, ..2 middle, last] = text
+        return first.ToString() + ":" + middle + ":" + last.ToString()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = type.GetMethod("Run", flags);
+        Assert.NotNull(method);
+        var value = (string)method!.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal("r:un:e", value);
+    }
 }

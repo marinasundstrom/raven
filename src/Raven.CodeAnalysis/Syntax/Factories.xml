@@ -235,6 +235,24 @@
     </Overload>
   </Factory>
 
+  <Factory Node="SequencePatternElement">
+    <Overload>
+      <Parameter Slot="Pattern" />
+      <Default Slot="DotDotToken" Token="None" />
+      <Default Slot="SegmentLengthToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="DotDotToken" />
+      <Parameter Slot="Pattern" />
+      <Default Slot="SegmentLengthToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="DotDotToken" />
+      <Parameter Slot="SegmentLengthToken" />
+      <Parameter Slot="Pattern" />
+    </Overload>
+  </Factory>
+
   <Factory Node="MethodDeclaration">
     <Overload Summary="Creates a method declaration without a body.">
       <Parameter Slot="AttributeLists" />

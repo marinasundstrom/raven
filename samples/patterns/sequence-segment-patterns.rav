@@ -1,0 +1,16 @@
+import System.Console.*
+
+// Feature: fixed-size and rest sequence segment patterns for arrays and strings.
+
+val values: int[] = [2, 3, 4]
+val [..2 start, last] = values
+
+val text = "rune"
+
+val label = text match {
+    [val first, ..2 val middle, val lastChar] => first.ToString() + "-" + middle + "-" + lastChar.ToString()
+    _ => "no-match"
+}
+
+WriteLine((start[0] + start[1] + last).ToString())
+WriteLine(label)
