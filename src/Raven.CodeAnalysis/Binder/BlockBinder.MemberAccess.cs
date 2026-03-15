@@ -596,7 +596,7 @@ partial class BlockBinder
 
         if (method.IsExtensionMethod)
         {
-            if (receiver is null || method.Parameters.IsDefaultOrEmpty)
+            if (receiver is null || receiver.Type is null || method.Parameters.IsDefaultOrEmpty)
                 return parameterType;
 
             var extensionReceiverType = method.GetExtensionReceiverType() ?? method.Parameters[0].Type;
@@ -886,8 +886,13 @@ partial class BlockBinder
         else if (method.IsExtensionMethod && receiver is not null && !method.Parameters.IsDefaultOrEmpty)
         {
             var extensionReceiverType = method.GetExtensionReceiverType() ?? method.Parameters[0].Type;
-            if (extensionReceiverType is not null && extensionReceiverType.TypeKind != TypeKind.Error)
+            if (extensionReceiverType is not null &&
+                extensionReceiverType.TypeKind != TypeKind.Error &&
+                receiver.Type is not null &&
+                receiver.Type.TypeKind != TypeKind.Error)
+            {
                 TryUnifyExtensionReceiverType(extensionReceiverType, receiver.Type, substitutions);
+            }
         }
 
         for (int i = 0; i < arguments.Count; i++)

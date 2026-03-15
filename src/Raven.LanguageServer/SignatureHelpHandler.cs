@@ -248,6 +248,20 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 AddIfNotPresent(candidate);
         }
 
+        var expressionSymbolInfo = semanticModel.GetSymbolInfo(invocation.Expression);
+
+        if (expressionSymbolInfo.Symbol is IMethodSymbol expressionMethod)
+            AddIfNotPresent(expressionMethod);
+
+        if (!expressionSymbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+        {
+            foreach (var candidate in expressionSymbolInfo.CandidateSymbols.OfType<IMethodSymbol>())
+                AddIfNotPresent(candidate);
+        }
+
+        foreach (var method in builder.ToImmutableArray())
+            AddSiblingOverloads(method, AddIfNotPresent);
+
         if (builder.Count == 0)
         {
             if (symbolInfo.Symbol is INamedTypeSymbol selectedType)
@@ -259,6 +273,21 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
                 foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+                {
+                    foreach (var constructor in candidateType.InstanceConstructors)
+                        AddIfNotPresent(constructor);
+                }
+            }
+
+            if (expressionSymbolInfo.Symbol is INamedTypeSymbol expressionTypeSymbol)
+            {
+                foreach (var constructor in expressionTypeSymbol.InstanceConstructors)
+                    AddIfNotPresent(constructor);
+            }
+
+            if (!expressionSymbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                foreach (var candidateType in expressionSymbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
                 {
                     foreach (var constructor in candidateType.InstanceConstructors)
                         AddIfNotPresent(constructor);
@@ -311,6 +340,36 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 continue;
 
             addIfNotPresent(invokeCandidate);
+        }
+    }
+
+    private static void AddSiblingOverloads(
+        IMethodSymbol method,
+        Action<IMethodSymbol> addIfNotPresent)
+    {
+        if (method.MethodKind == MethodKind.Constructor)
+        {
+            if (method.ContainingType is null)
+                return;
+
+            foreach (var constructor in method.ContainingType.InstanceConstructors)
+                addIfNotPresent(constructor);
+
+            return;
+        }
+
+        if (method.ContainingType is not null)
+        {
+            foreach (var overload in method.ContainingType.GetMembers(method.Name).OfType<IMethodSymbol>())
+                addIfNotPresent(overload);
+
+            return;
+        }
+
+        if (method.ContainingNamespace is not null)
+        {
+            foreach (var overload in method.ContainingNamespace.GetMembers(method.Name).OfType<IMethodSymbol>())
+                addIfNotPresent(overload);
         }
     }
 
