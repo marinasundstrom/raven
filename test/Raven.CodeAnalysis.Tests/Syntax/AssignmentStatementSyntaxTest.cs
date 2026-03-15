@@ -74,7 +74,7 @@ public class AssignmentStatementSyntaxTest
         Assert.True(pattern.Elements[0].Pattern is VariablePatternSyntax or DeclarationPatternSyntax);
 
         var restElement = pattern.Elements[1];
-        Assert.Equal(SyntaxKind.DotDotToken, restElement.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, restElement.Prefix.DotDotToken.Kind);
         var middle = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
         Assert.Equal(SyntaxKind.None, middle.BindingKeyword.Kind);
 
@@ -92,8 +92,8 @@ public class AssignmentStatementSyntaxTest
         Assert.Equal(2, pattern.Elements.Count);
 
         var segmentElement = pattern.Elements[0];
-        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.DotDotToken.Kind);
-        Assert.Equal(SyntaxKind.NumericLiteralToken, segmentElement.SegmentLengthToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, segmentElement.Prefix.SegmentLengthToken.Kind);
 
         var start = Assert.IsType<VariablePatternSyntax>(segmentElement.Pattern);
         Assert.Equal(SyntaxKind.None, start.BindingKeyword.Kind);

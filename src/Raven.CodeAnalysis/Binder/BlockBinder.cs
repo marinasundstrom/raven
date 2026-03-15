@@ -8643,7 +8643,8 @@ partial class BlockBinder : Binder
         for (var i = 0; i < elements.Count; i++)
         {
             var element = elements[i];
-            var dotDotKind = element.DotDotToken.Kind;
+            var prefix = element.Prefix;
+            var dotDotKind = prefix.DotDotToken.Kind;
             if (dotDotKind is not SyntaxKind.DotDotToken and not SyntaxKind.DotDotDotToken)
             {
                 widths.Add(1);
@@ -8651,9 +8652,9 @@ partial class BlockBinder : Binder
                 continue;
             }
 
-            if (element.SegmentLengthToken.Kind == SyntaxKind.NumericLiteralToken)
+            if (prefix.SegmentLengthToken.Kind == SyntaxKind.NumericLiteralToken)
             {
-                var width = int.TryParse(element.SegmentLengthToken.Text, out var parsedWidth)
+                var width = int.TryParse(prefix.SegmentLengthToken.Text, out var parsedWidth)
                     ? parsedWidth
                     : 0;
                 widths.Add(width);
@@ -8671,7 +8672,7 @@ partial class BlockBinder : Binder
     }
 
     private static bool IsSequenceRestElement(SequencePatternElementSyntax element)
-        => element.DotDotToken.Kind is SyntaxKind.DotDotToken or SyntaxKind.DotDotDotToken;
+        => element.Prefix.DotDotToken.Kind is SyntaxKind.DotDotToken or SyntaxKind.DotDotDotToken;
 
     private BoundPattern BindIdentifierPatternForAssignment(
         IdentifierNameSyntax identifierName,

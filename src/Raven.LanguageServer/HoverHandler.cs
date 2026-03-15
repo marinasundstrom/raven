@@ -294,7 +294,7 @@ internal sealed class HoverHandler : IHoverHandler
             if (element is null)
                 return null;
 
-            if (element.DotDotToken.Kind != SyntaxKind.None)
+            if (element.Prefix.DotDotToken.Kind != SyntaxKind.None)
                 return rightType;
 
             if (rightType is IArrayTypeSymbol arrayType)

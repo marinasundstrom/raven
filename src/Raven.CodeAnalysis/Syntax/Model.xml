@@ -834,9 +834,12 @@
     <Slot Name="NameColon" Type="NameColon" IsNullable="true" />
     <Slot Name="Pattern" Type="Pattern" />
   </Node>
-  <Node Name="SequencePatternElement" Inherits="Node">
+  <Node Name="SequencePatternPrefix" Inherits="Node">
     <Slot Name="DotDotToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="SegmentLengthToken" Type="Token" IsOptionalToken="true" />
+  </Node>
+  <Node Name="SequencePatternElement" Inherits="Node">
+    <Slot Name="Prefix" Type="SequencePatternPrefix" />
     <Slot Name="Pattern" Type="Pattern" />
   </Node>
   <Node Name="MemberPatternPath" Inherits="Node">

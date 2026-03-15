@@ -183,7 +183,7 @@ public class PatternSyntaxParserTests
         Assert.Equal(3, collectionPattern.Elements.Count);
 
         var restElement = collectionPattern.Elements[1];
-        Assert.Equal(SyntaxKind.DotDotToken, restElement.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, restElement.Prefix.DotDotToken.Kind);
 
         var restPattern = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
         var restDesignation = Assert.IsType<SingleVariableDesignationSyntax>(restPattern.Designation);
@@ -203,7 +203,7 @@ public class PatternSyntaxParserTests
         Assert.Equal(3, collectionPattern.Elements.Count);
 
         var restElement = collectionPattern.Elements[1];
-        Assert.Equal(SyntaxKind.DotDotDotToken, restElement.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotDotToken, restElement.Prefix.DotDotToken.Kind);
 
         var restPattern = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
         var restDesignation = Assert.IsType<SingleVariableDesignationSyntax>(restPattern.Designation);
@@ -223,8 +223,8 @@ public class PatternSyntaxParserTests
         Assert.Equal(2, collectionPattern.Elements.Count);
 
         var segmentElement = collectionPattern.Elements[0];
-        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.DotDotToken.Kind);
-        Assert.Equal(SyntaxKind.NumericLiteralToken, segmentElement.SegmentLengthToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, segmentElement.Prefix.SegmentLengthToken.Kind);
 
         var segmentPattern = Assert.IsType<VariablePatternSyntax>(segmentElement.Pattern);
         var segmentDesignation = Assert.IsType<SingleVariableDesignationSyntax>(segmentPattern.Designation);

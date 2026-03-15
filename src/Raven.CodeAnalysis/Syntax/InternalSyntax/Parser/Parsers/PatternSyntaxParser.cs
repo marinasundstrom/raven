@@ -381,7 +381,7 @@ internal class PatternSyntaxParser : SyntaxParser
     {
         if (!TryConsumeSequenceRestToken(out var dotDotToken))
         {
-            return SequencePatternElement(Token(SyntaxKind.None), Token(SyntaxKind.None), ParseDeconstructionElementPattern());
+            return SequencePatternElement(SequencePatternPrefix(Token(SyntaxKind.None), Token(SyntaxKind.None)), ParseDeconstructionElementPattern());
         }
 
         var segmentLengthToken = Token(SyntaxKind.None);
@@ -392,7 +392,7 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         var pattern = ParseDeconstructionElementPattern();
-        return SequencePatternElement(dotDotToken, segmentLengthToken, pattern);
+        return SequencePatternElement(SequencePatternPrefix(dotDotToken, segmentLengthToken), pattern);
     }
 
     private bool TryConsumeSequenceRestToken(out SyntaxToken token)

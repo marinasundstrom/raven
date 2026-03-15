@@ -235,20 +235,24 @@
     </Overload>
   </Factory>
 
-  <Factory Node="SequencePatternElement">
+  <Factory Node="SequencePatternPrefix">
     <Overload>
-      <Parameter Slot="Pattern" />
       <Default Slot="DotDotToken" Token="None" />
       <Default Slot="SegmentLengthToken" Token="None" />
     </Overload>
     <Overload>
       <Parameter Slot="DotDotToken" />
-      <Parameter Slot="Pattern" />
       <Default Slot="SegmentLengthToken" Token="None" />
     </Overload>
     <Overload>
       <Parameter Slot="DotDotToken" />
       <Parameter Slot="SegmentLengthToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="SequencePatternElement">
+    <Overload>
+      <Parameter Slot="Prefix" />
       <Parameter Slot="Pattern" />
     </Overload>
   </Factory>
