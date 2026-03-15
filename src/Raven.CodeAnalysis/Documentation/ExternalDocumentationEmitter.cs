@@ -36,7 +36,10 @@ internal static class ExternalDocumentationEmitter
             var memberDirectory = Path.Combine(symbolsRoot, entry.MemberId[0].ToString());
             Directory.CreateDirectory(memberDirectory);
             var filePath = Path.Combine(memberDirectory, DocumentationCommentIdBuilder.GetMarkdownPathHash(entry.MemberId) + ".md");
-            File.WriteAllText(filePath, entry.Comment.Content);
+            var markdown = MarkdownDocumentationFrontMatter.Write(
+                entry.Comment.Content,
+                ("xref", entry.MemberId));
+            File.WriteAllText(filePath, markdown);
         }
 
         var manifest = new

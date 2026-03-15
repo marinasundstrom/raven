@@ -225,6 +225,10 @@ WriteLine(message)
         File.WriteAllText(
             Path.Combine(symbolsRoot, encodedName),
             """
+            ---
+            xref: M:Raven.CodeAnalysis.Syntax.SyntaxFactory.StoredPropertyDeclaration(Raven.CodeAnalysis.Syntax.SyntaxList{Raven.CodeAnalysis.Syntax.AttributeListSyntax},Raven.CodeAnalysis.Syntax.SyntaxTokenList,Raven.CodeAnalysis.Syntax.SyntaxToken,Raven.CodeAnalysis.Syntax.SyntaxToken,Raven.CodeAnalysis.Syntax.TypeAnnotationClauseSyntax,Raven.CodeAnalysis.Syntax.EqualsValueClauseSyntax)
+            ---
+
             # StoredPropertyDeclaration
 
             Markdown sidecar documentation wins over XML.
@@ -250,6 +254,83 @@ WriteLine(message)
             Assert.NotNull(documentation);
             Assert.Equal(Raven.CodeAnalysis.DocumentationFormat.Markdown, documentation!.Format);
             Assert.Contains("Markdown sidecar documentation wins over XML.", documentation.Content, StringComparison.Ordinal);
+            Assert.DoesNotContain("xref:", documentation.Content, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void MetadataReferences_SkipMarkdownSidecar_WhenFrontMatterXrefDoesNotMatch()
+    {
+        var sourceAssemblyPath = typeof(Compilation).Assembly.Location;
+        var sourceXmlPath = Path.ChangeExtension(sourceAssemblyPath, ".xml");
+        Assert.True(File.Exists(sourceAssemblyPath));
+        Assert.True(File.Exists(sourceXmlPath));
+
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-markdown-docs-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        var assemblyPath = Path.Combine(directory, Path.GetFileName(sourceAssemblyPath));
+        var xmlPath = Path.Combine(directory, Path.GetFileName(sourceXmlPath));
+        File.Copy(sourceAssemblyPath, assemblyPath);
+        File.Copy(sourceXmlPath, xmlPath);
+
+        var docsRoot = Path.Combine(directory, "Raven.CodeAnalysis.docs");
+        var symbolsRoot = Path.Combine(docsRoot, "invariant", "symbols", "M");
+        Directory.CreateDirectory(symbolsRoot);
+
+        var manifest = new
+        {
+            formatVersion = 1,
+            assemblyName = "Raven.CodeAnalysis",
+            documentationFormat = "markdown",
+            idFormat = "doc-comment-id",
+            defaultLocale = "invariant",
+            locales = new[] { "invariant" },
+            symbolsPath = "symbols"
+        };
+
+        File.WriteAllText(
+            Path.Combine(docsRoot, "manifest.json"),
+            JsonSerializer.Serialize(manifest));
+
+        const string memberId =
+            "M:Raven.CodeAnalysis.Syntax.SyntaxFactory.StoredPropertyDeclaration(Raven.CodeAnalysis.Syntax.SyntaxList{Raven.CodeAnalysis.Syntax.AttributeListSyntax},Raven.CodeAnalysis.Syntax.SyntaxTokenList,Raven.CodeAnalysis.Syntax.SyntaxToken,Raven.CodeAnalysis.Syntax.SyntaxToken,Raven.CodeAnalysis.Syntax.TypeAnnotationClauseSyntax,Raven.CodeAnalysis.Syntax.EqualsValueClauseSyntax)";
+        var encodedName = DocumentationCommentIdBuilder.GetMarkdownPathHash(memberId) + ".md";
+        File.WriteAllText(
+            Path.Combine(symbolsRoot, encodedName),
+            """
+            ---
+            xref: M:Raven.CodeAnalysis.Syntax.SyntaxFactory.PropertyDeclaration
+            ---
+
+            Wrong symbol documentation.
+            """);
+
+        try
+        {
+            var compilation = Compilation.Create(
+                "consumer",
+                syntaxTrees: [],
+                references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(assemblyPath)],
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            var syntaxFactory = compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.SyntaxFactory");
+            Assert.NotNull(syntaxFactory);
+
+            var storedPropertyDeclaration = syntaxFactory!
+                .GetMembers("StoredPropertyDeclaration")
+                .OfType<IMethodSymbol>()
+                .Single();
+
+            var documentation = storedPropertyDeclaration.GetDocumentationComment();
+            Assert.NotNull(documentation);
+            Assert.Equal(Raven.CodeAnalysis.DocumentationFormat.Xml, documentation!.Format);
+            Assert.DoesNotContain("Wrong symbol documentation.", documentation.Content, StringComparison.Ordinal);
         }
         finally
         {
@@ -312,6 +393,18 @@ public class Widget {
             Assert.NotNull(documentation);
             Assert.Equal(Raven.CodeAnalysis.DocumentationFormat.Markdown, documentation!.Format);
             Assert.Contains("current title", documentation.Content, StringComparison.OrdinalIgnoreCase);
+
+            var docsRoot = Path.Combine(directory, "WidgetLibrary.docs");
+            var memberId = "M:Widget.GetTitle";
+            var memberPath = Path.Combine(
+                docsRoot,
+                "invariant",
+                "symbols",
+                "M",
+                DocumentationCommentIdBuilder.GetMarkdownPathHash(memberId) + ".md");
+            var emittedMarkdown = File.ReadAllText(memberPath);
+            Assert.Contains("---", emittedMarkdown, StringComparison.Ordinal);
+            Assert.Contains($"xref: {memberId}", emittedMarkdown, StringComparison.Ordinal);
         }
         finally
         {

@@ -188,9 +188,16 @@ internal sealed class MarkdownDocumentationFile
                 if (string.IsNullOrWhiteSpace(content))
                     continue;
 
+                var parsed = MarkdownDocumentationFrontMatter.Parse(content);
+                if (parsed.FrontMatter.TryGetValue("xref", out var xref) &&
+                    !string.Equals(xref, memberId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 return DocumentationComment.Create(
                     DocumentationFormat.Markdown,
-                    content,
+                    parsed.Body,
                     rawText: content);
             }
             catch

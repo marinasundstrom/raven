@@ -146,11 +146,16 @@ The built-in compiler emitter currently writes all Markdown sidecars under the
 
 ## Markdown file content
 
-Each symbol file contains raw Markdown only.
+Each symbol file contains Markdown content and may begin with optional
+front matter.
 
 Example:
 
 ```md
+---
+xref: M:Raven.CodeAnalysis.Syntax.SyntaxFactory.StoredPropertyDeclaration(...)
+---
+
 # StoredPropertyDeclaration
 
 Creates a stored property declaration with an initializer.
@@ -161,7 +166,23 @@ Alias for `PropertyDeclaration`. Prefer the canonical factory name unless the
 alias is clearer at the call site.
 ```
 
-No front matter is required in v1.
+Front matter is optional and is treated as metadata, not rendered content.
+
+Current supported field:
+
+- `xref`
+  The XML documentation comment ID for the symbol this file documents.
+
+Rules:
+
+- Front matter must appear at the top of the file, delimited by `---` lines.
+- The loader strips front matter before creating the Markdown
+  `DocumentationComment`.
+- If `xref` is present and does not match the requested symbol, the Markdown
+  sidecar entry is ignored and normal XML fallback still applies.
+
+This keeps Markdown presentation-oriented while still allowing a sidecar file
+to carry enough metadata to bind it to a specific symbol.
 
 ## Emission and future RavenDoc integration
 
