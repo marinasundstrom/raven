@@ -513,6 +513,42 @@ val result = items match {
     }
 
     [Fact]
+    public void MatchExpression_WithCollectionPatternRestOnFixedArray_BindsFixedSizeRestDesignation()
+    {
+        const string code = """
+val items: int[4] = [1, 2, 3, 4]
+
+val result = items match {
+    [val first, val second, ...val rest] => first + second + rest.Length
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "fixed_array_collection_match_rest",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(bound.Arms[0].Pattern);
+        var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[2]);
+        var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
+        Assert.Equal("rest", restDesignator.Local.Name);
+        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol
+        {
+            ElementType.SpecialType: SpecialType.System_Int32,
+            FixedSize: 2
+        });
+    }
+
+    [Fact]
     public void MatchExpression_WithTrailingTripleDotCollectionPattern_BindsDiscardRest()
     {
         const string code = """

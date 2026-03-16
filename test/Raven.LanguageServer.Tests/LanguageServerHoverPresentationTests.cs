@@ -1,3 +1,5 @@
+using System.IO;
+using System.Linq;
 using System.Reflection;
 
 using Raven.CodeAnalysis;
@@ -1076,5 +1078,4 @@ class C {
         var signature = (string)buildSignatureForHover.Invoke(null, [resolution!.Value.Symbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
         signature.ShouldContain("var x:");
     }
-
 }

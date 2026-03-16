@@ -441,6 +441,80 @@ tail
     }
 
     [Fact]
+    public void CollectionPatternDeclarationShorthand_WithFixedArrayRest_BindsFixedSizeArraySlice()
+    {
+        const string source = """
+val values: int[4] = [1, 2, 3, 4]
+val [first, second, ...rest] = values
+rest
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
+            .Single();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[2]);
+        var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
+        Assert.Equal("rest", restDesignator.Local.Name);
+        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol
+        {
+            ElementType.SpecialType: SpecialType.System_Int32,
+            FixedSize: 2
+        });
+    }
+
+    [Fact]
+    public void CollectionPatternDeclarationShorthand_WithFixedArrayFixedSegment_BindsFixedSizeArraySlice()
+    {
+        const string source = """
+val values: int[3] = [1, 2, 3]
+val [..2 start, tail] = values
+start
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
+            .Single();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        var startPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[0]);
+        var startDesignator = Assert.IsType<BoundSingleVariableDesignator>(startPattern.Designator);
+        Assert.Equal("start", startDesignator.Local.Name);
+        Assert.True(startDesignator.Local.Type is IArrayTypeSymbol
+        {
+            ElementType.SpecialType: SpecialType.System_Int32,
+            FixedSize: 2
+        });
+    }
+
+    [Fact]
     public void StringPatternDeclarationShorthand_WithFixedSegment_BindsCharAndStringLocals()
     {
         const string source = """

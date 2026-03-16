@@ -196,4 +196,30 @@ class C {
 
         items.ShouldContain(item => item.DisplayText == "Length");
     }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnFixedSizeSequenceRestPatternLocal_ReturnsArrayMembers()
+    {
+        const string code = """
+class C {
+    func Run(values: int[4]) -> int {
+        return values match {
+            [val first, val second, ...val rest] => rest.
+            _ => 0
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var service = new CompletionService();
+        var position = code.IndexOf("rest.", StringComparison.Ordinal) + 5;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        items.ShouldContain(item => item.DisplayText == "Length");
+    }
 }

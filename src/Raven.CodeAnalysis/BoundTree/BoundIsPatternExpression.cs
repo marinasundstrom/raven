@@ -928,8 +928,6 @@ internal partial class BlockBinder
         var reason = BoundExpressionReason.None;
         var (elementWidths, elementKinds, restIndex) = GetSequencePatternLayout(syntax.Elements);
         var elementType = Compilation.ErrorTypeSymbol;
-        var sliceType = Compilation.ErrorTypeSymbol;
-
         if (!TryGetSequencePatternElementType(inputType, out elementType))
         {
             if (inputType.TypeKind != TypeKind.Error)
@@ -944,15 +942,18 @@ internal partial class BlockBinder
             reason = BoundExpressionReason.TypeMismatch;
         }
 
-        sliceType = GetSequenceSliceType(inputType, elementType);
         ReportInvalidNonCapturingSequenceRestElementsInMatch(syntax.Elements);
 
         for (var i = 0; i < syntax.Elements.Count; i++)
         {
             var elementSyntax = syntax.Elements[i];
-            var expectedType = elementKinds[i] == BoundPositionalPattern.SequenceElementKind.Single
-                ? elementType
-                : sliceType;
+            var expectedType = GetSequencePatternElementType(
+                inputType,
+                elementType,
+                elementWidths,
+                elementKinds,
+                restIndex,
+                i);
             var boundElement = BindPositionalPatternElement(elementSyntax.Pattern, expectedType);
             elementPatterns.Add(boundElement);
         }

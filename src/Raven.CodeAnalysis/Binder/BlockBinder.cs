@@ -3166,13 +3166,15 @@ partial class BlockBinder : Binder
 
                         var patternElements = tuplePattern.Elements;
                         var elementCount = Math.Min(patternElements.Length, collectionSyntax.Elements.Count);
-                        var sliceType = GetSequenceSliceType(scrutineeType, elementType);
-
                         for (var i = 0; i < elementCount; i++)
                         {
-                            var expectedType = tuplePattern.ElementKinds[i] == BoundPositionalPattern.SequenceElementKind.Single
-                                ? elementType
-                                : sliceType;
+                            var expectedType = GetSequencePatternElementType(
+                                scrutineeType,
+                                elementType,
+                                tuplePattern.ElementWidths,
+                                tuplePattern.ElementKinds,
+                                tuplePattern.RestIndex,
+                                i);
                             EnsureMatchArmPatternValid(expectedType, collectionSyntax.Elements[i].Pattern, patternElements[i]);
                         }
 
@@ -8551,8 +8553,6 @@ partial class BlockBinder : Binder
         var elementType = Compilation.ErrorTypeSymbol;
         var patternType = valueType;
         var (elementWidths, elementKinds, restIndex) = GetSequencePatternLayout(elements);
-        var sliceType = Compilation.ErrorTypeSymbol;
-
         if (TryGetSequenceDeconstructionElementType(valueType, out var sequenceElementType))
         {
             elementType = sequenceElementType;
@@ -8565,8 +8565,6 @@ partial class BlockBinder : Binder
 
             patternType = Compilation.ErrorTypeSymbol;
         }
-
-        sliceType = GetSequenceSliceType(valueType, elementType);
 
         if (valueType is IArrayTypeSymbol fixedArray && fixedArray.FixedSize is int fixedSize)
         {
@@ -8588,9 +8586,13 @@ partial class BlockBinder : Binder
         for (var i = 0; i < elementCount; i++)
         {
             var elementSyntax = elements[i];
-            var expectedType = elementKinds[i] == BoundPositionalPattern.SequenceElementKind.Single
-                ? elementType
-                : sliceType;
+            var expectedType = GetSequencePatternElementType(
+                valueType,
+                elementType,
+                elementWidths,
+                elementKinds,
+                restIndex,
+                i);
             var boundElement = BindPatternForAssignment(
                 elementSyntax.Pattern,
                 expectedType,
@@ -8679,12 +8681,40 @@ partial class BlockBinder : Binder
 
     }
 
-    private ITypeSymbol GetSequenceSliceType(ITypeSymbol valueType, ITypeSymbol elementType)
+    private ITypeSymbol GetSequenceSliceType(ITypeSymbol valueType, ITypeSymbol elementType, int? fixedSize = null)
     {
         if (valueType.SpecialType == SpecialType.System_String)
             return Compilation.GetSpecialType(SpecialType.System_String);
 
-        return Compilation.CreateArrayTypeSymbol(elementType);
+        return Compilation.CreateArrayTypeSymbol(elementType, fixedSize: fixedSize);
+    }
+
+    private ITypeSymbol GetSequencePatternElementType(
+        ITypeSymbol valueType,
+        ITypeSymbol elementType,
+        ImmutableArray<int> elementWidths,
+        ImmutableArray<BoundPositionalPattern.SequenceElementKind> elementKinds,
+        int restIndex,
+        int elementIndex)
+    {
+        if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.Single)
+            return elementType;
+
+        if (valueType is IArrayTypeSymbol arrayType && arrayType.FixedSize is int sourceFixedSize)
+        {
+            if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.FixedSegment)
+                return GetSequenceSliceType(valueType, elementType, elementWidths[elementIndex]);
+
+            if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.RestSegment && restIndex >= 0)
+            {
+                var fixedWidth = elementWidths.Where(width => width > 0).Sum();
+                var restWidth = sourceFixedSize - fixedWidth;
+                if (restWidth >= 0)
+                    return GetSequenceSliceType(valueType, elementType, restWidth);
+            }
+        }
+
+        return GetSequenceSliceType(valueType, elementType);
     }
 
     private static int GetSequenceRestElementIndex(SeparatedSyntaxList<SequencePatternElementSyntax> elements)

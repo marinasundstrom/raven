@@ -2663,6 +2663,11 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     be at least the total fixed width of the non-rest elements.
   * For arrays and indexable collections, single-element captures bind the element
     type and segment captures bind an array slice.
+  * When the input is a fixed-size array `T[N]`, captured fixed/rest array
+    segments preserve an inferred fixed size when the segment width is
+    statically known. For example, `[val a, val b, ...val rest]` against
+    `int[4]` binds `rest` as `int[2]`, and `[..2 val head, val tail]` against
+    `int[3]` binds `head` as `int[2]`.
   * For `string`, single-element captures bind `char` and segment captures bind
     `string`, even for `..1`.
 
@@ -3955,8 +3960,9 @@ In inline/freestanding collection patterns, spell captures explicitly:
 assignments/declarations, bare `..2 name`, `..rest`, and `...rest` remain valid
 as binding targets. A bare trailing `...` may be used in either form to ignore
 the rest of the sequence without creating a binding, and it is only valid as
-the final element. For strings, a plain element binds `char`, while `..N` and
-rest segments bind `string`.
+the final element. When the input is a fixed-size array, captured `..N` and
+`...rest` array segments keep an inferred fixed-size array type. For strings, a
+plain element binds `char`, while `..N` and rest segments bind `string`.
 
 Nested deconstruction uses the same recursive compatibility rules in all valid
 positions:
