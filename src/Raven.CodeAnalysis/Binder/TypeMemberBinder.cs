@@ -829,7 +829,8 @@ internal partial class TypeMemberBinder : Binder
         if (isAsync && methodDecl.ReturnType is { } annotatedReturn && !IsValidAsyncReturnType(returnType))
         {
             var display = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-            _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, annotatedReturn.Type.GetLocation());
+            var suggestedReturnType = AsyncReturnTypeUtilities.GetSuggestedAsyncReturnTypeDisplay(Compilation, returnType);
+            _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, suggestedReturnType, annotatedReturn.Type.GetLocation());
             returnType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
             hasInvalidAsyncReturnType = true;
         }
@@ -2982,7 +2983,8 @@ internal partial class TypeMemberBinder : Binder
                     var display = propertyType.TypeKind == TypeKind.Error
                         ? propertyTypeSyntax.ToString()
                         : propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-                    _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, propertyTypeSyntax.GetLocation());
+                    var suggestedReturnType = AsyncReturnTypeUtilities.GetSuggestedAsyncReturnTypeDisplay(Compilation, propertyType);
+                    _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, suggestedReturnType, propertyTypeSyntax.GetLocation());
                 }
 
 

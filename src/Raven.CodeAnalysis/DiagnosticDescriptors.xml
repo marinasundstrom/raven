@@ -147,7 +147,7 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2704" Identifier="AsyncReturnTypeMustBeTaskLike"
     Title="Async return type must be Task-like"
-    Message="Async return type '{returnType}' is not supported; async functions must return System.Threading.Tasks.Task or System.Threading.Tasks.Task&lt;T&gt;"
+    Message="Async return type '{returnType}' is not supported; async functions must return Task-like types such as System.Threading.Tasks.Task, System.Threading.Tasks.Task&lt;T&gt;, System.Threading.Tasks.ValueTask, or System.Threading.Tasks.ValueTask&lt;T&gt;. If you intend to return '{returnType}', use '{suggestedReturnType}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2705" Identifier="AsyncTaskReturnCannotHaveExpression"
     Title="Async Task return cannot include a value"

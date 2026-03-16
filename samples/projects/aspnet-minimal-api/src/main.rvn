@@ -51,6 +51,16 @@ func Main(args: string[]) {
         return "submitted async: $content"
     })
 
+    app.MapPost("/person", async func (person: Person) -> Task<Result<string, CustomError>> {
+        await Task.Delay(1)
+
+        if val (name, >= 18) = person {
+            return Ok("Welcome, $name!")
+        }
+
+        return Error(CustomError("You are too young"))
+    })
+
     app.Run()
 }
 
@@ -61,3 +71,8 @@ record Data(val Value: string)
 record PingResult(val Message: string)
 
 record CustomError(val Message: string)
+
+record Person(
+    val Name: string,
+    val Age: int
+)

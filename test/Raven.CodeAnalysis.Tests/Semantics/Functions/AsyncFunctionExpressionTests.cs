@@ -138,6 +138,7 @@ class C {
         var diagnostics = compilation.GetDiagnostics();
         var diagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
         Assert.Contains("int", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Task<int>", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -155,6 +156,37 @@ val projector = async () -> int => {
         var (compilation, _) = CreateCompilation(source);
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike);
+    }
+
+    [Fact]
+    public void AsyncLambda_WithExplicitNonTaskReturnType_DoesNotCascadeBodyConversionDiagnostic()
+    {
+        const string source = """
+import System.*
+import System.Threading.Tasks.*
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+class C {
+    func Configure(handler: Func<Task<Result<int, string>>>) -> () {}
+
+    func Run() -> () {
+        Configure(async func () -> Result<int, string> {
+            return Ok(1)
+        })
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        var asyncDiagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
+        Assert.Contains("Task<Result<int, string>>", asyncDiagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
     }
 
     [Fact]

@@ -66,6 +66,7 @@ class C {
         var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
         Assert.Equal(CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike, diagnostic.Descriptor);
         Assert.Contains("int", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Task<int>", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -349,6 +350,7 @@ return ()
         var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
         Assert.Equal(CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike, diagnostic.Descriptor);
         Assert.Contains("string", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Task<string>", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

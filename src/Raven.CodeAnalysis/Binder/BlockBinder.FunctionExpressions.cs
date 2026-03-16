@@ -290,7 +290,8 @@ partial class BlockBinder
             annotatedReturnType is not null && !IsValidAsyncReturnType(annotatedReturnType))
         {
             var display = annotatedReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-            _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, returnTypeSyntax.GetLocation());
+            var suggestedReturnType = AsyncReturnTypeUtilities.GetSuggestedAsyncReturnTypeDisplay(Compilation, annotatedReturnType);
+            _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, suggestedReturnType, returnTypeSyntax.GetLocation());
             annotatedReturnType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
             hasInvalidAsyncReturnType = true;
         }
@@ -652,7 +653,8 @@ partial class BlockBinder
             expectedBodyType is not ITypeParameterSymbol &&
             inferred is not null &&
             inferred.TypeKind != TypeKind.Error &&
-            expectedBodyType.TypeKind != TypeKind.Error)
+            expectedBodyType.TypeKind != TypeKind.Error &&
+            !hasInvalidAsyncReturnType)
         {
             if (!IsAssignable(expectedBodyType, inferred, out var conversion))
             {
@@ -688,7 +690,7 @@ partial class BlockBinder
         var delegateType = primaryDelegate is not null &&
             targetSignature is not null &&
             targetSignature.Parameters.Length == parameterSymbols.Count &&
-            SymbolEqualityComparer.Default.Equals(returnType, targetSignature.ReturnType) &&
+            (hasInvalidAsyncReturnType || SymbolEqualityComparer.Default.Equals(returnType, targetSignature.ReturnType)) &&
             parameterSymbols
                 .Zip(targetSignature.Parameters, (parameter, target) =>
                     SymbolEqualityComparer.Default.Equals(parameter.Type, target.Type) && parameter.RefKind == target.RefKind)

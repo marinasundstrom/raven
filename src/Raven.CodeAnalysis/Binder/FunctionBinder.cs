@@ -93,7 +93,8 @@ class FunctionBinder : Binder
         if (isAsync && _syntax.ReturnType is { } annotatedReturn && !IsValidAsyncReturnType(returnType))
         {
             var display = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-            _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, annotatedReturn.Type.GetLocation());
+            var suggestedReturnType = AsyncReturnTypeUtilities.GetSuggestedAsyncReturnTypeDisplay(Compilation, returnType);
+            _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, suggestedReturnType, annotatedReturn.Type.GetLocation());
             returnType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
             hasInvalidAsyncReturnType = true;
         }

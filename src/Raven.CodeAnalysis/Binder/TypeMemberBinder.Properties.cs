@@ -554,7 +554,8 @@ internal partial class TypeMemberBinder : Binder
                     var display = propertyType.TypeKind == TypeKind.Error
                         ? propertyTypeSyntax.ToString()
                         : propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-                    _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, propertyTypeSyntax.GetLocation());
+                    var suggestedReturnType = AsyncReturnTypeUtilities.GetSuggestedAsyncReturnTypeDisplay(Compilation, propertyType);
+                    _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, suggestedReturnType, propertyTypeSyntax.GetLocation());
                 }
 
                 if (isAbstract && (accessor.Body is not null || accessor.ExpressionBody is not null))

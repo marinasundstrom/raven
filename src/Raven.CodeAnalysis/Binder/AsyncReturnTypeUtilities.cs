@@ -4,6 +4,32 @@ namespace Raven.CodeAnalysis;
 
 internal static class AsyncReturnTypeUtilities
 {
+    public static string GetSuggestedAsyncReturnTypeDisplay(Compilation compilation, ITypeSymbol? returnType)
+    {
+        var taskType = compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+        var normalized = returnType?.GetPlainType();
+
+        if (normalized is null ||
+            normalized.TypeKind == TypeKind.Error ||
+            SymbolEqualityComparer.Default.Equals(normalized, compilation.GetSpecialType(SpecialType.System_Unit)) ||
+            normalized.SpecialType == SpecialType.System_Void)
+        {
+            return taskType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        }
+
+        if (normalized is LiteralTypeSymbol literal)
+            normalized = literal.UnderlyingType;
+
+        if (compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) is INamedTypeSymbol taskOfT &&
+            taskOfT.TypeKind != TypeKind.Error)
+        {
+            return taskOfT.Construct(normalized)
+                .ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        }
+
+        return taskType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+    }
+
     public static ITypeSymbol InferAsyncReturnType(Compilation compilation, BoundNode body)
     {
         return ReturnTypeCollector.InferAsync(compilation, body)

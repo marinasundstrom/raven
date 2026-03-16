@@ -68,3 +68,12 @@ POST {{base}}/submit-async
 Content-Type: text/plain
 
 async payload
+
+### Submit person
+POST {{base}}/person
+Content-Type: application/json
+
+{
+  "Name": "Bob",
+  "Age": 19
+}
