@@ -205,7 +205,7 @@ internal partial class TypeMemberBinder : Binder
             var elementType = SubstituteTypeParameters(arrayType.ElementType, map);
             return SymbolEqualityComparer.Default.Equals(elementType, arrayType.ElementType)
                 ? type
-                : new ArrayTypeSymbol(arrayType.BaseType, elementType, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedSize);
+                : new ArrayTypeSymbol(arrayType.BaseType, elementType, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
         }
 
         if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)

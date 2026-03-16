@@ -607,7 +607,7 @@ public interface IArrayTypeSymbol : ITypeSymbol
 
     public bool IsFixedArray { get; }
 
-    public int? FixedSize { get; }
+    public int? FixedLength { get; }
 }
 
 public interface IPointerTypeSymbol : ITypeSymbol

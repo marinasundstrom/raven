@@ -50,7 +50,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
         lock (_nullabilityContextGate)
             parameterNullInfo = _nullabilityContext.Create(parameterInfo);
         type = ApplyNullability(type!, parameterNullInfo);
-        return ApplyFixedArrayMetadata(type, TryGetFixedSizeArray(parameterInfo.GetCustomAttributesData()));
+        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(parameterInfo.GetCustomAttributesData()));
     }
 
     public ITypeSymbol? ResolveType(FieldInfo fieldInfo)
@@ -64,7 +64,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
         lock (_nullabilityContextGate)
             nullInfo = _nullabilityContext.Create(fieldInfo);
         type = ApplyNullability(type!, nullInfo);
-        return ApplyFixedArrayMetadata(type, TryGetFixedSizeArray(fieldInfo.GetCustomAttributesData()));
+        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(fieldInfo.GetCustomAttributesData()));
     }
 
     public ITypeSymbol? ResolveType(PropertyInfo propertyInfo)
@@ -78,7 +78,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
         lock (_nullabilityContextGate)
             nullInfo = _nullabilityContext.Create(propertyInfo);
         type = ApplyNullability(type!, nullInfo);
-        return ApplyFixedArrayMetadata(type, TryGetFixedSizeArray(propertyInfo.GetCustomAttributesData()));
+        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(propertyInfo.GetCustomAttributesData()));
     }
 
     public ITypeSymbol? ResolveType(EventInfo eventInfo)
@@ -334,19 +334,19 @@ internal class ReflectionTypeLoader(Compilation compilation)
         return typeSymbol;
     }
 
-    private ITypeSymbol ApplyFixedArrayMetadata(ITypeSymbol typeSymbol, int? fixedSize)
+    private ITypeSymbol ApplyFixedArrayMetadata(ITypeSymbol typeSymbol, int? fixedLength)
     {
-        if (fixedSize is null || typeSymbol is not IArrayTypeSymbol arrayType || arrayType.Rank != 1)
+        if (fixedLength is null || typeSymbol is not IArrayTypeSymbol arrayType || arrayType.Rank != 1)
             return typeSymbol;
 
-        return compilation.CreateArrayTypeSymbol(arrayType.ElementType, arrayType.Rank, fixedSize);
+        return compilation.CreateArrayTypeSymbol(arrayType.ElementType, arrayType.Rank, fixedLength);
     }
 
-    private static int? TryGetFixedSizeArray(IList<CustomAttributeData> attributes)
+    private static int? TryGetFixedLengthArray(IList<CustomAttributeData> attributes)
     {
         foreach (var attribute in attributes)
         {
-            if (attribute.AttributeType.FullName != "System.Runtime.CompilerServices.FixedSizeArrayAttribute")
+            if (attribute.AttributeType.FullName is not ("System.Runtime.CompilerServices.FixedLengthArrayAttribute" or "System.Runtime.CompilerServices.FixedSizeArrayAttribute"))
                 continue;
 
             if (attribute.ConstructorArguments is [{ Value: int size }])

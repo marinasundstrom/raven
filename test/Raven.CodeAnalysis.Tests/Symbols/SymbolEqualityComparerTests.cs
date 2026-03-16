@@ -384,8 +384,8 @@ class Sample {{
             .AddReferences(TestMetadataReferences.Default);
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var fixedThree = compilation.CreateArrayTypeSymbol(intType, fixedSize: 3);
-        var fixedFour = compilation.CreateArrayTypeSymbol(intType, fixedSize: 4);
+        var fixedThree = compilation.CreateArrayTypeSymbol(intType, fixedLength: 3);
+        var fixedFour = compilation.CreateArrayTypeSymbol(intType, fixedLength: 4);
         var open = compilation.CreateArrayTypeSymbol(intType);
 
         var comparer = SymbolEqualityComparer.Default;

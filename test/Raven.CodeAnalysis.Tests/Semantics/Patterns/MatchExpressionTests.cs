@@ -544,7 +544,7 @@ val result = items match {
         Assert.True(restDesignator.Local.Type is IArrayTypeSymbol
         {
             ElementType.SpecialType: SpecialType.System_Int32,
-            FixedSize: 2
+            FixedLength: 2
         });
     }
 

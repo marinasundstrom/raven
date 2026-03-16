@@ -253,7 +253,7 @@ internal class MethodGenerator
         if (tupleReturnAttr is not null)
             returnParamBuilder.SetCustomAttribute(tupleReturnAttr);
 
-        var fixedReturnArrayAttr = TypeGenerator.CodeGen.CreateFixedSizeArrayAttribute(MethodSymbol.ReturnType);
+        var fixedReturnArrayAttr = TypeGenerator.CodeGen.CreateFixedLengthArrayAttribute(MethodSymbol.ReturnType);
         if (fixedReturnArrayAttr is not null)
             returnParamBuilder.SetCustomAttribute(fixedReturnArrayAttr);
 
@@ -285,9 +285,9 @@ internal class MethodGenerator
             if (tupleNamesAttr is not null)
                 parameterBuilder.SetCustomAttribute(tupleNamesAttr);
 
-            var fixedSizeArrayAttr = TypeGenerator.CodeGen.CreateFixedSizeArrayAttribute(parameterSymbol.Type);
-            if (fixedSizeArrayAttr is not null)
-                parameterBuilder.SetCustomAttribute(fixedSizeArrayAttr);
+            var fixedLengthArrayAttr = TypeGenerator.CodeGen.CreateFixedLengthArrayAttribute(parameterSymbol.Type);
+            if (fixedLengthArrayAttr is not null)
+                parameterBuilder.SetCustomAttribute(fixedLengthArrayAttr);
 
             TypeGenerator.CodeGen.ApplyCustomAttributes(parameterSymbol.GetAttributes(), attribute => parameterBuilder.SetCustomAttribute(attribute));
             ApplyParameterDefaultValueIfAny(parameterBuilder, parameterSymbol);

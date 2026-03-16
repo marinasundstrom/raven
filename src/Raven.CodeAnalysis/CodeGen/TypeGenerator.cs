@@ -589,9 +589,9 @@ internal class TypeGenerator
         if (tupleNamesAttr is not null)
             fieldBuilder.SetCustomAttribute(tupleNamesAttr);
 
-        var fixedSizeArrayAttr = CodeGen.CreateFixedSizeArrayAttribute(fieldSymbol.Type);
-        if (fixedSizeArrayAttr is not null)
-            fieldBuilder.SetCustomAttribute(fixedSizeArrayAttr);
+        var fixedLengthArrayAttr = CodeGen.CreateFixedLengthArrayAttribute(fieldSymbol.Type);
+        if (fixedLengthArrayAttr is not null)
+            fieldBuilder.SetCustomAttribute(fixedLengthArrayAttr);
 
         CodeGen.ApplyCustomAttributes(fieldSymbol.GetAttributes(), attribute => fieldBuilder.SetCustomAttribute(attribute));
 
@@ -882,9 +882,9 @@ internal class TypeGenerator
                         if (nullableAttr is not null)
                             propBuilder.SetCustomAttribute(nullableAttr);
 
-                        var fixedSizeArrayAttr = CodeGen.CreateFixedSizeArrayAttribute(propertySymbol.Type);
-                        if (fixedSizeArrayAttr is not null)
-                            propBuilder.SetCustomAttribute(fixedSizeArrayAttr);
+                        var fixedLengthArrayAttr = CodeGen.CreateFixedLengthArrayAttribute(propertySymbol.Type);
+                        if (fixedLengthArrayAttr is not null)
+                            propBuilder.SetCustomAttribute(fixedLengthArrayAttr);
 
                         CodeGen.ApplyCustomAttributes(propertySymbol.GetAttributes(), attribute => propBuilder.SetCustomAttribute(attribute));
                         ApplyExtensionMarkerNameAttribute(propertySymbol, propBuilder.SetCustomAttribute);

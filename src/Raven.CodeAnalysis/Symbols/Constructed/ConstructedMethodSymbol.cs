@@ -333,7 +333,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
                 if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
                 {
-                    var result = new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedSize);
+                    var result = new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
                     cache[type] = result;
                     return result;
                 }

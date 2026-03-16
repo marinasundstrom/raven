@@ -34,15 +34,15 @@ class Buffer {
         var data = Assert.IsAssignableFrom<IPropertySymbol>(buffer.GetMembers("Data").Single());
         var dataType = Assert.IsAssignableFrom<IArrayTypeSymbol>(data.Type);
         Assert.True(dataType.IsFixedArray);
-        Assert.Equal(2, dataType.FixedSize);
+        Assert.Equal(2, dataType.FixedLength);
 
         var echo = Assert.IsAssignableFrom<IMethodSymbol>(buffer.GetMembers("Echo").Single());
         var parameterType = Assert.IsAssignableFrom<IArrayTypeSymbol>(Assert.Single(echo.Parameters).Type);
         var returnType = Assert.IsAssignableFrom<IArrayTypeSymbol>(echo.ReturnType);
 
         Assert.True(parameterType.IsFixedArray);
-        Assert.Equal(3, parameterType.FixedSize);
+        Assert.Equal(3, parameterType.FixedLength);
         Assert.True(returnType.IsFixedArray);
-        Assert.Equal(3, returnType.FixedSize);
+        Assert.Equal(3, returnType.FixedLength);
     }
 }

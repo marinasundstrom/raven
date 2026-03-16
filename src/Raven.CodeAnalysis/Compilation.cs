@@ -1069,10 +1069,10 @@ public partial class Compilation
         }
     }
 
-    public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType, int rank = 1, int? fixedSize = null)
+    public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType, int rank = 1, int? fixedLength = null)
     {
         var ns = GlobalNamespace.LookupNamespace("System");
-        return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, [], rank, fixedSize);
+        return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, [], rank, fixedLength);
     }
 
     public ITypeSymbol CreatePointerTypeSymbol(ITypeSymbol pointedAtType)

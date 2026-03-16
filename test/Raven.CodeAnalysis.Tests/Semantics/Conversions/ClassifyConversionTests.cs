@@ -264,7 +264,7 @@ class Foo : IDisposable {
     {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var fixedArray = compilation.CreateArrayTypeSymbol(intType, fixedSize: 3);
+        var fixedArray = compilation.CreateArrayTypeSymbol(intType, fixedLength: 3);
         var openArray = compilation.CreateArrayTypeSymbol(intType);
 
         var conversion = compilation.ClassifyConversion(fixedArray, openArray);
@@ -279,7 +279,7 @@ class Foo : IDisposable {
     {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var fixedArray = compilation.CreateArrayTypeSymbol(intType, fixedSize: 3);
+        var fixedArray = compilation.CreateArrayTypeSymbol(intType, fixedLength: 3);
         var openArray = compilation.CreateArrayTypeSymbol(intType);
 
         var conversion = compilation.ClassifyConversion(openArray, fixedArray);

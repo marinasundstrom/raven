@@ -20,7 +20,7 @@ internal partial class PEArrayTypeSymbol : PENamedTypeSymbol, IArrayTypeSymbol
 
     public bool IsFixedArray => false;
 
-    public int? FixedSize => null;
+    public int? FixedLength => null;
 
     public override string ToString()
     {

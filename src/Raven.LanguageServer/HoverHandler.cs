@@ -1045,12 +1045,12 @@ internal sealed class HoverHandler : IHoverHandler
         ITypeSymbol valueType,
         ITypeSymbol elementType,
         SemanticModel semanticModel,
-        int? fixedSize = null)
+        int? fixedLength = null)
     {
         if (valueType.SpecialType == SpecialType.System_String)
             return semanticModel.Compilation.GetSpecialType(SpecialType.System_String);
 
-        return semanticModel.Compilation.CreateArrayTypeSymbol(elementType, fixedSize: fixedSize);
+        return semanticModel.Compilation.CreateArrayTypeSymbol(elementType, fixedLength: fixedLength);
     }
 
     private static ITypeSymbol GetSequencePatternElementValueType(
@@ -1067,7 +1067,7 @@ internal sealed class HoverHandler : IHoverHandler
         if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.Single)
             return elementType;
 
-        if (inputType is IArrayTypeSymbol arrayType && arrayType.FixedSize is int sourceFixedSize)
+        if (inputType is IArrayTypeSymbol arrayType && arrayType.FixedLength is int sourceFixedLength)
         {
             if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.FixedSegment)
                 return GetSequenceSliceType(inputType, elementType, semanticModel, elementWidths[elementIndex]);
@@ -1075,7 +1075,7 @@ internal sealed class HoverHandler : IHoverHandler
             if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.RestSegment && restIndex >= 0)
             {
                 var fixedWidth = elementWidths.Where(static width => width > 0).Sum();
-                var restWidth = sourceFixedSize - fixedWidth;
+                var restWidth = sourceFixedLength - fixedWidth;
                 if (restWidth >= 0)
                     return GetSequenceSliceType(inputType, elementType, semanticModel, restWidth);
             }

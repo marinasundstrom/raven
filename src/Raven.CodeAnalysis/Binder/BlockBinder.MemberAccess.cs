@@ -831,7 +831,7 @@ partial class BlockBinder
             var substituted = SubstituteTypeParameters(arrayType.ElementType, substitutions);
             return SymbolEqualityComparer.Default.Equals(substituted, arrayType.ElementType)
                 ? type
-                : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedSize);
+                : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
         }
 
         if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)

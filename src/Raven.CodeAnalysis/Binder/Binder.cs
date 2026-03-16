@@ -60,13 +60,13 @@ internal abstract partial class Binder
             var fromDisplay = fromArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
             var toDisplay = toArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
-            if (fromArray.FixedSize is null && toArray.FixedSize is not null)
+            if (fromArray.FixedLength is null && toArray.FixedLength is not null)
             {
                 _diagnostics.ReportCannotConvertOpenArrayToFixedSizeArray(fromDisplay, toDisplay, location);
                 return;
             }
 
-            if (fromArray.FixedSize is int fromLength && toArray.FixedSize is int toLength && fromLength != toLength)
+            if (fromArray.FixedLength is int fromLength && toArray.FixedLength is int toLength && fromLength != toLength)
             {
                 _diagnostics.ReportCannotConvertFixedSizeArrayToDifferentSize(fromDisplay, toDisplay, fromLength, toLength, location);
                 return;
@@ -110,13 +110,13 @@ internal abstract partial class Binder
             var fromDisplay = fromArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
             var toDisplay = toArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
-            if (fromArray.FixedSize is null && toArray.FixedSize is not null)
+            if (fromArray.FixedLength is null && toArray.FixedLength is not null)
             {
                 _diagnostics.ReportCannotConvertOpenArrayToFixedSizeArray(fromDisplay, toDisplay, location);
                 return;
             }
 
-            if (fromArray.FixedSize is int fromLength && toArray.FixedSize is int toLength && fromLength != toLength)
+            if (fromArray.FixedLength is int fromLength && toArray.FixedLength is int toLength && fromLength != toLength)
             {
                 _diagnostics.ReportCannotConvertFixedSizeArrayToDifferentSize(fromDisplay, toDisplay, fromLength, toLength, location);
                 return;

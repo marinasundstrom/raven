@@ -22,7 +22,7 @@ public class ArrayTypeSemanticTests : CompilationTestBase
         Assert.Equal(1, arrayType.Rank);
         Assert.Equal(SpecialType.System_String, arrayType.ElementType.SpecialType);
         Assert.False(arrayType.IsFixedArray);
-        Assert.Null(arrayType.FixedSize);
+        Assert.Null(arrayType.FixedLength);
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public class ArrayTypeSemanticTests : CompilationTestBase
         var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(typeInfo.Type);
         Assert.Equal(1, arrayType.Rank);
         Assert.True(arrayType.IsFixedArray);
-        Assert.Equal(4, arrayType.FixedSize);
+        Assert.Equal(4, arrayType.FixedLength);
     }
 
     [Fact]
@@ -54,6 +54,6 @@ val result: int[3] = [..values, 3]
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Last();
         var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
-        Assert.Equal(3, arrayType.FixedSize);
+        Assert.Equal(3, arrayType.FixedLength);
     }
 }

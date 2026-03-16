@@ -8566,17 +8566,17 @@ partial class BlockBinder : Binder
             patternType = Compilation.ErrorTypeSymbol;
         }
 
-        if (valueType is IArrayTypeSymbol fixedArray && fixedArray.FixedSize is int fixedSize)
+        if (valueType is IArrayTypeSymbol fixedArray && fixedArray.FixedLength is int fixedLength)
         {
             var requiredWidth = elementWidths.Where(width => width > 0).Sum();
             var hasRestSegment = restIndex >= 0;
-            var matches = hasRestSegment ? requiredWidth <= fixedSize : requiredWidth == fixedSize;
+            var matches = hasRestSegment ? requiredWidth <= fixedLength : requiredWidth == fixedLength;
 
             if (!matches)
             {
                 _diagnostics.ReportPositionalDeconstructionElementCountMismatch(
                     requiredWidth,
-                    fixedSize,
+                    fixedLength,
                     pattern.GetLocation());
             }
         }
@@ -8681,12 +8681,12 @@ partial class BlockBinder : Binder
 
     }
 
-    private ITypeSymbol GetSequenceSliceType(ITypeSymbol valueType, ITypeSymbol elementType, int? fixedSize = null)
+    private ITypeSymbol GetSequenceSliceType(ITypeSymbol valueType, ITypeSymbol elementType, int? fixedLength = null)
     {
         if (valueType.SpecialType == SpecialType.System_String)
             return Compilation.GetSpecialType(SpecialType.System_String);
 
-        return Compilation.CreateArrayTypeSymbol(elementType, fixedSize: fixedSize);
+        return Compilation.CreateArrayTypeSymbol(elementType, fixedLength: fixedLength);
     }
 
     private ITypeSymbol GetSequencePatternElementType(
@@ -8700,7 +8700,7 @@ partial class BlockBinder : Binder
         if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.Single)
             return elementType;
 
-        if (valueType is IArrayTypeSymbol arrayType && arrayType.FixedSize is int sourceFixedSize)
+        if (valueType is IArrayTypeSymbol arrayType && arrayType.FixedLength is int sourceFixedLength)
         {
             if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.FixedSegment)
                 return GetSequenceSliceType(valueType, elementType, elementWidths[elementIndex]);
@@ -8708,7 +8708,7 @@ partial class BlockBinder : Binder
             if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.RestSegment && restIndex >= 0)
             {
                 var fixedWidth = elementWidths.Where(width => width > 0).Sum();
-                var restWidth = sourceFixedSize - fixedWidth;
+                var restWidth = sourceFixedLength - fixedWidth;
                 if (restWidth >= 0)
                     return GetSequenceSliceType(valueType, elementType, restWidth);
             }
@@ -10145,13 +10145,13 @@ partial class BlockBinder : Binder
         if (targetType is IArrayTypeSymbol arrayType)
         {
             var elementType = arrayType.ElementType;
-            if (arrayType.FixedSize is int fixedSize &&
+            if (arrayType.FixedLength is int fixedLength &&
                 TryGetStaticallyKnownCollectionLength(elements, out var targetLength) &&
-                targetLength != fixedSize)
+                targetLength != fixedLength)
             {
                 _diagnostics.ReportPositionalDeconstructionElementCountMismatch(
                     targetLength,
-                    fixedSize,
+                    fixedLength,
                     syntax.GetLocation());
             }
 
@@ -10329,10 +10329,10 @@ partial class BlockBinder : Binder
                 syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
-        var fallbackFixedSize = TryGetStaticallyKnownCollectionLength(elements, out var knownLength)
+        var fallbackFixedLength = TryGetStaticallyKnownCollectionLength(elements, out var knownLength)
             ? (int?)knownLength
             : null;
-        var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType, fixedSize: fallbackFixedSize);
+        var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType, fixedLength: fallbackFixedLength);
 
         var convertedFallback = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
 
@@ -10893,7 +10893,7 @@ partial class BlockBinder : Binder
         if (current is IArrayTypeSymbol { Rank: 1, IsFixedArray: false } arrayType &&
             TryGetStaticallyKnownCollectionLength(elements, out var inferredLength))
         {
-            inferredType = Compilation.CreateArrayTypeSymbol(arrayType.ElementType, fixedSize: inferredLength);
+            inferredType = Compilation.CreateArrayTypeSymbol(arrayType.ElementType, fixedLength: inferredLength);
             return true;
         }
 
@@ -10911,7 +10911,7 @@ partial class BlockBinder : Binder
         {
             switch (element)
             {
-                case BoundSpreadElement { Expression.Type: IArrayTypeSymbol { FixedSize: int spreadLength, Rank: 1 } }:
+                case BoundSpreadElement { Expression.Type: IArrayTypeSymbol { FixedLength: int spreadLength, Rank: 1 } }:
                     knownLength += spreadLength;
                     break;
                 case BoundSpreadElement:

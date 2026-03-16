@@ -291,10 +291,10 @@ public partial class Compilation
                 return Conversion.None;
             }
 
-            if (sourceArray.FixedSize == destinationArray.FixedSize)
+            if (sourceArray.FixedLength == destinationArray.FixedLength)
                 return Finalize(new Conversion(isImplicit: true, isIdentity: true));
 
-            if (sourceArray.FixedSize is not null && destinationArray.FixedSize is null)
+            if (sourceArray.FixedLength is not null && destinationArray.FixedLength is null)
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
 
             return Conversion.None;

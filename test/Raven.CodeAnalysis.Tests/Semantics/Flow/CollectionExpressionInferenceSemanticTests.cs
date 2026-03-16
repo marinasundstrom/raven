@@ -161,7 +161,7 @@ val inferred = [1, 2, 3]
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
         var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
         Assert.True(arrayType.IsFixedArray);
-        Assert.Equal(3, arrayType.FixedSize);
+        Assert.Equal(3, arrayType.FixedLength);
     }
 
     [Fact]
@@ -188,7 +188,7 @@ val inferred = [..values, 3]
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
         var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
         Assert.False(arrayType.IsFixedArray);
-        Assert.Null(arrayType.FixedSize);
+        Assert.Null(arrayType.FixedLength);
     }
 
     [Fact]
@@ -215,7 +215,7 @@ val inferred = [..values, 3]
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
         var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
         Assert.True(arrayType.IsFixedArray);
-        Assert.Equal(3, arrayType.FixedSize);
+        Assert.Equal(3, arrayType.FixedLength);
     }
 
     [Fact]
