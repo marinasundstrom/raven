@@ -133,6 +133,9 @@ internal class PatternSyntaxParser : SyntaxParser
             return ParseRangePattern(lowerBound: null);
         }
 
+        if (TryParseImplicitBindingPattern(out var implicitBindingPattern))
+            return implicitBindingPattern;
+
         // Constant pattern (expression pattern): allow matching against an in-scope value
         // e.g. `{ Product: discountedProduct, Quantity: > 10 }`
         // We parse it as an expression pattern here and let binding decide if it is a type-name or a value.
@@ -560,6 +563,42 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         return new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern();
+    }
+
+    private bool TryParseImplicitBindingPattern(out PatternSyntax pattern)
+    {
+        pattern = null!;
+
+        if (!_allowImplicitDeconstructionElementBindings || !CanTokenBeIdentifier(PeekToken()))
+            return false;
+
+        var nextKind = PeekToken(1).Kind;
+        if (nextKind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBraceToken or SyntaxKind.DotToken)
+            return false;
+
+        // Preserve declaration/type-pattern forms like `Type name` by only taking this path
+        // when the identifier is immediately followed by a pattern delimiter or a type annotation.
+        if (CanTokenBeIdentifier(PeekToken(1)))
+            return false;
+
+        if (nextKind is not
+            (SyntaxKind.ColonToken or
+             SyntaxKind.EqualsToken or
+             SyntaxKind.InKeyword or
+             SyntaxKind.FatArrowToken or
+             SyntaxKind.WhenKeyword or
+             SyntaxKind.CommaToken or
+             SyntaxKind.CloseParenToken or
+             SyntaxKind.CloseBracketToken or
+             SyntaxKind.CloseBraceToken or
+             SyntaxKind.EndOfFileToken))
+        {
+            return false;
+        }
+
+        var designation = ParseDesignation(allowBindingKeyword: false);
+        pattern = VariablePattern(Token(SyntaxKind.None), designation);
+        return true;
     }
 
     private static bool IsComparisonPatternStart(SyntaxToken token)

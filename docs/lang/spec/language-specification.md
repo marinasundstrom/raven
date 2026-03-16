@@ -2165,6 +2165,28 @@ if person is (val id, val name) {
 }
 ```
 
+Typed implicit bindings work the same way, which makes nullable narrowing
+available in statement form:
+
+```raven
+val input: int? = null
+
+if val x: int = input {
+    WriteLine(x)
+}
+```
+
+The same syntax also works for hierarchy narrowing, just like `if expr is Type name`:
+
+```raven
+open class Animal {}
+class Dog : Animal {}
+
+if val dog: Dog = animal {
+    dog.Bark()
+}
+```
+
 The leading `let` / `val` / `var` is required. A bare `if Pattern = expr` form is
 not recognized.
 

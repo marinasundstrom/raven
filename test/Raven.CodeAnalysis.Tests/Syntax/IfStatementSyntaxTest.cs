@@ -107,4 +107,25 @@ if val Person(1, name, _) = person {
         arguments.Count.ShouldBe(3);
         arguments[1].ShouldBeOfType<VariablePatternSyntax>();
     }
+
+    [Fact]
+    public void IfPatternStatement_WithTypedImplicitBinding_ParsesVariablePattern()
+    {
+        const string testCode = """
+if val x: int = input {
+}
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var ifBinding = Assert.IsType<IfPatternStatementSyntax>(statement);
+        var pattern = Assert.IsType<VariablePatternSyntax>(ifBinding.Pattern);
+        var designation = Assert.IsType<TypedVariableDesignationSyntax>(pattern.Designation);
+        var single = Assert.IsType<SingleVariableDesignationSyntax>(designation.Designation);
+
+        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        pattern.BindingKeyword.Kind.ShouldBe(SyntaxKind.None);
+        single.Identifier.ValueText.ShouldBe("x");
+        designation.TypeAnnotation.Type.ToString().ShouldBe("int");
+    }
 }

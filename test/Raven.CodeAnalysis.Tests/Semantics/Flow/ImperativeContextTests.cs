@@ -168,6 +168,109 @@ class C {
     }
 
     [Fact]
+    public void IfPatternStatement_WithTypedImplicitBinding_BindsDeclarationPattern()
+    {
+        var code = """
+class C {
+    func Test(input: int?) {
+        if val x: int = input {
+            ()
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var ifPatternStmt = tree.GetRoot().DescendantNodes().OfType<IfPatternStatementSyntax>().First();
+        var bound = Assert.IsType<BoundIfStatement>(model.GetBoundNode(ifPatternStmt));
+        var condition = Assert.IsType<BoundIsPatternExpression>(bound.Condition);
+        var pattern = Assert.IsType<BoundDeclarationPattern>(condition.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(pattern.Designator);
+
+        pattern.DeclaredType.SpecialType.ShouldBe(SpecialType.System_Int32);
+        designator.Local.Name.ShouldBe("x");
+        designator.Local.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        designator.Local.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IfPatternStatement_WithOuterValNominalPattern_BindsImplicitCaptures()
+    {
+        var code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+class C {
+    func Test(input: Option<string>) {
+        if val Some(value) = input {
+            ()
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var ifPatternStmt = tree.GetRoot().DescendantNodes().OfType<IfPatternStatementSyntax>().First();
+        var bound = Assert.IsType<BoundIfStatement>(model.GetBoundNode(ifPatternStmt));
+        var condition = Assert.IsType<BoundIsPatternExpression>(bound.Condition);
+        var pattern = Assert.IsType<BoundCasePattern>(condition.Pattern);
+        var argument = Assert.IsType<BoundDeclarationPattern>(pattern.Arguments.Single());
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(argument.Designator);
+
+        designator.Local.Name.ShouldBe("value");
+        designator.Local.Type.SpecialType.ShouldBe(SpecialType.System_String);
+    }
+
+    [Fact]
+    public void IfPatternStatement_WithTypedHierarchyBinding_BindsNarrowedType()
+    {
+        var code = """
+open class Animal {}
+class Dog : Animal {}
+
+class C {
+    func Test(animal: Animal) {
+        if val dog: Dog = animal {
+            ()
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var ifPatternStmt = tree.GetRoot().DescendantNodes().OfType<IfPatternStatementSyntax>().First();
+        var bound = Assert.IsType<BoundIfStatement>(model.GetBoundNode(ifPatternStmt));
+        var condition = Assert.IsType<BoundIsPatternExpression>(bound.Condition);
+        var pattern = Assert.IsType<BoundDeclarationPattern>(condition.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(pattern.Designator);
+
+        pattern.DeclaredType.Name.ShouldBe("Dog");
+        designator.Local.Name.ShouldBe("dog");
+        designator.Local.Type.Name.ShouldBe("Dog");
+        designator.Local.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
     public void WhileStatement_BindsAsStatement()
     {
         var code = """

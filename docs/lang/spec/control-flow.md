@@ -194,6 +194,28 @@ if person is (val id, val name) {
 }
 ```
 
+The outer binding keyword also applies to typed implicit captures, so nullable
+checks can be written in the same form:
+
+```raven
+val input: int? = null
+
+if val x: int = input {
+    WriteLine(x)
+}
+```
+
+This also supports ordinary hierarchy narrowing:
+
+```raven
+open class Animal {}
+class Dog : Animal {}
+
+if val dog: Dog = animal {
+    dog.Bark()
+}
+```
+
 The leading binding keyword is required. Raven does not accept `if Pattern = expr`
 without `let`/`val`/`var`, which keeps the construct distinct from assignment-like
 syntax and makes capture intent explicit at the start of the statement.

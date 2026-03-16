@@ -1080,7 +1080,7 @@ internal partial class BlockBinder
             arguments: boundElements.ToImmutable());
     }
 
-    private void ReportTypedPatternBindingsMissingKeyword(VariableDesignationSyntax designation)
+    private void ReportTypedPatternBindingsMissingKeyword(VariableDesignationSyntax designation, bool hasAmbientBindingKeyword)
     {
         // Report on each single variable under a typed designation when the single variable
         // is a real binding and its BindingKeyword is missing/None.
@@ -1100,7 +1100,7 @@ internal partial class BlockBinder
                                     // Typed designations require an explicit binding keyword on each single variable.
                                     // Example that should diagnose: (a: bool, b: string)
                                     // Example that should NOT diagnose: (val a: bool, var b: string)
-                                    if (!HasExplicitBindingKeyword(single))
+                                    if (!HasExplicitBindingKeyword(single, hasAmbientBindingKeyword))
                                     {
                                         _diagnostics.ReportPatternTypedBindingRequiresKeyword(
                                             single.Identifier.ValueText,
@@ -1115,7 +1115,7 @@ internal partial class BlockBinder
                                 break;
                             case TypedVariableDesignationSyntax t:
                                 // Nested typed designations: report using the nested type annotation.
-                                ReportTypedPatternBindingsMissingKeyword(t);
+                                ReportTypedPatternBindingsMissingKeyword(t, hasAmbientBindingKeyword);
                                 break;
                         }
                     }
@@ -1126,15 +1126,18 @@ internal partial class BlockBinder
 
             case ParenthesizedVariableDesignationSyntax parenthesized:
                 foreach (var v in parenthesized.Variables)
-                    ReportTypedPatternBindingsMissingKeyword(v);
+                    ReportTypedPatternBindingsMissingKeyword(v, hasAmbientBindingKeyword);
                 break;
         }
     }
 
-    private static bool HasExplicitBindingKeyword(SingleVariableDesignationSyntax single)
+    private static bool HasExplicitBindingKeyword(SingleVariableDesignationSyntax single, bool hasAmbientBindingKeyword)
     {
         // Explicit on the single variable itself?
         if (!single.BindingKeyword.IsMissing && single.BindingKeyword.Kind != SyntaxKind.None)
+            return true;
+
+        if (hasAmbientBindingKeyword)
             return true;
 
         // Or provided by an enclosing variable pattern (`val`/`var`/`let`)?
@@ -1201,7 +1204,9 @@ internal partial class BlockBinder
         ITypeSymbol? expectedType)
     {
         // Enforce: typed bindings in patterns require explicit let/val/var on each single variable.
-        ReportTypedPatternBindingsMissingKeyword(typedDesignation);
+        ReportTypedPatternBindingsMissingKeyword(
+            typedDesignation,
+            hasAmbientBindingKeyword: _ambientPatternDeclarationBindingKeyword is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword);
 
         var declaredType = ResolveType(typedDesignation.TypeAnnotation.Type);
         declaredType = EnsureTypeAccessible(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
@@ -2192,7 +2197,9 @@ internal partial class BlockBinder
                 // Enforce: typed pattern bindings require explicit let/val/var.
                 // Example that should diagnose: (a: bool, b: string)
                 // Example that should NOT diagnose: (val a: bool, var b: string)
-                if (!HasExplicitBindingKeyword(single))
+                if (!HasExplicitBindingKeyword(
+                    single,
+                    hasAmbientBindingKeyword: _ambientPatternDeclarationBindingKeyword is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword))
                 {
                     _diagnostics.ReportPatternTypedBindingRequiresKeyword(
                         single.Identifier.ValueText,
