@@ -235,6 +235,11 @@ binding mode also applies to an optional trailing whole-pattern designation such
 as `point` in the example above. Shadowing and other pattern-binding diagnostics
 are the same as for `is` and `match` patterns.
 
+This statement form uses Raven’s **general pattern** surface. It is not limited
+to deconstruction-only shapes, so it may use property patterns, nominal
+deconstruction patterns, member/case patterns, comparison patterns, and other
+match-oriented constructs that are not valid as assignment/deconstruction heads.
+
 In value-returning functions, Raven warns when statement-form control flow
 produces branch values that are discarded instead of returned:
 

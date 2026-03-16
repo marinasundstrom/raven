@@ -543,6 +543,133 @@ first + second + head + tail[0]
     }
 
     [Fact]
+    public void NestedPatternDeclarationAssignment_WithNestedSequencePatterns_BindsLocals()
+    {
+        const string source = """
+val input = ([1, 2, 3, 4], "rune")
+val ([head, ..middle, last], [first, ..2 chunk, final]) = input
+head + middle[0] + last + first.ToString().Length + chunk.Length + final.ToString().Length
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
+            .Single();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var outerPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+        var arrayPattern = Assert.IsType<BoundPositionalPattern>(outerPattern.Elements[0]);
+        var stringPattern = Assert.IsType<BoundPositionalPattern>(outerPattern.Elements[1]);
+
+        var headPattern = Assert.IsType<BoundDeclarationPattern>(arrayPattern.Elements[0]);
+        var middlePattern = Assert.IsType<BoundDeclarationPattern>(arrayPattern.Elements[1]);
+        var lastPattern = Assert.IsType<BoundDeclarationPattern>(arrayPattern.Elements[2]);
+        var firstPattern = Assert.IsType<BoundDeclarationPattern>(stringPattern.Elements[0]);
+        var chunkPattern = Assert.IsType<BoundDeclarationPattern>(stringPattern.Elements[1]);
+        var finalPattern = Assert.IsType<BoundDeclarationPattern>(stringPattern.Elements[2]);
+
+        var headDesignator = Assert.IsType<BoundSingleVariableDesignator>(headPattern.Designator);
+        var middleDesignator = Assert.IsType<BoundSingleVariableDesignator>(middlePattern.Designator);
+        var lastDesignator = Assert.IsType<BoundSingleVariableDesignator>(lastPattern.Designator);
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstPattern.Designator);
+        var chunkDesignator = Assert.IsType<BoundSingleVariableDesignator>(chunkPattern.Designator);
+        var finalDesignator = Assert.IsType<BoundSingleVariableDesignator>(finalPattern.Designator);
+
+        Assert.Equal("head", headDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, headDesignator.Local.Type.SpecialType);
+        Assert.Equal("middle", middleDesignator.Local.Name);
+        Assert.True(middleDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+        Assert.Equal("last", lastDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, lastDesignator.Local.Type.SpecialType);
+        Assert.Equal("first", firstDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Char, firstDesignator.Local.Type.SpecialType);
+        Assert.Equal("chunk", chunkDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_String, chunkDesignator.Local.Type.SpecialType);
+        Assert.Equal("final", finalDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Char, finalDesignator.Local.Type.SpecialType);
+    }
+
+    [Fact]
+    public void NestedPatternAssignment_WithNestedSequencePatterns_ReusesExistingBindings()
+    {
+        const string source = """
+val input = ([1, 2, 3, 4], "rune")
+var head = 0
+var middle: int[] = [0]
+var last = 0
+var first = 'a'
+var chunk = ""
+var final = 'a'
+([head, ..middle, last], [first, ..2 chunk, final]) = input
+head + middle[0] + last + first.ToString().Length + chunk.Length + final.ToString().Length
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var headLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "head")));
+        var middleLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "middle")));
+        var lastLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "last")));
+        var firstLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "first")));
+        var chunkLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "chunk")));
+        var finalLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "final")));
+
+        var assignment = root
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Single(statement => statement.Left is PositionalPatternSyntax);
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var outerPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+        var arrayPattern = Assert.IsType<BoundPositionalPattern>(outerPattern.Elements[0]);
+        var stringPattern = Assert.IsType<BoundPositionalPattern>(outerPattern.Elements[1]);
+
+        var headDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(arrayPattern.Elements[0]).Designator);
+        var middleDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(arrayPattern.Elements[1]).Designator);
+        var lastDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(arrayPattern.Elements[2]).Designator);
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(stringPattern.Elements[0]).Designator);
+        var chunkDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(stringPattern.Elements[1]).Designator);
+        var finalDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(stringPattern.Elements[2]).Designator);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(headDesignator.Local, headLocal));
+        Assert.True(SymbolEqualityComparer.Default.Equals(middleDesignator.Local, middleLocal));
+        Assert.True(SymbolEqualityComparer.Default.Equals(lastDesignator.Local, lastLocal));
+        Assert.True(SymbolEqualityComparer.Default.Equals(firstDesignator.Local, firstLocal));
+        Assert.True(SymbolEqualityComparer.Default.Equals(chunkDesignator.Local, chunkLocal));
+        Assert.True(SymbolEqualityComparer.Default.Equals(finalDesignator.Local, finalLocal));
+    }
+
+    [Fact]
     public void PositionalPatternAssignment_WithRecordDeconstruct_ReusesExistingLocals()
     {
         const string source = """

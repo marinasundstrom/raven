@@ -1422,6 +1422,41 @@ val result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithNestedCaseNominalSequenceAndWholeDesignation_BindsAllLocals()
+    {
+        const string code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+class C {
+    func Run(value: Option<(string, int)>) -> int {
+        return value match {
+            val Some((first, >= 18)) whole => first.Length
+            _ => 0
+        }
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var first = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "first")));
+        var whole = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "whole")));
+
+        Assert.Equal("string", first.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Some<(string, int)>", whole.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
     public void MatchExpression_WithPositionalPatternLengthMismatch_ReportsDiagnostic()
     {
         const string code = """

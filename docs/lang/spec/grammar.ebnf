@@ -346,7 +346,11 @@ FinallyClause            ::= 'finally' Block ;
 
 (* Keep statement assignments consistent with expression assignments:
    - LHS must be assignable OR a deconstruction designation.
-   - Patterns are NOT assignment targets. *)
+   - General patterns are NOT assignment targets.
+   - Only deconstruction-shaped designations (`(...)`, `[...]`, nested variable
+     designations) participate on the LHS. Property patterns, member/case
+     patterns, nominal deconstruction heads, comparison/range heads, and other
+     match-only pattern forms do not. *)
 AssignmentStatement      ::= Assignable AssignmentOperator Expression
                            | DeconstructionAssignmentStatement ;
 

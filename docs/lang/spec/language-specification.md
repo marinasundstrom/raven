@@ -2138,6 +2138,21 @@ Patterns let you inspect values using concise, algebraic syntax. They appear in 
 predicates and in `match` expressions and participate in Raven’s flow-sensitive
 type analysis.
 
+Raven uses two related but distinct surfaces:
+
+* **General pattern matching forms** are used in `is`, `match`, `if val pattern = expr`,
+  and `for ... in` pattern targets. These support the full pattern vocabulary:
+  declaration/type patterns, constants and value patterns, comparison and range
+  patterns, positional patterns, collection patterns, property patterns, nominal
+  deconstruction patterns, member/case patterns, boolean pattern combinators,
+  and whole-pattern designations where the construct allows them.
+* **Deconstruction forms** are used in declaration/assignment positions such as
+  `val (a, b) = expr`, `(a, b) = expr`, `val [a, b] = expr`, and `[a, b] = expr`.
+  These are not general match statements. They are extraction-oriented and use
+  the positional/sequence deconstruction subset with nested captures, discards,
+  typed designations, explicit value comparisons where supported, and recursive
+  positional/sequence composition.
+
 Patterns can be used in `match` expressions or statements, or as conditions with
 `is` patterns:
 
@@ -2356,6 +2371,43 @@ class Evaluator {
 ### Pattern forms
 
 Patterns compose from the following primitives.
+
+### Pattern contexts
+
+The same pattern syntax appears in several places, but not every place accepts
+every pattern form.
+
+**General matching contexts**
+
+These accept Raven’s full pattern vocabulary:
+
+* `expr is pattern`
+* `match expr { pattern => ... }`
+* `match expr { ... }` statement form
+* `if val pattern = expr`
+* `for val pattern in values` and `for pattern in values`
+
+These contexts may use comparison/range/property/member/nominal-deconstruction
+patterns, boolean pattern combinators, and optional whole-pattern designations
+where the specific construct permits them.
+
+**Deconstruction contexts**
+
+These accept the deconstruction subset:
+
+* `val ( ... ) = expr`
+* `( ... ) = expr`
+* `val [ ... ] = expr`
+* `[ ... ] = expr`
+* deconstruction parameter patterns in supported function/lambda positions
+
+Deconstruction contexts are extraction-oriented. They support positional and
+sequence decomposition, nested positional/sequence composition, discards,
+typed designations, mutability/binding shorthands, and explicit value checks
+that are part of those deconstruction forms. They do **not** currently use the
+full general matching surface as assignment targets. In particular, property
+patterns, nominal/member/case-pattern heads, comparison-only top-level
+patterns, and other pure match-only forms are not assignment/declaration heads.
 
 #### Type and binding patterns
 
@@ -3713,6 +3765,27 @@ Elements may include inline type annotations. Positional deconstruction works wi
 tuples and with any type that exposes a compatible `Deconstruct` method (including
 as an extension method).
 
+This is a **deconstruction** surface, not a full general pattern-matching
+surface. The left-hand side must start with positional syntax (`(...)`) or
+sequence syntax (`[...]`), and nested subpatterns must remain within the
+deconstruction family.
+
+Supported as deconstruction heads:
+
+* positional heads: `( ... )`
+* sequence heads: `[ ... ]`
+* nested positional/sequence subpatterns
+* declaration/capture forms, discards, typed designations, and supported
+  explicit value checks inside those positional/sequence shapes
+
+Not currently supported as deconstruction heads:
+
+* property patterns: `Type { ... }`
+* nominal deconstruction / union-case heads: `Type(...)`, `Some(...)`, `.Case(...)`
+* pure comparison heads such as `>= 18`
+* range heads such as `1..10`
+* boolean-combinator heads such as `p1 and p2`, `not p`
+
 For element type matching + capture, Raven accepts both:
 
 * `val name: Type` (preferred Raven style)
@@ -3840,6 +3913,10 @@ positions:
 * assignment deconstruction (`(...) = expr`, `[...] = expr`)
 * function-expression parameter patterns (`((...), [...]) => ...`)
 * `is`/`match` pattern positions
+
+Only the first two bullets above are **deconstruction heads**. The latter two
+reuse the same nested positional/sequence forms inside broader general-pattern
+contexts that also support additional match-only pattern kinds.
 
 For diagnostics, Raven reports failures at the specific nested subpattern that
 is incompatible (arity/type/member mismatch) and only introduces symbols for

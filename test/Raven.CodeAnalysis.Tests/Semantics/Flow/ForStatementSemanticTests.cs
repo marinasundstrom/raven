@@ -210,6 +210,40 @@ for val (2, > 0.5) point in points {
     }
 
     [Fact]
+    public void For_WithNestedCaseNominalSequenceAndWholeDesignation_BindsAllLocals()
+    {
+        const string source = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+class C {
+    func Test(inputs: Option<(string, int)>[]) {
+        for val Some((first, >= 18)) whole in inputs {
+            first.Length
+            whole
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+
+        var first = model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "first")).ShouldBeOfType<SourceLocalSymbol>();
+        var whole = model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "whole")).ShouldBeOfType<SourceLocalSymbol>();
+
+        first.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+        whole.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Some<(string, int)>");
+    }
+
+    [Fact]
     public void For_WithExplicitVarIdentifierTarget_ReportsDiagnostic()
     {
         const string source = """

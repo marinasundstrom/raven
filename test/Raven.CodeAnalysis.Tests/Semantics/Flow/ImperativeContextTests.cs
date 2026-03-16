@@ -322,6 +322,40 @@ class C {
     }
 
     [Fact]
+    public void IfPatternStatement_WithNestedCaseNominalSequenceAndWholeDesignation_BindsAllLocals()
+    {
+        var code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+class C {
+    func Test(input: Option<(string, int)>) {
+        if val Some((first, >= 18)) whole = input {
+            first.Length
+            whole
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+
+        var first = model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "first")).ShouldBeOfType<SourceLocalSymbol>();
+        var whole = model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "whole")).ShouldBeOfType<SourceLocalSymbol>();
+
+        first.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+        whole.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Some<(string, int)>");
+    }
+
+    [Fact]
     public void WhileStatement_BindsAsStatement()
     {
         var code = """

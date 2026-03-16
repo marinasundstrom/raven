@@ -136,6 +136,14 @@ form such as `val (...) = expr`, `if val pattern = expr`, `for val pattern in va
 or `match { val pattern => ... }`, that outer keyword supplies the binding mode for
 otherwise bare captures inside the pattern.
 
+There is also an important surface distinction:
+
+- `is`, `match`, `if val pattern = expr`, and `for ... in` pattern targets use the
+  general pattern language.
+- deconstruction assignment/declaration (`val (...) = expr`, `(...) = expr`,
+  `val [...] = expr`, `[...] = expr`) use the deconstruction subset rather than
+  every match-only pattern form.
+
 ---
 
 ## Result and Option
@@ -319,6 +327,15 @@ The same general pattern model works across:
 This reuse is intentional. Raven wants one pattern system that scales across value
 inspection, branching, iteration, and deconstruction instead of splitting those
 features into unrelated syntax families.
+
+At the same time, deconstruction forms stay intentionally narrower than general
+pattern-matching forms. They are designed for extraction, not for every kind of
+conditional match. That means Raven reuses one pattern model conceptually while
+still distinguishing between:
+
+- general matching surfaces such as `is`, `match`, `if val pattern = expr`, and
+  `for val pattern in values`
+- deconstruction surfaces such as `val (a, b) = expr` and `[head, ..tail] = values`
 
 ---
 

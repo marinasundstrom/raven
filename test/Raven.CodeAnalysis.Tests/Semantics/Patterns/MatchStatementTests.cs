@@ -149,4 +149,30 @@ match value {
         Assert.Equal("Box<int>", declaration.DeclaredType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("Box<int>", designator.Local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
+
+    [Fact]
+    public void MatchStatement_WithNestedCaseNominalSequenceAndWholeDesignation_BindsWithoutDiagnostics()
+    {
+        const string code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+class C {
+    func Run(value: Option<(string, int)>) {
+        match value {
+            val Some((first, >= 18)) whole => {
+                first.Length
+                whole
+            }
+            _ => ()
+        }
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
 }

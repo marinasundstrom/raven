@@ -27,35 +27,35 @@ func Main() {
     val str = "FooBar42"
     val [ch, ..2 start, ...end] = str
 
-    WriteLine("ch: $ch, start: $start, and end: $end")
+    WriteLine("Matched pattern [ch, ..2 start, ...end] with ch = $ch, start = $start, and end = $end")
 
     val points = [(2, 3), (2, 0), (5, 1)]
     for val (x, > 0) in points {
-        WriteLine(x)
+        WriteLine("Matched pattern (x, > 0) with x = $x")
     }
 
     val persons = [Person(1, "John Doe", 20)]
     for val Person(1, name, _) in persons {
-        WriteLine(name)
+        WriteLine("Matched pattern Person(1, name, _) with name = $name")
     }
 
     val point = (5, 1)
     if val (x, 1) = point {
-        WriteLine(x)
+        WriteLine("Matched pattern (x, 1) with x = $x")
     }
 
-    if val (2, > 0.5) p = point {
-        WriteLine(p)
+    if val (5, > 0) p = point {
+        WriteLine("Matched pattern (5, > 0) as p = $p")
     }
 
     val person = Person(1, "John Doe", 20)
     if val Person(1, name, _) = person {
-        WriteLine(name)
+        WriteLine("Matched pattern Person(1, name, _) with name = $name")
     }
 
     val arr2 = [3, 9, 10, 3, 2]
     if val [first2, second2, ...rest2] = arr2 {
-        WriteLine(second2)
+        WriteLine("Matched pattern [first2, second2, ...rest2] with first2 = $first2, second2 = $second2, rest2 having ${rest2.Length} elements")
     }
 }
 
