@@ -1,5 +1,10 @@
 root = true
 
+# Raven.Core Raven-source analyzer overrides
+[src/Raven.Core/*.rav]
+dotnet_diagnostic.RAV9012.severity = none
+dotnet_diagnostic.RAV9013.severity = none
+
 # All files
 [*]
 indent_style = space
@@ -367,4 +372,3 @@ dotnet_naming_style.s_camelcase.required_prefix = s_
 dotnet_naming_style.s_camelcase.required_suffix = 
 dotnet_naming_style.s_camelcase.word_separator = 
 dotnet_naming_style.s_camelcase.capitalization = camel_case
-
