@@ -36,13 +36,9 @@ class ObservableMacro : IAttachedDeclarationMacro {
             List<AttributeListSyntax>(),
             TokenList([PrivateKeyword]),
             VarKeyword,
-            null,
             Identifier(backingFieldName),
             property.Type,
-            null,
-            null,
-            property.Initializer,
-            Token(SyntaxKind.None))
+            property.Initializer)
     }
 
     func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
@@ -68,9 +64,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             List<AttributeListSyntax>(),
             TokenList(),
             GetKeyword,
-            null,
-            ArrowExpressionClause(IdentifierName(backingFieldName)),
-            NewLineToken)
+            ArrowExpressionClause(IdentifierName(backingFieldName)))
     }
 
     func CreateSetterAccessor(backingFieldName: string, propertyName: string) -> AccessorDeclarationSyntax {
@@ -79,9 +73,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             List<AttributeListSyntax>(),
             TokenList(),
             SetKeyword,
-            CreateSetterBody(backingFieldName, propertyName),
-            null,
-            Token(SyntaxKind.None))
+            CreateSetterBody(backingFieldName, propertyName))
     }
 
     func CreateSetterBody(backingFieldName: string, propertyName: string) -> BlockStatementSyntax {
@@ -93,16 +85,13 @@ class ObservableMacro : IAttachedDeclarationMacro {
 
     func CreateValueChangedGuard(backingFieldName: string, propertyName: string) -> IfStatementSyntax {
         IfStatement(
-            IfKeyword,
             CreateValueChangedCondition(backingFieldName),
             BlockStatement(
                 List<StatementSyntax>([
                     CreateOldValueDeclaration(backingFieldName),
                     CreateBackingFieldAssignment(backingFieldName),
                     CreateRaisePropertyChangedStatement(propertyName)
-                ])),
-            null,
-            Token(SyntaxKind.None))
+                ])))
     }
 
     func CreateValueChangedCondition(backingFieldName: string) -> ExpressionSyntax {
@@ -123,8 +112,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
                             Identifier("oldValue"),
                             null,
                             EqualsValueClause(IdentifierName(backingFieldName))))
-                ])),
-            NewLineToken)
+                ])))
     }
 
     func CreateBackingFieldAssignment(backingFieldName: string) -> AssignmentStatementSyntax {
@@ -132,8 +120,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             SyntaxKind.SimpleAssignmentStatement,
             IdentifierName(backingFieldName),
             EqualsToken,
-            IdentifierName("value"),
-            NewLineToken)
+            IdentifierName("value"))
     }
 
     func CreateRaisePropertyChangedStatement(propertyName: string) -> ExpressionStatementSyntax {
