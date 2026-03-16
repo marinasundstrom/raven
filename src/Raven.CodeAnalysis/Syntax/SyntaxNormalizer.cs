@@ -408,7 +408,22 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
                 or SyntaxKind.ForKeyword
                 or SyntaxKind.WhileKeyword
                 or SyntaxKind.CatchKeyword
-                or SyntaxKind.MatchKeyword;
+                or SyntaxKind.MatchKeyword
+                or SyntaxKind.ValKeyword
+                or SyntaxKind.LetKeyword
+                or SyntaxKind.VarKeyword;
+        }
+
+        if (current.Kind == SyntaxKind.OpenBracketToken)
+        {
+            return previous.Kind is SyntaxKind.ValKeyword
+                or SyntaxKind.LetKeyword
+                or SyntaxKind.VarKeyword;
+        }
+
+        if (current.Kind == SyntaxKind.InKeyword)
+        {
+            return true;
         }
 
         if (current.Kind == SyntaxKind.OpenBraceToken)

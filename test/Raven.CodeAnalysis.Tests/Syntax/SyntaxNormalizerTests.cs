@@ -53,7 +53,8 @@ func main(x: int, y: int) -> int {
             "func f(x:int)->int{if(x>0){return x}else{return -x}}"
         };
 
-        foreach (var snippet in snippets) {
+        foreach (var snippet in snippets)
+        {
             var tree = SyntaxTree.ParseText(snippet);
             if (tree.GetDiagnostics().Any())
             {
@@ -118,6 +119,46 @@ class Foo {
     }
 
     [Fact]
+    public void NormalizeWhitespace_FormatsPatternBindingForms()
+    {
+        const string source = """
+func  main()->(){
+if val Person(1,name,_)=person{
+WriteLine(name)
+}
+for var (x,0) in points{
+WriteLine(x)
+}
+match value{
+val [first,second,...rest]=>first+second+rest.Length
+val Some((x,y))=>x+y
+}
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+
+        var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
+
+        var expected = """
+func main() -> () {
+    if val Person(1, name, _) = person {
+        WriteLine(name)
+    }
+    for var (x, 0) in points {
+        WriteLine(x)
+    }
+    match value {
+        val [first, second, ...rest] => first + second + rest.Length
+        val Some((x, y)) => x + y
+    }
+}
+""";
+
+        Assert.Equal(expected, normalized);
+    }
+
+    [Fact]
     public void Formatter_Format_FormatsOnlyAnnotatedNode()
     {
         const string source = """
@@ -171,6 +212,34 @@ val first = 1
 val second = 2
 """,
             formatted);
+    }
+
+    [Fact]
+    public void Formatter_Format_FormatsAnnotatedIfPatternStatement()
+    {
+        const string source = """
+func First() -> () { val keep = 1 }
+func  Second( )->() {if val Person(1,name,_)=person{WriteLine(name)}}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var functions = root.DescendantNodes().Where(static node => node is FunctionStatementSyntax).Cast<FunctionStatementSyntax>().ToArray();
+        var annotatedSecond = (FunctionStatementSyntax)functions[1].WithAdditionalAnnotations(Formatter.Annotation);
+        var updatedRoot = root.ReplaceNode(functions[1], annotatedSecond);
+
+        var formatted = Formatter.Format(updatedRoot).ToFullString();
+
+        var expected = """
+func First() -> () { val keep = 1 }
+func Second() -> () {
+    if val Person(1, name, _) = person {
+        WriteLine(name)
+    }
+}
+""";
+
+        Assert.Equal(expected, formatted);
     }
 
     [Fact]
