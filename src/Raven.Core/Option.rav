@@ -98,7 +98,8 @@ class OptionJsonConverterFactory : JsonConverterFactory {
     override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
         val tArg = typeToConvert.GetGenericArguments()[0]
         val converterType = typeof(OptionJsonConverter<>).MakeGenericType([tArg])
-        return (JsonConverter)Activator.CreateInstance(converterType)!
+        return (JsonConverter)Activator.CreateInstance(converterType) 
+            ?? throw InvalidOperationException("Could not create JsonConverter")
     }
 }
 
