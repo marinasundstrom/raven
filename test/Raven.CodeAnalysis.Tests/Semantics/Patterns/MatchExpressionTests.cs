@@ -579,6 +579,36 @@ val result = items match {
     }
 
     [Fact]
+    public void MatchExpression_WithMiddleTripleDotCollectionPattern_BindsDiscardRest()
+    {
+        const string code = """
+val items: int[] = [1, 2, 3, 4]
+
+val result = items match {
+    [val first, ..., val last] => first + last
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "array_collection_match_middle_discard_rest",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(bound.Arms[0].Pattern);
+        Assert.Equal(1, collectionPattern.RestIndex);
+        Assert.IsType<BoundDiscardPattern>(collectionPattern.Elements[1]);
+    }
+
+    [Fact]
     public void MatchExpression_WithStringCollectionFixedSegment_BindsStringSliceDesignation()
     {
         const string code = """

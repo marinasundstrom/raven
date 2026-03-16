@@ -1150,9 +1150,9 @@ Collection expressions are target-typed:
 * **Array targets** — When the expected type is an array `T[]`, the expression allocates a
   new array of that element type. Each item is implicitly converted to `T` before storage,
   and spreads must enumerate values assignable to `T`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3672-L3738】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L950-L1016】
-  When the expected type is a fixed-size array `T[N]`, Raven also validates the statically
+  When the expected type is a fixed-length array `T[N]`, Raven also validates the statically
   known element count when it can prove one. Plain elements contribute `1`, and spreading a
-  fixed-size array `T[M]` contributes `M`. If the proven total does not match `N`, binding
+  fixed-length array `T[M]` contributes `M`. If the proven total does not match `N`, binding
   reports a size-mismatch diagnostic instead of deferring the error to runtime.
 * **Collection targets** — When the expected type is a non-array type with an accessible
   parameterless constructor and an instance `Add` method, the compiler constructs the
@@ -1168,7 +1168,7 @@ Collection expressions are target-typed:
   * If no concrete spread-based target can be inferred, Raven falls back to array inference:
     it infers a best common element type by merging all element contributions (spreads use
     their enumerated element type), then produces `T[N]` for plain collection literals with
-    a statically known element count and `T[]` otherwise. Spreading fixed-size arrays also
+    a statically known element count and `T[]` otherwise. Spreading fixed-length arrays also
     participates in that count: `[...a, 3]` infers `T[N+1]` when `a` has type `T[N]`, while
     spreads from open arrays and comprehensions continue to infer open arrays because their
     length is not statically known.
@@ -1176,7 +1176,7 @@ Collection expressions are target-typed:
     theoretically possible. In particular, it does not infer a fixed size from collection
     comprehensions, from spreads of open arrays guarded by runtime checks, or from arbitrary
     enumerable values whose length could be derived indirectly through control-flow or
-    constant propagation. Those cases remain open arrays unless an explicit fixed-size target
+    constant propagation. Those cases remain open arrays unless an explicit fixed-length target
     type is provided.
   * If no compatible common element type can be inferred without falling back to
     `object`, `System.ValueType`, or interfaces, inference fails
@@ -2646,8 +2646,8 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     subsequence.
   * An open rest segment `...pattern` consumes the remaining unmatched
     subsequence and may appear either in the middle of the pattern or at the
-    end. A bare trailing `...` is also permitted as a non-capturing rest
-    segment that ignores the remainder. At most one open rest segment is
+    end. A bare `...` is also permitted as a non-capturing rest segment that
+    ignores the unmatched subsequence. At most one open rest segment is
     permitted.
   * Fixed-size segments may appear multiple times because their widths are fully
     determined by the syntax.
@@ -2655,7 +2655,7 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     patterns, captures must use `val`/`var`/`let`; bare identifiers are treated
     as value patterns against existing values. Type-constrained captures may be
     written as `val x: T` or `T x`. The same rule applies inside segment forms,
-    for example `..2 val start` and `...val rest`. Bare trailing `...` is the
+    for example `..2 val start` and `...val rest`. Bare `...` is the
     current non-capturing exception.
   * If a collection pattern contains no open rest segment, the input length must
     match the total fixed width exactly.
@@ -2663,7 +2663,7 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     be at least the total fixed width of the non-rest elements.
   * For arrays and indexable collections, single-element captures bind the element
     type and segment captures bind an array slice.
-  * When the input is a fixed-size array `T[N]`, captured fixed/rest array
+  * When the input is a fixed-length array `T[N]`, captured fixed/rest array
     segments preserve an inferred fixed length when the segment width is
     statically known. For example, `[val a, val b, ...val rest]` against
     `int[4]` binds `rest` as `int[2]`, and `[..2 val head, val tail]` against
@@ -3956,11 +3956,11 @@ val [first, ..2 middle, last] = "rune"
 
 In inline/freestanding collection patterns, spell captures explicitly:
 `..2 val name` or `...val rest`. In deconstruction assignments/declarations,
-bare `..2 name` and `...rest` remain valid as binding targets. A bare trailing
+bare `..2 name` and `...rest` remain valid as binding targets. A bare
 `...` may be used in either form to ignore
-the rest of the sequence without creating a binding, and it is only valid as
-the final element. Captured rest segments may appear in the middle or at the
-end. When the input is a fixed-size array, captured `..N` and `...rest` array
+the rest of the sequence without creating a binding. Both captured and
+non-capturing rest segments may appear in the middle or at the end. When the
+input is a fixed-length array, captured `..N` and `...rest` array
 segments keep an inferred fixed-length array type. For strings, a
 plain element binds `char`, while `..N` and rest segments bind `string`.
 

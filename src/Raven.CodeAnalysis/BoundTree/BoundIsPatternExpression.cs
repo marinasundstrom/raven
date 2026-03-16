@@ -942,8 +942,6 @@ internal partial class BlockBinder
             reason = BoundExpressionReason.TypeMismatch;
         }
 
-        ReportInvalidNonCapturingSequenceRestElementsInMatch(syntax.Elements);
-
         for (var i = 0; i < syntax.Elements.Count; i++)
         {
             var elementSyntax = syntax.Elements[i];
@@ -968,24 +966,6 @@ internal partial class BlockBinder
             restIndex,
             elementWidths,
             elementKinds);
-    }
-
-    private void ReportInvalidNonCapturingSequenceRestElementsInMatch(SeparatedSyntaxList<SequencePatternElementSyntax> elements)
-    {
-        for (var i = 0; i < elements.Count - 1; i++)
-        {
-            var element = elements[i];
-            if (element.Prefix.DotDotToken.Kind != SyntaxKind.DotDotDotToken ||
-                element.Pattern is not DiscardPatternSyntax { UnderscoreToken.IsMissing: true })
-            {
-                continue;
-            }
-
-            _diagnostics.Report(Diagnostic.Create(
-                CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
-                element.GetLocation(),
-                "..."));
-        }
     }
 
     private bool TryGetSequencePatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)
