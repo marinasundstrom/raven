@@ -212,4 +212,32 @@ class C {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void OverrideMethodReturningUnit_DoesNotSuggestTrailingExpressionType()
+    {
+        const string code = """
+class DbContextOptionsBuilder {
+    func UseSqlite(connectionString: string) -> DbContextOptionsBuilder {
+        return self
+    }
+}
+
+abstract class DbContext {
+    protected abstract func OnConfiguring(optionsBuilder: DbContextOptionsBuilder) -> unit
+}
+
+class AppDbContext : DbContext {
+    protected override func OnConfiguring(optionsBuilder: DbContextOptionsBuilder) {
+        optionsBuilder.UseSqlite("Data Source=app.db")
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
 }

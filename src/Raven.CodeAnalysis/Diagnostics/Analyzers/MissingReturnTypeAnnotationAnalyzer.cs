@@ -73,6 +73,13 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
         if (symbol is null)
             return;
 
+        if (symbol.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void &&
+            (symbol.IsOverride || !symbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty))
+            return;
+
+        if (symbol.ReturnType is ErrorTypeSymbol)
+            return;
+
         var boundBody = context.SemanticModel.GetBoundNode(body);
         var inferred = ReturnTypeCollector.Infer(boundBody);
 
