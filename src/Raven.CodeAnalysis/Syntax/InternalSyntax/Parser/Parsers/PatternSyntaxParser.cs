@@ -149,8 +149,8 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            var argumentList = ParseRecordPatternArgumentList();
-            return RecordPattern(type, argumentList);
+            var argumentList = ParseNominalDeconstructionPatternArgumentList();
+            return NominalDeconstructionPattern(type, argumentList);
         }
 
         if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
@@ -443,7 +443,7 @@ internal class PatternSyntaxParser : SyntaxParser
         return MemberPatternArgumentList(openParenToken, List(arguments.ToArray()), closeParenToken);
     }
 
-    private RecordPatternArgumentListSyntax ParseRecordPatternArgumentList()
+    private NominalDeconstructionPatternArgumentListSyntax ParseNominalDeconstructionPatternArgumentList()
     {
         var openParenToken = ReadToken();
 
@@ -462,7 +462,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
-        return RecordPatternArgumentList(openParenToken, List(arguments.ToArray()), closeParenToken);
+        return NominalDeconstructionPatternArgumentList(openParenToken, List(arguments.ToArray()), closeParenToken);
     }
 
     private VariableDesignationSyntax ParseDesignation(bool allowBindingKeyword = true)

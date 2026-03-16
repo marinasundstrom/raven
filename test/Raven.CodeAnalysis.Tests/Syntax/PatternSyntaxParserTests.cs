@@ -106,12 +106,12 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void RecordPattern_WithQualifiedTypeAndPayload_Parses()
+    public void NominalDeconstructionPattern_WithQualifiedTypeAndPayload_Parses()
     {
         var (pattern, tree) = ParsePattern("Token.Identifier(let text)");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
-        var recordPattern = Assert.IsType<RecordPatternSyntax>(pattern);
+        var recordPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(pattern);
         Assert.Equal("Token.Identifier(let text)", sourceText.ToString(recordPattern.Span));
         Assert.Equal("Token.Identifier", recordPattern.Type.ToString());
 
@@ -122,12 +122,12 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void RecordPattern_WithArguments_Parses()
+    public void NominalDeconstructionPattern_WithArguments_Parses()
     {
         var (pattern, tree) = ParsePattern("Person(let name, let age)");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
-        var recordPattern = Assert.IsType<RecordPatternSyntax>(pattern);
+        var recordPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(pattern);
         Assert.Equal("Person(let name, let age)", sourceText.ToString(recordPattern.Span));
         Assert.Equal("Person", Assert.IsType<IdentifierNameSyntax>(recordPattern.Type).Identifier.ValueText);
 
@@ -139,12 +139,12 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void RecordPattern_WithNestedPositionalPattern_Parses()
+    public void NominalDeconstructionPattern_WithNestedPositionalPattern_Parses()
     {
         var (pattern, tree) = ParsePattern("Foo(true, (let a, let b))");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
-        var recordPattern = Assert.IsType<RecordPatternSyntax>(pattern);
+        var recordPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(pattern);
         Assert.Equal("Foo(true, (let a, let b))", sourceText.ToString(recordPattern.Span));
         Assert.Equal("Foo", Assert.IsType<IdentifierNameSyntax>(recordPattern.Type).Identifier.ValueText);
 
@@ -290,12 +290,12 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void RecordPattern_WithoutBindingKeyword_ParsesBareIdentifierAsConstantPattern()
+    public void NominalDeconstructionPattern_WithoutBindingKeyword_ParsesBareIdentifierAsConstantPattern()
     {
         var (pattern, tree) = ParsePattern("Foo(name)");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
-        var recordPattern = Assert.IsType<RecordPatternSyntax>(pattern);
+        var recordPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(pattern);
         Assert.Equal("Foo(name)", sourceText.ToString(recordPattern.Span));
 
         var argument = Assert.IsType<ConstantPatternSyntax>(Assert.Single(recordPattern.ArgumentList.Arguments));

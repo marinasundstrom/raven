@@ -194,8 +194,8 @@ internal static class SymbolResolver
         if (TryResolvePipeRightHandSymbol(semanticModel, node, token, out var pipeRhsSymbol))
             return pipeRhsSymbol;
 
-        if (TryResolveRecordPatternCaseSymbol(semanticModel, node, token, out var recordPatternCaseSymbol))
-            return recordPatternCaseSymbol;
+        if (TryResolveNominalDeconstructionPatternCaseSymbol(semanticModel, node, token, out var nominalPatternCaseSymbol))
+            return nominalPatternCaseSymbol;
 
         if (TryResolveParameterDeclarationSymbol(semanticModel, node, token, out var parameterDeclarationSymbol))
             return parameterDeclarationSymbol;
@@ -1072,7 +1072,7 @@ internal static class SymbolResolver
         return false;
     }
 
-    private static bool TryResolveRecordPatternCaseSymbol(
+    private static bool TryResolveNominalDeconstructionPatternCaseSymbol(
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
@@ -1082,8 +1082,8 @@ internal static class SymbolResolver
 
         if (node is not IdentifierNameSyntax identifier ||
             token != identifier.Identifier ||
-            identifier.Parent is not RecordPatternSyntax recordPattern ||
-            recordPattern.Type != identifier)
+            identifier.Parent is not NominalDeconstructionPatternSyntax nominalPattern ||
+            nominalPattern.Type != identifier)
         {
             return false;
         }
@@ -1094,9 +1094,9 @@ internal static class SymbolResolver
 
         ITypeSymbol? scrutineeType = null;
 
-        if (recordPattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+        if (nominalPattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
             scrutineeType = semanticModel.GetTypeInfo(matchExpression.Expression).Type;
-        else if (recordPattern.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+        else if (nominalPattern.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
             scrutineeType = semanticModel.GetTypeInfo(matchStatement.Expression).Type;
 
         if (scrutineeType is null)

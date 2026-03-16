@@ -244,7 +244,7 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void RecordPattern_BindsAgainstPrimaryConstructorClassDeconstruct()
+    public void NominalDeconstructionPattern_BindsAgainstPrimaryConstructorClassDeconstruct()
     {
         var source = """
             val value: object = new Person(1, "Ada");
@@ -260,7 +260,7 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
 
-        var recordPattern = tree.GetRoot().DescendantNodes().OfType<RecordPatternSyntax>().Single();
+        var recordPattern = tree.GetRoot().DescendantNodes().OfType<NominalDeconstructionPatternSyntax>().Single();
         var boundPattern = Assert.IsType<BoundDeconstructPattern>(model.GetBoundNode(recordPattern));
 
         Assert.Equal(2, boundPattern.Arguments.Length);

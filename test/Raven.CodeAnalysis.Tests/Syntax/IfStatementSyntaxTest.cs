@@ -101,7 +101,7 @@ if val Person(1, name, _) = person {
         var tree = SyntaxTree.ParseText(testCode);
         var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
         var ifBinding = Assert.IsType<IfPatternStatementSyntax>(statement);
-        var pattern = Assert.IsType<RecordPatternSyntax>(ifBinding.Pattern);
+        var pattern = Assert.IsType<NominalDeconstructionPatternSyntax>(ifBinding.Pattern);
         var arguments = pattern.ArgumentList!.Arguments;
 
         arguments.Count.ShouldBe(3);

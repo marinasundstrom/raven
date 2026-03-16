@@ -70,7 +70,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void RecordPattern_BindsPrimaryConstructorProperties()
+    public void NominalDeconstructionPattern_BindsPrimaryConstructorProperties()
     {
         var source = """
             val value: object = new Person("Ada", 42);
@@ -87,7 +87,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source, options: options);
         var model = compilation.GetSemanticModel(tree);
 
-        var recordPattern = tree.GetRoot().DescendantNodes().OfType<RecordPatternSyntax>().Single();
+        var recordPattern = tree.GetRoot().DescendantNodes().OfType<NominalDeconstructionPatternSyntax>().Single();
         var boundPattern = Assert.IsType<BoundDeconstructPattern>(model.GetBoundNode(recordPattern));
 
         Assert.Equal(2, boundPattern.Arguments.Length);

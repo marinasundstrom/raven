@@ -393,7 +393,7 @@ PrimaryPattern           ::= ParenthesizedPattern
                            | CollectionPattern
                            | DiscardPattern
                            | MemberPattern
-                           | RecordPattern
+                           | NominalDeconstructionPattern
                            | PropertyPattern ;
 
 ConstantPattern          ::= Literal | ConstantPatternOperand ;
@@ -447,10 +447,11 @@ MemberPath               ::= '.' Identifier
 
 PatternList              ::= Pattern {',' Pattern} ;
 
-RecordPattern            ::= Type '(' PatternList? ')' ;
+NominalDeconstructionPattern
+                         ::= Type '(' PatternList? ')' ;
 (* Binder note: when Type resolves to a discriminated-union case name for the
    current scrutinee, this form is interpreted as a DU case deconstruction
-   pattern rather than a regular record pattern. Otherwise the type must be
+   pattern rather than a regular nominal deconstruction pattern. Otherwise the type must be
    deconstructable (for example a record type or a nominal type with an
    accessible `Deconstruct` method). *)
 

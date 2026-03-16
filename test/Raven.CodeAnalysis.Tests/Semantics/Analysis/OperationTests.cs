@@ -265,7 +265,7 @@ var result = tuple match {
     }
 
     [Fact]
-    public void GetOperation_RecordPattern_ExposesRecursivePatternShape()
+    public void GetOperation_NominalDeconstructionPattern_ExposesRecursivePatternShape()
     {
         const string source = """
 val value: object = new Person("Ada", 42)
@@ -281,7 +281,7 @@ record class Person(Name: string, Age: int)
         var model = compilation.GetSemanticModel(tree);
         var patternSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<RecordPatternSyntax>()
+            .OfType<NominalDeconstructionPatternSyntax>()
             .Single();
 
         var operation = Assert.IsAssignableFrom<IRecursivePatternOperation>(model.GetOperation(patternSyntax));

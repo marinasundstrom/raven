@@ -476,7 +476,7 @@ internal partial class BlockBinder
             UnaryPatternSyntax u => BindUnaryPattern(u, inputType),
             BinaryPatternSyntax b => BindBinaryPattern(b, inputType),
             MemberPatternSyntax c => BindCasePattern(c, inputType),
-            RecordPatternSyntax r => BindRecordPattern(r, inputType),
+            NominalDeconstructionPatternSyntax r => BindNominalDeconstructionPattern(r, inputType),
             PropertyPatternSyntax p => BindPropertyPattern(p, inputType),
             RelationalPatternSyntax r => BindRelationalPattern(r, inputType),
             RangePatternSyntax rp => BindRangePattern(rp, inputType?.GetPlainType()),
@@ -1421,9 +1421,9 @@ internal partial class BlockBinder
         return BindConstantPatternFromExpression(expression, nameSyntax, inputType ?? targetType);
     }
 
-    private BoundPattern BindRecordPattern(RecordPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindNominalDeconstructionPattern(NominalDeconstructionPatternSyntax syntax, ITypeSymbol? inputType)
     {
-        if (TryBindRecordPatternAsCasePattern(syntax, inputType, out var casePattern))
+        if (TryBindNominalDeconstructionPatternAsCasePattern(syntax, inputType, out var casePattern))
             return casePattern;
 
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
@@ -1433,7 +1433,7 @@ internal partial class BlockBinder
 
         if (recordType.TypeKind == TypeKind.Error)
         {
-            var props = BindRecordPatternSubpatternsAsDiscards(syntax);
+            var props = BindNominalDeconstructionPatternSubpatternsAsDiscards(syntax);
             return new BoundPropertyPattern(
                 inputType: inputType,
                 receiverType: Compilation.ErrorTypeSymbol,
@@ -1445,11 +1445,11 @@ internal partial class BlockBinder
 
         if (recordType is not INamedTypeSymbol)
         {
-            _diagnostics.ReportRecordPatternRequiresRecordType(
+            _diagnostics.ReportNominalDeconstructionPatternRequiresDeconstructableType(
                 recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.Type.GetLocation());
 
-            var props = BindRecordPatternSubpatternsAsDiscards(syntax);
+            var props = BindNominalDeconstructionPatternSubpatternsAsDiscards(syntax);
             return new BoundPropertyPattern(
                 inputType: inputType,
                 receiverType: Compilation.ErrorTypeSymbol,
@@ -1463,7 +1463,7 @@ internal partial class BlockBinder
             inputType.TypeKind != TypeKind.Error &&
             !Compilation.ClassifyConversion(inputType, recordType).Exists)
         {
-            _diagnostics.ReportRecordPatternTypeMismatch(
+            _diagnostics.ReportNominalDeconstructionPatternTypeMismatch(
                 inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.Type.GetLocation());
@@ -1472,11 +1472,11 @@ internal partial class BlockBinder
         var deconstructArity = GetDeconstructArity(recordType);
         if (deconstructArity is null)
         {
-            _diagnostics.ReportRecordPatternRequiresRecordType(
+            _diagnostics.ReportNominalDeconstructionPatternRequiresDeconstructableType(
                 recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.Type.GetLocation());
 
-            var props = BindRecordPatternSubpatternsAsDiscards(syntax);
+            var props = BindNominalDeconstructionPatternSubpatternsAsDiscards(syntax);
             return new BoundPropertyPattern(
                 inputType: inputType,
                 receiverType: Compilation.ErrorTypeSymbol,
@@ -1491,7 +1491,7 @@ internal partial class BlockBinder
 
         if (argumentCount != deconstructArity.Value)
         {
-            _diagnostics.ReportRecordPatternArgumentCountMismatch(
+            _diagnostics.ReportNominalDeconstructionPatternArgumentCountMismatch(
                 recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 deconstructArity.Value,
                 argumentCount,
@@ -1501,7 +1501,7 @@ internal partial class BlockBinder
         var deconstructMethod = FindDeconstructMethod(recordType, argumentCount);
         if (deconstructMethod is null)
         {
-            var props = BindRecordPatternSubpatternsAsDiscards(syntax);
+            var props = BindNominalDeconstructionPatternSubpatternsAsDiscards(syntax);
             return new BoundPropertyPattern(
                 inputType: inputType,
                 receiverType: recordType,
@@ -1518,8 +1518,8 @@ internal partial class BlockBinder
             narrowedType: recordType);
     }
 
-    private bool TryBindRecordPatternAsCasePattern(
-        RecordPatternSyntax syntax,
+    private bool TryBindNominalDeconstructionPatternAsCasePattern(
+        NominalDeconstructionPatternSyntax syntax,
         ITypeSymbol? inputType,
         out BoundPattern? pattern)
     {
@@ -2158,7 +2158,7 @@ internal partial class BlockBinder
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<BoundPropertySubpattern> BindRecordPatternSubpatternsAsDiscards(RecordPatternSyntax syntax)
+    private ImmutableArray<BoundPropertySubpattern> BindNominalDeconstructionPatternSubpatternsAsDiscards(NominalDeconstructionPatternSyntax syntax)
     {
         var builder = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(syntax.ArgumentList.Arguments.Count);
 

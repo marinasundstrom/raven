@@ -2351,7 +2351,7 @@ internal sealed class RecursivePatternOperation : PatternOperation, IRecursivePa
 
             var syntaxArguments = Syntax switch
             {
-                RecordPatternSyntax recordPattern => recordPattern.ArgumentList.Arguments.Cast<PatternSyntax>().ToImmutableArray(),
+                NominalDeconstructionPatternSyntax nominalPattern => nominalPattern.ArgumentList.Arguments.Cast<PatternSyntax>().ToImmutableArray(),
                 PositionalPatternSyntax positionalPattern => positionalPattern.Elements.Select(element => element.Pattern).ToImmutableArray(),
                 _ => ImmutableArray<PatternSyntax>.Empty
             };

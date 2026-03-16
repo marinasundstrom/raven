@@ -2510,7 +2510,7 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     `var`).
   * Writing `var p` produces a mutable binding.
 
-#### Record patterns
+#### Nominal deconstruction patterns
 
 * `RecordType(pattern1, pattern2, …)` — **nominal deconstruction pattern**.
   Matches when the scrutinee can be treated as `RecordType` and each positional
@@ -2528,7 +2528,7 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     binding mode.
   * The number of positional elements must match the selected `Deconstruct`
     parameters; mismatches are errors.
-  * When the scrutinee is a discriminated union, `CaseName(...)` in record-pattern
+  * When the scrutinee is a discriminated union, `CaseName(...)` in nominal-deconstruction-pattern
     syntax is interpreted as a discriminated-union case pattern and binds the case
     payload positionally.
 
