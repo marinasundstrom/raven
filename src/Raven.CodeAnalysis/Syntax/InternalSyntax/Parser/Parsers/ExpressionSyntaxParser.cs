@@ -2543,7 +2543,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     break;
 
                 var armStart = Position;
-                var pattern = new PatternSyntaxParser(this).ParsePattern();
+                var bindingKeyword = Token(SyntaxKind.None);
+                if (ShouldParseMatchArmOuterBindingKeyword())
+                    bindingKeyword = ReadToken();
+
+                var pattern = new PatternSyntaxParser(
+                    this,
+                    allowImplicitDeconstructionElementBindings: bindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                    .ParsePattern();
 
                 WhenClauseSyntax? whenClause = null;
                 if (ConsumeToken(SyntaxKind.WhenKeyword, out var whenKeyword))
@@ -2587,7 +2594,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     continue;
                 }
 
-                arms.Add(MatchArm(pattern, whenClause, arrowToken, expression, terminatorToken));
+                arms.Add(MatchArm(bindingKeyword, pattern, whenClause, arrowToken, expression, terminatorToken));
             }
         }
         finally
@@ -2602,6 +2609,27 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         SetTreatNewlinesAsTokens(false);
 
         return MatchExpression(scrutinee, matchKeyword, openBraceToken, List(arms.ToArray()), closeBraceToken);
+    }
+
+    private bool ShouldParseMatchArmOuterBindingKeyword()
+    {
+        if (PeekToken().Kind is not (SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword))
+            return false;
+
+        var next = PeekToken(1).Kind;
+        if (next is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken)
+            return true;
+
+        if (CanTokenBeIdentifier(PeekToken(1)) &&
+            (PeekToken(2).Kind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken))
+            return true;
+
+        if (next == SyntaxKind.DotToken &&
+            CanTokenBeIdentifier(PeekToken(2)) &&
+            (PeekToken(3).Kind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken))
+            return true;
+
+        return false;
     }
 
     private void SkipMatchArmSeparators()

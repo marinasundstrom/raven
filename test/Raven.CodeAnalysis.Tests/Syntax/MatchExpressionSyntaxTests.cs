@@ -76,6 +76,29 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithOuterValSequencePatternArm_ParsesBindingKeyword()
+    {
+        var (arm, tree) = ParseFirstMatchArm("val [first, second, ...rest]");
+
+        Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
+        var sequence = Assert.IsType<SequencePatternSyntax>(arm.Pattern);
+        Assert.Equal(3, sequence.Elements.Count);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void MatchExpression_WithOuterValNominalPatternArm_ParsesBindingKeyword()
+    {
+        var (arm, tree) = ParseFirstMatchArm("val Some((x, y))");
+
+        Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
+        Assert.IsType<NominalDeconstructionPatternSyntax>(arm.Pattern);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void MatchExpression_WithBinaryPatternArm_ParsesBinaryPattern()
     {
         var (arm, tree) = ParseFirstMatchArm("let left and let right");

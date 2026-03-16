@@ -2273,6 +2273,26 @@ match value {
 }
 ```
 
+An optional outer binding keyword may appear before a match-arm pattern:
+
+```raven
+match values {
+    val [first, second, ...rest] => first + second + rest.Length
+    _ => 0
+}
+
+match value {
+    val Some((x, y)) => x + y
+    _ => 0
+}
+```
+
+For match arms, the outer binding keyword uses the same shorthand rule as
+deconstruction assignment and `for` pattern targets: it supplies the binding
+mode for otherwise bare captures inside the arm pattern. Mixing an outer
+binding keyword with inline pattern binding keywords in the same arm is an
+error.
+
 Statement-form `match` with block arms may use explicit `return`:
 
 ```raven

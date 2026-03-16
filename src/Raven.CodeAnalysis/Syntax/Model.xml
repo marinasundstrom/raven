@@ -634,6 +634,7 @@
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
   </Node>
   <Node Name="MatchArm" Inherits="Node">
+    <Slot Name="BindingKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="Pattern" Type="Pattern" />
     <Slot Name="WhenClause" Type="WhenClause" IsNullable="true" />
     <Slot Name="ArrowToken" Type="Token" DefaultToken="ArrowToken" />

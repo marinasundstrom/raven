@@ -2476,7 +2476,27 @@ partial class BlockBinder : Binder
             _scopeDepth++;
             var depth = _scopeDepth;
 
-            var pattern = BindPattern(arm.Pattern, scrutinee.Type);
+            var inlineBindingKeyword = FindFirstInlinePatternBindingKeyword(arm.Pattern);
+            if (inlineBindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword &&
+                arm.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            {
+                _diagnostics.ReportPatternDeclarationBindingKeywordConflict(
+                    arm.BindingKeyword.Text,
+                    inlineBindingKeyword.Text,
+                    inlineBindingKeyword.GetLocation());
+            }
+
+            var previousBindingKeyword = _ambientPatternDeclarationBindingKeyword;
+            _ambientPatternDeclarationBindingKeyword = arm.BindingKeyword.Kind;
+            BoundPattern pattern;
+            try
+            {
+                pattern = BindPattern(arm.Pattern, scrutinee.Type);
+            }
+            finally
+            {
+                _ambientPatternDeclarationBindingKeyword = previousBindingKeyword;
+            }
 
             // ✅ Make locals introduced by the pattern visible to `when` + arm expression
             RegisterPatternDesignatorLocals(pattern, depth);

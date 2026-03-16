@@ -1311,6 +1311,69 @@ val result = pair match {
     }
 
     [Fact]
+    public void MatchExpression_WithOuterValSequencePattern_BindsImplicitCaptures()
+    {
+        const string code = """
+val input = [1, 2, 3, 4]
+
+val result = input match {
+    val [first, second, ...rest] => first + second + rest.Length
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+    }
+
+    [Fact]
+    public void MatchExpression_WithOuterValNominalPattern_BindsImplicitCaptures()
+    {
+        const string code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+val value: Option<(int, int)> = .Some((1, 2))
+
+val result = value match {
+    val Some((x, y)) => x + y
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+    }
+
+    [Fact]
+    public void MatchExpression_WithOuterAndInlineBindingKeywords_ReportsConflict()
+    {
+        const string code = """
+val input = [1, 2, 3]
+
+val result = input match {
+    val [val first, second, ...rest] => first
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.MissingDiagnostics);
+        Assert.Empty(result.UnexpectedDiagnostics.Where(d => d.Descriptor != CompilerDiagnostics.PatternDeclarationBindingKeywordConflict));
+        Assert.Contains(result.Compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.PatternDeclarationBindingKeywordConflict);
+    }
+
+    [Fact]
     public void MatchExpression_WithPositionalPatternLengthMismatch_ReportsDiagnostic()
     {
         const string code = """

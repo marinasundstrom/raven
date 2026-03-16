@@ -26,12 +26,12 @@ func Main() {
     WriteLine("ch: $ch, start: $start, and end: $end")
 
     val points = [(2, 3), (2, 0), (5, 1)]
-    for (val x, 0) in points {
+    for var (x, 0) in points {
         WriteLine(x)
     }
 
     val persons = [Person(1, "John Doe", 20)]
-    for Person(1, val name, _) in persons {
+    for val Person(1, name, _) in persons {
         WriteLine(name)
     }
 

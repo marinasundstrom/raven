@@ -359,7 +359,8 @@ Expression               ::= AssignmentExpression {MatchExpressionSuffix} ;
 
 MatchExpressionSuffix    ::= 'match' '{' MatchArmList '}' ;
 MatchArmList             ::= MatchArm {MatchArm} ;
-MatchArm                 ::= Pattern MatchGuardClause? '=>' Expression MatchArmTerminator? ;
+MatchArm                 ::= MatchArmBindingKeyword? Pattern MatchGuardClause? '=>' Expression MatchArmTerminator? ;
+MatchArmBindingKeyword   ::= 'val' | 'let' | 'var' ;
 MatchGuardClause         ::= 'when' Expression ;
 MatchArmTerminator       ::= NewLineToken | ';' ;
 
