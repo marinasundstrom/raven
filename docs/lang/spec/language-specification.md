@@ -1923,11 +1923,33 @@ for (val x, 0) in points {
 }
 ```
 
+An optional outer binding keyword may appear before the iteration target:
+
+```raven
+for val item in items {
+    Console.WriteLine(item)
+}
+
+for val _ in items {
+    log("processing")
+}
+
+for val Person(1, name, _) in persons {
+    Console.WriteLine(name)
+}
+```
+
+For pattern targets, the outer binding keyword uses the same shorthand rule as
+pattern/deconstruction assignment: it supplies the binding mode for otherwise
+bare captures inside the pattern. Mixing an outer binding keyword with inline
+pattern binding keywords in the same target is an error.
+
 `for` evaluates the collection once, then executes the body for every element.
 Simple identifier targets resolve their element type from arrays,
 `IEnumerable<T>`, and enumerator-pattern `Current` members; non-generic
-fallbacks use `object`. If the element value is unused, the iteration target
-may be written as `_` or omitted entirely:
+fallbacks use `object`. For simple identifier targets, `val` and `let` are
+allowed and optional; `var` is rejected. If the element value is unused, the
+iteration target may be written as `_` or omitted entirely:
 
 ```raven
 for _ in items {

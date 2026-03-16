@@ -627,13 +627,41 @@ partial class BlockBinder
                 break;
 
             case IdentifierNameSyntax identifierName:
+                if (forStmt.BindingKeyword.Kind == SyntaxKind.VarKeyword)
+                {
+                    loopBinder._diagnostics.ReportForIdentifierBindingKeywordMustBeValOrLet(
+                        identifierName.Identifier.ValueText,
+                        forStmt.BindingKeyword.GetLocation());
+                }
+
                 local = loopBinder.CreateLocalSymbol(forStmt, identifierName.Identifier.ValueText, isMutable: false, iteration.ElementType);
                 body = loopBinder.BindStatementInLoop(forStmt.Body);
                 break;
 
             case PatternSyntax patternSyntax:
                 local = loopBinder.CreateLocalSymbol(forStmt, $"__forPattern{loopBinder._tempCounter++}", isMutable: false, iteration.ElementType);
-                var pattern = loopBinder.BindPattern(patternSyntax, iteration.ElementType);
+                var inlineBindingKeyword = FindFirstInlinePatternBindingKeyword(patternSyntax);
+                if (inlineBindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword &&
+                    forStmt.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                {
+                    loopBinder._diagnostics.ReportPatternDeclarationBindingKeywordConflict(
+                        forStmt.BindingKeyword.Text,
+                        inlineBindingKeyword.Text,
+                        inlineBindingKeyword.GetLocation());
+                }
+
+                var previousBindingKeyword = loopBinder._ambientPatternDeclarationBindingKeyword;
+                loopBinder._ambientPatternDeclarationBindingKeyword = forStmt.BindingKeyword.Kind;
+                BoundPattern pattern;
+                try
+                {
+                    pattern = loopBinder.BindPattern(patternSyntax, iteration.ElementType);
+                }
+                finally
+                {
+                    loopBinder._ambientPatternDeclarationBindingKeyword = previousBindingKeyword;
+                }
+
                 var loweredBody = loopBinder.BindStatementInLoop(forStmt.Body);
                 var condition = new BoundIsPatternExpression(new BoundLocalAccess(local), pattern, Compilation.GetSpecialType(SpecialType.System_Boolean));
                 body = new BoundIfStatement(condition, loweredBody);

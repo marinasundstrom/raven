@@ -116,6 +116,26 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
+    public void ParseForInExpression_WithExplicitBindingKeyword()
+    {
+        var code = """
+                   val arr = [1, 2, 3];
+                   for val x in arr {
+                       x
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        var target = Assert.IsType<IdentifierNameSyntax>(forStmt.Target);
+        target.Identifier.Text.ShouldBe("x");
+    }
+
+    [Fact]
     public void ParseForWithDiscardTarget()
     {
         var code = """
@@ -131,6 +151,25 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
         forStmt.ShouldNotBeNull();
         Assert.IsType<DiscardPatternSyntax>(forStmt!.Target);
+    }
+
+    [Fact]
+    public void ParseForWithDiscardTarget_AndOuterBindingKeyword()
+    {
+        var code = """
+                   val arr = [1, 2, 3];
+                   for val _ in arr {
+                       0
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        Assert.IsType<DiscardPatternSyntax>(forStmt.Target);
     }
 
     [Fact]
@@ -251,5 +290,24 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
         forStmt.ShouldNotBeNull();
         forStmt!.Target.ShouldBeOfType<PositionalPatternSyntax>();
+    }
+
+    [Fact]
+    public void ParseForPatternTarget_WithOuterBindingKeyword()
+    {
+        var code = """
+                   val persons = [Person(1, "Ada", 20)];
+                   for val Person(1, name, _) in persons {
+                       name
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        forStmt.Target.ShouldBeOfType<NominalDeconstructionPatternSyntax>();
     }
 }

@@ -476,6 +476,10 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         awaitKeyword ??= Token(SyntaxKind.None);
         var forKeyword = ReadToken();
+        var bindingKeyword = Token(SyntaxKind.None);
+
+        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            bindingKeyword = ReadToken();
 
         ExpressionOrPatternSyntax? target;
         var current = PeekToken();
@@ -493,7 +497,10 @@ internal class StatementSyntaxParser : SyntaxParser
         }
         else
         {
-            target = new PatternSyntaxParser(this).ParsePattern();
+            target = new PatternSyntaxParser(
+                this,
+                allowImplicitDeconstructionElementBindings: bindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                .ParsePattern();
         }
 
         ConsumeTokenOrMissing(SyntaxKind.InKeyword, out var inKeyword);
@@ -517,7 +524,7 @@ internal class StatementSyntaxParser : SyntaxParser
         SetTreatNewlinesAsTokens(true);
         TryConsumeTerminator(out var terminatorToken);
 
-        return ForStatement(awaitKeyword, forKeyword, target, inKeyword, expression!, byKeyword, stepExpression, body!, terminatorToken);
+        return ForStatement(awaitKeyword, forKeyword, bindingKeyword, target, inKeyword, expression!, byKeyword, stepExpression, body!, terminatorToken);
     }
 
     private StatementSyntax? ParseFunctionSyntax(SyntaxList attributeLists, SyntaxList modifiers)

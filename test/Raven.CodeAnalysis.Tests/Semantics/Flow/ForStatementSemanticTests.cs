@@ -42,6 +42,35 @@ for _ in numbers {
     }
 
     [Fact]
+    public void For_WithExplicitValDiscardTarget_DoesNotCreateLocal()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val numbers = List<System.Int32>()
+
+for val _ in numbers {
+    val value = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+
+        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+        boundFor.Local.ShouldBeNull();
+        boundFor.Iteration.ElementType.SpecialType.ShouldBe(SpecialType.System_Int32);
+    }
+
+    [Fact]
     public void For_WithoutTarget_DoesNotCreateLocal()
     {
         const string source = """
@@ -66,6 +95,82 @@ for in numbers {
         var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
         boundFor.Local.ShouldBeNull();
         boundFor.Iteration.ElementType.SpecialType.ShouldBe(SpecialType.System_Int32);
+    }
+
+    [Fact]
+    public void For_WithExplicitValIdentifierTarget_CreatesLocal()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val numbers = List<System.Int32>()
+
+for val number in numbers {
+    val copy = number
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+
+        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+        boundFor.Local.ShouldNotBeNull();
+        boundFor.Local!.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+    }
+
+    [Fact]
+    public void For_WithOuterValPatternTarget_BindsImplicitPatternCaptures()
+    {
+        const string source = """
+val persons = [(1, "Ada", 20)]
+
+for val (1, name, _) in persons {
+    name.Length
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "name");
+
+        var symbol = model.GetDeclaredSymbol(designation).ShouldBeOfType<SourceLocalSymbol>();
+        symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+    }
+
+    [Fact]
+    public void For_WithExplicitVarIdentifierTarget_ReportsDiagnostic()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val numbers = List<System.Int32>()
+
+for var number in numbers {
+    number
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.Select(d => d.Id).ShouldContain("RAV0343");
     }
 
     [Fact]

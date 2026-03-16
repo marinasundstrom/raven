@@ -333,7 +333,8 @@ IfPatternStatement       ::= 'if' BindingKeyword Pattern '=' Expression Statemen
    or after headers such as if/while/for) begins a block statement/body and is not parsed as an ObjectInitializer trailer.
    This disambiguation is performed by the parser (context-sensitive), not by this EBNF. *)
 WhileStatement           ::= 'while' Expression Statement ;
-ForStatement             ::= 'await'? 'for' ForIterationTarget? 'in' Expression ForStepClause? Statement ;
+ForStatement             ::= 'await'? 'for' ForBindingKeyword? ForIterationTarget? 'in' Expression ForStepClause? Statement ;
+ForBindingKeyword        ::= 'val' | 'let' | 'var' ;
 ForIterationTarget       ::= Identifier | Pattern ;
 ForStepClause            ::= 'by' Expression ;
 

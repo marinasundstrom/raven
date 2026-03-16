@@ -312,6 +312,7 @@
   <Node Name="ForStatement" Inherits="Statement">
     <Slot Name="AwaitKeyword" Type="Token" DefaultToken="AwaitKeyword" IsOptionalToken="true" />
     <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword" />
+    <Slot Name="BindingKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="Target" Type="ExpressionOrPattern" IsNullable="true" />
     <Slot Name="InKeyword" Type="Token" DefaultToken="InKeyword" />
     <Slot Name="Expression" Type="Expression" />
