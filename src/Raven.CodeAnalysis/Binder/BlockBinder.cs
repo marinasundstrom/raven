@@ -1184,11 +1184,37 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindPostfixUnaryExpression(PostfixOperatorExpressionSyntax postfixUnary)
     {
+        if (postfixUnary.OperatorToken.Kind == SyntaxKind.ExclamationToken)
+            return BindSuppressNullableWarningExpression(postfixUnary);
+
         var binaryOperatorKind = postfixUnary.OperatorToken.Kind == SyntaxKind.PlusPlusToken
             ? SyntaxKind.PlusToken
             : SyntaxKind.MinusToken;
 
         return BindIncrementOrDecrement(postfixUnary.Expression, postfixUnary.OperatorToken, binaryOperatorKind, isPostfix: true);
+    }
+
+    private BoundExpression BindSuppressNullableWarningExpression(PostfixOperatorExpressionSyntax postfixUnary)
+    {
+        var operand = BindExpression(postfixUnary.Expression);
+
+        if (operand is BoundErrorExpression || operand.Type is null)
+            return operand;
+
+        if (!operand.Type.IsNullable)
+            return operand;
+
+        var unwrappedType = operand.Type.StripNullable();
+        if (unwrappedType is null)
+            return operand;
+
+        if (operand.Type is NullableTypeSymbol nullableValueType && nullableValueType.UnderlyingType.IsValueType)
+            return new BoundNullableValueExpression(operand, nullableValueType.UnderlyingType);
+
+        return new BoundConversionExpression(
+            operand,
+            unwrappedType,
+            new Conversion(isImplicit: false, isIdentity: true, isLifted: true));
     }
 
     private BoundExpression BindIndexExpression(IndexExpressionSyntax indexExpression)

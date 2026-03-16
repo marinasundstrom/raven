@@ -581,6 +581,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             or SyntaxKind.PreDecrementExpression
             or SyntaxKind.PostIncrementExpression
             or SyntaxKind.PostDecrementExpression
+            or SyntaxKind.SuppressNullableWarningExpression
             or SyntaxKind.UnaryPattern;
     }
 

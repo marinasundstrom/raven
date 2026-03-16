@@ -705,6 +705,37 @@ WriteLine(Describe("10"))
 WriteLine(Describe("abc"))
 ```
 
+## Nullable suppression (`!`)
+
+The postfix `!` operator suppresses nullable checking for a single expression and
+produces its underlying non-nullable type.
+
+* For nullable references, `expr!` changes the static type from `T?` to `T`
+  without adding a runtime null check.
+* For nullable value types, `expr!` unwraps `T?` to `T` using the underlying
+  nullable-value access path.
+
+This operator is intended as a narrow escape hatch for interop boundaries and
+other cases where the programmer has stronger nullability knowledge than the
+type exposed by an API. It does not relax Raven's strict nullability rules for
+other expressions.
+
+Examples:
+
+```raven
+func ReadName(service: ExternalService) -> int {
+    val name = service.TryGetName()!
+    return name.Length
+}
+```
+
+```raven
+func Increment(value: int?) -> int {
+    val required = value!
+    return required + 1
+}
+```
+
 ## Carrier conditional access for `Result` and `Option`
 
 Raven supports *carrier-aware* conditional member access using `?.` for `Result<T, E>` and `Option<T>`.
@@ -4247,7 +4278,7 @@ Lowest → highest (all left-associative unless noted):
 12. Multiplicative: `*  /  %`
 13. Cast: `(T)expr`
 14. Unary (prefix): `+  -  !  typeof`
-15. Postfix trailers: call `()`, member `.`, index `[]`
+15. Postfix trailers: call `()`, member `.`, index `[]`, nullable suppression `!`, propagation `?`
 
 > 🧭 **Disambiguation:**
 >

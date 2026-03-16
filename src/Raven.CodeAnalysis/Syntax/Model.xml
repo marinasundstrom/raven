@@ -122,6 +122,7 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <!-- Covers postfix operators like increment, decrement, and nullable suppression (!). -->
   <Node Name="PostfixOperatorExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="OperatorToken" Type="Token" />

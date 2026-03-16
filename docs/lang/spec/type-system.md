@@ -139,6 +139,12 @@ form but influence static flow analysis and conversion rules.
 
 In nullable modeling, `T?` is canonical.
 
+Raven also supports postfix `expr!` as a narrow nullable escape hatch. It
+suppresses nullable checking for that single expression and produces the
+underlying non-nullable type. This is primarily intended for interop boundaries
+or other cases where an external API is known to be non-null despite exposing a
+nullable type. It does not relax Raven's strict nullability rules elsewhere.
+
 #### Strict null checks and flow narrowing
 
 Raven treats `is null` and `is not null` as the strict null-check forms for

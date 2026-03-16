@@ -532,6 +532,7 @@ PostfixExpression        ::= PrimaryExpression { PostfixTrailer } ;
 PostfixTrailer           ::= ArgumentList
                            | MemberAccessTrailer
                            | ElementAccessTrailer
+                           | SuppressNullableWarningTrailer
                            | PropagateTrailer
                            | ConditionalAccessTrailer
                            | ObjectInitializer
@@ -545,6 +546,8 @@ AttributeArgument        ::= [Identifier ':'] Expression ; (* Attribute named ar
 
 MemberAccessTrailer      ::= '.' Identifier ;
 ElementAccessTrailer     ::= '[' Expression ']' ;
+SuppressNullableWarningTrailer
+                         ::= '!' ;
 
 (* `?` is context-sensitive in postfix position:
    - If followed by `.`, `(`, or `[`, it forms conditional access: `?.`, `?(`, `?[`.

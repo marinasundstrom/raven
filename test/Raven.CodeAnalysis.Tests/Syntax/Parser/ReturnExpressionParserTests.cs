@@ -35,4 +35,20 @@ public class ReturnExpressionParserTests
         var coalesce = Assert.IsType<NullCoalesceExpressionSyntax>(expression);
         Assert.IsType<ReturnExpressionSyntax>(coalesce.Right);
     }
+
+    [Fact]
+    public void ReturnExpression_WithPostfixNullForgiving_ParsesInsideReturnExpression()
+    {
+        var lexer = new Lexer(new StringReader("return value!"));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+
+        var expression = Assert.IsAssignableFrom<ExpressionSyntax>(parser.ParseExpression().CreateRed());
+        var returnExpression = Assert.IsType<ReturnExpressionSyntax>(expression);
+        var postfix = Assert.IsType<PostfixOperatorExpressionSyntax>(returnExpression.Expression);
+
+        Assert.Equal(SyntaxKind.SuppressNullableWarningExpression, postfix.Kind);
+        Assert.Equal(SyntaxKind.ExclamationToken, postfix.OperatorToken.Kind);
+        Assert.IsType<IdentifierNameSyntax>(postfix.Expression);
+    }
 }

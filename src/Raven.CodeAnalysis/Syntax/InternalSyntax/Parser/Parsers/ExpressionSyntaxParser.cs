@@ -1468,6 +1468,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 var operatorToken = ReadToken();
                 expr = PostfixOperatorExpression(SyntaxKind.PostDecrementExpression, expr, operatorToken);
             }
+            else if (token.IsKind(SyntaxKind.ExclamationToken)) // Null-forgiving / nullable escape hatch
+            {
+                if (HasLeadingNewLine(token))
+                    return expr;
+
+                var operatorToken = ReadToken();
+                expr = PostfixOperatorExpression(SyntaxKind.SuppressNullableWarningExpression, expr, operatorToken);
+            }
             else
             {
                 // No more trailers, break out of the loop
