@@ -85,7 +85,7 @@ func Foo(name: string?) -> int {
 }
 """;
 
-        var verifier = CreateVerifier(code, disabledDiagnostics: ["RAV9012"]);
+        var verifier = CreateVerifier(code, disabledDiagnostics: ["RAV9012", "RAV0403"]);
         var result = verifier.GetResult();
 
         var tree = result.Compilation.SyntaxTrees.Single();
@@ -112,7 +112,7 @@ func Foo(value: int?) -> int {
 }
 """;
 
-        var verifier = CreateVerifier(code, disabledDiagnostics: ["RAV9012"]);
+        var verifier = CreateVerifier(code, disabledDiagnostics: ["RAV9012", "RAV0403"]);
         var result = verifier.GetResult();
 
         var tree = result.Compilation.SyntaxTrees.Single();

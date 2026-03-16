@@ -144,6 +144,7 @@ suppresses nullable checking for that single expression and produces the
 underlying non-nullable type. This is primarily intended for interop boundaries
 or other cases where an external API is known to be non-null despite exposing a
 nullable type. It does not relax Raven's strict nullability rules elsewhere.
+Using `!` reports warning `RAV0403`.
 
 #### Strict null checks and flow narrowing
 

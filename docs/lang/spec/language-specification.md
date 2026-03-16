@@ -718,7 +718,8 @@ produces its underlying non-nullable type.
 This operator is intended as a narrow escape hatch for interop boundaries and
 other cases where the programmer has stronger nullability knowledge than the
 type exposed by an API. It does not relax Raven's strict nullability rules for
-other expressions.
+other expressions. Using `!` reports warning `RAV0403` to make the escape hatch
+visible in source and build output.
 
 Examples:
 
