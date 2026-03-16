@@ -184,4 +184,64 @@ class C {
         Assert.Equal("name", symbol.Name);
         Assert.Equal("string", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
+
+    [Fact]
+    public void GetDeclaredSymbol_ForPatternWholeDesignation_UsesMatchedValueType()
+    {
+        const string code = """
+class Person(val Id: int, val Name: string)
+
+class C {
+    func Run(persons: Person[]) {
+        for val Person(1, _) person in persons {
+            person.Name
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "person");
+
+        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+
+        Assert.Equal("person", symbol.Name);
+        Assert.Equal("Person", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_MatchWholeDesignation_UsesMatchedCaseType()
+    {
+        const string code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+class C {
+    func Run(value: Option<int>) -> int {
+        return value match {
+            val Some(inner) whole => inner
+            _ => 0
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "whole");
+
+        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+
+        Assert.Equal("whole", symbol.Name);
+        Assert.Equal("Some<int>", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
 }

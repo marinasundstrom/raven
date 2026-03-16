@@ -44,6 +44,10 @@ func Main() {
         WriteLine(x)
     }
 
+    if val (2, > 0.5) p = point {
+        WriteLine(p)
+    }
+
     val person = Person(1, "John Doe", 20)
     if val Person(1, name, _) = person {
         WriteLine(name)

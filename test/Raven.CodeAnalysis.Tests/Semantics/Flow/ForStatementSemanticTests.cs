@@ -182,6 +182,34 @@ for var (1, name, _) in persons {
     }
 
     [Fact]
+    public void For_WithTrailingWholePatternDesignation_BindsIterationElement()
+    {
+        const string source = """
+val points: (int, double)[] = [(2, 1.0), (2, 0.25)]
+
+for val (2, > 0.5) point in points {
+    point.Item1
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "point");
+
+        var symbol = model.GetDeclaredSymbol(designation).ShouldBeOfType<SourceLocalSymbol>();
+        symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("(int, double)");
+        symbol.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
     public void For_WithExplicitVarIdentifierTarget_ReportsDiagnostic()
     {
         const string source = """

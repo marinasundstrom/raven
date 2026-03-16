@@ -153,7 +153,7 @@ internal sealed partial class Lowerer
             } declarationPattern)
         {
             var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, compilation.NullTypeSymbol);
-            return new BoundConstantPattern(nullLiteral, declarationPattern.Reason);
+            return new BoundConstantPattern(nullLiteral, reason: declarationPattern.Reason);
         }
 
         return pattern;

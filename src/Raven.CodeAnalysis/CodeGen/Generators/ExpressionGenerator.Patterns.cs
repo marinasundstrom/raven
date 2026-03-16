@@ -127,7 +127,26 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundConstantPattern constantPattern)
         {
+            IILocal? matchedLocal = null;
+            if (constantPattern.Designator is not null && scrutineeLocal2 is null)
+            {
+                matchedLocal = ILGenerator.DeclareLocal(ResolveClrType(inputType));
+                ILGenerator.Emit(OpCodes.Stloc, matchedLocal);
+                ILGenerator.Emit(OpCodes.Ldloc, matchedLocal);
+            }
+
+            matchedLocal ??= scrutineeLocal2;
             EmitConstantPattern(constantPattern, inputType, scrutineeLocal2);
+
+            if (constantPattern.Designator is not null && matchedLocal is not null)
+            {
+                var labelDone = ILGenerator.DefineLabel();
+                ILGenerator.Emit(OpCodes.Dup);
+                ILGenerator.Emit(OpCodes.Brfalse, labelDone);
+                EmitPatternDesignator(constantPattern.Designator, matchedLocal, scope);
+                ILGenerator.MarkLabel(labelDone);
+            }
+
             return;
         }
 
@@ -271,6 +290,7 @@ internal partial class ExpressionGenerator
                         EmitPatternTestBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail2, null);
                     }
 
+                    EmitPatternDesignator(casePattern.Designator, caseLocal2, scope);
                     ILGenerator.Emit(OpCodes.Ldc_I4_1);
                     ILGenerator.Emit(OpCodes.Br, labelDone2);
 
@@ -338,6 +358,7 @@ internal partial class ExpressionGenerator
                 EmitPatternTestBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, null);
             }
 
+            EmitPatternDesignator(casePattern.Designator, caseLocal, scope);
             ILGenerator.Emit(OpCodes.Ldc_I4_1);
             ILGenerator.Emit(OpCodes.Br, labelDone);
 
@@ -420,6 +441,14 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundPositionalPattern tuplePattern)
         {
+            IILocal? matchedInputLocal = null;
+            if (tuplePattern.Designator is not null && inputType.TypeKind != TypeKind.Error)
+            {
+                matchedInputLocal = ILGenerator.DeclareLocal(ResolveClrType(inputType));
+                ILGenerator.Emit(OpCodes.Stloc, matchedInputLocal);
+                ILGenerator.Emit(OpCodes.Ldloc, matchedInputLocal);
+            }
+
             if (inputType.SpecialType == SpecialType.System_String)
             {
                 EmitStringCollectionPattern(tuplePattern, scope);
@@ -479,6 +508,9 @@ internal partial class ExpressionGenerator
                 EmitPattern(tuplePattern.Elements[i], Compilation.GetSpecialType(SpecialType.System_Object), scope, scrutineeLocal2);
                 ILGenerator.Emit(OpCodes.Brfalse, labelFail);
             }
+
+            if (matchedInputLocal is not null)
+                EmitPatternDesignator(tuplePattern.Designator, matchedInputLocal, scope);
 
             ILGenerator.Emit(OpCodes.Ldc_I4_1);
             ILGenerator.Emit(OpCodes.Br, labelDone);
@@ -583,6 +615,7 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
         }
 
+        EmitPatternDesignator(pattern.Designator, arrayLocal, scope);
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
         ILGenerator.Emit(OpCodes.Br, labelDone);
 
@@ -648,7 +681,27 @@ internal partial class ExpressionGenerator
 
         ILGenerator.MarkLabel(loopDone);
         ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
-        EmitArrayCollectionPattern(pattern, arrayType, scope);
+        var arrayMatchPattern = pattern.Designator is null
+            ? pattern
+            : new BoundPositionalPattern(
+                pattern.Type,
+                pattern.Elements,
+                designator: null,
+                reason: pattern.Reason,
+                restIndex: pattern.RestIndex,
+                elementWidths: pattern.ElementWidths,
+                elementKinds: pattern.ElementKinds);
+        EmitArrayCollectionPattern(arrayMatchPattern, arrayType, scope);
+
+        if (pattern.Designator is not null)
+        {
+            ILGenerator.Emit(OpCodes.Dup);
+            ILGenerator.Emit(OpCodes.Brfalse, doneLabel);
+            ILGenerator.Emit(OpCodes.Pop);
+            EmitPatternDesignator(pattern.Designator, collectionLocal, scope);
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        }
+
         ILGenerator.Emit(OpCodes.Br, doneLabel);
 
         ILGenerator.MarkLabel(nullCollectionLabel);
@@ -719,6 +772,7 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
         }
 
+        EmitPatternDesignator(pattern.Designator, stringLocal, scope);
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
         ILGenerator.Emit(OpCodes.Br, labelDone);
 
@@ -1307,6 +1361,7 @@ internal partial class ExpressionGenerator
                 scrutineeLocal2: null);
         }
 
+        EmitPatternDesignator(deconstructPattern.Designator, receiverLocal, scope);
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
         ILGenerator.Emit(OpCodes.Br, labelDone);
 
@@ -2062,6 +2117,19 @@ internal partial class ExpressionGenerator
         throw new NotSupportedException("Unsupported designation");
     }
 
+    private void EmitPatternDesignator(BoundDesignator? designator, IILocal sourceLocal, Generator scope)
+    {
+        if (designator is null)
+            return;
+
+        var boundLocal = EmitDesignation(designator, scope);
+        if (boundLocal is null)
+            return;
+
+        ILGenerator.Emit(OpCodes.Ldloc, sourceLocal);
+        ILGenerator.Emit(OpCodes.Stloc, boundLocal);
+    }
+
     // Helpers
 
     private void EmitConstantForRelational(BoundConstantPattern constant, ITypeSymbol targetType)
@@ -2329,6 +2397,8 @@ internal partial class ExpressionGenerator
 
             EmitPatternBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, null);
         }
+
+        EmitPatternDesignator(casePattern.Designator, caseLocal, scope);
     }
 
     // Preferred match-arm pattern emission: branch to labelFail when pattern does NOT match.

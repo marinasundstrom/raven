@@ -216,14 +216,24 @@ if val dog: Dog = animal {
 }
 ```
 
+It can also designate the whole matched value when the pattern succeeds:
+
+```raven
+if val (2, > 0.5) point = input {
+    WriteLine(point)
+}
+```
+
 The leading binding keyword is required. Raven does not accept `if Pattern = expr`
 without `let`/`val`/`var`, which keeps the construct distinct from assignment-like
 syntax and makes capture intent explicit at the start of the statement.
 
 The outer binding keyword supplies the binding mode for otherwise bare captures
 inside the pattern, so `if val Person(1, name, _) = person { ... }` is legal and
-equivalent to `if person is Person(1, val name, _) { ... }`. Shadowing and other
-pattern-binding diagnostics are the same as for `is` and `match` patterns.
+equivalent to `if person is Person(1, val name, _) { ... }`. The same ambient
+binding mode also applies to an optional trailing whole-pattern designation such
+as `point` in the example above. Shadowing and other pattern-binding diagnostics
+are the same as for `is` and `match` patterns.
 
 In value-returning functions, Raven warns when statement-form control flow
 produces branch values that are discarded instead of returned:

@@ -99,6 +99,19 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithTrailingWholePatternDesignation_Parses()
+    {
+        var (arm, tree) = ParseFirstMatchArm("val Some((x, y)) pair");
+
+        Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
+        var pattern = Assert.IsType<NominalDeconstructionPatternSyntax>(arm.Pattern);
+        var designation = Assert.IsType<SingleVariableDesignationSyntax>(pattern.Designation);
+        Assert.Equal("pair", designation.Identifier.ValueText);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void MatchExpression_WithBinaryPatternArm_ParsesBinaryPattern()
     {
         var (arm, tree) = ParseFirstMatchArm("let left and let right");

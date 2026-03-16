@@ -1,7 +1,7 @@
 using System.Linq;
 
-using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
 
@@ -127,5 +127,23 @@ if val x: int = input {
         pattern.BindingKeyword.Kind.ShouldBe(SyntaxKind.None);
         single.Identifier.ValueText.ShouldBe("x");
         designation.TypeAnnotation.Type.ToString().ShouldBe("int");
+    }
+
+    [Fact]
+    public void IfPatternStatement_WithTrailingWholePatternDesignation_Parses()
+    {
+        const string testCode = """
+if val (2, > 0.5) point = value {
+}
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var ifBinding = Assert.IsType<IfPatternStatementSyntax>(statement);
+        var pattern = Assert.IsType<PositionalPatternSyntax>(ifBinding.Pattern);
+        var designation = Assert.IsType<SingleVariableDesignationSyntax>(pattern.Designation);
+
+        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        designation.Identifier.ValueText.ShouldBe("point");
     }
 }

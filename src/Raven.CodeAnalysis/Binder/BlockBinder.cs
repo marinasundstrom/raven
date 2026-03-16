@@ -85,6 +85,8 @@ partial class BlockBinder : Binder
             _ = BindExpression(isPatternExpression);
         else if (singleVariableDesignation.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
             _ = BindStatement(ifPatternStatement);
+        else if (singleVariableDesignation.GetAncestor<ForStatementSyntax>() is { } forStatement)
+            _ = BindStatement(forStatement);
 
         if (TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator reboundDesignator)
             return reboundDesignator.Local;

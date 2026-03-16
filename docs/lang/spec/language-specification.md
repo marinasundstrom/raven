@@ -1937,12 +1937,18 @@ for val _ in items {
 for val Person(1, name, _) in persons {
     Console.WriteLine(name)
 }
+
+for val Person(1, name, _) person in persons {
+    Console.WriteLine(person.Name)
+}
 ```
 
 For pattern targets, the outer binding keyword uses the same shorthand rule as
 pattern/deconstruction assignment: it supplies the binding mode for otherwise
-bare captures inside the pattern. Mixing an outer binding keyword with inline
-pattern binding keywords in the same target is an error.
+bare captures inside the pattern. The same ambient binding mode also applies to
+an optional trailing whole-pattern designation, so `person` in the second
+example above is introduced as an immutable local. Mixing an outer binding
+keyword with inline pattern binding keywords in the same target is an error.
 
 `for` evaluates the collection once, then executes the body for every element.
 Simple identifier targets resolve their element type from arrays,
@@ -2187,8 +2193,17 @@ if val dog: Dog = animal {
 }
 ```
 
+It can also designate the whole matched value when the pattern succeeds:
+
+```raven
+if val (2, > 0.5) point = input {
+    WriteLine(point)
+}
+```
+
 The leading `let` / `val` / `var` is required. A bare `if Pattern = expr` form is
-not recognized.
+not recognized. When a whole-pattern designation omits its own binding keyword,
+it inherits the outer `let` / `val` / `var` binding mode.
 
 Only `match` participates in exhaustiveness checking.
 
@@ -2307,13 +2322,19 @@ match value {
     val Some((x, y)) => x + y
     _ => 0
 }
+
+match value {
+    val Some((x, y)) pair => pair.Value
+    _ => 0
+}
 ```
 
 For match arms, the outer binding keyword uses the same shorthand rule as
 deconstruction assignment and `for` pattern targets: it supplies the binding
-mode for otherwise bare captures inside the arm pattern. Mixing an outer
-binding keyword with inline pattern binding keywords in the same arm is an
-error.
+mode for otherwise bare captures inside the arm pattern. The same ambient
+binding mode also applies to an optional trailing whole-pattern designation.
+Mixing an outer binding keyword with inline pattern binding keywords in the same
+arm is an error.
 
 Statement-form `match` with block arms may use explicit `return`:
 
@@ -2538,6 +2559,45 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
 
 #### Property patterns
 
+#### Whole-pattern designations
+
+Primary structural patterns may carry an optional trailing designation for the
+entire matched value:
+
+* positional patterns: `(pattern1, pattern2) designation`
+* sequence patterns: `[pattern1, ..pattern2] designation`
+* member patterns: `.Case(...) designation`
+* nominal deconstruction patterns: `Type(...) designation`
+* property patterns: `Type { ... } designation`
+
+The trailing designation is introduced only if the full pattern succeeds.
+
+```raven
+if val (2, > 0.5) point = input {
+    WriteLine(point)
+}
+
+for val Person(1, name, _) person in persons {
+    WriteLine(person.Name)
+}
+
+match value {
+    val Some((x, y)) pair => pair.Value
+    _ => 0
+}
+```
+
+Rules:
+
+* A trailing designation may be written with an explicit binding keyword, such
+  as `val point` or `var point`.
+* In constructs that already carry an outer binding keyword (`if val ...`,
+  `for val ...`, `match { val ... => ... }`), the trailing designation may omit
+  its own binding keyword and inherits the outer binding mode.
+* Without an outer binding keyword, omitting the binding keyword on the trailing
+  designation introduces an immutable binding.
+* Writing `_` discards the matched value while still enforcing the pattern.
+
 * `Type { member1: pattern1, member2: pattern2, … }` — **property pattern**.
   Matches when the scrutinee is not `null` and can be treated as `Type`, then
   evaluates each listed member subpattern against the corresponding instance
@@ -2554,9 +2614,11 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
 * `Type { … } designation` — **property pattern with designation**. Like
   `Type { … }`, but also introduces a designation for the matched receiver.
 
-  * The designation must include an explicit binding keyword (`val`, or
-    `var`).
-  * Writing `var p` produces a mutable binding.
+  * The designation may use an explicit binding keyword (`val`, `let`, or
+    `var`), or inherit the binding mode from an outer construct such as
+    `if val` / `for val` / an outer match-arm binding keyword.
+  * Writing `var p` produces a mutable binding. Omitting a binding keyword
+    without an outer binding mode produces an immutable binding.
   * The designation is introduced only if the entire property pattern succeeds.
   * Writing `_` discards the receiver value while still enforcing the pattern.
 
@@ -2570,8 +2632,8 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
 
 * `{ … } designation` — **inferred property pattern with designation**.
 
-  * The designation must include an explicit binding keyword (`val`, or
-    `var`).
+  * The designation may use an explicit binding keyword (`val`, `let`, or
+    `var`), or inherit the binding mode from an outer construct.
   * Writing `var p` produces a mutable binding.
 
 #### Nominal deconstruction patterns
@@ -2590,6 +2652,8 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   * Each positional element is a pattern, so bindings still require `val`/`var`
     unless an outer construct such as `if val pattern = expr` supplies the
     binding mode.
+  * A trailing whole-pattern designation may capture the successfully matched
+    nominal value: `Person(1, name, _) person`.
   * The number of positional elements must match the selected `Deconstruct`
     parameters; mismatches are errors.
   * When the scrutinee is a discriminated union, `CaseName(...)` in nominal-deconstruction-pattern
@@ -2613,6 +2677,8 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
 
     * Example: `.Case(val a, b)` binds `a` and matches the second payload against
       the runtime value of in-scope `b`.
+  * A trailing whole-pattern designation may capture the matched member/case
+    value: `.Case(...) caseValue`.
   * Use `_` to explicitly discard a payload.
 
 #### Discriminated-union case patterns

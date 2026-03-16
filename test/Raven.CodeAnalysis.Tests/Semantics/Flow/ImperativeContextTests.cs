@@ -1,6 +1,7 @@
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -268,6 +269,36 @@ class C {
         designator.Local.Name.ShouldBe("dog");
         designator.Local.Type.Name.ShouldBe("Dog");
         designator.Local.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IfPatternStatement_WithTrailingWholePatternDesignation_BindsMatchedValue()
+    {
+        var code = """
+class C {
+    func Test(point: (int, double)) {
+        if val (2, > 0.5) matched = point {
+            matched.Item1
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "matched");
+
+        var symbol = model.GetDeclaredSymbol(designation).ShouldBeOfType<SourceLocalSymbol>();
+        symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("(int, double)");
+        symbol.IsMutable.ShouldBeFalse();
     }
 
     [Fact]

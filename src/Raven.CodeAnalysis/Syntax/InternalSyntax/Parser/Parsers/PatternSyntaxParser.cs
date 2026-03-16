@@ -10,10 +10,15 @@ using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 internal class PatternSyntaxParser : SyntaxParser
 {
     private readonly bool _allowImplicitDeconstructionElementBindings;
+    private readonly bool _allowWholePatternDesignation;
 
-    public PatternSyntaxParser(ParseContext parent, bool allowImplicitDeconstructionElementBindings = false) : base(parent)
+    public PatternSyntaxParser(
+        ParseContext parent,
+        bool allowImplicitDeconstructionElementBindings = false,
+        bool allowWholePatternDesignation = true) : base(parent)
     {
         _allowImplicitDeconstructionElementBindings = allowImplicitDeconstructionElementBindings;
+        _allowWholePatternDesignation = allowWholePatternDesignation;
     }
 
     public PatternSyntax ParsePattern()
@@ -150,7 +155,7 @@ internal class PatternSyntaxParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
             var argumentList = ParseNominalDeconstructionPatternArgumentList();
-            return NominalDeconstructionPattern(type, argumentList);
+            return NominalDeconstructionPattern(type, argumentList, ParseOptionalTrailingDesignation());
         }
 
         if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
@@ -347,8 +352,9 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var designation = ParseOptionalTrailingDesignation();
 
-        return PositionalPattern(openParenToken, List(elementList.ToArray()), closeParenToken);
+        return PositionalPattern(openParenToken, List(elementList.ToArray()), closeParenToken, designation);
     }
 
     private SequencePatternSyntax ParseSequencePattern()
@@ -373,8 +379,9 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        var designation = ParseOptionalTrailingDesignation();
 
-        return SequencePattern(openBracketToken, List(elementList.ToArray()), closeBracketToken);
+        return SequencePattern(openBracketToken, List(elementList.ToArray()), closeBracketToken, designation);
     }
 
     private SequencePatternElementSyntax ParseSequencePatternElement()
@@ -414,8 +421,9 @@ internal class PatternSyntaxParser : SyntaxParser
 
         var argumentList = ParseMemberPatternArgumentList();
         var path = MemberPatternPath(qualifier, dotToken, identifierToken);
+        var designation = ParseOptionalTrailingDesignation();
 
-        return MemberPattern(path, argumentList);
+        return MemberPattern(path, argumentList, designation);
     }
 
     private MemberPatternArgumentListSyntax? ParseMemberPatternArgumentList()
@@ -562,7 +570,7 @@ internal class PatternSyntaxParser : SyntaxParser
                 SingleVariableDesignation(Token(SyntaxKind.None), identifier));
         }
 
-        return new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern();
+        return new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings, _allowWholePatternDesignation).ParsePattern();
     }
 
     private bool TryParseImplicitBindingPattern(out PatternSyntax pattern)
@@ -623,6 +631,20 @@ internal class PatternSyntaxParser : SyntaxParser
 
         var kind = GetComparisonPatternKind(operatorToken.Kind);
         return ComparisonPattern(kind, operatorToken, expression);
+    }
+
+    private VariableDesignationSyntax? ParseOptionalTrailingDesignation()
+    {
+        if (!_allowWholePatternDesignation)
+            return null;
+
+        var next = PeekToken();
+        var canStartDesignation =
+            CanTokenBeIdentifier(next) ||
+            next.IsKind(SyntaxKind.OpenParenToken) ||
+            next.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+
+        return canStartDesignation ? ParseDesignation() : null;
     }
 
     private static SyntaxKind GetComparisonPatternKind(SyntaxKind operatorTokenKind)

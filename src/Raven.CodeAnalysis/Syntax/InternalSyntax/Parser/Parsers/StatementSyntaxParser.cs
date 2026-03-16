@@ -361,7 +361,10 @@ internal class StatementSyntaxParser : SyntaxParser
     private IfPatternStatementSyntax ParseIfPatternStatementSyntax(SyntaxToken ifKeyword)
     {
         var bindingKeyword = ReadToken();
-        var pattern = new PatternSyntaxParser(this, allowImplicitDeconstructionElementBindings: true).ParsePattern();
+        var pattern = new PatternSyntaxParser(
+            this,
+            allowImplicitDeconstructionElementBindings: true,
+            allowWholePatternDesignation: true).ParsePattern();
         var operatorToken = ExpectToken(SyntaxKind.EqualsToken);
         var expression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
         var thenStatement = ParseStatement();
@@ -720,7 +723,10 @@ internal class StatementSyntaxParser : SyntaxParser
                 SyntaxToken name;
                 if (canStartDestructuringPattern)
                 {
-                    pattern = new PatternSyntaxParser(this, allowImplicitDeconstructionElementBindings: true).ParsePattern();
+                    pattern = new PatternSyntaxParser(
+                        this,
+                        allowImplicitDeconstructionElementBindings: true,
+                        allowWholePatternDesignation: false).ParsePattern();
                     name = MissingToken(SyntaxKind.IdentifierToken);
                 }
                 else if (CanTokenBeIdentifier(PeekToken()))
@@ -943,7 +949,10 @@ internal class StatementSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
-        var left = new PatternSyntaxParser(this, allowImplicitDeconstructionElementBindings: true).ParsePattern();
+        var left = new PatternSyntaxParser(
+            this,
+            allowImplicitDeconstructionElementBindings: true,
+            allowWholePatternDesignation: false).ParsePattern();
 
         ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out var operatorToken);
 

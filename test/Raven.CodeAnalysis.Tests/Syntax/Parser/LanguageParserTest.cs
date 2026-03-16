@@ -310,4 +310,24 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         forStmt!.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
         forStmt.Target.ShouldBeOfType<NominalDeconstructionPatternSyntax>();
     }
+
+    [Fact]
+    public void ParseForPatternTarget_WithTrailingWholePatternDesignation()
+    {
+        var code = """
+                   val points = [(2, 1.0)];
+                   for val (2, > 0.5) point in points {
+                       point
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        var pattern = forStmt!.Target.ShouldBeOfType<PositionalPatternSyntax>();
+        var designation = pattern.Designation.ShouldBeOfType<SingleVariableDesignationSyntax>();
+        designation.Identifier.ValueText.ShouldBe("point");
+    }
 }

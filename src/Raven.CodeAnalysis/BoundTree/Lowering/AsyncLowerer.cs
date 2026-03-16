@@ -2850,7 +2850,7 @@ internal static class AsyncLowerer
                         if (!changed)
                             return c;
 
-                        return new BoundCasePattern(c.CaseSymbol, c.TryGetMethod, b.ToImmutable(), c.Reason);
+                        return new BoundCasePattern(c.CaseSymbol, c.TryGetMethod, b.ToImmutable(), c.Designator, c.Reason);
                     }
 
                 case BoundNotPattern n:
@@ -2891,7 +2891,14 @@ internal static class AsyncLowerer
                         }
 
                         return changed
-                            ? new BoundPositionalPattern(t.Type!, b.ToImmutable(), t.Reason, t.RestIndex, t.ElementWidths, t.ElementKinds)
+                            ? new BoundPositionalPattern(
+                                t.Type!,
+                                b.ToImmutable(),
+                                t.Designator,
+                                t.Reason,
+                                t.RestIndex,
+                                t.ElementWidths,
+                                t.ElementKinds)
                             : t;
                     }
 
@@ -2906,7 +2913,7 @@ internal static class AsyncLowerer
                         if (ReferenceEquals(rewrittenExpr, c.Expression))
                             return c;
 
-                        return new BoundConstantPattern(rewrittenExpr, c.Reason);
+                        return new BoundConstantPattern(rewrittenExpr, c.Designator, c.Reason);
                     }
 
                 case BoundPropertyPattern p:

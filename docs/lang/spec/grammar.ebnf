@@ -421,10 +421,10 @@ VariablePattern          ::= BindingKeyword VariableDesignation ;
    when the identifier resolves to a value symbol in scope; otherwise it is treated as a type. *)
 DeclarationPattern       ::= Type [VariableDesignation] ;
 
-PositionalPattern        ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' ;
+PositionalPattern        ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' [PatternWholeDesignation] ;
 PatternElement           ::= [PositionalPatternElementDesignation] Pattern ;
 
-CollectionPattern        ::= '[' SequencePatternElementList? ']' ;
+CollectionPattern        ::= '[' SequencePatternElementList? ']' [PatternWholeDesignation] ;
 SequencePatternElementList
                          ::= SequencePatternElement {',' SequencePatternElement} ;
 SequencePatternElement   ::= [SequencePatternPrefix] Pattern ;
@@ -443,27 +443,25 @@ PositionalPatternElementDesignation
 
 DiscardPattern           ::= '_' | Type '_' ;
 
-MemberPattern            ::= MemberPath [ '(' PatternList? ')' ] ;
+MemberPattern            ::= MemberPath [ '(' PatternList? ')' ] [PatternWholeDesignation] ;
 MemberPath               ::= '.' Identifier
                            | Type '.' Identifier ;
 
 PatternList              ::= Pattern {',' Pattern} ;
 
 NominalDeconstructionPattern
-                         ::= Type '(' PatternList? ')' ;
+                         ::= Type '(' PatternList? ')' [PatternWholeDesignation] ;
 (* Binder note: when Type resolves to a discriminated-union case name for the
    current scrutinee, this form is interpreted as a DU case deconstruction
    pattern rather than a regular nominal deconstruction pattern. Otherwise the type must be
    deconstructable (for example a record type or a nominal type with an
    accessible `Deconstruct` method). *)
 
-PropertyPattern          ::= Type? '{' PropertySubpatternList? '}' PropertyPatternDesignation? ;
+PropertyPattern          ::= Type? '{' PropertySubpatternList? '}' PatternWholeDesignation? ;
 PropertySubpatternList   ::= PropertySubpattern {',' PropertySubpattern} ;
 PropertySubpattern       ::= Identifier ':' Pattern ;
 
-PropertyPatternDesignation
-                         ::= VariableDesignation
-                           | '_' ;
+PatternWholeDesignation  ::= VariableDesignation ;
 
 ParenthesizedPattern     ::= '(' Pattern ')' ;
 
@@ -476,9 +474,9 @@ RangeLower               ::= RangePatternOperand? ;
 RangeUpper               ::= RangePatternOperand? ;
 RangePatternOperand      ::= Expression ; (* binder should enforce “constant-ish” rules; parser stops at `..` when parsing the lower bound *)
 
-VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* In patterns, a single-variable designation always requires an explicit BindingKeyword (let/val/var), including when a type annotation is present. *)
+VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* Whole-pattern designations may omit the BindingKeyword when an outer construct (for example `if val`, `for val`, or a match-arm binding keyword) supplies the binding mode. Without an outer binding keyword, omitted binding defaults to an immutable capture. *)
 VariableDesignationCore  ::= SingleVariableDesignation | ParenthesizedVariableDesignation ;
-SingleVariableDesignation ::= BindingKeyword Identifier ;
+SingleVariableDesignation ::= [BindingKeyword] Identifier ;
 
 ParenthesizedVariableDesignation
                          ::= '(' VariableDesignation {',' VariableDesignation} ')' ;

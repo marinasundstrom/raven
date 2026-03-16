@@ -42,12 +42,14 @@ internal sealed class BoundCasePattern : BoundPattern
         IDiscriminatedUnionCaseSymbol caseSymbol,
         IMethodSymbol tryGetMethod,
         ImmutableArray<BoundPattern> arguments,
+        BoundDesignator? designator = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(caseSymbol, reason)
     {
         CaseSymbol = caseSymbol;
         TryGetMethod = tryGetMethod;
         Arguments = arguments;
+        Designator = designator;
     }
 
     public IDiscriminatedUnionCaseSymbol CaseSymbol { get; }
@@ -55,9 +57,13 @@ internal sealed class BoundCasePattern : BoundPattern
     public IMethodSymbol TryGetMethod { get; }
 
     public ImmutableArray<BoundPattern> Arguments { get; }
+    public BoundDesignator? Designator { get; }
 
     public override IEnumerable<BoundDesignator> GetDesignators()
     {
+        if (Designator is not null && Designator is not BoundDiscardDesignator)
+            yield return Designator;
+
         foreach (var argument in Arguments)
         {
             foreach (var designator in argument.GetDesignators())
@@ -179,6 +185,7 @@ internal sealed class BoundPositionalPattern : BoundPattern
     public BoundPositionalPattern(
         ITypeSymbol tupleType,
         ImmutableArray<BoundPattern> elements,
+        BoundDesignator? designator = null,
         BoundExpressionReason reason = BoundExpressionReason.None,
         int restIndex = -1,
         ImmutableArray<int> elementWidths = default,
@@ -186,6 +193,7 @@ internal sealed class BoundPositionalPattern : BoundPattern
         : base(tupleType, reason)
     {
         Elements = elements;
+        Designator = designator;
         RestIndex = restIndex;
         ElementWidths = elementWidths.IsDefaultOrEmpty
             ? ImmutableArray.CreateRange(Enumerable.Repeat(1, elements.Length))
@@ -196,12 +204,16 @@ internal sealed class BoundPositionalPattern : BoundPattern
     }
 
     public ImmutableArray<BoundPattern> Elements { get; }
+    public BoundDesignator? Designator { get; }
     public int RestIndex { get; }
     public ImmutableArray<int> ElementWidths { get; }
     public ImmutableArray<SequenceElementKind> ElementKinds { get; }
 
     public override IEnumerable<BoundDesignator> GetDesignators()
     {
+        if (Designator is not null && Designator is not BoundDiscardDesignator)
+            yield return Designator;
+
         foreach (var element in Elements)
         {
             foreach (var designator in element.GetDesignators())
@@ -228,6 +240,7 @@ internal sealed class BoundDeconstructPattern : BoundPattern
         ITypeSymbol? narrowedType,
         IMethodSymbol deconstructMethod,
         ImmutableArray<BoundPattern> arguments,
+        BoundDesignator? designator = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(inputType, reason)
     {
@@ -236,6 +249,7 @@ internal sealed class BoundDeconstructPattern : BoundPattern
         NarrowedType = narrowedType;
         DeconstructMethod = deconstructMethod;
         Arguments = arguments;
+        Designator = designator;
     }
 
     public ITypeSymbol InputType { get; }
@@ -243,9 +257,13 @@ internal sealed class BoundDeconstructPattern : BoundPattern
     public ITypeSymbol? NarrowedType { get; }
     public IMethodSymbol DeconstructMethod { get; }
     public ImmutableArray<BoundPattern> Arguments { get; }
+    public BoundDesignator? Designator { get; }
 
     public override IEnumerable<BoundDesignator> GetDesignators()
     {
+        if (Designator is not null && Designator is not BoundDiscardDesignator)
+            yield return Designator;
+
         foreach (var argument in Arguments)
         {
             foreach (var designator in argument.GetDesignators())
@@ -267,19 +285,27 @@ internal sealed class BoundDeconstructPattern : BoundPattern
 internal sealed class BoundConstantPattern : BoundPattern
 {
     // Literal-backed constant pattern (fast path)
-    public BoundConstantPattern(LiteralTypeSymbol literalType, BoundExpressionReason reason = BoundExpressionReason.None)
+    public BoundConstantPattern(
+        LiteralTypeSymbol literalType,
+        BoundDesignator? designator = null,
+        BoundExpressionReason reason = BoundExpressionReason.None)
         : base(literalType, reason)
     {
         LiteralType = literalType;
         Expression = null;
+        Designator = designator;
     }
 
     // Expression-backed value pattern (e.g. matching against an in-scope variable)
-    public BoundConstantPattern(BoundExpression expression, BoundExpressionReason reason = BoundExpressionReason.None)
+    public BoundConstantPattern(
+        BoundExpression expression,
+        BoundDesignator? designator = null,
+        BoundExpressionReason reason = BoundExpressionReason.None)
         : base(expression.Type ?? throw new System.ArgumentNullException(nameof(expression.Type)), reason)
     {
         Expression = expression;
         LiteralType = null;
+        Designator = designator;
     }
 
     /// <summary>
@@ -291,8 +317,15 @@ internal sealed class BoundConstantPattern : BoundPattern
     /// When non-null, this constant pattern compares against a runtime value expression.
     /// </summary>
     public BoundExpression? Expression { get; }
+    public BoundDesignator? Designator { get; }
 
     public object? ConstantValue => LiteralType?.ConstantValue ?? TryGetExpressionConstantValue(Expression);
+
+    public override IEnumerable<BoundDesignator> GetDesignators()
+    {
+        if (Designator is not null && Designator is not BoundDiscardDesignator)
+            yield return Designator;
+    }
 
     private static object? TryGetExpressionConstantValue(BoundExpression? expression)
     {
@@ -667,7 +700,8 @@ internal partial class BlockBinder
     private BoundPattern BindConstantPatternFromExpression(
         BoundExpression expression,
         ExpressionSyntax expressionSyntax,
-        ITypeSymbol inputType)
+        ITypeSymbol inputType,
+        BoundDesignator? designator = null)
     {
         // null literal stays a literal-backed constant pattern.
         // NOTE: `null` may be represented either as a null literal expression OR as a `NullType` type-expression
@@ -676,7 +710,7 @@ internal partial class BlockBinder
             or BoundTypeExpression { Type: NullTypeSymbol })
         {
             var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol);
-            return new BoundConstantPattern(nullLiteral);
+            return new BoundConstantPattern(nullLiteral, designator);
         }
 
         // Runtime "value pattern" (identifier/member access/etc.)
@@ -692,7 +726,7 @@ internal partial class BlockBinder
         }
 
         if (expression.Type.TypeKind == TypeKind.Error || inputType.TypeKind == TypeKind.Error)
-            return new BoundConstantPattern(expression, BoundExpressionReason.TypeMismatch);
+            return new BoundConstantPattern(expression, designator, BoundExpressionReason.TypeMismatch);
 
         var conversion = Compilation.ClassifyConversion(expression.Type, inputType);
         if (!conversion.Exists)
@@ -708,7 +742,7 @@ internal partial class BlockBinder
         // NOTE: If you later introduce explicit conversion bound nodes, bind it here so codegen is simpler.
         // expression = BindConversion(expression, inputType, expressionSyntax.GetLocation());
 
-        return new BoundConstantPattern(expression);
+        return new BoundConstantPattern(expression, designator);
     }
 
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax, ITypeSymbol? inputType)
@@ -838,7 +872,12 @@ internal partial class BlockBinder
         {
             var deconstructMethod = FindDeconstructMethod(inputType, syntax.Elements.Count);
             if (deconstructMethod is not null)
-                return BindDeconstructPattern(syntax.Elements, deconstructMethod, inputType, narrowedType: null);
+                return BindDeconstructPattern(
+                    syntax.Elements,
+                    deconstructMethod,
+                    inputType,
+                    narrowedType: null,
+                    designation: syntax.Designation);
         }
 
         var elementPatterns = ImmutableArray.CreateBuilder<BoundPattern>(syntax.Elements.Count);
@@ -877,8 +916,9 @@ internal partial class BlockBinder
         }
 
         var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
+        var designator = BindWholePatternDesignation(syntax.Designation, inputType ?? tupleType);
 
-        return new BoundPositionalPattern(tupleType, elementPatterns.ToImmutable());
+        return new BoundPositionalPattern(tupleType, elementPatterns.ToImmutable(), designator);
     }
 
     private BoundPattern BindSequencePattern(SequencePatternSyntax syntax, ITypeSymbol? inputType)
@@ -918,9 +958,12 @@ internal partial class BlockBinder
             elementPatterns.Add(boundElement);
         }
 
+        var designator = BindWholePatternDesignation(syntax.Designation, patternType);
+
         return new BoundPositionalPattern(
             patternType,
             elementPatterns.ToImmutable(),
+            designator,
             reason,
             restIndex,
             elementWidths,
@@ -1009,7 +1052,8 @@ internal partial class BlockBinder
         SeparatedSyntaxList<PositionalPatternElementSyntax> elements,
         IMethodSymbol deconstructMethod,
         ITypeSymbol inputType,
-        ITypeSymbol? narrowedType)
+        ITypeSymbol? narrowedType,
+        VariableDesignationSyntax? designation)
     {
         var fallbackLocation = elements.Count > 0 ? elements[0].GetLocation() : Location.None;
         var parameterOffset = GetDeconstructParameterOffset(deconstructMethod);
@@ -1036,19 +1080,23 @@ internal partial class BlockBinder
         for (var i = elementCount; i < elements.Count; i++)
             _ = BindPositionalPatternElement(elements[i].Pattern, null);
 
+        var designator = BindWholePatternDesignation(designation, narrowedType ?? inputType);
+
         return new BoundDeconstructPattern(
             inputType: inputType,
             receiverType: GetDeconstructReceiverType(deconstructMethod),
             narrowedType: narrowedType,
             deconstructMethod: deconstructMethod,
-            arguments: boundElements.ToImmutable());
+            arguments: boundElements.ToImmutable(),
+            designator: designator);
     }
 
     private BoundPattern BindDeconstructPattern(
         SeparatedSyntaxList<PatternSyntax> arguments,
         IMethodSymbol deconstructMethod,
         ITypeSymbol inputType,
-        ITypeSymbol? narrowedType)
+        ITypeSymbol? narrowedType,
+        VariableDesignationSyntax? designation = null)
     {
         var parameterOffset = GetDeconstructParameterOffset(deconstructMethod);
         var parameters = deconstructMethod.Parameters;
@@ -1072,12 +1120,15 @@ internal partial class BlockBinder
         for (var i = elementCount; i < arguments.Count; i++)
             _ = BindPattern(arguments[i]);
 
+        var designator = BindWholePatternDesignation(designation, narrowedType ?? inputType);
+
         return new BoundDeconstructPattern(
             inputType: inputType,
             receiverType: GetDeconstructReceiverType(deconstructMethod),
             narrowedType: narrowedType,
             deconstructMethod: deconstructMethod,
-            arguments: boundElements.ToImmutable());
+            arguments: boundElements.ToImmutable(),
+            designator: designator);
     }
 
     private void ReportTypedPatternBindingsMissingKeyword(VariableDesignationSyntax designation, bool hasAmbientBindingKeyword)
@@ -1343,6 +1394,7 @@ internal partial class BlockBinder
                 qualifierType: qualifierType,
                 inputType: inputType,
                 arguments: syntax.ArgumentList is null ? SeparatedSyntaxList<PatternSyntax>.Empty : syntax.ArgumentList.Arguments,
+                designation: syntax.Designation,
                 caseNameLocation: syntax.Path.Identifier.GetLocation(),
                 argumentListLocation: syntax.ArgumentList?.GetLocation() ?? syntax.Path.GetLocation(),
                 out var pattern))
@@ -1412,7 +1464,11 @@ internal partial class BlockBinder
 
         var nameSyntax = SyntaxFactory.IdentifierName(syntax.Path.Identifier);
         var expression = BindTargetTypedMemberAccess(nameSyntax, targetType);
-        return BindConstantPatternFromExpression(expression, nameSyntax, inputType ?? targetType);
+        return BindConstantPatternFromExpression(
+            expression,
+            nameSyntax,
+            inputType ?? targetType,
+            BindWholePatternDesignation(syntax.Designation, inputType ?? targetType));
     }
 
     private BoundPattern BindNominalDeconstructionPattern(NominalDeconstructionPatternSyntax syntax, ITypeSymbol? inputType)
@@ -1432,7 +1488,7 @@ internal partial class BlockBinder
                 inputType: inputType,
                 receiverType: Compilation.ErrorTypeSymbol,
                 narrowedType: recordType,
-                designator: null,
+                designator: BindWholePatternDesignation(syntax.Designation, inputType),
                 properties: props,
                 reason: BoundExpressionReason.TypeMismatch);
         }
@@ -1448,7 +1504,7 @@ internal partial class BlockBinder
                 inputType: inputType,
                 receiverType: Compilation.ErrorTypeSymbol,
                 narrowedType: recordType,
-                designator: null,
+                designator: BindWholePatternDesignation(syntax.Designation, inputType),
                 properties: props,
                 reason: BoundExpressionReason.TypeMismatch);
         }
@@ -1475,7 +1531,7 @@ internal partial class BlockBinder
                 inputType: inputType,
                 receiverType: Compilation.ErrorTypeSymbol,
                 narrowedType: recordType,
-                designator: null,
+                designator: BindWholePatternDesignation(syntax.Designation, recordType),
                 properties: props,
                 reason: BoundExpressionReason.TypeMismatch);
         }
@@ -1500,7 +1556,7 @@ internal partial class BlockBinder
                 inputType: inputType,
                 receiverType: recordType,
                 narrowedType: recordType,
-                designator: null,
+                designator: BindWholePatternDesignation(syntax.Designation, recordType),
                 properties: props,
                 reason: BoundExpressionReason.NotFound);
         }
@@ -1509,7 +1565,8 @@ internal partial class BlockBinder
             syntax.ArgumentList.Arguments,
             deconstructMethod,
             inputType,
-            narrowedType: recordType);
+            narrowedType: recordType,
+            designation: syntax.Designation);
     }
 
     private bool TryBindNominalDeconstructionPatternAsCasePattern(
@@ -1527,6 +1584,7 @@ internal partial class BlockBinder
             qualifierType: qualifierType,
             inputType: inputType,
             arguments: syntax.ArgumentList.Arguments,
+            designation: syntax.Designation,
             caseNameLocation: caseNameLocation,
             argumentListLocation: syntax.ArgumentList.GetLocation(),
             out pattern);
@@ -1537,6 +1595,7 @@ internal partial class BlockBinder
         ITypeSymbol? qualifierType,
         ITypeSymbol? inputType,
         SeparatedSyntaxList<PatternSyntax> arguments,
+        VariableDesignationSyntax? designation,
         Location caseNameLocation,
         Location argumentListLocation,
         out BoundPattern? pattern)
@@ -1616,7 +1675,11 @@ internal partial class BlockBinder
         for (var i = elementCount; i < argumentCount; i++)
             boundArguments.Add(BindPattern(arguments[i]));
 
-        pattern = new BoundCasePattern(caseSymbol, tryGetMethod, boundArguments.ToImmutable());
+        pattern = new BoundCasePattern(
+            caseSymbol,
+            tryGetMethod,
+            boundArguments.ToImmutable(),
+            BindWholePatternDesignation(designation, caseSymbol));
         return true;
     }
 
@@ -1854,7 +1917,7 @@ internal partial class BlockBinder
                 }
             }
 
-            var designator3 = BindPropertyPatternDesignation(syntax.Designation, narrowedType ?? inputType);
+            var designator3 = BindWholePatternDesignation(syntax.Designation, narrowedType ?? inputType);
 
             // ReceiverType is irrelevant for empty patterns; keep it as inputType to avoid ErrorType.
             return new BoundPropertyPattern(
@@ -1899,7 +1962,7 @@ internal partial class BlockBinder
             {
                 var props = BindPropertySubpatternsAsDiscards(syntax);
 
-                var designator2 = BindPropertyPatternDesignation(syntax.Designation, inputType);
+                var designator2 = BindWholePatternDesignation(syntax.Designation, inputType);
 
                 return new BoundPropertyPattern(
                     inputType: inputType,
@@ -1946,7 +2009,7 @@ internal partial class BlockBinder
                 Pattern: boundPattern));
         }
 
-        var designator = BindPropertyPatternDesignation(syntax.Designation, narrowedType ?? inputType);
+        var designator = BindWholePatternDesignation(syntax.Designation, narrowedType ?? inputType);
 
         return new BoundPropertyPattern(
             inputType: inputType,
@@ -1956,7 +2019,7 @@ internal partial class BlockBinder
             properties: boundProps.ToImmutable());
     }
 
-    private BoundDesignator? BindPropertyPatternDesignation(VariableDesignationSyntax? designation, ITypeSymbol expectedType)
+    private BoundDesignator? BindWholePatternDesignation(VariableDesignationSyntax? designation, ITypeSymbol expectedType)
     {
         if (designation is null)
             return null;
@@ -1974,8 +2037,8 @@ internal partial class BlockBinder
                         return discard;
                     }
 
-                    // Property-pattern designations default to immutable (val), but may specify var explicitly.
-                    var isMutable = !single.BindingKeyword.IsMissing && single.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
+                    var isMutable = single.BindingKeyword.IsKind(SyntaxKind.VarKeyword) ||
+                                    (single.BindingKeyword.Kind == SyntaxKind.None && _ambientPatternDeclarationBindingKeyword == SyntaxKind.VarKeyword);
                     var local = DeclarePatternLocal(single, single.Identifier.ValueText, isMutable, expectedType);
                     var bound = new BoundSingleVariableDesignator(local);
                     CacheBoundNode(designation, bound);
@@ -1987,7 +2050,7 @@ internal partial class BlockBinder
                     var declaredType = ResolveType(typed.TypeAnnotation.Type);
                     declaredType = EnsureTypeAccessible(declaredType, typed.TypeAnnotation.Type.GetLocation());
 
-                    var inner = BindPropertyPatternDesignation(typed.Designation, declaredType);
+                    var inner = BindWholePatternDesignation(typed.Designation, declaredType);
                     if (inner is not null)
                         CacheBoundNode(designation, inner);
                     return inner;
