@@ -431,7 +431,8 @@ PatternElement           ::= [PositionalPatternElementDesignation] Pattern ;
 CollectionPattern        ::= '[' SequencePatternElementList? ']' [PatternWholeDesignation] ;
 SequencePatternElementList
                          ::= SequencePatternElement {',' SequencePatternElement} ;
-SequencePatternElement   ::= [SequencePatternPrefix] Pattern ;
+SequencePatternElement   ::= [SequencePatternPrefix] Pattern
+                          | '...' ;
 SequencePatternPrefix    ::= '..' [IntegerLiteral]
                            | '...' ;
 
@@ -441,9 +442,9 @@ SequencePatternPrefix    ::= '..' [IntegerLiteral]
 PositionalPatternElementDesignation
                          ::= BindingKeyword Identifier ':' ;
 
-(* Binder note: at most one open-ended rest segment (`.. pattern` / `... pattern`)
-   is permitted in a collection pattern. Fixed-size segments use `..N pattern`
-   and may appear multiple times. *)
+(* Binder note: at most one open-ended rest segment (`.. pattern`, `... pattern`,
+   or bare trailing `...`) is permitted in a collection pattern. Fixed-size
+   segments use `..N pattern` and may appear multiple times. *)
 
 DiscardPattern           ::= '_' | Type '_' ;
 

@@ -349,6 +349,57 @@ first + middle[0] + last
     }
 
     [Fact]
+    public void CollectionPatternDeclarationShorthand_WithTrailingTripleDot_DoesNotCapture()
+    {
+        const string source = """
+val values: int[] = [1, 2, 3, 4]
+val [first, ...] = values
+first
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
+            .Single();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        Assert.Equal(1, collectionPattern.RestIndex);
+        Assert.IsType<BoundDiscardPattern>(collectionPattern.Elements[1]);
+    }
+
+    [Fact]
+    public void CollectionPatternDeclarationShorthand_WithNonTrailingTripleDot_ReportsDiagnostic()
+    {
+        const string source = """
+val values: int[] = [1, 2, 3, 4]
+val result = values match {
+    [1, ..., val last] => last
+    _ => 0
+}
+""";
+
+        CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax.Id)
+                    .WithAnySpan()
+                    .WithArguments("...")
+            ]).Verify();
+    }
+
+    [Fact]
     public void CollectionPatternDeclarationShorthand_WithFixedSegment_BindsSliceLocal()
     {
         const string source = """

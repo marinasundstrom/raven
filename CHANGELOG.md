@@ -8,6 +8,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-16**.
 - Raven now supports single-dimensional fixed-size array types written as `T[N]`. The compiler tracks the declared size on array symbols, preserves it through emitted `System.Runtime.CompilerServices.FixedSizeArrayAttribute` metadata, allows implicit conversion from `T[N]` to open `T[]`, and uses the fixed size during sequence-pattern/deconstruction analysis.
 - Plain local collection literals now infer fixed-size arrays when the total length is statically known. That includes fixed-size array spreads, so expressions like `[..a, 3]` infer a fixed-size result when `a` is `T[N]`, while spreads from open arrays and comprehensions still infer open arrays.
 - Fixed-array assignment/conversion failures now report size-aware diagnostics for open-array-to-fixed-array and mismatched fixed-size assignments instead of falling back to generic conversion errors.
+- Sequence patterns now accept a bare trailing `...` as a non-capturing rest segment, so forms like `[first, ...]` ignore the remaining elements without introducing a slice binding. Bare `...` is only valid in the final position; captured rest segments like `...rest` keep their existing behavior.
 
 Impact:
 - Raven now preserves obvious fixed array lengths without forcing annotations in local collection-expression code, while still keeping inference conservative in cases such as comprehensions and open-array spreads where the compiler does not yet model a statically known length.

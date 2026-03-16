@@ -2646,14 +2646,17 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   * A fixed-size segment pattern `..N pattern` consumes exactly `N` elements as a
     subsequence.
   * An open rest segment `..pattern` or `...pattern` consumes the remaining
-    unmatched subsequence. At most one open rest segment is permitted.
+    unmatched subsequence. A bare trailing `...` is also permitted as a
+    non-capturing rest segment that ignores the remainder. At most one open
+    rest segment is permitted.
   * Fixed-size segments may appear multiple times because their widths are fully
     determined by the syntax.
   * In freestanding and inline collection
     patterns, captures must use `val`/`var`/`let`; bare identifiers are treated
     as value patterns against existing values. Type-constrained captures may be
     written as `val x: T` or `T x`. The same rule applies inside segment forms,
-    for example `..2 val start` and `..val rest`.
+    for example `..2 val start` and `..val rest`. Bare trailing `...` is the
+    one non-capturing exception.
   * If a collection pattern contains no open rest segment, the input length must
     match the total fixed width exactly.
   * If a collection pattern contains an open rest segment, the input length must
@@ -3942,6 +3945,7 @@ Collection patterns support both fixed-size and rest segments:
 val [..2 start, last] = values
 val [first, ..rest] = values
 val [first, ...rest2] = values
+val [first, ...] = values
 val [first, ..middle, last] = values
 val [first, ..2 middle, last] = "rune"
 ```
@@ -3949,7 +3953,9 @@ val [first, ..2 middle, last] = "rune"
 In inline/freestanding collection patterns, spell captures explicitly:
 `..2 val name`, `..val rest`, or `...val rest`. In deconstruction
 assignments/declarations, bare `..2 name`, `..rest`, and `...rest` remain valid
-as binding targets. For strings, a plain element binds `char`, while `..N` and
+as binding targets. A bare trailing `...` may be used in either form to ignore
+the rest of the sequence without creating a binding, and it is only valid as
+the final element. For strings, a plain element binds `char`, while `..N` and
 rest segments bind `string`.
 
 Nested deconstruction uses the same recursive compatibility rules in all valid

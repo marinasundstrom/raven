@@ -8583,6 +8583,8 @@ partial class BlockBinder : Binder
             }
         }
 
+        ReportInvalidNonCapturingSequenceRestElements(elements);
+
         for (var i = 0; i < elementCount; i++)
         {
             var elementSyntax = elements[i];
@@ -8742,6 +8744,24 @@ partial class BlockBinder : Binder
 
     private static bool IsSequenceRestElement(SequencePatternElementSyntax element)
         => element.Prefix.DotDotToken.Kind is SyntaxKind.DotDotToken or SyntaxKind.DotDotDotToken;
+
+    private static bool IsNonCapturingSequenceRestElement(SequencePatternElementSyntax element)
+        => element.Prefix.DotDotToken.Kind == SyntaxKind.DotDotDotToken &&
+           element.Pattern is DiscardPatternSyntax { UnderscoreToken.IsMissing: true };
+
+    private void ReportInvalidNonCapturingSequenceRestElements(SeparatedSyntaxList<SequencePatternElementSyntax> elements)
+    {
+        for (var i = 0; i < elements.Count - 1; i++)
+        {
+            if (!IsNonCapturingSequenceRestElement(elements[i]))
+                continue;
+
+            _diagnostics.Report(Diagnostic.Create(
+                CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                elements[i].GetLocation(),
+                "..."));
+        }
+    }
 
     private BoundPattern BindIdentifierPatternForAssignment(
         IdentifierNameSyntax identifierName,

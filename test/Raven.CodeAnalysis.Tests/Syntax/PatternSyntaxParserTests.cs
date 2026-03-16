@@ -213,6 +213,25 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void SequencePattern_WithTrailingTripleDotDiscardRest_Parses()
+    {
+        var (pattern, tree) = ParsePattern("[let first, ...]");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var collectionPattern = Assert.IsType<SequencePatternSyntax>(pattern);
+        Assert.Equal("[let first, ...]", sourceText.ToString(collectionPattern.Span));
+        Assert.Equal(2, collectionPattern.Elements.Count);
+
+        var restElement = collectionPattern.Elements[1];
+        Assert.Equal(SyntaxKind.DotDotDotToken, restElement.Prefix.DotDotToken.Kind);
+
+        var restPattern = Assert.IsType<DiscardPatternSyntax>(restElement.Pattern);
+        Assert.True(restPattern.UnderscoreToken.IsMissing);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void SequencePattern_WithFixedSegmentElement_Parses()
     {
         var (pattern, tree) = ParsePattern("[..2 val start, val end]");
