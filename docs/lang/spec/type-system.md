@@ -72,7 +72,7 @@ val inferred = 1
 
 `T[]` becomes `System.Array` with element type `T`. Raven also supports
 single-dimensional fixed-size array types written as `T[N]`. These remain CLR
-arrays at runtime, but the compiler preserves the declared size as metadata for
+arrays at runtime, but the compiler preserves the declared length as metadata for
 type checking, conversions, and pattern analysis. Array element types preserve
 their nullability and generic arguments, and indexing uses the CLI's
 single-dimensional, zero-based representation (`System.Array.CreateInstance` with
@@ -81,7 +81,7 @@ use explicit syntax such as `T[,]` when supported by the grammar.
 
 Fixed-size arrays implicitly convert to open arrays of the same element type,
 but the reverse conversion is rejected because the length is not statically
-known. Conversions between `T[N]` and `T[M]` also require the same fixed size.
+known. Conversions between `T[N]` and `T[M]` also require the same fixed length.
 Raven reports dedicated diagnostics for those cases so array-size mismatches are
 described directly instead of surfacing as generic type-conversion failures.
 

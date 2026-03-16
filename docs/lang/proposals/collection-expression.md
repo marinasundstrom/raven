@@ -25,18 +25,18 @@ let strings: List<string> = []
 
 ### Spread operations
 
-Existing collections can be spread into a new expression using the `..` operator, mirroring C#'s spread syntax:
+Existing collections can be spread into a new expression using the `...` operator:
 
 ```raven
 let marvel = ["Tony Stark", "Spiderman", "Thor"]
 let dc = ["Superman", "Batman", "Flash"]
-let comicCharacters = [..marvel, "Black Widow", ..dc]
+let comicCharacters = [...marvel, "Black Widow", ...dc]
 ```
 
-Each `..expr` enumerates `expr` and inserts its elements in order. Spread segments may appear anywhere in the expression and multiple segments can be mixed with individual items:
+Each `...expr` enumerates `expr` and inserts its elements in order. Spread segments may appear anywhere in the expression and multiple segments can be mixed with individual items:
 
 ```raven
-let mixed = [0, ..marvel, 1, ..dc]
+let mixed = [0, ...marvel, 1, ...dc]
 ```
 
 If `expr` evaluates to `null` a runtime exception is produced, matching the behavior of C# collection expressions.
@@ -51,12 +51,12 @@ When no target type is present:
 
 ```raven
 let list: ImmutableList<int> = [2, 3, 4]
-let inferred = [7, ..list, 5] // ImmutableList<int>
+let inferred = [7, ...list, 5] // ImmutableList<int>
 
 let a: ImmutableList<int> = [1]
 let b: List<int> = [2]
-let x = [..a, ..b] // error RAV2027
-let y: List<int> = [..a, ..b] // ok
+let x = [...a, ...b] // error RAV2027
+let y: List<int> = [...a, ...b] // ok
 ```
 
 ### List comprehension

@@ -1129,7 +1129,7 @@ Additional encodings may be introduced by adding new suffixes.
 Collection expressions use bracket syntax `[element0, element1, ...]` (with an optional
 trailing comma) to build arrays and other collection types. Elements are evaluated
 from left to right. In addition to ordinary expressions, an element may be written as
-`..expression` or `...expression`—called a *spread*. Spreads enumerate the runtime value and insert each
+`...expression`—called a *spread*. Spreads enumerate the runtime value and insert each
 item into the resulting collection in order. The spread source must be convertible to
 `System.Collections.IEnumerable` (including arrays and `IEnumerable<T>` implementations);
 otherwise diagnostic `RAV2022` is reported. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3670】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L260-L266】
@@ -1169,7 +1169,7 @@ Collection expressions are target-typed:
     it infers a best common element type by merging all element contributions (spreads use
     their enumerated element type), then produces `T[N]` for plain collection literals with
     a statically known element count and `T[]` otherwise. Spreading fixed-size arrays also
-    participates in that count: `[..a, 3]` infers `T[N+1]` when `a` has type `T[N]`, while
+    participates in that count: `[...a, 3]` infers `T[N+1]` when `a` has type `T[N]`, while
     spreads from open arrays and comprehensions continue to infer open arrays because their
     length is not statically known.
   * Raven does not currently attempt more aggressive length inference even when it might be
@@ -1190,8 +1190,7 @@ produces an empty instance of that type (an empty array or an initialized collec
 
 ```raven
 val numbers: int[] = [1, 2, 3]
-val combined = [0, ..numbers, 4]
-val combined2 = [0, ...numbers, 4]
+val combined = [0, ...numbers, 4]
 val squares = [for n in numbers => n * n]
 val evenSquares = [for n in numbers if n % 2 == 0 => n * n]
 val evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
@@ -1200,13 +1199,13 @@ val names: List<string> = ["a", "b"]
 val inferred = [1, 2.0]  // inferred as double[]
 
 val baseList: ImmutableList<int> = [2, 3, 4]
-val preserved = [7, ..baseList, 5] // inferred as ImmutableList<int>
+val preserved = [7, ...baseList, 5] // inferred as ImmutableList<int>
 
 val a: ImmutableList<int> = [1]
 val b: List<int> = [2]
-val invalid = [..a, ..b] // RAV2027: add explicit target type
+val invalid = [...a, ...b] // RAV2027: add explicit target type
 
-val forced: List<int> = [..a, ..b]
+val forced: List<int> = [...a, ...b]
 val forcedObject: object[] = [1, true]
 ```
 
@@ -2645,18 +2644,19 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   * A plain element pattern consumes exactly one element.
   * A fixed-size segment pattern `..N pattern` consumes exactly `N` elements as a
     subsequence.
-  * An open rest segment `..pattern` or `...pattern` consumes the remaining
-    unmatched subsequence. A bare trailing `...` is also permitted as a
-    non-capturing rest segment that ignores the remainder. At most one open
-    rest segment is permitted.
+  * An open rest segment `...pattern` consumes the remaining unmatched
+    subsequence and may appear either in the middle of the pattern or at the
+    end. A bare trailing `...` is also permitted as a non-capturing rest
+    segment that ignores the remainder. At most one open rest segment is
+    permitted.
   * Fixed-size segments may appear multiple times because their widths are fully
     determined by the syntax.
   * In freestanding and inline collection
     patterns, captures must use `val`/`var`/`let`; bare identifiers are treated
     as value patterns against existing values. Type-constrained captures may be
     written as `val x: T` or `T x`. The same rule applies inside segment forms,
-    for example `..2 val start` and `..val rest`. Bare trailing `...` is the
-    one non-capturing exception.
+    for example `..2 val start` and `...val rest`. Bare trailing `...` is the
+    current non-capturing exception.
   * If a collection pattern contains no open rest segment, the input length must
     match the total fixed width exactly.
   * If a collection pattern contains an open rest segment, the input length must
@@ -2664,7 +2664,7 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   * For arrays and indexable collections, single-element captures bind the element
     type and segment captures bind an array slice.
   * When the input is a fixed-size array `T[N]`, captured fixed/rest array
-    segments preserve an inferred fixed size when the segment width is
+    segments preserve an inferred fixed length when the segment width is
     statically known. For example, `[val a, val b, ...val rest]` against
     `int[4]` binds `rest` as `int[2]`, and `[..2 val head, val tail]` against
     `int[3]` binds `head` as `int[2]`.
@@ -2679,7 +2679,7 @@ Primary structural patterns may carry an optional trailing designation for the
 entire matched value:
 
 * positional patterns: `(pattern1, pattern2) designation`
-* sequence patterns: `[pattern1, ..pattern2] designation`
+* sequence patterns: `[pattern1, ...pattern2] designation`
 * member patterns: `.Case(...) designation`
 * nominal deconstruction patterns: `Type(...) designation`
 * property patterns: `Type { ... } designation`
@@ -3948,20 +3948,20 @@ Collection patterns support both fixed-size and rest segments:
 
 ```raven
 val [..2 start, last] = values
-val [first, ..rest] = values
-val [first, ...rest2] = values
+val [first, ...rest] = values
+val [first, ...middle, last] = values
 val [first, ...] = values
-val [first, ..middle, last] = values
 val [first, ..2 middle, last] = "rune"
 ```
 
 In inline/freestanding collection patterns, spell captures explicitly:
-`..2 val name`, `..val rest`, or `...val rest`. In deconstruction
-assignments/declarations, bare `..2 name`, `..rest`, and `...rest` remain valid
-as binding targets. A bare trailing `...` may be used in either form to ignore
+`..2 val name` or `...val rest`. In deconstruction assignments/declarations,
+bare `..2 name` and `...rest` remain valid as binding targets. A bare trailing
+`...` may be used in either form to ignore
 the rest of the sequence without creating a binding, and it is only valid as
-the final element. When the input is a fixed-size array, captured `..N` and
-`...rest` array segments keep an inferred fixed-size array type. For strings, a
+the final element. Captured rest segments may appear in the middle or at the
+end. When the input is a fixed-size array, captured `..N` and `...rest` array
+segments keep an inferred fixed-length array type. For strings, a
 plain element binds `char`, while `..N` and rest segments bind `string`.
 
 Nested deconstruction uses the same recursive compatibility rules in all valid

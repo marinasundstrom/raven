@@ -120,7 +120,7 @@ if val Person(1, name, _) = person {
     WriteLine(name)
 }
 
-for val [first, ..rest] in rows {
+for val [first, ...rest] in rows {
     WriteLine(first)
 }
 

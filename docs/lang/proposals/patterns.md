@@ -56,7 +56,7 @@ Each element follows the standard `type name` convention.
 ### Collection and sequence-segment patterns
 
 ```raven
-if expr is [val first, ..val rest] {
+if expr is [val first, ...val rest] {
     Console.WriteLine(first)
 }
 
@@ -66,9 +66,10 @@ if expr is [..2 val start, val end] {
 ```
 
 Plain element patterns consume one element. `..N pattern` consumes a fixed-size
-subsequence, while `..pattern` / `...pattern` consume the remaining subsequence.
-Inline captures remain explicit, so a segment capture is written `..2 val start`
-or `..val rest`.
+subsequence, while `...pattern` consumes the remaining subsequence. Inline
+captures remain explicit, so a segment capture is written `..2 val start` or
+`...val rest`. Captured rest segments may appear in the middle or at the end of
+the sequence pattern.
 
 ### Conditional pattern binding
 

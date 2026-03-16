@@ -6,9 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-16**.
 
 ### Changed
 - Raven now supports single-dimensional fixed-size array types written as `T[N]`. The compiler tracks the declared length on array symbols, preserves it through emitted `System.Runtime.CompilerServices.FixedLengthArrayAttribute` metadata, allows implicit conversion from `T[N]` to open `T[]`, and uses the fixed length during sequence-pattern/deconstruction analysis.
-- Plain local collection literals now infer fixed-size arrays when the total length is statically known. That includes fixed-size array spreads, so expressions like `[..a, 3]` infer a fixed-size result when `a` is `T[N]`, while spreads from open arrays and comprehensions still infer open arrays.
+- Plain local collection literals now infer fixed-size arrays when the total length is statically known. That includes fixed-size array spreads, so expressions like `[...a, 3]` infer a fixed-size result when `a` is `T[N]`, while spreads from open arrays and comprehensions still infer open arrays.
 - Fixed-array assignment/conversion failures now report size-aware diagnostics for open-array-to-fixed-array and mismatched fixed-size assignments instead of falling back to generic conversion errors.
-- Sequence patterns now accept a bare trailing `...` as a non-capturing rest segment, so forms like `[first, ...]` ignore the remaining elements without introducing a slice binding. Bare `...` is only valid in the final position; captured rest segments like `...rest` keep their existing behavior.
+- Sequence patterns now accept a bare trailing `...` as a non-capturing rest segment, so forms like `[first, ...]` ignore the remaining elements without introducing a slice binding. Captured rest segments like `...rest` may appear in the middle or at the end of the pattern; bare `...` is still only valid in the final position.
 - Sequence-pattern captures over fixed-size arrays now preserve inferred segment sizes when the width is statically known. For example, deconstructing `int[4]` with `[a, b, ...rest]` binds `rest` as `int[2]`, and `[..2 head, tail]` over `int[3]` binds `head` as `int[2]`.
 
 Impact:
