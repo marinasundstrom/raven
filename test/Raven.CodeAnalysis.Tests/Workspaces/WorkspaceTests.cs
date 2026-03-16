@@ -425,6 +425,271 @@ public class WorkspaceTest
         Assert.Equal("func Main() -> () {\n    val text = \"ab\"\n}", updatedText.ToString());
     }
 
+    [Fact]
+    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesPatternIfElse()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = """
+func Test(maybeText: Option<string>) {
+    if maybeText is Some(val text) {
+        Console.WriteLine(text)
+    } else {
+        Console.WriteLine("missing")
+    }
+}
+""";
+
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new ConvertIfElseToMatchRefactoringProvider()],
+            new TextSpan(code.IndexOf("if", StringComparison.Ordinal), 0));
+
+        var refactoring = Assert.Single(refactorings);
+        var updated = refactoring.Action.GetChangedSolution(workspace.CurrentSolution);
+        var updatedText = await updated.GetDocument(documentId)!.GetTextAsync();
+
+        Assert.Equal(
+            """
+func Test(maybeText: Option<string>) {
+    match maybeText {
+        Some(val text) => {
+            Console.WriteLine(text)
+        }
+        None => {
+            Console.WriteLine("missing")
+        }
+    }
+}
+""",
+            updatedText.ToString());
+    }
+
+    [Fact]
+    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesIfPatternStatement()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = """
+func Test(person: Person) {
+    if val Person(id, name) = person {
+        Console.WriteLine(name)
+    } else {
+        Console.WriteLine("missing")
+    }
+}
+""";
+
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new ConvertIfElseToMatchRefactoringProvider()],
+            new TextSpan(code.IndexOf("if", StringComparison.Ordinal), 0));
+
+        var refactoring = Assert.Single(refactorings);
+        var updated = refactoring.Action.GetChangedSolution(workspace.CurrentSolution);
+        var updatedText = await updated.GetDocument(documentId)!.GetTextAsync();
+
+        Assert.Equal(
+            """
+func Test(person: Person) {
+    match person {
+        val Person(id, name) => {
+            Console.WriteLine(name)
+        }
+        _ => {
+            Console.WriteLine("missing")
+        }
+    }
+}
+""",
+            updatedText.ToString());
+    }
+
+    [Fact]
+    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesIfPatternStatement_WithOptionToNoneFallback()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = """
+func Test(maybeText: Option<string>) {
+    if val Some(text) = maybeText {
+        Console.WriteLine(text)
+    } else {
+        Console.WriteLine("missing")
+    }
+}
+""";
+
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new ConvertIfElseToMatchRefactoringProvider()],
+            new TextSpan(code.IndexOf("if", StringComparison.Ordinal), 0));
+
+        var refactoring = Assert.Single(refactorings);
+        var updated = refactoring.Action.GetChangedSolution(workspace.CurrentSolution);
+        var updatedText = await updated.GetDocument(documentId)!.GetTextAsync();
+
+        Assert.Equal(
+            """
+func Test(maybeText: Option<string>) {
+    match maybeText {
+        val Some(text) => {
+            Console.WriteLine(text)
+        }
+        None => {
+            Console.WriteLine("missing")
+        }
+    }
+}
+""",
+            updatedText.ToString());
+    }
+
+    [Fact]
+    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesResultPatternIfElse_WithErrorFallback()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = """
+func Test(result: Result<string, string>) {
+    if result is Ok(val text) {
+        Console.WriteLine(text)
+    } else {
+        Console.WriteLine("missing")
+    }
+}
+""";
+
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new ConvertIfElseToMatchRefactoringProvider()],
+            new TextSpan(code.IndexOf("if", StringComparison.Ordinal), 0));
+
+        var refactoring = Assert.Single(refactorings);
+        var updated = refactoring.Action.GetChangedSolution(workspace.CurrentSolution);
+        var updatedText = await updated.GetDocument(documentId)!.GetTextAsync();
+
+        Assert.Equal(
+            """
+func Test(result: Result<string, string>) {
+    match result {
+        Ok(val text) => {
+            Console.WriteLine(text)
+        }
+        Error => {
+            Console.WriteLine("missing")
+        }
+    }
+}
+""",
+            updatedText.ToString());
+    }
+
+    [Fact]
+    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesResultIfPatternStatement_WithErrorFallback()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = """
+func Test(result: Result<string, string>) {
+    if val Ok(text) = result {
+        Console.WriteLine(text)
+    } else {
+        Console.WriteLine("missing")
+    }
+}
+""";
+
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new ConvertIfElseToMatchRefactoringProvider()],
+            new TextSpan(code.IndexOf("if", StringComparison.Ordinal), 0));
+
+        var refactoring = Assert.Single(refactorings);
+        var updated = refactoring.Action.GetChangedSolution(workspace.CurrentSolution);
+        var updatedText = await updated.GetDocument(documentId)!.GetTextAsync();
+
+        Assert.Equal(
+            """
+func Test(result: Result<string, string>) {
+    match result {
+        val Ok(text) => {
+            Console.WriteLine(text)
+        }
+        Error => {
+            Console.WriteLine("missing")
+        }
+    }
+}
+""",
+            updatedText.ToString());
+    }
+
+    [Fact]
+    public void GetRefactorings_ConvertIfElseToMatchProvider_IsAvailableFromIfHeader()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var code = """
+func Test(maybeText: Option<string>) {
+    if maybeText is Some(val text) {
+        Console.WriteLine(text)
+    } else {
+        Console.WriteLine("missing")
+    }
+}
+""";
+
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var refactorings = workspace.GetRefactorings(
+            documentId,
+            [new ConvertIfElseToMatchRefactoringProvider()],
+            new TextSpan(code.LastIndexOf("maybeText", StringComparison.Ordinal), 0));
+
+        Assert.Contains(refactorings, refactoring => refactoring.Action.Title == "Convert if/else to match");
+    }
+
     private sealed class TestRefactoringProvider : CodeRefactoringProvider
     {
         public override void RegisterRefactorings(CodeRefactoringContext context)

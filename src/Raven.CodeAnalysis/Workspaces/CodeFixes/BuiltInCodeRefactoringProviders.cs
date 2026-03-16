@@ -10,6 +10,7 @@ public static class BuiltInCodeRefactoringProviders
     {
         return
         [
+            new ConvertIfElseToMatchRefactoringProvider(),
             new TargetTypedUnionCaseRefactoringProvider(),
             new SingleStatementBlockBodyRefactoringProvider(),
             new ExpressionBodyToBlockBodyRefactoringProvider(),

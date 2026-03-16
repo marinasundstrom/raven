@@ -114,7 +114,7 @@ public sealed class PreferOptionOverNullableCodeFixProvider : CodeFixProvider
             return false;
 
         action = CodeAction.Create(
-            "Rewrite to use Option<T>",
+            "Rewrite nullable flow to Option pattern matching",
             (solution, cancellationToken) =>
             {
                 var updatedDocument = solution.GetDocument(document.Id);
@@ -139,54 +139,11 @@ public sealed class PreferOptionOverNullableCodeFixProvider : CodeFixProvider
         string maybeName,
         ConditionRewrite conditionRewrite)
     {
-        if (ifStatement.ElseClause is null)
-        {
-            var patternText = $"{maybeName} is {conditionRewrite.SomePattern}";
-            return
-            [
-                typeRewrite,
-                new TextChange(declarator.Identifier.Span, maybeName),
-                new TextChange(ifStatement.Condition.Span, patternText)
-            ];
-        }
-
-        if (TryGetReturnedExpression(ifStatement.ThenStatement, sourceText, out var thenExpressionText) &&
-            TryGetReturnedExpression(ifStatement.ElseClause.Statement, sourceText, out var elseExpressionText))
-        {
-            var matchIndent = GetIndentation(sourceText, ifStatement.Span.Start);
-            var returnMatch = $"return {maybeName} match {{{Environment.NewLine}{matchIndent}    {conditionRewrite.SomePattern} => {thenExpressionText}{Environment.NewLine}{matchIndent}    {conditionRewrite.ElsePattern} => {elseExpressionText}{Environment.NewLine}{matchIndent}" + "}" + Environment.NewLine;
-            return
-            [
-                typeRewrite,
-                new TextChange(declarator.Identifier.Span, maybeName),
-                new TextChange(ifStatement.Span, returnMatch)
-            ];
-        }
-
-        if (TryGetAssignedExpression(ifStatement.ThenStatement, sourceText, out var thenAssignment) &&
-            TryGetAssignedExpression(ifStatement.ElseClause.Statement, sourceText, out var elseAssignment) &&
-            string.Equals(thenAssignment.LeftText, elseAssignment.LeftText, StringComparison.Ordinal))
-        {
-            var matchIndent = GetIndentation(sourceText, ifStatement.Span.Start);
-            var assignmentMatch = $"{thenAssignment.LeftText} = {maybeName} match {{{Environment.NewLine}{matchIndent}    {conditionRewrite.SomePattern} => {thenAssignment.RightText}{Environment.NewLine}{matchIndent}    {conditionRewrite.ElsePattern} => {elseAssignment.RightText}{Environment.NewLine}{matchIndent}" + "}" + Environment.NewLine;
-            return
-            [
-                typeRewrite,
-                new TextChange(declarator.Identifier.Span, maybeName),
-                new TextChange(ifStatement.Span, assignmentMatch)
-            ];
-        }
-
-        var indent = GetIndentation(sourceText, ifStatement.Span.Start);
-        var thenText = IndentStatementText(sourceText.GetSubText(ifStatement.ThenStatement.Span), indent);
-        var elseText = IndentStatementText(sourceText.GetSubText(ifStatement.ElseClause.Statement.Span), indent);
-        var replacement = $"match {maybeName} {{{Environment.NewLine}{indent}    {conditionRewrite.SomePattern} => {thenText}{Environment.NewLine}{indent}    {conditionRewrite.ElsePattern} => {elseText}{Environment.NewLine}{indent}" + "}" + Environment.NewLine;
-
         return
         [
             typeRewrite,
             new TextChange(declarator.Identifier.Span, maybeName),
-            new TextChange(ifStatement.Span, replacement)
+            new TextChange(ifStatement.Condition.Span, $"{maybeName} is {conditionRewrite.SomePattern}")
         ];
     }
 
@@ -246,7 +203,7 @@ public sealed class PreferOptionOverNullableCodeFixProvider : CodeFixProvider
     {
         if (TryGetNullCheck(condition, localName))
         {
-            rewrite = new ConditionRewrite($"Some(val {localName})", "None");
+            rewrite = new ConditionRewrite($"Some(val {localName})");
             return true;
         }
 
@@ -266,7 +223,7 @@ public sealed class PreferOptionOverNullableCodeFixProvider : CodeFixProvider
         if (isPattern.Pattern is DeclarationPatternSyntax declarationPattern)
         {
             var patternText = sourceText.GetSubText(declarationPattern.Span);
-            rewrite = new ConditionRewrite($"Some({patternText})", "_");
+            rewrite = new ConditionRewrite($"Some({patternText})");
             return true;
         }
 
@@ -278,6 +235,14 @@ public sealed class PreferOptionOverNullableCodeFixProvider : CodeFixProvider
         ExpressionSyntax condition,
         string localName)
     {
+        if (condition is IsPatternExpressionSyntax isPattern &&
+            TryGetReferencedIdentifier(isPattern.Expression) is { } identifier &&
+            string.Equals(identifier, localName, StringComparison.Ordinal) &&
+            IsNotNullPattern(isPattern.Pattern))
+        {
+            return true;
+        }
+
         if (condition is not InfixOperatorExpressionSyntax binary)
             return false;
 
@@ -427,86 +392,14 @@ public sealed class PreferOptionOverNullableCodeFixProvider : CodeFixProvider
         return $"maybe{first}{name[1..]}";
     }
 
-    private static string GetIndentation(SourceText sourceText, int position)
+    private static bool IsNotNullPattern(PatternSyntax pattern)
     {
-        var lineStart = position;
-        while (lineStart > 0)
+        return pattern is UnaryPatternSyntax
         {
-            var previous = sourceText.GetSubText(lineStart - 1, 1)[0];
-            if (previous is '\n' or '\r')
-                break;
-
-            lineStart--;
-        }
-
-        var indentEnd = lineStart;
-        while (indentEnd < sourceText.Length)
-        {
-            var current = sourceText.GetSubText(indentEnd, 1)[0];
-            if (current is not (' ' or '\t'))
-                break;
-
-            indentEnd++;
-        }
-
-        return sourceText.GetSubText(lineStart, indentEnd - lineStart);
+            Kind: SyntaxKind.NotPattern,
+            Pattern: ConstantPatternSyntax { Expression.Kind: SyntaxKind.NullLiteralExpression }
+        };
     }
 
-    private static string IndentStatementText(string statementText, string indent)
-    {
-        var newLine = statementText.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
-        return statementText.Replace(newLine, $"{newLine}{indent}", StringComparison.Ordinal);
-    }
-
-    private static bool TryGetReturnedExpression(StatementSyntax statement, SourceText sourceText, out string expressionText)
-    {
-        if (statement is BlockStatementSyntax block)
-        {
-            if (block.Statements.Count != 1)
-            {
-                expressionText = string.Empty;
-                return false;
-            }
-
-            statement = block.Statements[0];
-        }
-
-        if (statement is ReturnStatementSyntax { Expression: { } expression })
-        {
-            expressionText = sourceText.GetSubText(expression.Span);
-            return true;
-        }
-
-        expressionText = string.Empty;
-        return false;
-    }
-
-    private static bool TryGetAssignedExpression(StatementSyntax statement, SourceText sourceText, out AssignmentRewrite assignment)
-    {
-        if (statement is BlockStatementSyntax block)
-        {
-            if (block.Statements.Count != 1)
-            {
-                assignment = default;
-                return false;
-            }
-
-            statement = block.Statements[0];
-        }
-
-        if (statement is AssignmentStatementSyntax { Kind: SyntaxKind.SimpleAssignmentStatement } assignmentStatement &&
-            assignmentStatement.OperatorToken.Kind == SyntaxKind.EqualsToken)
-        {
-            assignment = new AssignmentRewrite(
-                sourceText.GetSubText(assignmentStatement.Left.Span),
-                sourceText.GetSubText(assignmentStatement.Right.Span));
-            return true;
-        }
-
-        assignment = default;
-        return false;
-    }
-
-    private readonly record struct ConditionRewrite(string SomePattern, string ElsePattern);
-    private readonly record struct AssignmentRewrite(string LeftText, string RightText);
+    private readonly record struct ConditionRewrite(string SomePattern);
 }

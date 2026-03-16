@@ -47,7 +47,7 @@ func Test() {
         var fixes = GetAvailableCodeFixes(code);
 
         Assert.Contains(fixes, fix => fix.Action.Title == "Use 'Option<string>'");
-        Assert.Contains(fixes, fix => fix.Action.Title == "Rewrite to use Option<T>");
+        Assert.Contains(fixes, fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
     }
 
     [Fact]
@@ -69,7 +69,7 @@ func GetName() -> string? {
         var fixes = GetAvailableCodeFixes(code);
 
         Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Use 'Option<string>'");
-        Assert.Contains(fixes, fix => fix.Action.Title == "Rewrite to use Option<T>");
+        Assert.Contains(fixes, fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
     }
 
     [Fact]
@@ -95,10 +95,10 @@ func Test() {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite to use Option<T>");
+            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite to use Option<T>", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
@@ -133,10 +133,10 @@ func GetName() -> string? {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite to use Option<T>");
+            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite to use Option<T>", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
@@ -156,11 +156,11 @@ func Test() {
 
         var fixes = GetAvailableCodeFixes(code);
 
-        Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Rewrite to use Option<T>");
+        Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
     }
 
     [Fact]
-    public void AppliesRewriteToUseOptionFix_WithElseBranch_AsMatchStatement()
+    public void AppliesRewriteToUseOptionFix_WithElseBranch_PreservesIfElse()
     {
         var code = """
 func Test() {
@@ -176,23 +176,20 @@ func Test() {
         var expected = """
 func Test() {
     val maybeText: Option<string> = GetName()
-    match maybeText {
-        Some(val text) => {
-            Console.WriteLine(text)
-        }
-        None => {
-            Console.WriteLine("missing")
-        }
+    if maybeText is Some(val text) {
+        Console.WriteLine(text)
+    } else {
+        Console.WriteLine("missing")
     }
 }
 """;
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite to use Option<T>");
+            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite to use Option<T>", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
@@ -219,15 +216,15 @@ func Test() {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite to use Option<T>");
+            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite to use Option<T>", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
     [Fact]
-    public void AppliesRewriteToUseOptionFix_WithTypePatternElse_AsMatchStatement()
+    public void AppliesRewriteToUseOptionFix_WithTypePatternElse_PreservesIfElse()
     {
         var code = """
 func Test() {
@@ -243,28 +240,25 @@ func Test() {
         var expected = """
 func Test() {
     val maybeValue: Option<object> = GetValue()
-    match maybeValue {
-        Some(string text) => {
-            Console.WriteLine(text)
-        }
-        _ => {
-            Console.WriteLine("other")
-        }
+    if maybeValue is Some(string text) {
+        Console.WriteLine(text)
+    } else {
+        Console.WriteLine("other")
     }
 }
 """;
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite to use Option<T>");
+            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite to use Option<T>", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
     [Fact]
-    public void AppliesRewriteToUseOptionFix_WithReturningElseFlow_AsMatchExpressionReturn()
+    public void AppliesRewriteToUseOptionFix_WithReturningElseFlow_PreservesIfElse()
     {
         var code = """
 func Test() -> string {
@@ -280,24 +274,25 @@ func Test() -> string {
         var expected = """
 func Test() -> string {
     val maybeText: Option<string> = GetName()
-    return maybeText match {
-        Some(val text) => text
-        None => "missing"
+    if maybeText is Some(val text) {
+        return text
+    } else {
+        return "missing"
     }
 }
 """;
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite to use Option<T>");
+            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite to use Option<T>", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
     [Fact]
-    public void AppliesRewriteToUseOptionFix_WithSameTargetAssignments_AsMatchExpressionAssignment()
+    public void AppliesRewriteToUseOptionFix_WithSameTargetAssignments_PreservesIfElse()
     {
         var code = """
 func Test() -> string {
@@ -317,9 +312,10 @@ func Test() -> string {
 func Test() -> string {
     val maybeText: Option<string> = GetName()
     var result = ""
-    result = maybeText match {
-        Some(val text) => text
-        None => "missing"
+    if maybeText is Some(val text) {
+        result = text
+    } else {
+        result = "missing"
     }
 
     return result
@@ -328,10 +324,40 @@ func Test() -> string {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite to use Option<T>");
+            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite to use Option<T>", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
+    }
+
+    [Fact]
+    public void AppliesRewriteToUseOptionFix_ForIsNotNullFlow()
+    {
+        var code = """
+func Test() {
+    val text: string? = GetName()
+    if text is not null {
+        Console.WriteLine(text)
+    }
+}
+""";
+
+        var expected = """
+func Test() {
+    val maybeText: Option<string> = GetName()
+    if maybeText is Some(val text) {
+        Console.WriteLine(text)
+    }
+}
+""";
+
+        var result = GetCodeFixResult(
+            code,
+            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+
+        Assert.Equal(1, result.AppliedFixCount);
+        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 

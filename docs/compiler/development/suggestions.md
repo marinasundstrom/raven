@@ -33,6 +33,7 @@ Use a context-driven refactoring when:
 
 Current built-in refactorings include:
 
+- `Convert if/else to match`
 - target-typed union-case rewrites
 - expression-body/block-body conversions
 - redundant accessor removal
@@ -40,6 +41,13 @@ Current built-in refactorings include:
 
 These are implemented as standard refactoring providers and no longer depend on the built-in analyzer
 diagnostics stream.
+
+The nullable-to-`Option<T>` migration is intentionally split across the two mechanisms:
+
+- the `RAV9012` code fixes keep the semantic migration on the diagnostic side
+  (`Use 'Option<T>'` and `Rewrite nullable flow to Option pattern matching`)
+- the general `Convert if/else to match` action is a context-driven refactoring so it can
+  be applied to pattern-based `if` statements broadly, not only to `Option<T>` flows
 
 ## Convention
 

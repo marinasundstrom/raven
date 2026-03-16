@@ -77,12 +77,21 @@ Built-in code fixes currently include:
 - `RAV9016` (`Make member private`)
 - `RAV9017` (`Make member static`)
 - `RAV9018` (`Remove unused property`)
+- `RAV9012` (`Use 'Option<T>'`, `Rewrite nullable flow to Option pattern matching`)
 
 Built-in refactorings currently include:
+- `Convert if/else to match`
 - target-typed union-case rewrites
 - expression-body/block-body conversions
 - redundant accessor removal
 - string concatenation rewrites
+
+The `RAV9012` split is intentional:
+
+- the diagnostic-backed fixes handle Raven's nullable/`Option<T>` guidance and stop at
+  `Option<T>` plus `if maybeValue is Some(...)` style flow
+- the separate `Convert if/else to match` refactoring owns control-flow reshaping and can
+  be applied independently to pattern-based `if` statements, including non-`Option` code
 
 For suggestion payload conventions (`--suggestions`, rewrite property keys, and option
 gating), see `docs/compiler/development/suggestions.md`.
