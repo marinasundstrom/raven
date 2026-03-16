@@ -549,21 +549,17 @@ internal partial class BlockBinder
             return new BoundComparisonPattern(inputType, @operator, value, BoundExpressionReason.MissingType);
         }
 
-        var conversion = Compilation.ClassifyConversion(value.Type, inputType);
-
-        if (!conversion.Exists)
+        var valueType = value.Type.GetPlainType();
+        if (!SymbolEqualityComparer.Default.Equals(valueType, inputType))
         {
-            // You can create a dedicated diagnostic if you want.
-            // For now: reuse "pattern invalid" style reporting.
-            _diagnostics.ReportMatchExpressionArmPatternInvalid(
+            _diagnostics.Report(Diagnostic.Create(
+                CompilerDiagnostics.ComparisonPatternCannotConvert,
+                syntax.Expression.GetLocation(),
                 value.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                syntax.Expression.GetLocation());
+                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)));
 
             return new BoundComparisonPattern(inputType, @operator, value, BoundExpressionReason.TypeMismatch);
         }
-
-        value = ApplyConversion(value, inputType, conversion, syntax.Expression);
 
         if (IsEqualityOperator(@operator))
             return new BoundComparisonPattern(inputType, @operator, value);
@@ -609,13 +605,14 @@ internal partial class BlockBinder
             lowerBound = BindExpression(syntax.LowerBound);
             if (lowerBound.Type is not null && lowerBound.Type.TypeKind != TypeKind.Error)
             {
-                var conversion = Compilation.ClassifyConversion(lowerBound.Type, inputType);
-                if (!conversion.Exists)
+                var lowerType = lowerBound.Type.GetPlainType();
+                if (!SymbolEqualityComparer.Default.Equals(lowerType, inputType))
                 {
-                    _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                    _diagnostics.Report(Diagnostic.Create(
+                        CompilerDiagnostics.ComparisonPatternCannotConvert,
+                        syntax.LowerBound.GetLocation(),
                         lowerBound.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        syntax.LowerBound.GetLocation());
+                        inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)));
                     return new BoundRangePattern(inputType, lowerBound, null, reason: BoundExpressionReason.TypeMismatch);
                 }
             }
@@ -626,13 +623,14 @@ internal partial class BlockBinder
             upperBound = BindExpression(syntax.UpperBound);
             if (upperBound.Type is not null && upperBound.Type.TypeKind != TypeKind.Error)
             {
-                var conversion = Compilation.ClassifyConversion(upperBound.Type, inputType);
-                if (!conversion.Exists)
+                var upperType = upperBound.Type.GetPlainType();
+                if (!SymbolEqualityComparer.Default.Equals(upperType, inputType))
                 {
-                    _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                    _diagnostics.Report(Diagnostic.Create(
+                        CompilerDiagnostics.ComparisonPatternCannotConvert,
+                        syntax.UpperBound.GetLocation(),
                         upperBound.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        syntax.UpperBound.GetLocation());
+                        inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)));
                     return new BoundRangePattern(inputType, lowerBound, upperBound, reason: BoundExpressionReason.TypeMismatch);
                 }
             }

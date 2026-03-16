@@ -1376,6 +1376,52 @@ val result = input match {
     }
 
     [Fact]
+    public void MatchExpression_WithComparisonPatternOfDifferentType_ReportsDiagnostic()
+    {
+        const string code = """
+val pair: (int, int) = (1, 2)
+
+val result = pair match {
+    (1, > 0.5) => 1
+    _ => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "tuple_match_comparison_type_mismatch",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Id == "RAV1606");
+    }
+
+    [Fact]
+    public void MatchExpression_WithRangePatternOfDifferentType_ReportsDiagnostic()
+    {
+        const string code = """
+val value: int = 2
+
+val result = value match {
+    0..0.5 => 1
+    _ => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "range_pattern_type_mismatch",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Id == "RAV1606");
+    }
+
+    [Fact]
     public void MatchExpression_WithPositionalPatternLengthMismatch_ReportsDiagnostic()
     {
         const string code = """

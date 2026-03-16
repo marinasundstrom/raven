@@ -2449,6 +2449,10 @@ Patterns compose from the following primitives.
   consts, or other stable values), ensuring comparison patterns remain predictable
   and optimizable.
 
+  The operand type must match the scrutinee type after nullable/plain-type
+  unwrapping. Ordinary implicit numeric widening is not applied inside
+  comparison patterns, so matching an `int` scrutinee with `> 0.5` is an error.
+
   Comparison patterns are commonly used under `not`, `and`, and property patterns,
   e.g. `{ Age: not > 30 }`.
 
@@ -2458,6 +2462,10 @@ A **range pattern** matches values that fall within a lower and/or upper bound
 using `..` (inclusive upper bound) or `..<` (exclusive upper bound). Range
 patterns are valid when the scrutinee type is **orderable** (for example
 numeric types, `char`, or other types that support relational comparison).
+
+Like comparison patterns, range bounds must match the scrutinee type after
+nullable/plain-type unwrapping; normal implicit numeric conversions are not
+applied to range bounds.
 
 Both bounds are optional:
 

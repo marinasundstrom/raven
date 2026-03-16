@@ -302,6 +302,26 @@ class C {
     }
 
     [Fact]
+    public void IfPatternStatement_WithComparisonPatternOfDifferentType_ReportsDiagnostic()
+    {
+        var code = """
+class C {
+    func Test(point: (int, int)) {
+        if val (2, > 0.5) matched = point {
+            matched.Item1
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        diagnostics.ShouldContain(d => d.Id == "RAV1606");
+    }
+
+    [Fact]
     public void WhileStatement_BindsAsStatement()
     {
         var code = """
