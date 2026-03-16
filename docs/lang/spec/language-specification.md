@@ -2396,17 +2396,17 @@ Patterns compose from the following primitives.
 > interpreted as a type name and participates in a type or declaration pattern.
 > This disambiguation is performed by the binder, not the grammar.
 
-#### Relational patterns
+#### Comparison patterns
 
-* `< expr`, `<= expr`, `> expr`, `>= expr`, `== expr`, `!= expr` — **relational
+* `< expr`, `<= expr`, `> expr`, `>= expr`, `== expr`, `!= expr` — **comparison
   pattern**. Matches when the scrutinee compares to the operand using the given
   operator.
 
   The operand must be a side-effect-free expression (for example, literals,
-  consts, or other stable values), ensuring relational patterns remain predictable
+  consts, or other stable values), ensuring comparison patterns remain predictable
   and optimizable.
 
-  Relational patterns are commonly used under `not`, `and`, and property patterns,
+  Comparison patterns are commonly used under `not`, `and`, and property patterns,
   e.g. `{ Age: not > 30 }`.
 
 ### Range patterns
@@ -2436,7 +2436,7 @@ val result = value match {
 }
 ```
 
-Range patterns participate in exhaustiveness and subsumption analysis alongside relational patterns. They are treated as syntactic sugar for a conjunction of relational comparisons (for example `40..43` behaves like `>= 40 and <= 43`).
+Range patterns participate in exhaustiveness and subsumption analysis alongside comparison patterns. They are treated as syntactic sugar for a conjunction of comparison operators (for example `40..43` behaves like `>= 40 and <= 43`).
 
 > 🧭 **Disambiguation:** In pattern position, `..` introduces a range pattern rather than a range expression. The expression parser stops at `..` so the bounds are parsed independently.
 
@@ -2472,7 +2472,7 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   compares the bound value, but `== expr` keeps the constraint local to the
   pattern and avoids an additional arm condition.
 
-  In compiler APIs, `== expr` is represented as `ExplicitValuePatternSyntax`
+  In compiler APIs, `== expr` is represented as `ComparisonPatternSyntax`
   (distinct from `ConstantPatternSyntax`) so tools can preserve user intent.
 
   An element may optionally include a name before the colon (`name: pattern`) to

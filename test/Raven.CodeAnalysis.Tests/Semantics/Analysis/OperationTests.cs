@@ -320,7 +320,7 @@ val result = value match {
     }
 
     [Fact]
-    public void GetOperation_RelationalPattern_ExposesOperatorAndValue()
+    public void GetOperation_ComparisonPattern_ExposesOperatorAndValue()
     {
         const string source = """
 val value: int = 9
@@ -334,11 +334,11 @@ val result = value match {
         var model = compilation.GetSemanticModel(tree);
         var patternSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<RelationalPatternSyntax>()
+            .OfType<ComparisonPatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IRelationalPatternOperation>(model.GetOperation(patternSyntax));
-        operation.Kind.ShouldBe(OperationKind.RelationalPattern);
+        var operation = Assert.IsAssignableFrom<IComparisonPatternOperation>(model.GetOperation(patternSyntax));
+        operation.Kind.ShouldBe(OperationKind.ComparisonPattern);
         operation.OperatorKind.ShouldBe(SyntaxKind.GreaterThanToken);
         operation.Value.ShouldNotBeNull();
         operation.Value!.Kind.ShouldBe(OperationKind.Literal);
@@ -375,7 +375,7 @@ record class Person(Name: string, Age: int)
     }
 
     [Fact]
-    public void GetOperation_ExplicitValuePattern_ExposesValueOperation()
+    public void GetOperation_ComparisonPattern_ExposesEqualityOperandOperation()
     {
         const string source = """
 var expected = 2
@@ -388,12 +388,13 @@ var result = tuple match {
 
         var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
         var model = compilation.GetSemanticModel(tree);
-        var explicitValuePatternSyntax = tree.GetRoot()
+        var comparisonPatternSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<ExplicitValuePatternSyntax>()
+            .OfType<ComparisonPatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IConstantPatternOperation>(model.GetOperation(explicitValuePatternSyntax));
+        var operation = Assert.IsAssignableFrom<IComparisonPatternOperation>(model.GetOperation(comparisonPatternSyntax));
+        operation.OperatorKind.ShouldBe(SyntaxKind.EqualsEqualsToken);
         operation.Value.ShouldNotBeNull();
         operation.Value!.Kind.ShouldBe(OperationKind.LocalReference);
     }

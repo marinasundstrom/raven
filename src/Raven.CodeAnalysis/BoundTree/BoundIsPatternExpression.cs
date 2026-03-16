@@ -468,7 +468,6 @@ internal partial class BlockBinder
         {
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
             ConstantPatternSyntax constant => BindConstantPattern(constant, inputType),
-            ExplicitValuePatternSyntax explicitValue => BindExplicitValuePattern(explicitValue, inputType),
             VariablePatternSyntax variable => BindVariablePattern(variable, inputType),
             DeclarationPatternSyntax d => BindDeclarationPattern(d, inputType),
             PositionalPatternSyntax t => BindPositionalPattern(t, inputType),
@@ -478,7 +477,7 @@ internal partial class BlockBinder
             MemberPatternSyntax c => BindCasePattern(c, inputType),
             NominalDeconstructionPatternSyntax r => BindNominalDeconstructionPattern(r, inputType),
             PropertyPatternSyntax p => BindPropertyPattern(p, inputType),
-            RelationalPatternSyntax r => BindRelationalPattern(r, inputType),
+            ComparisonPatternSyntax r => BindComparisonPattern(r, inputType),
             RangePatternSyntax rp => BindRangePattern(rp, inputType?.GetPlainType()),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
         };
@@ -487,32 +486,34 @@ internal partial class BlockBinder
         return bound;
     }
 
-    private BoundPattern BindRelationalPattern(RelationalPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindComparisonPattern(ComparisonPatternSyntax syntax, ITypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
         inputType = inputType.GetPlainType();
 
         var @operator = syntax.Kind switch
         {
-            SyntaxKind.GreaterThanPattern => BoundRelationalPatternOperator.GreaterThan,
-            SyntaxKind.GreaterThanOrEqualPattern => BoundRelationalPatternOperator.GreaterThanOrEqual,
-            SyntaxKind.LessThanPattern => BoundRelationalPatternOperator.LessThan,
-            SyntaxKind.LessThanOrEqualPattern => BoundRelationalPatternOperator.LessThanOrEqual,
-            _ => throw new NotImplementedException($"Unsupported relational pattern kind: {syntax.Kind}")
+            SyntaxKind.EqualsPattern => BoundComparisonPatternOperator.Equals,
+            SyntaxKind.NotEqualsPattern => BoundComparisonPatternOperator.NotEquals,
+            SyntaxKind.GreaterThanPattern => BoundComparisonPatternOperator.GreaterThan,
+            SyntaxKind.GreaterThanOrEqualPattern => BoundComparisonPatternOperator.GreaterThanOrEqual,
+            SyntaxKind.LessThanPattern => BoundComparisonPatternOperator.LessThan,
+            SyntaxKind.LessThanOrEqualPattern => BoundComparisonPatternOperator.LessThanOrEqual,
+            _ => throw new NotImplementedException($"Unsupported comparison pattern kind: {syntax.Kind}")
         };
 
         // RHS is an EXPRESSION (already parsed that way)
         var value = BindExpression(syntax.Expression);
 
         if (inputType.TypeKind == TypeKind.Error || value.Type?.TypeKind == TypeKind.Error)
-            return new BoundRelationalPattern(inputType, @operator, value, BoundExpressionReason.TypeMismatch);
+            return new BoundComparisonPattern(inputType, @operator, value, BoundExpressionReason.TypeMismatch);
 
         // The pattern compares: (inputType <op> valueConvertedToInputType)
         // so we want RHS to be convertible to inputType.
         if (value.Type is null)
         {
             // Defensive: should not happen often
-            return new BoundRelationalPattern(inputType, @operator, value, BoundExpressionReason.MissingType);
+            return new BoundComparisonPattern(inputType, @operator, value, BoundExpressionReason.MissingType);
         }
 
         var conversion = Compilation.ClassifyConversion(value.Type, inputType);
@@ -526,31 +527,25 @@ internal partial class BlockBinder
                 inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.Expression.GetLocation());
 
-            return new BoundRelationalPattern(inputType, @operator, value, BoundExpressionReason.TypeMismatch);
+            return new BoundComparisonPattern(inputType, @operator, value, BoundExpressionReason.TypeMismatch);
         }
 
-        // Optional but recommended:
-        // if you have a BindConversion(...) helper, do it here so codegen doesn’t need to guess.
-        //
-        // value = BindConversion(value, inputType, syntax.Expression.GetLocation());
-        //
-        // If you DON'T have conversion nodes yet, it’s still fine to keep as-is;
-        // codegen can emit a comparison using normal operator resolution rules later.
+        value = ApplyConversion(value, inputType, conversion, syntax.Expression);
 
-        // One more safety: relational operators require orderability.
-        // If you have a helper that checks whether <, > is defined, call it.
-        // Minimal baseline: allow numeric + char + enums. Extend later.
+        if (IsEqualityOperator(@operator))
+            return new BoundComparisonPattern(inputType, @operator, value);
+
         if (!IsOrderableType(inputType))
         {
-            _diagnostics.ReportRelationalPatternNotSupported(
+            _diagnostics.ReportComparisonPatternNotSupported(
                 syntax.OperatorToken,
                 inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.GetLocation());
 
-            return new BoundRelationalPattern(inputType, @operator, value, BoundExpressionReason.TypeMismatch);
+            return new BoundComparisonPattern(inputType, @operator, value, BoundExpressionReason.TypeMismatch);
         }
 
-        return new BoundRelationalPattern(inputType, @operator, value);
+        return new BoundComparisonPattern(inputType, @operator, value);
     }
 
     private BoundPattern BindRangePattern(RangePatternSyntax syntax, ITypeSymbol? inputType)
@@ -565,7 +560,7 @@ internal partial class BlockBinder
         {
             // Relational-pattern diagnostic reused for range patterns.
             var dotDotToken = syntax.DotDotToken;
-            _diagnostics.ReportRelationalPatternNotSupported(
+            _diagnostics.ReportComparisonPatternNotSupported(
                 dotDotToken,
                 inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.GetLocation());
@@ -643,6 +638,11 @@ internal partial class BlockBinder
             SpecialType.System_Char;
     }
 
+    private static bool IsEqualityOperator(BoundComparisonPatternOperator @operator)
+    {
+        return @operator is BoundComparisonPatternOperator.Equals or BoundComparisonPatternOperator.NotEquals;
+    }
+
     private BoundPattern BindConstantPattern(ConstantPatternSyntax syntax, ITypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
@@ -660,17 +660,6 @@ internal partial class BlockBinder
                 Diagnostics.ReportUndeclaredConstantPatternHint(identifierName.Identifier.ValueText, identifierName.GetLocation());
             }
         }
-
-        return BindConstantPatternFromExpression(expression, syntax.Expression, inputType);
-    }
-
-    private BoundPattern BindExplicitValuePattern(ExplicitValuePatternSyntax syntax, ITypeSymbol? inputType)
-    {
-        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
-
-        var expression = syntax.Expression is MemberBindingExpressionSyntax memberBinding
-            ? BindMemberBindingExpression(memberBinding, inputType)
-            : BindExpression(syntax.Expression);
 
         return BindConstantPatternFromExpression(expression, syntax.Expression, inputType);
     }
@@ -2285,19 +2274,21 @@ internal readonly record struct BoundPropertySubpattern(
     ITypeSymbol Type,
     BoundPattern Pattern);
 
-internal enum BoundRelationalPatternOperator
+internal enum BoundComparisonPatternOperator
 {
+    Equals,
+    NotEquals,
     LessThan,
     LessThanOrEqual,
     GreaterThan,
     GreaterThanOrEqual,
 }
 
-internal sealed class BoundRelationalPattern : BoundPattern
+internal sealed class BoundComparisonPattern : BoundPattern
 {
-    public BoundRelationalPattern(
+    public BoundComparisonPattern(
         ITypeSymbol inputType,
-        BoundRelationalPatternOperator @operator,
+        BoundComparisonPatternOperator @operator,
         BoundExpression value,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(inputType, reason)
@@ -2308,7 +2299,7 @@ internal sealed class BoundRelationalPattern : BoundPattern
     }
 
     public ITypeSymbol InputType { get; }
-    public BoundRelationalPatternOperator Operator { get; }
+    public BoundComparisonPatternOperator Operator { get; }
     public BoundExpression Value { get; }
 
     public override void Accept(BoundTreeVisitor visitor) => visitor.DefaultVisit(this);

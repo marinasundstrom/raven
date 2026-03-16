@@ -72,7 +72,7 @@ Sources of truth:
 | `CasePattern` | `BoundCasePattern` | `CasePatternOperation` |
 | `DeclarationPattern` | `BoundDeclarationPattern` | `DeclarationPatternOperation` |
 | `ConstantPattern` | `BoundConstantPattern` | `ConstantPatternOperation` |
-| `RelationalPattern` | `BoundRelationalPattern` | `RelationalPatternOperation` |
+| `ComparisonPattern` | `BoundComparisonPattern` | `ComparisonPatternOperation` |
 | `PositionalPattern` | `BoundPositionalPattern` | `PositionalPatternOperation` |
 | `RecursivePattern` | `BoundDeconstructPattern` | `RecursivePatternOperation` |
 | `RangePattern` | `BoundRangePattern` | `RangePatternOperation` |
@@ -135,7 +135,7 @@ latest slices:
 - `IReceiverPatternOperation`: `ReceiverType`, `NarrowedType`
 - `IRecursivePatternOperation`: `DeconstructMethod`, `Arguments`
 - `IRangePatternOperation`: `LowerBound`, `UpperBound`, `IsUpperExclusive`
-- `IRelationalPatternOperation`: `OperatorKind`, `Value`
+- `IComparisonPatternOperation`: `OperatorKind`, `Value`
 - `IPropertyPatternOperation`: `Designator`, `Members`, `Subpatterns`
 - `IPropagationOperation`: `Operand`, `OkType`, `ErrorType`, `EnclosingResultType`, `EnclosingErrorConstructor`
 - `IDereferenceOperation`: `Operand`

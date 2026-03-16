@@ -2224,9 +2224,9 @@ internal sealed class ConstantPatternOperation : PatternOperation, IConstantPatt
             {
                 _value = SemanticModel.GetOperation(constantPattern.Expression);
             }
-            else if (Syntax is ExplicitValuePatternSyntax explicitValuePattern)
+            else if (Syntax is ComparisonPatternSyntax comparisonPattern)
             {
-                _value = SemanticModel.GetOperation(explicitValuePattern.Expression);
+                _value = SemanticModel.GetOperation(comparisonPattern.Expression);
             }
 
             return _value;
@@ -2241,30 +2241,32 @@ internal sealed class ConstantPatternOperation : PatternOperation, IConstantPatt
     }
 }
 
-internal sealed class RelationalPatternOperation : PatternOperation, IRelationalPatternOperation
+internal sealed class ComparisonPatternOperation : PatternOperation, IComparisonPatternOperation
 {
-    private readonly BoundRelationalPattern _bound;
+    private readonly BoundComparisonPattern _bound;
     private IOperation? _value;
     private bool _valueInitialized;
 
-    internal RelationalPatternOperation(
+    internal ComparisonPatternOperation(
         SemanticModel semanticModel,
-        BoundRelationalPattern bound,
+        BoundComparisonPattern bound,
         SyntaxNode syntax,
         bool isImplicit)
-        : base(semanticModel, OperationKind.RelationalPattern, syntax, bound.Type, isImplicit)
+        : base(semanticModel, OperationKind.ComparisonPattern, syntax, bound.Type, isImplicit)
     {
         _bound = bound;
     }
 
-    public SyntaxKind OperatorKind => Syntax is RelationalPatternSyntax relationalPattern
-        ? relationalPattern.OperatorToken.Kind
+    public SyntaxKind OperatorKind => Syntax is ComparisonPatternSyntax comparisonPattern
+        ? comparisonPattern.OperatorToken.Kind
         : _bound.Operator switch
         {
-            BoundRelationalPatternOperator.LessThan => SyntaxKind.LessThanExpression,
-            BoundRelationalPatternOperator.LessThanOrEqual => SyntaxKind.LessThanOrEqualsExpression,
-            BoundRelationalPatternOperator.GreaterThan => SyntaxKind.GreaterThanExpression,
-            BoundRelationalPatternOperator.GreaterThanOrEqual => SyntaxKind.GreaterThanOrEqualsExpression,
+            BoundComparisonPatternOperator.Equals => SyntaxKind.EqualsEqualsToken,
+            BoundComparisonPatternOperator.NotEquals => SyntaxKind.NotEqualsToken,
+            BoundComparisonPatternOperator.LessThan => SyntaxKind.LessThanExpression,
+            BoundComparisonPatternOperator.LessThanOrEqual => SyntaxKind.LessThanOrEqualsExpression,
+            BoundComparisonPatternOperator.GreaterThan => SyntaxKind.GreaterThanExpression,
+            BoundComparisonPatternOperator.GreaterThanOrEqual => SyntaxKind.GreaterThanOrEqualsExpression,
             _ => SyntaxKind.None
         };
 
@@ -2276,7 +2278,7 @@ internal sealed class RelationalPatternOperation : PatternOperation, IRelational
                 return _value;
 
             _valueInitialized = true;
-            var fallback = Syntax is RelationalPatternSyntax relationalPattern ? relationalPattern.Expression : Syntax;
+            var fallback = Syntax is ComparisonPatternSyntax comparisonPattern ? comparisonPattern.Expression : Syntax;
             _value = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Value, fallback);
             return _value;
         }

@@ -61,12 +61,9 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParsePrimaryPattern()
     {
-        if (PeekToken().IsKind(SyntaxKind.EqualsEqualsToken))
-            return ParseExplicitValuePattern();
-
-        // Relational pattern: > expr, >= expr, < expr, <= expr
-        if (IsRelationalPatternStart(PeekToken()))
-            return ParseRelationalPattern();
+        // Comparison pattern: == expr, != expr, > expr, >= expr, < expr, <= expr
+        if (IsComparisonPatternStart(PeekToken()))
+            return ParseComparisonPattern();
 
         if (PeekToken().IsKind(SyntaxKind.DotToken))
         {
@@ -553,9 +550,6 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParseDeconstructionElementPattern()
     {
-        if (PeekToken().IsKind(SyntaxKind.EqualsEqualsToken))
-            return ParseExplicitValuePattern();
-
         if (_allowImplicitDeconstructionElementBindings &&
             CanTokenBeIdentifier(PeekToken()))
         {
@@ -568,40 +562,36 @@ internal class PatternSyntaxParser : SyntaxParser
         return new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern();
     }
 
-    private PatternSyntax ParseExplicitValuePattern()
-    {
-        var equalsEqualsToken = ReadToken();
-
-        var expression = new ExpressionSyntaxParser(this).ParseExpression();
-        return ExplicitValuePattern(equalsEqualsToken, expression);
-    }
-
-    private static bool IsRelationalPatternStart(SyntaxToken token)
+    private static bool IsComparisonPatternStart(SyntaxToken token)
     {
         return token.Kind is
+            SyntaxKind.EqualsEqualsToken or
+            SyntaxKind.NotEqualsToken or
             SyntaxKind.GreaterThanToken or
             SyntaxKind.GreaterThanOrEqualsToken or
             SyntaxKind.LessThanToken or
             SyntaxKind.LessThanOrEqualsToken;
     }
 
-    private PatternSyntax ParseRelationalPattern()
+    private PatternSyntax ParseComparisonPattern()
     {
-        // >, >=, <, <=
+        // ==, !=, >, >=, <, <=
         var operatorToken = ReadToken();
 
         // Parse RHS as an EXPRESSION (not a pattern)
         // This allows: > 30, > x + 1, > Foo(3), etc.
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
-        var kind = GetRelationalPatternKind(operatorToken.Kind);
-        return RelationalPattern(kind, operatorToken, expression);
+        var kind = GetComparisonPatternKind(operatorToken.Kind);
+        return ComparisonPattern(kind, operatorToken, expression);
     }
 
-    private static SyntaxKind GetRelationalPatternKind(SyntaxKind operatorTokenKind)
+    private static SyntaxKind GetComparisonPatternKind(SyntaxKind operatorTokenKind)
     {
         return operatorTokenKind switch
         {
+            SyntaxKind.EqualsEqualsToken => SyntaxKind.EqualsPattern,
+            SyntaxKind.NotEqualsToken => SyntaxKind.NotEqualsPattern,
             SyntaxKind.GreaterThanToken => SyntaxKind.GreaterThanPattern,
             SyntaxKind.GreaterThanOrEqualsToken => SyntaxKind.GreaterThanOrEqualPattern,
             SyntaxKind.LessThanToken => SyntaxKind.LessThanPattern,

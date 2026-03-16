@@ -234,7 +234,7 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void PositionalPattern_WithExplicitBindingAndExplicitValuePattern_Parses()
+    public void PositionalPattern_WithExplicitBindingAndEqualityPattern_Parses()
     {
         var (pattern, tree) = ParsePattern("(val a, == existingValue)");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
@@ -247,8 +247,9 @@ public class PatternSyntaxParserTests
         var firstDesignation = Assert.IsType<SingleVariableDesignationSyntax>(first.Designation);
         Assert.Equal("a", firstDesignation.Identifier.ValueText);
 
-        var second = Assert.IsType<ExplicitValuePatternSyntax>(positional.Elements[1].Pattern);
-        Assert.Equal(SyntaxKind.EqualsEqualsToken, second.EqualsEqualsToken.Kind);
+        var second = Assert.IsType<ComparisonPatternSyntax>(positional.Elements[1].Pattern);
+        Assert.Equal(SyntaxKind.EqualsPattern, second.Kind);
+        Assert.Equal(SyntaxKind.EqualsEqualsToken, second.OperatorToken.Kind);
         var identifier = Assert.IsType<IdentifierNameSyntax>(second.Expression);
         Assert.Equal("existingValue", identifier.Identifier.ValueText);
 
@@ -268,13 +269,14 @@ public class PatternSyntaxParserTests
         var identifier = Assert.IsType<IdentifierNameSyntax>(first.Expression);
         Assert.Equal("a", identifier.Identifier.ValueText);
 
-        Assert.IsType<ExplicitValuePatternSyntax>(positional.Elements[1].Pattern);
+        var second = Assert.IsType<ComparisonPatternSyntax>(positional.Elements[1].Pattern);
+        Assert.Equal(SyntaxKind.EqualsPattern, second.Kind);
 
         AssertNoErrors(tree);
     }
 
     [Fact]
-    public void SequencePattern_WithExplicitBindingAndExplicitValuePattern_Parses()
+    public void SequencePattern_WithExplicitBindingAndEqualityPattern_Parses()
     {
         var (pattern, tree) = ParsePattern("[val head, == sentinel, ..val tail]");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
@@ -283,7 +285,8 @@ public class PatternSyntaxParserTests
         Assert.Equal("[val head, == sentinel, ..val tail]", sourceText.ToString(sequence.Span));
 
         Assert.IsType<VariablePatternSyntax>(sequence.Elements[0].Pattern);
-        Assert.IsType<ExplicitValuePatternSyntax>(sequence.Elements[1].Pattern);
+        var second = Assert.IsType<ComparisonPatternSyntax>(sequence.Elements[1].Pattern);
+        Assert.Equal(SyntaxKind.EqualsPattern, second.Kind);
         Assert.IsType<VariablePatternSyntax>(sequence.Elements[2].Pattern);
 
         AssertNoErrors(tree);
@@ -368,7 +371,19 @@ public class PatternSyntaxParserTests
 
     private static (PatternSyntax Pattern, SyntaxTree Tree) ParsePattern(string patternText)
     {
-        var code = $$"""
+        var useIsPatternWrapper =
+            patternText.StartsWith("let ", StringComparison.Ordinal) ||
+            patternText.StartsWith("val ", StringComparison.Ordinal) ||
+            patternText.StartsWith("var ", StringComparison.Ordinal);
+
+        var code = useIsPatternWrapper
+            ? $$"""
+let value: object = (1, "two")
+
+if value is {{patternText}} {
+}
+"""
+            : $$"""
 let value: object = (1, "two")
 
 let result = value match {
@@ -378,10 +393,28 @@ let result = value match {
 """;
 
         var tree = SyntaxTree.ParseText(code);
-        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text for syntax tree.");
-        var pattern = match.Arms.First().Pattern;
-        if (sourceText.ToString(pattern.Span) != patternText)
+
+        PatternSyntax pattern;
+        TextSpan patternSpan;
+
+        if (useIsPatternWrapper)
+        {
+            var isPattern = tree.GetRoot().DescendantNodes().OfType<IsPatternExpressionSyntax>().Single();
+            pattern = isPattern.Pattern;
+            patternSpan = pattern.Span;
+        }
+        else
+        {
+            var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+            var arm = match.Arms.First();
+            pattern = arm.Pattern;
+            patternSpan = arm.BindingKeyword.Kind == SyntaxKind.None
+                ? pattern.Span
+                : new TextSpan(arm.BindingKeyword.SpanStart, pattern.Span.End - arm.BindingKeyword.SpanStart);
+        }
+
+        if (sourceText.ToString(patternSpan) != patternText)
             throw new InvalidOperationException($"Unable to locate pattern '{patternText}'.");
 
         return (pattern, tree);

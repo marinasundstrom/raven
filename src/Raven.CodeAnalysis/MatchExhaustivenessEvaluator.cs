@@ -83,7 +83,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
     internal static bool IsCatchAllPattern(ITypeSymbol scrutineeType, BoundPattern pattern)
     {
-        if (pattern is BoundConstantPattern || pattern is BoundRelationalPattern || pattern is BoundRangePattern)
+        if (pattern is BoundConstantPattern || pattern is BoundComparisonPattern || pattern is BoundRangePattern)
             return false;
 
         switch (pattern)
@@ -899,7 +899,7 @@ internal sealed class MatchExhaustivenessEvaluator
     }
 
     // =========================================================
-    // Numeric interval coverage (for range/relational patterns)
+    // Numeric interval coverage (for range/comparison patterns)
     // =========================================================
 
     private static bool TryGetNumericTypeDomain(ITypeSymbol type, out NumericInterval domain)
@@ -1058,17 +1058,21 @@ internal sealed class MatchExhaustivenessEvaluator
                     return true;
                 }
 
-            case BoundRelationalPattern relational:
+            case BoundComparisonPattern comparison:
                 {
-                    if (!TryExtractNumericValue(relational.Value, out var v))
+                    if (!TryExtractNumericValue(comparison.Value, out var v))
                         return false;
 
-                    var interval = relational.Operator switch
+                    if (comparison.Operator == BoundComparisonPatternOperator.NotEquals)
+                        return false;
+
+                    var interval = comparison.Operator switch
                     {
-                        BoundRelationalPatternOperator.GreaterThan => new NumericInterval(v + 1, domain.High),
-                        BoundRelationalPatternOperator.GreaterThanOrEqual => new NumericInterval(v, domain.High),
-                        BoundRelationalPatternOperator.LessThan => new NumericInterval(domain.Low, v - 1),
-                        BoundRelationalPatternOperator.LessThanOrEqual => new NumericInterval(domain.Low, v),
+                        BoundComparisonPatternOperator.Equals => new NumericInterval(v, v),
+                        BoundComparisonPatternOperator.GreaterThan => new NumericInterval(v + 1, domain.High),
+                        BoundComparisonPatternOperator.GreaterThanOrEqual => new NumericInterval(v, domain.High),
+                        BoundComparisonPatternOperator.LessThan => new NumericInterval(domain.Low, v - 1),
+                        BoundComparisonPatternOperator.LessThanOrEqual => new NumericInterval(domain.Low, v),
                         _ => default
                     };
                     // Clamp to domain

@@ -387,7 +387,7 @@ UnaryPattern             ::= 'not' UnaryPattern | PrimaryPattern ;
 
 PrimaryPattern           ::= ParenthesizedPattern
                            | RangePattern
-                           | RelationalPattern
+                           | ComparisonPattern
                            | ConstantPattern
                            | VariablePattern
                            | DeclarationPattern
@@ -467,9 +467,9 @@ PropertyPatternDesignation
 
 ParenthesizedPattern     ::= '(' Pattern ')' ;
 
-RelationalPattern        ::= RelationalOperator RelationalPatternOperand ;
+ComparisonPattern        ::= RelationalOperator ComparisonPatternOperand ;
 RelationalOperator       ::= '<' | '<=' | '>' | '>=' | '==' | '!=' ;
-RelationalPatternOperand ::= Expression ; (* binder should enforce “constant-ish” rules *)
+ComparisonPatternOperand ::= Expression ; (* binder should enforce “constant-ish” rules *)
 
 RangePattern             ::= RangeLower '..' RangeUpper ;
 RangeLower               ::= RangePatternOperand? ;

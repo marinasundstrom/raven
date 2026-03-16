@@ -84,10 +84,12 @@
   <NodeKind Name="NotPattern" Type="UnaryPattern" />
   <NodeKind Name="AndPattern" Type="BinaryPattern" />
   <NodeKind Name="OrPattern" Type="BinaryPattern" />
-  <NodeKind Name="GreaterThanPattern" Type="RelationalPattern" />
-  <NodeKind Name="GreaterThanOrEqualPattern" Type="RelationalPattern" />
-  <NodeKind Name="LessThanPattern" Type="RelationalPattern" />
-  <NodeKind Name="LessThanOrEqualPattern" Type="RelationalPattern" />
+  <NodeKind Name="EqualsPattern" Type="ComparisonPattern" />
+  <NodeKind Name="NotEqualsPattern" Type="ComparisonPattern" />
+  <NodeKind Name="GreaterThanPattern" Type="ComparisonPattern" />
+  <NodeKind Name="GreaterThanOrEqualPattern" Type="ComparisonPattern" />
+  <NodeKind Name="LessThanPattern" Type="ComparisonPattern" />
+  <NodeKind Name="LessThanOrEqualPattern" Type="ComparisonPattern" />
   <NodeKind Name="RangePattern" Type="RangePattern" />
   <NodeKind Name="SkippedTokensTrivia" Type="StructuredTrivia" />
 </NodeKinds>

@@ -796,13 +796,13 @@
     Title="Unary operator requires adjacent operand"
     Message="Unary operator '{operatorToken}' must be directly adjacent to its operand."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV1605" Identifier="RelationalPatternNotSupported"
-    Title="Relational pattern not supported for type"
-    Message="Relational pattern operator '{operatorToken}' is not supported for type '{typeName}'"
+  <Descriptor Id="RAV1605" Identifier="ComparisonPatternNotSupported"
+    Title="Comparison pattern not supported for type"
+    Message="Comparison pattern operator '{operatorToken}' is not supported for type '{typeName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV1606" Identifier="RelationalPatternCannotConvert"
-    Title="Relational pattern value cannot be converted"
-    Message="Relational pattern value of type '{valueType}' cannot be converted to '{inputType}'"
+  <Descriptor Id="RAV1606" Identifier="ComparisonPatternCannotConvert"
+    Title="Comparison pattern value cannot be converted"
+    Message="Comparison pattern value of type '{valueType}' cannot be converted to '{inputType}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1607" Identifier="PatternTypedBindingRequiresKeyword"
     Title="Pattern binding requires a binding keyword"

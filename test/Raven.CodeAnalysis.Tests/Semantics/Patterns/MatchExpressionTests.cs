@@ -1245,7 +1245,7 @@ val result = pair match {
     }
 
     [Fact]
-    public void MatchExpression_WithPositionalPattern_ExplicitBindingAndExplicitValuePattern_BindsCorrectly()
+    public void MatchExpression_WithPositionalPattern_ExplicitBindingAndEqualityPattern_BindsCorrectly()
     {
         const string code = """
 val existingValue = 2
@@ -1275,7 +1275,8 @@ val result = pair match {
         var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstElement.Designator);
         Assert.Equal("a", firstDesignator.Local.Name);
 
-        Assert.IsType<BoundConstantPattern>(tuplePattern.Elements[1]);
+        var second = Assert.IsType<BoundComparisonPattern>(tuplePattern.Elements[1]);
+        Assert.Equal(BoundComparisonPatternOperator.Equals, second.Operator);
     }
 
     [Fact]
@@ -1307,7 +1308,8 @@ val result = pair match {
         var tuplePattern = Assert.IsType<BoundPositionalPattern>(boundMatch.Arms[0].Pattern);
 
         Assert.IsType<BoundConstantPattern>(tuplePattern.Elements[0]);
-        Assert.IsType<BoundConstantPattern>(tuplePattern.Elements[1]);
+        var second = Assert.IsType<BoundComparisonPattern>(tuplePattern.Elements[1]);
+        Assert.Equal(BoundComparisonPatternOperator.Equals, second.Operator);
     }
 
     [Fact]

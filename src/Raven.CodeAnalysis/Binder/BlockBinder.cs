@@ -3620,7 +3620,7 @@ partial class BlockBinder : Binder
         if (pattern is BoundConstantPattern)
             return false;
 
-        if (pattern is BoundRelationalPattern)
+        if (pattern is BoundComparisonPattern)
             return false;
 
         switch (pattern)

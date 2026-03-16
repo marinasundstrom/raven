@@ -56,7 +56,7 @@ internal partial class ExpressionGenerator
             case BoundConstantPattern:
                 return PatternInput.Typed;
 
-            case BoundRelationalPattern:
+            case BoundComparisonPattern:
             case BoundRangePattern:
                 return PatternInput.Typed;
 
@@ -106,9 +106,9 @@ internal partial class ExpressionGenerator
             curType = Compilation.GetSpecialType(SpecialType.System_Object);
         }
 
-        if (pattern is BoundRelationalPattern relational)
+        if (pattern is BoundComparisonPattern relational)
         {
-            EmitRelationalPattern(relational, inputType, scope, scrutineeLocal2);
+            EmitComparisonPattern(relational, inputType, scope, scrutineeLocal2);
             return;
         }
 
@@ -887,7 +887,7 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Brfalse, labelFail);
     }
 
-    private void EmitRelationalPattern(BoundRelationalPattern pattern, ITypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
+    private void EmitComparisonPattern(BoundComparisonPattern pattern, ITypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
     {
         // Stack on entry: <scrutinee>  (typed if PatternInput.Typed worked correctly)
 
@@ -896,6 +896,18 @@ internal partial class ExpressionGenerator
         {
             ILGenerator.Emit(OpCodes.Pop);
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            return;
+        }
+
+        if (pattern.Operator is BoundComparisonPatternOperator.Equals or BoundComparisonPatternOperator.NotEquals)
+        {
+            EmitRuntimeValueConstantCompare(pattern.Value, inputType, scrutineeLocal2);
+            if (pattern.Operator == BoundComparisonPatternOperator.NotEquals)
+            {
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq);
+            }
+
             return;
         }
 
@@ -932,7 +944,7 @@ internal partial class ExpressionGenerator
             EmitCompare(underlyingType);
 
             // apply operator vs 0
-            EmitRelationalOperator(pattern.Operator);
+            EmitComparisonOperator(pattern.Operator);
 
             ILGenerator.Emit(OpCodes.Br, labelDone);
 
@@ -947,7 +959,7 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
         EmitRelationalRhs(pattern.Value, inputType, scope);
         EmitCompare(inputType);
-        EmitRelationalOperator(pattern.Operator);
+        EmitComparisonOperator(pattern.Operator);
     }
 
     private void EmitRangePattern(BoundRangePattern pattern, ITypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
@@ -981,16 +993,16 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
             EmitRelationalRhs(pattern.LowerBound!, inputType, scope);
             EmitCompare(inputType);
-            EmitRelationalOperator(BoundRelationalPatternOperator.GreaterThanOrEqual);
+            EmitComparisonOperator(BoundComparisonPatternOperator.GreaterThanOrEqual);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
             // upper bound: scrutinee <= hi
             ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
             EmitRelationalRhs(pattern.UpperBound!, inputType, scope);
             EmitCompare(inputType);
-            EmitRelationalOperator(pattern.IsUpperExclusive
-                ? BoundRelationalPatternOperator.LessThan
-                : BoundRelationalPatternOperator.LessThanOrEqual);
+            EmitComparisonOperator(pattern.IsUpperExclusive
+                ? BoundComparisonPatternOperator.LessThan
+                : BoundComparisonPatternOperator.LessThanOrEqual);
             ILGenerator.Emit(OpCodes.Br, labelDone);
 
             ILGenerator.MarkLabel(labelFail);
@@ -1003,16 +1015,16 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
             EmitRelationalRhs(pattern.LowerBound, inputType, scope);
             EmitCompare(inputType);
-            EmitRelationalOperator(BoundRelationalPatternOperator.GreaterThanOrEqual);
+            EmitComparisonOperator(BoundComparisonPatternOperator.GreaterThanOrEqual);
         }
         else if (pattern.UpperBound is not null)
         {
             ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
             EmitRelationalRhs(pattern.UpperBound, inputType, scope);
             EmitCompare(inputType);
-            EmitRelationalOperator(pattern.IsUpperExclusive
-                ? BoundRelationalPatternOperator.LessThan
-                : BoundRelationalPatternOperator.LessThanOrEqual);
+            EmitComparisonOperator(pattern.IsUpperExclusive
+                ? BoundComparisonPatternOperator.LessThan
+                : BoundComparisonPatternOperator.LessThanOrEqual);
         }
         else
         {
@@ -1023,7 +1035,7 @@ internal partial class ExpressionGenerator
 
     private void EmitRelationalRhs(BoundExpression rhs, ITypeSymbol targetType, Generator scope)
     {
-        // Relational patterns are intended to be constant expressions, but be defensive:
+        // Comparison patterns are intended to be constant expressions, but be defensive:
         // - literals are fine
         // - const fields (or other compile-time constants) are fine
         // - otherwise we fall back to evaluating the expression normally
@@ -1049,7 +1061,7 @@ internal partial class ExpressionGenerator
 
         if (rhs is BoundFieldAccess fieldAccess)
         {
-            // Support `const` fields / literal-like symbols in relational patterns.
+            // Support `const` fields / literal-like symbols in comparison patterns.
             var constantValue = fieldAccess.Field.GetConstantValue();
             if (constantValue is not null)
             {
@@ -2054,7 +2066,7 @@ internal partial class ExpressionGenerator
 
     private void EmitConstantForRelational(BoundConstantPattern constant, ITypeSymbol targetType)
     {
-        // Relational patterns must be constant literals. Binder should enforce this.
+        // Comparison patterns must be constant literals. Binder should enforce this.
         var literal = constant.LiteralType;
         if (literal is null)
         {
@@ -2145,29 +2157,39 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Callvirt, compareMethod); // int
     }
 
-    private void EmitRelationalOperator(BoundRelationalPatternOperator op)
+    private void EmitComparisonOperator(BoundComparisonPatternOperator op)
     {
         // Stack: <compareResult:int>
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
 
         switch (op)
         {
-            case BoundRelationalPatternOperator.LessThan:
+            case BoundComparisonPatternOperator.Equals:
+                ILGenerator.Emit(OpCodes.Ceq);
+                break;
+
+            case BoundComparisonPatternOperator.NotEquals:
+                ILGenerator.Emit(OpCodes.Ceq);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq);
+                break;
+
+            case BoundComparisonPatternOperator.LessThan:
                 ILGenerator.Emit(OpCodes.Clt);
                 break;
 
-            case BoundRelationalPatternOperator.LessThanOrEqual:
+            case BoundComparisonPatternOperator.LessThanOrEqual:
                 // !(result > 0)
                 ILGenerator.Emit(OpCodes.Cgt);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
 
-            case BoundRelationalPatternOperator.GreaterThan:
+            case BoundComparisonPatternOperator.GreaterThan:
                 ILGenerator.Emit(OpCodes.Cgt);
                 break;
 
-            case BoundRelationalPatternOperator.GreaterThanOrEqual:
+            case BoundComparisonPatternOperator.GreaterThanOrEqual:
                 // !(result < 0)
                 ILGenerator.Emit(OpCodes.Clt);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
@@ -2336,7 +2358,7 @@ internal partial class ExpressionGenerator
             return;
         }
 
-        // Constant and relational patterns already produce a boolean efficiently.
+        // Constant and comparison patterns already produce a boolean efficiently.
         // We keep their existing implementation but immediately branch on false.
         if (pattern is BoundConstantPattern cp)
         {
@@ -2345,9 +2367,9 @@ internal partial class ExpressionGenerator
             return;
         }
 
-        if (pattern is BoundRelationalPattern rp)
+        if (pattern is BoundComparisonPattern rp)
         {
-            EmitRelationalPattern(rp, inputType, scope, scrutineeLocal2);
+            EmitComparisonPattern(rp, inputType, scope, scrutineeLocal2);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
             return;
         }

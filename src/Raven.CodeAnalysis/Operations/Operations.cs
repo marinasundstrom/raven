@@ -486,7 +486,7 @@ public interface IConstantPatternOperation : IPatternOperation
     IOperation? Value { get; }
 }
 
-public interface IRelationalPatternOperation : IPatternOperation
+public interface IComparisonPatternOperation : IPatternOperation
 {
     SyntaxKind OperatorKind { get; }
 

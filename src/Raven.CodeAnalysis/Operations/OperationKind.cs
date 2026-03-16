@@ -351,9 +351,9 @@ public enum OperationKind
     ConstantPattern,
 
     /// <summary>
-    /// A relational pattern.
+    /// A comparison pattern.
     /// </summary>
-    RelationalPattern,
+    ComparisonPattern,
 
     /// <summary>
     /// A positional pattern.

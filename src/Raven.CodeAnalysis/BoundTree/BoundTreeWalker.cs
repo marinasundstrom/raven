@@ -487,8 +487,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundPropertyPattern propertyPattern:
                 VisitPropertyPattern(propertyPattern);
                 break;
-            case BoundRelationalPattern relationalPattern:
-                VisitRelationalPattern(relationalPattern);
+            case BoundComparisonPattern relationalPattern:
+                VisitComparisonPattern(relationalPattern);
                 break;
             default:
                 break;
@@ -563,7 +563,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitPattern(property.Pattern);
     }
 
-    public override void VisitRelationalPattern(BoundRelationalPattern node)
+    public override void VisitComparisonPattern(BoundComparisonPattern node)
     {
         VisitExpression(node.Value);
     }

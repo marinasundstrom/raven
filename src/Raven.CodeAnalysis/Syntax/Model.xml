@@ -790,10 +790,6 @@
   <Node Name="ConstantPattern" Inherits="Pattern">
     <Slot Name="Expression" Type="Expression" />
   </Node>
-  <Node Name="ExplicitValuePattern" Inherits="Pattern">
-    <Slot Name="EqualsEqualsToken" Type="Token" DefaultToken="EqualsEqualsToken" />
-    <Slot Name="Expression" Type="Expression" />
-  </Node>
   <Node Name="UnaryPattern" Inherits="Pattern" HasExplicitKind="true">
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Pattern" Type="Pattern" />
@@ -803,7 +799,7 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Right" Type="Pattern" />
   </Node>
-  <Node Name="RelationalPattern" Inherits="Pattern" HasExplicitKind="true">
+  <Node Name="ComparisonPattern" Inherits="Pattern" HasExplicitKind="true">
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
