@@ -15,23 +15,23 @@ func Main(args: string[]) {
     app.MapGet("/del", func (context: HttpContext) => context.Response.WriteAsync("Hello World"))
 
     func ping(name: string) -> PingResult {
-        PingResult("pong ${name}")
+        PingResult("pong $name")
     }
 
     app.MapGet("/ping0", ping)
 
     func ping1(name: string) -> Result<PingResult, CustomError> {
         match name {
-            "Bob" | "bob" => Ok(PingResult("pong ${name}"))
+            "Bob" | "bob" => Ok(PingResult("pong $name"))
             _ => Error(CustomError("Invalid name"))
         }
     }
 
     app.MapGet("/ping1", ping1)
 
-    app.MapGet("/ping", func (name: string) => "pong ${name}")
+    app.MapGet("/ping", func (name: string) => "pong $name")
 
-    app.MapGet("/ping2", func (no: int = 2) => "pong ${no}")
+    app.MapGet("/ping2", func (no: int = 2) => "pong $no")
 
     app.MapGet("/async", async func () => {
         await Task.Delay(1)
