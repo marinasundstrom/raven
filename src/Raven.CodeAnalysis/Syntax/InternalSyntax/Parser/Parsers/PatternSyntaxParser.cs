@@ -89,19 +89,7 @@ internal class PatternSyntaxParser : SyntaxParser
         {
             if (TryParsePropertyPatternClause(out var clause))
             {
-                // Allow an optional designation after a property pattern: `{ ... } name` / `{ ... } (a, b)`
-                VariableDesignationSyntax? designation2 = null;
-
-                var next = PeekToken();
-                var canStartDesignation =
-                    CanTokenBeIdentifier(next) ||
-                    next.IsKind(SyntaxKind.OpenParenToken) ||
-                    next.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
-
-                if (canStartDesignation)
-                    designation2 = ParseDesignation();
-
-                return PropertyPattern(null, clause, designation2);
+                return PropertyPattern(null, clause, ParseOptionalTrailingDesignation());
             }
 
             return CreateMissingPattern();
@@ -162,18 +150,7 @@ internal class PatternSyntaxParser : SyntaxParser
         {
             if (TryParsePropertyPatternClause(out var clause))
             {
-                // Allow an optional designation after a property pattern: `Type { ... } name` / `Type { ... } (a, b)`
-                VariableDesignationSyntax? designation2 = null;
-                var next = PeekToken();
-                var canStartDesignation =
-                    CanTokenBeIdentifier(next) ||
-                    next.IsKind(SyntaxKind.OpenParenToken) ||
-                    next.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
-
-                if (canStartDesignation)
-                    designation2 = ParseDesignation();
-
-                return PropertyPattern(type, clause, designation2);
+                return PropertyPattern(type, clause, ParseOptionalTrailingDesignation());
             }
 
             return DeclarationPattern(type, null);
@@ -639,12 +616,24 @@ internal class PatternSyntaxParser : SyntaxParser
             return null;
 
         var next = PeekToken();
+        if (HasLeadingEndOfLineTrivia(next))
+            return null;
+
         var canStartDesignation =
-            CanTokenBeIdentifier(next) ||
-            next.IsKind(SyntaxKind.OpenParenToken) ||
-            next.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+            !IsPatternTerminatorThatCannotStartDesignation(next.Kind) &&
+            (CanTokenBeIdentifier(next) ||
+             next.IsKind(SyntaxKind.OpenParenToken) ||
+             next.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword);
 
         return canStartDesignation ? ParseDesignation() : null;
+    }
+
+    private static bool IsPatternTerminatorThatCannotStartDesignation(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.InKeyword
+            or SyntaxKind.EqualsToken
+            or SyntaxKind.FatArrowToken
+            or SyntaxKind.WhenKeyword;
     }
 
     private static SyntaxKind GetComparisonPatternKind(SyntaxKind operatorTokenKind)
