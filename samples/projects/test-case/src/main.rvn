@@ -26,7 +26,7 @@ func Main() {
     WriteLine("ch: $ch, start: $start, and end: $end")
 
     val points = [(2, 3), (2, 0), (5, 1)]
-    for var (x, 0) in points {
+    for val (x, 0) in points {
         WriteLine(x)
     }
 
@@ -36,7 +36,7 @@ func Main() {
     }
 
     val point = (5, 1)
-    if var (x, 1) = point {
+    if val (x, 1) = point {
         WriteLine(x)
     }
 

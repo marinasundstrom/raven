@@ -1,25 +1,36 @@
 ## Raven programming language
 
-### Sub sections
+This section covers Raven as it exists today: a .NET language with an expression-oriented style, explicit mutability, pattern matching, `Option`/`Result`-based flow, records and primary constructors, extensions/traits, and direct .NET interop.
 
+### Start here
+
+* [Introduction](../introduction.md)
+* [Language philosophy](philosophy.md)
 * [Language specification](spec/language-specification.md)
-* [Macros](spec/macros.md)
 * [Type system](spec/type-system.md)
 * [Style guide](style-guide.md)
 * [Proposals](proposals)
 
-### Vision
+### Current shape in one screen
 
-These examples show the envisioned syntax of the language:
+```raven
+import System.Console.*
 
-```csharp
-import System.*
+func Main() -> () {
+    val result = ParsePort("8080") match {
+        Ok(val port) => "Listening on $port"
+        Error(val err) => "Invalid port: $err"
+    }
 
-Console.Write("What is your name? ")
+    WriteLine(result)
+}
 
-let name = Console.ReadLine()
-
-if name is not null {
-    Console.Write($"Hello, {name}!")
+func ParsePort(text: string) -> Result<int, string> {
+    return try int.Parse(text) match {
+        Ok(val value) => Ok(value)
+        Error(_) => Error("not a number")
+    }
 }
 ```
+
+Use the introduction for a guided overview and the specification for precise language rules.

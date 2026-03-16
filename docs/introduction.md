@@ -1,17 +1,17 @@
 # Raven
 
-Raven is a modern, expression-oriented programming language for .NET.
-It favors explicit flow, clear mutability, and low-ceremony syntax while preserving strong interoperability with the .NET ecosystem.
+Raven is a .NET language built around a few clear ideas: expression-oriented code where values help, statement forms where effects are clearer, explicit mutability, explicit pattern bindings, and pragmatic interop with the .NET ecosystem.
 
-Raven is built around a few core ideas:
+It takes visible inspiration from Swift, Rust, and F#, but Raven is not trying to imitate any one of them exactly. Its current shape is defined more by consistency than by novelty:
 
-- Expressions first
-- Explicit mutability (`val` vs `var`)
-- Explicit recoverable flow (`Result`/`Option`)
-- Pattern matching as a first-class branching tool
-- Public-by-default type members
+- expression-oriented code with statement forms where control flow is clearer
+- explicit mutability with `val` and `var`
+- explicit pattern bindings, including deconstruction and control-flow patterns
+- `Option<T>` and `Result<T, E>` as ordinary control-flow shapes
+- records, primary constructors, unions, and structural patterns
+- direct use of .NET libraries, collections, async APIs, and IL-based tooling
 
-> Raven has no `void`; it uses `()` (`unit`).
+> Raven has no `void`; it uses `unit`, written as `()`.
 
 ---
 
@@ -67,6 +67,13 @@ func ParseInt(text: string) -> Result<int, string> {
 }
 ```
 
+That example shows the current Raven style in miniature:
+
+- `match` is a normal expression
+- `Result` values are handled directly instead of being wrapped in exception-heavy flow
+- pattern arms use explicit binding keywords where they introduce new values
+- .NET APIs such as `int.Parse` are used directly
+
 ---
 
 ## Bindings and mutability
@@ -83,11 +90,13 @@ val a = 1, b = 2
 var left = 10, right = 20
 ```
 
+Raven also accepts `let` as an alias for `val`, but current docs and examples prefer `val`.
+
 ---
 
 ## Expressions and matching
 
-`if` and `match` are commonly used in expression position.
+`if` and `match` are commonly used in expression position, but Raven is not expression-only. Loops, disposal, mutation, and early returns remain ordinary statement forms when that keeps intent clearer.
 
 ```raven
 val label = value match {
@@ -104,11 +113,34 @@ val message = if isAnonymous {
 }
 ```
 
+Raven also leans heavily on patterns as a control-flow surface, not only as a `match` feature:
+
+```raven
+if val Person(1, name, _) = person {
+    WriteLine(name)
+}
+
+for val [first, ..rest] in rows {
+    WriteLine(first)
+}
+
+val label = input match {
+    val Some((x, y)) => "($x, $y)"
+    _ => "none"
+}
+```
+
+The important rule is that pattern bindings stay explicit. In inline and freestanding
+patterns, a capture uses a binding keyword. When Raven offers an outer shorthand
+form such as `val (...) = expr`, `if val pattern = expr`, `for val pattern in values`,
+or `match { val pattern => ... }`, that outer keyword supplies the binding mode for
+otherwise bare captures inside the pattern.
+
 ---
 
 ## Result and Option
 
-Raven encourages recoverable flow as data.
+Raven treats recoverable flow as data. In domain code, `Option<T>` is preferred for absence and `Result<T, E>` for expected failures.
 
 ```raven
 func Divide(a: int, b: int) -> Result<int, string> {
@@ -146,7 +178,7 @@ func BuildLabel(values: int[]) -> Result<string, string> {
 
 ### Railroad-style flow with carrier methods
 
-Raven supports pipeline-friendly methods on `Result` and `Option` so transformations and fallbacks stay in one straight line:
+Raven also supports pipeline-friendly methods on `Result` and `Option` so transformations and fallbacks stay in one straight line:
 
 ```raven
 import System.Linq.*
@@ -193,6 +225,12 @@ func PromoCents(code: Option<string>) -> Option<int> {
 record class ShipmentRequest(val Id: string, val Carrier: string, val WeightKg: int, val PromoCode: Option<string>)
 record class RatePlan(val Carrier: string, val BaseCents: int, val PerKgCents: int)
 ```
+
+In Raven, `null` still exists for .NET interop, but it is not the preferred domain-modeling tool. The intended direction is:
+
+- use `Option<T>` for absence in Raven code
+- use `Result<T, E>` for expected failure
+- use nullable types primarily where .NET APIs already speak in those terms
 
 ---
 
@@ -246,6 +284,42 @@ val delayedAdd = async func (a: int, b: int) {
 
 `static` function expressions cannot capture outer locals or parameters.
 
+Function signatures, function expressions, and tuple shapes intentionally reuse the same arrow-and-parentheses vocabulary so higher-order code stays readable instead of introducing a separate syntax family.
+
+---
+
+## Data shapes and patterns
+
+Raven treats structural data inspection as a core language tool.
+
+```raven
+union Token {
+    Identifier(text: string)
+    Number(value: int)
+    End
+}
+
+func Describe(token: Token) -> string {
+    return token match {
+        .Identifier(val text) => "id: $text"
+        .Number(val value) => "number: $value"
+        .End => "end"
+    }
+}
+```
+
+The same general pattern model works across:
+
+- `match`
+- `if value is pattern`
+- `if val pattern = expr`
+- `for ... in` with pattern targets
+- deconstruction assignment and declaration
+
+This reuse is intentional. Raven wants one pattern system that scales across value
+inspection, branching, iteration, and deconstruction instead of splitting those
+features into unrelated syntax families.
+
 ---
 
 ## Extensions
@@ -260,6 +334,8 @@ import MyApp.StringExt.*
 
 val slug = "Hello World".ToSlug()
 ```
+
+Raven also supports `trait` as an alternate declaration keyword for the same construct. Both spellings participate in the same extension lookup model.
 
 ---
 
@@ -292,6 +368,11 @@ class Counter(private var count: int = 0) {
 }
 ```
 
+Extensions and traits are part of Raven’s “interop without surrender” story:
+the core language stays compact, while everyday ergonomics can still grow
+through normal library surfaces instead of requiring a special compiler feature
+for every convenience.
+
 ---
 
 ## Async and await
@@ -318,6 +399,8 @@ import System.Collections.Generic.*
 val numbers: List<int> = [1, 2, 3]
 WriteLine(numbers.Count)
 ```
+
+Raven is designed to work with the .NET ecosystem directly, including BCL APIs, LINQ-style pipelines, tasks, and normal CLR types.
 
 ---
 

@@ -14,10 +14,10 @@
 - **Targets the .NET runtime** — compiles directly to IL and interoperates with .NET libraries
 - **Compiler-as-a-Service architecture** — immutable, service-oriented compiler APIs
 
-Raven is primarily a **learning and exploration project**, aimed at:
-- Understanding modern compiler construction
-- Experimenting with language design
+Raven is aimed at:
+- Building a modern programming language and compiler for .NET
 - Providing a clean API for syntax manipulation and analysis
+- Documenting language and compiler design clearly
 
 
 ## 🔰 Language Overview
