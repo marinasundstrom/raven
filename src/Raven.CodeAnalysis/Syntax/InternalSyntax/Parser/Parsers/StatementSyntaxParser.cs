@@ -341,7 +341,7 @@ internal class StatementSyntaxParser : SyntaxParser
         SyntaxToken? elseKeyword = null;
         StatementSyntax? elseStatement = null;
 
-        ElseClause2Syntax? elseClause = null;
+        ElseClauseSyntax? elseClause = null;
 
         if (ConsumeToken(SyntaxKind.ElseKeyword, out var elseTok))
         {
@@ -349,7 +349,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
             elseStatement = ParseStatement();
 
-            elseClause = ElseClause2(elseKeyword, elseStatement);
+            elseClause = ElseClause(elseKeyword, elseStatement);
         }
 
         SetTreatNewlinesAsTokens(true);
@@ -366,11 +366,11 @@ internal class StatementSyntaxParser : SyntaxParser
         var expression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
         var thenStatement = ParseStatement();
 
-        ElseClause2Syntax? elseClause = null;
+        ElseClauseSyntax? elseClause = null;
         if (ConsumeToken(SyntaxKind.ElseKeyword, out var elseKeyword))
         {
             var elseStatement = ParseStatement();
-            elseClause = ElseClause2(elseKeyword, elseStatement);
+            elseClause = ElseClause(elseKeyword, elseStatement);
         }
 
         SetTreatNewlinesAsTokens(true);

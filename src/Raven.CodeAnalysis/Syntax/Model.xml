@@ -255,7 +255,7 @@
     <Slot Name="IfKeyword" Type="Token" DefaultToken="IfKeyword" />
     <Slot Name="Condition" Type="Expression" />
     <Slot Name="ThenStatement" Type="Statement" />
-    <Slot Name="ElseClause" Type="ElseClause2" IsNullable="true" />
+    <Slot Name="ElseClause" Type="ElseClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="NewLineToken" />
   </Node>
   <Node Name="IfPatternStatement" Inherits="Statement">
@@ -265,7 +265,7 @@
     <Slot Name="OperatorToken" Type="Token" DefaultToken="EqualsToken" />
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="ThenStatement" Type="Statement" />
-    <Slot Name="ElseClause" Type="ElseClause2" IsNullable="true" />
+    <Slot Name="ElseClause" Type="ElseClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="NewLineToken" />
   </Node>
   <Node Name="WhileStatement" Inherits="Statement">
@@ -623,7 +623,7 @@
     <Slot Name="IfKeyword" Type="Token" DefaultToken="IfKeyword" />
     <Slot Name="Condition" Type="Expression" />
     <Slot Name="Expression" Type="Expression" />
-    <Slot Name="ElseClause" Type="ElseClause" IsNullable="true" />
+    <Slot Name="ElseClause" Type="ElseExpressionClause" IsNullable="true" />
   </Node>
   <Node Name="MatchExpression" Inherits="Expression">
     <Slot Name="Expression" Type="Expression" />
@@ -712,11 +712,11 @@
     <Slot Name="Target" Type="Type" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
-  <Node Name="ElseClause" Inherits="Node">
+  <Node Name="ElseExpressionClause" Inherits="Node">
     <Slot Name="ElseKeyword" Type="Token" DefaultToken="ElseKeyword" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
-  <Node Name="ElseClause2" Inherits="Node">
+  <Node Name="ElseClause" Inherits="Node">
     <Slot Name="ElseKeyword" Type="Token" DefaultToken="ElseKeyword" />
     <Slot Name="Statement" Type="Statement" />
   </Node>

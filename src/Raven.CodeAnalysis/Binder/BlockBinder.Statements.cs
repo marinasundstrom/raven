@@ -67,7 +67,7 @@ partial class BlockBinder
     private BoundStatement BindIfCore(
         BoundExpression condition,
         StatementSyntax thenStatementSyntax,
-        ElseClause2Syntax? elseClauseSyntax,
+        ElseClauseSyntax? elseClauseSyntax,
         SyntaxNode conditionSyntax,
         Location ifKeywordLocation)
     {

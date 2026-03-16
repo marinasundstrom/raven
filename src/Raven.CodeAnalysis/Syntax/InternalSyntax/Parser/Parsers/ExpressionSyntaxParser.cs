@@ -2649,25 +2649,25 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 ));
         }
 
-        ElseClauseSyntax? elseClause = null;
+        ElseExpressionClauseSyntax? elseClause = null;
 
         var elseToken = PeekToken();
 
         if (elseToken.IsKind(SyntaxKind.ElseKeyword))
         {
-            elseClause = ParseElseClauseSyntax();
+            elseClause = ParseElseExpressionClauseSyntax();
         }
 
         return IfExpression(ifKeyword, condition!, expression!, elseClause);
     }
 
-    private ElseClauseSyntax ParseElseClauseSyntax()
+    private ElseExpressionClauseSyntax ParseElseExpressionClauseSyntax()
     {
         var elseKeyword = ReadToken();
 
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
-        return ElseClause(elseKeyword, expression);
+        return ElseExpressionClause(elseKeyword, expression);
     }
 
     internal ArrowExpressionClauseSyntax? ParseArrowExpressionClause()

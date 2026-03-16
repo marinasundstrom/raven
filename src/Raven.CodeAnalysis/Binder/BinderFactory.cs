@@ -32,7 +32,7 @@ class BinderFactory
             IfExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
             IfStatementSyntax stmt => new LocalScopeBinder(parentBinder!),
             IfPatternStatementSyntax stmt => new LocalScopeBinder(parentBinder!),
-            ElseClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
+            ElseExpressionClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
             WhileStatementSyntax stmt => new BlockBinder(parentBinder!.ContainingSymbol, parentBinder!),
             ForStatementSyntax stmt => new BlockBinder(parentBinder!.ContainingSymbol, parentBinder!),
             FunctionStatementSyntax localFunc => new FunctionBinder(parentBinder!, localFunc),
