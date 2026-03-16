@@ -70,7 +70,10 @@ val inferred = 1
 
 ### Arrays
 
-`T[]` becomes `System.Array` with element type `T`. Array element types preserve
+`T[]` becomes `System.Array` with element type `T`. Raven also supports
+single-dimensional fixed-size array types written as `T[N]`. These remain CLR
+arrays at runtime, but the compiler preserves the declared size as metadata for
+type checking, conversions, and pattern analysis. Array element types preserve
 their nullability and generic arguments, and indexing uses the CLI's
 single-dimensional, zero-based representation (`System.Array.CreateInstance` with
 lower bound 0). Multidimensional arrays follow the underlying CLI semantics but

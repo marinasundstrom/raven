@@ -244,6 +244,7 @@ internal class CodeGenerator
     private MethodBase? EntryPoint { get; set; }
 
     public Type? ExtensionMarkerNameAttributeType { get; private set; }
+    public Type? FixedSizeArrayAttributeType { get; private set; }
     public Type? NullableAttributeType { get; private set; }
     public Type? TupleElementNamesAttributeType { get; private set; }
     public Type? DiscriminatedUnionAttributeType { get; private set; }
@@ -256,6 +257,7 @@ internal class CodeGenerator
     ConstructorInfo? _discriminatedUnionCtor;
     ConstructorInfo? _discriminatedUnionCaseCtor;
     ConstructorInfo? _extensionMarkerNameCtor;
+    ConstructorInfo? _fixedSizeArrayCtor;
     ConstructorInfo? _extensionAttributeCtor;
     ConstructorInfo? _closedHierarchyCtor;
     ConstructorInfo? _compilerGeneratedCtor;
@@ -974,6 +976,8 @@ internal class CodeGenerator
     {
         ExtensionMarkerNameAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionMarkerNameAttribute");
         _extensionMarkerNameCtor ??= ExtensionMarkerNameAttributeType?.GetConstructor(new[] { typeof(string) });
+        FixedSizeArrayAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.FixedSizeArrayAttribute");
+        _fixedSizeArrayCtor ??= FixedSizeArrayAttributeType?.GetConstructor(new[] { typeof(int) });
         ExtensionAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionAttribute");
         _extensionAttributeCtor ??= ExtensionAttributeType?.GetConstructor(Type.EmptyTypes);
         UnitType ??= Compilation.ResolveRuntimeType("System.Unit");
@@ -1060,6 +1064,67 @@ internal class CodeGenerator
         _extensionMarkerNameCtor = ExtensionMarkerNameAttributeType.GetConstructor(new[] { typeof(string) });
     }
 
+    private void CreateFixedSizeArrayAttributeType()
+    {
+        if (FixedSizeArrayAttributeType is not null)
+            return;
+
+        var attrBuilder = ModuleBuilder.DefineType(
+            "System.Runtime.CompilerServices.FixedSizeArrayAttribute",
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
+            typeof(Attribute));
+
+        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor([typeof(AttributeTargets)]);
+        var attrUsageBuilder = new CustomAttributeBuilder(
+            attrUsageCtor,
+            [AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Parameter | AttributeTargets.ReturnValue]);
+        attrBuilder.SetCustomAttribute(attrUsageBuilder);
+
+        var sizeField = attrBuilder.DefineField(
+            "<Size>k__BackingField",
+            typeof(int),
+            FieldAttributes.Private | FieldAttributes.InitOnly);
+
+        var propBuilder = attrBuilder.DefineProperty(
+            "Size",
+            PropertyAttributes.None,
+            typeof(int),
+            null);
+
+        var getterMethod = attrBuilder.DefineMethod(
+            "get_Size",
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
+            typeof(int),
+            Type.EmptyTypes);
+
+        var ilGet = getterMethod.GetILGenerator();
+        ilGet.Emit(OpCodes.Ldarg_0);
+        ilGet.Emit(OpCodes.Ldfld, sizeField);
+        ilGet.Emit(OpCodes.Ret);
+
+        propBuilder.SetGetMethod(getterMethod);
+
+        var ctorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            new[] { typeof(int) });
+
+        var ilCtor = ctorBuilder.GetILGenerator();
+        var attributeCtor = typeof(Attribute).GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        if (attributeCtor is null)
+            throw new InvalidOperationException("Missing Attribute base constructor.");
+
+        ilCtor.Emit(OpCodes.Ldarg_0);
+        ilCtor.Emit(OpCodes.Call, attributeCtor);
+        ilCtor.Emit(OpCodes.Ldarg_0);
+        ilCtor.Emit(OpCodes.Ldarg_1);
+        ilCtor.Emit(OpCodes.Stfld, sizeField);
+        ilCtor.Emit(OpCodes.Ret);
+
+        FixedSizeArrayAttributeType = attrBuilder.CreateType();
+        _fixedSizeArrayCtor = FixedSizeArrayAttributeType.GetConstructor(new[] { typeof(int) });
+    }
+
     internal CustomAttributeBuilder? CreateExtensionMarkerNameAttribute(string markerName)
     {
         if (string.IsNullOrWhiteSpace(markerName))
@@ -1075,6 +1140,20 @@ internal class CodeGenerator
             return null;
 
         return new CustomAttributeBuilder(_extensionMarkerNameCtor, new object[] { markerName });
+    }
+
+    internal CustomAttributeBuilder? CreateFixedSizeArrayAttribute(ITypeSymbol type)
+    {
+        if (type is not IArrayTypeSymbol { FixedSize: int fixedSize, Rank: 1 })
+            return null;
+
+        if (FixedSizeArrayAttributeType is null || _fixedSizeArrayCtor is null)
+            CreateFixedSizeArrayAttributeType();
+
+        if (_fixedSizeArrayCtor is null)
+            return null;
+
+        return new CustomAttributeBuilder(_fixedSizeArrayCtor, new object[] { fixedSize });
     }
 
     internal CustomAttributeBuilder? CreateExtensionAttributeBuilder()

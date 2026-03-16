@@ -269,7 +269,7 @@ public static partial class SymbolExtensions
             var substitutedElement = SubstituteTypeParameters(arrayType.ElementType, map);
 
             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
-                return new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+                return new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedSize);
 
             return type;
         }

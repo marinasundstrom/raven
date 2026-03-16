@@ -1974,7 +1974,7 @@ public partial class SemanticModel
                 var substituted = SubstituteTypeParameters(arrayType.ElementType, substitutions);
                 return SymbolEqualityComparer.Default.Equals(substituted, arrayType.ElementType)
                     ? type
-                    : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+                    : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedSize);
             }
 
             if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)

@@ -407,7 +407,18 @@ internal abstract partial class Binder
                 Issues = element.Issues.Add(ResolveTypeResult.ResolutionIssue.Failure(a.ElementType, TypeResolutionFailureKind.ArrayElementFailed))
             };
 
-        return new ResolveTypeResult { ResolvedType = Compilation.CreateArrayTypeSymbol(element.ResolvedType, a.RankSpecifiers.Count) };
+        var resolvedType = element.ResolvedType;
+
+        foreach (var rankSpecifier in a.RankSpecifiers)
+        {
+            var rank = rankSpecifier.CommaTokens.Count + 1;
+            resolvedType = Compilation.CreateArrayTypeSymbol(
+                resolvedType,
+                rank,
+                TryGetFixedArraySize(rankSpecifier));
+        }
+
+        return new ResolveTypeResult { ResolvedType = resolvedType };
     }
 
     private ResolveTypeResult BindByRef(

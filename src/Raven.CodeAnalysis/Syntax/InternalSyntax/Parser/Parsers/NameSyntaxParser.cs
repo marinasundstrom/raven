@@ -186,7 +186,11 @@ internal class NameSyntaxParser : SyntaxParser
     private ArrayRankSpecifierSyntax ParseArrayRankSpecifier()
     {
         var openBracket = ReadToken();
+        SyntaxToken sizeToken = MissingToken(SyntaxKind.NumericLiteralToken);
         SyntaxList commas = SyntaxList.Empty;
+
+        if (PeekToken().IsKind(SyntaxKind.NumericLiteralToken))
+            sizeToken = ReadToken();
 
         while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
         {
@@ -195,7 +199,7 @@ internal class NameSyntaxParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracket);
 
-        return ArrayRankSpecifier(openBracket, commas, closeBracket);
+        return ArrayRankSpecifier(openBracket, sizeToken, commas, closeBracket);
     }
 
     public UnqualifiedNameSyntax ParseUnqualifiedName()

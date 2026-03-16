@@ -719,7 +719,9 @@ public static partial class SymbolExtensions
             var elementDisplay = FormatType(arrayType.ElementType, format);
 
             if (arrayType.Rank == 1)
-                return elementDisplay + "[]";
+                return arrayType.FixedSize is int fixedSize
+                    ? elementDisplay + $"[{fixedSize}]"
+                    : elementDisplay + "[]";
 
             var elementType = arrayType.ElementType;
 

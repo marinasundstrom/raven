@@ -288,7 +288,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
                 var substitutedElement = SubstituteCore(arrayType.ElementType, methodMap, inProgress, cache);
 
                 if (!IsEquivalentForSubstitution(substitutedElement, arrayType.ElementType))
-                    result = new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+                    result = new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedSize);
                 else
                     result = type;
 
@@ -627,7 +627,8 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
                 arrayArgument.ContainingType,
                 arrayArgument.ContainingNamespace,
                 [],
-                arrayArgument.Rank);
+                arrayArgument.Rank,
+                arrayArgument.FixedSize);
         }
 
         if (argument is RefTypeSymbol refTypeArgument)

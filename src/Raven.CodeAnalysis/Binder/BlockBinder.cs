@@ -4782,7 +4782,7 @@ partial class BlockBinder : Binder
             foreach (var rankSpecifier in arrayTypeSyntax.RankSpecifiers)
             {
                 var rank = rankSpecifier.CommaTokens.Count + 1;
-                elementType = Compilation.CreateArrayTypeSymbol(elementType, rank);
+                elementType = Compilation.CreateArrayTypeSymbol(elementType, rank, TryGetFixedArraySize(rankSpecifier));
             }
 
             return new BoundTypeExpression(elementType);
@@ -8568,6 +8568,21 @@ partial class BlockBinder : Binder
 
         sliceType = GetSequenceSliceType(valueType, elementType);
 
+        if (valueType is IArrayTypeSymbol fixedArray && fixedArray.FixedSize is int fixedSize)
+        {
+            var requiredWidth = elementWidths.Where(width => width > 0).Sum();
+            var hasRestSegment = restIndex >= 0;
+            var matches = hasRestSegment ? requiredWidth <= fixedSize : requiredWidth == fixedSize;
+
+            if (!matches)
+            {
+                _diagnostics.ReportPositionalDeconstructionElementCountMismatch(
+                    requiredWidth,
+                    fixedSize,
+                    pattern.GetLocation());
+            }
+        }
+
         for (var i = 0; i < elementCount; i++)
         {
             var elementSyntax = elements[i];
@@ -10255,7 +10270,11 @@ partial class BlockBinder : Binder
                 syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
-        var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType);
+        var fallbackFixedSize = elements.Count > 0 &&
+                                elements.All(static element => element is not BoundSpreadElement and not BoundCollectionComprehensionExpression)
+            ? (int?)elements.Count
+            : null;
+        var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType, fixedSize: fallbackFixedSize);
 
         var convertedFallback = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
 
@@ -10827,7 +10846,7 @@ partial class BlockBinder : Binder
 
         if (normalized is IArrayTypeSymbol { Rank: 1 } arrayType)
         {
-            concreteType = arrayType;
+            concreteType = Compilation.CreateArrayTypeSymbol(arrayType.ElementType);
             return true;
         }
 

@@ -378,6 +378,22 @@ class Sample {{
     }
 
     [Fact]
+    public void Comparer_DistinguishesFixedArraySizes()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var fixedThree = compilation.CreateArrayTypeSymbol(intType, fixedSize: 3);
+        var fixedFour = compilation.CreateArrayTypeSymbol(intType, fixedSize: 4);
+        var open = compilation.CreateArrayTypeSymbol(intType);
+
+        var comparer = SymbolEqualityComparer.Default;
+        Assert.False(comparer.Equals(fixedThree, fixedFour));
+        Assert.False(comparer.Equals(fixedThree, open));
+    }
+
+    [Fact]
     public void Comparer_RecognizesMetadataDefinitions()
     {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -508,7 +524,8 @@ class Sample {{
 
     private sealed class CyclicSymbol : ISymbol
     {
-        public CyclicSymbol(SymbolKind kind, string name, string metadataName) {
+        public CyclicSymbol(SymbolKind kind, string name, string metadataName)
+        {
             Kind = kind;
             Name = name;
             MetadataName = metadataName;

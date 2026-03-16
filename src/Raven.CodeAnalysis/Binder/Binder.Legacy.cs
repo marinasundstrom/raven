@@ -53,7 +53,7 @@ internal abstract partial class Binder
             foreach (var rankSpecifier in arrayTypeSyntax.RankSpecifiers)
             {
                 var rank = rankSpecifier.CommaTokens.Count + 1;
-                currentElementType = Compilation.CreateArrayTypeSymbol(currentElementType, rank);
+                currentElementType = Compilation.CreateArrayTypeSymbol(currentElementType, rank, TryGetFixedArraySize(rankSpecifier));
             }
 
             return ApplyRefKindHint(currentElementType, refKindHint);
@@ -176,6 +176,16 @@ internal abstract partial class Binder
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, typeSyntax.GetLocation() ?? Location.None);
         return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
+    }
+
+    protected static int? TryGetFixedArraySize(ArrayRankSpecifierSyntax rankSpecifier)
+    {
+        if (rankSpecifier.CommaTokens.Count != 0 || rankSpecifier.SizeToken.Kind != SyntaxKind.NumericLiteralToken)
+            return null;
+
+        return int.TryParse(rankSpecifier.SizeToken.ValueText, out var fixedSize)
+            ? fixedSize
+            : null;
     }
 
     protected ISymbol? ResolveName(NameSyntax name)

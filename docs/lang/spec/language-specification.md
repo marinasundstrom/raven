@@ -1163,7 +1163,8 @@ Collection expressions are target-typed:
     with diagnostic `RAV2027` and an explicit target type is required.
   * If no concrete spread-based target can be inferred, Raven falls back to array inference:
     it infers a best common element type by merging all element contributions (spreads use
-    their enumerated element type), then produces `T[]`.
+    their enumerated element type), then produces `T[N]` for plain collection literals with
+    a statically known element count and `T[]` otherwise.
   * If no compatible common element type can be inferred without falling back to
     `object`, `System.ValueType`, or interfaces, inference fails
     with a type-mismatch diagnostic and an explicit target type is required.

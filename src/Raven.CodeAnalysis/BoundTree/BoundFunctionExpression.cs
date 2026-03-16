@@ -245,7 +245,7 @@ internal partial class BoundFunctionExpression : BoundExpression
                             var substitutedElement = SubstituteType(arrayType.ElementType, substitutions, compilation);
                             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
                             {
-                                return compilation.CreateArrayTypeSymbol(substitutedElement, arrayType.Rank);
+                                return compilation.CreateArrayTypeSymbol(substitutedElement, arrayType.Rank, arrayType.FixedSize);
                             }
 
                             return arrayType;

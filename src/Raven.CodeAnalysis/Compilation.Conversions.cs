@@ -283,6 +283,23 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: true, isPointer: true));
         }
 
+        if (source is IArrayTypeSymbol sourceArray && destination is IArrayTypeSymbol destinationArray)
+        {
+            if (sourceArray.Rank != destinationArray.Rank ||
+                !ElementTypesAreCompatible(sourceArray.ElementType, destinationArray.ElementType))
+            {
+                return Conversion.None;
+            }
+
+            if (sourceArray.FixedSize == destinationArray.FixedSize)
+                return Finalize(new Conversion(isImplicit: true, isIdentity: true));
+
+            if (sourceArray.FixedSize is not null && destinationArray.FixedSize is null)
+                return Finalize(new Conversion(isImplicit: true, isReference: true));
+
+            return Conversion.None;
+        }
+
         if (source.MetadataIdentityEquals(destination) &&
             !Conversion.IsNullable(source) &&
             !Conversion.IsNullable(destination))

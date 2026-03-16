@@ -5,6 +5,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-16**.
 ## 2026-03-16
 
 ### Changed
+- Raven now supports single-dimensional fixed-size array types written as `T[N]`. The compiler tracks the declared size on array symbols, preserves it through emitted `System.Runtime.CompilerServices.FixedSizeArrayAttribute` metadata, allows implicit conversion from `T[N]` to open `T[]`, and uses the fixed size during sequence-pattern/deconstruction analysis. Plain local collection literals without spreads or comprehensions now infer `T[N]` instead of `T[]`.
 - Raven now supports postfix nullable suppression via `expr!` as a narrow interop-oriented escape hatch. The parser models it as `SuppressNullableWarningExpression`, nullable references narrow to their underlying non-nullable type without changing runtime codegen, and nullable value types reuse the existing unwrap path. Using `!` now reports warning `RAV0403`, and this also fixes false `RAV0162` unreachable-code warnings on forms like `return value!`.
 - Added statement-form conditional pattern binding via `if val pattern = expr { ... }` / `if var pattern = expr { ... }`. The compiler lowers this through the existing pattern-matching machinery, and the dedicated syntax node for the form is now `IfPatternStatement`.
 - Statement-form conditional pattern binding now supports typed implicit captures under the outer binding keyword, so forms like `if val x: int = input { ... }` narrow nullable values and bind `x` without requiring an inner `val x: int`.

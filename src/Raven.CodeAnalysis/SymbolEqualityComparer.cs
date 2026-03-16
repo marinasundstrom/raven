@@ -212,6 +212,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             if (arrayX.Rank != arrayY.Rank)
                 return false;
 
+            if (arrayX.FixedSize != arrayY.FixedSize)
+                return false;
+
             if (!EqualsCore(arrayX.ElementType, arrayY.ElementType, visited))
                 return false;
         }
@@ -434,7 +437,10 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         }
 
         if (obj is IArrayTypeSymbol arrayType)
+        {
             hash.Add(arrayType.Rank);
+            hash.Add(arrayType.FixedSize);
+        }
 
         if (obj is IFieldSymbol field)
         {

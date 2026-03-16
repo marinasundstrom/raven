@@ -260,6 +260,34 @@ class Foo : IDisposable {
     }
 
     [Fact]
+    public void ReferenceConversion_FixedArrayToOpenArray_IsImplicit()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var fixedArray = compilation.CreateArrayTypeSymbol(intType, fixedSize: 3);
+        var openArray = compilation.CreateArrayTypeSymbol(intType);
+
+        var conversion = compilation.ClassifyConversion(fixedArray, openArray);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsReference);
+    }
+
+    [Fact]
+    public void ReferenceConversion_OpenArrayToFixedArray_DoesNotExist()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var fixedArray = compilation.CreateArrayTypeSymbol(intType, fixedSize: 3);
+        var openArray = compilation.CreateArrayTypeSymbol(intType);
+
+        var conversion = compilation.ClassifyConversion(openArray, fixedArray);
+
+        Assert.False(conversion.Exists);
+    }
+
+    [Fact]
     public void ClassifyConversion_IsStableUnderConcurrentAccess()
     {
         var compilation = CreateCompilation();

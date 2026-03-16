@@ -600,7 +600,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             {
                 var substitutedElement = Substitute(array.ElementType);
                 if (!SymbolEqualityComparer.Default.Equals(substitutedElement, array.ElementType))
-                    return Compilation.CreateArrayTypeSymbol(substitutedElement, array.Rank);
+                    return Compilation.CreateArrayTypeSymbol(substitutedElement, array.Rank, array.FixedSize);
 
                 return symbol;
             }

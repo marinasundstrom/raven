@@ -15,12 +15,14 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
-        int rank = 1)
+        int rank = 1,
+        int? fixedSize = null)
         : base(containingSymbol, containingType, containingNamespace, locations, addAsMember: false)
     {
         BaseType = baseType;
         ElementType = elementType;
         Rank = rank;
+        FixedSize = rank == 1 ? fixedSize : null;
 
         TypeKind = TypeKind.Array;
     }
@@ -30,7 +32,7 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
         get
         {
             var suffix = Rank == 1
-                ? "[]"
+                ? FixedSize is int fixedSize ? $"[{fixedSize}]" : "[]"
                 : "[" + new string(',', Rank - 1) + "]";
 
             return $"{ElementType}{suffix}";
@@ -48,6 +50,10 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
     public bool IsType => true;
 
     public int Rank { get; }
+
+    public bool IsFixedArray => FixedSize.HasValue;
+
+    public int? FixedSize { get; }
 
     public INamedTypeSymbol? BaseType { get; }
 

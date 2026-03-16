@@ -921,6 +921,25 @@ val (first, second, third) = (1, 2)
         verifier.Verify();
     }
 
+    [Fact]
+    public void CollectionPatternAssignment_FixedArrayLengthMismatch_ReportsDiagnostic()
+    {
+        const string source = """
+val values: int[3] = [1, 2, 3]
+val [first, second] = values
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PositionalDeconstructionElementCountMismatch.Id)
+                    .WithAnySpan()
+                    .WithArguments(2, 3)
+            ]);
+
+        verifier.Verify();
+    }
+
     [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
     public void PositionalPatternAssignment_UsesExtensionDeconstruct()
     {

@@ -49,7 +49,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
         System.Reflection.NullabilityInfo parameterNullInfo;
         lock (_nullabilityContextGate)
             parameterNullInfo = _nullabilityContext.Create(parameterInfo);
-        return ApplyNullability(type!, parameterNullInfo);
+        type = ApplyNullability(type!, parameterNullInfo);
+        return ApplyFixedArrayMetadata(type, TryGetFixedSizeArray(parameterInfo.GetCustomAttributesData()));
     }
 
     public ITypeSymbol? ResolveType(FieldInfo fieldInfo)
@@ -62,7 +63,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
         System.Reflection.NullabilityInfo nullInfo;
         lock (_nullabilityContextGate)
             nullInfo = _nullabilityContext.Create(fieldInfo);
-        return ApplyNullability(type!, nullInfo);
+        type = ApplyNullability(type!, nullInfo);
+        return ApplyFixedArrayMetadata(type, TryGetFixedSizeArray(fieldInfo.GetCustomAttributesData()));
     }
 
     public ITypeSymbol? ResolveType(PropertyInfo propertyInfo)
@@ -75,7 +77,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
         System.Reflection.NullabilityInfo nullInfo;
         lock (_nullabilityContextGate)
             nullInfo = _nullabilityContext.Create(propertyInfo);
-        return ApplyNullability(type!, nullInfo);
+        type = ApplyNullability(type!, nullInfo);
+        return ApplyFixedArrayMetadata(type, TryGetFixedSizeArray(propertyInfo.GetCustomAttributesData()));
     }
 
     public ITypeSymbol? ResolveType(EventInfo eventInfo)
@@ -217,7 +220,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (type.IsArray)
         {
             var elementType = ResolveType(type.GetElementType());
-            return new ArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Array), elementType, null, null, null, []);
+            return new ArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Array), elementType, null, null, null, [], type.GetArrayRank());
         }
 
         var symbol = ResolveTypeCore(type);
@@ -329,6 +332,28 @@ internal class ReflectionTypeLoader(Compilation compilation)
         }
 
         return typeSymbol;
+    }
+
+    private ITypeSymbol ApplyFixedArrayMetadata(ITypeSymbol typeSymbol, int? fixedSize)
+    {
+        if (fixedSize is null || typeSymbol is not IArrayTypeSymbol arrayType || arrayType.Rank != 1)
+            return typeSymbol;
+
+        return compilation.CreateArrayTypeSymbol(arrayType.ElementType, arrayType.Rank, fixedSize);
+    }
+
+    private static int? TryGetFixedSizeArray(IList<CustomAttributeData> attributes)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (attribute.AttributeType.FullName != "System.Runtime.CompilerServices.FixedSizeArrayAttribute")
+                continue;
+
+            if (attribute.ConstructorArguments is [{ Value: int size }])
+                return size;
+        }
+
+        return null;
     }
 
     private INamedTypeSymbol? TryConstructNamedType(INamedTypeSymbol definition, ITypeSymbol[] typeArguments)

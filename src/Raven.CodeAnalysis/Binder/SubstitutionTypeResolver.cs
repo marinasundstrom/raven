@@ -484,9 +484,20 @@ public sealed class SubstitutionTypeResolver
                 Issues = element.Issues.Add(ResolveTypeResult.ResolutionIssue.Failure(a.ElementType, ResolutionFailureKind.ArrayElementFailed))
             };
 
+        var resolvedType = element.ResolvedType;
+
+        foreach (var rankSpecifier in a.RankSpecifiers)
+        {
+            var rank = rankSpecifier.CommaTokens.Count + 1;
+            resolvedType = _compilation.CreateArrayTypeSymbol(
+                resolvedType,
+                rank,
+                TryGetFixedArraySize(rankSpecifier));
+        }
+
         return new ResolveTypeResult
         {
-            ResolvedType = _compilation.CreateArrayTypeSymbol(element.ResolvedType, a.RankSpecifiers.Count),
+            ResolvedType = resolvedType,
             Notes = ImmutableArray.Create("Created array type symbol from resolved element type.")
         };
     }
@@ -514,6 +525,16 @@ public sealed class SubstitutionTypeResolver
             ResolvedType = new RefTypeSymbol(element.ResolvedType),
             Notes = ImmutableArray.Create("Created byref type symbol from resolved element type.")
         };
+    }
+
+    private static int? TryGetFixedArraySize(ArrayRankSpecifierSyntax rankSpecifier)
+    {
+        if (rankSpecifier.CommaTokens.Count != 0 || rankSpecifier.SizeToken.Kind != SyntaxKind.NumericLiteralToken)
+            return null;
+
+        return int.TryParse(rankSpecifier.SizeToken.ValueText, out var fixedSize)
+            ? fixedSize
+            : null;
     }
 
     // -----------------------------

@@ -604,6 +604,10 @@ public interface IArrayTypeSymbol : ITypeSymbol
     ITypeSymbol ElementType { get; }
 
     public int Rank { get; }
+
+    public bool IsFixedArray { get; }
+
+    public int? FixedSize { get; }
 }
 
 public interface IPointerTypeSymbol : ITypeSymbol

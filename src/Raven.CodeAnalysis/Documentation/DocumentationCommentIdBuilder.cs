@@ -225,7 +225,9 @@ internal static class DocumentationCommentIdBuilder
         {
             var elementType = GetParameterTypeName(arrayType.ElementType);
             if (arrayType.Rank == 1)
-                return elementType + "[]";
+                return arrayType.FixedSize is int fixedSize
+                    ? elementType + $"[{fixedSize}]"
+                    : elementType + "[]";
 
             return elementType + "[" + string.Join(",", Enumerable.Repeat("0:", arrayType.Rank)) + "]";
         }

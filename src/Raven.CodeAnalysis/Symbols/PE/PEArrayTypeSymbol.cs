@@ -18,6 +18,10 @@ internal partial class PEArrayTypeSymbol : PENamedTypeSymbol, IArrayTypeSymbol
 
     public int Rank => _typeInfo.GetArrayRank();
 
+    public bool IsFixedArray => false;
+
+    public int? FixedSize => null;
+
     public override string ToString()
     {
         return Name;

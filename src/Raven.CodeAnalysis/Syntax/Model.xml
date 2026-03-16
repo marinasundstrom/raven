@@ -366,6 +366,7 @@
   </Node>
   <Node Name="ArrayRankSpecifier" Inherits="Node">
     <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken" />
+    <Slot Name="SizeToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="CommaTokens" Type="TokenList" />
     <Slot Name="CloseBracketToken" Type="Token" DefaultToken="CloseBracketToken" />
   </Node>
