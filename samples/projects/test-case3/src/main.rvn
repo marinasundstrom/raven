@@ -1,0 +1,10 @@
+import System.*
+import System.Console.*
+import System.Linq.*
+
+func Main() {
+    val arr1 = [1, 2, 3]
+    val arr2 = [1, ...arr1, 3]
+
+    val [a, b, ...] = arr2
+}
