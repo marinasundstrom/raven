@@ -33,6 +33,7 @@ partial class BlockBinder : Binder
     private int _objectInitializerDepth;
     private int _withInitializerDepth;
     private int _unsafeBlockDepth;
+    private SyntaxKind _ambientPatternDeclarationBindingKeyword;
 
     private bool IsInObjectInitializer => _objectInitializerDepth > 0;
     private bool IsInWithInitializer => _withInitializerDepth > 0;
@@ -82,6 +83,8 @@ partial class BlockBinder : Binder
             _ = BindStatement(matchStatement);
         else if (singleVariableDesignation.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
             _ = BindExpression(isPatternExpression);
+        else if (singleVariableDesignation.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
+            _ = BindStatement(ifPatternStatement);
 
         if (TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator reboundDesignator)
             return reboundDesignator.Local;
@@ -625,6 +628,7 @@ partial class BlockBinder : Binder
             MatchStatementSyntax matchStatement => BindMatchStatement(matchStatement),
             ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
+            IfPatternStatementSyntax ifPatternStmt => BindIfPatternStatement(ifPatternStmt),
             WhileStatementSyntax whileStmt => BindWhileStatement(whileStmt),
             TryStatementSyntax tryStmt => BindTryStatement(tryStmt),
             FunctionStatementSyntax function => BindFunction(function),

@@ -220,4 +220,51 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         Assert.Equal(Accessibility.Public, constructor.DeclaredAccessibility);
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void PrimaryConstructor_WithPromotedParameters_SynthesizesDeconstruct()
+    {
+        var source = """
+            class Person(val Id: int, val Name: string) {
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var typeDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(typeDeclaration));
+        var deconstruct = Assert.Single(
+            type.GetMembers("Deconstruct").OfType<IMethodSymbol>()
+                .Where(method => method.Parameters.Length == 2));
+
+        Assert.Equal(SpecialType.System_Unit, deconstruct.ReturnType.SpecialType);
+        Assert.All(deconstruct.Parameters, parameter => Assert.Equal(RefKind.Out, parameter.RefKind));
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void RecordPattern_BindsAgainstPrimaryConstructorClassDeconstruct()
+    {
+        var source = """
+            val value: object = new Person(1, "Ada");
+
+            val result = value match {
+                Person(1, val name) => name
+                _ => ""
+            };
+
+            class Person(val Id: int, val Name: string);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var recordPattern = tree.GetRoot().DescendantNodes().OfType<RecordPatternSyntax>().Single();
+        var boundPattern = Assert.IsType<BoundDeconstructPattern>(model.GetBoundNode(recordPattern));
+
+        Assert.Equal(2, boundPattern.Arguments.Length);
+        Assert.Equal("Deconstruct", boundPattern.DeconstructMethod.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }

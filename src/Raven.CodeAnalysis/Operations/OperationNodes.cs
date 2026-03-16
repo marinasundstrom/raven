@@ -947,6 +947,7 @@ internal sealed class DereferenceOperation : Operation, IDereferenceOperation
 
 internal sealed class ConditionalOperation : Operation, IConditionalOperation
 {
+    private readonly BoundNode _bound;
     private IOperation? _condition;
     private IOperation? _whenTrue;
     private IOperation? _whenFalse;
@@ -954,6 +955,7 @@ internal sealed class ConditionalOperation : Operation, IConditionalOperation
     internal ConditionalOperation(SemanticModel semanticModel, BoundNode bound, SyntaxNode syntax, ITypeSymbol? type, bool isImplicit)
         : base(semanticModel, OperationKind.Conditional, syntax, type, isImplicit)
     {
+        _bound = bound;
     }
 
     public IOperation? Condition
@@ -966,6 +968,8 @@ internal sealed class ConditionalOperation : Operation, IConditionalOperation
             _condition = Syntax switch
             {
                 IfStatementSyntax ifStatement => SemanticModel.GetOperation(ifStatement.Condition),
+                IfPatternStatementSyntax ifPatternStatement when _bound is BoundIfStatement boundIf
+                    => OperationUtilities.CreateOperationFromBound(SemanticModel, boundIf.Condition, ifPatternStatement.Expression),
                 IfExpressionSyntax ifExpression => SemanticModel.GetOperation(ifExpression.Condition),
                 _ => null
             };
@@ -984,6 +988,7 @@ internal sealed class ConditionalOperation : Operation, IConditionalOperation
             _whenTrue = Syntax switch
             {
                 IfStatementSyntax ifStatement => SemanticModel.GetOperation(ifStatement.ThenStatement),
+                IfPatternStatementSyntax ifPatternStatement => SemanticModel.GetOperation(ifPatternStatement.ThenStatement),
                 IfExpressionSyntax ifExpression => SemanticModel.GetOperation(ifExpression.Expression),
                 _ => null
             };
@@ -1002,6 +1007,9 @@ internal sealed class ConditionalOperation : Operation, IConditionalOperation
             _whenFalse = Syntax switch
             {
                 IfStatementSyntax ifStatement => ifStatement.ElseClause is { } elseClause
+                    ? SemanticModel.GetOperation(elseClause.Statement)
+                    : null,
+                IfPatternStatementSyntax ifPatternStatement => ifPatternStatement.ElseClause is { } elseClause
                     ? SemanticModel.GetOperation(elseClause.Statement)
                     : null,
                 IfExpressionSyntax ifExpression => ifExpression.ElseClause is { } elseClause

@@ -34,6 +34,21 @@ func Main() {
     for Person(1, val name, _) in persons {
         WriteLine(name)
     }
+
+    val point = (5, 1)
+    if val (x, 1) = point {
+        WriteLine(x)
+    }
+
+    val person = Person(1, "John Doe", 20)
+    if val Person(1, name, _) = person {
+        WriteLine(name)
+    }
+
+    val arr2 = [3, 9, 10, 3, 2]
+    if val [first2, second2, ...rest2] = arr2 {
+        WriteLine(second2)
+    }
 }
 
 func Tuple() {

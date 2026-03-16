@@ -121,4 +121,67 @@ class C {
         var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(symbol.Type);
         Assert.Equal(SpecialType.System_Int32, arrayType.ElementType.SpecialType);
     }
+
+    [Fact]
+    public void GetDeclaredSymbol_IfPatternStatementDesignation_UsesMatchedElementType()
+    {
+        const string code = """
+class Person(val Id: int, val Name: string)
+
+class C {
+    func Run(person: Person) -> int {
+        if val Person(id, name) = person {
+            return name.Length + id
+        }
+
+        return 0
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "name");
+
+        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+
+        Assert.Equal("name", symbol.Name);
+        Assert.Equal("string", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_IfPatternStatementRecursivePatternDesignation_UsesMatchedPropertyType()
+    {
+        const string code = """
+class Person(val Id: int, val Name: string, val Age: int)
+
+class C {
+    func Run(person: Person) -> int {
+        if val Person(1, name, _) = person {
+            return name.Length
+        }
+
+        return 0
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var model = compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "name");
+
+        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+
+        Assert.Equal("name", symbol.Name);
+        Assert.Equal("string", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
 }

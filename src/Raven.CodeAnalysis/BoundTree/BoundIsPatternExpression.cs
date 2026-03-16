@@ -727,6 +727,15 @@ internal partial class BlockBinder
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
         inputType = inputType.GetPlainType();
 
+        if (_ambientPatternDeclarationBindingKeyword is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword &&
+            syntax.Type is IdentifierNameSyntax identifier &&
+            (syntax.Designation is null ||
+             syntax.Designation is SingleVariableDesignationSyntax { Identifier.IsMissing: true } ||
+             syntax.Designation is SingleVariableDesignationSyntax { Identifier.Kind: SyntaxKind.None }))
+        {
+            return BindIdentifierBindingPattern(identifier, inputType, _ambientPatternDeclarationBindingKeyword);
+        }
+
         var typeExpression = BindTypeSyntaxAsExpression(syntax.Type);
         var declaredType = TryInferDeclarationPatternTypeFromIdentifierSyntax(syntax.Type, inputType, out var inferredType)
             ? inferredType
@@ -1156,8 +1165,29 @@ internal partial class BlockBinder
     private BoundPattern BindVariablePattern(VariablePatternSyntax syntax, ITypeSymbol? expectedType)
     {
         // No longer enforce here; enforcement is now handled at the single variable level.
-        var isMutable = syntax.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
+        var isMutable = syntax.BindingKeyword.IsKind(SyntaxKind.VarKeyword) ||
+                        (syntax.BindingKeyword.Kind == SyntaxKind.None && _ambientPatternDeclarationBindingKeyword == SyntaxKind.VarKeyword);
         return BindVariableDesignation(syntax.Designation, isMutable, expectedType);
+    }
+
+    private BoundPattern BindIdentifierBindingPattern(
+        IdentifierNameSyntax identifier,
+        ITypeSymbol inputType,
+        SyntaxKind declarationBindingKeywordKind)
+    {
+        var name = identifier.Identifier.ValueText;
+
+        if (string.IsNullOrEmpty(name))
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+
+        if (name == "_")
+            return new BoundDiscardPattern(inputType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : inputType);
+
+        var declaredType = EnsureTypeAccessible(inputType, identifier.GetLocation());
+        var isMutable = declarationBindingKeywordKind == SyntaxKind.VarKeyword;
+        var local = DeclarePatternLocal(identifier, name, isMutable, declaredType);
+        var designator = new BoundSingleVariableDesignator(local);
+        return new BoundDeclarationPattern(declaredType, designator);
     }
 
     private BoundPattern BindVariableDesignation(
@@ -1413,7 +1443,7 @@ internal partial class BlockBinder
                 reason: BoundExpressionReason.TypeMismatch);
         }
 
-        if (recordType is not SourceNamedTypeSymbol { IsRecord: true } recordSymbol)
+        if (recordType is not INamedTypeSymbol)
         {
             _diagnostics.ReportRecordPatternRequiresRecordType(
                 recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -1439,8 +1469,36 @@ internal partial class BlockBinder
                 syntax.Type.GetLocation());
         }
 
-        var recordProperties = recordSymbol.RecordProperties;
-        var deconstructMethod = FindDeconstructMethod(recordType, recordProperties.Length);
+        var deconstructArity = GetDeconstructArity(recordType);
+        if (deconstructArity is null)
+        {
+            _diagnostics.ReportRecordPatternRequiresRecordType(
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Type.GetLocation());
+
+            var props = BindRecordPatternSubpatternsAsDiscards(syntax);
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: Compilation.ErrorTypeSymbol,
+                narrowedType: recordType,
+                designator: null,
+                properties: props,
+                reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        var argumentList = syntax.ArgumentList;
+        var argumentCount = argumentList.Arguments.Count;
+
+        if (argumentCount != deconstructArity.Value)
+        {
+            _diagnostics.ReportRecordPatternArgumentCountMismatch(
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                deconstructArity.Value,
+                argumentCount,
+                argumentList.GetLocation());
+        }
+
+        var deconstructMethod = FindDeconstructMethod(recordType, argumentCount);
         if (deconstructMethod is null)
         {
             var props = BindRecordPatternSubpatternsAsDiscards(syntax);
@@ -1451,18 +1509,6 @@ internal partial class BlockBinder
                 designator: null,
                 properties: props,
                 reason: BoundExpressionReason.NotFound);
-        }
-
-        var argumentList = syntax.ArgumentList;
-        var argumentCount = argumentList.Arguments.Count;
-
-        if (argumentCount != recordProperties.Length)
-        {
-            _diagnostics.ReportRecordPatternArgumentCountMismatch(
-                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                recordProperties.Length,
-                argumentCount,
-                argumentList.GetLocation());
         }
 
         return BindDeconstructPattern(
@@ -1637,6 +1683,35 @@ internal partial class BlockBinder
         {
             if (IsExtensionDeconstructCandidate(method, inputType, parameterCount))
                 return method;
+        }
+
+        return null;
+    }
+
+    private int? GetDeconstructArity(ITypeSymbol inputType)
+    {
+        foreach (var method in inputType.GetMembers("Deconstruct").OfType<IMethodSymbol>())
+        {
+            if (method.MethodKind == MethodKind.Ordinary &&
+                !method.IsStatic &&
+                method.ReturnType.SpecialType == SpecialType.System_Unit &&
+                method.Parameters.All(static parameter => parameter.RefKind == RefKind.Out))
+            {
+                return method.Parameters.Length;
+            }
+        }
+
+        foreach (var method in LookupExtensionMethods("Deconstruct", inputType))
+        {
+            if (method.MethodKind == MethodKind.Ordinary &&
+                method.IsStatic &&
+                method.Parameters.Length > 0 &&
+                method.ReturnType.SpecialType == SpecialType.System_Unit &&
+                SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, inputType) &&
+                method.Parameters.Skip(1).All(static parameter => parameter.RefKind == RefKind.Out))
+            {
+                return method.Parameters.Length - 1;
+            }
         }
 
         return null;

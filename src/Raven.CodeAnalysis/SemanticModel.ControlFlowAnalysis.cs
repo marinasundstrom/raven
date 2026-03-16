@@ -173,6 +173,23 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
 
                 _endPointIsReachable = thenReachable || elseReachable;
                 return _endPointIsReachable;
+            case IfPatternStatementSyntax ifPatternStatement:
+                Visit(ifPatternStatement.Expression);
+
+                beforeIf = isReachable;
+
+                _ = AnalyzeStatement(ifPatternStatement.ThenStatement, beforeIf);
+                thenReachable = _endPointIsReachable;
+
+                elseReachable = beforeIf;
+                if (ifPatternStatement.ElseClause is { } ifPatternElseClause)
+                {
+                    _ = AnalyzeStatement(ifPatternElseClause.Statement, beforeIf);
+                    elseReachable = _endPointIsReachable;
+                }
+
+                _endPointIsReachable = thenReachable || elseReachable;
+                return _endPointIsReachable;
             case WhileStatementSyntax whileStatement:
                 Visit(whileStatement.Condition);
                 _ = AnalyzeStatement(whileStatement.Statement, isReachable);

@@ -70,6 +70,30 @@ subsequence, while `..pattern` / `...pattern` consume the remaining subsequence.
 Inline captures remain explicit, so a segment capture is written `..2 val start`
 or `..val rest`.
 
+### Conditional pattern binding
+
+```raven
+if val (id, name) = person {
+    WriteLine(name)
+}
+```
+
+This is statement-form sugar for `if person is (val id, val name) { ... }`.
+The leading binding keyword is required; Raven does not allow `if Pattern = expr`
+without `let` / `val` / `var`.
+
+The same rule applies to nominal deconstruction patterns:
+
+```raven
+if val Person(1, name, _) = person {
+    WriteLine(name)
+}
+```
+
+Nominal `Type(...)` patterns are driven by `Deconstruct`. Records support this
+directly, and primary-constructor classes/structs with promoted public
+parameters synthesize `Deconstruct` in declaration order.
+
 ### Property patterns
 
 ```raven

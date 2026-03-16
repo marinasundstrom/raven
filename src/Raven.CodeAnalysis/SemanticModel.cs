@@ -769,6 +769,13 @@ public partial class SemanticModel
             return true;
         }
 
+        var enclosingIfPattern = node.AncestorsAndSelf().OfType<IfPatternStatementSyntax>().FirstOrDefault();
+        if (enclosingIfPattern is not null)
+        {
+            root = enclosingIfPattern;
+            return true;
+        }
+
         // Binding a node in isolation can drop scope/flow context (locals, overload shape).
         // Prefer binding the enclosing executable scope first.
         root = node.AncestorsAndSelf().OfType<BlockStatementSyntax>().FirstOrDefault()

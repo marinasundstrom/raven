@@ -1004,8 +1004,8 @@ internal class MethodBodyGenerator
             }
         }
 
-        var recordType = TryGetRecordTypeDefinition(MethodSymbol.ContainingType);
-        if (recordType is not null && TryEmitRecordMethod(recordType))
+        var sourceType = TryGetSourceTypeDefinition(MethodSymbol.ContainingType);
+        if (sourceType is not null && TryEmitSynthesizedNominalMethod(sourceType))
             return;
 
         var syntaxReference = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
@@ -2141,7 +2141,7 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ret);
     }
 
-    private bool TryEmitRecordMethod(SourceNamedTypeSymbol recordType)
+    private bool TryEmitSynthesizedNominalMethod(SourceNamedTypeSymbol sourceType)
     {
         if (MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
             MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly &&
@@ -2154,6 +2154,23 @@ internal class MethodBodyGenerator
 
         if (!MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
             return false;
+
+        if (MethodSymbol.Name == "Deconstruct" &&
+            MethodSymbol.MethodKind == MethodKind.Ordinary &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit)
+        {
+            var deconstructProperties = GetDeconstructProperties(sourceType);
+            if (!deconstructProperties.IsDefaultOrEmpty)
+            {
+                EmitSynthesizedDeconstruct(sourceType, deconstructProperties);
+                return true;
+            }
+        }
+
+        if (!sourceType.IsRecord)
+            return false;
+
+        var recordType = sourceType;
 
         if (MethodSymbol.Name == nameof(object.Equals) &&
             MethodSymbol.Parameters.Length == 1 &&
@@ -2188,14 +2205,6 @@ internal class MethodBodyGenerator
             return true;
         }
 
-        if (MethodSymbol.Name == "Deconstruct" &&
-            MethodSymbol.MethodKind == MethodKind.Ordinary &&
-            MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit)
-        {
-            EmitRecordDeconstruct(recordType);
-            return true;
-        }
-
         if (MethodSymbol.MethodKind == MethodKind.Constructor &&
             MethodSymbol.Parameters.Length == 1 &&
             SymbolEqualityComparer.Default.Equals(MethodSymbol.Parameters[0].Type, recordType))
@@ -2224,6 +2233,16 @@ internal class MethodBodyGenerator
         }
 
         return false;
+    }
+
+    private static SourceNamedTypeSymbol? TryGetSourceTypeDefinition(INamedTypeSymbol? typeSymbol)
+    {
+        return typeSymbol switch
+        {
+            SourceNamedTypeSymbol source => source,
+            ConstructedNamedTypeSymbol { OriginalDefinition: SourceNamedTypeSymbol source } => source,
+            _ => null,
+        };
     }
 
     private void EmitRecordCopyConstructor(SourceNamedTypeSymbol recordType)
@@ -2667,14 +2686,13 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ret);
     }
 
-    private void EmitRecordDeconstruct(SourceNamedTypeSymbol recordType)
+    private void EmitSynthesizedDeconstruct(SourceNamedTypeSymbol typeSymbol, ImmutableArray<SourcePropertySymbol> deconstructProperties)
     {
-        var recordProperties = GetRecordValueProperties(recordType);
-        var parameterCount = Math.Min(recordProperties.Length, MethodSymbol.Parameters.Length);
+        var parameterCount = Math.Min(deconstructProperties.Length, MethodSymbol.Parameters.Length);
 
         for (var i = 0; i < parameterCount; i++)
         {
-            var property = recordProperties[i];
+            var property = deconstructProperties[i];
             var parameter = MethodSymbol.Parameters[i];
 
             // Deconstruct parameters are `out`/byref.
@@ -2685,7 +2703,7 @@ internal class MethodBodyGenerator
             // (e.g. inherited auto-property backing fields are private on the base type).
             var useGetter = property.GetMethod is not null;
             if (property.BackingField is SourceFieldSymbol backingField &&
-                SymbolEqualityComparer.Default.Equals(backingField.ContainingType, recordType))
+                SymbolEqualityComparer.Default.Equals(backingField.ContainingType, typeSymbol))
             {
                 // Safe: field declared on this record type.
                 var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
@@ -2715,6 +2733,14 @@ internal class MethodBodyGenerator
         }
 
         ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private static ImmutableArray<SourcePropertySymbol> GetDeconstructProperties(SourceNamedTypeSymbol typeSymbol)
+    {
+        if (!typeSymbol.DeconstructProperties.IsDefaultOrEmpty)
+            return typeSymbol.DeconstructProperties;
+
+        return ImmutableArray.CreateRange(GetRecordValueProperties(typeSymbol));
     }
 
     private void EmitRecordFieldComparisons(

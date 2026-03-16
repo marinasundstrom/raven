@@ -3304,6 +3304,7 @@ public partial class SemanticModel
         var recordProperties = isRecord
             ? ImmutableArray.CreateBuilder<SourcePropertySymbol>()
             : null;
+        var deconstructProperties = ImmutableArray.CreateBuilder<SourcePropertySymbol>();
 
         var seenOptionalParameter = false;
         foreach (var parameterSyntax in classDecl.ParameterList!.Parameters)
@@ -3426,6 +3427,12 @@ public partial class SemanticModel
                                 parameterSyntax.Identifier.GetLocation());
                         }
                     }
+
+                    if (propertySymbol is not null &&
+                        promotedPropertyAccessibility == Accessibility.Public)
+                    {
+                        deconstructProperties.Add(propertySymbol);
+                    }
                 }
                 else
                 {
@@ -3453,6 +3460,14 @@ public partial class SemanticModel
 
         if (recordProperties is not null)
             classSymbol.SetRecordProperties(recordProperties.ToImmutable());
+
+        classSymbol.SetDeconstructProperties(deconstructProperties.ToImmutable());
+
+        if (deconstructProperties.Count > 0 &&
+            !HasDeconstruct(classSymbol, deconstructProperties.ToImmutable()))
+        {
+            SynthesizeDeconstructMethod(classDecl, classBinder, classSymbol, deconstructProperties.ToImmutable());
+        }
 
         // For records with a primary constructor that inherit from another record,
         // bind the base constructor call from the PrimaryConstructorBaseTypeSyntax in the base list.
@@ -3919,9 +3934,9 @@ public partial class SemanticModel
         return false;
     }
 
-    private static bool HasDeconstruct(SourceNamedTypeSymbol typeSymbol)
+    private static bool HasDeconstruct(SourceNamedTypeSymbol typeSymbol, ImmutableArray<SourcePropertySymbol>? deconstructProperties = null)
     {
-        var deconstructProperties = GetPublicRecordValueProperties(typeSymbol);
+        var properties = deconstructProperties ?? GetPublicDeconstructProperties(typeSymbol);
 
         foreach (var method in typeSymbol.GetMembers("Deconstruct").OfType<IMethodSymbol>())
         {
@@ -3934,13 +3949,21 @@ public partial class SemanticModel
             if (method.Parameters.Any(parameter => parameter.RefKind != RefKind.Out))
                 continue;
 
-            if (method.Parameters.Length != deconstructProperties.Length)
+            if (method.Parameters.Length != properties.Length)
                 continue;
 
             return true;
         }
 
         return false;
+    }
+
+    private static ImmutableArray<SourcePropertySymbol> GetPublicDeconstructProperties(SourceNamedTypeSymbol typeSymbol)
+    {
+        if (!typeSymbol.DeconstructProperties.IsDefaultOrEmpty)
+            return typeSymbol.DeconstructProperties;
+
+        return GetPublicRecordValueProperties(typeSymbol);
     }
 
     private static ImmutableArray<SourcePropertySymbol> GetPublicRecordValueProperties(SourceNamedTypeSymbol typeSymbol)
@@ -3956,6 +3979,52 @@ public partial class SemanticModel
         }
 
         return builder.ToImmutable();
+    }
+
+    private void SynthesizeDeconstructMethod(
+        TypeDeclarationSyntax classDecl,
+        ClassDeclarationBinder classBinder,
+        SourceNamedTypeSymbol classSymbol,
+        ImmutableArray<SourcePropertySymbol> deconstructProperties)
+    {
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        if (unitType is null)
+            return;
+
+        var namespaceSymbol = classBinder.CurrentNamespace!.AsSourceNamespace();
+        var location = classDecl.GetLocation();
+        var references = Array.Empty<SyntaxReference>();
+
+        var deconstructMethod = new SourceMethodSymbol(
+            "Deconstruct",
+            unitType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            classSymbol,
+            classSymbol,
+            namespaceSymbol,
+            [location],
+            references,
+            isStatic: false,
+            methodKind: MethodKind.Ordinary,
+            declaredAccessibility: Accessibility.Public);
+
+        var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(deconstructProperties.Length);
+        foreach (var property in deconstructProperties)
+        {
+            var parameter = new SourceParameterSymbol(
+                property.Name,
+                property.Type,
+                deconstructMethod,
+                classSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                refKind: RefKind.Out);
+
+            parameters.Add(parameter);
+        }
+
+        deconstructMethod.SetParameters(parameters.ToImmutable());
     }
 
     private static bool HasCopyConstructor(SourceNamedTypeSymbol typeSymbol)

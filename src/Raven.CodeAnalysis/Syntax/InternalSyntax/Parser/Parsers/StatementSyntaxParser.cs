@@ -327,9 +327,12 @@ internal class StatementSyntaxParser : SyntaxParser
         return YieldBreakStatement(yieldKeyword, breakKeyword, terminatorToken);
     }
 
-    private IfStatementSyntax ParseIfStatementSyntax()
+    private StatementSyntax ParseIfStatementSyntax()
     {
         var ifKeyword = ReadToken();
+
+        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            return ParseIfPatternStatementSyntax(ifKeyword);
 
         var condition = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
 
@@ -353,6 +356,35 @@ internal class StatementSyntaxParser : SyntaxParser
         TryConsumeTerminator(out var terminatorToken);
 
         return IfStatement(ifKeyword, condition!, thenStatement!, elseClause, terminatorToken);
+    }
+
+    private IfPatternStatementSyntax ParseIfPatternStatementSyntax(SyntaxToken ifKeyword)
+    {
+        var bindingKeyword = ReadToken();
+        var pattern = new PatternSyntaxParser(this, allowImplicitDeconstructionElementBindings: true).ParsePattern();
+        var operatorToken = ExpectToken(SyntaxKind.EqualsToken);
+        var expression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
+        var thenStatement = ParseStatement();
+
+        ElseClause2Syntax? elseClause = null;
+        if (ConsumeToken(SyntaxKind.ElseKeyword, out var elseKeyword))
+        {
+            var elseStatement = ParseStatement();
+            elseClause = ElseClause2(elseKeyword, elseStatement);
+        }
+
+        SetTreatNewlinesAsTokens(true);
+        TryConsumeTerminator(out var terminatorToken);
+
+        return IfPatternStatement(
+            ifKeyword,
+            bindingKeyword,
+            pattern,
+            operatorToken,
+            expression!,
+            thenStatement!,
+            elseClause,
+            terminatorToken);
     }
 
     private WhileStatementSyntax ParseWhileStatementSyntax()

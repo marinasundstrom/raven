@@ -52,6 +52,18 @@ public sealed class SyntaxFactoryStatementTests
     }
 
     [Fact]
+    public void IfPatternStatement_DefaultsTerminatorToNewLine()
+    {
+        var statement = IfPatternStatement(
+            ValKeyword,
+            DeclarationPattern(IdentifierName("name"), SingleVariableDesignation(Token(SyntaxKind.None), Identifier("name"))),
+            IdentifierName("value"),
+            BlockStatement(List<StatementSyntax>()));
+
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.NewLineToken);
+    }
+
+    [Fact]
     public void LocalDeclarationStatement_DefaultsTerminatorToNewLine()
     {
         var declaration = VariableDeclaration(

@@ -10,6 +10,17 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder
 {
+    private BoundStatement BindIfPatternStatement(IfPatternStatementSyntax ifPatternStmt)
+    {
+        var condition = BindIfPatternCondition(ifPatternStmt);
+        return BindIfCore(
+            condition,
+            ifPatternStmt.ThenStatement,
+            ifPatternStmt.ElseClause,
+            ifPatternStmt.Expression,
+            ifPatternStmt.IfKeyword.GetLocation());
+    }
+
     private BoundStatement BindExpressionStatement(ExpressionStatementSyntax expressionStmt)
     {
         var isImplicitReturnTarget =
@@ -45,11 +56,26 @@ partial class BlockBinder
     private BoundStatement BindIfStatement(IfStatementSyntax ifStmt)
     {
         var condition = BindExpression(ifStmt.Condition);
+        return BindIfCore(
+            condition,
+            ifStmt.ThenStatement,
+            ifStmt.ElseClause,
+            ifStmt.Condition,
+            ifStmt.IfKeyword.GetLocation());
+    }
+
+    private BoundStatement BindIfCore(
+        BoundExpression condition,
+        StatementSyntax thenStatementSyntax,
+        ElseClause2Syntax? elseClauseSyntax,
+        SyntaxNode conditionSyntax,
+        Location ifKeywordLocation)
+    {
         var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
         var thenEntryState = entryState;
         var elseEntryState = entryState;
-        var thenExits = IsEarlyExitStatement(ifStmt.ThenStatement);
-        var elseExits = ifStmt.ElseClause is not null && IsEarlyExitStatement(ifStmt.ElseClause.Statement);
+        var thenExits = IsEarlyExitStatement(thenStatementSyntax);
+        var elseExits = elseClauseSyntax is not null && IsEarlyExitStatement(elseClauseSyntax.Statement);
         var patternLocals = CollectPatternDesignatorLocals(condition);
         var patternDepth = _scopeDepth + 1;
         var shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
@@ -58,7 +84,7 @@ partial class BlockBinder
         var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
         if (!conversion.Exists || !conversion.IsImplicit)
         {
-            ReportCannotConvertFromTypeToType(condition.Type, boolType, ifStmt.Condition.GetLocation());
+            ReportCannotConvertFromTypeToType(condition.Type, boolType, conditionSyntax.GetLocation());
         }
 
         if (TryGetNullCheckFlow(condition, out var symbol, out var nonNullWhenTrue, out var nonNullWhenFalse))
@@ -87,7 +113,7 @@ partial class BlockBinder
             _locals[local.Name] = (local, patternDepth);
         }
 
-        var thenBound = BindStatement(ifStmt.ThenStatement);
+        var thenBound = BindStatement(thenStatementSyntax);
         foreach (var local in patternLocals)
         {
             if (!shadowedLocals.TryGetValue(local.Name, out var shadowed) || shadowed is null)
@@ -99,15 +125,15 @@ partial class BlockBinder
         var thenExitState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
         BoundStatement? elseBound = null;
         HashSet<ISymbol> elseExitState = elseEntryState;
-        if (ifStmt.ElseClause is not null)
+        if (elseClauseSyntax is not null)
         {
             _nonNullSymbols.Clear();
             _nonNullSymbols.UnionWith(elseEntryState);
-            elseBound = BindStatement(ifStmt.ElseClause.Statement);
+            elseBound = BindStatement(elseClauseSyntax.Statement);
             elseExitState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
         }
 
-        if (ifStmt.ElseClause is not null)
+        if (elseClauseSyntax is not null)
         {
             if (thenExits && elseExits)
             {
@@ -155,9 +181,9 @@ partial class BlockBinder
             // If the if/else is the last statement in a value-returning function body, the
             // implicit-return machinery (ImplicitReturnRewriter / codegen) will insert returns
             // into each branch — no warning needed in that position.
-            if (!IsIfStatementImplicitReturn(ifStmt))
+            if (!IsIfStatementImplicitReturn(thenStatementSyntax.Parent as SyntaxNode))
             {
-                _diagnostics.ReportIfStatementValueIgnored(ifStmt.IfKeyword.GetLocation());
+                _diagnostics.ReportIfStatementValueIgnored(ifKeywordLocation);
             }
         }
 
@@ -179,8 +205,38 @@ partial class BlockBinder
         }
     }
 
-    private bool IsIfStatementImplicitReturn(IfStatementSyntax ifStmt)
+    private BoundExpression BindIfPatternCondition(IfPatternStatementSyntax syntax)
     {
+        var expression = BindExpression(syntax.Expression);
+        var inlineBindingKeyword = FindFirstInlinePatternBindingKeyword(syntax.Pattern);
+        if (inlineBindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+        {
+            _diagnostics.ReportPatternDeclarationBindingKeywordConflict(
+                syntax.BindingKeyword.Text,
+                inlineBindingKeyword.Text,
+                inlineBindingKeyword.GetLocation());
+        }
+
+        BoundPattern pattern;
+        var previousBindingKeyword = _ambientPatternDeclarationBindingKeyword;
+        _ambientPatternDeclarationBindingKeyword = syntax.BindingKeyword.Kind;
+        try
+        {
+            pattern = BindPattern(syntax.Pattern, expression.Type);
+        }
+        finally
+        {
+            _ambientPatternDeclarationBindingKeyword = previousBindingKeyword;
+        }
+        var booleanType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+        return new BoundIsPatternExpression(expression, pattern, booleanType);
+    }
+
+    private bool IsIfStatementImplicitReturn(SyntaxNode? ifSyntax)
+    {
+        if (ifSyntax is not IfStatementSyntax and not IfPatternStatementSyntax)
+            return false;
+
         if (_containingSymbol is not IMethodSymbol method)
             return false;
 
@@ -189,9 +245,9 @@ partial class BlockBinder
             returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
             return false;
 
-        if (ifStmt.Parent is BlockStatementSyntax blockStatement)
+        if (ifSyntax.Parent is BlockStatementSyntax blockStatement)
         {
-            if (blockStatement.Statements.Count == 0 || blockStatement.Statements.LastOrDefault() != ifStmt)
+            if (blockStatement.Statements.Count == 0 || blockStatement.Statements.LastOrDefault() != ifSyntax)
                 return false;
 
             return blockStatement.Parent switch
@@ -204,9 +260,9 @@ partial class BlockBinder
             };
         }
 
-        if (ifStmt.Parent is BlockSyntax blockExpression)
+        if (ifSyntax.Parent is BlockSyntax blockExpression)
         {
-            if (blockExpression.Statements.Count == 0 || blockExpression.Statements.LastOrDefault() != ifStmt)
+            if (blockExpression.Statements.Count == 0 || blockExpression.Statements.LastOrDefault() != ifSyntax)
                 return false;
 
             return blockExpression.Parent switch

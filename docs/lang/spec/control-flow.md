@@ -178,6 +178,31 @@ Rule of thumb for statement-form control flow:
 * Today, that tail implicit-return behavior applies to statement-form `match`
   and statement-form `if` with an `else` branch.
 
+Statement-form `if` also has a dedicated pattern-binding form:
+
+```raven
+if val (id, name) = person {
+    WriteLine(name)
+}
+```
+
+This is sugar for a pattern test against the right-hand side:
+
+```raven
+if person is (val id, val name) {
+    WriteLine(name)
+}
+```
+
+The leading binding keyword is required. Raven does not accept `if Pattern = expr`
+without `let`/`val`/`var`, which keeps the construct distinct from assignment-like
+syntax and makes capture intent explicit at the start of the statement.
+
+The outer binding keyword supplies the binding mode for otherwise bare captures
+inside the pattern, so `if val Person(1, name, _) = person { ... }` is legal and
+equivalent to `if person is Person(1, val name, _) { ... }`. Shadowing and other
+pattern-binding diagnostics are the same as for `is` and `match` patterns.
+
 In value-returning functions, Raven warns when statement-form control flow
 produces branch values that are discarded instead of returned:
 

@@ -137,6 +137,15 @@ public static class CompletionProvider
                             break;
                         }
 
+                    case IfPatternStatementSyntax ifPatternStatement
+                        when ifPatternStatement.ThenStatement.Span.Contains(receiverExpression.Span):
+                        {
+                            if (TryResolvePatternDesignationSymbol(ifPatternStatement.Pattern, receiverExpression, name) is { } ifPatternSymbol)
+                                return ifPatternSymbol;
+
+                            break;
+                        }
+
                     case MatchArmSyntax matchArm:
                         {
                             if (TryResolvePatternDesignationSymbol(matchArm.Pattern, receiverExpression, name) is { } armPatternSymbol)

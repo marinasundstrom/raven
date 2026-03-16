@@ -258,6 +258,16 @@
     <Slot Name="ElseClause" Type="ElseClause2" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="NewLineToken" />
   </Node>
+  <Node Name="IfPatternStatement" Inherits="Statement">
+    <Slot Name="IfKeyword" Type="Token" DefaultToken="IfKeyword" />
+    <Slot Name="BindingKeyword" Type="Token" />
+    <Slot Name="Pattern" Type="Pattern" />
+    <Slot Name="OperatorToken" Type="Token" DefaultToken="EqualsToken" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="ThenStatement" Type="Statement" />
+    <Slot Name="ElseClause" Type="ElseClause2" IsNullable="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="NewLineToken" />
+  </Node>
   <Node Name="WhileStatement" Inherits="Statement">
     <Slot Name="WhileKeyword" Type="Token" DefaultToken="WhileKeyword" />
     <Slot Name="Condition" Type="Expression" />

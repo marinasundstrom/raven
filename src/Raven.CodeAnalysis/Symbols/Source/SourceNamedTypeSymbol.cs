@@ -18,6 +18,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
     private ITypeSymbol? _extensionReceiverType;
     private ImmutableArray<SourcePropertySymbol> _recordProperties = ImmutableArray<SourcePropertySymbol>.Empty;
+    private ImmutableArray<SourcePropertySymbol> _deconstructProperties = ImmutableArray<SourcePropertySymbol>.Empty;
     private bool _isSealedHierarchy;
     private bool _hasExplicitPermits;
     private ImmutableArray<INamedTypeSymbol> _permittedDirectSubtypes = ImmutableArray<INamedTypeSymbol>.Empty;
@@ -106,6 +107,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     internal ITypeSymbol? ExtensionReceiverType => _extensionReceiverType;
     internal bool IsRecord { get; private set; }
     internal ImmutableArray<SourcePropertySymbol> RecordProperties => _recordProperties;
+    internal ImmutableArray<SourcePropertySymbol> DeconstructProperties => _deconstructProperties;
     public bool IsSealedHierarchy => _isSealedHierarchy;
     public bool HasExplicitPermits => _hasExplicitPermits;
     public ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes => _permittedDirectSubtypes;
@@ -247,6 +249,12 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         if (!properties.IsDefault)
             _recordProperties = properties;
+    }
+
+    internal void SetDeconstructProperties(ImmutableArray<SourcePropertySymbol> properties)
+    {
+        if (!properties.IsDefault)
+            _deconstructProperties = properties;
     }
 
     internal void MarkAsExtensionContainer()

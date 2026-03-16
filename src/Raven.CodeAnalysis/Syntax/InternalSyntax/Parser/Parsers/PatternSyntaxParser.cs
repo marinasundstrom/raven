@@ -429,12 +429,12 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
         {
-            arguments.Add(new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern());
+            arguments.Add(ParseDeconstructionElementPattern());
 
             while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
             {
                 arguments.Add(commaToken);
-                arguments.Add(new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern());
+                arguments.Add(ParseDeconstructionElementPattern());
             }
         }
 
@@ -451,12 +451,12 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
         {
-            arguments.Add(new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern());
+            arguments.Add(ParseDeconstructionElementPattern());
 
             while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
             {
                 arguments.Add(commaToken);
-                arguments.Add(new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings).ParsePattern());
+                arguments.Add(ParseDeconstructionElementPattern());
             }
         }
 

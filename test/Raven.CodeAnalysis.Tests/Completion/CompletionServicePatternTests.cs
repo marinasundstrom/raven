@@ -143,6 +143,35 @@ class C {
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_OnIfBindingPatternLocal_ReturnsInstanceMembers()
+    {
+        const string code = """
+class Person(val Id: int, val Name: string)
+
+class C {
+    func Run(person: Person) -> int {
+        if val Person(id, name) = person {
+            name.
+        }
+
+        return 0
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var service = new CompletionService();
+        var position = code.IndexOf("name.", StringComparison.Ordinal) + 5;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        items.ShouldContain(item => item.DisplayText == "Length");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnSequenceRestPatternLocal_ReturnsInstanceMembers()
     {
         const string code = """

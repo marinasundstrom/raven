@@ -710,8 +710,8 @@
     Message="Property pattern requires an explicit type here because it cannot be inferred from the input"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1610" Identifier="RecordPatternRequiresRecordType"
-    Title="Record pattern requires a record type"
-    Message="Record pattern requires a record type; '{type}' is not a record" Category="compiler"
+    Title="Record pattern requires a deconstructable type"
+    Message="Record pattern requires a deconstructable type; '{type}' does not support deconstruction" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1611" Identifier="RecordPatternTypeMismatch"
     Title="Record pattern type mismatch"

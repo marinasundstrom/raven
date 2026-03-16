@@ -42,6 +42,19 @@
     </Overload>
   </Factory>
 
+  <Factory Node="IfPatternStatement">
+    <Overload>
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Pattern" />
+      <Parameter Slot="Expression" />
+      <Parameter Slot="ThenStatement" />
+      <Default Slot="IfKeyword" Token="IfKeyword" />
+      <Default Slot="OperatorToken" Token="EqualsToken" />
+      <Default Slot="ElseClause" Null="true" />
+      <Default Slot="TerminatorToken" Token="NewLineToken" />
+    </Overload>
+  </Factory>
+
   <Factory Node="WhileStatement">
     <Overload>
       <Parameter Slot="Condition" />

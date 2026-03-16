@@ -120,6 +120,54 @@ class C {
     }
 
     [Fact]
+    public void IfPatternStatement_BindsAsIfStatementWithPatternCondition()
+    {
+        var code = """
+class Person(val Id: int, val Name: string)
+
+class C {
+    func Test(person: Person) {
+        if val Person(id, name) = person {
+            ()
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var ifPatternStmt = tree.GetRoot().DescendantNodes().OfType<IfPatternStatementSyntax>().First();
+        var bound = (BoundIfStatement)model.GetBoundNode(ifPatternStmt);
+
+        bound.Condition.ShouldBeOfType<BoundIsPatternExpression>();
+        bound.ThenNode.ShouldBeOfType<BoundBlockStatement>();
+    }
+
+    [Fact]
+    public void IfPatternStatement_PatternLocalShadowing_ReportsConsistentDiagnostic()
+    {
+        var code = """
+class Person(val Id: int, val Name: string)
+
+class C {
+    func Test(person: Person) {
+        val name = ""
+        if val Person(_, name) = person {
+            ()
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        diagnostics.ShouldContain(d => d.Id == CompilerDiagnostics.VariableShadowsPreviousDeclaration.Id);
+    }
+
+    [Fact]
     public void WhileStatement_BindsAsStatement()
     {
         var code = """

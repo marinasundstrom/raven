@@ -2126,6 +2126,26 @@ if obj is Foo foo {
 }
 ```
 
+Raven also supports statement-form conditional pattern binding:
+
+```raven
+if val (id, name) = person {
+    WriteLine(name)
+}
+```
+
+This form is equivalent to testing the right-hand side with `is` while applying
+the outer binding keyword to implicit captures inside the pattern:
+
+```raven
+if person is (val id, val name) {
+    WriteLine(name)
+}
+```
+
+The leading `let` / `val` / `var` is required. A bare `if Pattern = expr` form is
+not recognized.
+
 Only `match` participates in exhaustiveness checking.
 
 ### Exhaustiveness
@@ -2492,15 +2512,21 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
 
 #### Record patterns
 
-* `RecordType(pattern1, pattern2, …)` — **record pattern**. Matches when the
-  scrutinee can be treated as `RecordType` and each positional subpattern matches
-  the corresponding record value-shape property in deconstruct order.
+* `RecordType(pattern1, pattern2, …)` — **nominal deconstruction pattern**.
+  Matches when the scrutinee can be treated as `RecordType` and each positional
+  subpattern matches the corresponding value produced by `RecordType`’s
+  `Deconstruct` shape.
 
-  * Record patterns are only valid on `record` types.
-  * Record patterns use the record’s `Deconstruct` method to obtain positional
-    values.
-  * Each positional element is a pattern, so bindings still require `val`/`var`.
-  * The number of positional elements must match the record’s `Deconstruct`
+  * Record patterns are valid for deconstructable nominal types, including
+    `record` types and other nominal types that expose an accessible
+    `Deconstruct` method.
+  * Primary-constructor classes and structs with promoted public `val` / `var`
+    parameters synthesize a `Deconstruct` method in declaration order, so the
+    same pattern form works for them.
+  * Each positional element is a pattern, so bindings still require `val`/`var`
+    unless an outer construct such as `if val pattern = expr` supplies the
+    binding mode.
+  * The number of positional elements must match the selected `Deconstruct`
     parameters; mismatches are errors.
   * When the scrutinee is a discriminated union, `CaseName(...)` in record-pattern
     syntax is interpreted as a discriminated-union case pattern and binds the case

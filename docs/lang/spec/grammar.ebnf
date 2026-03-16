@@ -298,6 +298,7 @@ Statement                ::= LocalDeclaration
                            | FunctionStatement
                            | BlockStatement
                            | IfStatement
+                           | IfPatternStatement
                            | WhileStatement
                            | ForStatement
                            | TryStatement
@@ -326,6 +327,7 @@ FunctionStatement        ::= {AttributeList | MacroAttributeList}
 ExpressionStatement      ::= Expression ;
 
 IfStatement              ::= 'if' Expression Statement ['else' Statement] ;
+IfPatternStatement       ::= 'if' BindingKeyword Pattern '=' Expression Statement ['else' Statement] ;
 
 (* NOTE: In statement contexts, '{' that starts a new statement (for example after a newline,
    or after headers such as if/while/for) begins a block statement/body and is not parsed as an ObjectInitializer trailer.
@@ -448,7 +450,9 @@ PatternList              ::= Pattern {',' Pattern} ;
 RecordPattern            ::= Type '(' PatternList? ')' ;
 (* Binder note: when Type resolves to a discriminated-union case name for the
    current scrutinee, this form is interpreted as a DU case deconstruction
-   pattern rather than a regular record pattern. *)
+   pattern rather than a regular record pattern. Otherwise the type must be
+   deconstructable (for example a record type or a nominal type with an
+   accessible `Deconstruct` method). *)
 
 PropertyPattern          ::= Type? '{' PropertySubpatternList? '}' PropertyPatternDesignation? ;
 PropertySubpatternList   ::= PropertySubpattern {',' PropertySubpattern} ;
