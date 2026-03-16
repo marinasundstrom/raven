@@ -39,4 +39,21 @@ public class ArrayTypeSemanticTests : CompilationTestBase
         Assert.True(arrayType.IsFixedArray);
         Assert.Equal(4, arrayType.FixedSize);
     }
+
+    [Fact]
+    public void FixedSizeArrayTarget_WithFixedSpreadOfMatchingLength_Binds()
+    {
+        const string source = """
+val values: int[2] = [1, 2]
+val result: int[3] = [..values, 3]
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Last();
+        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
+        Assert.Equal(3, arrayType.FixedSize);
+    }
 }

@@ -940,6 +940,25 @@ val [first, second] = values
         verifier.Verify();
     }
 
+    [Fact]
+    public void FixedArrayCollectionExpression_WithFixedSpreadLengthMismatch_ReportsDiagnostic()
+    {
+        const string source = """
+val values: int[2] = [1, 2]
+val result: int[4] = [..values, 3]
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PositionalDeconstructionElementCountMismatch.Id)
+                    .WithAnySpan()
+                    .WithArguments(3, 4)
+            ]);
+
+        verifier.Verify();
+    }
+
     [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
     public void PositionalPatternAssignment_UsesExtensionDeconstruct()
     {

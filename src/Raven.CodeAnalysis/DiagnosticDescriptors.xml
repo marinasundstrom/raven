@@ -517,6 +517,14 @@
     Title="Cannot convert from type to type"
     Message="Cannot convert from '{fromType}' to '{toType}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1510" Identifier="CannotConvertOpenArrayToFixedSizeArray"
+    Title="Cannot convert open array to fixed-size array"
+    Message="Cannot convert open array '{fromType}' to fixed-size array '{toType}' because the length is not statically known."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1511" Identifier="CannotConvertFixedSizeArrayToDifferentSize"
+    Title="Cannot convert fixed-size array to different fixed size"
+    Message="Cannot convert fixed-size array '{fromType}' to fixed-size array '{toType}' because length {fromLength} does not match {toLength}."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1506" Identifier="ResultPropagationImplicitErrorConversion"
     Title="Result propagation applies implicit error conversion"
     Message="Result propagation converts errors from '{fromType}' to '{toType}' via implicit conversion '{conversion}'."

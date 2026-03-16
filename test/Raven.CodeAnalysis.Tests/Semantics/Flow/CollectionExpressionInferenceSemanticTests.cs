@@ -1,5 +1,6 @@
 using System.Linq;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -167,7 +168,7 @@ val inferred = [1, 2, 3]
     public void NoTargetType_CollectionLiteralWithSpread_InfersOpenArray()
     {
         const string source = """
-val values = [1, 2]
+val values: int[] = [1, 2]
 val inferred = [..values, 3]
 """;
 
@@ -188,6 +189,33 @@ val inferred = [..values, 3]
         var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
         Assert.False(arrayType.IsFixedArray);
         Assert.Null(arrayType.FixedSize);
+    }
+
+    [Fact]
+    public void NoTargetType_CollectionLiteralWithFixedSpread_InfersFixedArray()
+    {
+        const string source = """
+val values: int[2] = [1, 2]
+val inferred = [..values, 3]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<CollectionExpressionSyntax>()
+            .Single(static expression => expression.Elements.Any(element => element is SpreadElementSyntax));
+
+        var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
+        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
+        Assert.True(arrayType.IsFixedArray);
+        Assert.Equal(3, arrayType.FixedSize);
     }
 
     [Fact]

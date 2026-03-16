@@ -10095,6 +10095,15 @@ partial class BlockBinder : Binder
         if (targetType is IArrayTypeSymbol arrayType)
         {
             var elementType = arrayType.ElementType;
+            if (arrayType.FixedSize is int fixedSize &&
+                TryGetStaticallyKnownCollectionLength(elements, out var targetLength) &&
+                targetLength != fixedSize)
+            {
+                _diagnostics.ReportPositionalDeconstructionElementCountMismatch(
+                    targetLength,
+                    fixedSize,
+                    syntax.GetLocation());
+            }
 
             var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
 
@@ -10270,9 +10279,8 @@ partial class BlockBinder : Binder
                 syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
-        var fallbackFixedSize = elements.Count > 0 &&
-                                elements.All(static element => element is not BoundSpreadElement and not BoundCollectionComprehensionExpression)
-            ? (int?)elements.Count
+        var fallbackFixedSize = TryGetStaticallyKnownCollectionLength(elements, out var knownLength)
+            ? (int?)knownLength
             : null;
         var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType, fixedSize: fallbackFixedSize);
 
@@ -10832,7 +10840,40 @@ partial class BlockBinder : Binder
         if (current is null)
             return false;
 
+        if (current is IArrayTypeSymbol { Rank: 1, IsFixedArray: false } arrayType &&
+            TryGetStaticallyKnownCollectionLength(elements, out var inferredLength))
+        {
+            inferredType = Compilation.CreateArrayTypeSymbol(arrayType.ElementType, fixedSize: inferredLength);
+            return true;
+        }
+
         inferredType = current;
+        return true;
+    }
+
+    private static bool TryGetStaticallyKnownCollectionLength(
+        IReadOnlyList<BoundExpression> elements,
+        out int knownLength)
+    {
+        knownLength = 0;
+
+        foreach (var element in elements)
+        {
+            switch (element)
+            {
+                case BoundSpreadElement { Expression.Type: IArrayTypeSymbol { FixedSize: int spreadLength, Rank: 1 } }:
+                    knownLength += spreadLength;
+                    break;
+                case BoundSpreadElement:
+                case BoundCollectionComprehensionExpression:
+                    knownLength = 0;
+                    return false;
+                default:
+                    knownLength++;
+                    break;
+            }
+        }
+
         return true;
     }
 

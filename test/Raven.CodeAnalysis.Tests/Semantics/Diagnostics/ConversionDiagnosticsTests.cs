@@ -72,4 +72,38 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void OpenArray_ToFixedSizeArray_ReportsSpecificDiagnostic()
+    {
+        const string code = """
+        val values: int[] = [1, 2, 3]
+        val fixed: int[3] = values
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.CannotConvertOpenArrayToFixedSizeArray.Id)
+                .WithAnySpan()
+                .WithArguments("int[]", "int[3]")
+        ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void FixedSizeArray_ToDifferentFixedSizeArray_ReportsSpecificDiagnostic()
+    {
+        const string code = """
+        val values: int[2] = [1, 2]
+        val fixed: int[3] = values
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.CannotConvertFixedSizeArrayToDifferentSize.Id)
+                .WithAnySpan()
+                .WithArguments("int[2]", "int[3]", 2, 3)
+        ]);
+
+        verifier.Verify();
+    }
 }

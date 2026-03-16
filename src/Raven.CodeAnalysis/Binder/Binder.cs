@@ -55,6 +55,24 @@ internal abstract partial class Binder
 
     protected void ReportCannotConvertFromTypeToType(object? fromType, object? toType, Location location)
     {
+        if (fromType is IArrayTypeSymbol fromArray && toType is IArrayTypeSymbol toArray)
+        {
+            var fromDisplay = fromArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var toDisplay = toArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+            if (fromArray.FixedSize is null && toArray.FixedSize is not null)
+            {
+                _diagnostics.ReportCannotConvertOpenArrayToFixedSizeArray(fromDisplay, toDisplay, location);
+                return;
+            }
+
+            if (fromArray.FixedSize is int fromLength && toArray.FixedSize is int toLength && fromLength != toLength)
+            {
+                _diagnostics.ReportCannotConvertFixedSizeArrayToDifferentSize(fromDisplay, toDisplay, fromLength, toLength, location);
+                return;
+            }
+        }
+
         var fromArg = fromType is ITypeSymbol fromTypeSymbolForDisplay
             ? fromTypeSymbolForDisplay.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat)
             : fromType;
@@ -87,6 +105,24 @@ internal abstract partial class Binder
 
     protected void ReportCannotAssignFromTypeToType(ITypeSymbol fromType, ITypeSymbol toType, Location location)
     {
+        if (fromType is IArrayTypeSymbol fromArray && toType is IArrayTypeSymbol toArray)
+        {
+            var fromDisplay = fromArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var toDisplay = toArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+            if (fromArray.FixedSize is null && toArray.FixedSize is not null)
+            {
+                _diagnostics.ReportCannotConvertOpenArrayToFixedSizeArray(fromDisplay, toDisplay, location);
+                return;
+            }
+
+            if (fromArray.FixedSize is int fromLength && toArray.FixedSize is int toLength && fromLength != toLength)
+            {
+                _diagnostics.ReportCannotConvertFixedSizeArrayToDifferentSize(fromDisplay, toDisplay, fromLength, toLength, location);
+                return;
+            }
+        }
+
         var toArg = toType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
         if (fromType.TypeKind == TypeKind.Null)
         {

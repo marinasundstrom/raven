@@ -79,6 +79,19 @@ single-dimensional, zero-based representation (`System.Array.CreateInstance` wit
 lower bound 0). Multidimensional arrays follow the underlying CLI semantics but
 use explicit syntax such as `T[,]` when supported by the grammar.
 
+Fixed-size arrays implicitly convert to open arrays of the same element type,
+but the reverse conversion is rejected because the length is not statically
+known. Conversions between `T[N]` and `T[M]` also require the same fixed size.
+Raven reports dedicated diagnostics for those cases so array-size mismatches are
+described directly instead of surfacing as generic type-conversion failures.
+
+Raven intentionally keeps fixed-size inference conservative. The compiler
+currently infers `T[N]` only when the total element count is directly available
+from the collection expression itself, including spreads of other fixed-size
+arrays. It does not currently infer fixed sizes from comprehensions, from open
+arrays after runtime guards, or from general enumerable values even if their
+length could be proven by a more advanced analysis.
+
 ### Tuples
 
 `(T1, T2, ...)` map to `System.ValueTuple<T1, T2, ...>`.

@@ -1150,6 +1150,10 @@ Collection expressions are target-typed:
 * **Array targets** — When the expected type is an array `T[]`, the expression allocates a
   new array of that element type. Each item is implicitly converted to `T` before storage,
   and spreads must enumerate values assignable to `T`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3672-L3738】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L950-L1016】
+  When the expected type is a fixed-size array `T[N]`, Raven also validates the statically
+  known element count when it can prove one. Plain elements contribute `1`, and spreading a
+  fixed-size array `T[M]` contributes `M`. If the proven total does not match `N`, binding
+  reports a size-mismatch diagnostic instead of deferring the error to runtime.
 * **Collection targets** — When the expected type is a non-array type with an accessible
   parameterless constructor and an instance `Add` method, the compiler constructs the
   target and calls `Add` for every element. The `Add` parameter determines the element
@@ -1164,7 +1168,16 @@ Collection expressions are target-typed:
   * If no concrete spread-based target can be inferred, Raven falls back to array inference:
     it infers a best common element type by merging all element contributions (spreads use
     their enumerated element type), then produces `T[N]` for plain collection literals with
-    a statically known element count and `T[]` otherwise.
+    a statically known element count and `T[]` otherwise. Spreading fixed-size arrays also
+    participates in that count: `[..a, 3]` infers `T[N+1]` when `a` has type `T[N]`, while
+    spreads from open arrays and comprehensions continue to infer open arrays because their
+    length is not statically known.
+  * Raven does not currently attempt more aggressive length inference even when it might be
+    theoretically possible. In particular, it does not infer a fixed size from collection
+    comprehensions, from spreads of open arrays guarded by runtime checks, or from arbitrary
+    enumerable values whose length could be derived indirectly through control-flow or
+    constant propagation. Those cases remain open arrays unless an explicit fixed-size target
+    type is provided.
   * If no compatible common element type can be inferred without falling back to
     `object`, `System.ValueType`, or interfaces, inference fails
     with a type-mismatch diagnostic and an explicit target type is required.
