@@ -36,7 +36,7 @@ func Main() {
     }
 
     val point = (5, 1)
-    if val (x, 1) = point {
+    if var (x, 1) = point {
         WriteLine(x)
     }
 

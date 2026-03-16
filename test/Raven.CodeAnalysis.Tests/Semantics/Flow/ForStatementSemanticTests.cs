@@ -154,6 +154,34 @@ for val (1, name, _) in persons {
     }
 
     [Fact]
+    public void For_WithOuterVarPatternTarget_BindsMutableImplicitCaptures()
+    {
+        const string source = """
+val persons = [(1, "Ada", 20)]
+
+for var (1, name, _) in persons {
+    name = name + "!"
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "name");
+
+        var symbol = model.GetDeclaredSymbol(designation).ShouldBeOfType<SourceLocalSymbol>();
+        symbol.IsMutable.ShouldBeTrue();
+        symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+    }
+
+    [Fact]
     public void For_WithExplicitVarIdentifierTarget_ReportsDiagnostic()
     {
         const string source = """

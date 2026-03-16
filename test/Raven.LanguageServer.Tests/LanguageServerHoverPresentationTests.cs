@@ -1038,4 +1038,43 @@ class C {
         hover.ToString().ShouldContain("val text: string");
     }
 
+    [Fact]
+    public void ForPatternDeclarationHover_UsesOuterVarMutability()
+    {
+        const string code = """
+class C {
+    func Run() -> unit {
+        val points: int[][] = [[2, 3], [2, 0], [5, 1]]
+        for var [x, 0] in points {
+            x
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var token = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "x" &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is SequencePatternSyntax) == true &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is ForStatementSyntax) == true);
+        var hoverOffset = token.SpanStart + 1;
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+        resolution.ShouldNotBeNull();
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignatureForHover.Invoke(null, [resolution!.Value.Symbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
+        signature.ShouldContain("var x:");
+    }
+
 }

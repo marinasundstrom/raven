@@ -225,7 +225,9 @@ internal sealed class HoverHandler : IHoverHandler
             if (token.Kind == SyntaxKind.IdentifierToken &&
                 token.Parent?.AncestorsAndSelf().OfType<SingleVariableDesignationSyntax>().FirstOrDefault() is { } designation)
             {
-                var binding = designation.BindingKeyword.Kind == SyntaxKind.VarKeyword ? "var" : "val";
+                var binding = semanticModel.GetDeclaredSymbol(designation) is ILocalSymbol local && local.IsMutable
+                    ? "var"
+                    : designation.BindingKeyword.Kind == SyntaxKind.VarKeyword ? "var" : "val";
                 string? patternTypeDisplay = null;
                 if (designation.GetAncestor<DeclarationPatternSyntax>() is { } declarationPattern)
                 {
@@ -618,6 +620,12 @@ internal sealed class HoverHandler : IHoverHandler
             symbol = declaredSymbol;
         }
 
+        if (symbol is ILocalSymbol declarationLocal &&
+            TryBuildPatternDeclarationSignatureOverride(declarationLocal, root, offset, semanticModel, out var patternDeclarationSignature))
+        {
+            return patternDeclarationSignature;
+        }
+
         if (symbol is ILocalSymbol local &&
             local.Type.ContainsErrorType() &&
             TryInferPatternDeclaredLocalTypeAtOffset(root, offset, semanticModel, out var localTypeAtOffset))
@@ -625,12 +633,6 @@ internal sealed class HoverHandler : IHoverHandler
             var plainTypeFormat = CreatePlainTypeFormat();
             var binding = local.IsMutable ? "var" : "val";
             return $"{binding} {local.Name}: {localTypeAtOffset.ToDisplayString(plainTypeFormat)}";
-        }
-
-        if (symbol is ILocalSymbol declarationLocal &&
-            TryBuildPatternDeclarationSignatureOverride(declarationLocal, root, offset, semanticModel, out var patternDeclarationSignature))
-        {
-            return patternDeclarationSignature;
         }
 
         if (TryBuildDeclaredTypeHoverSignatureOverride(symbol, semanticModel, root, offset, out var declaredTypeSignature))
