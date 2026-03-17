@@ -2,14 +2,34 @@
 
 # Language specification
 
-Implementation details describing how Raven projects map to .NET are documented in [dotnet-implementation.md](dotnet-implementation.md).
+This page is the entry point to the Raven language specification. It defines
+the shared conventions used across the spec set and links to the chapter files
+that describe the language in detail.
 
-An overview of available types, literal semantics, and conversions can be found in the [type system](type-system.md).
+Implementation details describing how Raven projects map to .NET are documented
+in [dotnet-implementation.md](dotnet-implementation.md).
 
-Attached macro syntax and expansion rules are documented in [macros.md](macros.md).
+An overview of available types, literal semantics, and conversions can be found
+in the [type system](type-system.md).
 
-Recommended source layout and spacing conventions are documented in the
-[style guide](../style-guide.md).
+Attached macro syntax and expansion rules are documented in
+[macros.md](macros.md).
+
+Recommended source layout and spacing conventions are documented in the [style
+guide](../style-guide.md).
+
+## Specification structure
+
+Use this page for global rules that apply across the language. Use the chapter
+pages for the feature-specific normative text:
+
+* [Type system](type-system.md)
+* [Classes, structs, and interfaces](classes-and-members.md)
+* [Control flow](control-flow.md)
+* [Error handling](error-handling.md)
+* [Macros](macros.md)
+* [.NET implementation notes](dotnet-implementation.md)
+* [Grammar (non-normative EBNF)](grammar.ebnf)
 
 ## Document conventions
 
@@ -22,7 +42,7 @@ Recommended source layout and spacing conventions are documented in the
   * `⚠️` **Warning** for pitfalls or behavior likely to surprise.
   * `❗` **Important** for distinctions that affect correctness or interpretation.
   * `🧭` **Disambiguation** for parser/binder interpretation rules.
-  * `⚠️` **Open Question** for unresolved design choices that need follow-up.
+  * `❓` **Open Question** for unresolved design choices that need follow-up.
 
 ## Code samples
 
@@ -33,7 +53,7 @@ run them with the Raven CLI.
 
 ## Proposals
 
-You find proposals for future language features [here](../proposals/).
+Future language proposals live [here](../proposals/).
 
 ## File extension
 
@@ -705,7 +725,7 @@ WriteLine(Describe("10"))
 WriteLine(Describe("abc"))
 ```
 
-## Nullable suppression (`!`)
+### Nullable suppression (`!`)
 
 The postfix `!` operator suppresses nullable checking for a single expression and
 produces its underlying non-nullable type.
@@ -737,7 +757,7 @@ func Increment(value: int?) -> int {
 }
 ```
 
-## Carrier conditional access for `Result` and `Option`
+### Carrier conditional access for `Result` and `Option`
 
 Raven supports *carrier-aware* conditional member access using `?.` for `Result<T, E>` and `Option<T>`.
 
@@ -748,7 +768,7 @@ This is distinct from ordinary conditional access:
 
   * `?[...]` and `?(...)` **do not** apply to `Result` or `Option` and are not lifted.
 
-### `Result<T, E>?.Member`
+#### `Result<T, E>?.Member`
 
 If the receiver has type `Result<T, E>`, then `receiver?.Member` is evaluated as:
 
@@ -757,7 +777,7 @@ If the receiver has type `Result<T, E>`, then `receiver?.Member` is evaluated as
 
 In other words, `?.` maps over `Ok` while preserving the original error type `E`.
 
-### `Option<T>?.Member`
+#### `Option<T>?.Member`
 
 If the receiver has type `Option<T>`, then `receiver?.Member` is evaluated as:
 
@@ -766,7 +786,7 @@ If the receiver has type `Option<T>`, then `receiver?.Member` is evaluated as:
 
 In other words, `?.` maps over `Some` while preserving `None`.
 
-### Interaction with the propagation operator `?`
+#### Interaction with the propagation operator `?`
 
 The postfix propagation operator `?` unwraps a carrier value and propagates the “empty/error” case to the nearest enclosing carrier-returning context.
 
@@ -814,7 +834,7 @@ func GetItem() -> Result<string, Err> {
 record class Item(Name: string)
 ```
 
-### Not supported for carriers
+#### Not supported for carriers
 
 For `Result` and `Option`, the following conditional forms are not lifted and are therefore not supported:
 
@@ -823,14 +843,14 @@ For `Result` and `Option`, the following conditional forms are not lifted and ar
 
 If you need indexing or invocation, unwrap first (with `?`, `UnwrapOrDefault`, or pattern matching), then apply indexing/invocation on the unwrapped value.
 
-## Standard carrier helper APIs (Raven.Core)
+### Standard carrier helper APIs (Raven.Core)
 
 Raven ships `Option<T>`, `Result<T, E>`, and related extension helpers in
 `Raven.Core`. These are library APIs (not syntax), but they are part of the
 standard language experience and are expected by diagnostics, samples, and
 tooling.
 
-### `Option<T>` helpers
+#### `Option<T>` helpers
 
 - State checks: `HasSome`, `HasNone`
 - Mapping/composition: `Map`, `Then`, `Where`, `Filter`, `OrElse`
@@ -845,7 +865,7 @@ tooling.
   - `Option<T : class> <-> T?`
   - `Option<T : struct> <-> T?`
 
-### `Result<T, E>` helpers
+#### `Result<T, E>` helpers
 
 - State checks: `HasOk`, `HasError`
 - Channel projection: `IsOk`, `IsError`
@@ -855,7 +875,7 @@ tooling.
   `UnwrapOr(defaultValue)`, `UnwrapError`
 - Enumeration helpers: `ToEnumerable`, `GetEnumerator`
 
-### Carrier LINQ extensions on `IEnumerable<T>` (`System.Linq`)
+#### Carrier LINQ extensions on `IEnumerable<T>` (`System.Linq`)
 
 - Option-returning:
   - `FirstOrNone()`, `FirstOrNone(predicate)`
@@ -2559,7 +2579,7 @@ patterns, and other pure match-only forms are not assignment/declaration heads.
   Comparison patterns are commonly used under `not`, `and`, and property patterns,
   e.g. `{ Age: not > 30 }`.
 
-### Range patterns
+#### Range patterns
 
 A **range pattern** matches values that fall within a lower and/or upper bound
 using `..` (inclusive upper bound) or `..<` (exclusive upper bound). Range

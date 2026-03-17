@@ -1,8 +1,11 @@
-## Raven programming language
+# Raven programming language
 
-This section covers Raven as it exists today: a .NET language with an expression-oriented style, explicit mutability, pattern matching, `Option`/`Result`-based flow, records and primary constructors, extensions/traits, and direct .NET interop.
+This section covers Raven as it exists today: a .NET language with an
+expression-oriented style, explicit mutability, pattern matching,
+`Option`/`Result`-based flow, records and primary constructors,
+extensions/traits, and direct .NET interop.
 
-### Start here
+## Start here
 
 * [Introduction](../introduction.md)
 * [Language philosophy](philosophy.md)
@@ -11,7 +14,18 @@ This section covers Raven as it exists today: a .NET language with an expression
 * [Style guide](style-guide.md)
 * [Proposals](proposals)
 
-### Current shape in one screen
+## Specification chapters
+
+* [Core language specification](spec/language-specification.md)
+* [Types and conversions](spec/type-system.md)
+* [Classes, structs, and interfaces](spec/classes-and-members.md)
+* [Control flow](spec/control-flow.md)
+* [Error handling](spec/error-handling.md)
+* [.NET implementation notes](spec/dotnet-implementation.md)
+* [Macros](spec/macros.md)
+* [Grammar (EBNF)](spec/grammar.ebnf)
+
+## Current shape in one screen
 
 ```raven
 import System.Console.*
@@ -33,4 +47,5 @@ func ParsePort(text: string) -> Result<int, string> {
 }
 ```
 
-Use the introduction for a guided overview and the specification for precise language rules.
+Use the introduction for a guided overview and the specification chapters for
+precise language rules.
