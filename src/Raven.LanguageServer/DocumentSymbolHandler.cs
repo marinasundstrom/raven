@@ -65,11 +65,24 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
     private static IEnumerable<DocumentSymbol> BuildMemberSymbols(SyntaxList<MemberDeclarationSyntax> members, SourceText text)
     {
+        List<GlobalStatementSyntax>? topLevelStatements = null;
+
         foreach (var member in members)
         {
+            if (member is GlobalStatementSyntax globalStatement &&
+                globalStatement.Statement is not FunctionStatementSyntax)
+            {
+                topLevelStatements ??= [];
+                topLevelStatements.Add(globalStatement);
+                continue;
+            }
+
             if (TryCreateSymbol(member, text, out var symbol))
                 yield return symbol;
         }
+
+        if (topLevelStatements is { Count: > 0 })
+            yield return CreateTopLevelCodeSymbol(topLevelStatements, text);
     }
 
     private static bool TryCreateSymbol(MemberDeclarationSyntax member, SourceText text, out DocumentSymbol symbol)
@@ -89,12 +102,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                     return true;
                 }
             case GlobalStatementSyntax { Statement: FunctionStatementSyntax functionStatement }:
-                symbol = CreateSymbol(
-                    functionStatement.Identifier.Text,
-                    SymbolKind.Function,
-                    functionStatement.Span,
-                    functionStatement.Identifier.Span,
-                    text);
+                symbol = CreateFunctionStatementSymbol(functionStatement, text);
                 return true;
             case ClassDeclarationSyntax classDeclaration:
                 symbol = CreateTypeSymbol(classDeclaration, SymbolKind.Class, text);
@@ -152,7 +160,8 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                     SymbolKind.Method,
                     methodDeclaration.Span,
                     methodDeclaration.Identifier.Span,
-                    text);
+                    text,
+                    BuildNestedFunctionSymbols(GetCallableBodyRoots(methodDeclaration), text).ToArray());
                 return true;
             case ConstructorDeclarationSyntax constructorDeclaration:
                 symbol = CreateSymbol(
@@ -160,7 +169,8 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                     SymbolKind.Constructor,
                     constructorDeclaration.Span,
                     constructorDeclaration.InitKeyword.Span,
-                    text);
+                    text,
+                    BuildNestedFunctionSymbols(GetCallableBodyRoots(constructorDeclaration), text).ToArray());
                 return true;
             case ParameterlessConstructorDeclarationSyntax parameterlessConstructorDeclaration:
                 symbol = CreateSymbol(
@@ -168,7 +178,8 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                     SymbolKind.Constructor,
                     parameterlessConstructorDeclaration.Span,
                     parameterlessConstructorDeclaration.InitKeyword.Span,
-                    text);
+                    text,
+                    BuildNestedFunctionSymbols(GetCallableBodyRoots(parameterlessConstructorDeclaration), text).ToArray());
                 return true;
             case DelegateDeclarationSyntax delegateDeclaration:
                 symbol = CreateSymbol(
@@ -217,6 +228,35 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                 return false;
         }
     }
+
+    private static DocumentSymbol CreateTopLevelCodeSymbol(
+        IReadOnlyList<GlobalStatementSyntax> statements,
+        SourceText text)
+    {
+        var first = statements[0];
+        var last = statements[^1];
+        var span = TextSpan.FromBounds(first.Span.Start, last.Span.End);
+        var selectionSpan = first.Statement.Span.Length > 0
+            ? first.Statement.Span
+            : first.Span;
+
+        return CreateSymbol(
+            "<top-level code>",
+            SymbolKind.Function,
+            span,
+            selectionSpan,
+            text,
+            BuildNestedFunctionSymbols(statements.Select(static statement => statement.Statement), text).ToArray());
+    }
+
+    private static DocumentSymbol CreateFunctionStatementSymbol(FunctionStatementSyntax declaration, SourceText text)
+        => CreateSymbol(
+            declaration.Identifier.Text,
+            SymbolKind.Function,
+            declaration.Span,
+            declaration.Identifier.Span,
+            text,
+            BuildNestedFunctionSymbols(GetCallableBodyRoots(declaration), text).ToArray());
 
     private static DocumentSymbol CreateTypeSymbol(TypeDeclarationSyntax declaration, SymbolKind kind, SourceText text)
     {
@@ -280,6 +320,54 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
         var end = parameter.Identifier.Span.End;
         return new TextSpan(start, end - start);
+    }
+
+    private static IEnumerable<DocumentSymbol> BuildNestedFunctionSymbols(IEnumerable<SyntaxNode> roots, SourceText text)
+    {
+        foreach (var root in roots)
+        {
+            foreach (var child in root.ChildNodes())
+            {
+                foreach (var symbol in BuildNestedFunctionSymbols(child, text))
+                    yield return symbol;
+            }
+        }
+    }
+
+    private static IEnumerable<DocumentSymbol> BuildNestedFunctionSymbols(SyntaxNode node, SourceText text)
+    {
+        if (node is FunctionStatementSyntax functionStatement)
+        {
+            yield return CreateFunctionStatementSymbol(functionStatement, text);
+            yield break;
+        }
+
+        foreach (var child in node.ChildNodes())
+        {
+            foreach (var symbol in BuildNestedFunctionSymbols(child, text))
+                yield return symbol;
+        }
+    }
+
+    private static IEnumerable<SyntaxNode> GetCallableBodyRoots(FunctionStatementSyntax declaration)
+        => GetCallableBodyRoots(declaration.Body, declaration.ExpressionBody);
+
+    private static IEnumerable<SyntaxNode> GetCallableBodyRoots(MethodDeclarationSyntax declaration)
+        => GetCallableBodyRoots(declaration.Body, declaration.ExpressionBody);
+
+    private static IEnumerable<SyntaxNode> GetCallableBodyRoots(ConstructorDeclarationSyntax declaration)
+        => GetCallableBodyRoots(declaration.Body, declaration.ExpressionBody);
+
+    private static IEnumerable<SyntaxNode> GetCallableBodyRoots(ParameterlessConstructorDeclarationSyntax declaration)
+        => GetCallableBodyRoots(declaration.Body, declaration.ExpressionBody);
+
+    private static IEnumerable<SyntaxNode> GetCallableBodyRoots(BlockStatementSyntax? body, ArrowExpressionClauseSyntax? expressionBody)
+    {
+        if (body is not null)
+            yield return body;
+
+        if (expressionBody is not null)
+            yield return expressionBody;
     }
 
     private static DocumentSymbol CreateSymbol(

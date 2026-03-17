@@ -5,6 +5,14 @@ namespace Raven.CodeAnalysis.Syntax;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan>
 {
+    public static TextSpan FromBounds(int start, int end)
+    {
+        if (start < 0 || end < start)
+            throw new ArgumentOutOfRangeException();
+
+        return new TextSpan(start, end - start);
+    }
+
     public int Start { get; }
 
     public TextSpan(int start, int length)
