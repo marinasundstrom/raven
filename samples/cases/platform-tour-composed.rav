@@ -53,7 +53,7 @@ async func Main() -> Task {
         User(2, "Bo", null), // nullability is on by default (`string?`)
     ]
     val moreUsers = [User(3, "Cy", "cy@example.com")]
-    val users: User[] = [..baseUsers, ..moreUsers] // target-typed to array
+    val users: User[] = [...baseUsers, ...moreUsers] // target-typed to array
 
     logger.Log("Users:")
     for u in users {

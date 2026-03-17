@@ -12,7 +12,7 @@ func Main() {
 
     val rex = Character("Rex", Species.Dog, .Male, 5)
 
-    val fullCast = [rex, ..characters]
+    val fullCast = [rex, ...characters]
 
     for character in fullCast {
         val name = "Jesse Mills"

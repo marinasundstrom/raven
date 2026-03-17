@@ -7,7 +7,7 @@ import System.Text.*
 import System.Collections.Generic.*
 
 val origList: List<int> = [1, 42, 3]
-val list: List<int> = [2, .. origList, 5]
+val list: List<int> = [2, ...origList, 5]
 
 Console.WriteLine(list.Count)
 

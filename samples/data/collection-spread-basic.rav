@@ -2,7 +2,7 @@ import System.Console.*
 
 val marvel = ["Tony Stark", "Spiderman", "Thor"]
 val dc = ["Superman", "Batman", "Flash"]
-val comicCharacters = [..marvel, "Black Widow", ..dc]
+val comicCharacters = [...marvel, "Black Widow", ...dc]
 
 for character in comicCharacters {
     WriteLine(character)
