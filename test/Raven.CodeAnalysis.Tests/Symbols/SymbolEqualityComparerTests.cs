@@ -394,6 +394,42 @@ class Sample {{
     }
 
     [Fact]
+    public void Comparer_DistinguishesShadowedLocalsWithSameName()
+    {
+        const string source = """
+func Main() {
+    for x in [1] {
+        System.Console.WriteLine(x)
+    }
+
+    for val [..1, x, ...] in [[1, 2, 3]] {
+        System.Console.WriteLine(x)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+
+        var xArguments = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Where(static invocation => invocation.Expression.ToString() == "System.Console.WriteLine")
+            .Select(static invocation => invocation.ArgumentList.Arguments.Single().Expression)
+            .OfType<IdentifierNameSyntax>()
+            .ToArray();
+
+        Assert.Equal(2, xArguments.Length);
+
+        var firstLoopX = Assert.IsType<BoundLocalAccess>(model.GetBoundNode(xArguments[0]));
+        var secondLoopX = Assert.IsType<BoundLocalAccess>(model.GetBoundNode(xArguments[1]));
+
+        var comparer = SymbolEqualityComparer.Default;
+        Assert.False(comparer.Equals(firstLoopX.Local, secondLoopX.Local));
+    }
+
+    [Fact]
     public void Comparer_RecognizesMetadataDefinitions()
     {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))

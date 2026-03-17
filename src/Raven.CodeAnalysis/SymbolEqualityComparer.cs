@@ -53,6 +53,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (ReferenceEquals(x, y))
             return true;
 
+        if (x is ILocalSymbol or ILabelSymbol || y is ILocalSymbol or ILabelSymbol)
+            return false;
+
         if (x.Kind != y.Kind)
             return false;
 
@@ -343,6 +346,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         var hash = new HashCode();
         hash.Add(obj.Kind);
+
+        if (obj is ILocalSymbol or ILabelSymbol)
+            return RuntimeHelpers.GetHashCode(obj);
 
         if (obj is ITypeSymbol typeSymbol)
         {

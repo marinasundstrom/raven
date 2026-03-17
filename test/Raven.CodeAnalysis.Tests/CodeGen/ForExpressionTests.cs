@@ -165,6 +165,27 @@ for val [..2, x, ...] in [[2, 1..2, 5]] {
     }
 
     [Fact]
+    public void For_WithShadowedLoopVariableAndPatternSegmentCapture_EmitsValidProgram()
+    {
+        var code = """
+import System.Console.*
+
+for x in [2, 1..2] {
+    WriteLine(x)
+}
+
+for val [..2, ..2 x, ...] in [[2, 1..3]] {
+    WriteLine(x.Length)
+    WriteLine(x[0])
+    WriteLine(x[1])
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["2", "1", "2", "2", "2", "3"], output);
+    }
+
+    [Fact]
     public void For_BreakAndContinue_Work()
     {
         var code = """
