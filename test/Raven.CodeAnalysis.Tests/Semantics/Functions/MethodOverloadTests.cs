@@ -339,7 +339,7 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
-    public void LambdaArgument_WithRequestDelegateLikeOverload_WhenNoSignatureMatches_ReportsBindingError()
+    public void LambdaArgument_WithRequestDelegateLikeOverload_WhenNoSignatureMatches_ReportsConversionDiagnostics()
     {
         var source = """
         import System.*
@@ -364,6 +364,16 @@ public class MethodOverloadTests : CompilationTestBase
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType &&
+                          diagnostic.GetMessage().Contains("() -> Task") &&
+                          diagnostic.GetMessage().Contains("HttpContext -> Task"));
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType &&
+                          diagnostic.GetMessage().Contains("'string'") &&
+                          diagnostic.GetMessage().Contains("'Task'"));
+        Assert.DoesNotContain(
             diagnostics,
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
     }

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Reflection;
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -322,6 +323,88 @@ record Data(val Value: int)
 
         argsSymbol.ShouldNotBeNull();
         argsSymbol.Name.ShouldBe("args");
+    }
+
+    [Fact]
+    public async Task TopLevelExeProject_MainToTopLevelTransition_UpdatesCompilationAndOutlineAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "AspNetMinimalApi", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>AspNetMinimalApi</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var filePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(filePath, """
+func Main() -> int {
+    func Parse() -> int => 1
+    Parse()
+}
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        _ = store.UpsertDocument(uri, File.ReadAllText(filePath));
+
+        var transitionedText = """
+val first = args.Length
+
+if first >= 0 {
+    func Parse() -> int => first
+    Parse()
+}
+
+record Data(val Value: int)
+""";
+
+        _ = store.UpsertDocument(uri, transitionedText);
+
+        store.TryGetDocumentContext(uri, out var document, out var compilation).ShouldBeTrue();
+        document.ShouldNotBeNull();
+        compilation.ShouldNotBeNull();
+
+        var syntaxTree = await document.GetSyntaxTreeAsync();
+        syntaxTree.ShouldNotBeNull();
+
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        diagnostics.Any(diagnostic => diagnostic.Code?.String is "RAV1012" or "RAV1014").ShouldBeFalse();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree!);
+        var root = syntaxTree!.GetRoot();
+        var argsIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(id => id.Identifier.ValueText == "args");
+        semanticModel.GetSymbolInfo(argsIdentifier).Symbol.ShouldNotBeNull();
+
+        var buildMemberSymbols = typeof(DocumentSymbolHandler)
+            .GetMethod("BuildMemberSymbols", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var text = await document.GetTextAsync();
+        var symbols = ((IEnumerable<DocumentSymbol>)buildMemberSymbols.Invoke(null, [root.Members, text])!)
+            .ToArray();
+
+        symbols.Any(symbol => symbol.Name == "Main").ShouldBeFalse();
+        var topLevelCode = symbols.Single(symbol => symbol.Name == "<top-level code>");
+        topLevelCode.Children.ShouldNotBeNull();
+        topLevelCode.Children.Any(symbol => symbol.Name == "Parse").ShouldBeTrue();
+        symbols.Single(symbol => symbol.Name == "Data").Kind.ShouldBe(OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolKind.Struct);
     }
 
     public void Dispose()

@@ -1,6 +1,4 @@
-using Raven.CodeAnalysis.Text;
-
-namespace Raven.CodeAnalysis;
+namespace Raven.CodeAnalysis.Text;
 
 public struct FileLinePositionSpan
 {
