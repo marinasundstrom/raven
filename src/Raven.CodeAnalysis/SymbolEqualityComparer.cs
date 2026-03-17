@@ -53,9 +53,6 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (ReferenceEquals(x, y))
             return true;
 
-        if (x is ILocalSymbol or ILabelSymbol || y is ILocalSymbol or ILabelSymbol)
-            return false;
-
         if (x.Kind != y.Kind)
             return false;
 
@@ -166,6 +163,37 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 return false;
 
             return string.Equals(px.Name, py.Name, StringComparison.Ordinal);
+        }
+
+        if (x is ILocalSymbol localX && y is ILocalSymbol localY)
+        {
+            if (!string.Equals(localX.Name, localY.Name, StringComparison.Ordinal))
+                return false;
+
+            if (localX.IsMutable != localY.IsMutable)
+                return false;
+
+            if (localX.IsConst != localY.IsConst)
+                return false;
+
+            if (!EqualsCore(localX.Type, localY.Type, visited))
+                return false;
+
+            if (!EqualsCore(localX.ContainingSymbol, localY.ContainingSymbol, visited))
+                return false;
+
+            return HaveEquivalentDeclarationIdentity(localX, localY);
+        }
+
+        if (x is ILabelSymbol labelX && y is ILabelSymbol labelY)
+        {
+            if (!string.Equals(labelX.Name, labelY.Name, StringComparison.Ordinal))
+                return false;
+
+            if (!EqualsCore(labelX.ContainingSymbol, labelY.ContainingSymbol, visited))
+                return false;
+
+            return HaveEquivalentDeclarationIdentity(labelX, labelY);
         }
 
         if (!string.Equals(x.Name, y.Name, StringComparison.Ordinal))
@@ -347,9 +375,6 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         var hash = new HashCode();
         hash.Add(obj.Kind);
 
-        if (obj is ILocalSymbol or ILabelSymbol)
-            return RuntimeHelpers.GetHashCode(obj);
-
         if (obj is ITypeSymbol typeSymbol)
         {
             hash.Add(typeSymbol.TypeKind);
@@ -395,6 +420,31 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             hash.Add(typeParameterSymbol.Ordinal);
             hash.Add((int)typeParameterSymbol.Variance);
             hash.Add((int)typeParameterSymbol.OwnerKind);
+            return hash.ToHashCode();
+        }
+
+        if (obj is ILocalSymbol localSymbol)
+        {
+            hash.Add(localSymbol.Name, StringComparer.Ordinal);
+            hash.Add(localSymbol.IsMutable);
+            hash.Add(localSymbol.IsConst);
+            hash.Add(GetHashCodeCore(localSymbol.Type, visited));
+
+            if (localSymbol.ContainingSymbol is { } localContainingSymbol)
+                hash.Add(GetHashCodeCore(localContainingSymbol, visited));
+
+            AddDeclarationIdentityHash(ref hash, localSymbol);
+            return hash.ToHashCode();
+        }
+
+        if (obj is ILabelSymbol labelSymbol)
+        {
+            hash.Add(labelSymbol.Name, StringComparer.Ordinal);
+
+            if (labelSymbol.ContainingSymbol is { } labelContainingSymbol)
+                hash.Add(GetHashCodeCore(labelContainingSymbol, visited));
+
+            AddDeclarationIdentityHash(ref hash, labelSymbol);
             return hash.ToHashCode();
         }
 
@@ -508,6 +558,78 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return typeArguments;
 
         return ImmutableArray<ITypeSymbol>.Empty;
+    }
+
+    private static bool HaveEquivalentDeclarationIdentity(ISymbol x, ISymbol y)
+    {
+        if (!x.Locations.IsDefaultOrEmpty && !y.Locations.IsDefaultOrEmpty)
+            return HaveEquivalentLocations(x.Locations, y.Locations);
+
+        if (!x.DeclaringSyntaxReferences.IsDefaultOrEmpty && !y.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return HaveEquivalentSyntaxReferences(x.DeclaringSyntaxReferences, y.DeclaringSyntaxReferences);
+
+        return x.Locations.IsDefaultOrEmpty == y.Locations.IsDefaultOrEmpty
+            && x.DeclaringSyntaxReferences.IsDefaultOrEmpty == y.DeclaringSyntaxReferences.IsDefaultOrEmpty;
+    }
+
+    private static bool HaveEquivalentLocations(ImmutableArray<Location> x, ImmutableArray<Location> y)
+    {
+        if (x.Length != y.Length)
+            return false;
+
+        for (var i = 0; i < x.Length; i++)
+        {
+            var xLocation = x[i];
+            var yLocation = y[i];
+
+            if (!string.Equals(xLocation.SourceTree?.FilePath, yLocation.SourceTree?.FilePath, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (xLocation.SourceSpan != yLocation.SourceSpan)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool HaveEquivalentSyntaxReferences(ImmutableArray<SyntaxReference> x, ImmutableArray<SyntaxReference> y)
+    {
+        if (x.Length != y.Length)
+            return false;
+
+        for (var i = 0; i < x.Length; i++)
+        {
+            if (!string.Equals(x[i].SyntaxTree.FilePath, y[i].SyntaxTree.FilePath, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (x[i].Span != y[i].Span)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static void AddDeclarationIdentityHash(ref HashCode hash, ISymbol symbol)
+    {
+        if (!symbol.Locations.IsDefaultOrEmpty)
+        {
+            for (var i = 0; i < symbol.Locations.Length; i++)
+            {
+                hash.Add(symbol.Locations[i].SourceTree?.FilePath, StringComparer.OrdinalIgnoreCase);
+                hash.Add(symbol.Locations[i].SourceSpan);
+            }
+
+            return;
+        }
+
+        if (!symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+        {
+            for (var i = 0; i < symbol.DeclaringSyntaxReferences.Length; i++)
+            {
+                hash.Add(symbol.DeclaringSyntaxReferences[i].SyntaxTree.FilePath, StringComparer.OrdinalIgnoreCase);
+                hash.Add(symbol.DeclaringSyntaxReferences[i].Span);
+            }
+        }
     }
 
     private readonly struct SymbolPair : IEquatable<SymbolPair>

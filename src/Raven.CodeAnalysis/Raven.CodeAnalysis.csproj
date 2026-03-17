@@ -61,7 +61,7 @@
     Inputs="DiagnosticDescriptors.xml;../../tools/DiagnosticsGenerator/**/*.cs;../../tools/DiagnosticsGenerator/DiagnosticsGenerator.csproj"
     Outputs=".diagnostics.stamp"
     Condition="'$(DesignTimeBuild)' != 'true'">
-    <Exec Command="dotnet run --project ../../tools/DiagnosticsGenerator" />
+    <Exec Command="dotnet run --framework net10.0 --project ../../tools/DiagnosticsGenerator" />
     <Touch Files=".diagnostics.stamp" AlwaysCreate="true" />
   </Target>
 

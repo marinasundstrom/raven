@@ -108,6 +108,8 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllText(
             sourcePath,
             """
+            import Microsoft.AspNetCore.Builder.*
+
             val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
             val app = builder.Build()
             app.MapGet("/", () => "Hello from Raven Minimal API")
@@ -145,6 +147,8 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllText(
             sourcePath,
             """
+            import Microsoft.AspNetCore.Builder.*
+
             val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
             val app = builder.Build()
             app.MapGet("/", (name: string) => "Hello ${name} from Raven Minimal API")
@@ -181,6 +185,8 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllText(
             sourcePath,
             """
+            import Microsoft.AspNetCore.Builder.*
+
             val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
             val app = builder.Build()
             app.MapGet("/", (name: string) => "Hello ${name}")
@@ -220,6 +226,7 @@ public sealed class ProjectFileNuGetReferenceTests
             sourcePath,
             """
             import System.Threading.Tasks.*
+            import Microsoft.AspNetCore.Builder.*
 
             val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
             val app = builder.Build()

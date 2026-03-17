@@ -293,6 +293,35 @@ class Program {
         EmitOnly(code);
     }
 
+    [Fact]
+    public void AsyncOptionInvocation_NoneBranch_EmitsAndRuns()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Program {
+    static async func Fetch(flag: bool) -> Task<Option<int>> {
+        await Task.Delay(1)
+
+        if flag {
+            return Some(42)
+        }
+
+        return None
+    }
+
+    static async func Main() -> Task {
+        Console.WriteLine(await Program.Fetch(true))
+        Console.WriteLine(await Program.Fetch(false))
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "Option.Some(42)", "Option.None" }, output);
+    }
+
     private static string[] CompileAndRun(string code)
     {
         var syntaxTree = SyntaxTree.ParseText(code);

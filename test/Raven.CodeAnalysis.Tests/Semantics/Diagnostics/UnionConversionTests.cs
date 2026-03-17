@@ -128,8 +128,6 @@ func test(flag: bool) {
 
         var verifier = CreateVerifier(code, [
             new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithSpan(2, 22, 6, 6).WithArguments("ValueType", "int"),
-            new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(2, 30, 4, 6).WithArguments("()", "ValueType"),
-            new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(4, 12, 6, 6).WithArguments("int", "ValueType")
         ]);
         verifier.Verify();
     }

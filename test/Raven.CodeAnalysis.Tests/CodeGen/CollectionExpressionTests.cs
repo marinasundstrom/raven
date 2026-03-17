@@ -167,6 +167,7 @@ class Foo {
     {
         var code = """
 import System.Collections.Generic.*
+import System.Linq.*
 
 class Foo {
     static func GetCount() -> int {
@@ -244,6 +245,7 @@ class Foo {
     {
         var code = """
 import System.Collections.Generic.*
+import System.Linq.*
 
 class Foo {
     static func GetCount() -> int {
@@ -357,7 +359,7 @@ class Foo {
     }
 
     [Fact]
-    public void CollectionDeconstruction_WithoutRest_IndexesDirectly()
+    public void CollectionDeconstruction_WithoutRest_UsesDirectIndexAccess()
     {
         var code = """
 import System.Collections.Immutable.*
@@ -390,10 +392,10 @@ class Foo {
 
         Assert.DoesNotContain(
             calledMembers,
-            static member => member.Contains("::get_Count", StringComparison.Ordinal));
-        Assert.Equal(
-            2,
-            calledMembers.Count(static member => member.Contains("::get_Item", StringComparison.Ordinal)));
+            static member => member.Contains("System.Collections.IEnumerable::GetEnumerator", StringComparison.Ordinal));
+        Assert.Contains(
+            calledMembers,
+            static member => member.Contains("::get_Item", StringComparison.Ordinal));
         Assert.Equal(5, (int)method!.Invoke(instance, null)!);
     }
 

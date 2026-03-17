@@ -4453,6 +4453,16 @@ partial class BlockBinder : Binder
 
         var hasInferredResultType = TryInferBestCommonType(thenType, elseType, out var inferredResultType);
         var resultType = hasInferredResultType ? inferredResultType : Compilation.ErrorTypeSymbol;
+        var usedReferenceFallbackResultType = false;
+
+        if (targetType is null &&
+            hasInferredResultType &&
+            !SymbolEqualityComparer.Default.Equals(thenType, elseType) &&
+            TryGetReferenceFallbackCommonType(resultType, thenType, elseType, out var referenceFallbackType))
+        {
+            resultType = referenceFallbackType;
+            usedReferenceFallbackResultType = true;
+        }
 
         if (!hasInferredResultType && targetType is null)
         {
@@ -4466,7 +4476,8 @@ partial class BlockBinder : Binder
         if (targetType is null &&
             hasInferredResultType &&
             !SymbolEqualityComparer.Default.Equals(thenType, elseType) &&
-            IsDisallowedImplicitCommonType(resultType))
+            IsDisallowedImplicitCommonType(resultType) &&
+            !usedReferenceFallbackResultType)
         {
             ReportCannotConvertFromTypeToType(
                 thenType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -4553,7 +4564,7 @@ partial class BlockBinder : Binder
 
         static bool IsDisallowedImplicitCommonType(ITypeSymbol type)
         {
-            if (type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType)
+            if (type.SpecialType == SpecialType.System_ValueType)
                 return true;
 
             if (type is INamedTypeSymbol named &&
@@ -4564,6 +4575,38 @@ partial class BlockBinder : Binder
 
             return false;
         }
+
+        bool TryGetReferenceFallbackCommonType(
+            ITypeSymbol inferredType,
+            ITypeSymbol thenType,
+            ITypeSymbol elseType,
+            out ITypeSymbol fallbackType)
+        {
+            fallbackType = Compilation.ErrorTypeSymbol;
+
+            if (inferredType.TypeKind == TypeKind.Error ||
+                (IsAssignable(inferredType, thenType, out _) && IsAssignable(inferredType, elseType, out _)))
+            {
+                return false;
+            }
+
+            if (!IsReferenceLike(thenType) || !IsReferenceLike(elseType))
+                return false;
+
+            var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+            if (objectType.TypeKind == TypeKind.Error)
+                return false;
+
+            if (!IsAssignable(objectType, thenType, out _) || !IsAssignable(objectType, elseType, out _))
+                return false;
+
+            fallbackType = objectType;
+            return true;
+        }
+
+        static bool IsReferenceLike(ITypeSymbol type)
+            => !type.IsValueType &&
+               type.TypeKind is not TypeKind.Error and not TypeKind.TypeParameter;
     }
 
     private ITypeSymbol? GetTargetType(SyntaxNode node)
@@ -7654,7 +7697,40 @@ partial class BlockBinder : Binder
         if (!SymbolEqualityComparer.Default.Equals(resolvedUnion.OriginalDefinition, targetUnion.OriginalDefinition))
             return resolvedUnion;
 
+        if (!CanRefineResolvedUnionFromTarget(resolvedUnion, targetUnion))
+            return resolvedUnion;
+
         return targetUnion;
+
+        static bool CanRefineResolvedUnionFromTarget(INamedTypeSymbol resolvedUnion, INamedTypeSymbol targetUnion)
+        {
+            if (IsUninstantiatedGenericType(resolvedUnion))
+                return true;
+
+            if (resolvedUnion.TypeArguments.Length != targetUnion.TypeArguments.Length)
+                return false;
+
+            var targetAddsConcreteArguments = false;
+
+            for (var i = 0; i < resolvedUnion.TypeArguments.Length; i++)
+            {
+                var resolvedArgument = resolvedUnion.TypeArguments[i];
+                var targetArgument = targetUnion.TypeArguments[i];
+
+                if (SymbolEqualityComparer.Default.Equals(resolvedArgument, targetArgument))
+                    continue;
+
+                if (resolvedArgument is ITypeParameterSymbol)
+                {
+                    targetAddsConcreteArguments |= targetArgument is not ITypeParameterSymbol;
+                    continue;
+                }
+
+                return false;
+            }
+
+            return targetAddsConcreteArguments;
+        }
     }
 
     private BoundExpression BindInvocationExpressionCore(
@@ -11402,8 +11478,11 @@ partial class BlockBinder : Binder
             if (!rightBases.Contains(current))
                 continue;
 
-            if (current.SpecialType == SpecialType.System_Object)
+            if (current.SpecialType == SpecialType.System_Object &&
+                (left.IsValueType || right.IsValueType))
+            {
                 continue;
+            }
 
             // Avoid broad/common-root fallbacks for implicit inference.
             if (current.SpecialType == SpecialType.System_ValueType || current.TypeKind is TypeKind.Interface)

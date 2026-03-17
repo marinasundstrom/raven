@@ -703,15 +703,17 @@ internal partial class ExpressionGenerator : Generator
         }
 
         var caseCreation = new BoundObjectCreationExpression(ctor, args);
-        var conversion = Compilation.ClassifyConversion(node.CaseType, node.UnionType);
-        if (!conversion.Exists)
+
+        if (!node.UnionType.TryGetUnionCarrierConstructor(node.CaseType, out var unionCtor))
         {
             throw new InvalidOperationException(
                 $"EmitUnionCaseExpression: no conversion found from '{node.CaseType}' to '{node.UnionType}'.");
         }
 
-        var conversionExpr = new BoundConversionExpression(caseCreation, node.UnionType, conversion);
-        EmitConversionExpression(conversionExpr);
+        EmitObjectCreationExpression(
+            new BoundObjectCreationExpression(
+                unionCtor,
+                ImmutableArray.Create<BoundExpression>(caseCreation)));
     }
 
     private void EmitSelfExpression(BoundSelfExpression selfExpression, EmitContext context)

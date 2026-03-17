@@ -230,7 +230,8 @@ public partial class Compilation
             }
         }
 
-        if (destinationUnion is not null)
+        if (destinationUnion is not null &&
+            (sourceUnionCase is null || sourceUnionForCase is null))
         {
             var fallbackUnionConstructor = FindUnionCarrierConstructor(source, destination);
             if (fallbackUnionConstructor is not null)

@@ -64,6 +64,7 @@ val result = value.Double()
 
         const string extensionSource = """
 import System.Runtime.CompilerServices.*
+import Sample.Extensions.*
 
 namespace Sample.Extensions {
     static class NumberExtensions {
@@ -1216,7 +1217,7 @@ namespace Sample.Extensions {
             .Single(node => node.Name.Identifier.Text == "Describe");
 
         var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(memberAccess));
-        Assert.Contains(methodGroup.Methods, method => method.IsExtensionMethod);
+        Assert.DoesNotContain(methodGroup.Methods, method => method.IsExtensionMethod);
 
         var invocationSyntax = (InvocationExpressionSyntax)memberAccess.Parent!;
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
@@ -1232,6 +1233,7 @@ namespace Sample.Extensions {
         const string source = """
 import System.*
 import System.Runtime.CompilerServices.*
+import Sample.Extensions.*
 
 val number = 42
 val result = number.Apply(value => value > 0)
@@ -1282,6 +1284,7 @@ namespace Sample.Extensions {
         const string source = """
 import System.*
 import System.Runtime.CompilerServices.*
+import Sample.Extensions.*
 
 namespace Sample.Extensions {
     static class NumberExtensions {

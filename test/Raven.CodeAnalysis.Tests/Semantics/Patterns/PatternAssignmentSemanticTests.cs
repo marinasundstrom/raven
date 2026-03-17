@@ -1089,7 +1089,13 @@ val result: int[4] = [..values, 3]
             [
                 new DiagnosticResult(CompilerDiagnostics.PositionalDeconstructionElementCountMismatch.Id)
                     .WithAnySpan()
-                    .WithArguments(3, 4)
+                    .WithArguments(2, 4),
+                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
+                    .WithAnySpan()
+                    .WithArguments("int[2]", "int"),
+                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
+                    .WithAnySpan()
+                    .WithArguments("int[2]", "int")
             ]);
 
         verifier.Verify();

@@ -55,6 +55,9 @@ public sealed class PragmaWarningSuppressionCodeFixProvider : CodeFixProvider
 
         var lineStart = FindLineStart(text, position);
         var lineEnd = FindLineEnd(text, position);
+        if (HasMatchingDisableNextLinePragma(text, lineStart, diagnosticId))
+            return false;
+
         var newline = DetectPreferredNewline(text);
         var indent = GetLeadingIndent(text, lineStart, lineEnd);
         var insertText = $"{indent}#pragma warning disable-next-line {diagnosticId}{newline}";
@@ -77,6 +80,28 @@ public sealed class PragmaWarningSuppressionCodeFixProvider : CodeFixProvider
         }
 
         return index;
+    }
+
+    private static bool HasMatchingDisableNextLinePragma(string text, int lineStart, string diagnosticId)
+    {
+        if (lineStart <= 0)
+            return false;
+
+        var previousLineEnd = lineStart;
+        if (previousLineEnd > 0 && text[previousLineEnd - 1] == '\n')
+            previousLineEnd--;
+
+        if (previousLineEnd > 0 && text[previousLineEnd - 1] == '\r')
+            previousLineEnd--;
+
+        var previousLineStart = FindLineStart(text, previousLineEnd);
+        var previousLine = text[previousLineStart..previousLineEnd].Trim();
+        if (!previousLine.StartsWith("#pragma warning disable-next-line", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var idsText = previousLine["#pragma warning disable-next-line".Length..];
+        var ids = idsText.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return ids.Any(id => string.Equals(id, diagnosticId, StringComparison.OrdinalIgnoreCase));
     }
 
     private static int FindLineEnd(string text, int position)

@@ -170,8 +170,8 @@ public class MethodOverloadTests : CompilationTestBase
         import System.Linq.Expressions.*
 
         class C {
-            static func Pick<T>(source: IEnumerable<T>, selector: Func<T, int>) -> int { 1 }
-            static func Pick<T>(source: IEnumerable<T>, selector: Expression<Func<T, string>>) -> int { 2 }
+            static func Pick(source: IEnumerable<int>, selector: Func<int, int>) -> int { 1 }
+            static func Pick(source: IEnumerable<int>, selector: Expression<Func<int, string>>) -> int { 2 }
 
             func run() -> int {
                 val values: IEnumerable<int> = [1, 2, 3]
@@ -189,8 +189,8 @@ public class MethodOverloadTests : CompilationTestBase
             .OfType<InvocationExpressionSyntax>()
             .Single(i => i.Expression is IdentifierNameSyntax { Identifier.Text: "Pick" });
 
-        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
-        Assert.Equal("Func", symbol.Parameters[1].Type.Name);
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.Equal("Func", boundInvocation.Method.Parameters[1].Type.Name);
 
         var lambda = tree.GetRoot()
             .DescendantNodes()

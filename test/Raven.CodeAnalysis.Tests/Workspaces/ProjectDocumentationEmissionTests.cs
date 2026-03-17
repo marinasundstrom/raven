@@ -332,15 +332,18 @@ class Widget(val Title: string) {
     private static string EnsureCompilerBuilt()
     {
         var repoRoot = GetRepositoryRoot();
-        var compilerProjectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
-        var buildResult = RunProcess(
-            "dotnet",
-            $"build \"{compilerProjectPath}\" --framework net10.0 /property:WarningLevel=0",
-            repoRoot,
-            300_000);
-        Assert.True(buildResult.ExitCode == 0, buildResult.StdOut + Environment.NewLine + buildResult.StdErr);
-
         var compilerDllPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "bin", "Debug", "net10.0", "rvn.dll");
+        if (!File.Exists(compilerDllPath))
+        {
+            var compilerProjectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+            var buildResult = RunProcess(
+                "dotnet",
+                $"build \"{compilerProjectPath}\" --framework net10.0 /property:WarningLevel=0",
+                repoRoot,
+                300_000);
+            Assert.True(buildResult.ExitCode == 0, buildResult.StdOut + Environment.NewLine + buildResult.StdErr);
+        }
+
         Assert.True(File.Exists(compilerDllPath), $"Expected compiler at '{compilerDllPath}'.");
         return compilerDllPath;
     }

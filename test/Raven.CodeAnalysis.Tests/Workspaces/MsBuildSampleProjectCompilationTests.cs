@@ -54,14 +54,17 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
 
     private static string EnsureCompilerBuilt(string repoRoot)
     {
-        var compilerProjectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
-        var buildArgs = $"build \"{compilerProjectPath}\" --framework net11.0 /property:WarningLevel=0";
-        var buildResult = RunProcess("dotnet", buildArgs, repoRoot, timeoutMilliseconds: 300_000);
-        Assert.True(
-            buildResult.ExitCode == 0,
-            $"Failed to build rvn CLI for sample-project tests.\nstdout:\n{buildResult.StdOut}\nstderr:\n{buildResult.StdErr}");
-
         var compilerDllPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "bin", "Debug", "net11.0", "rvn.dll");
+        if (!File.Exists(compilerDllPath))
+        {
+            var compilerProjectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+            var buildArgs = $"build \"{compilerProjectPath}\" --framework net11.0 /property:WarningLevel=0";
+            var buildResult = RunProcess("dotnet", buildArgs, repoRoot, timeoutMilliseconds: 300_000);
+            Assert.True(
+                buildResult.ExitCode == 0,
+                $"Failed to build rvn CLI for sample-project tests.\nstdout:\n{buildResult.StdOut}\nstderr:\n{buildResult.StdErr}");
+        }
+
         Assert.True(File.Exists(compilerDllPath), $"Expected compiler output at '{compilerDllPath}'.");
         return compilerDllPath;
     }

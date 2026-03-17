@@ -301,8 +301,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             var tokenAfterModifiers = PeekToken();
 
-            if (AttributeDeclarationParser.IsAttributeListStart(this) &&
-                attributeLists.GetChildren()
+            if (attributeLists.GetChildren()
                     .OfType<AttributeListSyntax>()
                     .Any(attributeList => attributeList.CloseBracketToken.IsMissing))
             {
@@ -409,22 +408,6 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             if (statement is null)
                 return;
-
-            if (attributeLists.GetChildren().Any() &&
-                statement is not FunctionStatementSyntax &&
-                nextToken.Kind is SyntaxKind.OpenBracketToken or SyntaxKind.HashToken)
-            {
-                checkpoint.Rewind();
-
-                var recoveredStatement = new StatementSyntaxParser(this).ParseStatement();
-                if (recoveredStatement is not null)
-                {
-                    var recoveredGlobalStatement = CreateGlobalStatement(SyntaxList.Empty, SyntaxList.Empty, recoveredStatement);
-                    AddMemberDeclarationWithSeparatorValidation(recoveredGlobalStatement);
-                    order = MemberOrder.Members;
-                    return;
-                }
-            }
 
             var globalStatement = CreateGlobalStatement(attributeLists, modifiers, statement);
 

@@ -126,23 +126,26 @@ public sealed class RavenProjectOutputDeterminismTests
 
     private static string EnsureCompilerBuilt(string repoRoot)
     {
-        var compilerProjectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
-        var buildArgs = $"build \"{compilerProjectPath}\" --framework net10.0 /property:WarningLevel=0";
-        var startInfo = new ProcessStartInfo("dotnet", buildArgs)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            WorkingDirectory = repoRoot
-        };
-
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start dotnet process.");
-        var stdout = process.StandardOutput.ReadToEnd();
-        var stderr = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        Assert.True(process.ExitCode == 0, $"Failed to build rvn CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}");
-
         var compilerDllPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "bin", "Debug", "net10.0", "rvn.dll");
+        if (!File.Exists(compilerDllPath))
+        {
+            var compilerProjectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+            var buildArgs = $"build \"{compilerProjectPath}\" --framework net10.0 /property:WarningLevel=0";
+            var startInfo = new ProcessStartInfo("dotnet", buildArgs)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = repoRoot
+            };
+
+            using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start dotnet process.");
+            var stdout = process.StandardOutput.ReadToEnd();
+            var stderr = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            Assert.True(process.ExitCode == 0, $"Failed to build rvn CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}");
+        }
+
         Assert.True(File.Exists(compilerDllPath), $"Expected compiler output at '{compilerDllPath}'.");
         return compilerDllPath;
     }

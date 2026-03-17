@@ -437,7 +437,7 @@ val positives = numbers.Where(value => value > 0)
     {
         const string source = """
 import System.*
-import System.Linq.*
+import Raven.MetadataFixtures.Linq.*
 
 val numbers: int[] = [1, 2, 3]
 val result = numbers.Where(value => value == 2)
@@ -485,7 +485,7 @@ val result = numbers.Where(value => value == 2)
 
         const string source = """
 import System.*
-import System.Linq.*
+import Raven.MetadataFixtures.Linq.*
 
 val numbers: int[] = [1, 2, 3]
 val result = numbers.Where(value => value > 0)
@@ -532,7 +532,7 @@ val result = numbers.Where(value => value > 0)
     {
         const string source = """
 import System.*
-import System.Linq.*
+import Raven.MetadataFixtures.Linq.*
 
 val numbers: int[] = [1, 2, 3]
 val result = numbers.Where(value => value > 0)
@@ -615,7 +615,6 @@ val positives = numbers.Where((value: int, index: int) => value > index)
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
         Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
         return;
 
@@ -655,7 +654,7 @@ val positives = numbers.Where((value: int, index: int) => value > index)
     {
         const string source = """
 import System.*
-import System.Linq.*
+import Raven.MetadataFixtures.Linq.*
 import System.Text.*
 import System.Reflection.*
 

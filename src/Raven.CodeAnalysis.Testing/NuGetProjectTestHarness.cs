@@ -36,8 +36,35 @@ public sealed class NuGetProjectTestHarness : IDisposable
     public SyntaxTree GetSyntaxTree(string relativePath)
     {
         var fullPath = Path.Combine(_rootDirectory, relativePath);
-        return GetCompilation().SyntaxTrees.First(tree =>
-            string.Equals(Path.GetFullPath(tree.FilePath ?? string.Empty), Path.GetFullPath(fullPath), StringComparison.OrdinalIgnoreCase));
+        var normalizedFullPath = Path.GetFullPath(fullPath);
+        var compilation = GetCompilation();
+
+        var exactMatch = compilation.SyntaxTrees.FirstOrDefault(tree =>
+            string.Equals(Path.GetFullPath(tree.FilePath ?? string.Empty), normalizedFullPath, StringComparison.OrdinalIgnoreCase));
+        if (exactMatch is not null)
+            return exactMatch;
+
+        var requestedExtension = Path.GetExtension(normalizedFullPath);
+        if (RavenFileExtensions.All.Contains(requestedExtension, StringComparer.OrdinalIgnoreCase))
+        {
+            var requestedStem = Path.ChangeExtension(normalizedFullPath, null);
+            var extensionMatch = compilation.SyntaxTrees.FirstOrDefault(tree =>
+            {
+                var treePath = tree.FilePath;
+                if (string.IsNullOrWhiteSpace(treePath))
+                    return false;
+
+                var normalizedTreePath = Path.GetFullPath(treePath);
+                var treeExtension = Path.GetExtension(normalizedTreePath);
+                return RavenFileExtensions.All.Contains(treeExtension, StringComparer.OrdinalIgnoreCase)
+                    && string.Equals(Path.ChangeExtension(normalizedTreePath, null), requestedStem, StringComparison.OrdinalIgnoreCase);
+            });
+
+            if (extensionMatch is not null)
+                return extensionMatch;
+        }
+
+        throw new InvalidOperationException($"Syntax tree '{relativePath}' was not found in the temporary test project.");
     }
 
     public void Dispose()
@@ -78,17 +105,23 @@ public sealed class NuGetProjectTestHarness : IDisposable
         File.WriteAllText(fullDocumentPath, source, Encoding.UTF8);
 
         var projectFilePath = Path.Combine(rootDirectory, $"{projectName}{RavenFileExtensions.Project}");
+        var outputKind = (compilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication)).OutputKind;
         var projectElement = new XElement(
             "Project",
-            new XAttribute("Name", projectName),
-            new XAttribute("TargetFramework", targetFramework ?? TestTargetFramework.Default),
-            new XAttribute("Output", projectName),
-            new XAttribute("OutputKind", (compilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication)).OutputKind),
-            new XElement("Document", new XAttribute("Path", documentPath)));
+            new XAttribute("Sdk", "Microsoft.NET.Sdk"),
+            new XElement(
+                "PropertyGroup",
+                new XElement("AssemblyName", projectName),
+                new XElement("RootNamespace", projectName),
+                new XElement("TargetFramework", targetFramework ?? TestTargetFramework.Default),
+                new XElement("OutputType", outputKind == OutputKind.DynamicallyLinkedLibrary ? "Library" : "Exe")),
+            new XElement(
+                "ItemGroup",
+                new XElement("RavenCompile", new XAttribute("Include", documentPath))));
 
         foreach (var packageReference in packageReferences)
         {
-            projectElement.Add(
+            projectElement.Element("ItemGroup")!.Add(
                 new XElement(
                     "PackageReference",
                     new XAttribute("Include", packageReference.Id),

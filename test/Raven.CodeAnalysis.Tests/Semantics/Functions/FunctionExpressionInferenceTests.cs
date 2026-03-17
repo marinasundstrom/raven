@@ -1607,7 +1607,7 @@ class Container {
         var verifier = CreateVerifier(
             code,
             [
-                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("b"),
+                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithAnySpan().WithArguments("int[2]", "int[3]"),
             ]);
 
         verifier.Verify();
