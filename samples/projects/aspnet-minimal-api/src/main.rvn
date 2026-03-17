@@ -6,63 +6,61 @@ import Microsoft.AspNetCore.Http.*
 import Microsoft.AspNetCore.Mvc.*
 import System.Threading.Tasks.*
 
-func Main(args: string[]) {
-    val builder = WebApplication.CreateBuilder(args)
-    val app = builder.Build()
+val builder = WebApplication.CreateBuilder(args)
+val app = builder.Build()
 
-    app.MapGet("/", func () => "Hello from Raven Minimal API")
+app.MapGet("/", func () => "Hello from Raven Minimal API")
 
-    app.MapGet("/del", func (context: HttpContext) => context.Response.WriteAsync("Hello World"))
+app.MapGet("/del", func (context: HttpContext) => context.Response.WriteAsync("Hello World"))
 
-    func ping(name: string) -> PingResult {
-        PingResult("pong $name")
-    }
-
-    app.MapGet("/ping0", ping)
-
-    func ping1(name: string) -> Result<PingResult, CustomError> {
-        match name {
-            "Bob" | "bob" => Ok(PingResult("pong $name"))
-            _ => Error(CustomError("Invalid name"))
-        }
-    }
-
-    app.MapGet("/ping1", ping1)
-
-    app.MapGet("/ping", func (name: string) => "pong $name")
-
-    app.MapGet("/ping2", func (no: int = 2) => "pong $no")
-
-    app.MapGet("/async", async func () => {
-        await Task.Delay(1)
-        return "Hello from async MapGet"
-    })
-
-    app.MapPost("/submit", async func (context: HttpContext) => {
-        use reader = StreamReader(context.Request.Body, Encoding.UTF8, true, 1024, false)
-        val content = await reader.ReadToEndAsync()
-        return "submitted: $content"
-    })
-
-    app.MapPost("/submit2", func (data: Data) => "submitted: ${data.Value}")
-
-    app.MapPost("/submit-async", async func (content: string) => {
-        await Task.Delay(1)
-        return "submitted async: $content"
-    })
-
-    app.MapPost("/person", async func (person: Person) -> Task<Result<string, CustomError>> {
-        await Task.Delay(1)
-
-        if val (name, >= 18) = person {
-            return Ok("Welcome, $name!")
-        }
-
-        return Error(CustomError("You are too young"))
-    })
-
-    app.Run()
+func ping(name: string) -> PingResult {
+    PingResult("pong $name")
 }
+
+app.MapGet("/ping0", ping)
+
+func ping1(name: string) -> Result<PingResult, CustomError> {
+    match name {
+        "Bob" | "bob" => Ok(PingResult("pong $name"))
+        _ => Error(CustomError("Invalid name"))
+    }
+}
+
+app.MapGet("/ping1", ping1)
+
+app.MapGet("/ping", func (name: string) => "pong $name")
+
+app.MapGet("/ping2", func (no: int = 2) => "pong $no")
+
+app.MapGet("/async", async func () => {
+    await Task.Delay(1)
+    return "Hello from async MapGet"
+})
+
+app.MapPost("/submit", async func (context: HttpContext) => {
+    use reader = StreamReader(context.Request.Body, Encoding.UTF8, true, 1024, false)
+    val content = await reader.ReadToEndAsync()
+    return "submitted: $content"
+})
+
+app.MapPost("/submit2", func (data: Data) => "submitted: ${data.Value}")
+
+app.MapPost("/submit-async", async func (content: string) => {
+    await Task.Delay(1)
+    return "submitted async: $content"
+})
+
+app.MapPost("/person", async func (person: Person) -> Task<Result<string, CustomError>> {
+    await Task.Delay(1)
+
+    if val (name, >= 18) = person {
+        return Ok("Welcome, $name!")
+    }
+
+    return Error(CustomError("You are too young"))
+})
+
+app.Run()
 
 /// **Title**
 /// Test
