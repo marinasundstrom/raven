@@ -1,4 +1,4 @@
-namespace Raven.CodeAnalysis.Syntax;
+namespace Raven.CodeAnalysis.Text;
 
 public static class TextSpanExtensions
 {

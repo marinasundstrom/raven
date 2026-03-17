@@ -10,7 +10,7 @@ using Raven.LanguageServer;
 using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
 using CodeDiagnosticSeverity = Raven.CodeAnalysis.DiagnosticSeverity;
 using CodeLocation = Raven.CodeAnalysis.Location;
-using CodeTextSpan = Raven.CodeAnalysis.Syntax.TextSpan;
+using CodeTextSpan = Raven.CodeAnalysis.Text.TextSpan;
 using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
 
 namespace Raven.Editor.Tests;

@@ -1,6 +1,4 @@
-using Raven.CodeAnalysis.Syntax;
-
-namespace Raven.CodeAnalysis.Tests.Syntax;
+namespace Raven.CodeAnalysis.Text.Tests;
 
 public sealed class TextSpanTests
 {

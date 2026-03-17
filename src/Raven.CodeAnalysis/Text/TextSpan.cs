@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace Raven.CodeAnalysis.Syntax;
+namespace Raven.CodeAnalysis.Text;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan>

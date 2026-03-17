@@ -53,7 +53,7 @@ func Main() -> () {
         var result = await handler.Handle(new SignatureHelpParams
         {
             TextDocument = new TextDocumentIdentifier(uri),
-            Position = PositionHelper.ToRange(sourceText, new Raven.CodeAnalysis.Syntax.TextSpan(offset, 0)).Start
+            Position = PositionHelper.ToRange(sourceText, new Raven.CodeAnalysis.Text.TextSpan(offset, 0)).Start
         }, CancellationToken.None);
 
         result.ShouldNotBeNull();
