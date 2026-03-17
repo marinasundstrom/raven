@@ -138,6 +138,7 @@ internal sealed class FunctionOperation : Operation, IFunctionOperation
 
 internal sealed class VariableDeclarationOperation : Operation, IVariableDeclarationOperation
 {
+    private readonly BoundLocalDeclarationStatement _bound;
     private ImmutableArray<IVariableDeclaratorOperation>? _declarators;
 
     internal VariableDeclarationOperation(
@@ -147,13 +148,52 @@ internal sealed class VariableDeclarationOperation : Operation, IVariableDeclara
         bool isImplicit)
         : base(semanticModel, OperationKind.LocalDeclaration, syntax, null, isImplicit)
     {
+        _bound = bound;
     }
 
-    public ImmutableArray<IVariableDeclaratorOperation> Declarators => _declarators ??= OperationUtilities.CreateChildOperations(SemanticModel, ((LocalDeclarationStatementSyntax)Syntax).Declaration.Declarators).OfType<IVariableDeclaratorOperation>().ToImmutableArray();
+    public ImmutableArray<IVariableDeclaratorOperation> Declarators => _declarators ??= CreateDeclarators();
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
         return ImmutableArray.CreateRange<IOperation>(Declarators);
+    }
+
+    private ImmutableArray<IVariableDeclaratorOperation> CreateDeclarators()
+    {
+        var builder = ImmutableArray.CreateBuilder<IVariableDeclaratorOperation>();
+        var fallbackDeclarators = GetFallbackDeclaratorSyntaxes();
+
+        var index = 0;
+        foreach (var declarator in _bound.Declarators)
+        {
+            var syntax = SemanticModel.GetSyntax(declarator);
+            var fallbackSyntax = index < fallbackDeclarators.Length
+                ? fallbackDeclarators[index]
+                : Syntax;
+
+            var operation = syntax is not null
+                ? SemanticModel.GetOperation(syntax)
+                : OperationUtilities.CreateOperationFromBound(SemanticModel, declarator, fallbackSyntax);
+            if (operation is IVariableDeclaratorOperation variableDeclarator)
+                builder.Add(variableDeclarator);
+
+            index++;
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private ImmutableArray<SyntaxNode> GetFallbackDeclaratorSyntaxes()
+    {
+        var declaration = Syntax switch
+        {
+            LocalDeclarationStatementSyntax localDeclaration => localDeclaration.Declaration,
+            UseDeclarationStatementSyntax useDeclaration => useDeclaration.Declaration,
+            _ => null
+        };
+
+        return declaration?.Declarators.Cast<SyntaxNode>().ToImmutableArray()
+            ?? ImmutableArray<SyntaxNode>.Empty;
     }
 }
 
@@ -2066,17 +2106,35 @@ internal sealed class MatchOperation : Operation, ISwitchOperation
 
 internal sealed class IsPatternOperation : Operation, IIsPatternOperation
 {
+    private readonly BoundIsPatternExpression _bound;
     private IOperation? _value;
     private IOperation? _pattern;
 
     internal IsPatternOperation(SemanticModel semanticModel, BoundIsPatternExpression bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.IsPattern, syntax, bound.Type, isImplicit)
     {
+        _bound = bound;
     }
 
-    public IOperation? Value => _value ??= SemanticModel.GetOperation(((IsPatternExpressionSyntax)Syntax).Expression);
+    public IOperation? Value => _value ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel,
+        _bound.Expression,
+        Syntax switch
+        {
+            IsPatternExpressionSyntax isPattern => isPattern.Expression,
+            IfPatternStatementSyntax ifPattern => ifPattern.Expression,
+            _ => Syntax
+        });
 
-    public IOperation? Pattern => _pattern ??= SemanticModel.GetOperation(((IsPatternExpressionSyntax)Syntax).Pattern);
+    public IOperation? Pattern => _pattern ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel,
+        _bound.Pattern,
+        Syntax switch
+        {
+            IsPatternExpressionSyntax isPattern => isPattern.Pattern,
+            IfPatternStatementSyntax ifPattern => ifPattern.Pattern,
+            _ => Syntax
+        });
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
@@ -2801,14 +2859,19 @@ internal sealed class EmptyCollectionOperation : Operation, IEmptyCollectionOper
 
 internal sealed class SpreadElementOperation : Operation, ISpreadElementOperation
 {
+    private readonly BoundSpreadElement _bound;
     private IOperation? _expression;
 
     internal SpreadElementOperation(SemanticModel semanticModel, BoundSpreadElement bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.SpreadElement, syntax, bound.Type, isImplicit)
     {
+        _bound = bound;
     }
 
-    public IOperation? Expression => _expression ??= SemanticModel.GetOperation(((SpreadElementSyntax)Syntax).Expression);
+    public IOperation? Expression => _expression ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel,
+        _bound.Expression,
+        Syntax is SpreadElementSyntax spreadElement ? spreadElement.Expression : Syntax);
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {

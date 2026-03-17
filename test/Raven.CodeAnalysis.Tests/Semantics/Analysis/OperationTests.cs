@@ -67,6 +67,91 @@ val first = 1, second = 2
     }
 
     [Fact]
+    public void GetOperation_UseDeclaration_ReturnsDeclarators()
+    {
+        const string source = """
+import System.IO.*
+
+class C {
+    func Run() -> unit {
+        use stream = MemoryStream()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var declarationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<UseDeclarationStatementSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IVariableDeclarationOperation>(model.GetOperation(declarationSyntax));
+
+        operation.Kind.ShouldBe(OperationKind.LocalDeclaration);
+        operation.Declarators.Select(declarator => declarator.Symbol.Name)
+            .ShouldBe(new[] { "stream" });
+        operation.ChildOperations.Length.ShouldBe(1);
+    }
+
+    [Fact]
+    public void GetOperation_SpreadElement_ExposesExpression()
+    {
+        const string source = """
+class C {
+    func Run() -> unit {
+        val items = [1, 2]
+        val combined = [0, ...items, 3]
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var collectionSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<CollectionExpressionSyntax>()
+            .Last();
+
+        var collectionOperation = Assert.IsAssignableFrom<ICollectionOperation>(model.GetOperation(collectionSyntax));
+        var operation = collectionOperation.ChildOperations.OfType<ISpreadElementOperation>().Single();
+
+        operation.Expression.ShouldNotBeNull();
+        operation.Expression!.Kind.ShouldBe(OperationKind.LocalReference);
+        operation.ChildOperations.Length.ShouldBe(1);
+    }
+
+    [Fact]
+    public void GetOperation_IfPatternStatement_ConditionExposesIsPatternShape()
+    {
+        const string source = """
+class C {
+    func Run(person: (string, int)) -> string {
+        if val (name, >= 18) = person {
+            return name
+        }
+
+        return ""
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var ifPatternSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IfPatternStatementSyntax>()
+            .Single();
+
+        var conditional = Assert.IsAssignableFrom<IConditionalOperation>(model.GetOperation(ifPatternSyntax));
+        var isPattern = Assert.IsAssignableFrom<IIsPatternOperation>(conditional.Condition);
+
+        isPattern.Value.ShouldNotBeNull();
+        isPattern.Pattern.ShouldNotBeNull();
+        isPattern.ChildOperations.Length.ShouldBe(2);
+    }
+
+    [Fact]
     public void GetOperation_IfExpression_ReturnsConditionalShape()
     {
         const string source = """

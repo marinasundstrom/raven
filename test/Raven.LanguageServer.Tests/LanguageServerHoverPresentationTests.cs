@@ -1078,4 +1078,111 @@ class C {
         var signature = (string)buildSignatureForHover.Invoke(null, [resolution!.Value.Symbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
         signature.ShouldContain("var x:");
     }
+
+    [Fact]
+    public void SymbolResolver_PatternHover_DoesNotThrowWhenSiblingStatementContainsSpreadElement()
+    {
+        const string code = """
+import System.*
+
+class C {
+    func Run() -> unit {
+        val arr1 = [1, 2, 3]
+        val arr2 = [1, ...arr1, 3]
+
+        for val [..2, ..2 x, ...] in [[2, 1..4]] {
+            x
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var token = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "x" &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is SequencePatternSyntax) == true);
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("x");
+    }
+
+    [Fact]
+    public void SymbolResolver_UseDeclarationHover_DoesNotThrow()
+    {
+        const string code = """
+import System.IO.*
+
+class C {
+    func Run() -> unit {
+        use stream = MemoryStream()
+        stream
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var token = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "stream" &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is UseDeclarationStatementSyntax) == true);
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("stream");
+    }
+
+    [Fact]
+    public void SymbolResolver_IfPatternStatementHover_DoesNotThrow()
+    {
+        const string code = """
+class C {
+    func Run(person: (string, int)) -> string {
+        if val (name, >= 18) = person {
+            return name
+        }
+
+        return ""
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var token = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "name" &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is IfPatternStatementSyntax) == true);
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("name");
+    }
 }

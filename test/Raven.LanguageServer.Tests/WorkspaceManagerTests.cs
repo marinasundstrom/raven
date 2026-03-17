@@ -265,6 +265,65 @@ class MacroPlugin { }
         refactorings[0].Action.Title.ShouldBe("Test refactoring");
     }
 
+    [Fact]
+    public async Task TopLevelExeProject_DocumentContext_BindsWithoutMainFunctionAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "AspNetMinimalApi", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>AspNetMinimalApi</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var filePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(filePath, """
+val first = args.Length
+val second = first + 1
+
+record Data(val Value: int)
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        _ = manager.UpsertDocument(uri, File.ReadAllText(filePath));
+
+        manager.TryGetDocumentContext(uri, out var document, out var compilation).ShouldBeTrue();
+        document.ShouldNotBeNull();
+        compilation.ShouldNotBeNull();
+
+        var syntaxTree = await document.GetSyntaxTreeAsync();
+        syntaxTree.ShouldNotBeNull();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree!);
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.Any(diagnostic => diagnostic.Descriptor.Id is "RAV1012" or "RAV1014").ShouldBeFalse();
+
+        var root = syntaxTree!.GetRoot();
+        var argsIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(id => id.Identifier.ValueText == "args");
+        var argsSymbol = semanticModel.GetSymbolInfo(argsIdentifier).Symbol;
+
+        argsSymbol.ShouldNotBeNull();
+        argsSymbol.Name.ShouldBe("args");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))
