@@ -574,7 +574,6 @@ internal partial class TypeMemberBinder : Binder
         var identifierToken = ResolveExplicitInterfaceIdentifier(methodDecl.Identifier, explicitInterfaceSpecifier);
         var name = identifierToken.Kind == SyntaxKind.SelfKeyword ? "Invoke" : identifierToken.ValueText;
         ReportMemberNameMatchesContainingTypeIfNeeded(name, identifierToken.GetLocation());
-        ReportPartialModifierNotSupported(methodDecl.Modifiers, "method", name);
         if (methodDecl.FuncKeyword.IsMissing)
             _diagnostics.ReportMethodDeclarationMissingFuncKeyword(name, methodDecl.Identifier.GetLocation());
         INamedTypeSymbol? explicitInterfaceType = null;
@@ -651,9 +650,17 @@ internal partial class TypeMemberBinder : Binder
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var isExtern = modifiers.Any(m => m.Kind == SyntaxKind.ExternKeyword);
+        var isPartial = modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
         var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var defaultAccessibility = GetDefaultMemberAccessibility();
         var methodAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
+
+        if (isPartial && _containingType is not SourceNamedTypeSymbol { HasPartialModifier: true })
+        {
+            _diagnostics.ReportPartialMethodRequiresPartialType(
+                name,
+                identifierToken.GetLocation());
+        }
 
         if (isExtensionContainer)
         {
@@ -735,6 +742,24 @@ internal partial class TypeMemberBinder : Binder
         {
             _diagnostics.ReportVirtualMemberInClosedType(name, _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
+        }
+
+        if (isPartial)
+        {
+            if (isExtensionContainer)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "extension method", name, identifierToken.GetLocation());
+
+            if (explicitInterfaceType is not null)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "explicit interface method", name, identifierToken.GetLocation());
+
+            if (_containingType.TypeKind == TypeKind.Interface)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "interface method", name, identifierToken.GetLocation());
+
+            if (isAbstract)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "abstract method", name, identifierToken.GetLocation());
+
+            if (isVirtual || isOverride || isSealed || isExtern || isAsync)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "method", name, identifierToken.GetLocation());
         }
 
         IMethodSymbol? overriddenMethod = null;
@@ -872,6 +897,8 @@ internal partial class TypeMemberBinder : Binder
             signatureParameters.Insert(0, (receiverType, RefKind.None));
         var signatureArray = signatureParameters.ToArray();
 
+        var hasImplementationBody = methodDecl.Body is not null || methodDecl.ExpressionBody is not null;
+
         ValidateTypeAccessibility(
             returnType,
             methodAccessibility,
@@ -954,8 +981,6 @@ internal partial class TypeMemberBinder : Binder
             ReportMemberHidingIfNeeded(hiddenMember, name, hasNewModifier, identifierToken.GetLocation());
         }
 
-        CheckForDuplicateSignature(metadataName, displayName, signatureArray, identifierToken.GetLocation(), methodDecl);
-
         if (overriddenMethod is not null)
             methodSymbol.SetOverriddenMethod(overriddenMethod);
 
@@ -1013,6 +1038,29 @@ internal partial class TypeMemberBinder : Binder
 
         methodSymbol.SetReturnType(returnType);
         methodSymbol.SetParameters(parameters);
+
+        if (isPartial)
+        {
+            if (TryMergePartialMethodDeclaration(
+                    metadataName,
+                    name,
+                    methodDecl,
+                    methodSymbol,
+                    methodBinder,
+                    signatureArray,
+                    hasImplementationBody,
+                    out var mergedMethodBinder))
+            {
+                return mergedMethodBinder;
+            }
+
+            if (hasImplementationBody)
+                methodSymbol.MarkAsPartialImplementation();
+            else
+                methodSymbol.MarkAsPartialDefinition();
+        }
+
+        CheckForDuplicateSignature(metadataName, displayName, signatureArray, identifierToken.GetLocation(), methodDecl);
 
         if (hasInvalidAsyncReturnType)
             methodSymbol.MarkAsyncReturnTypeError();
@@ -2020,6 +2068,66 @@ internal partial class TypeMemberBinder : Binder
         }
     }
 
+    private bool TryMergePartialMethodDeclaration(
+        string searchName,
+        string methodName,
+        MethodDeclarationSyntax methodDecl,
+        SourceMethodSymbol methodSymbol,
+        MethodBinder methodBinder,
+        (ITypeSymbol type, RefKind refKind)[] signatureArray,
+        bool hasImplementationBody,
+        out MethodBinder mergedMethodBinder)
+    {
+        mergedMethodBinder = methodBinder;
+
+        var existingPartial = _containingType.GetMembers(searchName)
+            .OfType<SourceMethodSymbol>()
+            .FirstOrDefault(candidate =>
+                !ReferenceEquals(candidate, methodSymbol) &&
+                candidate.IsPartialMember &&
+                candidate.TypeParameters.Length == methodSymbol.TypeParameters.Length &&
+                SignaturesMatch(candidate, signatureArray) &&
+                TypesMatchForExplicitImplementation(candidate.ReturnType, methodSymbol.ReturnType));
+
+        if (existingPartial is null)
+            return false;
+
+        if (hasImplementationBody ? existingPartial.HasPartialImplementation : existingPartial.HasPartialDefinition)
+            return false;
+
+        if (_containingType is SourceNamedTypeSymbol containingSourceType)
+            containingSourceType.RemoveMember(methodSymbol);
+
+        existingPartial.AddDeclaration(
+            methodDecl.GetLocation(),
+            methodDecl.GetReference(),
+            preferAsPrimary: hasImplementationBody && !existingPartial.HasPartialImplementation);
+
+        if (hasImplementationBody)
+        {
+            existingPartial.SetReturnType(methodSymbol.ReturnType);
+            existingPartial.SetParameters(methodSymbol.Parameters.OfType<SourceParameterSymbol>());
+            existingPartial.UpdateModifiers(methodSymbol.IsVirtual, methodSymbol.IsOverride, methodSymbol.IsFinal, methodSymbol.IsAbstract);
+            existingPartial.SetContainsAwait(methodSymbol.ContainsAwait);
+
+            if (methodSymbol.OverriddenMethod is not null)
+                existingPartial.SetOverriddenMethod(methodSymbol.OverriddenMethod);
+
+            if (!methodSymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty)
+                existingPartial.SetExplicitInterfaceImplementations(methodSymbol.ExplicitInterfaceImplementations);
+
+            existingPartial.MarkAsPartialImplementation();
+        }
+        else
+        {
+            existingPartial.MarkAsPartialDefinition();
+        }
+
+        mergedMethodBinder = new MethodBinder(existingPartial, this);
+        mergedMethodBinder.EnsureTypeParameterConstraintTypesResolved(existingPartial.TypeParameters);
+        return true;
+    }
+
     private void ReportMemberNameMatchesContainingTypeIfNeeded(string memberName, Location location)
     {
         if (string.Equals(memberName, _containingType.Name, StringComparison.Ordinal))
@@ -2059,7 +2167,6 @@ internal partial class TypeMemberBinder : Binder
 
     public Dictionary<AccessorDeclarationSyntax, Binder> BindEventDeclaration(EventDeclarationSyntax eventDecl)
     {
-        ReportPartialModifierNotSupported(eventDecl.Modifiers, "event", eventDecl.Identifier.ValueText);
         var eventType = ResolveTypeSyntaxForSignature(this, eventDecl.Type.Type, RefKind.None);
         var modifiers = eventDecl.Modifiers;
         ReportRedundantPublicModifierIfNeeded(modifiers);
@@ -2069,6 +2176,7 @@ internal partial class TypeMemberBinder : Binder
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
+        var isPartial = modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
         var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var defaultAccessibility = GetDefaultMemberAccessibility();
         var eventAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
@@ -2083,6 +2191,15 @@ internal partial class TypeMemberBinder : Binder
 
         var isExtensionContainer = IsExtensionContainer;
         var isExtensionMember = isExtensionContainer && !hasStaticModifier;
+        var isPartialDefinitionSyntax = IsPartialEventDefinitionSyntax(eventDecl);
+        var isPartialImplementationSyntax = IsPartialEventImplementationSyntax(eventDecl);
+
+        if (isPartial && _containingType is not SourceNamedTypeSymbol { HasPartialModifier: true })
+        {
+            _diagnostics.ReportPartialEventRequiresPartialType(
+                eventName,
+                identifierToken.GetLocation());
+        }
 
         if (isExtensionContainer)
         {
@@ -2096,6 +2213,21 @@ internal partial class TypeMemberBinder : Binder
 
             if (isExtensionMember)
                 isStatic = false;
+        }
+
+        if (isPartial)
+        {
+            if (isExtensionContainer)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "extension event", eventName, identifierToken.GetLocation());
+
+            if (_containingType.TypeKind == TypeKind.Interface)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "interface event", eventName, identifierToken.GetLocation());
+
+            if (explicitInterfaceSpecifier is not null)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "explicit interface event", eventName, identifierToken.GetLocation());
+
+            if (isAbstract)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "abstract event", eventName, identifierToken.GetLocation());
         }
 
         if (explicitInterfaceSpecifier is not null)
@@ -2314,6 +2446,21 @@ internal partial class TypeMemberBinder : Binder
         {
             var hiddenMember = FindEventOverrideCandidate(eventName, eventType, isStatic);
             ReportMemberHidingIfNeeded(hiddenMember, eventName, hasNewModifier, identifierToken.GetLocation());
+        }
+
+        var duplicateEvent = _containingType.GetMembers(eventName)
+            .OfType<IEventSymbol>()
+            .FirstOrDefault(e =>
+                !ReferenceEquals(e, eventSymbol) &&
+                e.IsStatic == isStatic &&
+                TypesMatchForExplicitImplementation(e.Type, eventType));
+
+        if (duplicateEvent is not null &&
+            (!isPartial ||
+             duplicateEvent is not SourceEventSymbol { IsPartialMember: true } duplicatePartial ||
+             !CanMergePartialEventCandidate(duplicatePartial, isPartialDefinitionSyntax, isPartialImplementationSyntax)))
+        {
+            _diagnostics.ReportTypeAlreadyDefinesMember(_containingType.Name, eventName, identifierToken.GetLocation());
         }
 
         var binders = new Dictionary<AccessorDeclarationSyntax, Binder>();
@@ -2562,7 +2709,99 @@ internal partial class TypeMemberBinder : Binder
 
         eventSymbol.SetAccessors(addMethod, removeMethod);
 
+        if (isPartial)
+        {
+            if (TryMergePartialEventDeclaration(
+                    eventDecl,
+                    eventSymbol,
+                    addMethod,
+                    removeMethod,
+                    isPartialDefinitionSyntax,
+                    isPartialImplementationSyntax))
+            {
+                return binders;
+            }
+
+            if (isPartialImplementationSyntax)
+                eventSymbol.MarkAsPartialImplementation();
+            else if (isPartialDefinitionSyntax)
+                eventSymbol.MarkAsPartialDefinition();
+        }
+
         return binders;
+    }
+
+    private bool TryMergePartialEventDeclaration(
+        EventDeclarationSyntax eventDecl,
+        SourceEventSymbol eventSymbol,
+        SourceMethodSymbol? addMethod,
+        SourceMethodSymbol? removeMethod,
+        bool isDefinitionSyntax,
+        bool isImplementationSyntax)
+    {
+        var existingPartial = _containingType.GetMembers(eventSymbol.Name)
+            .OfType<SourceEventSymbol>()
+            .FirstOrDefault(candidate =>
+                !ReferenceEquals(candidate, eventSymbol) &&
+                candidate.IsPartialMember &&
+                candidate.IsStatic == eventSymbol.IsStatic &&
+                TypesMatchForExplicitImplementation(candidate.Type, eventSymbol.Type));
+
+        if (existingPartial is null || !CanMergePartialEventCandidate(existingPartial, isDefinitionSyntax, isImplementationSyntax))
+            return false;
+
+        if (_containingType is SourceNamedTypeSymbol containingType)
+        {
+            containingType.RemoveMember(eventSymbol);
+            if (addMethod is not null)
+                containingType.RemoveMember(addMethod);
+            if (removeMethod is not null)
+                containingType.RemoveMember(removeMethod);
+        }
+
+        existingPartial.AddDeclaration(
+            eventDecl.GetLocation(),
+            eventDecl.GetReference(),
+            preferAsPrimary: isImplementationSyntax && !existingPartial.HasPartialImplementation);
+
+        MergePartialAccessor(existingPartial.AddMethod as SourceMethodSymbol, addMethod, preferAsPrimary: isImplementationSyntax);
+        MergePartialAccessor(existingPartial.RemoveMethod as SourceMethodSymbol, removeMethod, preferAsPrimary: isImplementationSyntax);
+
+        existingPartial.SetAccessors(
+            existingPartial.AddMethod ?? addMethod,
+            existingPartial.RemoveMethod ?? removeMethod);
+
+        if (isImplementationSyntax)
+            existingPartial.MarkAsPartialImplementation();
+        else if (isDefinitionSyntax)
+            existingPartial.MarkAsPartialDefinition();
+
+        return true;
+    }
+
+    private static bool CanMergePartialEventCandidate(
+        SourceEventSymbol eventSymbol,
+        bool incomingDefinition,
+        bool incomingImplementation)
+    {
+        if (incomingDefinition && eventSymbol.HasPartialDefinition)
+            return false;
+
+        if (incomingImplementation && eventSymbol.HasPartialImplementation)
+            return false;
+
+        return true;
+    }
+
+    private static bool IsPartialEventDefinitionSyntax(EventDeclarationSyntax eventDecl)
+    {
+        return eventDecl.AccessorList is null ||
+               eventDecl.AccessorList.Accessors.All(accessor => accessor.Body is null && accessor.ExpressionBody is null);
+    }
+
+    private static bool IsPartialEventImplementationSyntax(EventDeclarationSyntax eventDecl)
+    {
+        return eventDecl.AccessorList?.Accessors.Any(accessor => accessor.Body is not null || accessor.ExpressionBody is not null) == true;
     }
 
     public Dictionary<AccessorDeclarationSyntax, Binder> BindIndexerDeclaration(IndexerDeclarationSyntax indexerDecl)

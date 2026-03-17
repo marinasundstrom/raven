@@ -1,6 +1,16 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-03-16**.
+Behavior-focused timeline covering **2025-09-12** to **2026-03-17**.
+
+## 2026-03-17
+
+### Changed
+- Partial nominal types now behave consistently across classes, structs, records, and interfaces. Matching partial declarations merge into one type symbol, interface parts can contribute members across files, and conflicting accessibility/type-parameter shapes now report dedicated diagnostics instead of silently taking whichever declaration bound first.
+- Partial methods, partial properties, and partial events are now supported inside partial nominal types. Raven accepts declaration/implementation pairs, merges them into a single symbol, and reports dedicated diagnostics when either side of the pair is missing or when a property/event implementation is left as auto/field-like syntax.
+
+Impact:
+- Multi-file type organization is now more predictable because partial-type compatibility is checked explicitly instead of depending on declaration order.
+- Library authors can now split method/property/event contracts from their implementations in the same way they already split types, while still getting clear compiler feedback when a partial-member pair is incomplete.
 
 ## 2026-03-16
 

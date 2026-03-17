@@ -19,6 +19,8 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     private bool? _isMutable;
     private PropertyImplementationKind _implementationKind;
     private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
+    private bool _isPartialDefinition;
+    private bool _isPartialImplementation;
 
     public SourcePropertySymbol(
         string name,
@@ -55,6 +57,9 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     public override string MetadataName => _metadataName;
 
     public bool IsAutoProperty => _implementationKind == PropertyImplementationKind.SynthesizedBackingFieldAccessors;
+    internal bool IsPartialMember => _isPartialDefinition || _isPartialImplementation;
+    internal bool HasPartialDefinition => _isPartialDefinition;
+    internal bool HasPartialImplementation => _isPartialImplementation;
 
     public SourceFieldSymbol? BackingField => _backingField;
     internal bool EmitAsFieldOnly => _implementationKind == PropertyImplementationKind.FieldOnly;
@@ -95,6 +100,19 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     internal void MarkEmitAsFieldOnly()
     {
         _implementationKind = PropertyImplementationKind.FieldOnly;
+    }
+
+    internal void AddDeclaration(Location location, SyntaxReference reference, bool preferAsPrimary = false)
+        => base.AddDeclaration(location, reference, preferAsPrimary);
+
+    internal void MarkAsPartialDefinition()
+    {
+        _isPartialDefinition = true;
+    }
+
+    internal void MarkAsPartialImplementation()
+    {
+        _isPartialImplementation = true;
     }
 
     public bool IsRequired

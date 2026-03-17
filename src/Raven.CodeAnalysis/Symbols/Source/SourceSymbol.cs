@@ -197,6 +197,32 @@ internal abstract class SourceSymbol : Symbol
             : null;
     }
 
+    internal void AddDeclaration(Location location, SyntaxReference reference, bool preferAsPrimary = false)
+    {
+        if (preferAsPrimary)
+        {
+            Locations = ImmutableArray.Create(location).AddRange(Locations);
+            DeclaringSyntaxReferences = ImmutableArray.Create(reference).AddRange(DeclaringSyntaxReferences);
+        }
+        else
+        {
+            Locations = Locations.Add(location);
+            DeclaringSyntaxReferences = DeclaringSyntaxReferences.Add(reference);
+        }
+
+        RefreshSourceDeclarationCaches();
+    }
+
+    private void RefreshSourceDeclarationCaches()
+    {
+        _lazyCustomAttributes = default;
+        _lazyDocumentationComment = null;
+
+        var parseOptions = GetParseOptions(DeclaringSyntaxReferences);
+        DocumentationComments = DocumentationCommentUtilities.GetDocumentationComments(DeclaringSyntaxReferences, parseOptions);
+        DocumentationComment = DocumentationCommentUtilities.GetMergedDocumentationComment(DeclaringSyntaxReferences, parseOptions);
+    }
+
     private IEnumerable<AttributeListSyntax> GetAttributeListsForDeclaration(SyntaxNode syntax)
         => syntax switch
         {

@@ -36,6 +36,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _asyncReturnTypeInferenceComplete;
     private bool _setsRequiredMembers;
     private bool? _lazyIsUnsafe;
+    private bool _isPartialDefinition;
+    private bool _isPartialImplementation;
 
     private bool IsAutoPropertyAccessor
         => MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
@@ -178,6 +180,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public SynthesizedIteratorTypeSymbol? IteratorStateMachine => _iteratorStateMachine;
 
     public SynthesizedAsyncStateMachineTypeSymbol? AsyncStateMachine => _asyncStateMachine;
+    internal bool IsPartialMember => _isPartialDefinition || _isPartialImplementation;
+    internal bool HasPartialDefinition => _isPartialDefinition;
+    internal bool HasPartialImplementation => _isPartialImplementation;
 
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 
@@ -237,10 +242,23 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _containsAwait = containsAwait;
     }
 
+    internal void AddDeclaration(Location location, SyntaxReference reference, bool preferAsPrimary = false)
+        => base.AddDeclaration(location, reference, preferAsPrimary);
+
     internal void MarkDeclaredInExtension()
     {
         _declaredInExtension = true;
         _lazyIsExtensionMethod = true;
+    }
+
+    internal void MarkAsPartialDefinition()
+    {
+        _isPartialDefinition = true;
+    }
+
+    internal void MarkAsPartialImplementation()
+    {
+        _isPartialImplementation = true;
     }
 
     private bool ComputeIsUnsafe()

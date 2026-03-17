@@ -7,6 +7,8 @@ internal sealed class SourceEventSymbol : SourceSymbol, IEventSymbol
     private SourceFieldSymbol? _backingField;
     private bool _declaredInExtension;
     private ITypeSymbol? _extensionReceiverType;
+    private bool _isPartialDefinition;
+    private bool _isPartialImplementation;
 
     public SourceEventSymbol(
         string name,
@@ -37,6 +39,9 @@ internal sealed class SourceEventSymbol : SourceSymbol, IEventSymbol
     public override string MetadataName => _metadataName;
 
     public bool IsAutoEvent => _backingField is not null;
+    internal bool IsPartialMember => _isPartialDefinition || _isPartialImplementation;
+    internal bool HasPartialDefinition => _isPartialDefinition;
+    internal bool HasPartialImplementation => _isPartialImplementation;
 
     public SourceFieldSymbol? BackingField => _backingField;
 
@@ -60,6 +65,19 @@ internal sealed class SourceEventSymbol : SourceSymbol, IEventSymbol
     {
         _declaredInExtension = true;
         _extensionReceiverType = receiverType;
+    }
+
+    internal void AddDeclaration(Location location, SyntaxReference reference, bool preferAsPrimary = false)
+        => base.AddDeclaration(location, reference, preferAsPrimary);
+
+    internal void MarkAsPartialDefinition()
+    {
+        _isPartialDefinition = true;
+    }
+
+    internal void MarkAsPartialImplementation()
+    {
+        _isPartialImplementation = true;
     }
 
     public override void Accept(SymbolVisitor visitor)

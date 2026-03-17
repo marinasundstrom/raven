@@ -78,6 +78,68 @@ internal sealed class DeclaredSymbolLookup
             return declaredMethod;
         }
 
+        if (node is PropertyDeclarationSyntax propertyDeclaration &&
+            propertyDeclaration.Parent is TypeDeclarationSyntax propertyContainingType &&
+            _semanticModel.GetDeclaredSymbol(propertyContainingType) is INamedTypeSymbol propertyOwner)
+        {
+            var identifierToken = propertyDeclaration.ExplicitInterfaceSpecifier is null
+                ? propertyDeclaration.Identifier
+                : propertyDeclaration.ExplicitInterfaceSpecifier.Identifier;
+
+            var targetTree = propertyDeclaration.SyntaxTree;
+            var targetSpan = propertyDeclaration.Span;
+
+            var exactProperty = propertyOwner
+                .GetMembers(identifierToken.ValueText)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(property =>
+                    property.DeclaringSyntaxReferences.Any(reference =>
+                        reference.SyntaxTree == targetTree &&
+                        reference.Span == targetSpan));
+
+            if (exactProperty is not null)
+                return exactProperty;
+
+            var fallbackProperty = propertyOwner
+                .GetMembers(identifierToken.ValueText)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault();
+
+            if (fallbackProperty is not null)
+                return fallbackProperty;
+        }
+
+        if (node is EventDeclarationSyntax eventDeclaration &&
+            eventDeclaration.Parent is TypeDeclarationSyntax eventContainingType &&
+            _semanticModel.GetDeclaredSymbol(eventContainingType) is INamedTypeSymbol eventOwner)
+        {
+            var identifierToken = eventDeclaration.ExplicitInterfaceSpecifier is null
+                ? eventDeclaration.Identifier
+                : eventDeclaration.ExplicitInterfaceSpecifier.Identifier;
+
+            var targetTree = eventDeclaration.SyntaxTree;
+            var targetSpan = eventDeclaration.Span;
+
+            var exactEvent = eventOwner
+                .GetMembers(identifierToken.ValueText)
+                .OfType<IEventSymbol>()
+                .FirstOrDefault(@event =>
+                    @event.DeclaringSyntaxReferences.Any(reference =>
+                        reference.SyntaxTree == targetTree &&
+                        reference.Span == targetSpan));
+
+            if (exactEvent is not null)
+                return exactEvent;
+
+            var fallbackEvent = eventOwner
+                .GetMembers(identifierToken.ValueText)
+                .OfType<IEventSymbol>()
+                .FirstOrDefault();
+
+            if (fallbackEvent is not null)
+                return fallbackEvent;
+        }
+
         if (node is ParameterSyntax parameterSyntax &&
             parameterSyntax.Parent?.Parent is TypeDeclarationSyntax parameterContainingType &&
             _semanticModel.GetDeclaredSymbol(parameterContainingType) is INamedTypeSymbol containingType)

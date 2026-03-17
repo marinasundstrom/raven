@@ -250,6 +250,7 @@ public partial class SemanticModel
             existingType.UpdateDeclarationModifiers(isSealed, isAbstract, isStatic);
             existingType.RegisterPartialModifier(isPartial);
             existingType.RegisterRecordModifier(isRecord);
+            ReportPartialTypeCompatibility(existingType, classDecl, typeAccessibility, _declarationDiagnostics);
 
             if (isSealedHierarchy)
                 existingType.MarkAsSealedHierarchy(classDecl.SyntaxTree.FilePath, hasPermitsClause);
@@ -286,6 +287,49 @@ public partial class SemanticModel
         RegisterDeclaredTypeSymbol(classDecl, classSymbol);
 
         return classSymbol;
+    }
+
+    private void ReportPartialTypeCompatibility(
+        SourceNamedTypeSymbol existingType,
+        TypeDeclarationSyntax declaration,
+        Accessibility declaredAccessibility,
+        DiagnosticBag diagnostics)
+    {
+        if (existingType.DeclaredAccessibility != declaredAccessibility)
+        {
+            diagnostics.ReportPartialTypeDeclarationAccessibilityMismatch(
+                declaration.Identifier.ValueText,
+                declaration.Identifier.GetLocation());
+        }
+
+        if (!DoTypeParametersMatch(existingType, GetTypeParameterList(declaration)))
+        {
+            diagnostics.ReportPartialTypeDeclarationTypeParametersMustMatch(
+                declaration.Identifier.ValueText,
+                declaration.Identifier.GetLocation());
+        }
+    }
+
+    private static bool DoTypeParametersMatch(
+        SourceNamedTypeSymbol existingType,
+        TypeParameterListSyntax? typeParameterList)
+    {
+        var existingParameters = existingType.TypeParameters;
+        var declaredCount = typeParameterList?.Parameters.Count ?? 0;
+
+        if (existingParameters.Length != declaredCount)
+            return false;
+
+        if (typeParameterList is null)
+            return existingParameters.Length == 0;
+
+        for (var i = 0; i < existingParameters.Length; i++)
+        {
+            if (!string.Equals(existingParameters[i].Name, typeParameterList.Parameters[i].Identifier.ValueText, StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
     }
 
     private readonly record struct EffectiveMemberDeclaration(
@@ -466,23 +510,60 @@ public partial class SemanticModel
                     {
                         ReportInvalidTypeModifiers(nestedInterface, isNestedType: true, _declarationDiagnostics);
 
-                        var nestedInterfaceSymbol = new SourceNamedTypeSymbol(
-                            nestedInterface.Identifier.ValueText,
-                            objectType!,
-                            TypeKind.Interface,
-                            parentType,
-                            parentType,
-                            classSymbol.ContainingNamespace,
-                            [nestedInterface.GetLocation()],
-                            [nestedInterface.GetReference()],
-                            true,
-                            isAbstract: true,
-                            declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
-                                nestedInterface.Modifiers,
-                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentType))
-                        );
+                        var nestedPartial = nestedInterface.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+                        var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                            nestedInterface.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
+                        var existingNested = parentType.GetMembers(nestedInterface.Identifier.ValueText)
+                            .OfType<SourceNamedTypeSymbol>()
+                            .FirstOrDefault(t => t.TypeKind == TypeKind.Interface);
+                        SourceNamedTypeSymbol nestedInterfaceSymbol;
 
-                        InitializeTypeParameters(nestedInterfaceSymbol, nestedInterface.TypeParameterList, nestedInterface.ConstraintClauses);
+                        if (existingNested is not null)
+                        {
+                            var hadPartial = existingNested.HasPartialModifier;
+                            var hadNonPartial = existingNested.HasNonPartialDeclaration;
+                            var previouslyMixed = hadPartial && hadNonPartial;
+                            var willBeMixed = (hadPartial || nestedPartial) && (hadNonPartial || !nestedPartial);
+
+                            if (willBeMixed && !previouslyMixed)
+                            {
+                                _declarationDiagnostics.ReportPartialTypeDeclarationMissingPartial(
+                                    nestedInterface.Identifier.ValueText,
+                                    nestedInterface.Identifier.GetLocation());
+                            }
+                            else if (hadNonPartial && !nestedPartial)
+                            {
+                                _declarationDiagnostics.ReportTypeAlreadyDefined(
+                                    nestedInterface.Identifier.ValueText,
+                                    nestedInterface.Identifier.GetLocation());
+                            }
+
+                            existingNested.AddDeclaration(nestedInterface.GetLocation(), nestedInterface.GetReference());
+                            existingNested.RegisterPartialModifier(nestedPartial);
+                            ReportPartialTypeCompatibility(existingNested, nestedInterface, nestedAccessibility, _declarationDiagnostics);
+                            nestedInterfaceSymbol = existingNested;
+                        }
+                        else
+                        {
+                            nestedInterfaceSymbol = new SourceNamedTypeSymbol(
+                                nestedInterface.Identifier.ValueText,
+                                objectType!,
+                                TypeKind.Interface,
+                                parentType,
+                                parentType,
+                                classSymbol.ContainingNamespace,
+                                [nestedInterface.GetLocation()],
+                                [nestedInterface.GetReference()],
+                                true,
+                                isAbstract: true,
+                                declaredAccessibility: nestedAccessibility
+                            );
+
+                            nestedInterfaceSymbol.RegisterPartialModifier(nestedPartial);
+                            InitializeTypeParameters(nestedInterfaceSymbol, nestedInterface.TypeParameterList, nestedInterface.ConstraintClauses);
+                        }
+
                         RegisterDeclaredTypeSymbol(nestedInterface, nestedInterfaceSymbol);
                         break;
                     }
@@ -605,6 +686,42 @@ public partial class SemanticModel
             interfaceDecl.TypeParameterList?.Parameters.Count ?? 0,
             _declarationDiagnostics);
 
+        var isPartial = interfaceDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+        var interfaceAccessibility = AccessibilityUtilities.DetermineAccessibility(
+            interfaceDecl.Modifiers,
+            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+
+        var parentSourceNamespace = parentNamespace.AsSourceNamespace();
+        if (parentSourceNamespace is not null &&
+            parentSourceNamespace.IsMemberDefined(interfaceDecl.Identifier.ValueText, out var existingMember) &&
+            existingMember is SourceNamedTypeSymbol existingType &&
+            existingType.TypeKind == TypeKind.Interface)
+        {
+            var hadPartial = existingType.HasPartialModifier;
+            var hadNonPartial = existingType.HasNonPartialDeclaration;
+            var previouslyMixed = hadPartial && hadNonPartial;
+            var willBeMixed = (hadPartial || isPartial) && (hadNonPartial || !isPartial);
+
+            if (willBeMixed && !previouslyMixed)
+            {
+                _declarationDiagnostics.ReportPartialTypeDeclarationMissingPartial(
+                    interfaceDecl.Identifier.ValueText,
+                    interfaceDecl.Identifier.GetLocation());
+            }
+            else if (hadNonPartial && !isPartial)
+            {
+                _declarationDiagnostics.ReportTypeAlreadyDefined(
+                    interfaceDecl.Identifier.ValueText,
+                    interfaceDecl.Identifier.GetLocation());
+            }
+
+            existingType.AddDeclaration(interfaceDecl.GetLocation(), interfaceDecl.GetReference());
+            existingType.RegisterPartialModifier(isPartial);
+            ReportPartialTypeCompatibility(existingType, interfaceDecl, interfaceAccessibility, _declarationDiagnostics);
+            RegisterDeclaredTypeSymbol(interfaceDecl, existingType);
+            return;
+        }
+
         var interfaceSymbol = new SourceNamedTypeSymbol(
             interfaceDecl.Identifier.ValueText,
             objectType!,
@@ -616,10 +733,9 @@ public partial class SemanticModel
             new[] { interfaceDecl.GetReference() },
             true,
             isAbstract: true,
-            declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
-                interfaceDecl.Modifiers,
-                AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace())));
+            declaredAccessibility: interfaceAccessibility);
 
+        interfaceSymbol.RegisterPartialModifier(isPartial);
         InitializeTypeParameters(interfaceSymbol, interfaceDecl.TypeParameterList, interfaceDecl.ConstraintClauses);
         RegisterDeclaredTypeSymbol(interfaceDecl, interfaceSymbol);
     }
@@ -2754,8 +2870,92 @@ public partial class SemanticModel
         if (classBinder.ContainingSymbol is SourceNamedTypeSymbol { IsRecord: true })
             RegisterRecordValueMembers(classDecl, classBinder);
 
+        var primaryDeclaration = parentType.DeclaringSyntaxReferences.FirstOrDefault();
+        if (primaryDeclaration is not null &&
+            primaryDeclaration.SyntaxTree == classDecl.SyntaxTree &&
+            primaryDeclaration.Span == classDecl.Span)
+        {
+            ReportIncompletePartialMethods(parentType, classBinder.Diagnostics);
+            ReportIncompletePartialProperties(parentType, classBinder.Diagnostics);
+            ReportIncompletePartialEvents(parentType, classBinder.Diagnostics);
+        }
         classBinder.EnsureDefaultConstructor();
 
+    }
+
+    private static void ReportIncompletePartialMethods(INamedTypeSymbol containingType, DiagnosticBag diagnostics)
+    {
+        foreach (var method in containingType.GetMembers().OfType<SourceMethodSymbol>())
+        {
+            if (!method.IsPartialMember)
+                continue;
+
+            var primaryLocation = method.Locations.FirstOrDefault();
+
+            if (!method.HasPartialDefinition)
+            {
+                diagnostics.ReportPartialMethodMissingDefinition(
+                    method.Name,
+                    primaryLocation);
+            }
+
+            if (!method.HasPartialImplementation)
+            {
+                diagnostics.ReportPartialMethodMissingImplementation(
+                    method.Name,
+                    primaryLocation);
+            }
+        }
+    }
+
+    private static void ReportIncompletePartialProperties(INamedTypeSymbol containingType, DiagnosticBag diagnostics)
+    {
+        foreach (var property in containingType.GetMembers().OfType<SourcePropertySymbol>())
+        {
+            if (!property.IsPartialMember)
+                continue;
+
+            var primaryLocation = property.Locations.FirstOrDefault();
+
+            if (!property.HasPartialDefinition)
+            {
+                diagnostics.ReportPartialPropertyMissingDefinition(
+                    property.Name,
+                    primaryLocation);
+            }
+
+            if (!property.HasPartialImplementation)
+            {
+                diagnostics.ReportPartialPropertyMissingImplementation(
+                    property.Name,
+                    primaryLocation);
+            }
+        }
+    }
+
+    private static void ReportIncompletePartialEvents(INamedTypeSymbol containingType, DiagnosticBag diagnostics)
+    {
+        foreach (var @event in containingType.GetMembers().OfType<SourceEventSymbol>())
+        {
+            if (!@event.IsPartialMember)
+                continue;
+
+            var primaryLocation = @event.Locations.FirstOrDefault();
+
+            if (!@event.HasPartialDefinition)
+            {
+                diagnostics.ReportPartialEventMissingDefinition(
+                    @event.Name,
+                    primaryLocation);
+            }
+
+            if (!@event.HasPartialImplementation)
+            {
+                diagnostics.ReportPartialEventMissingImplementation(
+                    @event.Name,
+                    primaryLocation);
+            }
+        }
     }
 
 

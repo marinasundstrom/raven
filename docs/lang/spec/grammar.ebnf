@@ -16,7 +16,7 @@ MemberModifiers          ::= { MemberModifier } ;
 MemberModifier           ::= AccessModifier
                            | 'static' | 'abstract' | 'virtual' | 'override' | 'final' | 'sealed' | 'new'
                            | 'readonly' | 'required'
-                           | 'async' | 'extern' ;
+                           | 'async' | 'extern' | 'partial' ;  (* Contextual restriction: 'partial' currently applies to methods, properties, and events *)
 
 AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;
 

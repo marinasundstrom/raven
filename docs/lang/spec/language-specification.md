@@ -89,7 +89,7 @@ classifies each keyword as either reserved or contextual.
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers. Contextual keywords behave like ordinary
 identifiers except in the syntactic positions that demand their special meaning—for example, accessibility modifiers
 (`public`, `internal`, `protected`, `private`) or accessor modifiers (`get`, `set`). The `partial` keyword is only recognised
-when declaring types and controls whether multiple declarations of the same class merge; see [Partial classes](classes-and-members.md#partial-classes).
+when declaring partial types or partial members; see [Partial types and members](classes-and-members.md#partial-types-and-members).
 
 To use a reserved keyword as an identifier, prefix it with `@`. The lexer produces an identifier token whose `Text` still
 includes the `@` escape, while the token's `ValueText` omits it. All bound symbols expose the unescaped name, mirroring C#'s

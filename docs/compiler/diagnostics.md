@@ -123,9 +123,22 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV0505` | Warning | Obsolete member usage | The {symbolKind} '{memberName}' is obsolete: {message} | — |
 | `RAV0600` | Error | Type already defined | A type named '{name}' is already defined in this scope | — |
 | `RAV0601` | Error | 'partial' modifier missing | Type '{name}' has multiple declarations; all declarations must include the 'partial' modifier | — |
+| `RAV0602` | Error | Partial type accessibility mismatch | All partial declarations of type '{name}' must declare the same accessibility | — |
+| `RAV0603` | Error | Partial type type parameters must match | All partial declarations of type '{name}' must declare the same type parameters in the same order | — |
+| `RAV0604` | Error | Partial method is missing implementation | Partial method '{name}' must have an implementation part | — |
+| `RAV0605` | Error | Partial method is missing declaration | Partial method '{name}' must have a declaration part without a body | — |
+| `RAV0606` | Error | Partial method requires partial type | Partial method '{name}' must be declared inside a partial type | — |
+| `RAV0607` | Error | Partial property is missing implementation | Partial property '{name}' must have an implementation part | — |
 | `RAV0608` | Error | Abstract member cannot have a body | '{memberName}' cannot declare a body because it is marked abstract | — |
+| `RAV0609` | Error | Partial property is missing declaration | Partial property '{name}' must have a declaration part without accessor bodies | — |
 | `RAV0610` | Error | Abstract member declared in non-abstract type | '{memberName}' is abstract but is contained in non-abstract type '{typeName}' | — |
 | `RAV0611` | Error | Cannot instantiate abstract type | Type '{typeName}' is abstract and cannot be instantiated | — |
+| `RAV0612` | Error | Partial property requires partial type | Partial property '{name}' must be declared inside a partial type | — |
+| `RAV0613` | Error | Partial property implementation cannot be auto | Partial property '{name}' implementation must provide at least one accessor body | — |
+| `RAV0614` | Error | Partial event is missing implementation | Partial event '{name}' must have an implementation part | — |
+| `RAV0615` | Error | Partial event is missing declaration | Partial event '{name}' must have a declaration part without accessor bodies | — |
+| `RAV0616` | Error | Partial event requires partial type | Partial event '{name}' must be declared inside a partial type | — |
+| `RAV0617` | Error | Partial event implementation cannot be field-like | Partial event '{name}' implementation must provide at least one accessor body | — |
 | `RAV0815` | Error | Cannot assign void to an implicitly-typed variable | Cannot assign void to an implicitly-typed variable | — |
 | `RAV0905` | Error | Required member must be set | Required member '{memberName}' must be set | `samples/oop/required-members-basic.rav` |
 | `RAV0906` | Error | Required field must be mutable | Required field '{fieldName}' must be mutable | `samples/oop/required-members-basic.rav` |

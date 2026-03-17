@@ -195,6 +195,11 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         _members.Add(member);
     }
 
+    internal void RemoveMember(ISymbol member)
+    {
+        _members.Remove(member);
+    }
+
     internal void SetInterfaces(IEnumerable<INamedTypeSymbol> interfaces)
     {
         _interfaces = interfaces.ToImmutableArray();
@@ -208,10 +213,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     }
 
     internal void AddDeclaration(Location location, SyntaxReference reference)
-    {
-        Locations = Locations.Add(location);
-        DeclaringSyntaxReferences = DeclaringSyntaxReferences.Add(reference);
-    }
+        => base.AddDeclaration(location, reference);
 
     internal void UpdateDeclarationModifiers(bool isSealed, bool isAbstract, bool isStatic)
     {

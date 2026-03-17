@@ -13,8 +13,6 @@ internal partial class TypeMemberBinder : Binder
 {
     public Dictionary<SyntaxNode, Binder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
     {
-        ReportPartialModifierNotSupported(propertyDecl.Modifiers, "property", propertyDecl.Identifier.ValueText);
-
         // NOTE: For extension properties, the container type parameters (e.g. <T, E>) are lowered onto the
         // accessor methods as *method-owned* type parameters. We must bind the declared property type (e.g. Option<T>)
         // against that lowered identity, otherwise the property type will leak Option<T> at use sites.
@@ -68,6 +66,7 @@ internal partial class TypeMemberBinder : Binder
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var isRequired = modifiers.Any(m => m.Kind == SyntaxKind.RequiredKeyword);
+        var isPartial = modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
         var defaultAccessibility = GetDefaultMemberAccessibility();
         var propertyAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = propertyDecl.ExplicitInterfaceSpecifier;
@@ -81,6 +80,15 @@ internal partial class TypeMemberBinder : Binder
 
         var isExtensionContainer = IsExtensionContainer;
         var isExtensionMember = isExtensionContainer && !hasStaticModifier;
+        var isPartialDefinitionSyntax = IsPartialPropertyDefinitionSyntax(propertyDecl);
+        var isPartialImplementationSyntax = IsPartialPropertyImplementationSyntax(propertyDecl);
+
+        if (isPartial && _containingType is not SourceNamedTypeSymbol { HasPartialModifier: true })
+        {
+            _diagnostics.ReportPartialPropertyRequiresPartialType(
+                propertyName,
+                identifierToken.GetLocation());
+        }
 
         if (isExtensionMember)
         {
@@ -100,6 +108,28 @@ internal partial class TypeMemberBinder : Binder
 
             if (isExtensionMember)
                 isStatic = false;
+        }
+
+        if (isPartial)
+        {
+            if (isExtensionContainer)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "extension property", propertyName, identifierToken.GetLocation());
+
+            if (_containingType.TypeKind == TypeKind.Interface)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "interface property", propertyName, identifierToken.GetLocation());
+
+            if (explicitInterfaceSpecifier is not null)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "explicit interface property", propertyName, identifierToken.GetLocation());
+
+            if (isAbstract)
+                _diagnostics.ReportModifierNotValidOnMember("partial", "abstract property", propertyName, identifierToken.GetLocation());
+
+            if (!isPartialDefinitionSyntax && !isPartialImplementationSyntax)
+            {
+                _diagnostics.ReportPartialPropertyImplementationCannotBeAuto(
+                    propertyName,
+                    identifierToken.GetLocation());
+            }
         }
 
         if (explicitInterfaceSpecifier is not null)
@@ -429,6 +459,22 @@ internal partial class TypeMemberBinder : Binder
         {
             var hiddenMember = FindPropertyOverrideCandidate(propertyName, propertyType, isStatic, isIndexer: false, parameters: Array.Empty<(ITypeSymbol type, RefKind refKind)>());
             ReportMemberHidingIfNeeded(hiddenMember, propertyName, hasNewModifier, identifierToken.GetLocation());
+        }
+
+        var duplicateProperty = _containingType.GetMembers(propertyName)
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(p =>
+                !ReferenceEquals(p, propertySymbol) &&
+                !p.IsIndexer &&
+                p.IsStatic == isStatic &&
+                TypesMatchForExplicitImplementation(p.Type, propertyType));
+
+        if (duplicateProperty is not null &&
+            (!isPartial ||
+             duplicateProperty is not SourcePropertySymbol { IsPartialMember: true } duplicatePartial ||
+             !CanMergePartialPropertyCandidate(duplicatePartial, isPartialDefinitionSyntax, isPartialImplementationSyntax)))
+        {
+            _diagnostics.ReportTypeAlreadyDefinesMember(_containingType.Name, propertyName, identifierToken.GetLocation());
         }
 
         var binders = new Dictionary<SyntaxNode, Binder>();
@@ -1014,7 +1060,141 @@ internal partial class TypeMemberBinder : Binder
             synthesized.SetAccessors(getMethod, setMethod);
         }
 
+        if (isPartial && sourcePropertySymbol is not null)
+        {
+            if (TryMergePartialPropertyDeclaration(
+                    propertyDecl,
+                    sourcePropertySymbol,
+                    getMethod,
+                    setMethod,
+                    binders,
+                    isPartialDefinitionSyntax,
+                    isPartialImplementationSyntax))
+            {
+                return binders;
+            }
+
+            if (isPartialImplementationSyntax)
+                sourcePropertySymbol.MarkAsPartialImplementation();
+            else if (isPartialDefinitionSyntax)
+                sourcePropertySymbol.MarkAsPartialDefinition();
+        }
+
         return binders;
+    }
+
+    private bool TryMergePartialPropertyDeclaration(
+        PropertyDeclarationSyntax propertyDecl,
+        SourcePropertySymbol propertySymbol,
+        SourceMethodSymbol? getMethod,
+        SourceMethodSymbol? setMethod,
+        Dictionary<SyntaxNode, Binder> binders,
+        bool isDefinitionSyntax,
+        bool isImplementationSyntax)
+    {
+        var existingPartial = _containingType.GetMembers(propertySymbol.Name)
+            .OfType<SourcePropertySymbol>()
+            .FirstOrDefault(candidate =>
+                !ReferenceEquals(candidate, propertySymbol) &&
+                candidate.IsPartialMember &&
+                candidate.IsStatic == propertySymbol.IsStatic &&
+                TypesMatchForExplicitImplementation(candidate.Type, propertySymbol.Type));
+
+        if (existingPartial is null || !CanMergePartialPropertyCandidate(existingPartial, isDefinitionSyntax, isImplementationSyntax))
+            return false;
+
+        if (_containingType is SourceNamedTypeSymbol containingType)
+        {
+            containingType.RemoveMember(propertySymbol);
+            if (getMethod is not null)
+                containingType.RemoveMember(getMethod);
+            if (setMethod is not null)
+                containingType.RemoveMember(setMethod);
+        }
+
+        existingPartial.AddDeclaration(
+            propertyDecl.GetLocation(),
+            propertyDecl.GetReference(),
+            preferAsPrimary: isImplementationSyntax && !existingPartial.HasPartialImplementation);
+
+        MergePartialAccessor(existingPartial.GetMethod as SourceMethodSymbol, getMethod, preferAsPrimary: isImplementationSyntax);
+        MergePartialAccessor(existingPartial.SetMethod as SourceMethodSymbol, setMethod, preferAsPrimary: isImplementationSyntax);
+
+        if (isImplementationSyntax)
+        {
+            existingPartial.SetAccessors(
+                existingPartial.GetMethod ?? getMethod,
+                existingPartial.SetMethod ?? setMethod);
+            existingPartial.MarkAsPartialImplementation();
+        }
+        else
+        {
+            existingPartial.SetAccessors(
+                existingPartial.GetMethod ?? getMethod,
+                existingPartial.SetMethod ?? setMethod);
+            existingPartial.MarkAsPartialDefinition();
+        }
+
+        return true;
+    }
+
+    private static bool CanMergePartialPropertyCandidate(
+        SourcePropertySymbol property,
+        bool incomingDefinition,
+        bool incomingImplementation)
+    {
+        if (incomingDefinition && property.HasPartialDefinition)
+            return false;
+
+        if (incomingImplementation && property.HasPartialImplementation)
+            return false;
+
+        return true;
+    }
+
+    private static void MergePartialAccessor(SourceMethodSymbol? existingAccessor, SourceMethodSymbol? incomingAccessor, bool preferAsPrimary)
+    {
+        if (existingAccessor is null || incomingAccessor is null)
+            return;
+
+        foreach (var (location, syntaxReference) in incomingAccessor.Locations.Zip(incomingAccessor.DeclaringSyntaxReferences))
+        {
+            existingAccessor.AddDeclaration(location, syntaxReference, preferAsPrimary);
+            preferAsPrimary = false;
+        }
+
+        existingAccessor.UpdateModifiers(
+            incomingAccessor.IsVirtual,
+            incomingAccessor.IsOverride,
+            incomingAccessor.IsFinal,
+            incomingAccessor.IsAbstract);
+        existingAccessor.SetReturnType(incomingAccessor.ReturnType);
+        existingAccessor.SetParameters(incomingAccessor.Parameters.OfType<SourceParameterSymbol>());
+
+        if (incomingAccessor.OverriddenMethod is not null)
+            existingAccessor.SetOverriddenMethod(incomingAccessor.OverriddenMethod);
+
+        if (!incomingAccessor.ExplicitInterfaceImplementations.IsDefaultOrEmpty)
+            existingAccessor.SetExplicitInterfaceImplementations(incomingAccessor.ExplicitInterfaceImplementations);
+    }
+
+    private static bool IsPartialPropertyDefinitionSyntax(PropertyDeclarationSyntax propertyDecl)
+    {
+        if (propertyDecl.ExpressionBody is not null || propertyDecl.Initializer is not null)
+            return false;
+
+        if (propertyDecl.AccessorList is not { Accessors.Count: > 0 } accessorList)
+            return false;
+
+        return accessorList.Accessors.All(accessor => accessor.Body is null && accessor.ExpressionBody is null);
+    }
+
+    private static bool IsPartialPropertyImplementationSyntax(PropertyDeclarationSyntax propertyDecl)
+    {
+        if (propertyDecl.ExpressionBody is not null)
+            return true;
+
+        return propertyDecl.AccessorList?.Accessors.Any(accessor => accessor.Body is not null || accessor.ExpressionBody is not null) == true;
     }
 
     private static bool IsLessAccessible(Accessibility candidate, Accessibility baseline)

@@ -296,6 +296,58 @@
     Title="'partial' modifier missing"
     Message="Type '{name}' has multiple declarations; all declarations must include the 'partial' modifier"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0602" Identifier="PartialTypeDeclarationAccessibilityMismatch"
+    Title="Partial type accessibility mismatch"
+    Message="All partial declarations of type '{name}' must declare the same accessibility"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0603" Identifier="PartialTypeDeclarationTypeParametersMustMatch"
+    Title="Partial type type parameters must match"
+    Message="All partial declarations of type '{name}' must declare the same type parameters in the same order"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0604" Identifier="PartialMethodMissingImplementation"
+    Title="Partial method is missing implementation"
+    Message="Partial method '{name}' must have an implementation part"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0605" Identifier="PartialMethodMissingDefinition"
+    Title="Partial method is missing declaration"
+    Message="Partial method '{name}' must have a declaration part without a body"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0606" Identifier="PartialMethodRequiresPartialType"
+    Title="Partial method requires partial type"
+    Message="Partial method '{name}' must be declared inside a partial type"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0607" Identifier="PartialPropertyMissingImplementation"
+    Title="Partial property is missing implementation"
+    Message="Partial property '{name}' must have an implementation part"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0609" Identifier="PartialPropertyMissingDefinition"
+    Title="Partial property is missing declaration"
+    Message="Partial property '{name}' must have a declaration part without accessor bodies"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0612" Identifier="PartialPropertyRequiresPartialType"
+    Title="Partial property requires partial type"
+    Message="Partial property '{name}' must be declared inside a partial type"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0613" Identifier="PartialPropertyImplementationCannotBeAuto"
+    Title="Partial property implementation cannot be auto"
+    Message="Partial property '{name}' implementation must provide at least one accessor body"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0614" Identifier="PartialEventMissingImplementation"
+    Title="Partial event is missing implementation"
+    Message="Partial event '{name}' must have an implementation part"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0615" Identifier="PartialEventMissingDefinition"
+    Title="Partial event is missing declaration"
+    Message="Partial event '{name}' must have a declaration part without accessor bodies"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0616" Identifier="PartialEventRequiresPartialType"
+    Title="Partial event requires partial type"
+    Message="Partial event '{name}' must be declared inside a partial type"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0617" Identifier="PartialEventImplementationCannotBeFieldLike"
+    Title="Partial event implementation cannot be field-like"
+    Message="Partial event '{name}' implementation must provide at least one accessor body"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0312" Identifier="ConstructorInitializerNotAllowedOnStaticConstructor"
     Title="Static constructors cannot specify a base initializer"
     Message="Static constructors cannot specify a base constructor initializer" Category="compiler"

@@ -540,17 +540,74 @@ subclassing by the permitted types. A `[ClosedHierarchy]` attribute is emitted o
 For guidance on choosing sealed hierarchies versus discriminated unions, see
 [Closed-shape types](language-specification.md#closed-shape-types).
 
-### Partial classes
+### Partial types and members
 
-Applying the `partial` modifier to a class declaration allows the type to be defined across multiple declarations in the same
-assembly. All declarations must use the `partial` modifier; omitting it on any declaration produces a diagnostic and prevents the
-declarations from merging. When two declarations with the same name and containing scope appear without `partial`, the compiler
-reports a duplicate-type diagnostic.
+Applying the `partial` modifier to a class, struct, record, or interface declaration allows the type to be defined across
+multiple declarations in the same assembly. All declarations must use the `partial` modifier; omitting it on any declaration
+produces a diagnostic and prevents the declarations from merging. When two declarations with the same name and containing scope
+appear without `partial`, the compiler reports a duplicate-type diagnostic.
 
-Partial declarations combine their members and share a single type identity. Modifiers, accessibility, and the base list are
-interpreted as a whole—Raven currently resolves the base class, implemented interfaces, and type parameters from the first
-declaration it processes, so later declarations should match or omit those clauses. Apart from these shared attributes, each
-partial declaration may contribute additional members, and the aggregate behaves exactly like a class declared in one piece.
+Partial type declarations combine their members and share a single type identity. Accessibility and type parameters must match
+across all parts. Class/struct/record parts also share the same nominal identity, so later parts should agree with the base type
+shape established by the earlier declarations. Interface bases contributed by different parts are merged.
+
+Raven also supports partial methods, partial properties, and partial events inside partial nominal types.
+
+A partial method must be split into:
+
+- a declaration part with no body
+- an implementation part with a block or expression body
+
+```raven
+partial class Logger {
+    partial func WriteCore(message: string) -> unit;
+}
+
+partial class Logger {
+    partial func WriteCore(message: string) -> unit {
+        Console.WriteLine(message)
+    }
+}
+```
+
+A partial property must likewise have a declaration part and an implementation part. The declaration part uses accessor
+signatures without bodies, while the implementation part must provide at least one accessor body.
+
+```raven
+partial class Person {
+    partial var Name: string {
+        get;
+        set;
+    }
+}
+
+partial class Person {
+    partial var Name: string {
+        get => field;
+        set => field = value;
+    }
+}
+```
+
+Partial events follow the same pattern. Field-like `partial event` declarations act as the declaration part, and the
+implementation part provides `add`/`remove` bodies.
+
+```raven
+partial class Notifier {
+    partial event Changed: System.Action;
+}
+
+partial class Notifier {
+    partial event Changed: System.Action {
+        add { }
+        remove { }
+    }
+}
+```
+
+All partial member parts must use the `partial` modifier, live inside a partial type, and have the same signature. A declaration
+without an implementation, or an implementation without a declaration, produces a diagnostic. Partial properties and partial
+events do not allow an auto/field-like implementation part; the implementing declaration must provide real accessor bodies.
 
 ### Parameter semantics
 
