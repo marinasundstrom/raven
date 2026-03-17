@@ -63,7 +63,7 @@ class Foo {
     static func GetCount() -> int {
         val marvel = ["Tony Stark", "Spiderman", "Thor"]
         val dc = ["Superman", "Batman", "Flash"]
-        val characters = [..marvel, "Black Widow", ..dc]
+        val characters = [...marvel, "Black Widow", ...dc]
         return characters.Length
     }
 }
@@ -98,7 +98,7 @@ class Item() { }
 class Foo {
     static func GetCount() -> int {
         val items: Item[] = [Item()]
-        val more: Item[] = [..items]
+        val more: Item[] = [...items]
         return more.Length
     }
 }
@@ -132,7 +132,7 @@ class Foo {
     static func GetCount() -> int {
         val left: int[] = [1, 2]
         val right: int[] = [3, 4]
-        val values: int[] = [..left, 9, ..right]
+        val values: int[] = [...left, 9, ...right]
         return values.Length
     }
 }
@@ -172,7 +172,7 @@ class Foo {
     static func GetCount() -> int {
         val left: int[] = [1, 2]
         val right: int[] = [3]
-        val values: IEnumerable<int> = [..left, 9, ..right]
+        val values: IEnumerable<int> = [...left, 9, ...right]
         return values.Count()
     }
 }
@@ -209,7 +209,7 @@ class Foo {
 class Foo {
     static func GetCount() -> int {
         val source: int[] = [1, 2, 3]
-        val values: int[] = [..source]
+        val values: int[] = [...source]
         return values.Length
     }
 }
@@ -248,7 +248,7 @@ import System.Collections.Generic.*
 class Foo {
     static func GetCount() -> int {
         val source: int[] = [1, 2, 3]
-        val values: IEnumerable<int> = [..source]
+        val values: IEnumerable<int> = [...source]
         return values.Count()
     }
 }
@@ -286,7 +286,7 @@ import System.Collections.Generic.*
 
 class Foo {
     static func GetCount() -> int {
-        val merged: char[] = ['x', .."ab", 'y']
+        val merged: char[] = ['x', ..."ab", 'y']
         return merged.Length
     }
 }
@@ -410,7 +410,7 @@ class Foo {
 
     static func GetCount() -> int {
         val list: ImmutableList<int> = [2, 3, 4]
-        val newList = [7, ..list, 5]
+        val newList = [7, ...list, 5]
         return Accept(newList)
     }
 }
@@ -438,6 +438,99 @@ class Foo {
             static member => member.Contains("System.Collections.Immutable.ImmutableList::Create", StringComparison.Ordinal) ||
                              member.Contains("System.Collections.Immutable.ImmutableList::CreateRange", StringComparison.Ordinal));
         Assert.Equal(5, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void ArrayCollectionExpressions_RangeElement_ExpandsSequence()
+    {
+        var code = """
+class Foo {
+    static func GetCount() -> int {
+        val values: int[] = [1..3]
+        return values.Length + values[0] + values[2]
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(7, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void ArrayCollectionExpressions_RangeElement_CanBeMixedWithOrdinaryElements()
+    {
+        var code = """
+class Foo {
+    static func GetCount() -> int {
+        val values: int[] = [1, 3..4, 9]
+        return values.Length + values[1] + values[2]
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(11, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void ArrayCollectionExpressions_ExclusiveRangeElement_StopsBeforeUpperBound()
+    {
+        var code = """
+class Foo {
+    static func GetCount() -> int {
+        val values: int[] = [1..<4]
+        return values.Length + values[0] + values[2]
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(7, (int)method!.Invoke(instance, null)!);
     }
 }
 

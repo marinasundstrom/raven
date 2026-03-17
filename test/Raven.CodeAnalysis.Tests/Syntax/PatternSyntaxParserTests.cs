@@ -272,6 +272,26 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void SequencePattern_WithBareFixedSegmentElement_ParsesAsDiscard()
+    {
+        var (pattern, tree) = ParsePattern("[..2, val end]");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var collectionPattern = Assert.IsType<SequencePatternSyntax>(pattern);
+        Assert.Equal("[..2, val end]", sourceText.ToString(collectionPattern.Span));
+        Assert.Equal(2, collectionPattern.Elements.Count);
+
+        var segmentElement = collectionPattern.Elements[0];
+        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, segmentElement.Prefix.SegmentLengthToken.Kind);
+
+        var discardPattern = Assert.IsType<DiscardPatternSyntax>(segmentElement.Pattern);
+        Assert.True(discardPattern.UnderscoreToken.IsMissing);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void PositionalPattern_WithExplicitBindingAndEqualityPattern_Parses()
     {
         var (pattern, tree) = ParsePattern("(val a, == existingValue)");

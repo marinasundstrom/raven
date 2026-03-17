@@ -10071,9 +10071,18 @@ partial class BlockBinder : Binder
             switch (elementSyntax)
             {
                 case ExpressionElementSyntax exprElem:
-                    boundElement = targetType is IArrayTypeSymbol arrayTarget
-                        ? BindExpressionWithTargetType(exprElem.Expression, arrayTarget.ElementType)
-                        : BindExpression(exprElem.Expression);
+                    if (exprElem.Expression is RangeExpressionSyntax rangeExpression &&
+                        TryBindCollectionRangeElement(rangeExpression, out var rangeElement))
+                    {
+                        boundElement = rangeElement;
+                    }
+                    else
+                    {
+                        boundElement = targetType is IArrayTypeSymbol arrayTarget
+                            ? BindExpressionWithTargetType(exprElem.Expression, arrayTarget.ElementType)
+                            : BindExpression(exprElem.Expression);
+                    }
+
                     elementNode = exprElem.Expression;
                     break;
                 case SpreadElementSyntax spreadElem:
@@ -10761,6 +10770,27 @@ partial class BlockBinder : Binder
         return new BoundSpreadElement(comprehension);
     }
 
+    private bool TryBindCollectionRangeElement(RangeExpressionSyntax rangeSyntax, out BoundExpression result)
+    {
+        result = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+        if (!TryBindCollectionComprehensionRangeSource(rangeSyntax, out var loweredRangeSource, out var iterationType))
+            return false;
+
+        var iterationLocal = CreateTempLocal("__rangeItem", iterationType, rangeSyntax);
+        var comprehension = new BoundCollectionComprehensionExpression(
+            Compilation.CreateArrayTypeSymbol(iterationType),
+            loweredRangeSource,
+            iterationLocal,
+            condition: null,
+            selector: new BoundLocalAccess(iterationLocal),
+            iterationType);
+
+        result = new BoundSpreadElement(comprehension);
+        CacheBoundNode(rangeSyntax, loweredRangeSource);
+        return true;
+    }
+
     private bool TryBindCollectionComprehensionRangeSource(
         RangeExpressionSyntax rangeSyntax,
         out BoundExpression loweredSource,
@@ -10776,7 +10806,8 @@ partial class BlockBinder : Binder
         var rangeExpression = new BoundRangeExpression(
             new BoundIndexExpression(rangeInfo.Start!, isFromEnd: false, GetIndexType()),
             new BoundIndexExpression(rangeInfo.End!, isFromEnd: false, GetIndexType()),
-            GetRangeType());
+            GetRangeType(),
+            rangeSyntax.LessThanToken.Kind == SyntaxKind.LessThanToken);
 
         loweredSource = rangeExpression;
         iterationType = rangeInfo.ElementType!;
@@ -10894,6 +10925,10 @@ partial class BlockBinder : Binder
                 case BoundSpreadElement { Expression.Type: IArrayTypeSymbol { FixedLength: int spreadLength, Rank: 1 } }:
                     knownLength += spreadLength;
                     break;
+                case BoundSpreadElement { Expression: BoundCollectionComprehensionExpression comprehension }
+                    when TryGetStaticallyKnownCollectionComprehensionLength(comprehension, out var comprehensionLength):
+                    knownLength += comprehensionLength;
+                    break;
                 case BoundSpreadElement:
                 case BoundCollectionComprehensionExpression:
                     knownLength = 0;
@@ -10905,6 +10940,112 @@ partial class BlockBinder : Binder
         }
 
         return true;
+    }
+
+    private static bool TryGetStaticallyKnownCollectionComprehensionLength(
+        BoundCollectionComprehensionExpression comprehension,
+        out int knownLength)
+    {
+        knownLength = 0;
+
+        if (comprehension.Condition is not null ||
+            comprehension.Source is not BoundRangeExpression range ||
+            comprehension.Selector is not BoundLocalAccess selectorLocal ||
+            !SymbolEqualityComparer.Default.Equals(selectorLocal.Local, comprehension.IterationLocal))
+        {
+            return false;
+        }
+
+        return TryGetStaticallyKnownRangeLength(range, out knownLength);
+    }
+
+    private static bool TryGetStaticallyKnownRangeLength(BoundRangeExpression range, out int knownLength)
+    {
+        knownLength = 0;
+
+        if (range.Left is not { IsFromEnd: false, Value: var startValue } ||
+            range.Right is not { IsFromEnd: false, Value: var endValue })
+        {
+            return false;
+        }
+
+        if (!TryGetCountableRangeEndpoint(startValue, out var start) ||
+            !TryGetCountableRangeEndpoint(endValue, out var end))
+        {
+            return false;
+        }
+
+        if (start.Kind != end.Kind)
+            return false;
+
+        var distance = end.Value - start.Value;
+        if (distance < 0)
+        {
+            knownLength = 0;
+            return true;
+        }
+
+        knownLength = checked((int)(range.IsUpperExclusive ? distance : distance + 1));
+        return true;
+    }
+
+    private static bool TryGetCountableRangeEndpoint(BoundExpression expression, out (CountableRangeEndpointKind Kind, long Value) endpoint)
+    {
+        endpoint = default;
+
+        if (!TryGetExpressionConstantValue(expression, out var value))
+            return false;
+
+        switch (value)
+        {
+            case byte byteValue:
+                endpoint = (CountableRangeEndpointKind.Integral, byteValue);
+                return true;
+            case sbyte sbyteValue:
+                endpoint = (CountableRangeEndpointKind.Integral, sbyteValue);
+                return true;
+            case short shortValue:
+                endpoint = (CountableRangeEndpointKind.Integral, shortValue);
+                return true;
+            case ushort ushortValue:
+                endpoint = (CountableRangeEndpointKind.Integral, ushortValue);
+                return true;
+            case int intValue:
+                endpoint = (CountableRangeEndpointKind.Integral, intValue);
+                return true;
+            case uint uintValue:
+                endpoint = (CountableRangeEndpointKind.Integral, uintValue);
+                return true;
+            case long longValue:
+                endpoint = (CountableRangeEndpointKind.Integral, longValue);
+                return true;
+            case char charValue:
+                endpoint = (CountableRangeEndpointKind.Char, charValue);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static bool TryGetExpressionConstantValue(BoundExpression expression, out object? value)
+    {
+        switch (expression)
+        {
+            case BoundLiteralExpression literal:
+                value = literal.Value;
+                return true;
+            case BoundConversionExpression conversion:
+                return TryGetExpressionConstantValue(conversion.Expression, out value);
+            case BoundLocalAccess localAccess:
+                value = localAccess.Local.ConstantValue;
+                return value is not null;
+            case BoundFieldAccess fieldAccess:
+                value = fieldAccess.Field.GetConstantValue();
+                return value is not null;
+            default:
+                value = null;
+                return false;
+        }
     }
 
     private bool TryGetConcreteSpreadCollectionType(ITypeSymbol spreadType, out ITypeSymbol concreteType)
@@ -10960,6 +11101,12 @@ partial class BlockBinder : Binder
     private readonly record struct ComprehensionRangeInfo(bool IsValid, BoundExpression? Start, BoundExpression? End, ITypeSymbol? ElementType)
     {
         public static ComprehensionRangeInfo Invalid => new(false, null, null, null);
+    }
+
+    private enum CountableRangeEndpointKind
+    {
+        Integral,
+        Char
     }
 
     private bool TryInferCollectionElementType(

@@ -1134,6 +1134,11 @@ item into the resulting collection in order. The spread source must be convertib
 `System.Collections.IEnumerable` (including arrays and `IEnumerable<T>` implementations);
 otherwise diagnostic `RAV2022` is reported. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3670】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L260-L266】
 
+Within a collection expression, a bare range element such as `1..3` or `1..<4` also
+expands inline as a sequence of values rather than contributing a single `Range`
+instance. This form follows the same iteration semantics as a comprehension sourced
+from that range, so `..` is inclusive and `..<` excludes the upper bound.
+
 Collection expressions also support a list-comprehension form:
 
 * `[for item in source => selector]`
@@ -1167,11 +1172,12 @@ Collection expressions are target-typed:
     with diagnostic `RAV2027` and an explicit target type is required.
   * If no concrete spread-based target can be inferred, Raven falls back to array inference:
     it infers a best common element type by merging all element contributions (spreads use
-    their enumerated element type), then produces `T[N]` for plain collection literals with
+    their enumerated element type), then produces `T[N]` for collection literals with
     a statically known element count and `T[]` otherwise. Spreading fixed-length arrays also
-    participates in that count: `[...a, 3]` infers `T[N+1]` when `a` has type `T[N]`, while
-    spreads from open arrays and comprehensions continue to infer open arrays because their
-    length is not statically known.
+    participates in that count: `[...a, 3]` infers `T[N+1]` when `a` has type `T[N]`, and
+    constant-bounds range elements such as `[1..3]` or `[3..MAX_VALUE]` likewise contribute
+    a known width when Raven can prove it. Other spreads and general comprehensions continue
+    to infer open arrays because their length is not statically known.
   * Raven does not currently attempt more aggressive length inference even when it might be
     theoretically possible. In particular, it does not infer a fixed size from collection
     comprehensions, from spreads of open arrays guarded by runtime checks, or from arbitrary
@@ -2647,16 +2653,17 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   * An open rest segment `...pattern` consumes the remaining unmatched
     subsequence and may appear either in the middle of the pattern or at the
     end. A bare `...` is also permitted as a non-capturing rest segment that
-    ignores the unmatched subsequence. At most one open rest segment is
-    permitted.
+    ignores the unmatched subsequence. Likewise, a fixed-size segment may omit
+    its designation as `..N` to skip exactly `N` elements without creating a
+    binding. At most one open rest segment is permitted.
   * Fixed-size segments may appear multiple times because their widths are fully
     determined by the syntax.
   * In freestanding and inline collection
     patterns, captures must use `val`/`var`/`let`; bare identifiers are treated
     as value patterns against existing values. Type-constrained captures may be
     written as `val x: T` or `T x`. The same rule applies inside segment forms,
-    for example `..2 val start` and `...val rest`. Bare `...` is the
-    current non-capturing exception.
+    for example `..2 val start` and `...val rest`. Bare `...` and bare `..N`
+    are the non-capturing exceptions.
   * If a collection pattern contains no open rest segment, the input length must
     match the total fixed width exactly.
   * If a collection pattern contains an open rest segment, the input length must
@@ -3956,8 +3963,8 @@ val [first, ..2 middle, last] = "rune"
 
 In inline/freestanding collection patterns, spell captures explicitly:
 `..2 val name` or `...val rest`. In deconstruction assignments/declarations,
-bare `..2 name` and `...rest` remain valid as binding targets. A bare
-`...` may be used in either form to ignore
+bare `..2 name` and `...rest` remain valid as binding targets. Bare
+`..N` and bare `...` may be used in either form to ignore
 the rest of the sequence without creating a binding. Both captured and
 non-capturing rest segments may appear in the middle or at the end. When the
 input is a fixed-length array, captured `..N` and `...rest` array

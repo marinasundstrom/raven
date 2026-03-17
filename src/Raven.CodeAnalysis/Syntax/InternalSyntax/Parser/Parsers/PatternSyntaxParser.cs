@@ -375,8 +375,10 @@ internal class PatternSyntaxParser : SyntaxParser
             segmentLengthToken = ReadToken();
         }
 
-        if (dotDotToken.Kind == SyntaxKind.DotDotDotToken &&
-            segmentLengthToken.Kind == SyntaxKind.None &&
+        if (((dotDotToken.Kind == SyntaxKind.DotDotDotToken &&
+              segmentLengthToken.Kind == SyntaxKind.None) ||
+             (dotDotToken.Kind == SyntaxKind.DotDotToken &&
+              segmentLengthToken.Kind == SyntaxKind.NumericLiteralToken)) &&
             PeekToken().Kind is SyntaxKind.CommaToken or SyntaxKind.CloseBracketToken)
         {
             return SequencePatternElement(

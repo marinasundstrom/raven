@@ -33,16 +33,6 @@ public class CollectionComprehensionSyntaxTests
     }
 
     [Fact]
-    public void CollectionExpression_Spread_DotDot_Parses()
-    {
-        var tree = SyntaxTree.ParseText("val xs = [..items]");
-        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
-
-        var spread = Assert.IsType<SpreadElementSyntax>(collection.Elements[0]);
-        Assert.Equal(SyntaxKind.DotDotToken, spread.DotDotToken.Kind);
-    }
-
-    [Fact]
     public void CollectionExpression_Spread_DotDotDot_Parses()
     {
         var tree = SyntaxTree.ParseText("val xs = [...items]");
@@ -50,5 +40,17 @@ public class CollectionComprehensionSyntaxTests
 
         var spread = Assert.IsType<SpreadElementSyntax>(collection.Elements[0]);
         Assert.Equal(SyntaxKind.DotDotDotToken, spread.DotDotToken.Kind);
+    }
+
+    [Fact]
+    public void CollectionExpression_RangeElement_ParsesAsRangeExpression()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [1..10, 42]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var element = Assert.IsType<ExpressionElementSyntax>(collection.Elements[0]);
+        var range = Assert.IsType<RangeExpressionSyntax>(element.Expression);
+
+        Assert.Equal(SyntaxKind.DotDotToken, range.DotDotToken.Kind);
     }
 }

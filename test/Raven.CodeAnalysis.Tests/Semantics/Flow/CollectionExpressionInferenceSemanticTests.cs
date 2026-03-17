@@ -17,7 +17,7 @@ public class CollectionExpressionInferenceSemanticTests : DiagnosticTestBase
 import System.Collections.Immutable.*
 
 val list: ImmutableList<int> = [2, 3, 4]
-val newList = [7, ..list, 5]
+val newList = [7, ...list, 5]
 """;
 
         var verifier = CreateVerifier(source);
@@ -46,7 +46,7 @@ import System.Collections.Immutable.*
 
 val a: ImmutableList<int> = [1, 2]
 val b: ImmutableList<int> = [3, 4]
-val merged = [..a, ..b]
+val merged = [...a, ...b]
 """;
 
         var verifier = CreateVerifier(source);
@@ -76,7 +76,7 @@ import System.Collections.Generic.*
 
 val a: ImmutableList<int> = [1, 2]
 val b: List<int> = [3, 4]
-val merged = [..a, ..b]
+val merged = [...a, ...b]
 """;
 
         var verifier = CreateVerifier(source, [
@@ -95,7 +95,7 @@ import System.Collections.Generic.*
 
 val a: ImmutableList<int> = [1, 2]
 val b: List<int> = [3, 4]
-val merged: List<int> = [..a, ..b]
+val merged: List<int> = [...a, ...b]
 """;
 
         var verifier = CreateVerifier(source);
@@ -169,7 +169,7 @@ val inferred = [1, 2, 3]
     {
         const string source = """
 val values: int[] = [1, 2]
-val inferred = [..values, 3]
+val inferred = [...values, 3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -196,7 +196,7 @@ val inferred = [..values, 3]
     {
         const string source = """
 val values: int[2] = [1, 2]
-val inferred = [..values, 3]
+val inferred = [...values, 3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -216,6 +216,99 @@ val inferred = [..values, 3]
         var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
         Assert.True(arrayType.IsFixedArray);
         Assert.Equal(3, arrayType.FixedLength);
+    }
+
+    [Fact]
+    public void NoTargetType_CollectionLiteralWithConstantRangeElement_InfersFixedArray()
+    {
+        const string source = """
+val inferred = [1..3]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
+        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
+        Assert.True(arrayType.IsFixedArray);
+        Assert.Equal(3, arrayType.FixedLength);
+    }
+
+    [Fact]
+    public void NoTargetType_CollectionLiteralWithExclusiveConstantRangeElement_InfersFixedArray()
+    {
+        const string source = """
+val inferred = [1..<4]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
+        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
+        Assert.True(arrayType.IsFixedArray);
+        Assert.Equal(3, arrayType.FixedLength);
+    }
+
+    [Fact]
+    public void NoTargetType_CollectionLiteralWithMixedConstantRangeElement_InfersFixedArray()
+    {
+        const string source = """
+val inferred = [1, 3..4, 9]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
+        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
+        Assert.True(arrayType.IsFixedArray);
+        Assert.Equal(4, arrayType.FixedLength);
+    }
+
+    [Fact]
+    public void NoTargetType_CollectionLiteralWithConstRangeEndpoint_InfersFixedArray()
+    {
+        const string source = """
+const MAX_VALUE = 10
+val inferred = [3..MAX_VALUE]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
+        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
+        Assert.True(arrayType.IsFixedArray);
+        Assert.Equal(8, arrayType.FixedLength);
     }
 
     [Fact]

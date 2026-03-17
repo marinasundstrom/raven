@@ -150,6 +150,21 @@ for x in 6..<2 by -2 {
     }
 
     [Fact]
+    public void For_WithSequencePattern_BareFixedSegment_CanSkipWithoutDiscardToken()
+    {
+        var code = """
+import System.Console.*
+
+for val [..2, x, ...] in [[2, 1..2, 5]] {
+    WriteLine(x)
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["2"], output);
+    }
+
+    [Fact]
     public void For_BreakAndContinue_Work()
     {
         var code = """

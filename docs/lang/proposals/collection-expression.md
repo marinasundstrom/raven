@@ -39,6 +39,18 @@ Each `...expr` enumerates `expr` and inserts its elements in order. Spread segme
 let mixed = [0, ...marvel, 1, ...dc]
 ```
 
+Bare range elements also expand inline. Inside a collection expression, `a..b` and
+`a..<b` contribute the produced sequence rather than a single `Range` value:
+
+```raven
+let values: int[] = [1..3]          // [1, 2, 3]
+let mixed: int[] = [1, 3..4, 9]     // [1, 3, 4, 9]
+let exclusive: int[] = [1..<4]      // [1, 2, 3]
+```
+
+When a range element's width is compile-time-known, it also participates in fixed-length
+array inference for targetless collection expressions.
+
 If `expr` evaluates to `null` a runtime exception is produced, matching the behavior of C# collection expressions.
 
 #### Spread-based type inference (no explicit target)

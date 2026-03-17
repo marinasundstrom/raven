@@ -7,4 +7,12 @@ func Main() {
     val arr2 = [1, ...arr1, 3]
 
     val [a, b, ...] = arr2
+
+    for x in [2, 1..2] {
+        WriteLine(x)
+    }
+
+    for val [..2, x, ...] in [[2, 1..2]] {
+        WriteLine(x)
+    }
 }

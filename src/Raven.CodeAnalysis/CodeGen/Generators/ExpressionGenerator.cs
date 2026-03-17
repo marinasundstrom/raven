@@ -3339,11 +3339,13 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Br, loopEnd);
 
         ILGenerator.MarkLabel(positiveStepLabel);
-        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: true);
+        var upperExclusive = rangeSource.IsUpperExclusive;
+
+        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: true, upperExclusive);
         ILGenerator.Emit(OpCodes.Br, bodyLabel);
 
         ILGenerator.MarkLabel(negativeStepLabel);
-        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: false);
+        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: false, upperExclusive);
 
         ILGenerator.MarkLabel(bodyLabel);
         ILGenerator.Emit(OpCodes.Ldloc, startLocal);
@@ -3370,7 +3372,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(loopEnd);
     }
 
-    private void EmitRangeLoopBreakCondition(ITypeSymbol elementType, IILocal currentLocal, IILocal endLocal, ILLabel endLabel, bool positiveStep)
+    private void EmitRangeLoopBreakCondition(ITypeSymbol elementType, IILocal currentLocal, IILocal endLocal, ILLabel endLabel, bool positiveStep, bool upperExclusive = false)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
 
@@ -3389,7 +3391,11 @@ internal partial class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Call, compareMethod);
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
-            ILGenerator.Emit(positiveStep ? OpCodes.Bgt : OpCodes.Blt, endLabel);
+            ILGenerator.Emit(
+                positiveStep
+                    ? (upperExclusive ? OpCodes.Bge : OpCodes.Bgt)
+                    : (upperExclusive ? OpCodes.Ble : OpCodes.Blt),
+                endLabel);
             return;
         }
 
@@ -3397,11 +3403,19 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, endLocal);
         if (positiveStep)
         {
-            ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Bgt_Un : OpCodes.Bgt, endLabel);
+            ILGenerator.Emit(
+                IsUnsignedIntegralType(specialType)
+                    ? (upperExclusive ? OpCodes.Bge_Un : OpCodes.Bgt_Un)
+                    : (upperExclusive ? OpCodes.Bge : OpCodes.Bgt),
+                endLabel);
         }
         else
         {
-            ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Blt_Un : OpCodes.Blt, endLabel);
+            ILGenerator.Emit(
+                IsUnsignedIntegralType(specialType)
+                    ? (upperExclusive ? OpCodes.Ble_Un : OpCodes.Blt_Un)
+                    : (upperExclusive ? OpCodes.Ble : OpCodes.Blt),
+                endLabel);
         }
     }
 

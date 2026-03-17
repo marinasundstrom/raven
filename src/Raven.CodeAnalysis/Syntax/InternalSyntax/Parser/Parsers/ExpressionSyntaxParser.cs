@@ -2184,7 +2184,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             {
                 element = ParseCollectionComprehensionElement();
             }
-            else if (TryConsumeSpreadToken(out var dotDotToken))
+            else if (ConsumeToken(SyntaxKind.DotDotDotToken, out var dotDotToken))
             {
                 var spreadExpr = new ExpressionSyntaxParser(this).ParseExpression();
                 if (spreadExpr is null)
@@ -2232,15 +2232,6 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         return CollectionExpression(openBracketToken, List(elementList), closeBracketToken);
     }
-
-    private bool TryConsumeSpreadToken(out SyntaxToken token)
-    {
-        if (ConsumeToken(SyntaxKind.DotDotDotToken, out token))
-            return true;
-
-        return ConsumeToken(SyntaxKind.DotDotToken, out token);
-    }
-
     private CollectionComprehensionElementSyntax ParseCollectionComprehensionElement()
     {
         var forKeyword = ReadToken();
