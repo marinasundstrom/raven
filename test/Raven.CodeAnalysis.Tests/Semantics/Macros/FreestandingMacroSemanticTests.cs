@@ -98,6 +98,57 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.Equal(argument.Span, diagnostic.Location.SourceSpan);
     }
 
+    [Fact]
+    public void FreestandingMacro_ReusedLambdaArgument_PreservesContextualParameterType()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class ObservableInt {
+                func Subscribe(handler: (int) -> unit) -> unit { }
+            }
+
+            class CounterViewModel {
+                var Count: int = 0
+                val CountChanged: ObservableInt = ObservableInt()
+            }
+
+            class Harness {
+                func Consume(value: int) -> unit { }
+
+                func Run(viewModel: CounterViewModel) -> unit {
+                    val subscription = #subscribe(viewModel.Count, (value) => {
+                        Consume(value)
+                    })
+                }
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(SubscribeMacroPlugin)));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var lambda = root.DescendantNodes().OfType<FunctionExpressionSyntax>().Single();
+        var parameter = root.DescendantNodes()
+            .OfType<ParameterSyntax>()
+            .Single(candidate => candidate.Ancestors().OfType<FunctionExpressionSyntax>().Any());
+        var valueReference = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(static identifier => identifier.Identifier.ValueText == "value");
+
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(TypeKind.Struct, lambdaParameter.Type.TypeKind);
+        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
+
+        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetFunctionExpressionParameterSymbol(parameter));
+        Assert.Equal(SpecialType.System_Int32, parameterSymbol.Type.SpecialType);
+
+        var referencedParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(valueReference).Symbol);
+        Assert.Equal(SpecialType.System_Int32, referencedParameter.Type.SpecialType);
+    }
+
     public sealed class AnswerMacroPlugin : IRavenMacroPlugin
     {
         public string Name => nameof(AnswerMacroPlugin);
@@ -190,6 +241,49 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             return new FreestandingMacroExpansionResult
             {
                 Expression = ParseExpression("42")
+            };
+        }
+    }
+
+    public sealed class SubscribeMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(SubscribeMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new SubscribeMacro()];
+    }
+
+    public sealed class SubscribeMacro : IFreestandingExpressionMacro
+    {
+        public string Name => "subscribe";
+        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroTarget Targets => MacroTarget.None;
+        public bool AcceptsArguments => true;
+
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        {
+            var propertyAccess = Assert.IsType<MemberAccessExpressionSyntax>(context.Arguments[0].Expression);
+            var callback = context.Arguments[1].Expression;
+            var propertyName = Assert.IsType<IdentifierNameSyntax>(propertyAccess.Name);
+            var signalName = propertyName.Identifier.ValueText + "Changed";
+
+            return new FreestandingMacroExpansionResult
+            {
+                Expression = SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            propertyAccess.Expression,
+                            SyntaxFactory.Token(SyntaxKind.DotToken),
+                            SyntaxFactory.IdentifierName(signalName)),
+                        SyntaxFactory.Token(SyntaxKind.DotToken),
+                        SyntaxFactory.IdentifierName("Subscribe")),
+                    SyntaxFactory.ArgumentList(
+                        SyntaxFactory.SeparatedList<ArgumentSyntax>(
+                        [
+                            new SyntaxNodeOrToken(SyntaxFactory.Argument(callback))
+                        ])))
             };
         }
     }

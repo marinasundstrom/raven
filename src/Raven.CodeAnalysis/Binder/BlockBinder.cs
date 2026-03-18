@@ -910,7 +910,7 @@ partial class BlockBinder : Binder
         if (expansion?.Expression is null)
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
-        SemanticModel.RegisterMacroReplacementSyntax(syntax, expansion.Expression);
+        SemanticModel.RegisterMacroReplacementSyntaxTree(syntax, expansion.Expression);
 
         var bound = BindExpressionWithTargetType(
             expansion.Expression,

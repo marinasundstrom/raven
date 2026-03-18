@@ -465,6 +465,30 @@ public partial class SemanticModel
     internal void RegisterMacroReplacementSyntax(SyntaxNode original, SyntaxNode replacement)
         => _macroReplacementSyntaxMap[original] = replacement;
 
+    internal void RegisterMacroReplacementSyntaxTree(SyntaxNode originalRoot, SyntaxNode replacementRoot)
+    {
+        RegisterMacroReplacementSyntax(originalRoot, replacementRoot);
+
+        var replacementLookup = replacementRoot
+            .DescendantNodesAndSelf()
+            .GroupBy(static node => node.Green, ReferenceEqualityComparer.Instance)
+            .ToDictionary(
+                static group => group.Key,
+                static group => new Queue<SyntaxNode>(group),
+                ReferenceEqualityComparer.Instance);
+
+        foreach (var originalNode in originalRoot.DescendantNodesAndSelf())
+        {
+            if (ReferenceEquals(originalNode, originalRoot))
+                continue;
+
+            if (!replacementLookup.TryGetValue(originalNode.Green, out var matches) || matches.Count == 0)
+                continue;
+
+            RegisterMacroReplacementSyntax(originalNode, matches.Dequeue());
+        }
+    }
+
     internal bool TryGetMacroContainingTypeSyntax(TypeDeclarationSyntax generatedType, out TypeDeclarationSyntax containingType)
         => _macroContainingTypeSyntaxMap.TryGetValue(generatedType, out containingType!);
 
@@ -627,6 +651,15 @@ public partial class SemanticModel
 
         EnsureDeclarations();
         EnsureRootBinderCreated();
+
+        if (view is BoundTreeView.Original &&
+            TryGetMacroReplacementSyntax(node, out var replacementNode) &&
+            !ReferenceEquals(replacementNode, node))
+        {
+            var replacementBoundNode = GetBoundNode(replacementNode, view);
+            CacheBoundNode(node, replacementBoundNode, GetBinder(node));
+            return replacementBoundNode;
+        }
 
         if (view is BoundTreeView.Lowered &&
             TryResolveLoweringNode(node) is { } loweringNode &&
