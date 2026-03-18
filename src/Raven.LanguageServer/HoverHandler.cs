@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -189,11 +190,18 @@ internal sealed class HoverHandler : IHoverHandler
         if (!MacroExpansionDisplayService.TryCreateForOffset(sourceText, semanticModel, root, offset, out var display))
             return null;
 
-        var hoverText = string.Join(
-            "\n\n",
+        var parts = new List<string>
+        {
             $"```raven\n{display.PreviewText}\n```",
-            $"Macro `{display.InvocationDisplay}` expansion preview.",
-            "Use `Show macro expansion` to inspect the full expansion.");
+            $"Macro `{display.InvocationDisplay}` expansion preview."
+        };
+
+        if (TryGetMacroHint(semanticModel.Compilation, display.MacroName, out var macroHint))
+            parts.Add(macroHint);
+
+        parts.Add("Use `Show macro expansion` to inspect the full expansion.");
+
+        var hoverText = string.Join("\n\n", parts);
 
         return new Hover
         {
@@ -204,6 +212,69 @@ internal sealed class HoverHandler : IHoverHandler
             }),
             Range = PositionHelper.ToRange(sourceText, display.Span)
         };
+    }
+
+    private static bool TryGetMacroHint(Compilation compilation, string macroName, out string hint)
+    {
+        foreach (var macroReference in compilation.MacroReferences)
+        {
+            IEnumerable<IRavenMacroPlugin> plugins;
+            try
+            {
+                plugins = macroReference.GetPlugins().ToArray();
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var plugin in plugins)
+            {
+                ImmutableArray<IMacroDefinition> macros;
+                try
+                {
+                    macros = plugin.GetMacros();
+                }
+                catch
+                {
+                    continue;
+                }
+
+                var macro = macros.FirstOrDefault(candidate => string.Equals(candidate.Name, macroName, StringComparison.Ordinal));
+                if (macro is null)
+                    continue;
+
+                var kindDisplay = macro.Kind switch
+                {
+                    MacroKind.AttachedDeclaration => "Attached declaration macro",
+                    MacroKind.FreestandingExpression => "Freestanding expression macro",
+                    _ => "Macro"
+                };
+                var targetsDisplay = macro.Targets == MacroTarget.None
+                    ? null
+                    : $"Targets `{FormatMacroTargets(macro.Targets)}`.";
+                var argumentsDisplay = macro.AcceptsArguments
+                    ? "Accepts arguments."
+                    : "No arguments.";
+
+                hint = string.Join(
+                    " ",
+                    new[] { kindDisplay + ".", targetsDisplay, argumentsDisplay }.Where(static part => !string.IsNullOrWhiteSpace(part)));
+                return true;
+            }
+        }
+
+        hint = string.Empty;
+        return false;
+    }
+
+    private static string FormatMacroTargets(MacroTarget targets)
+    {
+        return string.Join(
+            ", ",
+            Enum.GetValues<MacroTarget>()
+                .Where(target => target != MacroTarget.None && targets.HasFlag(target))
+                .Select(static target => target.ToString()));
     }
 
     private static Hover? TryBuildPatternDeclarationHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)

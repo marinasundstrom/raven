@@ -18,6 +18,8 @@ public class LanguageServerCompletionRegistrationTests
         options.TriggerCharacters.ShouldNotBeNull();
         options.TriggerCharacters!.ShouldContain(".");
         options.TriggerCharacters.ShouldContain(":");
+        options.TriggerCharacters.ShouldContain("#");
+        options.TriggerCharacters.ShouldContain("[");
         options.TriggerCharacters.ShouldNotContain("(");
     }
 }

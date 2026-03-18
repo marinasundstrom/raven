@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Reflection;
 
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
@@ -152,6 +153,34 @@ class Harness {
         display.MacroName.ShouldBe("answer");
         display.InvocationDisplay.ShouldBe("#answer(...)");
         display.FullText.ShouldBe("42");
+    }
+
+    [Fact]
+    public void HoverHandler_MacroHint_IncludesKindTargetsAndArguments()
+    {
+        const string code = """
+class MyViewModel {
+    #[Observable]
+    var Title: string
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(typeof(ObservableMacroPlugin)));
+
+        var tryGetMacroHint = typeof(HoverHandler)
+            .GetMethod("TryGetMacroHint", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var arguments = new object?[] { compilation, "Observable", null };
+
+        var success = (bool)tryGetMacroHint.Invoke(null, arguments)!;
+        var hint = (string)arguments[2]!;
+
+        success.ShouldBeTrue();
+        hint.ShouldContain("Attached declaration macro.");
+        hint.ShouldContain("Targets `Property`.");
+        hint.ShouldContain("No arguments.");
     }
 
     public sealed class ObservableMacroPlugin : IRavenMacroPlugin
