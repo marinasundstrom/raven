@@ -2,6 +2,19 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-03-17**.
 
+## 2026-03-18
+
+### Added
+- `SemanticModel.GetExpandedRoot()` and `Document.GetExpandedSyntaxRootAsync()` now expose an incremental expanded-document view that rewrites attached declaration macros and freestanding expression macros into a single syntax root for tooling and debugging.
+
+### Changed
+- `rvn` now supports `--dump-macros [original|expanded|both][:plain|pretty[:no-diagnostics]]` so a single-file compile can show the pre-expansion source beside the currently expanded macro view, either as raw text or highlighted output.
+- `.debug` compiler captures now also include per-document macro original/expanded source snapshots, including a plain text highlighted dump for the expanded view.
+
+Impact:
+- Macro debugging from the CLI no longer requires manually inspecting per-node expansion results just to compare authored source with the compiler’s current expansion output.
+- Tooling and tests can request one expanded syntax root directly instead of reconstructing document-level macro output ad hoc.
+
 ## 2026-03-17
 
 ### Changed

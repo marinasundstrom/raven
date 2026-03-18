@@ -109,6 +109,37 @@ public sealed class Document
         return Task.FromResult<SemanticModel?>(model);
     }
 
+    /// <summary>Asynchronously gets the expanded syntax root for this document, if supported.</summary>
+    public Task<CompilationUnitSyntax?> GetExpandedSyntaxRootAsync(CancellationToken cancellationToken = default)
+    {
+        if (!SupportsSemanticModel)
+            return Task.FromResult<CompilationUnitSyntax?>(null);
+
+        var tree = SyntaxTree;
+        if (tree is null)
+            return Task.FromResult<CompilationUnitSyntax?>(null);
+
+        Compilation compilation;
+        var workspace = Solution.Workspace;
+        if (workspace is not null)
+        {
+            compilation = workspace.GetCompilation(Project.Id);
+        }
+        else
+        {
+            var trees = Project.Documents
+                .Select(d => d.SyntaxTree)
+                .Where(t => t is not null)
+                .Cast<SyntaxTree>()
+                .ToArray();
+
+            compilation = Compilation.Create(Project.Name, trees, [.. Project.MetadataReferences], [.. Project.MacroReferences]);
+        }
+
+        var model = compilation.GetSemanticModel(tree);
+        return Task.FromResult(model?.GetExpandedRoot(cancellationToken));
+    }
+
     /// <summary>Creates a new document with updated text using the owning solution.</summary>
     public Document WithText(SourceText newText)
     {

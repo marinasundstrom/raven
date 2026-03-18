@@ -243,6 +243,76 @@ func Second() -> () {
     }
 
     [Fact]
+    public void Formatter_Format_FormatsAdjacentTypeMembers()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class MyViewModel {}
+            """);
+        var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+
+        var membersTree = SyntaxTree.ParseText("""
+            class __GeneratedContainer {
+                private var _Title: string = ""
+                var Title: string {
+                    get => _Title
+                    set {
+                        _Title = value
+                    }
+                }
+            }
+            """);
+        var members = membersTree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single()
+            .Members;
+
+        var updatedClass = classDeclaration.WithMembers(members);
+        var formatted = Formatter.Format(updatedClass).ToFullString();
+
+        var expected = """
+class MyViewModel {
+    private var _Title: string = ""
+    var Title: string {
+        get => _Title
+        set {
+            _Title = value
+        }
+    }
+}
+""";
+
+        Assert.Equal(expected, formatted);
+    }
+
+    [Fact]
+    public void Formatter_Format_KeepsClosingParenAttachedAfterBlockBodiedLambdaArgument()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() {
+                use subscription = Observe((value) => {
+                    WriteLine(value)
+                })
+            }
+            """);
+        var root = tree.GetRoot();
+        var useStatement = root.DescendantNodes().OfType<UseDeclarationStatementSyntax>().Single();
+        var rewrittenStatement = useStatement
+            .WithAdditionalAnnotations(Formatter.Annotation)
+            .ReplaceTokens(useStatement.DescendantTokens(), static (original, _) =>
+                original
+                    .WithLeadingTrivia(ToElasticTrivia(original.LeadingTrivia))
+                    .WithTrailingTrivia(ToElasticTrivia(original.TrailingTrivia)));
+        var updatedRoot = root.ReplaceNode(useStatement, rewrittenStatement);
+
+        var formatted = Formatter.Format(updatedRoot).ToFullString();
+
+        Assert.Contains(
+            "Observe((value) => {\n        WriteLine(value)\n    })",
+            formatted);
+    }
+
+    [Fact]
     public void NormalizeWhitespace_FormatsAccessorListsAndRawBlockStatements()
     {
         const string source = """

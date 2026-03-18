@@ -36,6 +36,7 @@ var stopwatch = Stopwatch.StartNew();
 // -o <path>         - output assembly path
 // -s [flat|group]   - display the syntax tree (single file only)
 // -d [plain|pretty[:no-diagnostics]] - dump syntax (single file only)
+// --dump-macros [original|expanded|both][:plain|pretty[:no-diagnostics]] - dump macro source views (single file only)
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
 // -bt               - print binder and bound tree (single file only)
@@ -78,6 +79,10 @@ var syntaxTreeFormat = SyntaxTreeFormat.Flat;
 var printSyntax = false;
 var printRawSyntax = false;
 var prettyIncludeDiagnostics = true;
+string? macroSourceDumpTarget = null;
+var printMacroSyntax = false;
+var printMacroRawSyntax = false;
+var macroPrettyIncludeDiagnostics = true;
 var printBinders = false;
 var printBoundTree = false;
 var printBoundTreeErrors = true;
@@ -142,6 +147,19 @@ for (int i = 0; i < args.Length; i++)
         case "--dump":
             if (!TryParseSyntaxDumpFormat(args, ref i, out printRawSyntax, out printSyntax,
                     out prettyIncludeDiagnostics))
+            {
+                hasInvalidOption = true;
+            }
+            break;
+        case "--dump-macros":
+        case "--macro-source":
+            if (!TryParseMacroSourceDumpFormat(
+                    args,
+                    ref i,
+                    out macroSourceDumpTarget,
+                    out printMacroRawSyntax,
+                    out printMacroSyntax,
+                    out macroPrettyIncludeDiagnostics))
             {
                 hasInvalidOption = true;
             }
@@ -1070,8 +1088,28 @@ if (debugDir is not null)
         var syntaxTree = document.GetSyntaxTreeAsync().Result!;
         var root = syntaxTree.GetRoot();
         var name = Path.GetFileNameWithoutExtension(document.FilePath) ?? document.Name;
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var expandedRoot = semanticModel.GetExpandedRoot();
+        var expandedSyntaxTree = SyntaxTree.Create(
+            expandedRoot,
+            syntaxTree.Options,
+            syntaxTree.Encoding,
+            syntaxTree.FilePath);
+        expandedRoot = expandedSyntaxTree.GetRoot();
+        var expandedCompilation = Compilation.Create(
+            compilation.AssemblyName,
+            [expandedSyntaxTree],
+            compilation.References.ToArray(),
+            compilation.MacroReferences.ToArray(),
+            compilation.Options);
 
-        File.WriteAllText(Path.Combine(debugDir, $"{name}.raw{RavenFileExtensions.Raven}"), root.ToFullString());
+        DeleteLegacyDebugSourceArtifact(debugDir, $"{name}.raw{RavenFileExtensions.Raven}");
+        DeleteLegacyDebugSourceArtifact(debugDir, $"{name}.macro-original{RavenFileExtensions.Raven}");
+        DeleteLegacyDebugSourceArtifact(debugDir, $"{name}.macro-expanded{RavenFileExtensions.Raven}");
+
+        File.WriteAllText(Path.Combine(debugDir, $"{name}.raw.txt"), root.ToFullString());
+        File.WriteAllText(Path.Combine(debugDir, $"{name}.macro-original.txt"), root.ToFullString());
+        File.WriteAllText(Path.Combine(debugDir, $"{name}.macro-expanded.txt"), expandedRoot.ToFullString());
 
         var treeText = root.GetSyntaxTreeRepresentation(new PrinterOptions
         {
@@ -1096,7 +1134,10 @@ if (debugDir is not null)
             .StripAnsiCodes();
         File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax.txt"), syntax);
 
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var expandedSyntax = expandedRoot.WriteNodeToText(expandedCompilation, includeDiagnostics: false)
+            .StripAnsiCodes();
+        File.WriteAllText(Path.Combine(debugDir, $"{name}.macro-expanded.syntax.txt"), expandedSyntax);
+
         using (var sw = new StringWriter())
         {
             var original = Console.Out;
@@ -1191,6 +1232,38 @@ if (allowConsoleOutput)
         }
     }
 
+    if (macroSourceDumpTarget is not null)
+    {
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var expandedRoot = semanticModel.GetExpandedRoot();
+
+        if (macroSourceDumpTarget is "original" or "both")
+        {
+            PrintMacroSourceDump(
+                "Original",
+                root,
+                compilation,
+                syntaxTree,
+                diagnostics,
+                printMacroRawSyntax,
+                printMacroSyntax,
+                macroPrettyIncludeDiagnostics);
+        }
+
+        if (macroSourceDumpTarget is "expanded" or "both")
+        {
+            PrintMacroSourceDump(
+                "Expanded",
+                expandedRoot,
+                compilation,
+                syntaxTree: null,
+                diagnostics,
+                printMacroRawSyntax,
+                printMacroSyntax,
+                includeDiagnostics: false);
+        }
+    }
+
     if (printBinders || printBoundTree)
     {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -1214,7 +1287,7 @@ if (allowConsoleOutput)
         }
     }
 }
-else if (printRawSyntax || printSyntaxTree || printSyntax || printBinders || printBoundTree)
+else if (printRawSyntax || printSyntaxTree || printSyntax || macroSourceDumpTarget is not null || printBinders || printBoundTree)
 {
     if (debugDir is null)
         AnsiConsole.MarkupLine("[yellow]Create a '.debug' directory to capture debug output.[/]");
@@ -1724,6 +1797,9 @@ static void PrintHelp()
     Console.WriteLine("  -d [plain|pretty[:no-diagnostics]] Dump syntax (single file only)");
     Console.WriteLine("                     'plain' writes the source text, 'pretty' writes highlighted syntax.");
     Console.WriteLine("                     Append ':no-diagnostics' to skip diagnostic underlines when using 'pretty'.");
+    Console.WriteLine("  --dump-macros [original|expanded|both][:plain|pretty[:no-diagnostics]]");
+    Console.WriteLine("                     Dump original and/or expanded macro source (single file only).");
+    Console.WriteLine("                     Defaults to 'both:plain'. Expanded pretty output is colorized without diagnostic underlines.");
     Console.WriteLine("  -r                 Print the source (single file only)");
     Console.WriteLine("  -b                 Print binder tree (single file only)");
     Console.WriteLine("  -bt                Print binder and bound tree (single file only)");
@@ -2042,6 +2118,102 @@ static bool TryParseSyntaxDumpFormat(string[] args, ref int index, out bool prin
 
     AnsiConsole.MarkupLine($"[red]Unknown syntax dump format '{value}'.[/]");
     return false;
+}
+
+static bool TryParseMacroSourceDumpFormat(
+    string[] args,
+    ref int index,
+    out string? target,
+    out bool printRawSyntax,
+    out bool printSyntax,
+    out bool includeDiagnostics)
+{
+    target = "both";
+    printRawSyntax = true;
+    printSyntax = false;
+    includeDiagnostics = true;
+
+    var value = ConsumeOptionValue(args, ref index);
+    if (value is null)
+        return true;
+
+    foreach (var segment in value.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        switch (segment.ToLowerInvariant())
+        {
+            case "original":
+                target = "original";
+                break;
+            case "expanded":
+                target = "expanded";
+                break;
+            case "both":
+                target = "both";
+                break;
+            case "plain":
+                printRawSyntax = true;
+                printSyntax = false;
+                break;
+            case "pretty":
+                printRawSyntax = false;
+                printSyntax = true;
+                break;
+            case "no-diagnostics":
+            case "no-underline":
+                includeDiagnostics = false;
+                break;
+            case "diagnostics":
+            case "underline":
+                includeDiagnostics = true;
+                break;
+            default:
+                AnsiConsole.MarkupLine($"[red]Unknown macro dump segment '{segment}'.[/]");
+                return false;
+        }
+    }
+
+    return true;
+}
+
+static void PrintMacroSourceDump(
+    string label,
+    SyntaxNode root,
+    Compilation compilation,
+    SyntaxTree? syntaxTree,
+    ImmutableArray<Diagnostic> diagnostics,
+    bool printRawSyntax,
+    bool printSyntax,
+    bool includeDiagnostics)
+{
+    AnsiConsole.MarkupLine($"[grey]Macro source: {Markup.Escape(label)}[/]");
+
+    if (printRawSyntax)
+    {
+        Console.WriteLine(root.ToFullString());
+        Console.WriteLine();
+    }
+
+    if (printSyntax)
+    {
+        ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+        var prettyDiagnostics = includeDiagnostics && syntaxTree is not null
+            ? diagnostics.Where(d => d.Location.SourceTree == syntaxTree)
+            : null;
+        var highlighted = root.WriteNodeToText(
+            compilation,
+            includeDiagnostics: includeDiagnostics && syntaxTree is not null,
+            diagnostics: prettyDiagnostics);
+
+        Console.WriteLine(highlighted);
+        Console.WriteLine();
+    }
+}
+
+static void DeleteLegacyDebugSourceArtifact(string debugDir, string fileName)
+{
+    var path = Path.Combine(debugDir, fileName);
+    if (File.Exists(path))
+        File.Delete(path);
 }
 
 static bool TryParseOutputKind(string[] args, ref int index, out OutputKind outputKind)

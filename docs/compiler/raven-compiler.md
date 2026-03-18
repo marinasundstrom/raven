@@ -30,6 +30,7 @@ rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type 
 - `--no-members-public-by-default` &ndash; class/struct members use normal defaults (`private` for class/struct members)
 - `-s` &ndash; display the syntax tree (single file only)
 - `-d [plain|pretty[:no-diagnostics]]` &ndash; dump syntax (`plain` writes the source text, `pretty` emits highlighted syntax; append `:no-diagnostics` to skip diagnostic underlines, single file only)
+- `--dump-macros [original|expanded|both][:plain|pretty[:no-diagnostics]]` &ndash; dump original and/or expanded macro source for a single file. Defaults to `both:plain`. Expanded pretty output is colorized, but diagnostic underlines are only available for the original source view.
 - `--highlight` &ndash; display diagnostics with highlighted source snippets and severity-coloured underlines (covers
   compiler, analyzer, and emit diagnostics)
 - `-r` &ndash; print the raw source (single file only)
@@ -63,7 +64,7 @@ Useful init options:
 
 Creating a `.debug/` directory in the current or parent folder causes the
 compiler to emit per-file dumps (syntax tree, highlighted syntax, raw source,
-bound tree, and binder tree) into that directory. The debug options above will additionally
+bound tree, binder tree, and macro original/expanded source snapshots) into that directory. The debug options above will additionally
 write to the console when compiling a single file.
 
 When no framework is specified the compiler defaults to the newest installed

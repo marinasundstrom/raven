@@ -263,8 +263,16 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     private bool ShouldAttachToPreviousToken(SyntaxToken token)
     {
-        return _previousToken.Kind == SyntaxKind.CloseBraceToken
-            && token.Kind is SyntaxKind.ElseKeyword or SyntaxKind.CatchKeyword or SyntaxKind.FinallyKeyword;
+        if (token.Kind == SyntaxKind.CloseParenToken && ShouldKeepCloseParenWithBlockBodiedLambda(token))
+            return true;
+
+        if (_previousToken.Kind == SyntaxKind.CloseBraceToken)
+        {
+            if (token.Kind is SyntaxKind.ElseKeyword or SyntaxKind.CatchKeyword or SyntaxKind.FinallyKeyword)
+                return true;
+        }
+
+        return false;
     }
 
     private bool ShouldStartNewLineBefore(SyntaxToken token)
@@ -281,6 +289,14 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             TryGetEnclosingBlockStatement(token, out var currentStatement, out var currentBlock) &&
             !ReferenceEquals(previousStatement, currentStatement) &&
             ReferenceEquals(previousBlock, currentBlock))
+        {
+            return true;
+        }
+
+        if (TryGetEnclosingMemberDeclaration(_previousToken, out var previousMember) &&
+            TryGetEnclosingMemberDeclaration(token, out var currentMember) &&
+            !ReferenceEquals(previousMember, currentMember) &&
+            ReferenceEquals(previousMember.Parent, currentMember.Parent))
         {
             return true;
         }
@@ -335,6 +351,12 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
             if (current is StatementSyntax statement && statement.Parent is BlockStatementSyntax)
                 return true;
+
+            if (current is MemberDeclarationSyntax member &&
+                member.Parent is TypeDeclarationSyntax or CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
+            {
+                return true;
+            }
 
             if (current.Kind is SyntaxKind.ImportDirective
                 or SyntaxKind.AliasDirective
@@ -515,6 +537,30 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         statement = null!;
         block = null!;
         return false;
+    }
+
+    private static bool TryGetEnclosingMemberDeclaration(SyntaxToken token, out MemberDeclarationSyntax member)
+    {
+        for (var current = token.Parent; current is not null; current = current.Parent)
+        {
+            if (current is MemberDeclarationSyntax found)
+            {
+                member = found;
+                return true;
+            }
+        }
+
+        member = null!;
+        return false;
+    }
+
+    private static bool ShouldKeepCloseParenWithBlockBodiedLambda(SyntaxToken token)
+    {
+        return token.Parent is ArgumentListSyntax argumentList
+            && argumentList.Arguments.Count > 0
+            && argumentList.Arguments.Last().Expression is FunctionExpressionSyntax functionExpression
+            && (functionExpression.Body is not null
+                || functionExpression.ExpressionBody?.Expression is BlockSyntax);
     }
 
     private bool IsOperator(SyntaxToken token)
