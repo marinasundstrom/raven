@@ -15,6 +15,9 @@ internal static class SymbolResolver
         if (TryResolveExactTokenMemberSymbol(semanticModel, root, offset, out var exactMemberResolution))
             return exactMemberResolution;
 
+        if (TryResolveExactIdentifierSymbol(semanticModel, root, offset, out var exactIdentifierResolution))
+            return exactIdentifierResolution;
+
         foreach (var candidate in GetCandidateNodes(root, offset))
         {
             if (TryResolveMemberTokenFastPath(semanticModel, candidate.Token, out var memberTokenSymbol))
@@ -38,6 +41,52 @@ internal static class SymbolResolver
         }
 
         return null;
+    }
+
+    private static bool TryResolveExactIdentifierSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Parent is not IdentifierNameSyntax identifier ||
+                !identifier.Identifier.Span.Contains(token.Span))
+            {
+                continue;
+            }
+
+            var operationSymbol = FindReferencedSymbolAtToken(semanticModel.GetOperation(identifier), token.Span);
+            var projectedOperationSymbol = ProjectSymbolForDisplay(operationSymbol);
+            if (projectedOperationSymbol is not null)
+            {
+                resolution = new SymbolResolutionResult(projectedOperationSymbol.UnderlyingSymbol, identifier);
+                return true;
+            }
+
+            var symbolInfo = semanticModel.GetSymbolInfo(identifier);
+            var symbol = ProjectSymbolForDisplay(ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, identifier));
+            if (symbol is null)
+                continue;
+
+            resolution = new SymbolResolutionResult(symbol.UnderlyingSymbol, identifier);
+            return true;
+        }
+
+        return false;
     }
 
     private static bool TryResolveExactTokenMemberSymbol(
@@ -224,6 +273,9 @@ internal static class SymbolResolver
                 return ProjectSymbolForDisplay(lambdaSymbol);
         }
 
+        if (TryResolveEnclosingLambdaParameterReference(semanticModel, node, token, out var lambdaParameterSymbol))
+            return lambdaParameterSymbol;
+
         if (TryResolvePatternDeclaredSymbol(semanticModel, node, token, out var patternSymbol))
             return patternSymbol;
 
@@ -242,9 +294,6 @@ internal static class SymbolResolver
         if (TryResolveMemberReceiverSymbol(semanticModel, node, token, out var receiverSymbol))
             return receiverSymbol;
 
-        if (TryResolveFromEnclosingBlockLocals(semanticModel, node, token, out var blockLocalSymbol))
-            return blockLocalSymbol;
-
         var symbolInfo = semanticModel.GetSymbolInfo(node);
         if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
         {
@@ -257,6 +306,9 @@ internal static class SymbolResolver
 
             return chosen;
         }
+
+        if (TryResolveFromEnclosingBlockLocals(semanticModel, node, token, out var blockLocalSymbol))
+            return blockLocalSymbol;
 
         var operation = semanticModel.GetOperation(node);
         var tokenReferencedSymbol = FindReferencedSymbolAtToken(operation, token.Span);
@@ -1444,6 +1496,45 @@ internal static class SymbolResolver
         return false;
     }
 
+    private static bool TryResolveEnclosingLambdaParameterReference(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        SyntaxToken token,
+        [NotNullWhen(true)] out ISymbol? symbol)
+    {
+        symbol = null;
+
+        if (node is not IdentifierNameSyntax identifierName ||
+            !identifierName.Identifier.Span.Contains(token.Span))
+        {
+            return false;
+        }
+
+        var functionExpression = identifierName.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault();
+        if (functionExpression is null || !IsInsideFunctionExpressionBody(functionExpression, token))
+            return false;
+
+        if (functionExpression is ParenthesizedFunctionExpressionSyntax parenthesized)
+        {
+            foreach (var parameter in parenthesized.ParameterList.Parameters)
+            {
+                if (!string.Equals(parameter.Identifier.ValueText, identifierName.Identifier.ValueText, StringComparison.Ordinal))
+                    continue;
+
+                symbol = semanticModel.GetFunctionExpressionParameterSymbol(parameter);
+                return symbol is not null;
+            }
+        }
+        else if (functionExpression is SimpleFunctionExpressionSyntax simple &&
+                 string.Equals(simple.Parameter.Identifier.ValueText, identifierName.Identifier.ValueText, StringComparison.Ordinal))
+        {
+            symbol = semanticModel.GetFunctionExpressionParameterSymbol(simple.Parameter);
+            return symbol is not null;
+        }
+
+        return false;
+    }
+
     private static bool TryResolveByDeclaringSyntaxReference(
         SemanticModel semanticModel,
         SyntaxToken token,
@@ -1490,14 +1581,33 @@ internal static class SymbolResolver
 
         foreach (var reference in symbol.DeclaringSyntaxReferences)
         {
-            if (reference.SyntaxTree == token.SyntaxTree &&
-                reference.Span.Contains(token.SpanStart))
+            if (reference.SyntaxTree != token.SyntaxTree)
+                continue;
+
+            var declarationSpan = GetDeclarationIdentifierSpan(reference) ?? reference.Span;
+            if (declarationSpan.Contains(token.SpanStart))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private static TextSpan? GetDeclarationIdentifierSpan(SyntaxReference reference)
+    {
+        return reference.GetSyntax() switch
+        {
+            ParameterSyntax parameter when !parameter.Identifier.IsMissing => parameter.Identifier.Span,
+            VariableDeclaratorSyntax declarator when !declarator.Identifier.IsMissing => declarator.Identifier.Span,
+            SingleVariableDesignationSyntax designation when !designation.Identifier.IsMissing => designation.Identifier.Span,
+            FunctionStatementSyntax function when !function.Identifier.IsMissing => function.Identifier.Span,
+            MethodDeclarationSyntax method when !method.Identifier.IsMissing => method.Identifier.Span,
+            PropertyDeclarationSyntax property when !property.Identifier.IsMissing => property.Identifier.Span,
+            EventDeclarationSyntax @event when !@event.Identifier.IsMissing => @event.Identifier.Span,
+            FieldDeclarationSyntax field => field.Declaration?.Declarators.FirstOrDefault()?.Identifier.Span,
+            _ => null
+        };
     }
 }
 

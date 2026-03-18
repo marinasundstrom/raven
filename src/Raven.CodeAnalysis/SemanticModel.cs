@@ -256,6 +256,18 @@ public partial class SemanticModel
         else if (node is ExpressionSyntax expression)
         {
             EnsureDiagnosticsCollected();
+
+            if (expression is IdentifierNameSyntax)
+            {
+                var boundExpression = GetBoundNode(expression);
+                var boundInfo = boundExpression.GetSymbolInfo();
+                if (boundInfo.Symbol is not null || !boundInfo.CandidateSymbols.IsDefaultOrEmpty)
+                {
+                    info = boundInfo;
+                    goto Complete;
+                }
+            }
+
             var operation = GetOperation(expression, cancellationToken);
             var operationSymbol = operation switch
             {
@@ -292,6 +304,7 @@ public partial class SemanticModel
             info = binder.BindSymbol(node);
         }
 
+Complete:
         info = ProjectBackingFieldSymbolsToAssociatedProperty(node, info);
         _symbolMappings[node] = info;
         return info;

@@ -112,11 +112,11 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             }
 
             class Harness {
-                func Consume(value: int) -> unit { }
+                func WriteLine(value: int) -> unit { }
 
                 func Run(viewModel: CounterViewModel) -> unit {
                     val subscription = #subscribe(viewModel.Count, (value) => {
-                        Consume(value)
+                        WriteLine(value)
                     })
                 }
             }

@@ -171,7 +171,7 @@ class Harness {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ArgumentAwareFreestandingMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(ReactiveSubscribeMacroPlugin)));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
@@ -214,6 +214,52 @@ class MyViewModel {
         hint.ShouldContain("Attached declaration macro.");
         hint.ShouldContain("Targets `Property`.");
         hint.ShouldContain("No arguments.");
+    }
+
+    [Fact]
+    public void SymbolResolver_FreestandingMacroLambdaArgument_ResolvesLambdaParameter()
+    {
+        const string code = """
+import System.*
+
+class ObservableInt {
+    func Subscribe(handler: (int) -> unit) -> unit { }
+}
+
+class CounterViewModel {
+    var Count: int = 0
+    val CountChanged: ObservableInt = ObservableInt()
+}
+
+class Harness {
+    static func WriteLine(value: int) -> unit { }
+
+    func Run(viewModel: CounterViewModel) -> unit {
+        use subscription = #subscribe(viewModel.Count, (value) => {
+            WriteLine(value)
+        })
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(typeof(ArgumentAwareFreestandingMacroPlugin)));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var valueReference = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(static identifier => identifier.Identifier.ValueText == "value")
+            .Last();
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, valueReference.Identifier.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        parameterSymbol.Name.ShouldBe("value");
+        parameterSymbol.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
     }
 
     public sealed class ObservableMacroPlugin : IRavenMacroPlugin
@@ -388,5 +434,48 @@ class MyViewModel {
             {
                 Expression = SyntaxFactory.IdentifierName("subscription")
             };
+    }
+
+    public sealed class ReactiveSubscribeMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "ReactiveSubscribeMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new ReactiveSubscribeMacro()];
+    }
+
+    public sealed class ReactiveSubscribeMacro : IFreestandingExpressionMacro
+    {
+        public string Name => "subscribe";
+        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroTarget Targets => MacroTarget.None;
+        public bool AcceptsArguments => true;
+
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        {
+            var propertyAccess = (MemberAccessExpressionSyntax)context.Arguments[0].Expression;
+            var callback = context.Arguments[1].Expression;
+            var propertyIdentifier = (IdentifierNameSyntax)propertyAccess.Name;
+            var signalName = propertyIdentifier.Identifier.ValueText + "Changed";
+
+            return new FreestandingMacroExpansionResult
+            {
+                Expression = SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            propertyAccess.Expression,
+                            SyntaxFactory.Token(SyntaxKind.DotToken),
+                            SyntaxFactory.IdentifierName(signalName)),
+                        SyntaxFactory.Token(SyntaxKind.DotToken),
+                        SyntaxFactory.IdentifierName("Subscribe")),
+                    SyntaxFactory.ArgumentList(
+                        SyntaxFactory.SeparatedList<ArgumentSyntax>(
+                        [
+                            new SyntaxNodeOrToken(SyntaxFactory.Argument(callback))
+                        ])))
+            };
+        }
     }
 }
