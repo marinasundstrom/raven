@@ -141,7 +141,7 @@ internal abstract partial class Binder
             return true;
 
         var within = GetAccessibilityContext();
-        return AccessibilityUtilities.IsAccessible(symbol, within);
+        return AccessibilityUtilities.IsAccessible(symbol, within, GetCurrentSourceFilePath());
     }
 
     private ISymbol? GetAccessibilityContext()
@@ -157,6 +157,9 @@ internal abstract partial class Binder
 
         return Compilation.Assembly;
     }
+
+    private string? GetCurrentSourceFilePath()
+        => SemanticModel?.SyntaxTree?.FilePath;
 
     public virtual SemanticModel SemanticModel
     {

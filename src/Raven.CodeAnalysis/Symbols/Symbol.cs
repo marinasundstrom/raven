@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Reflection;
@@ -11,6 +13,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal abstract class Symbol : ISymbol
 {
     private readonly Accessibility _declaredAccessibility;
+    private HashSet<string>? _fileScopedDeclarationPaths;
 
     protected Symbol(
         SymbolKind kind,
@@ -137,6 +140,8 @@ internal abstract class Symbol : ISymbol
 
     public virtual Accessibility DeclaredAccessibility => _declaredAccessibility;
 
+    internal bool IsFileScoped { get; private set; }
+
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences
     {
         get;
@@ -191,6 +196,24 @@ internal abstract class Symbol : ISymbol
         }
 
         return Equals(other, SymbolEqualityComparer.Default);
+    }
+
+    internal void MarkFileScoped(string? filePath)
+    {
+        IsFileScoped = true;
+        (_fileScopedDeclarationPaths ??= new HashSet<string>(StringComparer.Ordinal))
+            .Add(filePath ?? string.Empty);
+    }
+
+    internal bool IsAccessibleFromFile(string? filePath)
+    {
+        if (!IsFileScoped)
+            return true;
+
+        if (filePath is null)
+            return false;
+
+        return _fileScopedDeclarationPaths?.Contains(filePath) == true;
     }
 
     private string GetDebuggerDisplay()

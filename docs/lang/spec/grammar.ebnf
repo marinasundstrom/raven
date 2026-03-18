@@ -23,7 +23,7 @@ AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;
 AccessorModifier         ::= AccessModifier | 'async' | 'ref' | 'out' | 'in' ;
 
 TypeModifiers            ::= { TypeModifier } ;
-TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' ;
+TypeModifier             ::= AccessModifier | 'filescope' | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' ;
 
 FunctionModifiers        ::= { FunctionModifier } ;
 FunctionModifier         ::= AccessModifier | 'async' | 'extern' | 'static' ;
@@ -53,6 +53,7 @@ FunctionDeclaration      ::= {AttributeList | MacroAttributeList}
 ExtensionKeyword         ::= 'extension' | 'trait'
 
 (* The extension/trait identifier is optional. When omitted, the compiler synthesizes an internal name (e.g., via mangling) and the declaration cannot be referenced by name. *)
+(* Named `filescope` extensions also emit a mangled container metadata name so the generated type does not expose a stable cross-file/importable identity. *)
 (* Unnamed extensions are intended for local/assembly-private augmentation; public APIs should use a stable explicit name. *)
 ExtensionDeclaration     ::= ExtensionKeyword Identifier? TypeParameterList?
                              'for' Type

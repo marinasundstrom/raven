@@ -206,6 +206,7 @@ public partial class SemanticModel
                 classDecl.Identifier.GetLocation());
         }
         var isRecord = classDecl is RecordDeclarationSyntax || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
+        var isFileScoped = HasFileScopeModifier(classDecl.Modifiers);
         var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
             classDecl.Modifiers,
             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
@@ -250,7 +251,10 @@ public partial class SemanticModel
             existingType.UpdateDeclarationModifiers(isSealed, isAbstract, isStatic);
             existingType.RegisterPartialModifier(isPartial);
             existingType.RegisterRecordModifier(isRecord);
-            ReportPartialTypeCompatibility(existingType, classDecl, typeAccessibility, _declarationDiagnostics);
+            ReportPartialTypeCompatibility(existingType, classDecl, typeAccessibility, isFileScoped, _declarationDiagnostics);
+
+            if (isFileScoped)
+                existingType.MarkFileScoped(classDecl.SyntaxTree.FilePath);
 
             if (isSealedHierarchy)
                 existingType.MarkAsSealedHierarchy(classDecl.SyntaxTree.FilePath, hasPermitsClause);
@@ -272,10 +276,14 @@ public partial class SemanticModel
                 isSealed,
                 isAbstract,
                 isStatic,
-                declaredAccessibility: typeAccessibility);
+                declaredAccessibility: typeAccessibility,
+                metadataName: GetFileScopedMetadataName(classDecl, classDecl.Identifier.ValueText));
 
             classSymbol.RegisterPartialModifier(isPartial);
             classSymbol.RegisterRecordModifier(isRecord);
+
+            if (isFileScoped)
+                classSymbol.MarkFileScoped(classDecl.SyntaxTree.FilePath);
 
             if (isSealedHierarchy)
                 classSymbol.MarkAsSealedHierarchy(classDecl.SyntaxTree.FilePath, hasPermitsClause);
@@ -293,11 +301,28 @@ public partial class SemanticModel
         SourceNamedTypeSymbol existingType,
         TypeDeclarationSyntax declaration,
         Accessibility declaredAccessibility,
+        bool isFileScoped,
         DiagnosticBag diagnostics)
     {
         if (existingType.DeclaredAccessibility != declaredAccessibility)
         {
             diagnostics.ReportPartialTypeDeclarationAccessibilityMismatch(
+                declaration.Identifier.ValueText,
+                declaration.Identifier.GetLocation());
+        }
+
+        if (existingType.IsFileScoped != isFileScoped)
+        {
+            diagnostics.ReportPartialTypeDeclarationFileScopeMismatch(
+                declaration.Identifier.ValueText,
+                declaration.Identifier.GetLocation());
+        }
+
+        if (isFileScoped &&
+            existingType.IsFileScoped &&
+            !existingType.IsAccessibleFromFile(declaration.SyntaxTree.FilePath))
+        {
+            diagnostics.ReportFileScopedPartialTypeMustRemainInSingleFile(
                 declaration.Identifier.ValueText,
                 declaration.Identifier.GetLocation());
         }
@@ -437,6 +462,7 @@ public partial class SemanticModel
                         var nestedSealed = nestedStatic || (!nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract);
                         var nestedPartial = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
                         var nestedRecord = nestedClass is RecordDeclarationSyntax || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
+                        var nestedFileScoped = HasFileScopeModifier(nestedClass.Modifiers);
                         var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             nestedClass.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
@@ -475,6 +501,10 @@ public partial class SemanticModel
                             existingNested.UpdateDeclarationModifiers(nestedSealed, nestedAbstract, nestedStatic);
                             existingNested.RegisterPartialModifier(nestedPartial);
                             existingNested.RegisterRecordModifier(nestedRecord);
+                            ReportPartialTypeCompatibility(existingNested, nestedClass, nestedAccessibility, nestedFileScoped, _declarationDiagnostics);
+
+                            if (nestedFileScoped)
+                                existingNested.MarkFileScoped(nestedClass.SyntaxTree.FilePath);
 
                             nestedSymbol = existingNested;
                             isNewNestedSymbol = false;
@@ -493,11 +523,15 @@ public partial class SemanticModel
                                 nestedSealed,
                                 nestedAbstract,
                                 nestedStatic,
-                                declaredAccessibility: nestedAccessibility
+                                declaredAccessibility: nestedAccessibility,
+                                metadataName: GetFileScopedMetadataName(nestedClass, nestedClass.Identifier.ValueText)
                             );
 
                             nestedSymbol.RegisterPartialModifier(nestedPartial);
                             nestedSymbol.RegisterRecordModifier(nestedRecord);
+
+                            if (nestedFileScoped)
+                                nestedSymbol.MarkFileScoped(nestedClass.SyntaxTree.FilePath);
                         }
 
                         if (isNewNestedSymbol)
@@ -513,6 +547,7 @@ public partial class SemanticModel
                         ReportInvalidTypeModifiers(nestedInterface, isNestedType: true, _declarationDiagnostics);
 
                         var nestedPartial = nestedInterface.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+                        var nestedFileScoped = HasFileScopeModifier(nestedInterface.Modifiers);
                         var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             nestedInterface.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
@@ -543,7 +578,10 @@ public partial class SemanticModel
 
                             existingNested.AddDeclaration(nestedInterface.GetLocation(), nestedInterface.GetReference());
                             existingNested.RegisterPartialModifier(nestedPartial);
-                            ReportPartialTypeCompatibility(existingNested, nestedInterface, nestedAccessibility, _declarationDiagnostics);
+                            ReportPartialTypeCompatibility(existingNested, nestedInterface, nestedAccessibility, nestedFileScoped, _declarationDiagnostics);
+
+                            if (nestedFileScoped)
+                                existingNested.MarkFileScoped(nestedInterface.SyntaxTree.FilePath);
                             nestedInterfaceSymbol = existingNested;
                         }
                         else
@@ -559,10 +597,14 @@ public partial class SemanticModel
                                 [nestedInterface.GetReference()],
                                 true,
                                 isAbstract: true,
-                                declaredAccessibility: nestedAccessibility
+                                declaredAccessibility: nestedAccessibility,
+                                metadataName: GetFileScopedMetadataName(nestedInterface, nestedInterface.Identifier.ValueText)
                             );
 
                             nestedInterfaceSymbol.RegisterPartialModifier(nestedPartial);
+
+                            if (nestedFileScoped)
+                                nestedInterfaceSymbol.MarkFileScoped(nestedInterface.SyntaxTree.FilePath);
                             InitializeTypeParameters(nestedInterfaceSymbol, nestedInterface.TypeParameterList, nestedInterface.ConstraintClauses);
                         }
 
@@ -586,8 +628,12 @@ public partial class SemanticModel
                             true,
                             declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
                                 enumDecl.Modifiers,
-                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentType))
+                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentType)),
+                            metadataName: GetFileScopedMetadataName(enumDecl, enumDecl.Identifier.ValueText)
                         );
+
+                        if (HasFileScopeModifier(enumDecl.Modifiers))
+                            enumSymbol.MarkFileScoped(enumDecl.SyntaxTree.FilePath);
 
                         RegisterDeclaredTypeSymbol(enumDecl, enumSymbol);
                         break;
@@ -607,7 +653,11 @@ public partial class SemanticModel
                             [nestedUnion.GetReference()],
                             AccessibilityUtilities.DetermineAccessibility(
                                 nestedUnion.Modifiers,
-                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentType)));
+                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentType)),
+                            metadataName: GetFileScopedMetadataName(nestedUnion, nestedUnion.Identifier.ValueText));
+
+                        if (HasFileScopeModifier(nestedUnion.Modifiers))
+                            unionSymbol.MarkFileScoped(nestedUnion.SyntaxTree.FilePath);
 
                         InitializeTypeParameters(unionSymbol, nestedUnion.TypeParameterList, nestedUnion.ConstraintClauses);
                         RegisterDeclaredTypeSymbol(nestedUnion, unionSymbol);
@@ -634,7 +684,11 @@ public partial class SemanticModel
                             isSealed: true,
                             isAbstract: true,
                             isStatic: false,
-                            declaredAccessibility: delegateAccessibility);
+                            declaredAccessibility: delegateAccessibility,
+                            metadataName: GetFileScopedMetadataName(delegateDecl, delegateDecl.Identifier.ValueText));
+
+                        if (HasFileScopeModifier(delegateDecl.Modifiers))
+                            delegateSymbol.MarkFileScoped(delegateDecl.SyntaxTree.FilePath);
 
                         InitializeTypeParameters(delegateSymbol, delegateDecl.TypeParameterList, delegateDecl.ConstraintClauses);
                         RegisterDeclaredTypeSymbol(delegateDecl, delegateSymbol);
@@ -672,7 +726,11 @@ public partial class SemanticModel
             isSealed: true,
             isAbstract: true,
             isStatic: false,
-            declaredAccessibility: delegateAccessibility);
+            declaredAccessibility: delegateAccessibility,
+            metadataName: GetFileScopedMetadataName(delegateDecl, delegateDecl.Identifier.ValueText));
+
+        if (HasFileScopeModifier(delegateDecl.Modifiers))
+            delegateSymbol.MarkFileScoped(delegateDecl.SyntaxTree.FilePath);
 
         InitializeTypeParameters(delegateSymbol, delegateDecl.TypeParameterList, delegateDecl.ConstraintClauses);
         RegisterDeclaredTypeSymbol(delegateDecl, delegateSymbol);
@@ -689,6 +747,7 @@ public partial class SemanticModel
             _declarationDiagnostics);
 
         var isPartial = interfaceDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+        var isFileScoped = HasFileScopeModifier(interfaceDecl.Modifiers);
         var interfaceAccessibility = AccessibilityUtilities.DetermineAccessibility(
             interfaceDecl.Modifiers,
             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
@@ -719,7 +778,10 @@ public partial class SemanticModel
 
             existingType.AddDeclaration(interfaceDecl.GetLocation(), interfaceDecl.GetReference());
             existingType.RegisterPartialModifier(isPartial);
-            ReportPartialTypeCompatibility(existingType, interfaceDecl, interfaceAccessibility, _declarationDiagnostics);
+            ReportPartialTypeCompatibility(existingType, interfaceDecl, interfaceAccessibility, isFileScoped, _declarationDiagnostics);
+
+            if (isFileScoped)
+                existingType.MarkFileScoped(interfaceDecl.SyntaxTree.FilePath);
             RegisterDeclaredTypeSymbol(interfaceDecl, existingType);
             return;
         }
@@ -735,9 +797,13 @@ public partial class SemanticModel
             new[] { interfaceDecl.GetReference() },
             true,
             isAbstract: true,
-            declaredAccessibility: interfaceAccessibility);
+            declaredAccessibility: interfaceAccessibility,
+            metadataName: GetFileScopedMetadataName(interfaceDecl, interfaceDecl.Identifier.ValueText));
 
         interfaceSymbol.RegisterPartialModifier(isPartial);
+
+        if (isFileScoped)
+            interfaceSymbol.MarkFileScoped(interfaceDecl.SyntaxTree.FilePath);
         InitializeTypeParameters(interfaceSymbol, interfaceDecl.TypeParameterList, interfaceDecl.ConstraintClauses);
         RegisterDeclaredTypeSymbol(interfaceDecl, interfaceSymbol);
     }
@@ -749,6 +815,7 @@ public partial class SemanticModel
         var extensionAccessibility = AccessibilityUtilities.DetermineAccessibility(
             extensionDecl.Modifiers,
             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+        var isFileScoped = HasFileScopeModifier(extensionDecl.Modifiers);
 
         var hasExplicitPublicModifier = extensionDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PublicKeyword);
         if (hasExplicitPublicModifier &&
@@ -780,9 +847,15 @@ public partial class SemanticModel
             new[] { extensionDecl.GetReference() },
             isSealed: true,
             isAbstract: true,
-            declaredAccessibility: extensionAccessibility);
+            declaredAccessibility: extensionAccessibility,
+            metadataName: extensionDecl.Identifier.Kind == SyntaxKind.None
+                ? extensionName
+                : GetFileScopedMetadataName(extensionDecl, extensionDecl.Identifier.ValueText));
 
         extensionSymbol.MarkAsExtensionContainer();
+
+        if (isFileScoped)
+            extensionSymbol.MarkFileScoped(extensionDecl.SyntaxTree.FilePath);
         InitializeTypeParameters(extensionSymbol, extensionDecl.TypeParameterList, extensionDecl.ConstraintClauses);
         RegisterDeclaredTypeSymbol(extensionDecl, extensionSymbol);
     }
@@ -810,8 +883,12 @@ public partial class SemanticModel
             new[] { enumDecl.GetLocation() },
             new[] { enumDecl.GetReference() },
             true,
-            declaredAccessibility: enumAccessibility
+            declaredAccessibility: enumAccessibility,
+            metadataName: GetFileScopedMetadataName(enumDecl, enumDecl.Identifier.ValueText)
         );
+
+        if (HasFileScopeModifier(enumDecl.Modifiers))
+            enumSymbol.MarkFileScoped(enumDecl.SyntaxTree.FilePath);
 
         RegisterDeclaredTypeSymbol(enumDecl, enumSymbol);
     }
@@ -838,7 +915,11 @@ public partial class SemanticModel
             [unionDecl.GetReference()],
             AccessibilityUtilities.DetermineAccessibility(
                 unionDecl.Modifiers,
-                AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol)));
+                AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol)),
+            metadataName: GetFileScopedMetadataName(unionDecl, unionDecl.Identifier.ValueText));
+
+        if (HasFileScopeModifier(unionDecl.Modifiers))
+            unionSymbol.MarkFileScoped(unionDecl.SyntaxTree.FilePath);
 
         InitializeTypeParameters(unionSymbol, unionDecl.TypeParameterList, unionDecl.ConstraintClauses);
         RegisterDeclaredTypeSymbol(unionDecl, unionSymbol);
@@ -1332,15 +1413,40 @@ public partial class SemanticModel
 
     private static string MangleUnnamedExtensionName(ExtensionDeclarationSyntax extensionDecl)
     {
-        // Stable, deterministic mangling for unnamed extensions.
-        // The name is not intended to be user-visible; it exists to provide a unique symbol identity
-        // within the assembly for binding, caching, and metadata emission.
-        var loc = extensionDecl.GetLocation();
+        return CreateMangledTypeName("__ext$", extensionDecl, "extension");
+    }
+
+    private static string? GetFileScopedMetadataName(MemberDeclarationSyntax declaration, string logicalName)
+    {
+        if (!HasFileScopeModifier(GetModifiers(declaration)))
+            return null;
+
+        return CreateMangledTypeName("__fs$", declaration, logicalName);
+    }
+
+    private static bool HasFileScopeModifier(SyntaxTokenList modifiers)
+        => AccessibilityUtilities.HasFileScopeModifier(modifiers);
+
+    private static SyntaxTokenList GetModifiers(MemberDeclarationSyntax declaration)
+        => declaration switch
+        {
+            TypeDeclarationSyntax typeDeclaration => typeDeclaration.Modifiers,
+            DelegateDeclarationSyntax delegateDeclaration => delegateDeclaration.Modifiers,
+            ExtensionDeclarationSyntax extensionDeclaration => extensionDeclaration.Modifiers,
+            EnumDeclarationSyntax enumDeclaration => enumDeclaration.Modifiers,
+            UnionDeclarationSyntax unionDeclaration => unionDeclaration.Modifiers,
+            _ => default
+        };
+
+    private static string CreateMangledTypeName(string prefix, MemberDeclarationSyntax declaration, string logicalName)
+    {
+        var loc = declaration.GetLocation();
         var span = loc.SourceSpan;
+        var filePath = declaration.SyntaxTree?.FilePath ?? string.Empty;
+        var sanitizedLogicalName = string.IsNullOrWhiteSpace(logicalName)
+            ? "type"
+            : new string(logicalName.Select(static ch => char.IsLetterOrDigit(ch) ? ch : '_').ToArray());
 
-        var filePath = extensionDecl.SyntaxTree?.FilePath ?? string.Empty;
-
-        // FNV-1a 32-bit hash for stability across processes/runs.
         unchecked
         {
             uint hash = 2166136261;
@@ -1350,13 +1456,12 @@ public partial class SemanticModel
                 hash *= 16777619;
             }
 
-            // Include span to avoid collisions within the same file.
             hash ^= (uint)span.Start;
             hash *= 16777619;
             hash ^= (uint)span.Length;
             hash *= 16777619;
 
-            return $"__ext${hash:x8}_{span.Start}_{span.Length}";
+            return $"{prefix}{hash:x8}_{span.Start}_{span.Length}_{sanitizedLogicalName}";
         }
     }
 
@@ -1730,6 +1835,7 @@ public partial class SemanticModel
                     SyntaxKind.PrivateKeyword,
                     SyntaxKind.InternalKeyword,
                     SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.FilescopeKeyword,
                     SyntaxKind.StaticKeyword,
                     SyntaxKind.AbstractKeyword,
                     SyntaxKind.SealedKeyword,
@@ -1746,6 +1852,7 @@ public partial class SemanticModel
                     SyntaxKind.PrivateKeyword,
                     SyntaxKind.InternalKeyword,
                     SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.FilescopeKeyword,
                     SyntaxKind.StaticKeyword,
                     SyntaxKind.AbstractKeyword,
                     SyntaxKind.SealedKeyword,
@@ -1763,6 +1870,7 @@ public partial class SemanticModel
                     SyntaxKind.PrivateKeyword,
                     SyntaxKind.InternalKeyword,
                     SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.FilescopeKeyword,
                     SyntaxKind.PartialKeyword,
                 }),
             InterfaceDeclarationSyntax interfaceDecl => (
@@ -1775,6 +1883,7 @@ public partial class SemanticModel
                     SyntaxKind.PrivateKeyword,
                     SyntaxKind.InternalKeyword,
                     SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.FilescopeKeyword,
                     SyntaxKind.PartialKeyword,
                 }),
             EnumDeclarationSyntax enumDecl => (
@@ -1787,6 +1896,7 @@ public partial class SemanticModel
                     SyntaxKind.PrivateKeyword,
                     SyntaxKind.InternalKeyword,
                     SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.FilescopeKeyword,
                 }),
             DelegateDeclarationSyntax delegateDecl => (
                 delegateDecl.Identifier.ValueText,
@@ -1798,6 +1908,7 @@ public partial class SemanticModel
                     SyntaxKind.PrivateKeyword,
                     SyntaxKind.InternalKeyword,
                     SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.FilescopeKeyword,
                 }),
             ExtensionDeclarationSyntax extensionDecl => (
                 extensionDecl.Identifier.ValueText,
@@ -1809,6 +1920,7 @@ public partial class SemanticModel
                     SyntaxKind.PrivateKeyword,
                     SyntaxKind.InternalKeyword,
                     SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.FilescopeKeyword,
                 }),
             UnionDeclarationSyntax unionDecl => (
                 unionDecl.Identifier.ValueText,
@@ -1820,6 +1932,7 @@ public partial class SemanticModel
                     SyntaxKind.PrivateKeyword,
                     SyntaxKind.InternalKeyword,
                     SyntaxKind.ProtectedKeyword,
+                    SyntaxKind.FilescopeKeyword,
                 }),
             _ => (null, null, default, null),
         };
@@ -2576,7 +2689,11 @@ public partial class SemanticModel
             containingNamespace,
             [unionDecl.GetLocation()],
             [unionDecl.GetReference()],
-            unionAccessibility);
+            unionAccessibility,
+            metadataName: GetFileScopedMetadataName(unionDecl, unionDecl.Identifier.ValueText));
+
+        if (HasFileScopeModifier(unionDecl.Modifiers))
+            unionSymbol.MarkFileScoped(unionDecl.SyntaxTree.FilePath);
 
         if (unionSymbol.TypeParameters.IsDefaultOrEmpty)
             InitializeTypeParameters(unionSymbol, unionDecl.TypeParameterList, unionDecl.ConstraintClauses);

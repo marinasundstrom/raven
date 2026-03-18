@@ -69,4 +69,75 @@ partial class Box<U, V> { }
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV0603");
     }
+
+    [Fact]
+    public void FileScopedType_IsAccessibleOnlyWithinDeclaringFile()
+    {
+        var treeA = SyntaxTree.ParseText("""
+filescope class Helper { }
+
+class SameFileUser {
+    func Use(value: Helper) { }
+}
+""", path: "a.rav");
+
+        var treeB = SyntaxTree.ParseText("""
+class OtherFileUser {
+    func Use(value: Helper) { }
+}
+""", path: "b.rav");
+
+        var compilation = CreateCompilation(new[] { treeA, treeB }, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Location.SourceTree == treeA && d.Severity == DiagnosticSeverity.Error);
+        Assert.Contains(diagnostics, d => d.Location.SourceTree == treeB && d.Descriptor == CompilerDiagnostics.SymbolIsInaccessible);
+    }
+
+    [Fact]
+    public void FileScopedType_UsesMangledMetadataName()
+    {
+        var tree = SyntaxTree.ParseText("""
+filescope class Helper { }
+""", path: "file.rav");
+
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+
+        Assert.Equal("Helper", symbol.Name);
+        Assert.StartsWith("__fs$", symbol.MetadataName);
+        Assert.NotEqual("Helper", symbol.MetadataName);
+    }
+
+    [Fact]
+    public void FileScopedType_DoesNotBreakFunctionTypeSignaturesInGenericMembers()
+    {
+        var tree = SyntaxTree.ParseText("""
+filescope class Helpers<T> {
+    func Tap(action: T -> ()) -> () {
+    }
+}
+""", path: "file.rav");
+
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void FileScopedPartialType_AcrossFiles_ReportsDiagnostic()
+    {
+        var treeA = SyntaxTree.ParseText("filescope partial class Helper { }", path: "a.rav");
+        var treeB = SyntaxTree.ParseText("filescope partial class Helper { }", path: "b.rav");
+
+        var compilation = CreateCompilation(new[] { treeA, treeB }, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV0619");
+    }
 }

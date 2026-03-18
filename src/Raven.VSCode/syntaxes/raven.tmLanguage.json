@@ -341,7 +341,7 @@
                 },
                 {
                     "name": "storage.modifier.raven",
-                    "match": "\\b(params|val|var|let|use|const|static|abstract|virtual|override|final|sealed|new|open|partial|readonly|required|async|extern|unsafe|public|internal|protected|private)\\b"
+                    "match": "\\b(params|val|var|let|use|const|static|abstract|virtual|override|final|sealed|new|open|partial|readonly|required|async|extern|unsafe|public|internal|protected|private|filescope)\\b"
                 },
                 {
                     "name": "keyword.control.raven",

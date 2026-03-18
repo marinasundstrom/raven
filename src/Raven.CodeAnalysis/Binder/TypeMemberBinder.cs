@@ -116,11 +116,7 @@ internal partial class TypeMemberBinder : Binder
         RefKind refKindHint,
         Binder.TypeResolutionOptions? options = null)
     {
-        var result = binder.BindTypeSyntax(typeSyntax, options);
-        if (!result.Success)
-            return binder.BindTypeSyntaxDirect(typeSyntax, options, refKindHint: null, allowLegacyFallback: true);
-
-        return result.ResolvedType;
+        return binder.BindTypeSyntaxDirect(typeSyntax, options, refKindHint, allowLegacyFallback: true);
     }
 
     private ITypeSymbol ResolveParameterTypeSyntaxForSignature(

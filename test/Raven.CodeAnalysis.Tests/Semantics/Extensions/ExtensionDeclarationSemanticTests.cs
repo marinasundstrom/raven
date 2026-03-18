@@ -136,6 +136,34 @@ extension IntExtensions for int {
     }
 
     [Fact]
+    public void FileScopedExtensionDeclaration_UsesMangledMetadataName()
+    {
+        const string source = """
+filescope extension StringHelpers for string {
+    func TrimTwice() -> string => self.Trim().Trim()
+}
+
+class Uses {
+    func Run() -> string => " x ".TrimTwice()
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var extensionDecl = tree.GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>().Single();
+        var extensionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(extensionDecl));
+
+        Assert.Equal("StringHelpers", extensionSymbol.Name);
+        Assert.StartsWith("__fs$", extensionSymbol.MetadataName);
+        Assert.NotEqual("StringHelpers", extensionSymbol.MetadataName);
+    }
+
+    [Fact]
     public void ExtensionDeclaration_AllowsAccessibilityModifiers()
     {
         const string source = """

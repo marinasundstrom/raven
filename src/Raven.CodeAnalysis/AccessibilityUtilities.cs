@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
@@ -71,6 +72,9 @@ internal static class AccessibilityUtilities
         return defaultAccessibility;
     }
 
+    public static bool HasFileScopeModifier(IEnumerable<SyntaxToken> modifiers)
+        => modifiers.Any(static modifier => modifier.Kind == SyntaxKind.FilescopeKeyword);
+
     public static Accessibility GetDefaultTypeAccessibility(ISymbol? containingSymbol)
     {
         if (containingSymbol is null)
@@ -98,10 +102,17 @@ internal static class AccessibilityUtilities
         return Accessibility.Private;
     }
 
-    public static bool IsAccessible(ISymbol symbol, ISymbol? within)
+    public static bool IsAccessible(ISymbol symbol, ISymbol? within, string? withinFilePath = null)
     {
         if (symbol is null)
             return true;
+
+        if (symbol is Symbol sourceSymbol &&
+            sourceSymbol.IsFileScoped &&
+            !sourceSymbol.IsAccessibleFromFile(withinFilePath))
+        {
+            return false;
+        }
 
         return symbol.DeclaredAccessibility switch
         {

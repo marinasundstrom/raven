@@ -119,6 +119,7 @@ internal class UnionDeclarationParser : SyntaxParser
                     SyntaxKind.PrivateKeyword or
                     SyntaxKind.InternalKeyword or
                     SyntaxKind.ProtectedKeyword or
+                    SyntaxKind.FilescopeKeyword or
                     SyntaxKind.StaticKeyword or
                     SyntaxKind.AbstractKeyword or
                     SyntaxKind.FinalKeyword or

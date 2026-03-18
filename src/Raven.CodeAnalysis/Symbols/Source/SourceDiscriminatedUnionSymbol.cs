@@ -14,8 +14,9 @@ internal sealed class SourceDiscriminatedUnionSymbol : SourceNamedTypeSymbol, ID
         INamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
-        Accessibility declaredAccessibility)
-        : base(name, baseType, TypeKind.Struct, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, isSealed: true, declaredAccessibility: declaredAccessibility)
+        Accessibility declaredAccessibility,
+        string? metadataName = null)
+        : base(name, baseType, TypeKind.Struct, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, isSealed: true, declaredAccessibility: declaredAccessibility, metadataName: metadataName)
     {
     }
 

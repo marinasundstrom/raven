@@ -1498,7 +1498,7 @@ members into scope for lookup.
 
 Extensions may be declared using either the `extension` keyword or the `trait` keyword. Both forms declare the same construct and are semantically equivalent in the current version of Raven; the choice of keyword is intended to communicate author intent. The `trait` keyword emphasizes behavioral composition, while `extension` emphasizes convenience and interoperability.
 
-An extension/trait declaration may omit its identifier, in which case the compiler synthesizes a private, mangled name for the generated container type. **Public** extensions/traits (those intended to be consumed across assemblies) must declare an explicit identifier so the container can be referenced and imported by name. Unnamed extensions are intended for internal, assembly-local augmentation.
+An extension/trait declaration may omit its identifier, in which case the compiler synthesizes a private, mangled name for the generated container type. **Public** extensions/traits (those intended to be consumed across assemblies) must declare an explicit identifier so the container can be referenced and imported by name. Unnamed extensions are intended for internal, assembly-local augmentation. Applying `filescope` likewise keeps the declaration file-local and mangles the emitted container metadata name even when the source declaration uses an explicit identifier.
 
 
 Extensions and traits may declare type parameters and generic constraints (`where` clauses). These constraints participate in extension resolution: an extension is considered applicable only when its type parameters can be inferred and all declared constraints are satisfied for the receiver type. Extensions whose constraints are not met are ignored during member lookup.

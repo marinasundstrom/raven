@@ -11,6 +11,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 {
     private readonly List<ISymbol> _members = new List<ISymbol>();
+    private readonly string _metadataName;
     private bool _isStatic;
     private ImmutableArray<INamedTypeSymbol> _interfaces = ImmutableArray<INamedTypeSymbol>.Empty;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
@@ -24,9 +25,10 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     private ImmutableArray<INamedTypeSymbol> _permittedDirectSubtypes = ImmutableArray<INamedTypeSymbol>.Empty;
     private string? _sealedHierarchySourceFile;
 
-    public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = false, Accessibility declaredAccessibility = Accessibility.NotApplicable)
+    public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = false, Accessibility declaredAccessibility = Accessibility.NotApplicable, string? metadataName = null)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
+        _metadataName = metadataName ?? name;
         BaseType = containingSymbol.ContainingAssembly!.GetTypeByMetadataName("System.Object");
 
         TypeKind = DetermineTypeKind(TypeKind.Class, BaseType);
@@ -56,9 +58,11 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         bool isSealed = false,
         bool isAbstract = false,
         bool isStatic = false,
-        Accessibility declaredAccessibility = Accessibility.NotApplicable)
+        Accessibility declaredAccessibility = Accessibility.NotApplicable,
+        string? metadataName = null)
     : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
+        _metadataName = metadataName ?? name;
         BaseType = baseType;
 
         TypeKind = DetermineTypeKind(typeKind, baseType);
@@ -123,7 +127,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         get
         {
-            var name = Name;
+            var name = _metadataName;
 
             if (IsGenericType)
                 name = $"{name}`{Arity}";
