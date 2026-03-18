@@ -156,6 +156,39 @@ class Harness {
     }
 
     [Fact]
+    public void MacroExpansionDisplayService_DoesNotBuildPreviewInsideFreestandingMacroArguments()
+    {
+        const string code = """
+class Harness {
+    func Run(viewModel: CounterViewModel) {
+        val subscription = #subscribe(viewModel.Count, (value) => {
+            WriteLine(value)
+        })
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(typeof(ArgumentAwareFreestandingMacroPlugin)));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var sourceText = SourceText.From(code);
+        var root = syntaxTree.GetRoot();
+        var argumentOffset = code.IndexOf("Count", StringComparison.Ordinal) + 1;
+
+        var success = MacroExpansionDisplayService.TryCreateForOffset(
+            sourceText,
+            semanticModel,
+            root,
+            argumentOffset,
+            out _);
+
+        success.ShouldBeFalse();
+    }
+
+    [Fact]
     public void HoverHandler_MacroHint_IncludesKindTargetsAndArguments()
     {
         const string code = """
@@ -332,6 +365,28 @@ class MyViewModel {
             => new()
             {
                 Expression = SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(42))
+            };
+    }
+
+    public sealed class ArgumentAwareFreestandingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "ArgumentAwareFreestandingMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new SubscribeMacro()];
+    }
+
+    public sealed class SubscribeMacro : IFreestandingExpressionMacro
+    {
+        public string Name => "subscribe";
+        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroTarget Targets => MacroTarget.None;
+        public bool AcceptsArguments => true;
+
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+            => new()
+            {
+                Expression = SyntaxFactory.IdentifierName("subscription")
             };
     }
 }

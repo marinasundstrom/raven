@@ -63,8 +63,7 @@ internal static class MacroExpansionDisplayService
                 .OfType<AttributeSyntax>()
                 .FirstOrDefault(attributeSyntax =>
                     attributeSyntax.IsMacroAttribute() &&
-                    attributeSyntax.Span.Start <= end &&
-                    start <= attributeSyntax.Span.End);
+                    Intersects(GetInvocationHeadSpan(attributeSyntax), start, end));
 
         if (attribute is not null)
             return TryCreateDisplay(semanticModel, attribute, out display);
@@ -76,8 +75,7 @@ internal static class MacroExpansionDisplayService
             ?? root.DescendantNodes()
                 .OfType<FreestandingMacroExpressionSyntax>()
                 .FirstOrDefault(expressionSyntax =>
-                    expressionSyntax.Span.Start <= end &&
-                    start <= expressionSyntax.Span.End);
+                    Intersects(GetInvocationHeadSpan(expressionSyntax), start, end));
 
         if (macroExpression is null)
             return false;
@@ -175,6 +173,9 @@ internal static class MacroExpansionDisplayService
             }
 
             var attribute = token.Parent?.AncestorsAndSelf().OfType<AttributeSyntax>().FirstOrDefault(static attr => attr.IsMacroAttribute());
+            if (attribute is not null && !GetInvocationHeadSpan(attribute).Contains(candidateOffset))
+                continue;
+
             if (attribute is not null)
                 return attribute;
         }
@@ -197,6 +198,9 @@ internal static class MacroExpansionDisplayService
             }
 
             var expression = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
+            if (expression is not null && !GetInvocationHeadSpan(expression).Contains(candidateOffset))
+                continue;
+
             if (expression is not null)
                 return expression;
         }
@@ -245,4 +249,17 @@ internal static class MacroExpansionDisplayService
         builder.Append("\n...");
         return builder.ToString();
     }
+
+    private static TextSpan GetInvocationHeadSpan(AttributeSyntax attribute)
+    {
+        var end = attribute.ArgumentList?.Span.Start ?? attribute.Span.End;
+        return TextSpan.FromBounds(attribute.HashToken.Span.Start, end);
+    }
+
+    private static TextSpan GetInvocationHeadSpan(FreestandingMacroExpressionSyntax expression)
+        => TextSpan.FromBounds(expression.HashToken.Span.Start, expression.ArgumentList.OpenParenToken.Span.Start);
+
+    private static bool Intersects(TextSpan span, int start, int end)
+        => span.Start <= end && start <= span.End;
+
 }
