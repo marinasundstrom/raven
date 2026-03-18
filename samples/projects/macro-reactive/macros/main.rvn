@@ -7,7 +7,7 @@ class ReactiveMacroPlugin : IRavenMacroPlugin {
     val Name: string => "SampleMacros.Reactive"
 
     func GetMacros() -> ImmutableArray<IMacroDefinition>
-        => ImmutableArray.Create<IMacroDefinition>(ObservableMacro(), SubscribeMacro())
+        => [ObservableMacro(), SubscribeMacro()]
 }
 
 class ObservableMacro : IAttachedDeclarationMacro {
