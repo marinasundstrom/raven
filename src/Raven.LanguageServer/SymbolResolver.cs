@@ -117,11 +117,7 @@ internal static class SymbolResolver
 
             if (HaveEquivalentSpan(memberAccess.Name, identifier))
             {
-                var nameInfo = semanticModel.GetSymbolInfo(memberAccess.Name);
-                var symbol = ProjectSymbolForDisplay(nameInfo.Symbol)
-                    ?? ProjectSymbolForDisplay(ChoosePreferredSymbol(nameInfo.Symbol, nameInfo.CandidateSymbols, memberAccess.Name))
-                    ?? ProjectSymbolForDisplay(semanticModel.GetSymbolInfo(memberAccess).Symbol)
-                    ?? ProjectSymbolForDisplay(FindReferencedSymbolAtToken(semanticModel.GetOperation(memberAccess), token.Span));
+                var symbol = ResolveExplicitMemberAccessSymbol(semanticModel, memberAccess, token.Span);
 
                 if (symbol is not null)
                 {
@@ -149,26 +145,7 @@ internal static class SymbolResolver
             return false;
         }
 
-        var nameInfo = semanticModel.GetSymbolInfo(memberAccess.Name);
-        if (nameInfo.Symbol is not null || !nameInfo.CandidateSymbols.IsDefaultOrEmpty)
-        {
-            symbol = ProjectSymbolForDisplay(ChoosePreferredSymbol(nameInfo.Symbol, nameInfo.CandidateSymbols, memberAccess.Name));
-            if (symbol is not null)
-                return true;
-        }
-
-        var operationSymbol = FindReferencedSymbolAtToken(semanticModel.GetOperation(memberAccess), identifier.Identifier.Span);
-        if (operationSymbol is not null)
-        {
-            symbol = ProjectSymbolForDisplay(operationSymbol);
-            if (symbol is not null)
-                return true;
-        }
-
-        if (!TryResolveMemberFromReceiverType(semanticModel, memberAccess, out var resolved))
-            return false;
-
-        symbol = ProjectSymbolForDisplay(resolved);
+        symbol = ResolveExplicitMemberAccessSymbol(semanticModel, memberAccess, identifier.Identifier.Span);
         return symbol is not null;
     }
 
@@ -450,21 +427,9 @@ internal static class SymbolResolver
 
         if (targetNode is MemberAccessExpressionSyntax memberAccessTarget)
         {
-            if (TryResolveMemberFromReceiverType(semanticModel, memberAccessTarget, out var typeMember))
-            {
-                symbol = ProjectSymbolForDisplay(typeMember);
-                if (symbol is not null)
-                    return true;
-            }
-
-            var nameInfo = semanticModel.GetSymbolInfo(memberAccessTarget.Name);
-            if (nameInfo.Symbol is not null || !nameInfo.CandidateSymbols.IsDefaultOrEmpty)
-            {
-                symbol = ChoosePreferredSymbol(nameInfo.Symbol, nameInfo.CandidateSymbols, memberAccessTarget.Name);
-                symbol = ProjectSymbolForDisplay(symbol);
-                if (symbol is not null)
-                    return true;
-            }
+            symbol = ResolveExplicitMemberAccessSymbol(semanticModel, memberAccessTarget, token.Span);
+            if (symbol is not null)
+                return true;
         }
 
         if (targetNode is MemberBindingExpressionSyntax memberBindingTarget)
@@ -609,6 +574,34 @@ internal static class SymbolResolver
             return false;
 
         return true;
+    }
+
+    private static ISymbol? ResolveExplicitMemberAccessSymbol(
+        SemanticModel semanticModel,
+        MemberAccessExpressionSyntax memberAccess,
+        TextSpan tokenSpan)
+    {
+        var operationSymbol = ProjectSymbolForDisplay(
+            FindReferencedSymbolAtToken(semanticModel.GetOperation(memberAccess), tokenSpan));
+        if (operationSymbol is not null)
+            return operationSymbol;
+
+        var memberAccessInfo = semanticModel.GetSymbolInfo(memberAccess);
+        var chosenMemberAccessSymbol = ProjectSymbolForDisplay(
+            ChoosePreferredSymbol(memberAccessInfo.Symbol, memberAccessInfo.CandidateSymbols, memberAccess));
+        if (chosenMemberAccessSymbol is not null)
+            return chosenMemberAccessSymbol;
+
+        if (TryResolveMemberFromReceiverType(semanticModel, memberAccess, out var resolvedFromReceiver))
+        {
+            var projectedReceiverSymbol = ProjectSymbolForDisplay(resolvedFromReceiver);
+            if (projectedReceiverSymbol is not null)
+                return projectedReceiverSymbol;
+        }
+
+        var nameInfo = semanticModel.GetSymbolInfo(memberAccess.Name);
+        return ProjectSymbolForDisplay(
+            ChoosePreferredSymbol(nameInfo.Symbol, nameInfo.CandidateSymbols, memberAccess.Name));
     }
 
     private static ISymbol? ChoosePreferredSymbol(

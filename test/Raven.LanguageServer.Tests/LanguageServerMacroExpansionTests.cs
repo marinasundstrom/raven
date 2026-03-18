@@ -262,6 +262,49 @@ class Harness {
         parameterSymbol.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
     }
 
+    [Fact]
+    public void SymbolResolver_AttachedMacroPropertyReference_PrefersReceiverBoundProperty()
+    {
+        const string code = """
+import System.*
+import System.Console.*
+
+class MyViewModel {
+    #[Observable]
+    var Title: string
+}
+
+class Program {
+    static func Main() -> unit {
+        val viewModel = MyViewModel()
+        viewModel.Title = "Hello from Raven"
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(typeof(ObservableMacroPlugin)))
+            .AddReferences(LanguageServerTestReferences.Default);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var titleReference = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(static access => access.ToString() == "viewModel.Title");
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(
+            semanticModel,
+            root,
+            titleReference.Name.Span.Start + 1);
+
+        resolution.ShouldNotBeNull();
+        var propertySymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+        propertySymbol.Name.ShouldBe("Title");
+        propertySymbol.ContainingType?.Name.ShouldBe("MyViewModel");
+    }
+
     public sealed class ObservableMacroPlugin : IRavenMacroPlugin
     {
         public string Name => "ObservableMacroPlugin";
