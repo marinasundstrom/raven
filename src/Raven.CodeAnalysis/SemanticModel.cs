@@ -480,15 +480,37 @@ Complete:
 
     internal void RegisterMacroReplacementSyntaxTree(SyntaxNode originalRoot, SyntaxNode replacementRoot)
     {
-        RegisterMacroReplacementSyntax(originalRoot, replacementRoot);
+        RegisterMacroReplacementSyntaxTrees(originalRoot, [replacementRoot]);
+    }
 
-        var replacementLookup = replacementRoot
-            .DescendantNodesAndSelf()
-            .GroupBy(static node => node.Green, ReferenceEqualityComparer.Instance)
-            .ToDictionary(
-                static group => group.Key,
-                static group => new Queue<SyntaxNode>(group),
-                ReferenceEqualityComparer.Instance);
+    internal void RegisterMacroReplacementSyntaxTrees(SyntaxNode originalRoot, IEnumerable<SyntaxNode> replacementRoots)
+    {
+        ArgumentNullException.ThrowIfNull(originalRoot);
+        ArgumentNullException.ThrowIfNull(replacementRoots);
+
+        var replacementRootArray = replacementRoots
+            .Where(static root => root is not null)
+            .ToArray();
+
+        if (replacementRootArray.Length == 0)
+            return;
+
+        RegisterMacroReplacementSyntax(originalRoot, replacementRootArray[0]);
+
+        var replacementLookup = new Dictionary<object, Queue<SyntaxNode>>(ReferenceEqualityComparer.Instance);
+        foreach (var replacementRoot in replacementRootArray)
+        {
+            foreach (var replacementNode in replacementRoot.DescendantNodesAndSelf())
+            {
+                if (!replacementLookup.TryGetValue(replacementNode.Green, out var matches))
+                {
+                    matches = new Queue<SyntaxNode>();
+                    replacementLookup.Add(replacementNode.Green, matches);
+                }
+
+                matches.Enqueue(replacementNode);
+            }
+        }
 
         foreach (var originalNode in originalRoot.DescendantNodesAndSelf())
         {

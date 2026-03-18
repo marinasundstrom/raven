@@ -387,7 +387,9 @@ public partial class SemanticModel
             if (expansion.ReplacementDeclaration is MemberDeclarationSyntax replacementMember)
             {
                 effectiveMember = replacementMember;
-                RegisterMacroReplacementSyntax(member, replacementMember);
+                RegisterMacroReplacementSyntaxTrees(
+                    member,
+                    [replacementMember, .. expansion.IntroducedMembers, .. expansion.PeerDeclarations]);
                 RegisterMacroContainingTypeSyntax(replacementMember, containingTypeDeclaration: (TypeDeclarationSyntax)member.Parent!);
             }
 
