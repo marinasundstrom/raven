@@ -4,7 +4,7 @@ using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.Syntax;
 
-namespace Raven.CodeAnalysis.Tests;
+namespace Raven.CodeAnalysis.Tests.CodeGen.Development;
 
 public class DefaultLiteralEmissionTests
 {

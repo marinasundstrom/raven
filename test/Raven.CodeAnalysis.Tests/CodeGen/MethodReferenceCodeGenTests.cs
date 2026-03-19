@@ -85,13 +85,13 @@ class Counter {
     {
         const string code = """
 class Accumulator {
-    public static func TryAccumulate(var state: &int, out var doubled: &int) -> bool {
+    static func TryAccumulate(state: &int, out doubled: &int) -> bool {
         state = 21
         doubled = 42
         true
     }
 
-    public static func Execute(value: int) -> int {
+    static func Execute(value: int) -> int {
         val callback = Accumulator.TryAccumulate
         var current = value
         var doubled = 0

@@ -8,6 +8,7 @@ using System.Text.Json;
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests.CodeGen.Development;
 
 namespace Raven.CodeAnalysis.Tests.CodeGen;
 

@@ -14,7 +14,7 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public sealed class PdbSequencePointTests
 {
     [Fact]
-    public void AsyncMethod_KickoffAndMoveNext_HaveSequencePoints()
+    public void AsyncMethod_KickoffIsHiddenAndMoveNext_HasVisibleSequencePoints()
     {
         var code = """
 import System.Threading.Tasks.*
@@ -36,14 +36,14 @@ class C {
             typeName.Contains("<>c__AsyncStateMachine", StringComparison.Ordinal) &&
             methodName == "MoveNext");
 
-        AssertMethodHasVisibleSequencePoint(pdbReader, kickoff);
+        AssertMethodHasOnlyHiddenSequencePoints(pdbReader, kickoff);
         AssertMethodHasVisibleSequencePoint(pdbReader, moveNext);
 
         peReader.Dispose();
     }
 
     [Fact]
-    public void IteratorMoveNext_HasSequencePoints()
+    public void IteratorKickoffIsHiddenAndMoveNext_HasVisibleSequencePoints()
     {
         var code = """
 import System.Collections.Generic.*
@@ -65,7 +65,7 @@ class C {
         var kickoff = FindMethod(metadataReader, static (typeName, methodName) =>
             typeName == "C" && methodName == "Values");
 
-        AssertMethodHasVisibleSequencePoint(pdbReader, kickoff);
+        AssertMethodHasOnlyHiddenSequencePoints(pdbReader, kickoff);
         AssertMethodHasVisibleSequencePoint(pdbReader, moveNext);
 
         peReader.Dispose();
@@ -816,6 +816,16 @@ class C {
         var points = GetVisibleSequencePoints(pdbReader, methodHandle).ToArray();
 
         Assert.NotEmpty(points);
+    }
+
+    private static void AssertMethodHasOnlyHiddenSequencePoints(MetadataReader pdbReader, MethodDefinitionHandle methodHandle)
+    {
+        var debugHandle = methodHandle.ToDebugInformationHandle();
+        var debugInfo = pdbReader.GetMethodDebugInformation(debugHandle);
+        var points = debugInfo.GetSequencePoints().ToArray();
+
+        Assert.NotEmpty(points);
+        Assert.DoesNotContain(points, static point => !point.IsHidden);
     }
 
     private static void AssertMethodHasAtLeastVisibleSequencePoints(

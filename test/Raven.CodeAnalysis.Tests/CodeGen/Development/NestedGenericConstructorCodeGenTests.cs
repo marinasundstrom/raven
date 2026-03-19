@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.CodeGen;
+namespace Raven.CodeAnalysis.Tests.CodeGen.Development;
 
 public sealed class NestedGenericConstructorCodeGenTests
 {

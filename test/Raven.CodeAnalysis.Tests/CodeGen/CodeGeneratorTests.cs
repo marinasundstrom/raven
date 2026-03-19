@@ -450,9 +450,7 @@ interface IFoo {
 }
 
 class Foo : IFoo {
-    func Foo() -> unit {
-        return;
-    }
+    init() {}
 }
 """;
 
@@ -667,7 +665,7 @@ interface ILogger {
 }
 
 class ConsoleLogger : ILogger {
-    func ConsoleLogger() -> unit { return; }
+    init() {}
 }
 """;
 

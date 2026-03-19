@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.CodeGen;
+namespace Raven.CodeAnalysis.Tests.CodeGen.Development;
 
 internal sealed class RecordingILBuilderFactory : IILBuilderFactory
 {

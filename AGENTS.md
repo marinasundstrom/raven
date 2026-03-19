@@ -121,6 +121,11 @@ If you change any flags, **rebuild the compiler** before running again.
 - focus on incremental, additive changes  
 - review `docs/` before altering syntax/semantics  
 - ask Codex to collapse large diffs  
+- be aware that the repo still contains some legacy codegen tests that assert emitted opcodes, lowered IL shape, or other implementation details; treat those as unstable development scaffolding rather than authoritative product coverage
+- if temporary development tests of emitted instructions or lowered code are needed while building a feature, keep them under `test/Raven.CodeAnalysis.Tests/CodeGen/Development`
+- tests in `test/Raven.CodeAnalysis.Tests/CodeGen/Development` are development-only scaffolding and should be excluded from the normal baseline/runtime stabilization passes
+- do not add new tests that verify emitted opcodes or specific lowered instruction sequences for stabilized features; prefer diagnostics, metadata shape, symbol shape, and observable runtime behavior
+- when touching legacy emitted-instruction tests, prefer removing them or replacing them with behavior-focused coverage once the feature is established; if they must remain temporarily, keep them in the development-tests folder instead of mixing them with stable suites
 - when writing or testing Raven code exposes compiler behavior that is clearly wrong for the intended/spec'd language behavior, fix the compiler instead of just working around it in Raven code
 - if the intended behavior is unclear, reduce the repro, check `docs/`, and then fix or clarify the behavior rather than leaving the compiler in a broken/ambiguous state
 - compiler bug fixes must be locked with focused tests (syntax/semantic/codegen as appropriate)
