@@ -1,0 +1,12 @@
+import System.Collections.Immutable.*
+
+func Main() {
+    val x = Foo.GetCount()
+}
+
+class Foo {
+    static func GetCount() -> int {
+        val values = [for key in [|"a", "bb"|] => key: key.Length]
+        return values.Count + values["bb"]
+    }
+}

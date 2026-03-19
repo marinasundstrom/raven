@@ -651,10 +651,12 @@ ArrayExpression          ::= '[|' [CollectionElement {CollectionSeparator Collec
 CollectionSeparator      ::= ',' | ';' ;
 CollectionElement        ::= Expression
                            | Expression ':' Expression
-                           | '..' Expression
+                           | '...' Expression
+                           | '...' Expression ':' Expression
                            | CollectionComprehensionElement ;
 CollectionComprehensionElement
-                         ::= 'for' Identifier 'in' Expression ['if' Expression] '=>' Expression ;
+                         ::= 'for' Identifier 'in' Expression ['if' Expression] '=>' Expression
+                           | 'for' Identifier 'in' Expression ['if' Expression] '=>' Expression ':' Expression ;
 
 TupleExpression          ::= '(' TupleElement {',' TupleElement} ')' ;
 TupleElement             ::= [Identifier ':'] Expression ;

@@ -18,9 +18,11 @@ internal partial class BoundCollectionExpression : BoundExpression
     public ISymbol? CollectionSymbol { get; }
 }
 
-internal sealed class BoundDictionaryEntry
+internal abstract class DictionaryElementBinding;
+
+internal sealed class DictionaryEntryBinding : DictionaryElementBinding
 {
-    public BoundDictionaryEntry(BoundExpression key, BoundExpression value)
+    public DictionaryEntryBinding(BoundExpression key, BoundExpression value)
     {
         Key = key;
         Value = value;
@@ -31,20 +33,59 @@ internal sealed class BoundDictionaryEntry
     public BoundExpression Value { get; }
 }
 
+internal sealed class DictionarySpreadBinding : DictionaryElementBinding
+{
+    public DictionarySpreadBinding(BoundExpression expression)
+    {
+        Expression = expression;
+    }
+
+    public BoundExpression Expression { get; }
+}
+
+internal sealed class DictionaryComprehensionBinding : DictionaryElementBinding
+{
+    public DictionaryComprehensionBinding(
+        BoundExpression source,
+        ILocalSymbol iterationLocal,
+        BoundExpression? condition,
+        BoundExpression keySelector,
+        BoundExpression valueSelector,
+        ITypeSymbol keyType,
+        ITypeSymbol valueType)
+    {
+        Source = source;
+        IterationLocal = iterationLocal;
+        Condition = condition;
+        KeySelector = keySelector;
+        ValueSelector = valueSelector;
+        KeyType = keyType;
+        ValueType = valueType;
+    }
+
+    public BoundExpression Source { get; }
+    public ILocalSymbol IterationLocal { get; }
+    public BoundExpression? Condition { get; }
+    public BoundExpression KeySelector { get; }
+    public BoundExpression ValueSelector { get; }
+    public ITypeSymbol KeyType { get; }
+    public ITypeSymbol ValueType { get; }
+}
+
 internal partial class BoundDictionaryExpression : BoundExpression
 {
     public BoundDictionaryExpression(
         ITypeSymbol type,
-        IEnumerable<BoundDictionaryEntry> entries,
+        IEnumerable<DictionaryElementBinding> elements,
         ISymbol? collectionSymbol = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(type, type, reason)
     {
-        Entries = entries;
+        Elements = elements;
         CollectionSymbol = collectionSymbol;
     }
 
-    public IEnumerable<BoundDictionaryEntry> Entries { get; }
+    public IEnumerable<DictionaryElementBinding> Elements { get; }
 
     public ISymbol? CollectionSymbol { get; }
 }

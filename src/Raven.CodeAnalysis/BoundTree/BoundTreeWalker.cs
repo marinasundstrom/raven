@@ -432,10 +432,25 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public virtual void VisitDictionaryExpression(BoundDictionaryExpression node)
     {
-        foreach (var entry in node.Entries)
+        foreach (var element in node.Elements)
         {
-            VisitExpression(entry.Key);
-            VisitExpression(entry.Value);
+            switch (element)
+            {
+                case DictionaryEntryBinding entry:
+                    VisitExpression(entry.Key);
+                    VisitExpression(entry.Value);
+                    break;
+                case DictionarySpreadBinding spread:
+                    VisitExpression(spread.Expression);
+                    break;
+                case DictionaryComprehensionBinding comprehension:
+                    VisitExpression(comprehension.Source);
+                    if (comprehension.Condition is not null)
+                        VisitExpression(comprehension.Condition);
+                    VisitExpression(comprehension.KeySelector);
+                    VisitExpression(comprehension.ValueSelector);
+                    break;
+            }
         }
     }
 

@@ -2511,19 +2511,26 @@ internal partial class ExpressionGenerator : Generator
             throw new NotSupportedException("Dictionary expression target requires an Add(key, value) method.");
 
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(constructor));
+        var dictionaryLocal = ILGenerator.DeclareLocal(ResolveClrType(namedType));
+        ILGenerator.Emit(OpCodes.Stloc, dictionaryLocal);
 
-        foreach (var entry in dictionaryExpression.Entries)
+        foreach (var element in dictionaryExpression.Elements)
         {
-            ILGenerator.Emit(OpCodes.Dup);
-            EmitExpression(entry.Key);
-            EmitExpression(entry.Value);
-
-            var isInterfaceCall = addMethod.ContainingType?.TypeKind == TypeKind.Interface;
-            if (!addMethod.ContainingType!.IsValueType && (addMethod.IsVirtual || isInterfaceCall))
-                ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
-            else
-                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(addMethod));
+            switch (element)
+            {
+                case DictionaryEntryBinding entry:
+                    EmitDictionaryEntryAdd(dictionaryLocal, entry, addMethod);
+                    break;
+                case DictionarySpreadBinding spread:
+                    EmitDictionarySpreadAdd(dictionaryLocal, spread.Expression, addMethod.Parameters[0].Type, addMethod.Parameters[1].Type, addMethod);
+                    break;
+                case DictionaryComprehensionBinding comprehension:
+                    EmitDictionaryComprehensionAdd(dictionaryLocal, comprehension, addMethod);
+                    break;
+            }
         }
+
+        ILGenerator.Emit(OpCodes.Ldloc, dictionaryLocal);
     }
 
     private bool TryEmitDictionaryExpressionViaImmutableDictionary(INamedTypeSymbol targetType, BoundDictionaryExpression dictionaryExpression)
@@ -2547,7 +2554,37 @@ internal partial class ExpressionGenerator : Generator
             return false;
 
         var createRange = createRangeDefinition.Construct(keyType, valueType);
-        EmitDictionaryExpressionAsKeyValuePairArray(keyType, valueType, dictionaryExpression);
+        var dictionaryDefinition = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2");
+        if (dictionaryDefinition is null)
+            return false;
+
+        var mutableDictionaryType = (INamedTypeSymbol)dictionaryDefinition.Construct(keyType, valueType);
+        var constructor = mutableDictionaryType.Constructors.FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
+        var addMethod = mutableDictionaryType.GetMembers("Add").OfType<IMethodSymbol>().FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 2);
+        if (constructor is null || addMethod is null)
+            return false;
+
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(constructor));
+        var dictionaryLocal = ILGenerator.DeclareLocal(ResolveClrType(mutableDictionaryType));
+        ILGenerator.Emit(OpCodes.Stloc, dictionaryLocal);
+
+        foreach (var element in dictionaryExpression.Elements)
+        {
+            switch (element)
+            {
+                case DictionaryEntryBinding entry:
+                    EmitDictionaryEntryAdd(dictionaryLocal, entry, addMethod);
+                    break;
+                case DictionarySpreadBinding spread:
+                    EmitDictionarySpreadAdd(dictionaryLocal, spread.Expression, keyType, valueType, addMethod);
+                    break;
+                case DictionaryComprehensionBinding comprehension:
+                    EmitDictionaryComprehensionAdd(dictionaryLocal, comprehension, addMethod);
+                    break;
+            }
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, dictionaryLocal);
         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(createRange));
         return true;
     }
@@ -3040,31 +3077,362 @@ internal partial class ExpressionGenerator : Generator
         EmitArrayWithSpreads(arrayType, collectionExpression);
     }
 
-    private void EmitDictionaryExpressionAsKeyValuePairArray(
+    private void EmitDictionaryExpressionAsKeyValuePairSequence(
         ITypeSymbol keyType,
         ITypeSymbol valueType,
         BoundDictionaryExpression dictionaryExpression)
     {
-        var entries = dictionaryExpression.Entries as BoundDictionaryEntry[] ?? dictionaryExpression.Entries.ToArray();
         var keyValuePairDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2") as INamedTypeSymbol
             ?? throw new NotSupportedException("Dictionary expressions require System.Collections.Generic.KeyValuePair<TKey, TValue>.");
         var keyValuePairType = (INamedTypeSymbol)keyValuePairDefinition.Construct(keyType, valueType);
         var constructor = keyValuePairType.Constructors.FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 2)
             ?? throw new NotSupportedException("KeyValuePair<TKey, TValue> constructor could not be resolved.");
 
-        ILGenerator.Emit(OpCodes.Ldc_I4, entries.Length);
-        ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(keyValuePairType));
+        var listTypeDefinition = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")
+            ?? throw new NotSupportedException("Dictionary expressions require System.Collections.Generic.List<T>.");
+        var listType = (INamedTypeSymbol)listTypeDefinition.Construct(keyValuePairType);
+        var listCtor = listType.Constructors.FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0)
+            ?? throw new NotSupportedException("List<T> must expose a parameterless constructor.");
+        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().First(static method => !method.IsStatic && method.Parameters.Length == 1);
 
-        for (var index = 0; index < entries.Length; index++)
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(listCtor));
+        var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
+        ILGenerator.Emit(OpCodes.Stloc, listLocal);
+
+        foreach (var element in dictionaryExpression.Elements)
         {
-            var entry = entries[index];
-            ILGenerator.Emit(OpCodes.Dup);
-            ILGenerator.Emit(OpCodes.Ldc_I4, index);
-            EmitExpression(entry.Key);
-            EmitExpression(entry.Value);
-            ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(constructor));
-            EmitStoreElement(keyValuePairType);
+            switch (element)
+            {
+                case DictionaryEntryBinding entry:
+                    ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+                    EmitExpression(entry.Key);
+                    EmitExpression(entry.Value);
+                    ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(constructor));
+                    ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
+                    break;
+                case DictionarySpreadBinding spread:
+                    EmitDictionaryKeyValuePairSpreadAdd(listLocal, spread.Expression, keyValuePairType, addMethod);
+                    break;
+                case DictionaryComprehensionBinding comprehension:
+                    EmitDictionaryComprehensionKeyValuePairAdd(listLocal, comprehension, keyValuePairType, constructor, addMethod);
+                    break;
+            }
         }
+
+        ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+    }
+
+    private void EmitDictionaryEntryAdd(IILocal dictionaryLocal, DictionaryEntryBinding entry, IMethodSymbol addMethod)
+    {
+        ILGenerator.Emit(OpCodes.Ldloc, dictionaryLocal);
+        EmitExpression(entry.Key);
+        EmitExpression(entry.Value);
+
+        var isInterfaceCall = addMethod.ContainingType?.TypeKind == TypeKind.Interface;
+        if (!addMethod.ContainingType!.IsValueType && (addMethod.IsVirtual || isInterfaceCall))
+            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
+        else
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(addMethod));
+    }
+
+    private void EmitDictionarySpreadAdd(
+        IILocal dictionaryLocal,
+        BoundExpression spreadExpression,
+        ITypeSymbol targetKeyType,
+        ITypeSymbol targetValueType,
+        IMethodSymbol addMethod)
+    {
+        var spreadItemType = GetDictionarySpreadItemType(spreadExpression.Type!);
+        var keyGetter = spreadItemType.GetMembers("Key").OfType<IPropertySymbol>().First().GetMethod!;
+        var valueGetter = spreadItemType.GetMembers("Value").OfType<IPropertySymbol>().First().GetMethod!;
+
+        EmitEnumerableLoop(
+            spreadExpression,
+            spreadItemType,
+            currentLocal =>
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, dictionaryLocal);
+                ILGenerator.Emit(OpCodes.Ldloca, currentLocal);
+                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(keyGetter));
+                EmitDictionarySpreadValueConversion(keyGetter.ReturnType, targetKeyType);
+                ILGenerator.Emit(OpCodes.Ldloca, currentLocal);
+                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(valueGetter));
+                EmitDictionarySpreadValueConversion(valueGetter.ReturnType, targetValueType);
+
+                var isInterfaceCall = addMethod.ContainingType?.TypeKind == TypeKind.Interface;
+                if (!addMethod.ContainingType!.IsValueType && (addMethod.IsVirtual || isInterfaceCall))
+                    ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
+                else
+                    ILGenerator.Emit(OpCodes.Call, GetMethodInfo(addMethod));
+            });
+    }
+
+    private void EmitDictionaryKeyValuePairSpreadAdd(
+        IILocal listLocal,
+        BoundExpression spreadExpression,
+        INamedTypeSymbol keyValuePairType,
+        IMethodSymbol listAddMethod)
+    {
+        EmitEnumerableLoop(
+            spreadExpression,
+            keyValuePairType,
+            currentLocal =>
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+                ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+                ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(listAddMethod));
+            });
+    }
+
+    private void EmitDictionaryComprehensionAdd(
+        IILocal dictionaryLocal,
+        DictionaryComprehensionBinding comprehension,
+        IMethodSymbol addMethod)
+    {
+        EmitDictionaryComprehensionLoop(
+            comprehension,
+            currentScope =>
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, dictionaryLocal);
+                new ExpressionGenerator(currentScope, comprehension.KeySelector, EmitContext.Value).Emit2();
+                if (comprehension.KeySelector.Type is { } keySelectorType &&
+                    ShouldBoxForReferenceTarget(keySelectorType, addMethod.Parameters[0].Type))
+                {
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(keySelectorType));
+                }
+
+                new ExpressionGenerator(currentScope, comprehension.ValueSelector, EmitContext.Value).Emit2();
+                if (comprehension.ValueSelector.Type is { } valueSelectorType &&
+                    ShouldBoxForReferenceTarget(valueSelectorType, addMethod.Parameters[1].Type))
+                {
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(valueSelectorType));
+                }
+
+                var isInterfaceCall = addMethod.ContainingType?.TypeKind == TypeKind.Interface;
+                if (!addMethod.ContainingType!.IsValueType && (addMethod.IsVirtual || isInterfaceCall))
+                    ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
+                else
+                    ILGenerator.Emit(OpCodes.Call, GetMethodInfo(addMethod));
+            });
+    }
+
+    private void EmitDictionaryComprehensionKeyValuePairAdd(
+        IILocal listLocal,
+        DictionaryComprehensionBinding comprehension,
+        INamedTypeSymbol keyValuePairType,
+        IMethodSymbol constructor,
+        IMethodSymbol listAddMethod)
+    {
+        EmitDictionaryComprehensionLoop(
+            comprehension,
+            currentScope =>
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+                new ExpressionGenerator(currentScope, comprehension.KeySelector, EmitContext.Value).Emit2();
+                new ExpressionGenerator(currentScope, comprehension.ValueSelector, EmitContext.Value).Emit2();
+                ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(constructor));
+                ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(listAddMethod));
+            });
+    }
+
+    private void EmitDictionaryComprehensionLoop(
+        DictionaryComprehensionBinding comprehension,
+        Action<Scope> emitBody)
+    {
+        var iterationLocalBuilder = ILGenerator.DeclareLocal(ResolveClrType(comprehension.IterationLocal.Type));
+        var scope = new Scope(this);
+        scope.AddLocal(comprehension.IterationLocal, iterationLocalBuilder);
+
+        if (comprehension.Source is BoundRangeExpression rangeSource)
+        {
+            EmitDictionaryComprehensionRangeLoop(comprehension, rangeSource, scope, iterationLocalBuilder, emitBody);
+            return;
+        }
+
+        EmitExpression(comprehension.Source);
+
+        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
+        var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<IMethodSymbol>().First();
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
+
+        var enumeratorType = getEnumerator.ReturnType;
+        var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
+        ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+
+        var loopStart = ILGenerator.DefineLabel();
+        var loopNext = ILGenerator.DefineLabel();
+        var loopEnd = ILGenerator.DefineLabel();
+
+        ILGenerator.MarkLabel(loopStart);
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<IMethodSymbol>().First();
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
+        ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
+
+        var currentGetter = enumeratorType
+            .GetMembers(nameof(IEnumerator.Current))
+            .OfType<IPropertySymbol>()
+            .First()
+            .GetMethod!;
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(currentGetter));
+
+        var iterationClrType = ResolveClrType(comprehension.IterationLocal.Type);
+        if (comprehension.IterationLocal.Type.IsValueType)
+            ILGenerator.Emit(OpCodes.Unbox_Any, iterationClrType);
+        else
+            ILGenerator.Emit(OpCodes.Castclass, iterationClrType);
+
+        ILGenerator.Emit(OpCodes.Stloc, iterationLocalBuilder);
+
+        if (comprehension.Condition is not null)
+        {
+            new ExpressionGenerator(scope, comprehension.Condition, EmitContext.Value).Emit2();
+            ILGenerator.Emit(OpCodes.Brfalse, loopNext);
+        }
+
+        emitBody(scope);
+
+        ILGenerator.MarkLabel(loopNext);
+        ILGenerator.Emit(OpCodes.Br, loopStart);
+        ILGenerator.MarkLabel(loopEnd);
+    }
+
+    private void EmitDictionaryComprehensionRangeLoop(
+        DictionaryComprehensionBinding comprehension,
+        BoundRangeExpression rangeSource,
+        Scope scope,
+        IILocal iterationLocalBuilder,
+        Action<Scope> emitBody)
+    {
+        var elementType = comprehension.IterationLocal.Type.UnwrapLiteralType() ?? comprehension.IterationLocal.Type;
+        var elementClrType = ResolveClrType(elementType);
+
+        var startExpr = rangeSource.Left?.Value ?? throw new InvalidOperationException("Range comprehension requires a start value.");
+        var endExpr = rangeSource.Right?.Value ?? throw new InvalidOperationException("Range comprehension requires an end value.");
+
+        var startLocal = ILGenerator.DeclareLocal(elementClrType);
+        new ExpressionGenerator(scope, startExpr, EmitContext.None).Emit2();
+        ILGenerator.Emit(OpCodes.Stloc, startLocal);
+
+        var endLocal = ILGenerator.DeclareLocal(elementClrType);
+        new ExpressionGenerator(scope, endExpr, EmitContext.None).Emit2();
+        ILGenerator.Emit(OpCodes.Stloc, endLocal);
+
+        var stepLocal = ILGenerator.DeclareLocal(elementClrType);
+        EmitNumericOne(elementType);
+        ILGenerator.Emit(OpCodes.Stloc, stepLocal);
+
+        var loopStart = ILGenerator.DefineLabel();
+        var loopNext = ILGenerator.DefineLabel();
+        var loopEnd = ILGenerator.DefineLabel();
+        var positiveStepLabel = ILGenerator.DefineLabel();
+        var negativeStepLabel = ILGenerator.DefineLabel();
+        var bodyLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.MarkLabel(loopStart);
+        EmitBranchIfGreaterThanZero(elementType, stepLocal, positiveStepLabel);
+        EmitBranchIfLessThanZero(elementType, stepLocal, negativeStepLabel);
+        ILGenerator.Emit(OpCodes.Br, loopEnd);
+
+        ILGenerator.MarkLabel(positiveStepLabel);
+        var upperExclusive = rangeSource.IsUpperExclusive;
+        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: true, upperExclusive);
+        ILGenerator.Emit(OpCodes.Br, bodyLabel);
+
+        ILGenerator.MarkLabel(negativeStepLabel);
+        EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: false, upperExclusive);
+
+        ILGenerator.MarkLabel(bodyLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, startLocal);
+        ILGenerator.Emit(OpCodes.Stloc, iterationLocalBuilder);
+
+        if (comprehension.Condition is not null)
+        {
+            new ExpressionGenerator(scope, comprehension.Condition, EmitContext.Value).Emit2();
+            ILGenerator.Emit(OpCodes.Brfalse, loopNext);
+        }
+
+        emitBody(scope);
+
+        ILGenerator.MarkLabel(loopNext);
+        EmitRangeLoopIncrement(elementType, startLocal, stepLocal);
+        ILGenerator.Emit(OpCodes.Br, loopStart);
+        ILGenerator.MarkLabel(loopEnd);
+    }
+
+    private void EmitEnumerableLoop(
+        BoundExpression sourceExpression,
+        ITypeSymbol itemType,
+        Action<IILocal> emitBody)
+    {
+        EmitExpression(sourceExpression);
+
+        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
+        var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<IMethodSymbol>().First();
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
+
+        var enumeratorType = getEnumerator.ReturnType;
+        var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
+        ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+
+        var itemLocal = ILGenerator.DeclareLocal(ResolveClrType(itemType));
+        var loopStart = ILGenerator.DefineLabel();
+        var loopEnd = ILGenerator.DefineLabel();
+
+        ILGenerator.MarkLabel(loopStart);
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<IMethodSymbol>().First();
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
+        ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
+
+        var currentGetter = enumeratorType
+            .GetMembers(nameof(IEnumerator.Current))
+            .OfType<IPropertySymbol>()
+            .First()
+            .GetMethod!;
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(currentGetter));
+
+        var itemClrType = ResolveClrType(itemType);
+        if (itemType.IsValueType)
+            ILGenerator.Emit(OpCodes.Unbox_Any, itemClrType);
+        else
+            ILGenerator.Emit(OpCodes.Castclass, itemClrType);
+
+        ILGenerator.Emit(OpCodes.Stloc, itemLocal);
+        emitBody(itemLocal);
+        ILGenerator.Emit(OpCodes.Br, loopStart);
+        ILGenerator.MarkLabel(loopEnd);
+    }
+
+    private INamedTypeSymbol GetDictionarySpreadItemType(ITypeSymbol type)
+    {
+        if (type is IArrayTypeSymbol arrayType && arrayType.ElementType is INamedTypeSymbol arrayElementType)
+            return arrayElementType;
+
+        if (type is INamedTypeSymbol namedType)
+        {
+            foreach (var candidate in new[] { namedType }.Concat(namedType.AllInterfaces))
+            {
+                if (candidate.OriginalDefinition is INamedTypeSymbol definition &&
+                    string.Equals(definition.ToFullyQualifiedMetadataName(), "System.Collections.Generic.IEnumerable`1", StringComparison.Ordinal) &&
+                    candidate.TypeArguments[0] is INamedTypeSymbol itemType)
+                {
+                    return itemType;
+                }
+            }
+        }
+
+        throw new NotSupportedException("Dictionary spread expressions require IEnumerable<KeyValuePair<TKey, TValue>>.");
+    }
+
+    private void EmitDictionarySpreadValueConversion(ITypeSymbol sourceType, ITypeSymbol targetType)
+    {
+        if (ShouldBoxForReferenceTarget(sourceType, targetType))
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(sourceType));
     }
 
     private void EmitArrayWithSpreads(IArrayTypeSymbol arrayTypeSymbol, BoundCollectionExpression collectionExpression)

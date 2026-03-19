@@ -6,7 +6,7 @@
 
 Collection expressions provide a terse way to construct arrays and other list-like containers.
 Bare collection expressions are immutable-by-default; prefixing the literal with `!` selects a mutable default instead. Pipe-delimited literals `[| ... |]` opt into explicit CLR-array syntax.
-Collection expressions may also use `key: value` entries to build dictionary-like targets.
+Collection expressions may also use dictionary-shaped elements to build dictionary-like targets.
 
 ### Basic syntax
 
@@ -70,9 +70,18 @@ let lookup: IReadOnlyDictionary<string, int> = ["a": 1, "b": 2]
 let mutable: Dictionary<string, int> = ["x": 10, "y": 20]
 ```
 
-Dictionary-entry literals are intentionally homogeneous: once a collection expression contains
-`key: value` entries, every element in that literal must use the same entry form. They cannot
-currently be mixed with spreads, ranges, or comprehensions in the same expression.
+Dictionary-shaped literals are intentionally homogeneous: once a collection expression contains
+dictionary-shaped elements, the whole literal is treated as dictionary-shaped. Supported forms are:
+
+```raven
+["a": 1, "b": 2]
+[..."a": 1, ...otherMap, "b": 2]
+[for item in items => item.Name: item.Value]
+[for item in items if item.Enabled => item.Name: item.Value]
+```
+
+Plain positional elements, ranges, and value-producing list comprehensions cannot be mixed into the
+same dictionary-shaped literal.
 
 ### Spread operations
 

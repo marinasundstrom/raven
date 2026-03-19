@@ -2216,7 +2216,19 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 var spreadExpr = new ExpressionSyntaxParser(this).ParseExpression();
                 if (spreadExpr is null)
                     break;
-                element = SpreadElement(dotDotToken, spreadExpr);
+
+                if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
+                {
+                    var valueExpression = new ExpressionSyntaxParser(this).ParseExpression();
+                    if (valueExpression is null)
+                        break;
+
+                    element = DictionarySpreadElement(dotDotToken, spreadExpr, colonToken, valueExpression);
+                }
+                else
+                {
+                    element = SpreadElement(dotDotToken, spreadExpr);
+                }
             }
             else
             {
@@ -2270,7 +2282,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         return elementList;
     }
-    private CollectionComprehensionElementSyntax ParseCollectionComprehensionElement()
+    private CollectionElementSyntax ParseCollectionComprehensionElement()
     {
         var forKeyword = ReadToken();
         var identifier = CanTokenBeIdentifier(PeekToken())
@@ -2289,9 +2301,15 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
-        var selector = new ExpressionSyntaxParser(this).ParseExpression();
+        var keyOrSelector = new ExpressionSyntaxParser(this).ParseExpression();
 
-        return CollectionComprehensionElement(forKeyword, identifier, inKeyword, source, ifKeyword, condition, fatArrowToken, selector);
+        if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
+        {
+            var valueSelector = new ExpressionSyntaxParser(this).ParseExpression();
+            return DictionaryComprehensionElement(forKeyword, identifier, inKeyword, source, ifKeyword, condition, fatArrowToken, keyOrSelector, colonToken, valueSelector);
+        }
+
+        return CollectionComprehensionElement(forKeyword, identifier, inKeyword, source, ifKeyword, condition, fatArrowToken, keyOrSelector);
     }
 
     private ExpressionSyntax ParseNewExpression()

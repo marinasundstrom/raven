@@ -2668,21 +2668,61 @@ internal static class AsyncLowerer
 
                 case BoundDictionaryExpression dictionaryExpression:
                     {
-                        var originalEntries = dictionaryExpression.Entries.ToArray();
-                        var rewrittenEntries = new BoundDictionaryEntry[originalEntries.Length];
+                        var originalElements = dictionaryExpression.Elements.ToArray();
+                        var rewrittenElements = new DictionaryElementBinding[originalElements.Length];
                         var changed = false;
 
-                        for (var i = 0; i < originalEntries.Length; i++)
+                        for (var i = 0; i < originalElements.Length; i++)
                         {
-                            var originalEntry = originalEntries[i];
-                            var rewrittenKey = VisitExpression(originalEntry.Key) ?? originalEntry.Key;
-                            var rewrittenValue = VisitExpression(originalEntry.Value) ?? originalEntry.Value;
-                            rewrittenEntries[i] = new BoundDictionaryEntry(rewrittenKey, rewrittenValue);
-
-                            if (!ReferenceEquals(rewrittenKey, originalEntry.Key) ||
-                                !ReferenceEquals(rewrittenValue, originalEntry.Value))
+                            var originalElement = originalElements[i];
+                            switch (originalElement)
                             {
-                                changed = true;
+                                case DictionaryEntryBinding originalEntry:
+                                    var rewrittenKey = VisitExpression(originalEntry.Key) ?? originalEntry.Key;
+                                    var rewrittenValue = VisitExpression(originalEntry.Value) ?? originalEntry.Value;
+                                    rewrittenElements[i] = new DictionaryEntryBinding(rewrittenKey, rewrittenValue);
+
+                                    if (!ReferenceEquals(rewrittenKey, originalEntry.Key) ||
+                                        !ReferenceEquals(rewrittenValue, originalEntry.Value))
+                                    {
+                                        changed = true;
+                                    }
+
+                                    break;
+                                case DictionarySpreadBinding originalSpread:
+                                    var rewrittenExpression = VisitExpression(originalSpread.Expression) ?? originalSpread.Expression;
+                                    rewrittenElements[i] = new DictionarySpreadBinding(rewrittenExpression);
+                                    if (!ReferenceEquals(rewrittenExpression, originalSpread.Expression))
+                                        changed = true;
+                                    break;
+                                case DictionaryComprehensionBinding originalComprehension:
+                                    var rewrittenSource = VisitExpression(originalComprehension.Source) ?? originalComprehension.Source;
+                                    var rewrittenCondition = originalComprehension.Condition is null
+                                        ? null
+                                        : VisitExpression(originalComprehension.Condition) ?? originalComprehension.Condition;
+                                    var rewrittenKeySelector = VisitExpression(originalComprehension.KeySelector) ?? originalComprehension.KeySelector;
+                                    var rewrittenValueSelector = VisitExpression(originalComprehension.ValueSelector) ?? originalComprehension.ValueSelector;
+                                    rewrittenElements[i] = new DictionaryComprehensionBinding(
+                                        rewrittenSource,
+                                        originalComprehension.IterationLocal,
+                                        rewrittenCondition,
+                                        rewrittenKeySelector,
+                                        rewrittenValueSelector,
+                                        originalComprehension.KeyType,
+                                        originalComprehension.ValueType);
+
+                                    if (!ReferenceEquals(rewrittenSource, originalComprehension.Source) ||
+                                        !ReferenceEquals(rewrittenCondition, originalComprehension.Condition) ||
+                                        !ReferenceEquals(rewrittenKeySelector, originalComprehension.KeySelector) ||
+                                        !ReferenceEquals(rewrittenValueSelector, originalComprehension.ValueSelector))
+                                    {
+                                        changed = true;
+                                    }
+
+                                    break;
+                                default:
+                                    rewrittenElements[i] = originalElement;
+                                    break;
                             }
                         }
 
@@ -2690,7 +2730,7 @@ internal static class AsyncLowerer
                         {
                             return new BoundDictionaryExpression(
                                 dictionaryExpression.Type!,
-                                rewrittenEntries,
+                                rewrittenElements,
                                 dictionaryExpression.CollectionSymbol,
                                 dictionaryExpression.Reason);
                         }

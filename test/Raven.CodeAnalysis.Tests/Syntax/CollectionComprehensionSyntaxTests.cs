@@ -95,6 +95,33 @@ public class CollectionComprehensionSyntaxTests
     }
 
     [Fact]
+    public void CollectionExpression_DictionarySpreadElement_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [...\"a\": 1, ...otherMap]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var first = Assert.IsType<DictionarySpreadElementSyntax>(collection.Elements[0]);
+        Assert.Equal(SyntaxKind.DotDotDotToken, first.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.ColonToken, first.ColonToken.Kind);
+
+        var second = Assert.IsType<SpreadElementSyntax>(collection.Elements[1]);
+        Assert.Equal(SyntaxKind.DotDotDotToken, second.DotDotToken.Kind);
+    }
+
+    [Fact]
+    public void CollectionExpression_DictionaryComprehension_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [for n in numbers if n > 0 => n: n * n]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var comprehension = Assert.IsType<DictionaryComprehensionElementSyntax>(collection.Elements[0]);
+        Assert.Equal("if", comprehension.IfKeyword.Text);
+        Assert.NotNull(comprehension.Condition);
+        Assert.IsType<IdentifierNameSyntax>(comprehension.KeySelector);
+        Assert.NotNull(comprehension.ValueSelector);
+    }
+
+    [Fact]
     public void CollectionExpression_CommaSeparated_Parses()
     {
         var tree = SyntaxTree.ParseText("val xs = [1, 2, 3]");

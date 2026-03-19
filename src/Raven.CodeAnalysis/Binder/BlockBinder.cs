@@ -10202,7 +10202,8 @@ partial class BlockBinder : Binder
 
         var elements = new List<BoundExpression>(syntaxElements.Count);
         var elementNodes = new List<SyntaxNode>(syntaxElements.Count);
-        var hasDictionaryElements = syntaxElements.Any(static element => element is DictionaryElementSyntax);
+        var hasDictionaryElements = syntaxElements.Any(static element =>
+            element is DictionaryElementSyntax or DictionarySpreadElementSyntax or DictionaryComprehensionElementSyntax);
 
         if (hasDictionaryElements)
             return BindDictionaryExpressionCore(syntax, syntaxElements, targetType, inferArrayByDefault, isMutableByDefault);
@@ -10514,20 +10515,19 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
-        if (syntaxElements.Any(static element => element is not DictionaryElementSyntax))
+        if (syntaxElements.Any(static element =>
+                element is not (DictionaryElementSyntax or DictionarySpreadElementSyntax or SpreadElementSyntax or DictionaryComprehensionElementSyntax)))
         {
             ReportCannotConvertFromTypeToType("dictionary entry", "collection element", syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
-
-        var dictionaryElements = syntaxElements.Cast<DictionaryElementSyntax>().ToImmutableArray();
 
         if (targetType is INamedTypeSymbol { TypeKind: TypeKind.Interface } interfaceTarget &&
             TryGetDictionaryInterfaceElementTypes(interfaceTarget, out var interfaceKeyType, out var interfaceValueType) &&
             Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2") is INamedTypeSymbol dictionaryTypeDefinition)
         {
             var concreteDictionaryType = (INamedTypeSymbol)dictionaryTypeDefinition.Construct(interfaceKeyType, interfaceValueType);
-            var concreteDictionary = BindDictionaryExpressionToNamedTarget(syntax, dictionaryElements, concreteDictionaryType);
+            var concreteDictionary = BindDictionaryExpressionToNamedTarget(syntax, syntaxElements, concreteDictionaryType);
             var conversion = Compilation.ClassifyConversion(concreteDictionary.Type!, interfaceTarget);
             if (conversion.Exists && conversion.IsImplicit)
                 return ApplyConversion(concreteDictionary, interfaceTarget, conversion, syntax);
@@ -10536,9 +10536,9 @@ partial class BlockBinder : Binder
         }
 
         if (targetType is INamedTypeSymbol namedTargetType)
-            return BindDictionaryExpressionToNamedTarget(syntax, dictionaryElements, namedTargetType);
+            return BindDictionaryExpressionToNamedTarget(syntax, syntaxElements, namedTargetType);
 
-        if (!TryInferDictionaryElementTypes(dictionaryElements, out var inferredKeyType, out var inferredValueType))
+        if (!TryInferDictionaryElementTypes(syntaxElements, out var inferredKeyType, out var inferredValueType))
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
         var inferredDictionaryMetadataName = isMutableByDefault
@@ -10552,12 +10552,12 @@ partial class BlockBinder : Binder
         }
 
         var inferredDictionaryType = (INamedTypeSymbol)inferredDictionaryDefinition.Construct(inferredKeyType, inferredValueType);
-        return BindDictionaryExpressionToNamedTarget(syntax, dictionaryElements, inferredDictionaryType);
+        return BindDictionaryExpressionToNamedTarget(syntax, syntaxElements, inferredDictionaryType);
     }
 
     private BoundExpression BindDictionaryExpressionToNamedTarget(
         SyntaxNode syntax,
-        ImmutableArray<DictionaryElementSyntax> syntaxElements,
+        IEnumerable<CollectionElementSyntax> syntaxElements,
         INamedTypeSymbol targetType)
     {
         if (!TryGetDictionaryAddSignature(targetType, out var addMethod, out var keyType, out var valueType))
@@ -10569,47 +10569,54 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
-        var entries = ImmutableArray.CreateBuilder<BoundDictionaryEntry>(syntaxElements.Length);
+        var elements = ImmutableArray.CreateBuilder<DictionaryElementBinding>();
 
         foreach (var elementSyntax in syntaxElements)
         {
-            var key = keyType.TypeKind == TypeKind.Error
-                ? BindExpression(elementSyntax.Key)
-                : BindExpressionWithTargetType(elementSyntax.Key, keyType);
-            var value = valueType.TypeKind == TypeKind.Error
-                ? BindExpression(elementSyntax.Value)
-                : BindExpressionWithTargetType(elementSyntax.Value, valueType);
-
-            if (keyType.TypeKind != TypeKind.Error &&
-                key.Type?.TypeKind != TypeKind.Error &&
-                ShouldAttemptConversion(key))
+            switch (elementSyntax)
             {
-                if (IsAssignable(keyType, key.Type!, out var keyConversion))
-                    key = ApplyConversion(key, keyType, keyConversion, elementSyntax.Key);
-                else
-                    ReportCannotConvertFromTypeToType(
-                        key.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        keyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        elementSyntax.Key.GetLocation());
-            }
+                case DictionaryElementSyntax entry:
+                    elements.Add(BindDictionaryEntryElement(entry.Key, entry.Value, keyType, valueType));
+                    break;
+                case DictionarySpreadElementSyntax spreadEntry:
+                    elements.Add(BindDictionaryEntryElement(spreadEntry.Key, spreadEntry.Value, keyType, valueType));
+                    break;
+                case SpreadElementSyntax spread:
+                    var spreadExpression = BindExpression(spread.Expression);
+                    if (!TryGetDictionarySpreadElementTypes(spreadExpression.Type ?? Compilation.ErrorTypeSymbol, out var spreadKeyType, out var spreadValueType))
+                    {
+                        _diagnostics.ReportSpreadSourceMustBeEnumerable(
+                            spreadExpression.Type?.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "error",
+                            spread.Expression.GetLocation());
+                    }
+                    else
+                    {
+                        if (!IsAssignable(keyType, spreadKeyType, out _))
+                        {
+                            ReportCannotConvertFromTypeToType(
+                                spreadKeyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                keyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                spread.Expression.GetLocation());
+                        }
 
-            if (valueType.TypeKind != TypeKind.Error &&
-                value.Type?.TypeKind != TypeKind.Error &&
-                ShouldAttemptConversion(value))
-            {
-                if (IsAssignable(valueType, value.Type!, out var valueConversion))
-                    value = ApplyConversion(value, valueType, valueConversion, elementSyntax.Value);
-                else
-                    ReportCannotConvertFromTypeToType(
-                        value.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        valueType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        elementSyntax.Value.GetLocation());
-            }
+                        if (!IsAssignable(valueType, spreadValueType, out _))
+                        {
+                            ReportCannotConvertFromTypeToType(
+                                spreadValueType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                valueType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                spread.Expression.GetLocation());
+                        }
+                    }
 
-            entries.Add(new BoundDictionaryEntry(key, value));
+                    elements.Add(new DictionarySpreadBinding(spreadExpression));
+                    break;
+                case DictionaryComprehensionElementSyntax comprehension:
+                    elements.Add(BindDictionaryComprehensionElement(comprehension, keyType, valueType));
+                    break;
+            }
         }
 
-        return new BoundDictionaryExpression(targetType, entries.ToImmutable(), addMethod);
+        return new BoundDictionaryExpression(targetType, elements.ToImmutable(), addMethod);
     }
 
     private bool TryGetDictionaryAddSignature(
@@ -10674,41 +10681,208 @@ partial class BlockBinder : Binder
     }
 
     private bool TryInferDictionaryElementTypes(
-        ImmutableArray<DictionaryElementSyntax> syntaxElements,
+        IEnumerable<CollectionElementSyntax> syntaxElements,
         out ITypeSymbol keyType,
         out ITypeSymbol valueType)
     {
         keyType = Compilation.ErrorTypeSymbol;
         valueType = Compilation.ErrorTypeSymbol;
 
-        var keys = new List<BoundExpression>(syntaxElements.Length);
-        var values = new List<BoundExpression>(syntaxElements.Length);
+        var keyTypes = new List<ITypeSymbol>();
+        var valueTypes = new List<ITypeSymbol>();
 
         foreach (var elementSyntax in syntaxElements)
         {
-            keys.Add(BindExpression(elementSyntax.Key));
-            values.Add(BindExpression(elementSyntax.Value));
+            switch (elementSyntax)
+            {
+                case DictionaryElementSyntax entry:
+                    keyTypes.Add(BindExpression(entry.Key).Type ?? Compilation.ErrorTypeSymbol);
+                    valueTypes.Add(BindExpression(entry.Value).Type ?? Compilation.ErrorTypeSymbol);
+                    break;
+                case DictionarySpreadElementSyntax spreadEntry:
+                    keyTypes.Add(BindExpression(spreadEntry.Key).Type ?? Compilation.ErrorTypeSymbol);
+                    valueTypes.Add(BindExpression(spreadEntry.Value).Type ?? Compilation.ErrorTypeSymbol);
+                    break;
+                case SpreadElementSyntax spread:
+                    var spreadExpression = BindExpression(spread.Expression);
+                    if (!TryGetDictionarySpreadElementTypes(spreadExpression.Type ?? Compilation.ErrorTypeSymbol, out var spreadKeyType, out var spreadValueType))
+                    {
+                        _diagnostics.ReportSpreadSourceMustBeEnumerable(
+                            spreadExpression.Type?.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "error",
+                            spread.Expression.GetLocation());
+                        return false;
+                    }
+
+                    keyTypes.Add(spreadKeyType);
+                    valueTypes.Add(spreadValueType);
+                    break;
+                case DictionaryComprehensionElementSyntax comprehension:
+                    var boundComprehension = BindDictionaryComprehensionElement(comprehension, targetKeyType: null, targetValueType: null);
+                    keyTypes.Add(boundComprehension.KeyType);
+                    valueTypes.Add(boundComprehension.ValueType);
+                    break;
+            }
         }
 
-        if (!TryInferCollectionElementType(keys, out keyType, out var keyConflict))
+        if (!TryInferBestCommonType(keyTypes, out keyType, out var keyConflict))
         {
             ReportCannotConvertFromTypeToType(
                 keyConflict.Left.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 keyConflict.Right.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                syntaxElements[0].Key.GetLocation());
+                syntaxElements.First().GetLocation());
             return false;
         }
 
-        if (!TryInferCollectionElementType(values, out valueType, out var valueConflict))
+        if (!TryInferBestCommonType(valueTypes, out valueType, out var valueConflict))
         {
             ReportCannotConvertFromTypeToType(
                 valueConflict.Left.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 valueConflict.Right.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                syntaxElements[0].Value.GetLocation());
+                syntaxElements.First().GetLocation());
             return false;
         }
 
         return true;
+    }
+
+    private DictionaryEntryBinding BindDictionaryEntryElement(
+        ExpressionSyntax keySyntax,
+        ExpressionSyntax valueSyntax,
+        ITypeSymbol keyType,
+        ITypeSymbol valueType)
+    {
+        var key = keyType.TypeKind == TypeKind.Error
+            ? BindExpression(keySyntax)
+            : BindExpressionWithTargetType(keySyntax, keyType);
+        var value = valueType.TypeKind == TypeKind.Error
+            ? BindExpression(valueSyntax)
+            : BindExpressionWithTargetType(valueSyntax, valueType);
+
+        if (keyType.TypeKind != TypeKind.Error &&
+            key.Type?.TypeKind != TypeKind.Error &&
+            ShouldAttemptConversion(key))
+        {
+            if (IsAssignable(keyType, key.Type!, out var keyConversion))
+                key = ApplyConversion(key, keyType, keyConversion, keySyntax);
+            else
+                ReportCannotConvertFromTypeToType(
+                    key.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    keyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    keySyntax.GetLocation());
+        }
+
+        if (valueType.TypeKind != TypeKind.Error &&
+            value.Type?.TypeKind != TypeKind.Error &&
+            ShouldAttemptConversion(value))
+        {
+            if (IsAssignable(valueType, value.Type!, out var valueConversion))
+                value = ApplyConversion(value, valueType, valueConversion, valueSyntax);
+            else
+                ReportCannotConvertFromTypeToType(
+                    value.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    valueType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    valueSyntax.GetLocation());
+        }
+
+        return new DictionaryEntryBinding(key, value);
+    }
+
+    private bool TryGetDictionarySpreadElementTypes(
+        ITypeSymbol type,
+        out ITypeSymbol keyType,
+        out ITypeSymbol valueType)
+    {
+        keyType = Compilation.ErrorTypeSymbol;
+        valueType = Compilation.ErrorTypeSymbol;
+
+        if (type is IArrayTypeSymbol arrayType &&
+            TryGetKeyValuePairElementTypes(arrayType.ElementType, out keyType, out valueType))
+        {
+            return true;
+        }
+
+        if (type is not INamedTypeSymbol namedType)
+            return false;
+
+        foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
+        {
+            if (candidate.OriginalDefinition is not INamedTypeSymbol definition ||
+                !string.Equals(definition.ToFullyQualifiedMetadataName(), "System.Collections.Generic.IEnumerable`1", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (TryGetKeyValuePairElementTypes(candidate.TypeArguments[0], out keyType, out valueType))
+                return true;
+        }
+
+        return false;
+
+        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        {
+            yield return type;
+            foreach (var iface in type.AllInterfaces)
+                yield return iface;
+        }
+    }
+
+    private bool TryGetKeyValuePairElementTypes(
+        ITypeSymbol type,
+        out ITypeSymbol keyType,
+        out ITypeSymbol valueType)
+    {
+        keyType = Compilation.ErrorTypeSymbol;
+        valueType = Compilation.ErrorTypeSymbol;
+
+        if (type is not INamedTypeSymbol namedType ||
+            namedType.OriginalDefinition is not INamedTypeSymbol definition ||
+            !string.Equals(definition.ToFullyQualifiedMetadataName(), "System.Collections.Generic.KeyValuePair`2", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        keyType = namedType.TypeArguments[0];
+        valueType = namedType.TypeArguments[1];
+        return true;
+    }
+
+    private bool TryInferBestCommonType(
+        IReadOnlyList<ITypeSymbol> types,
+        out ITypeSymbol inferredType,
+        out (ITypeSymbol Left, ITypeSymbol Right) conflict)
+    {
+        inferredType = Compilation.ErrorTypeSymbol;
+        conflict = (Compilation.ErrorTypeSymbol, Compilation.ErrorTypeSymbol);
+
+        if (types.Count == 0)
+            return false;
+
+        inferredType = types[0];
+
+        for (var i = 1; i < types.Count; i++)
+        {
+            if (!TryInferBestCommonType(inferredType, types[i], out var mergedType))
+            {
+                conflict = (inferredType, types[i]);
+                return false;
+            }
+
+            inferredType = mergedType;
+        }
+
+        if (IsDisallowedImplicitCollectionInferenceType(inferredType))
+        {
+            conflict = types.Count > 1 ? (types[0], types[1]) : (inferredType, inferredType);
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsDisallowedImplicitCollectionInferenceType(ITypeSymbol type)
+    {
+        return type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType ||
+               type.TypeKind == TypeKind.Interface;
     }
 
     private bool TryBindCollectionBuilderInvocation(
@@ -11127,6 +11301,187 @@ partial class BlockBinder : Binder
             selectorType);
 
         return new BoundSpreadElement(comprehension);
+    }
+
+    private DictionaryComprehensionBinding BindDictionaryComprehensionElement(
+        DictionaryComprehensionElementSyntax syntax,
+        ITypeSymbol? targetKeyType,
+        ITypeSymbol? targetValueType)
+    {
+        BoundExpression source;
+        ITypeSymbol iterationType;
+
+        if (syntax.Source is RangeExpressionSyntax rangeSource &&
+            TryBindCollectionComprehensionRangeSource(rangeSource, out var loweredRangeSource, out var rangeIterationType))
+        {
+            source = loweredRangeSource;
+            iterationType = rangeIterationType;
+            CacheBoundNode(syntax.Source, source);
+        }
+        else
+        {
+            source = BindExpression(syntax.Source);
+            if (HasExpressionErrors(source))
+                return new DictionaryComprehensionBinding(
+                    AsErrorExpression(source),
+                    CreateTempLocal("__error", Compilation.ErrorTypeSymbol, syntax),
+                    condition: null,
+                    ErrorExpression(reason: BoundExpressionReason.TypeMismatch),
+                    ErrorExpression(reason: BoundExpressionReason.TypeMismatch),
+                    Compilation.ErrorTypeSymbol,
+                    Compilation.ErrorTypeSymbol);
+
+            var sourceType = source.Type ?? Compilation.ErrorTypeSymbol;
+            if (!IsSpreadEnumerable(sourceType))
+            {
+                _diagnostics.ReportSpreadSourceMustBeEnumerable(
+                    sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.Source.GetLocation());
+            }
+
+            iterationType = GetSpreadElementType(sourceType);
+        }
+
+        var iterationName = string.IsNullOrWhiteSpace(syntax.Identifier.ValueText)
+            ? "__item"
+            : syntax.Identifier.ValueText;
+        var iterationLocal = CreateTempLocal(iterationName, iterationType, syntax);
+
+        var priorDepth = _scopeDepth;
+        _scopeDepth = priorDepth + 1;
+
+        var hadExisting = _locals.TryGetValue(iterationName, out var existingLocal);
+        _locals[iterationName] = (iterationLocal, _scopeDepth);
+
+        BoundExpression? condition = null;
+        BoundExpression keySelector;
+        BoundExpression valueSelector;
+
+        try
+        {
+            if (syntax.Condition is not null)
+            {
+                condition = BindExpression(syntax.Condition);
+                var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+                if (condition.Type is not null &&
+                    condition.Type.TypeKind != TypeKind.Error &&
+                    !SymbolEqualityComparer.Default.Equals(condition.Type, boolType))
+                {
+                    if (!IsAssignable(boolType, condition.Type, out var conversion))
+                    {
+                        ReportCannotConvertFromTypeToType(
+                            condition.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            boolType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.Condition.GetLocation());
+                    }
+                    else
+                    {
+                        condition = ApplyConversion(condition, boolType, conversion, syntax.Condition);
+                    }
+                }
+            }
+
+            keySelector = targetKeyType is not null && targetKeyType.TypeKind != TypeKind.Error
+                ? BindExpressionWithTargetType(syntax.KeySelector, targetKeyType)
+                : BindExpression(syntax.KeySelector);
+            valueSelector = targetValueType is not null && targetValueType.TypeKind != TypeKind.Error
+                ? BindExpressionWithTargetType(syntax.ValueSelector, targetValueType)
+                : BindExpression(syntax.ValueSelector);
+
+            if (targetKeyType is not null &&
+                targetKeyType.TypeKind != TypeKind.Error &&
+                keySelector.Type is not null &&
+                keySelector.Type.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(keySelector) &&
+                IsAssignable(targetKeyType, keySelector.Type, out var keyConversion))
+            {
+                keySelector = ApplyConversion(keySelector, targetKeyType, keyConversion, syntax.KeySelector);
+            }
+
+            if (targetValueType is not null &&
+                targetValueType.TypeKind != TypeKind.Error &&
+                valueSelector.Type is not null &&
+                valueSelector.Type.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(valueSelector) &&
+                IsAssignable(targetValueType, valueSelector.Type, out var valueConversion))
+            {
+                valueSelector = ApplyConversion(valueSelector, targetValueType, valueConversion, syntax.ValueSelector);
+            }
+        }
+        finally
+        {
+            if (hadExisting)
+                _locals[iterationName] = existingLocal;
+            else
+                _locals.Remove(iterationName);
+
+            _scopeDepth = priorDepth;
+        }
+
+        var keyType = targetKeyType is not null && targetKeyType.TypeKind != TypeKind.Error
+            ? targetKeyType
+            : keySelector.Type ?? Compilation.ErrorTypeSymbol;
+        var valueType = targetValueType is not null && targetValueType.TypeKind != TypeKind.Error
+            ? targetValueType
+            : valueSelector.Type ?? Compilation.ErrorTypeSymbol;
+
+        if (condition is not null)
+            condition = RewriteDictionaryComprehensionIterationAccess(condition, iterationName, iterationLocal);
+        keySelector = RewriteDictionaryComprehensionIterationAccess(keySelector, iterationName, iterationLocal);
+        valueSelector = RewriteDictionaryComprehensionIterationAccess(valueSelector, iterationName, iterationLocal);
+
+        var keyValuePairDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2") as INamedTypeSymbol;
+        if (keyValuePairDefinition is null)
+            return new DictionaryComprehensionBinding(
+                ErrorExpression(reason: BoundExpressionReason.TypeMismatch),
+                iterationLocal,
+                condition,
+                ErrorExpression(reason: BoundExpressionReason.TypeMismatch),
+                ErrorExpression(reason: BoundExpressionReason.TypeMismatch),
+                Compilation.ErrorTypeSymbol,
+                Compilation.ErrorTypeSymbol);
+
+        return new DictionaryComprehensionBinding(
+            source,
+            iterationLocal,
+            condition,
+            keySelector,
+            valueSelector,
+            keyType,
+            valueType);
+    }
+
+    private static BoundExpression RewriteDictionaryComprehensionIterationAccess(
+        BoundExpression expression,
+        string iterationName,
+        ILocalSymbol iterationLocal)
+    {
+        var rewritten = new DictionaryComprehensionIterationLocalRewriter(iterationName, iterationLocal).Visit(expression);
+        return (BoundExpression)rewritten!;
+    }
+
+    private sealed class DictionaryComprehensionIterationLocalRewriter : BoundTreeRewriter
+    {
+        private readonly string _iterationName;
+        private readonly ILocalSymbol _iterationLocal;
+
+        public DictionaryComprehensionIterationLocalRewriter(string iterationName, ILocalSymbol iterationLocal)
+        {
+            _iterationName = iterationName;
+            _iterationLocal = iterationLocal;
+        }
+
+        public override BoundNode? VisitLocalAccess(BoundLocalAccess node)
+        {
+            if (string.Equals(node.Local.Name, _iterationName, StringComparison.Ordinal) ||
+                string.Equals(node.Local.Name, _iterationLocal.Name, StringComparison.Ordinal) ||
+                node.Local.Name.Contains(_iterationName, StringComparison.Ordinal))
+            {
+                return new BoundLocalAccess(_iterationLocal, node.Reason);
+            }
+
+            return node;
+        }
     }
 
     private bool TryBindCollectionRangeElement(RangeExpressionSyntax rangeSyntax, out BoundExpression result)

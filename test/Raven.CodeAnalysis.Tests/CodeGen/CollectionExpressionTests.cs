@@ -227,6 +227,76 @@ class Foo {
     }
 
     [Fact]
+    public void DictionaryCollectionExpressions_SupportSpreadEntriesAndDictionarySpreads()
+    {
+        var code = """
+import System.Collections.Immutable.*
+import System.Collections.Generic.*
+
+class Foo {
+    static func GetCount() -> int {
+        val other: Dictionary<string, int> = !["bb": 2]
+        val values = [..."a": 1, ...other, "ccc": 3]
+        return values.Count + values["bb"]
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(5, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void DictionaryCollectionExpressions_SupportDictionaryComprehension()
+    {
+        var code = """
+import System.Collections.Immutable.*
+
+class Foo {
+    static func GetCount() -> int {
+        val values = [for key in [|"a", "bb"|] => key: key.Length]
+        return values.Count + values["bb"]
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(4, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
     public void DictionaryCollectionExpressions_CanTargetDictionaryInterfaces()
     {
         var code = """

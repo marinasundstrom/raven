@@ -90,6 +90,12 @@
     <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
     <Slot Name="Value" Type="Expression" />
   </Node>
+  <Node Name="DictionarySpreadElement" Inherits="CollectionElement">
+    <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotDotToken" />
+    <Slot Name="Key" Type="Expression" />
+    <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
+    <Slot Name="Value" Type="Expression" />
+  </Node>
   <Node Name="SpreadElement" Inherits="CollectionElement">
     <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotToken" />
     <Slot Name="Expression" Type="Expression" />
@@ -103,6 +109,18 @@
     <Slot Name="Condition" Type="Expression" IsNullable="true" IsOptional="true" />
     <Slot Name="FatArrowToken" Type="Token" DefaultToken="FatArrowToken" />
     <Slot Name="Selector" Type="Expression" />
+  </Node>
+  <Node Name="DictionaryComprehensionElement" Inherits="CollectionElement">
+    <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword" />
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="InKeyword" Type="Token" DefaultToken="InKeyword" />
+    <Slot Name="Source" Type="Expression" />
+    <Slot Name="IfKeyword" Type="Token" IsOptionalToken="true" />
+    <Slot Name="Condition" Type="Expression" IsNullable="true" IsOptional="true" />
+    <Slot Name="FatArrowToken" Type="Token" DefaultToken="FatArrowToken" />
+    <Slot Name="KeySelector" Type="Expression" />
+    <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
+    <Slot Name="ValueSelector" Type="Expression" />
   </Node>
   <Node Name="Argument" Inherits="Node">
     <Slot Name="RefKindKeyword" Type="Token" IsOptionalToken="true" />

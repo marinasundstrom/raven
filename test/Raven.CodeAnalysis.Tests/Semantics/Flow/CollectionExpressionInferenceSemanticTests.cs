@@ -226,6 +226,60 @@ val inferred = !["a": 1, "b": 2]
     }
 
     [Fact]
+    public void NoTargetType_DictionarySpreadLiteral_InfersImmutableDictionary()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val other: Dictionary<string, int> = !["b": 2]
+val inferred = [..."a": 1, ...other, "c": 3]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<CollectionExpressionSyntax>()
+            .Single(static expression => expression.Elements.Any(static element => element is DictionarySpreadElementSyntax or SpreadElementSyntax));
+
+        var bound = Assert.IsType<BoundDictionaryExpression>(model.GetBoundNode(collection));
+        var dictionaryType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        Assert.Equal("ImmutableDictionary`2", dictionaryType.MetadataName);
+        Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
+        Assert.Equal(SpecialType.System_Int32, dictionaryType.TypeArguments[1].SpecialType);
+    }
+
+    [Fact]
+    public void NoTargetType_DictionaryComprehension_InfersImmutableDictionary()
+    {
+        const string source = """
+val inferred = [for key in [|"a", "bb"|] => key: key.Length]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var bound = Assert.IsType<BoundDictionaryExpression>(model.GetBoundNode(collection));
+        var dictionaryType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        Assert.Equal("ImmutableDictionary`2", dictionaryType.MetadataName);
+        Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
+        Assert.Equal(SpecialType.System_Int32, dictionaryType.TypeArguments[1].SpecialType);
+    }
+
+    [Fact]
     public void NoTargetType_SemicolonSeparatedCollectionLiteral_InfersImmutableList()
     {
         const string source = """

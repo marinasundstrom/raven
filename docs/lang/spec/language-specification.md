@@ -1165,10 +1165,17 @@ Collection expressions also support a list-comprehension form:
 * `[for item in source => selector]`
 * `[for item in source if condition => selector]`
 
-Collection expressions also support dictionary entries written as `key: value`.
-When a collection expression contains dictionary entries, every element in that
-expression must be a dictionary entry; spreads, bare positional elements, and
-comprehensions cannot be mixed into the same literal.
+Collection expressions also support dictionary-shaped elements:
+
+* `key: value` inserts one entry,
+* `...expr` spreads entries from another dictionary-compatible source,
+* `...key: value` inserts one entry in spread position, and
+* `for item in source => key: value` / `for item in source if condition => key: value`
+  build entries through a dictionary comprehension.
+
+When a collection expression contains any dictionary-shaped element, the entire
+literal is treated as dictionary-shaped. Positional elements, range elements,
+and value-producing collection comprehensions cannot be mixed into that same literal.
 
 The `source` position also accepts range expressions. These follow the same range
 iteration semantics as `for ... in start..end` loops.
@@ -1189,9 +1196,11 @@ Collection expressions are target-typed:
   parameterless constructor and an instance `Add` method, the compiler constructs the
   target and calls `Add` for every element. The `Add` parameter determines the element
   conversions, and spread entries must supply compatible values. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3738-L3776】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1016-L1096】
-  Dictionary-entry collection expressions use the same builder model, but require an
+  Dictionary-shaped collection expressions use the same builder model, but require an
   accessible instance `Add(key, value)` method instead. Each key expression is converted
   to the first parameter type and each value expression is converted to the second.
+  Dictionary spreads require a source compatible with `IEnumerable<KeyValuePair<TKey, TValue>>`
+  after key/value conversion.
 * **No target type** — Without an expected type, Raven infers a best common element type by
   merging all element contributions (spreads use their enumerated element type). The resulting
   collection kind then defaults from the literal modifiers:
@@ -1256,6 +1265,8 @@ val expandedArray = [|...inferredArray, 4|] // inferred as int[4]
 
 val byName = ["a": 1, "b": 2] // inferred as ImmutableDictionary<string, int>
 val mutableByName = !["a": 1, "b": 2] // inferred as Dictionary<string, int>
+val merged = [..."a": 1, ...mutableByName, "c": 3]
+val lengths = [for key in [|"a", "bb"|] => key: key.Length]
 val readonlyLookup: IReadOnlyDictionary<string, int> = ["a": 1, "b": 2]
 
 val baseList: ImmutableList<int> = [2; 3; 4]
