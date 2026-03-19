@@ -2585,6 +2585,125 @@ internal sealed class PropertyPatternOperation : PatternOperation, IPropertyPatt
     }
 }
 
+internal sealed class DictionaryPatternOperation : PatternOperation, IDictionaryPatternOperation
+{
+    private readonly BoundDictionaryPattern _bound;
+    private IOperation? _designator;
+    private bool _designatorInitialized;
+    private ImmutableArray<IOperation>? _keys;
+    private ImmutableArray<IOperation>? _subpatterns;
+
+    internal DictionaryPatternOperation(
+        SemanticModel semanticModel,
+        BoundDictionaryPattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.DictionaryPattern, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ITypeSymbol ReceiverType => _bound.ReceiverType;
+
+    public ITypeSymbol? NarrowedType => null;
+
+    public ITypeSymbol KeyType => _bound.KeyType;
+
+    public ITypeSymbol ValueType => _bound.ValueType;
+
+    public IOperation? Designator
+    {
+        get
+        {
+            if (_designatorInitialized)
+                return _designator;
+
+            _designatorInitialized = true;
+            _designator = _bound.Designator is null
+                ? null
+                : OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Designator, Syntax);
+            return _designator;
+        }
+    }
+
+    public ImmutableArray<IOperation> Keys
+    {
+        get
+        {
+            if (_keys.HasValue)
+                return _keys.Value;
+
+            var syntaxEntries = Syntax is DictionaryPatternSyntax dictionaryPattern
+                ? dictionaryPattern.Entries.ToImmutableArray()
+                : ImmutableArray<DictionaryPatternEntrySyntax>.Empty;
+
+            var builder = ImmutableArray.CreateBuilder<IOperation>();
+
+            if (_bound.Entries.Length == syntaxEntries.Length)
+            {
+                for (var i = 0; i < _bound.Entries.Length; i++)
+                {
+                    builder.AddIfNotNull(OperationUtilities.CreateOperationFromBound(
+                        SemanticModel,
+                        _bound.Entries[i].Key,
+                        syntaxEntries[i].Key));
+                }
+            }
+            else
+            {
+                foreach (var entry in syntaxEntries)
+                    builder.AddIfNotNull(SemanticModel.GetOperation(entry.Key));
+            }
+
+            _keys = builder.ToImmutable();
+            return _keys.Value;
+        }
+    }
+
+    public ImmutableArray<IOperation> Subpatterns
+    {
+        get
+        {
+            if (_subpatterns.HasValue)
+                return _subpatterns.Value;
+
+            var syntaxEntries = Syntax is DictionaryPatternSyntax dictionaryPattern
+                ? dictionaryPattern.Entries.ToImmutableArray()
+                : ImmutableArray<DictionaryPatternEntrySyntax>.Empty;
+
+            var builder = ImmutableArray.CreateBuilder<IOperation>();
+
+            if (_bound.Entries.Length == syntaxEntries.Length)
+            {
+                for (var i = 0; i < _bound.Entries.Length; i++)
+                {
+                    builder.AddIfNotNull(OperationUtilities.CreateOperationFromBound(
+                        SemanticModel,
+                        _bound.Entries[i].Pattern,
+                        syntaxEntries[i].Pattern));
+                }
+            }
+            else
+            {
+                foreach (var entry in syntaxEntries)
+                    builder.AddIfNotNull(SemanticModel.GetOperation(entry.Pattern));
+            }
+
+            _subpatterns = builder.ToImmutable();
+            return _subpatterns.Value;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        var builder = ImmutableArray.CreateBuilder<IOperation>();
+        builder.AddIfNotNull(Designator);
+        builder.AddRange(Keys);
+        builder.AddRange(Subpatterns);
+        return builder.ToImmutable();
+    }
+}
+
 internal sealed class DiscardPatternOperation : PatternOperation, IDiscardPatternOperation
 {
     internal DiscardPatternOperation(
@@ -2843,6 +2962,187 @@ internal sealed class CollectionComprehensionOperation : Operation, ICollectionC
             .AddIfNotNull(Source)
             .AddIfNotNull(Condition)
             .AddIfNotNull(Selector)
+            .ToImmutable();
+    }
+}
+
+internal sealed class DictionaryOperation : Operation, IDictionaryOperation
+{
+    private readonly BoundDictionaryExpression _bound;
+    private ImmutableArray<IOperation>? _elements;
+
+    internal DictionaryOperation(SemanticModel semanticModel, BoundDictionaryExpression bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.Dictionary, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ImmutableArray<IOperation> Elements
+    {
+        get
+        {
+            if (_elements.HasValue)
+                return _elements.Value;
+
+            var syntaxElements = Syntax is CollectionExpressionSyntax collectionSyntax
+                ? collectionSyntax.Elements.ToArray()
+                : [];
+            var boundElements = _bound.Elements.ToArray();
+            var builder = ImmutableArray.CreateBuilder<IOperation>();
+
+            if (boundElements.Length == syntaxElements.Length)
+            {
+                for (var i = 0; i < boundElements.Length; i++)
+                {
+                    IOperation? operation = boundElements[i] switch
+                    {
+                        DictionaryEntryBinding entry => new DictionaryElementOperation(SemanticModel, entry, syntaxElements[i], isImplicit: false),
+                        DictionarySpreadBinding spread => new DictionarySpreadElementOperation(SemanticModel, spread, syntaxElements[i], isImplicit: false),
+                        DictionaryComprehensionBinding comprehension => new DictionaryComprehensionOperation(SemanticModel, comprehension, syntaxElements[i], isImplicit: false),
+                        _ => null
+                    };
+
+                    builder.AddIfNotNull(operation);
+                }
+            }
+
+            _elements = builder.ToImmutable();
+            return _elements.Value;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => Elements;
+}
+
+internal sealed class DictionaryElementOperation : Operation, IDictionaryElementOperation
+{
+    private readonly DictionaryEntryBinding _bound;
+    private IOperation? _key;
+    private IOperation? _value;
+
+    internal DictionaryElementOperation(SemanticModel semanticModel, DictionaryEntryBinding bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.DictionaryElement, syntax, bound.Value.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? Key => _key ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel,
+        _bound.Key,
+        Syntax switch
+        {
+            DictionaryElementSyntax entry => entry.Key,
+            DictionarySpreadElementSyntax spreadEntry => spreadEntry.Key,
+            _ => Syntax
+        });
+
+    public IOperation? Value => _value ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel,
+        _bound.Value,
+        Syntax switch
+        {
+            DictionaryElementSyntax entry => entry.Value,
+            DictionarySpreadElementSyntax spreadEntry => spreadEntry.Value,
+            _ => Syntax
+        });
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return ImmutableArray.CreateBuilder<IOperation>()
+            .AddIfNotNull(Key)
+            .AddIfNotNull(Value)
+            .ToImmutable();
+    }
+}
+
+internal sealed class DictionarySpreadElementOperation : Operation, IDictionarySpreadElementOperation
+{
+    private readonly DictionarySpreadBinding _bound;
+    private IOperation? _expression;
+
+    internal DictionarySpreadElementOperation(SemanticModel semanticModel, DictionarySpreadBinding bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.DictionarySpreadElement, syntax, bound.Expression.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? Expression => _expression ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel,
+        _bound.Expression,
+        Syntax is SpreadElementSyntax spreadElement ? spreadElement.Expression : Syntax);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Expression is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Expression);
+    }
+}
+
+internal sealed class DictionaryComprehensionOperation : Operation, IDictionaryComprehensionOperation
+{
+    private readonly DictionaryComprehensionBinding _bound;
+    private IOperation? _source;
+    private IOperation? _condition;
+    private IOperation? _keySelector;
+    private IOperation? _valueSelector;
+    private bool _conditionInitialized;
+
+    internal DictionaryComprehensionOperation(SemanticModel semanticModel, DictionaryComprehensionBinding bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.DictionaryComprehension, syntax, null, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? Source => _source ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel,
+        _bound.Source,
+        Syntax is DictionaryComprehensionElementSyntax comprehension ? comprehension.Source : Syntax);
+
+    public IOperation? Condition
+    {
+        get
+        {
+            if (_conditionInitialized)
+                return _condition;
+
+            _conditionInitialized = true;
+            if (_bound.Condition is null)
+                return null;
+
+            _condition = OperationUtilities.CreateOperationFromBound(
+                SemanticModel,
+                _bound.Condition,
+                Syntax is DictionaryComprehensionElementSyntax comprehension && comprehension.Condition is not null
+                    ? comprehension.Condition
+                    : Syntax);
+            return _condition;
+        }
+    }
+
+    public IOperation? KeySelector => _keySelector ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel,
+        _bound.KeySelector,
+        Syntax is DictionaryComprehensionElementSyntax comprehension ? comprehension.KeySelector : Syntax);
+
+    public IOperation? ValueSelector => _valueSelector ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel,
+        _bound.ValueSelector,
+        Syntax is DictionaryComprehensionElementSyntax comprehension ? comprehension.ValueSelector : Syntax);
+
+    public ILocalSymbol IterationLocal => _bound.IterationLocal;
+
+    public ITypeSymbol KeyType => _bound.KeyType;
+
+    public ITypeSymbol ValueType => _bound.ValueType;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return ImmutableArray.CreateBuilder<IOperation>()
+            .AddIfNotNull(Source)
+            .AddIfNotNull(Condition)
+            .AddIfNotNull(KeySelector)
+            .AddIfNotNull(ValueSelector)
             .ToImmutable();
     }
 }

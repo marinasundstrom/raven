@@ -530,6 +530,19 @@ public interface IPropertyPatternOperation : IReceiverPatternOperation
     ImmutableArray<IOperation> Subpatterns { get; }
 }
 
+public interface IDictionaryPatternOperation : IReceiverPatternOperation
+{
+    ITypeSymbol KeyType { get; }
+
+    ITypeSymbol ValueType { get; }
+
+    IOperation? Designator { get; }
+
+    ImmutableArray<IOperation> Keys { get; }
+
+    ImmutableArray<IOperation> Subpatterns { get; }
+}
+
 public interface IDiscardPatternOperation : IPatternOperation
 {
 }
@@ -570,6 +583,11 @@ public interface ICollectionOperation : IOperation
 {
 }
 
+public interface IDictionaryOperation : IOperation
+{
+    ImmutableArray<IOperation> Elements { get; }
+}
+
 public interface ICollectionComprehensionOperation : IOperation
 {
     IOperation? Source { get; }
@@ -581,6 +599,35 @@ public interface ICollectionComprehensionOperation : IOperation
     ILocalSymbol IterationLocal { get; }
 
     ITypeSymbol ElementType { get; }
+}
+
+public interface IDictionaryElementOperation : IOperation
+{
+    IOperation? Key { get; }
+
+    IOperation? Value { get; }
+}
+
+public interface IDictionarySpreadElementOperation : IOperation
+{
+    IOperation? Expression { get; }
+}
+
+public interface IDictionaryComprehensionOperation : IOperation
+{
+    IOperation? Source { get; }
+
+    IOperation? Condition { get; }
+
+    IOperation? KeySelector { get; }
+
+    IOperation? ValueSelector { get; }
+
+    ILocalSymbol IterationLocal { get; }
+
+    ITypeSymbol KeyType { get; }
+
+    ITypeSymbol ValueType { get; }
 }
 
 public interface IEmptyCollectionOperation : IOperation

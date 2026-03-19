@@ -376,6 +376,11 @@ public enum OperationKind
     PropertyPattern,
 
     /// <summary>
+    /// A dictionary pattern.
+    /// </summary>
+    DictionaryPattern,
+
+    /// <summary>
     /// A discard pattern.
     /// </summary>
     DiscardPattern,
@@ -411,9 +416,29 @@ public enum OperationKind
     Collection,
 
     /// <summary>
+    /// A dictionary expression.
+    /// </summary>
+    Dictionary,
+
+    /// <summary>
     /// A collection comprehension expression.
     /// </summary>
     CollectionComprehension,
+
+    /// <summary>
+    /// A dictionary element.
+    /// </summary>
+    DictionaryElement,
+
+    /// <summary>
+    /// A dictionary spread element.
+    /// </summary>
+    DictionarySpreadElement,
+
+    /// <summary>
+    /// A dictionary comprehension element.
+    /// </summary>
+    DictionaryComprehension,
 
     /// <summary>
     /// An empty collection expression.

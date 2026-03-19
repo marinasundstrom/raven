@@ -460,6 +460,40 @@ record class Person(Name: string, Age: int)
     }
 
     [Fact]
+    public void GetOperation_DictionaryPattern_ExposesKeysAndSubpatterns()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val value: Dictionary<string, int> = !["Ada": 42, "Grace": 43]
+val result = value match {
+    ["Ada": val age, "Grace": _] => 1
+    _ => 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var patternSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<DictionaryPatternSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IDictionaryPatternOperation>(model.GetOperation(patternSyntax));
+        operation.Kind.ShouldBe(OperationKind.DictionaryPattern);
+        operation.ReceiverType.Name.ShouldBe("IDictionary");
+        operation.KeyType.SpecialType.ShouldBe(SpecialType.System_String);
+        operation.ValueType.SpecialType.ShouldBe(SpecialType.System_Int32);
+        operation.Designator.ShouldBeNull();
+        operation.Keys.Length.ShouldBe(2);
+        operation.Keys[0].Kind.ShouldBe(OperationKind.Literal);
+        operation.Keys[1].Kind.ShouldBe(OperationKind.Literal);
+        operation.Subpatterns.Length.ShouldBe(2);
+        operation.Subpatterns[0].Kind.ShouldBe(OperationKind.DeclarationPattern);
+        operation.Subpatterns[1].Kind.ShouldBe(OperationKind.DiscardPattern);
+    }
+
+    [Fact]
     public void GetOperation_ComparisonPattern_ExposesEqualityOperandOperation()
     {
         const string source = """
@@ -879,6 +913,58 @@ val result = [for n in numbers if n % 2 == 0 => n * n]
         operation.Selector!.Kind.ShouldBe(OperationKind.Binary);
         operation.IterationLocal.Name.ShouldContain("n");
         operation.ChildOperations.Length.ShouldBe(3);
+    }
+
+    [Fact]
+    public void GetOperation_DictionaryExpression_ExposesEntrySpreadAndComprehension()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val other: Dictionary<string, int> = !["b": 2]
+val xs = [1, 2, 3]
+val map = [
+    "a": 1,
+    ...other,
+    for x in xs if x > 1 => x.ToString(): x * 10
+]
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var dictionarySyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<CollectionExpressionSyntax>()
+            .Single(collection => collection.Elements.Any(element => element is DictionarySpreadElementSyntax or DictionaryComprehensionElementSyntax or SpreadElementSyntax));
+
+        var operation = Assert.IsAssignableFrom<IDictionaryOperation>(model.GetOperation(dictionarySyntax));
+        operation.Kind.ShouldBe(OperationKind.Dictionary);
+        operation.Elements.Length.ShouldBe(3);
+
+        var entry = Assert.IsAssignableFrom<IDictionaryElementOperation>(operation.Elements[0]);
+        entry.Kind.ShouldBe(OperationKind.DictionaryElement);
+        entry.Key.ShouldNotBeNull();
+        entry.Value.ShouldNotBeNull();
+        entry.Key!.Kind.ShouldBe(OperationKind.Literal);
+        entry.Value!.Kind.ShouldBe(OperationKind.Literal);
+
+        var spread = Assert.IsAssignableFrom<IDictionarySpreadElementOperation>(operation.Elements[1]);
+        spread.Kind.ShouldBe(OperationKind.DictionarySpreadElement);
+        spread.Expression.ShouldNotBeNull();
+        spread.Expression!.Kind.ShouldBe(OperationKind.LocalReference);
+
+        var comprehension = Assert.IsAssignableFrom<IDictionaryComprehensionOperation>(operation.Elements[2]);
+        comprehension.Kind.ShouldBe(OperationKind.DictionaryComprehension);
+        comprehension.Source.ShouldNotBeNull();
+        comprehension.Source!.Kind.ShouldBe(OperationKind.LocalReference);
+        comprehension.Condition.ShouldNotBeNull();
+        comprehension.Condition!.Kind.ShouldBe(OperationKind.Binary);
+        comprehension.KeySelector.ShouldNotBeNull();
+        comprehension.KeySelector!.Kind.ShouldBe(OperationKind.Invocation);
+        comprehension.ValueSelector.ShouldNotBeNull();
+        comprehension.ValueSelector!.Kind.ShouldBe(OperationKind.Binary);
+        comprehension.KeyType.SpecialType.ShouldBe(SpecialType.System_String);
+        comprehension.ValueType.SpecialType.ShouldBe(SpecialType.System_Int32);
     }
 
     [Fact]
