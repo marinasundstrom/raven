@@ -2320,6 +2320,9 @@ internal partial class ExpressionGenerator : Generator
 
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
+            if (arrayTypeSymbol.Rank != 1)
+                throw new NotSupportedException("Collection expressions do not support multidimensional array emission.");
+
             if (!collectionExpression.Elements.OfType<BoundSpreadElement>().Any())
             {
                 ILGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Count());
@@ -4284,6 +4287,12 @@ internal partial class ExpressionGenerator : Generator
     {
         var arrayType = boundArrayAccessExpression.Receiver.Type as IArrayTypeSymbol;
 
+        if (arrayType is { Rank: > 1 })
+        {
+            EmitMultidimensionalArrayAccess(boundArrayAccessExpression, arrayType);
+            return;
+        }
+
         var requiresLength = RequiresArrayLength(boundArrayAccessExpression);
 
         IILocal? arrayLocal = null;
@@ -4306,6 +4315,12 @@ internal partial class ExpressionGenerator : Generator
     {
         if (arrayAccess.Receiver.Type is not IArrayTypeSymbol arrayType)
             throw new NotSupportedException("Cannot take the address of a non-array element access.");
+
+        if (arrayType.Rank > 1)
+        {
+            EmitMultidimensionalArrayElementAddress(arrayAccess, arrayType);
+            return;
+        }
 
         var requiresLength = RequiresArrayLength(arrayAccess);
 
@@ -4377,6 +4392,61 @@ internal partial class ExpressionGenerator : Generator
         => arrayAccess.Indices.Any(argument =>
             argument is BoundIndexExpression { IsFromEnd: true } ||
             IsSystemIndexType(argument.Type));
+
+    private void EmitMultidimensionalArrayAccess(BoundArrayAccessExpression arrayAccess, IArrayTypeSymbol arrayType)
+    {
+        EmitExpression(arrayAccess.Receiver);
+        EmitMultidimensionalArrayIndices(arrayAccess);
+
+        var getMethod = ResolveMultidimensionalArrayMethod(arrayType, "Get", includeValue: false);
+        ILGenerator.Emit(OpCodes.Call, getMethod);
+    }
+
+    private void EmitMultidimensionalArrayElementAddress(BoundArrayAccessExpression arrayAccess, IArrayTypeSymbol arrayType)
+    {
+        EmitExpression(arrayAccess.Receiver);
+        EmitMultidimensionalArrayIndices(arrayAccess);
+
+        var addressMethod = ResolveMultidimensionalArrayMethod(arrayType, "Address", includeValue: false);
+        ILGenerator.Emit(OpCodes.Call, addressMethod);
+    }
+
+    private void EmitMultidimensionalArrayAssignment(BoundArrayAssignmentExpression array, IArrayTypeSymbol arrayType)
+    {
+        EmitExpression(array.Left.Receiver);
+        EmitMultidimensionalArrayIndices(array.Left);
+        EmitRequiredValue(array.Right);
+
+        var setMethod = ResolveMultidimensionalArrayMethod(arrayType, "Set", includeValue: true);
+        ILGenerator.Emit(OpCodes.Call, setMethod);
+    }
+
+    private void EmitMultidimensionalArrayIndices(BoundArrayAccessExpression arrayAccess)
+    {
+        foreach (var argument in arrayAccess.Indices)
+        {
+            if (argument is BoundIndexExpression)
+                throw new NotSupportedException("Multidimensional arrays do not support System.Index operands.");
+
+            EmitExpression(argument);
+        }
+    }
+
+    private MethodInfo ResolveMultidimensionalArrayMethod(IArrayTypeSymbol arrayType, string name, bool includeValue)
+    {
+        var parameterCount = arrayType.Rank + (includeValue ? 1 : 0);
+        var parameterTypes = new Type[parameterCount];
+
+        for (var i = 0; i < arrayType.Rank; i++)
+            parameterTypes[i] = typeof(int);
+
+        if (includeValue)
+            parameterTypes[^1] = ResolveClrType(arrayType.ElementType);
+
+        var runtimeArrayType = ResolveClrType(arrayType);
+        return runtimeArrayType.GetMethod(name, parameterTypes)
+               ?? throw new NotSupportedException($"Unable to resolve multidimensional array method '{name}' on '{runtimeArrayType}'.");
+    }
 
     private void EmitIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression)
     {
@@ -4870,6 +4940,12 @@ internal partial class ExpressionGenerator : Generator
             case BoundArrayAssignmentExpression array:
                 if (array.Left.Receiver.Type is not IArrayTypeSymbol arrayType)
                     throw new InvalidOperationException("Array assignment requires an array receiver.");
+
+                if (arrayType.Rank > 1)
+                {
+                    EmitMultidimensionalArrayAssignment(array, arrayType);
+                    break;
+                }
 
                 var requiresLength = RequiresArrayLength(array.Left);
                 IILocal? arrayLocal = null;

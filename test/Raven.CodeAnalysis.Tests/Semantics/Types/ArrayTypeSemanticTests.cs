@@ -56,4 +56,15 @@ val result: int[3] = [...values, 3]
         var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
         Assert.Equal(3, arrayType.FixedLength);
     }
+
+    [Fact]
+    public void MultidimensionalArrayCollectionLiteral_IsRejected()
+    {
+        const string source = "val matrix: int[,] = [1, 2, 3, 4]";
+        var (compilation, _) = CreateCompilation(source);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic => diagnostic.GetMessage().Contains("array expression", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, diagnostic => diagnostic.GetMessage().Contains("int[,]", StringComparison.Ordinal));
+    }
 }

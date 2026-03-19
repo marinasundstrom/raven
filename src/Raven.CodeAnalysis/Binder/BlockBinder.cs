@@ -5009,6 +5009,12 @@ partial class BlockBinder : Binder
                     return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
                 }
 
+                if (!ValidateArrayElementAccess(arrayType, args, node))
+                {
+                    _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                    return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
+                }
+
                 var arrayRightExpression = BindExpressionWithTargetType(rightSyntax, arrayType.ElementType);
 
                 if (IsErrorExpression(arrayRightExpression))
@@ -10377,6 +10383,15 @@ partial class BlockBinder : Binder
 
         if (targetType is IArrayTypeSymbol arrayType)
         {
+            if (arrayType.Rank != 1)
+            {
+                ReportCannotConvertFromTypeToType(
+                    "array expression",
+                    arrayType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            }
+
             var elementType = arrayType.ElementType;
             if (arrayType.FixedLength is int fixedLength &&
                 TryGetStaticallyKnownCollectionLength(elements, out var targetLength) &&

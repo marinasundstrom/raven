@@ -73,19 +73,21 @@ internal static class AssemblyReferenceNormalizer
     {
         foreach (var typeReference in module.GetTypeReferences())
         {
-            if (ReferenceEquals(typeReference.Scope, oldReference) && ShouldRewriteToSystemRuntime(typeReference))
-                typeReference.Scope = newReference;
+            RewriteTypeReferenceScope(typeReference, oldReference, newReference);
         }
 
         foreach (var memberReference in module.GetMemberReferences())
         {
-            if (memberReference.DeclaringType is { Scope: var scope } &&
-                ReferenceEquals(scope, oldReference) &&
-                ShouldRewriteToSystemRuntime(memberReference.DeclaringType))
-            {
-                memberReference.DeclaringType.Scope = newReference;
-            }
+            if (memberReference.DeclaringType is { } declaringType)
+                RewriteTypeReferenceScope(declaringType, oldReference, newReference);
         }
+    }
+
+    private static void RewriteTypeReferenceScope(TypeReference typeReference, AssemblyNameReference oldReference, AssemblyNameReference newReference)
+    {
+        var innermost = GetInnermostTypeReference(typeReference);
+        if (ReferenceEquals(innermost.Scope, oldReference) && ShouldRewriteToSystemRuntime(typeReference))
+            innermost.Scope = newReference;
     }
 
     private static bool ShouldRewriteToSystemRuntime(TypeReference typeReference)
@@ -102,25 +104,29 @@ internal static class AssemblyReferenceNormalizer
     }
 
     private static string GetInnermostTypeNamespace(TypeReference typeReference)
+        => GetInnermostTypeReference(typeReference).Namespace ?? string.Empty;
+
+    private static TypeReference GetInnermostTypeReference(TypeReference typeReference)
     {
         var current = typeReference;
         while (current is TypeSpecification specification)
             current = specification.ElementType;
 
-        return current.Namespace ?? string.Empty;
+        return current;
     }
 
     private static bool ModuleStillUsesReference(ModuleDefinition module, AssemblyNameReference reference)
     {
         foreach (var typeReference in module.GetTypeReferences())
         {
-            if (ReferenceEquals(typeReference.Scope, reference))
+            if (ReferenceEquals(GetInnermostTypeReference(typeReference).Scope, reference))
                 return true;
         }
 
         foreach (var memberReference in module.GetMemberReferences())
         {
-            if (memberReference.DeclaringType is { Scope: var scope } && ReferenceEquals(scope, reference))
+            if (memberReference.DeclaringType is { } declaringType &&
+                ReferenceEquals(GetInnermostTypeReference(declaringType).Scope, reference))
                 return true;
         }
 

@@ -1185,13 +1185,16 @@ follow the same target-typing and conversion rules as other collection elements.
 
 Collection expressions are target-typed:
 
-* **Array targets** — When the expected type is an array `T[]`, the expression allocates a
+* **Array targets** — When the expected type is a one-dimensional array `T[]`, the expression allocates a
   new array of that element type. Each item is implicitly converted to `T` before storage,
   and spreads must enumerate values assignable to `T`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3672-L3738】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L950-L1016】
   When the expected type is a fixed-length array `T[N]`, Raven also validates the statically
   known element count when it can prove one. Plain elements contribute `1`, and spreading a
   fixed-length array `T[M]` contributes `M`. If the proven total does not match `N`, binding
   reports a size-mismatch diagnostic instead of deferring the error to runtime.
+  Multidimensional array types such as `T[,]` are not target-typed by collection/array literal
+  syntax; they must be created through runtime APIs or other existing values and then used
+  through normal indexing/assignment syntax.
 * **Collection targets** — When the expected type is a non-array type with an accessible
   parameterless constructor and an instance `Add` method, the compiler constructs the
   target and calls `Add` for every element. The `Add` parameter determines the element

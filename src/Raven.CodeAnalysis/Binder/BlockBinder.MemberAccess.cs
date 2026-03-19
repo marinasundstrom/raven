@@ -2211,6 +2211,9 @@ partial class BlockBinder
                 return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
             }
 
+            if (!ValidateArrayElementAccess(arrayType, argumentExprs, syntax))
+                return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
+
             return new BoundArrayAccessExpression(receiver, argumentExprs, ((IArrayTypeSymbol)receiverType).ElementType);
         }
 
@@ -2354,6 +2357,26 @@ partial class BlockBinder
         }
 
         return null;
+    }
+
+    private bool ValidateArrayElementAccess(IArrayTypeSymbol arrayType, BoundExpression[] arguments, SyntaxNode syntax)
+    {
+        if (arrayType.Rank == 1)
+            return true;
+
+        if (arguments.Length != arrayType.Rank)
+        {
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(syntax.GetLocation());
+            return false;
+        }
+
+        if (arguments.Any(argument => argument is BoundIndexExpression))
+        {
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(syntax.GetLocation());
+            return false;
+        }
+
+        return true;
     }
 
     private static bool IsRangeType(ITypeSymbol? type)

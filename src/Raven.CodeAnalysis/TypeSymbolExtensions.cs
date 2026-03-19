@@ -22,7 +22,9 @@ public static class TypeSymbolExtensions
         if (typeSymbol is IArrayTypeSymbol arrayTypeSymbol)
         {
             var elementClrType = arrayTypeSymbol.ElementType.GetClrType(compilation);
-            return elementClrType?.MakeArrayType(); //arrayTypeSymbol.Rank);
+            return arrayTypeSymbol.Rank == 1
+                ? elementClrType?.MakeArrayType()
+                : elementClrType?.MakeArrayType(arrayTypeSymbol.Rank);
         }
 
         // Handle special types (e.g., int, string, etc.)
