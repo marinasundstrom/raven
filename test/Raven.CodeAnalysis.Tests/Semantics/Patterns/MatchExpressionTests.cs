@@ -807,7 +807,7 @@ val result = items match {
             [
                 new DiagnosticResult(CompilerDiagnostics.MatchExpressionArmPatternInvalid.Id)
                     .WithAnySpan()
-                    .WithArguments("for a collection pattern", "IEnumerable<int>")
+                    .WithArguments("for a sequence pattern", "IEnumerable<int>")
             ]);
 
         verifier.Verify();

@@ -1595,10 +1595,11 @@ class Container {
     {
         const string code = """
 import System.*
+import System.Linq.*
 
 class Container {
     func Test() -> unit {
-        val x2 = [[1, 2], [2, 3, 4]]
+        val x2: int[][] = [[1, 2], [2, 3, 4]]
         val r2 = x2.Select(([a, ..rest]) => b)
     }
 }
@@ -1607,7 +1608,7 @@ class Container {
         var verifier = CreateVerifier(
             code,
             [
-                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithAnySpan().WithArguments("int[2]", "int[3]"),
+                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments("b"),
             ]);
 
         verifier.Verify();

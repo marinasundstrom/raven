@@ -83,7 +83,7 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
     public void ArrayAccess_UsesIndexExpression()
     {
         const string source = """
-val values = [1, 2, 3]
+val values: int[] = [1, 2, 3]
 val last = values[^1]
 """;
 
@@ -106,7 +106,7 @@ val last = values[^1]
     public void ArrayAccess_WithRange_BindsToSubArrayInvocation()
     {
         const string source = """
-val values = [1, 2, 3, 4]
+val values: int[] = [1, 2, 3, 4]
 val middle = values[1..3]
 """;
 

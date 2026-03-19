@@ -90,14 +90,32 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
 
     private static bool IsImplicitValueReturnTarget(ExpressionStatementSyntax expressionStatement, SemanticModel semanticModel)
     {
-        if (expressionStatement.Parent is not BlockStatementSyntax block ||
-            block.Statements.Count == 0 ||
-            !ReferenceEquals(block.Statements[^1], expressionStatement))
+        SyntaxNode blockNode = expressionStatement.Parent;
+        SyntaxList<StatementSyntax> statements;
+
+        switch (blockNode)
+        {
+            case BlockStatementSyntax blockStatement:
+                statements = blockStatement.Statements;
+                break;
+            case BlockSyntax blockExpression:
+                statements = blockExpression.Statements;
+                break;
+            default:
+                return false;
+        }
+
+        if (statements.Count == 0)
+            return false;
+
+        var trailingStatement = statements[^1];
+        if (trailingStatement.SyntaxTree != expressionStatement.SyntaxTree ||
+            trailingStatement.Span != expressionStatement.Span)
         {
             return false;
         }
 
-        return block.Parent switch
+        return blockNode.Parent switch
         {
             BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as IMethodSymbol),
             FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as IMethodSymbol),

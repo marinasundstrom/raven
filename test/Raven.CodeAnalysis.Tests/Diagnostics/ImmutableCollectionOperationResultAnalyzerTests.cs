@@ -23,6 +23,7 @@ func Test() -> () {
             [
                 new DiagnosticResult(ImmutableCollectionOperationResultAnalyzer.DiagnosticId)
                     .WithSpan(5, 5, 5, 16)
+                    .WithArguments("Add")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -47,6 +48,7 @@ func Test() -> () {
             [
                 new DiagnosticResult(ImmutableCollectionOperationResultAnalyzer.DiagnosticId)
                     .WithSpan(5, 5, 5, 18)
+                    .WithArguments("Add")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 

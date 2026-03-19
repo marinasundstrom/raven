@@ -722,7 +722,7 @@ val [first, second, _] = values
         var verifier = CreateVerifier(
             source,
             [
-                new DiagnosticResult(CompilerDiagnostics.PositionalDeconstructionRequiresDeconstructableType.Id)
+                new DiagnosticResult(CompilerDiagnostics.SequenceDeconstructionRequiresSequenceType.Id)
                     .WithAnySpan()
                     .WithArguments("IEnumerable<int>")
             ]);

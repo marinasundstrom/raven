@@ -260,7 +260,7 @@ func Collect(items: int[] ...) -> int {
     return 0
 }
 
-val xs = [1, 2, 3]
+val xs: int[] = [1, 2, 3]
 val count = Collect(xs)
 """;
 

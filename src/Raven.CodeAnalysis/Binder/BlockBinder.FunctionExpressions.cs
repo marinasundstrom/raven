@@ -336,6 +336,9 @@ partial class BlockBinder
                 bodyExpr = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
             }
 
+            if (lambdaBodyTargetType is not null)
+                bodyExpr = RetargetLambdaBodyUnionCase(bodyExpr, lambdaBodyTargetType);
+
             ReportLambdaBodyDiagnostics(lambdaBinder);
         }
         finally
@@ -1644,6 +1647,7 @@ partial class BlockBinder
         try
         {
             body = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
+            body = RetargetLambdaBodyUnionCase(body, invoke.ReturnType);
 
             if (destructuringPrologue.Count > 0)
             {
@@ -1823,6 +1827,26 @@ partial class BlockBinder
         CacheBoundNode(syntax, rebound);
         instrumentation.RecordBindingSuccess();
         return rebound;
+    }
+
+    private BoundExpression RetargetLambdaBodyUnionCase(BoundExpression expression, ITypeSymbol targetType)
+    {
+        targetType = UnwrapAlias(targetType);
+        targetType = UnwrapTaskLikeTargetType(targetType);
+
+        if (expression is not BoundUnionCaseExpression unionCase ||
+            targetType is not INamedTypeSymbol targetUnion ||
+            !SymbolEqualityComparer.Default.Equals(unionCase.UnionType.OriginalDefinition, targetUnion.OriginalDefinition) ||
+            SymbolEqualityComparer.Default.Equals(unionCase.UnionType, targetUnion))
+        {
+            return expression;
+        }
+
+        return new BoundUnionCaseExpression(
+            targetUnion,
+            unionCase.CaseType,
+            unionCase.CaseConstructor,
+            unionCase.Arguments);
     }
 
     private FunctionExpressionSyntax? GetLambdaSyntax(BoundFunctionExpression lambda)

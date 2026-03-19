@@ -50,6 +50,12 @@ partial class BlockBinder : Binder
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
     {
         _containingSymbol = containingSymbol;
+
+        if (parent is BlockBinder parentBlockBinder)
+        {
+            foreach (var targetType in parentBlockBinder._targetTypeStack.Reverse())
+                _targetTypeStack.Push(targetType);
+        }
     }
 
     public override ISymbol ContainingSymbol => _containingSymbol;
@@ -4639,6 +4645,14 @@ partial class BlockBinder : Binder
                 return returnTargetType;
         }
 
+        // Target type from expression-bodied lambdas: `x => <expr>`.
+        if (node.Parent is FunctionExpressionSyntax)
+        {
+            var returnTargetType = GetContainingReturnTargetType();
+            if (returnTargetType is not null)
+                return returnTargetType;
+        }
+
         // Target type from binary equality/inequality: `x == .Member` / `.Member == x`.
         if (node.Parent is InfixOperatorExpressionSyntax binary &&
             (binary.OperatorToken.Kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsExpression))
@@ -4654,9 +4668,21 @@ partial class BlockBinder : Binder
             }
         }
 
-        return _targetTypeStack.Count > 0
-            ? _targetTypeStack.Peek()
-            : null;
+        return GetTargetTypeFromBinderChain();
+    }
+
+    private ITypeSymbol? GetTargetTypeFromBinderChain()
+    {
+        for (Binder? binder = this; binder is not null; binder = binder.ParentBinder)
+        {
+            if (binder is BlockBinder blockBinder &&
+                blockBinder._targetTypeStack.Count > 0)
+            {
+                return blockBinder._targetTypeStack.Peek();
+            }
+        }
+
+        return null;
     }
 
     private ITypeSymbol? GetConstructorArgumentTargetTypeFromSyntax(
@@ -7640,6 +7666,8 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindInvokedUnionCaseExpression(BoundUnionCaseExpression unionCaseCallee, InvocationExpressionSyntax syntax)
     {
+        unionCaseCallee = RefineInvokedUnionCaseCalleeForContext(unionCaseCallee, syntax);
+
         var caseCreation = BindConstructorInvocation(unionCaseCallee.CaseType, syntax, receiverSyntax: syntax.Expression, receiver: null);
         if (caseCreation is not BoundObjectCreationExpression creationExpr)
             return caseCreation;
@@ -7652,6 +7680,44 @@ partial class BlockBinder : Binder
             caseType,
             creationExpr.Constructor,
             ImmutableArray.CreateRange(creationExpr.Arguments));
+    }
+
+    private BoundUnionCaseExpression RefineInvokedUnionCaseCalleeForContext(
+        BoundUnionCaseExpression unionCaseCallee,
+        InvocationExpressionSyntax invocation)
+    {
+        var targetType = GetTargetType(invocation);
+        if (targetType is null)
+            return unionCaseCallee;
+
+        targetType = UnwrapAlias(targetType);
+        targetType = UnwrapTaskLikeTargetType(targetType);
+
+        var targetUnion =
+            targetType.TryGetDiscriminatedUnion() as INamedTypeSymbol
+            ?? targetType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+
+        if (targetUnion is null ||
+            !SymbolEqualityComparer.Default.Equals(unionCaseCallee.UnionType.OriginalDefinition, targetUnion.OriginalDefinition))
+        {
+            return unionCaseCallee;
+        }
+
+        var projectedCaseType = ProjectCaseTypeToUnionArguments(unionCaseCallee.CaseType, targetUnion);
+        if (projectedCaseType is not INamedTypeSymbol projectedNamedCase)
+            return unionCaseCallee;
+
+        if (SymbolEqualityComparer.Default.Equals(unionCaseCallee.UnionType, targetUnion) &&
+            SymbolEqualityComparer.Default.Equals(unionCaseCallee.CaseType, projectedNamedCase))
+        {
+            return unionCaseCallee;
+        }
+
+        return new BoundUnionCaseExpression(
+            targetUnion,
+            projectedNamedCase,
+            caseConstructor: null,
+            arguments: ImmutableArray<BoundExpression>.Empty);
     }
 
     private INamedTypeSymbol ResolveInvokedUnionCaseUnionType(
