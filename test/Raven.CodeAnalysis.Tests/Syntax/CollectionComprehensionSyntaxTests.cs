@@ -78,6 +78,23 @@ public class CollectionComprehensionSyntaxTests
     }
 
     [Fact]
+    public void CollectionExpression_DictionaryElement_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [\"a\": 1, \"b\": 2]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var first = Assert.IsType<DictionaryElementSyntax>(collection.Elements[0]);
+        Assert.IsType<LiteralExpressionSyntax>(first.Key);
+        Assert.Equal(SyntaxKind.ColonToken, first.ColonToken.Kind);
+        Assert.IsType<LiteralExpressionSyntax>(first.Value);
+
+        var second = Assert.IsType<DictionaryElementSyntax>(collection.Elements[1]);
+        Assert.IsType<LiteralExpressionSyntax>(second.Key);
+        Assert.Equal(SyntaxKind.ColonToken, second.ColonToken.Kind);
+        Assert.IsType<LiteralExpressionSyntax>(second.Value);
+    }
+
+    [Fact]
     public void CollectionExpression_CommaSeparated_Parses()
     {
         var tree = SyntaxTree.ParseText("val xs = [1, 2, 3]");

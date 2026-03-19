@@ -650,6 +650,7 @@ CollectionExpression     ::= ['!'] '[' [CollectionElement {CollectionSeparator C
 ArrayExpression          ::= '[|' [CollectionElement {CollectionSeparator CollectionElement} [CollectionSeparator]] '|]' ;
 CollectionSeparator      ::= ',' | ';' ;
 CollectionElement        ::= Expression
+                           | Expression ':' Expression
                            | '..' Expression
                            | CollectionComprehensionElement ;
 CollectionComprehensionElement

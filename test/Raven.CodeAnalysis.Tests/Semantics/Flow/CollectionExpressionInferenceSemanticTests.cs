@@ -178,6 +178,54 @@ val inferred = [1, 2, 3]
     }
 
     [Fact]
+    public void NoTargetType_DictionaryLiteral_InfersImmutableDictionary()
+    {
+        const string source = """
+val inferred = ["a": 1, "b": 2]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var bound = Assert.IsType<BoundDictionaryExpression>(model.GetBoundNode(collection));
+        var dictionaryType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        Assert.Equal("ImmutableDictionary`2", dictionaryType.MetadataName);
+        Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
+        Assert.Equal(SpecialType.System_Int32, dictionaryType.TypeArguments[1].SpecialType);
+    }
+
+    [Fact]
+    public void NoTargetType_MutableDictionaryLiteral_InfersDictionary()
+    {
+        const string source = """
+val inferred = !["a": 1, "b": 2]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var bound = Assert.IsType<BoundDictionaryExpression>(model.GetBoundNode(collection));
+        var dictionaryType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        Assert.Equal("Dictionary`2", dictionaryType.MetadataName);
+        Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
+        Assert.Equal(SpecialType.System_Int32, dictionaryType.TypeArguments[1].SpecialType);
+    }
+
+    [Fact]
     public void NoTargetType_SemicolonSeparatedCollectionLiteral_InfersImmutableList()
     {
         const string source = """

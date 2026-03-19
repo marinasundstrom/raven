@@ -85,6 +85,11 @@
   <Node Name="ExpressionElement" Inherits="CollectionElement">
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <Node Name="DictionaryElement" Inherits="CollectionElement">
+    <Slot Name="Key" Type="Expression" />
+    <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
+    <Slot Name="Value" Type="Expression" />
+  </Node>
   <Node Name="SpreadElement" Inherits="CollectionElement">
     <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotToken" />
     <Slot Name="Expression" Type="Expression" />

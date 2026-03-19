@@ -18,6 +18,37 @@ internal partial class BoundCollectionExpression : BoundExpression
     public ISymbol? CollectionSymbol { get; }
 }
 
+internal sealed class BoundDictionaryEntry
+{
+    public BoundDictionaryEntry(BoundExpression key, BoundExpression value)
+    {
+        Key = key;
+        Value = value;
+    }
+
+    public BoundExpression Key { get; }
+
+    public BoundExpression Value { get; }
+}
+
+internal partial class BoundDictionaryExpression : BoundExpression
+{
+    public BoundDictionaryExpression(
+        ITypeSymbol type,
+        IEnumerable<BoundDictionaryEntry> entries,
+        ISymbol? collectionSymbol = null,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(type, type, reason)
+    {
+        Entries = entries;
+        CollectionSymbol = collectionSymbol;
+    }
+
+    public IEnumerable<BoundDictionaryEntry> Entries { get; }
+
+    public ISymbol? CollectionSymbol { get; }
+}
+
 internal partial class BoundEmptyCollectionExpression : BoundExpression
 {
     public BoundEmptyCollectionExpression(

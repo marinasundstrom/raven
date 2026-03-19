@@ -117,6 +117,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundCollectionExpression collection:
                 VisitCollectionExpression(collection);
                 break;
+            case BoundDictionaryExpression dictionaryExpression:
+                VisitDictionaryExpression(dictionaryExpression);
+                break;
             case BoundSpreadElement spread:
                 VisitSpreadElement(spread);
                 break;
@@ -425,6 +428,15 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         foreach (var element in node.Elements)
             VisitExpression(element);
+    }
+
+    public virtual void VisitDictionaryExpression(BoundDictionaryExpression node)
+    {
+        foreach (var entry in node.Entries)
+        {
+            VisitExpression(entry.Key);
+            VisitExpression(entry.Value);
+        }
     }
 
     public override void VisitCollectionComprehensionExpression(BoundCollectionComprehensionExpression node)

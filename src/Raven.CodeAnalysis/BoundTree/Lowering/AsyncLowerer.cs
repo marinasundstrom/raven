@@ -2666,6 +2666,38 @@ internal static class AsyncLowerer
                         return collectionExpression;
                     }
 
+                case BoundDictionaryExpression dictionaryExpression:
+                    {
+                        var originalEntries = dictionaryExpression.Entries.ToArray();
+                        var rewrittenEntries = new BoundDictionaryEntry[originalEntries.Length];
+                        var changed = false;
+
+                        for (var i = 0; i < originalEntries.Length; i++)
+                        {
+                            var originalEntry = originalEntries[i];
+                            var rewrittenKey = VisitExpression(originalEntry.Key) ?? originalEntry.Key;
+                            var rewrittenValue = VisitExpression(originalEntry.Value) ?? originalEntry.Value;
+                            rewrittenEntries[i] = new BoundDictionaryEntry(rewrittenKey, rewrittenValue);
+
+                            if (!ReferenceEquals(rewrittenKey, originalEntry.Key) ||
+                                !ReferenceEquals(rewrittenValue, originalEntry.Value))
+                            {
+                                changed = true;
+                            }
+                        }
+
+                        if (changed)
+                        {
+                            return new BoundDictionaryExpression(
+                                dictionaryExpression.Type!,
+                                rewrittenEntries,
+                                dictionaryExpression.CollectionSymbol,
+                                dictionaryExpression.Reason);
+                        }
+
+                        return dictionaryExpression;
+                    }
+
                 case BoundBlockExpression blockExpression:
                     {
                         var statements = new List<BoundStatement>();

@@ -1165,6 +1165,11 @@ Collection expressions also support a list-comprehension form:
 * `[for item in source => selector]`
 * `[for item in source if condition => selector]`
 
+Collection expressions also support dictionary entries written as `key: value`.
+When a collection expression contains dictionary entries, every element in that
+expression must be a dictionary entry; spreads, bare positional elements, and
+comprehensions cannot be mixed into the same literal.
+
 The `source` position also accepts range expressions. These follow the same range
 iteration semantics as `for ... in start..end` loops.
 
@@ -1184,6 +1189,9 @@ Collection expressions are target-typed:
   parameterless constructor and an instance `Add` method, the compiler constructs the
   target and calls `Add` for every element. The `Add` parameter determines the element
   conversions, and spread entries must supply compatible values. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3738-L3776】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1016-L1096】
+  Dictionary-entry collection expressions use the same builder model, but require an
+  accessible instance `Add(key, value)` method instead. Each key expression is converted
+  to the first parameter type and each value expression is converted to the second.
 * **No target type** — Without an expected type, Raven infers a best common element type by
   merging all element contributions (spreads use their enumerated element type). The resulting
   collection kind then defaults from the literal modifiers:
@@ -1195,6 +1203,9 @@ Collection expressions are target-typed:
   `object`, `System.ValueType`, or interfaces, inference fails with a type-mismatch diagnostic
   and an explicit target type is required.
     【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3776-L3861】
+  Dictionary-entry collection expressions instead infer key and value types separately. Bare
+  literals default to `ImmutableDictionary<TKey, TValue>`, while `![...]` dictionary-entry
+  literals default to `Dictionary<TKey, TValue>`.
 
 Collection expressions also carry optional literal syntax:
 
@@ -1242,6 +1253,10 @@ val mutableList = ![1, 2, 3] // inferred as List<int>
 val mutableListAlt = ![1; 2; 3]  // inferred as List<int>
 val inferredArray = [|1, 2, 3|] // inferred as int[3]
 val expandedArray = [|...inferredArray, 4|] // inferred as int[4]
+
+val byName = ["a": 1, "b": 2] // inferred as ImmutableDictionary<string, int>
+val mutableByName = !["a": 1, "b": 2] // inferred as Dictionary<string, int>
+val readonlyLookup: IReadOnlyDictionary<string, int> = ["a": 1, "b": 2]
 
 val baseList: ImmutableList<int> = [2; 3; 4]
 val preserved = [7, ...baseList, 5] // inferred as ImmutableList<int>

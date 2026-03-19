@@ -240,6 +240,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitCollectionExpression(collectionExpression);
                 break;
 
+            case BoundDictionaryExpression dictionaryExpression:
+                EmitDictionaryExpression(dictionaryExpression);
+                break;
+
             case BoundEmptyCollectionExpression emptyCollectionExpression:
                 EmitEmptyCollectionExpression(emptyCollectionExpression);
                 break;
@@ -2486,6 +2490,68 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
+    private void EmitDictionaryExpression(BoundDictionaryExpression dictionaryExpression)
+    {
+        if (dictionaryExpression.Type is not INamedTypeSymbol namedType)
+            throw new NotSupportedException("Dictionary expressions require a named target type.");
+
+        if (TryEmitDictionaryExpressionViaImmutableDictionary(namedType, dictionaryExpression))
+            return;
+
+        var constructor = namedType.Constructors.FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
+        if (constructor is null)
+            throw new NotSupportedException("Dictionary expression target requires a parameterless constructor.");
+
+        var addMethod = dictionaryExpression.CollectionSymbol as IMethodSymbol
+            ?? namedType.GetMembers("Add")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 2);
+
+        if (addMethod is null)
+            throw new NotSupportedException("Dictionary expression target requires an Add(key, value) method.");
+
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(constructor));
+
+        foreach (var entry in dictionaryExpression.Entries)
+        {
+            ILGenerator.Emit(OpCodes.Dup);
+            EmitExpression(entry.Key);
+            EmitExpression(entry.Value);
+
+            var isInterfaceCall = addMethod.ContainingType?.TypeKind == TypeKind.Interface;
+            if (!addMethod.ContainingType!.IsValueType && (addMethod.IsVirtual || isInterfaceCall))
+                ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
+            else
+                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(addMethod));
+        }
+    }
+
+    private bool TryEmitDictionaryExpressionViaImmutableDictionary(INamedTypeSymbol targetType, BoundDictionaryExpression dictionaryExpression)
+    {
+        if (!string.Equals(targetType.OriginalDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableDictionary`2", StringComparison.Ordinal))
+            return false;
+
+        var immutableDictionaryHelpers = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableDictionary");
+        if (immutableDictionaryHelpers is null)
+            return false;
+
+        var keyType = targetType.TypeArguments[0];
+        var valueType = targetType.TypeArguments[1];
+
+        var createRangeDefinition = immutableDictionaryHelpers
+            .GetMembers("CreateRange")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method => method.IsStatic && method.TypeParameters.Length == 2 && method.Parameters.Length == 1);
+
+        if (createRangeDefinition is null)
+            return false;
+
+        var createRange = createRangeDefinition.Construct(keyType, valueType);
+        EmitDictionaryExpressionAsKeyValuePairArray(keyType, valueType, dictionaryExpression);
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(createRange));
+        return true;
+    }
+
     private bool TryEmitCollectionExpressionViaImmutableList(INamedTypeSymbol targetType, BoundCollectionExpression collectionExpression)
     {
         if (!string.Equals(targetType.OriginalDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableList`1", StringComparison.Ordinal))
@@ -2972,6 +3038,33 @@ internal partial class ExpressionGenerator : Generator
             return;
 
         EmitArrayWithSpreads(arrayType, collectionExpression);
+    }
+
+    private void EmitDictionaryExpressionAsKeyValuePairArray(
+        ITypeSymbol keyType,
+        ITypeSymbol valueType,
+        BoundDictionaryExpression dictionaryExpression)
+    {
+        var entries = dictionaryExpression.Entries as BoundDictionaryEntry[] ?? dictionaryExpression.Entries.ToArray();
+        var keyValuePairDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2") as INamedTypeSymbol
+            ?? throw new NotSupportedException("Dictionary expressions require System.Collections.Generic.KeyValuePair<TKey, TValue>.");
+        var keyValuePairType = (INamedTypeSymbol)keyValuePairDefinition.Construct(keyType, valueType);
+        var constructor = keyValuePairType.Constructors.FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 2)
+            ?? throw new NotSupportedException("KeyValuePair<TKey, TValue> constructor could not be resolved.");
+
+        ILGenerator.Emit(OpCodes.Ldc_I4, entries.Length);
+        ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(keyValuePairType));
+
+        for (var index = 0; index < entries.Length; index++)
+        {
+            var entry = entries[index];
+            ILGenerator.Emit(OpCodes.Dup);
+            ILGenerator.Emit(OpCodes.Ldc_I4, index);
+            EmitExpression(entry.Key);
+            EmitExpression(entry.Value);
+            ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(constructor));
+            EmitStoreElement(keyValuePairType);
+        }
     }
 
     private void EmitArrayWithSpreads(IArrayTypeSymbol arrayTypeSymbol, BoundCollectionExpression collectionExpression)

@@ -2220,10 +2220,22 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
             else
             {
-                var expression = new ExpressionSyntaxParser(this).ParseExpression();
-                if (expression is null)
+                var keyOrExpression = new ExpressionSyntaxParser(this).ParseExpression();
+                if (keyOrExpression is null)
                     break;
-                element = ExpressionElement(expression);
+
+                if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
+                {
+                    var valueExpression = new ExpressionSyntaxParser(this).ParseExpression();
+                    if (valueExpression is null)
+                        break;
+
+                    element = DictionaryElement(keyOrExpression, colonToken, valueExpression);
+                }
+                else
+                {
+                    element = ExpressionElement(keyOrExpression);
+                }
             }
 
             elementList.Add(element);

@@ -158,6 +158,109 @@ class Foo {
     }
 
     [Fact]
+    public void DictionaryCollectionExpressions_AreInitializedCorrectly()
+    {
+        var code = """
+import System.Collections.Immutable.*
+import System.Collections.Generic.*
+
+class Foo {
+    static func GetCount() -> int {
+        val values = ["a": 1, "bb": 2]
+        return values.Count + values["bb"]
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(4, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void MutableDictionaryCollectionExpressions_UseDictionaryFallback()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+class Foo {
+    static func GetCount() -> int {
+        val values = !["a": 1, "bb": 2]
+        return values.Count + values["bb"]
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(4, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void DictionaryCollectionExpressions_CanTargetDictionaryInterfaces()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+class Foo {
+    static func GetCount() -> int {
+        val values: IReadOnlyDictionary<string, int> = ["a": 1, "bb": 2]
+        return values.Count + values["bb"]
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(4, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
     public void InferredImmutableListCollectionExpressions_WithSourceDefinedElement_UseImmutableListFactory()
     {
         var code = """

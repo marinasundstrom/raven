@@ -6,6 +6,7 @@
 
 Collection expressions provide a terse way to construct arrays and other list-like containers.
 Bare collection expressions are immutable-by-default; prefixing the literal with `!` selects a mutable default instead. Pipe-delimited literals `[| ... |]` opt into explicit CLR-array syntax.
+Collection expressions may also use `key: value` entries to build dictionary-like targets.
 
 ### Basic syntax
 
@@ -14,6 +15,7 @@ let marvel = ["Tony Stark", "Spiderman", "Thor"]
 let names = [1, 2, 3]
 let scratch = ![1, 2, 3]
 let fixed = [|1, 2, 3|]
+let lookup = ["a": 1, "b": 2]
 ```
 
 > ℹ️ Collection expressions are target-typed. When no target type is available, plain literals infer list-family defaults: bare literals fall back to `ImmutableList<T>`, `![...]` literals fall back to `List<T>`, and `[| ... |]` literals fall back to ordinary CLR arrays. Target-typed `[...]` expressions can still bind to arrays when the surrounding type requires one.
@@ -53,6 +55,24 @@ If you want another concrete collection type, provide that type explicitly:
 let values: int[] = [1, 2, 3]
 let queue: Queue<int> = [1, 2, 3]
 ```
+
+Dictionary entries follow the same immutable-by-default rule as other collection expressions:
+
+```raven
+let lookup = ["a": 1, "b": 2] // ImmutableDictionary<string, int>
+let mutableLookup = !["a": 1, "b": 2] // Dictionary<string, int>
+```
+
+With an explicit target type, Raven binds through an accessible `Add(key, value)` method:
+
+```raven
+let lookup: IReadOnlyDictionary<string, int> = ["a": 1, "b": 2]
+let mutable: Dictionary<string, int> = ["x": 10, "y": 20]
+```
+
+Dictionary-entry literals are intentionally homogeneous: once a collection expression contains
+`key: value` entries, every element in that literal must use the same entry form. They cannot
+currently be mixed with spreads, ranges, or comprehensions in the same expression.
 
 ### Spread operations
 
