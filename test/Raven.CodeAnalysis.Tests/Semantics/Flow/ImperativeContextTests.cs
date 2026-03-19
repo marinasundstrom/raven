@@ -356,6 +356,66 @@ class C {
     }
 
     [Fact]
+    public void IfPatternStatement_WithPropertyPattern_BindsImplicitCaptures()
+    {
+        var code = """
+record class Person(Name: string, Age: int)
+
+class C {
+    func Test(value: object) {
+        if val Person { Name: "Ada", Age: age } = value {
+            age
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var ifPatternStmt = tree.GetRoot().DescendantNodes().OfType<IfPatternStatementSyntax>().First();
+        var bound = Assert.IsType<BoundIfStatement>(model.GetBoundNode(ifPatternStmt));
+        var condition = Assert.IsType<BoundIsPatternExpression>(bound.Condition);
+        var pattern = Assert.IsType<BoundPropertyPattern>(condition.Pattern);
+        var property = Assert.Single(pattern.Properties.Where(p => p.Member.Name == "Age"));
+        var capture = Assert.IsType<BoundDeclarationPattern>(property.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(capture.Designator);
+
+        pattern.ReceiverType.Name.ShouldBe("Person");
+        designator.Local.Name.ShouldBe("age");
+        designator.Local.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        designator.Local.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IfPatternStatement_WithDuplicatePropertyPatternMembers_ReportsDiagnostic()
+    {
+        var code = """
+class Box {
+    val Value: int
+}
+
+class C {
+    func Test(value: object) {
+        if val Box { Value: 1, Value: other } = value {
+            other
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        diagnostics.ShouldContain(d => d.Id == CompilerDiagnostics.DuplicatePropertyPatternMember.Id);
+    }
+
+    [Fact]
     public void WhileStatement_BindsAsStatement()
     {
         var code = """

@@ -2292,6 +2292,10 @@ if obj is Foo foo {
 if lookup is ["a": val first, "b": 2] {
     // first is assigned only when both keys exist and "b" maps to 2
 }
+
+if val Person { Name: "Ada", Age: age } = obj {
+    // age is assigned only when obj is a Person named "Ada"
+}
 ```
 
 Raven also supports statement-form conditional pattern binding:

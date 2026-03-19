@@ -460,6 +460,41 @@ record class Person(Name: string, Age: int)
     }
 
     [Fact]
+    public void GetOperation_IfPatternStatement_WithPropertyPattern_ConditionExposesPropertyPattern()
+    {
+        const string source = """
+record class Person(Name: string, Age: int)
+
+func Test(value: object) -> int {
+    if val Person { Name: "Ada", Age: age } = value {
+        return age
+    }
+
+    return 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var ifPatternSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IfPatternStatementSyntax>()
+            .Single();
+
+        var conditional = Assert.IsAssignableFrom<IConditionalOperation>(model.GetOperation(ifPatternSyntax));
+        var operation = Assert.IsAssignableFrom<IIsPatternOperation>(conditional.Condition);
+        var pattern = Assert.IsAssignableFrom<IPropertyPatternOperation>(operation.Pattern);
+
+        pattern.Kind.ShouldBe(OperationKind.PropertyPattern);
+        pattern.Members.Length.ShouldBe(2);
+        pattern.Members[0].Name.ShouldBe("Name");
+        pattern.Members[1].Name.ShouldBe("Age");
+        pattern.Subpatterns.Length.ShouldBe(2);
+        pattern.Subpatterns[0].Kind.ShouldBe(OperationKind.ConstantPattern);
+        pattern.Subpatterns[1].Kind.ShouldBe(OperationKind.DeclarationPattern);
+    }
+
+    [Fact]
     public void GetOperation_DictionaryPattern_ExposesKeysAndSubpatterns()
     {
         const string source = """

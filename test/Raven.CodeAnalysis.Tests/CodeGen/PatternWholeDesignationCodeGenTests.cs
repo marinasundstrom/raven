@@ -45,6 +45,28 @@ for val (2, > 0.5) point in points {
         Assert.Equal(["1", "3"], output);
     }
 
+    [Fact]
+    public void IfPatternStatement_WithPropertyPattern_BindsCapturedMemberValue()
+    {
+        var code = """
+import System.Console.*
+
+record class Person(Name: string, Age: int)
+
+class Program {
+    static func Main() {
+        val value: object = Person("Ada", 42)
+        if val Person { Name: "Ada", Age: age } = value {
+            WriteLine(age)
+        }
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["42"], output);
+    }
+
     private static string[] CompileAndRun(string code, OutputKind outputKind = OutputKind.ConsoleApplication)
     {
         var syntaxTree = SyntaxTree.ParseText(code);

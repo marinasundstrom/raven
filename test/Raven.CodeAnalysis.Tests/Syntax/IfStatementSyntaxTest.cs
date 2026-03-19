@@ -146,4 +146,27 @@ if val (2, > 0.5) point = value {
         ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
         designation.Identifier.ValueText.ShouldBe("point");
     }
+
+    [Fact]
+    public void IfPatternStatement_WithPropertyPattern_Parses()
+    {
+        const string testCode = """
+if val Person { Name: "Ada", Age: age } = person {
+}
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var ifBinding = Assert.IsType<IfPatternStatementSyntax>(statement);
+        var pattern = Assert.IsType<PropertyPatternSyntax>(ifBinding.Pattern);
+        var properties = pattern.PropertyPatternClause.Properties;
+
+        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        pattern.Type.ShouldBeOfType<IdentifierNameSyntax>().Identifier.ValueText.ShouldBe("Person");
+        properties.Count.ShouldBe(2);
+        properties[0].NameColon.Name.Identifier.ValueText.ShouldBe("Name");
+        properties[0].Pattern.ShouldBeOfType<ConstantPatternSyntax>();
+        properties[1].NameColon.Name.Identifier.ValueText.ShouldBe("Age");
+        properties[1].Pattern.ShouldBeOfType<VariablePatternSyntax>();
+    }
 }

@@ -240,6 +240,17 @@ to deconstruction-only shapes, so it may use property patterns, nominal
 deconstruction patterns, member/case patterns, comparison patterns, and other
 match-oriented constructs that are not valid as assignment/deconstruction heads.
 
+```raven
+if val Person { Name: "Ada", Age: age } = input {
+    WriteLine(age)
+}
+```
+
+The example above is equivalent in matching behavior to
+`if input is Person { Name: "Ada", Age: val age }`, but the statement-form
+surface lets the leading binding keyword supply the capture mode for otherwise
+bare designations inside the property pattern.
+
 In value-returning functions, Raven warns when statement-form control flow
 produces branch values that are discarded instead of returned:
 
