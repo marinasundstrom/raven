@@ -8769,7 +8769,39 @@ partial class BlockBinder : Binder
         if (valueType.SpecialType == SpecialType.System_String)
             return Compilation.GetSpecialType(SpecialType.System_String);
 
+        if (valueType is IArrayTypeSymbol)
+            return Compilation.CreateArrayTypeSymbol(elementType, fixedLength: fixedLength);
+
+        if (valueType is INamedTypeSymbol namedType &&
+            TryCreatePreservedSequenceSliceType(namedType, elementType, out var preservedType))
+        {
+            return preservedType;
+        }
+
         return Compilation.CreateArrayTypeSymbol(elementType, fixedLength: fixedLength);
+    }
+
+    private bool TryCreatePreservedSequenceSliceType(
+        INamedTypeSymbol valueType,
+        ITypeSymbol elementType,
+        out ITypeSymbol sliceType)
+    {
+        sliceType = default!;
+
+        if (valueType.OriginalDefinition is not INamedTypeSymbol originalDefinition)
+            return false;
+
+        var metadataName = originalDefinition.ToFullyQualifiedMetadataName();
+
+        if (string.Equals(metadataName, "System.Collections.Generic.List`1", StringComparison.Ordinal) ||
+            string.Equals(metadataName, "System.Collections.Immutable.ImmutableList`1", StringComparison.Ordinal) ||
+            string.Equals(metadataName, "System.Collections.Immutable.ImmutableArray`1", StringComparison.Ordinal))
+        {
+            sliceType = originalDefinition.Construct(elementType);
+            return true;
+        }
+
+        return false;
     }
 
     private ITypeSymbol GetSequencePatternElementType(

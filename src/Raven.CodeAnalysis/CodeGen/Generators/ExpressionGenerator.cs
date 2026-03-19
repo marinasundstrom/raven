@@ -4783,7 +4783,9 @@ internal partial class ExpressionGenerator : Generator
 
                 var restArrayType = Compilation.CreateArrayTypeSymbol(elementType);
                 var restArrayLocal = EmitArraySlice(arrayLocal, elementType, GetSequencePrefixWidth(pattern, i), restLengthLocal);
-                EmitPatternAssignment(elementPattern, restArrayLocal, restArrayType);
+                var targetType = GetSequencePatternInputType(elementPattern, restArrayType);
+                var inputLocal = MaterializeSequencePatternInput(restArrayLocal, restArrayType, targetType);
+                EmitPatternAssignment(elementPattern, inputLocal, targetType);
                 continue;
             }
 
@@ -4795,7 +4797,9 @@ internal partial class ExpressionGenerator : Generator
                     elementType,
                     GetSequenceElementStartIndex(pattern, i, lengthLocal),
                     pattern.ElementWidths[i]);
-                EmitPatternAssignment(elementPattern, segmentArrayLocal, segmentArrayType);
+                var targetType = GetSequencePatternInputType(elementPattern, segmentArrayType);
+                var inputLocal = MaterializeSequencePatternInput(segmentArrayLocal, segmentArrayType, targetType);
+                EmitPatternAssignment(elementPattern, inputLocal, targetType);
                 continue;
             }
 
@@ -5149,6 +5153,9 @@ internal partial class ExpressionGenerator : Generator
         if (sourceType is not null && targetType is not null &&
             !SymbolEqualityComparer.Default.Equals(sourceType, targetType))
         {
+            if (TryEmitKnownSequenceMaterialization(sourceType, targetType))
+                return targetType;
+
             var conversion = Compilation.ClassifyConversion(sourceType, targetType);
             if (conversion.Exists)
             {
@@ -5160,8 +5167,125 @@ internal partial class ExpressionGenerator : Generator
         return sourceType ?? targetType;
     }
 
+    private bool TryEmitKnownSequenceMaterialization(ITypeSymbol sourceType, ITypeSymbol targetType)
+    {
+        if (sourceType is not IArrayTypeSymbol arrayType ||
+            targetType is not INamedTypeSymbol namedTargetType ||
+            namedTargetType.TypeArguments.Length != 1)
+        {
+            return false;
+        }
+
+        var elementType = namedTargetType.TypeArguments[0];
+        if (!SymbolEqualityComparer.Default.Equals(arrayType.ElementType, elementType))
+            return false;
+
+        var metadataName = namedTargetType.OriginalDefinition.ToFullyQualifiedMetadataName();
+
+        if (string.Equals(metadataName, "System.Collections.Generic.List`1", StringComparison.Ordinal))
+            return TryEmitArrayToListMaterialization(namedTargetType);
+
+        if (string.Equals(metadataName, "System.Collections.Immutable.ImmutableList`1", StringComparison.Ordinal))
+            return TryEmitArrayToImmutableListMaterialization(elementType);
+
+        if (string.Equals(metadataName, "System.Collections.Immutable.ImmutableArray`1", StringComparison.Ordinal))
+            return TryEmitArrayToImmutableArrayMaterialization(elementType);
+
+        return false;
+    }
+
+    private bool TryEmitArrayToListMaterialization(INamedTypeSymbol targetType)
+    {
+        var enumerableTypeDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1") as INamedTypeSymbol;
+        if (enumerableTypeDefinition is null)
+            return false;
+
+        var enumerableType = enumerableTypeDefinition.Construct(targetType.TypeArguments[0]);
+        var constructor = targetType.Constructors.FirstOrDefault(static ctor =>
+            !ctor.IsStatic &&
+            ctor.Parameters.Length == 1) as IMethodSymbol;
+
+        if (constructor is null)
+            return false;
+
+        var parameterType = constructor.Parameters[0].Type;
+        if (!SymbolEqualityComparer.Default.Equals(parameterType, enumerableType))
+            return false;
+
+        ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(constructor));
+        return true;
+    }
+
+    private bool TryEmitArrayToImmutableListMaterialization(ITypeSymbol elementType)
+    {
+        var immutableListHelpers = Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList") as INamedTypeSymbol;
+        if (immutableListHelpers is null)
+            return false;
+
+        var createRangeDefinition = immutableListHelpers
+            .GetMembers("CreateRange")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method => method.IsStatic && method.TypeParameters.Length == 1 && method.Parameters.Length == 1);
+
+        if (createRangeDefinition is null)
+            return false;
+
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(createRangeDefinition.Construct(elementType)));
+        return true;
+    }
+
+    private bool TryEmitArrayToImmutableArrayMaterialization(ITypeSymbol elementType)
+    {
+        var immutableArrayHelpers = Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableArray") as INamedTypeSymbol;
+        if (immutableArrayHelpers is null)
+            return false;
+
+        var createRangeDefinition = immutableArrayHelpers
+            .GetMembers("CreateRange")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method => method.IsStatic && method.TypeParameters.Length == 1 && method.Parameters.Length == 1);
+
+        if (createRangeDefinition is null)
+            return false;
+
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(createRangeDefinition.Construct(elementType)));
+        return true;
+    }
+
     private static ITypeSymbol? GetPatternValueType(ITypeSymbol? type)
         => type?.UnwrapLiteralType() ?? type;
+
+    private ITypeSymbol GetSequencePatternInputType(BoundPattern pattern, ITypeSymbol fallbackType)
+    {
+        if (pattern is BoundDeclarationPattern { Designator: BoundSingleVariableDesignator single } &&
+            GetPatternValueType(single.Local.Type) is { } localType &&
+            localType.TypeKind != TypeKind.Error)
+        {
+            return localType;
+        }
+
+        if (GetPatternValueType(pattern.Type) is { } patternType &&
+            patternType.TypeKind != TypeKind.Error)
+        {
+            return patternType;
+        }
+
+        return fallbackType;
+    }
+
+    private IILocal MaterializeSequencePatternInput(IILocal arrayLocal, ITypeSymbol arrayType, ITypeSymbol targetType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(GetPatternValueType(arrayType), GetPatternValueType(targetType)))
+            return arrayLocal;
+
+        var materializedLocal = ILGenerator.DeclareLocal(ResolveClrType(targetType));
+        var materializedType = LoadValueWithConversion(arrayLocal, arrayType, targetType);
+        if (materializedType is null || !SymbolEqualityComparer.Default.Equals(GetPatternValueType(materializedType), GetPatternValueType(targetType)))
+            return arrayLocal;
+
+        ILGenerator.Emit(OpCodes.Stloc, materializedLocal);
+        return materializedLocal;
+    }
 
     private FieldInfo GetField(IFieldSymbol fieldSymbol)
     {

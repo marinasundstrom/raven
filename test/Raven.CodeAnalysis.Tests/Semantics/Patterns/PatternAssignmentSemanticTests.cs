@@ -311,7 +311,7 @@ first + middle[0] + last
     }
 
     [Fact]
-    public void CollectionPatternDeclarationShorthand_WithMiddleRest_OnList_BindsArraySlice()
+    public void CollectionPatternDeclarationShorthand_WithMiddleRest_OnList_PreservesListSlice()
     {
         const string source = """
 import System.Collections.Generic.*
@@ -344,7 +344,7 @@ first + middle[0] + last
         var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("middle", restDesignator.Local.Name);
-        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+        Assert.Equal("System.Collections.Generic.List`1", ((INamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
         Assert.False(restDesignator.Local.IsMutable);
     }
 
@@ -411,10 +411,12 @@ last
     }
 
     [Fact]
-    public void CollectionPatternDeclarationShorthand_WithFixedSegment_BindsSliceLocal()
+    public void CollectionPatternDeclarationShorthand_WithFixedSegment_OnImmutableList_PreservesSliceLocalType()
     {
         const string source = """
-val values: int[] = [1, 2, 3]
+import System.Collections.Immutable.*
+
+val values: ImmutableList<int> = [1, 2, 3]
 val [..2 start, tail] = values
 tail
 """;
@@ -443,12 +445,49 @@ tail
         var startPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[0]);
         var startDesignator = Assert.IsType<BoundSingleVariableDesignator>(startPattern.Designator);
         Assert.Equal("start", startDesignator.Local.Name);
-        Assert.True(startDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+        Assert.Equal("System.Collections.Immutable.ImmutableList`1", ((INamedTypeSymbol)startDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
 
         var tailPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
         var tailDesignator = Assert.IsType<BoundSingleVariableDesignator>(tailPattern.Designator);
         Assert.Equal("tail", tailDesignator.Local.Name);
         Assert.Equal(SpecialType.System_Int32, tailDesignator.Local.Type.SpecialType);
+    }
+
+    [Fact]
+    public void CollectionPatternDeclarationShorthand_WithMiddleRest_OnImmutableArray_PreservesImmutableArraySlice()
+    {
+        const string source = """
+import System.Collections.Immutable.*
+
+val values: ImmutableArray<int> = [1, 2, 3, 4]
+val [first, ..middle, last] = values
+first + middle[0] + last
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
+            .Single();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        Assert.Equal(1, collectionPattern.RestIndex);
+
+        var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
+        Assert.Equal("middle", restDesignator.Local.Name);
+        Assert.Equal("System.Collections.Immutable.ImmutableArray`1", ((INamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
     }
 
     [Fact]
@@ -626,7 +665,7 @@ var nested = ((1, 2), [3, 4, 5])
 var first = 0
 var second = 0
 var head = 0
-var tail: int[] = [0]
+var tail = [0]
 ((first, second), [head, ..tail]) = nested
 first + second + head + tail[0]
 """;
@@ -724,7 +763,7 @@ head + middle[0] + last + first.ToString().Length + chunk.Length + final.ToStrin
         Assert.Equal("head", headDesignator.Local.Name);
         Assert.Equal(SpecialType.System_Int32, headDesignator.Local.Type.SpecialType);
         Assert.Equal("middle", middleDesignator.Local.Name);
-        Assert.True(middleDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+        Assert.Equal("System.Collections.Immutable.ImmutableList`1", ((INamedTypeSymbol)middleDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
         Assert.Equal("last", lastDesignator.Local.Name);
         Assert.Equal(SpecialType.System_Int32, lastDesignator.Local.Type.SpecialType);
         Assert.Equal("first", firstDesignator.Local.Name);
@@ -741,7 +780,7 @@ head + middle[0] + last + first.ToString().Length + chunk.Length + final.ToStrin
         const string source = """
 val input = ([1, 2, 3, 4], "rune")
 var head = 0
-var middle: int[] = [0]
+var middle = [0]
 var last = 0
 var first = 'a'
 var chunk = ""

@@ -477,7 +477,7 @@ val result = items match {
     }
 
     [Fact]
-    public void MatchExpression_WithCollectionPatternRestOnList_BindsRestDesignation()
+    public void MatchExpression_WithCollectionPatternRestOnList_PreservesRestDesignationType()
     {
         const string code = """
 import System.Collections.Generic.*
@@ -509,7 +509,43 @@ val result = items match {
         var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("middle", restDesignator.Local.Name);
-        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+        Assert.Equal("System.Collections.Generic.List`1", ((INamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
+    }
+
+    [Fact]
+    public void MatchExpression_WithCollectionPatternRestOnImmutableList_PreservesRestDesignationType()
+    {
+        const string code = """
+import System.Collections.Immutable.*
+
+val items: ImmutableList<int> = [1, 2, 3, 4]
+
+val result = items match {
+    [val first, ..val middle, val last] => first + middle[0] + last
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "immutable_list_collection_match_rest",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(bound.Arms[0].Pattern);
+        Assert.Equal(1, collectionPattern.RestIndex);
+
+        var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
+        var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
+        Assert.Equal("middle", restDesignator.Local.Name);
+        Assert.Equal("System.Collections.Immutable.ImmutableList`1", ((INamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
     }
 
     [Fact]
@@ -1415,7 +1451,7 @@ val result = pair match {
 val input = [1, 2, 3, 4]
 
 val result = input match {
-    val [first, second, ...rest] => first + second + rest.Length
+    val [first, second, ...rest] => first + second + rest.Count
     _ => 0
 }
 """;

@@ -588,8 +588,10 @@ internal partial class ExpressionGenerator
 
                 var restArrayType = Compilation.CreateArrayTypeSymbol(elementType);
                 var restArrayLocal = EmitArraySlice(arrayLocal, elementType, GetSequencePrefixWidth(pattern, i), restLengthLocal);
-                ILGenerator.Emit(OpCodes.Ldloc, restArrayLocal);
-                EmitPattern(elementPattern, restArrayType, scope);
+                var targetType = GetSequencePatternInputType(elementPattern, restArrayType);
+                var inputLocal = MaterializeSequencePatternInput(restArrayLocal, restArrayType, targetType);
+                ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
+                EmitPattern(elementPattern, targetType, scope);
                 ILGenerator.Emit(OpCodes.Brfalse, labelFail);
                 continue;
             }
@@ -602,8 +604,10 @@ internal partial class ExpressionGenerator
                     elementType,
                     GetSequenceElementStartIndex(pattern, i, lengthLocal),
                     pattern.ElementWidths[i]);
-                ILGenerator.Emit(OpCodes.Ldloc, segmentArrayLocal);
-                EmitPattern(elementPattern, segmentArrayType, scope);
+                var targetType = GetSequencePatternInputType(elementPattern, segmentArrayType);
+                var inputLocal = MaterializeSequencePatternInput(segmentArrayLocal, segmentArrayType, targetType);
+                ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
+                EmitPattern(elementPattern, targetType, scope);
                 ILGenerator.Emit(OpCodes.Brfalse, labelFail);
                 continue;
             }

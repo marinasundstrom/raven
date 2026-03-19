@@ -175,7 +175,7 @@ for x in [2, 1..2] {
 }
 
 for val [..2, ..2 x, ...] in [[2, 1..3]] {
-    WriteLine(x.Length)
+    WriteLine(x.Count)
     WriteLine(x[0])
     WriteLine(x[1])
 }
