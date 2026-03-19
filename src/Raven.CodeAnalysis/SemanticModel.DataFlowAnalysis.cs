@@ -255,6 +255,14 @@ internal sealed class DataFlowWalker : SyntaxWalker
         base.VisitVariableDeclarator(node);
     }
 
+    public override void VisitSingleVariableDesignation(SingleVariableDesignationSyntax node)
+    {
+        if (_semanticModel.GetDeclaredSymbol(node) is ILocalSymbol symbol)
+            _variablesDeclared.Add(symbol);
+
+        base.VisitSingleVariableDesignation(node);
+    }
+
     public override void VisitInfixOperatorExpression(InfixOperatorExpressionSyntax node)
     {
         Visit(node.Left);
