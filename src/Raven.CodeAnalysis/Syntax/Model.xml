@@ -905,6 +905,17 @@
     <Slot Name="PropertyPatternClause" Type="PropertyPatternClause" />
     <Slot Name="Designation" Type="VariableDesignation" IsNullable="true" />
   </Node>
+  <Node Name="DictionaryPattern" Inherits="Pattern">
+    <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken" />
+    <Slot Name="Entries" Type="SeparatedList" ElementType="DictionaryPatternEntry" />
+    <Slot Name="CloseBracketToken" Type="Token" DefaultToken="CloseBracketToken" />
+    <Slot Name="Designation" Type="VariableDesignation" IsNullable="true" />
+  </Node>
+  <Node Name="DictionaryPatternEntry" Inherits="Node">
+    <Slot Name="Key" Type="Expression" />
+    <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
+    <Slot Name="Pattern" Type="Pattern" />
+  </Node>
   <Node Name="PropertyPatternClause" Inherits="Node">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
     <Slot Name="Properties" Type="SeparatedList" ElementType="PropertySubpattern" />

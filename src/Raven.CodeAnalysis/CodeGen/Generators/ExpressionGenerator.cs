@@ -5144,6 +5144,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitPositionalPatternAssignment(tuplePattern, valueLocal, valueType);
                 break;
 
+            case BoundDictionaryPattern dictionaryPattern:
+                EmitDictionaryPatternAssignment(dictionaryPattern, valueLocal, valueType);
+                break;
+
             case BoundDeconstructPattern deconstructPattern:
                 EmitDeconstructPatternAssignment(deconstructPattern, valueLocal, valueType);
                 break;
@@ -5506,6 +5510,53 @@ internal partial class ExpressionGenerator : Generator
                 continue;
 
             EmitPatternAssignment(elementPattern, argumentLocals[i], parameters[i + parameterOffset].Type);
+        }
+    }
+
+    private void EmitDictionaryPatternAssignment(BoundDictionaryPattern pattern, IILocal valueLocal, ITypeSymbol valueType)
+    {
+        var runtimeValueType = GetPatternValueType(valueType);
+        if (runtimeValueType is null || runtimeValueType.TypeKind == TypeKind.Error)
+            return;
+
+        var receiverClrType = ResolveClrType(pattern.ReceiverType);
+        IILocal receiverLocal;
+
+        if (!runtimeValueType.IsValueType &&
+            ClrTypesMatch(ResolveClrType(runtimeValueType), receiverClrType))
+        {
+            receiverLocal = valueLocal;
+        }
+        else
+        {
+            receiverLocal = ILGenerator.DeclareLocal(receiverClrType);
+            ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+            if (runtimeValueType.IsValueType)
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(runtimeValueType));
+            ILGenerator.Emit(OpCodes.Castclass, receiverClrType);
+            ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+        }
+
+        var indexerGetter = pattern.ReceiverType
+            .GetMembers("Item")
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(static property => property.Parameters.Length == 1)?
+            .GetMethod;
+
+        if (indexerGetter is null)
+            throw new InvalidOperationException($"Missing dictionary indexer on '{pattern.ReceiverType}'.");
+
+        var indexerMethodInfo = GetMethodInfo(indexerGetter);
+        var entryValueClrType = ResolveClrType(pattern.ValueType);
+
+        foreach (var entry in pattern.Entries)
+        {
+            var elementLocal = ILGenerator.DeclareLocal(entryValueClrType);
+            ILGenerator.Emit(OpCodes.Ldloc, receiverLocal);
+            EmitExpression(entry.Key, EmitContext.Value);
+            ILGenerator.Emit(OpCodes.Callvirt, indexerMethodInfo);
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+            EmitPatternAssignment(entry.Pattern, elementLocal, pattern.ValueType);
         }
     }
 

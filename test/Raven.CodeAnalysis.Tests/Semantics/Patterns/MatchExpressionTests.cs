@@ -106,6 +106,88 @@ val result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithDictionaryPattern_BindsEntries()
+    {
+        const string code = """
+import System.Collections.Generic.*
+
+val values: Dictionary<string, int> = !["a": 1, "b": 2]
+
+val result = values match {
+    ["a": val first, "b": 2] => first
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var dictionaryPattern = Assert.IsType<BoundDictionaryPattern>(bound.Arms[0].Pattern);
+        Assert.Equal(2, dictionaryPattern.Entries.Length);
+        Assert.Equal(SpecialType.System_String, dictionaryPattern.KeyType.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, dictionaryPattern.ValueType.SpecialType);
+
+        var firstPattern = Assert.IsType<BoundDeclarationPattern>(dictionaryPattern.Entries[0].Pattern);
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstPattern.Designator);
+        Assert.Equal("first", firstDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, firstDesignator.Local.Type.SpecialType);
+
+        Assert.IsType<BoundConstantPattern>(dictionaryPattern.Entries[1].Pattern);
+    }
+
+    [Fact]
+    public void MatchExpression_WithDictionaryPatternOnNonDictionaryType_ReportsDictionaryDiagnostic()
+    {
+        const string code = """
+val value = 42
+
+val result = value match {
+    ["a": 1] => 1
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var run = verifier.GetResult();
+        var diagnostics = run.Compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.DictionaryPatternRequiresDictionaryType);
+    }
+
+    [Fact]
+    public void MatchExpression_WithDuplicateDictionaryPatternKeys_ReportsDuplicateKey()
+    {
+        const string code = """
+import System.Collections.Generic.*
+
+val values: Dictionary<string, int> = !["a": 1]
+
+val result = values match {
+    ["a": val first, "a": 1] => first
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var run = verifier.GetResult();
+        var diagnostics = run.Compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.DuplicateDictionaryKey);
+    }
+
+    [Fact]
     public void MatchExpression_WithBooleanLiteralArms_IsExhaustive()
     {
         const string code = """

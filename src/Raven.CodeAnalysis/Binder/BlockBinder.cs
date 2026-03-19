@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -8465,6 +8466,54 @@ partial class BlockBinder : Binder
         return type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat);
     }
 
+    private void ReportSequenceDeconstructionRequiresSequenceType(ITypeSymbol type, Location location)
+        => _diagnostics.Report(Diagnostic.Create(
+            CompilerDiagnostics.SequenceDeconstructionRequiresSequenceType,
+            location,
+            GetPatternTypeDisplay(type)));
+
+    private void ReportDictionaryDeconstructionRequiresDictionaryType(ITypeSymbol type, Location location)
+        => _diagnostics.Report(Diagnostic.Create(
+            CompilerDiagnostics.DictionaryDeconstructionRequiresDictionaryType,
+            location,
+            GetPatternTypeDisplay(type)));
+
+    private void ReportDuplicateDictionaryKey(Location location, object? key)
+        => _diagnostics.Report(Diagnostic.Create(
+            CompilerDiagnostics.DuplicateDictionaryKey,
+            location,
+            FormatDictionaryKeyForDiagnostic(key)));
+
+    private static string FormatDictionaryKeyForDiagnostic(object? key)
+        => key switch
+        {
+            null => "null",
+            string text => text,
+            char ch => ch.ToString(),
+            IFormattable formattable => formattable.ToString(format: null, CultureInfo.InvariantCulture),
+            _ => key.ToString() ?? string.Empty
+        };
+
+    private void ReportDuplicateDictionaryKeys(
+        IEnumerable<(BoundExpression Key, SyntaxNode Syntax)> keyedEntries)
+    {
+        var seen = new List<(object? Value, Location FirstLocation)>();
+
+        foreach (var (keyExpression, syntax) in keyedEntries)
+        {
+            if (!TryGetExpressionConstantValue(keyExpression, out var keyValue))
+                continue;
+
+            if (seen.Any(existing => Equals(existing.Value, keyValue)))
+            {
+                ReportDuplicateDictionaryKey(syntax.GetLocation(), keyValue);
+                continue;
+            }
+
+            seen.Add((keyValue, syntax.GetLocation()));
+        }
+    }
+
     private BoundPattern BindPatternForAssignment(
         PatternSyntax patternSyntax,
         ITypeSymbol valueType,
@@ -8478,6 +8527,7 @@ partial class BlockBinder : Binder
             VariablePatternSyntax variablePattern => BindVariablePatternForAssignment(variablePattern, valueType, declarationBindingKeywordKind),
             PositionalPatternSyntax tuplePattern => BindPositionalPatternForAssignment(tuplePattern, valueType, declarationBindingKeywordKind),
             SequencePatternSyntax sequencePattern => BindSequencePatternForAssignment(sequencePattern, valueType, declarationBindingKeywordKind),
+            DictionaryPatternSyntax dictionaryPattern => BindDictionaryPatternForAssignment(dictionaryPattern, valueType, declarationBindingKeywordKind),
             DiscardPatternSyntax => new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType),
             ConstantPatternSyntax { Expression: IdentifierNameSyntax identifierName }
                 => BindIdentifierPatternForAssignment(identifierName, valueType, declarationBindingKeywordKind),
@@ -8644,8 +8694,8 @@ partial class BlockBinder : Binder
         }
         else if (valueType.TypeKind != TypeKind.Error)
         {
-            _diagnostics.ReportPositionalDeconstructionRequiresDeconstructableType(
-                GetPatternTypeDisplay(valueType),
+            ReportSequenceDeconstructionRequiresSequenceType(
+                valueType,
                 pattern.GetLocation());
 
             patternType = Compilation.ErrorTypeSymbol;
@@ -8690,6 +8740,72 @@ partial class BlockBinder : Binder
             restIndex: restIndex,
             elementWidths: elementWidths,
             elementKinds: elementKinds);
+    }
+
+    private BoundPattern BindDictionaryPatternForAssignment(
+        DictionaryPatternSyntax pattern,
+        ITypeSymbol valueType,
+        SyntaxKind declarationBindingKeywordKind)
+    {
+        var receiverType = Compilation.ErrorTypeSymbol;
+        var keyType = Compilation.ErrorTypeSymbol;
+        var elementValueType = Compilation.ErrorTypeSymbol;
+        var reason = BoundExpressionReason.None;
+
+        if (valueType is INamedTypeSymbol namedValueType &&
+            TryGetDictionaryInterfaceInfo(namedValueType, out var dictionaryReceiverType, out var dictionaryKeyType, out var dictionaryValueType))
+        {
+            receiverType = dictionaryReceiverType;
+            keyType = dictionaryKeyType;
+            elementValueType = dictionaryValueType;
+        }
+        else
+        {
+            ReportDictionaryDeconstructionRequiresDictionaryType(
+                valueType,
+                pattern.GetLocation());
+            reason = BoundExpressionReason.TypeMismatch;
+        }
+
+        var entries = ImmutableArray.CreateBuilder<BoundDictionarySubpattern>(pattern.Entries.Count);
+
+        foreach (var entrySyntax in pattern.Entries)
+        {
+            var key = keyType.TypeKind == TypeKind.Error
+                ? BindExpression(entrySyntax.Key)
+                : BindExpressionWithTargetType(entrySyntax.Key, keyType);
+
+            if (keyType.TypeKind != TypeKind.Error &&
+                key.Type?.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(key))
+            {
+                if (IsAssignable(keyType, key.Type!, out var keyConversion))
+                    key = ApplyConversion(key, keyType, keyConversion, entrySyntax.Key);
+                else
+                    ReportCannotConvertFromTypeToType(
+                        key.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        keyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        entrySyntax.Key.GetLocation());
+            }
+
+            var boundPattern = BindPatternForAssignment(
+                entrySyntax.Pattern,
+                elementValueType,
+                entrySyntax.Pattern,
+                declarationBindingKeywordKind);
+            entries.Add(new BoundDictionarySubpattern(key, boundPattern));
+        }
+
+        ReportDuplicateDictionaryKeys(pattern.Entries.Select((entry, index) => (entries[index].Key, (SyntaxNode)entry.Key)));
+
+        return new BoundDictionaryPattern(
+            valueType,
+            receiverType,
+            keyType,
+            elementValueType,
+            designator: null,
+            entries: entries.ToImmutable(),
+            reason: reason);
     }
 
     private bool TryGetSequenceDeconstructionElementType(ITypeSymbol valueType, out ITypeSymbol elementType)
@@ -10642,11 +10758,13 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private bool TryGetDictionaryInterfaceElementTypes(
+    private bool TryGetDictionaryInterfaceInfo(
         INamedTypeSymbol targetType,
+        out INamedTypeSymbol receiverType,
         out ITypeSymbol keyType,
         out ITypeSymbol valueType)
     {
+        receiverType = null!;
         keyType = Compilation.ErrorTypeSymbol;
         valueType = Compilation.ErrorTypeSymbol;
 
@@ -10655,6 +10773,7 @@ partial class BlockBinder : Binder
             if (!IsKnownDictionaryInterface(candidate))
                 continue;
 
+            receiverType = candidate;
             keyType = candidate.TypeArguments[0];
             valueType = candidate.TypeArguments[1];
             return true;
@@ -10678,6 +10797,14 @@ partial class BlockBinder : Binder
             return string.Equals(metadataName, "System.Collections.Generic.IDictionary`2", StringComparison.Ordinal) ||
                    string.Equals(metadataName, "System.Collections.Generic.IReadOnlyDictionary`2", StringComparison.Ordinal);
         }
+    }
+
+    private bool TryGetDictionaryInterfaceElementTypes(
+        INamedTypeSymbol targetType,
+        out ITypeSymbol keyType,
+        out ITypeSymbol valueType)
+    {
+        return TryGetDictionaryInterfaceInfo(targetType, out _, out keyType, out valueType);
     }
 
     private bool TryInferDictionaryElementTypes(
@@ -13810,6 +13937,7 @@ partial class BlockBinder : Binder
         return pattern switch
         {
             BoundDeconstructPattern deconstructPattern => TargetsType(this, UnwrapAlias(deconstructPattern.NarrowedType ?? deconstructPattern.ReceiverType), candidateType),
+            BoundDictionaryPattern dictionaryPattern => TargetsType(this, UnwrapAlias(dictionaryPattern.ReceiverType), candidateType),
             BoundPropertyPattern propertyPattern => TargetsType(this, UnwrapAlias(propertyPattern.NarrowedType ?? propertyPattern.ReceiverType), candidateType),
             BoundPositionalPattern positionalPattern => TargetsType(this, UnwrapAlias(positionalPattern.Type), candidateType),
             BoundDeclarationPattern declarationPattern => TargetsType(this, UnwrapAlias(declarationPattern.DeclaredType), candidateType),

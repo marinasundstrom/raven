@@ -59,6 +59,14 @@
     Title="Deconstruction count mismatch"
     Message="Expected {expectedCount} element(s) but found {actualCount}." Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0136" Identifier="SequenceDeconstructionRequiresSequenceType"
+    Title="Type does not support sequence deconstruction"
+    Message="'{typeName}' does not support sequence deconstruction." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0137" Identifier="DictionaryDeconstructionRequiresDictionaryType"
+    Title="Type does not support dictionary deconstruction"
+    Message="'{typeName}' does not support dictionary deconstruction." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0134" Identifier="DiscardExpressionNotAllowed" Title="Discard is not a value"
     Message="'_' cannot be used as a value." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
@@ -800,6 +808,14 @@
   <Descriptor Id="RAV1613" Identifier="PatternDeclarationBindingKeywordConflict"
     Title="Pattern declaration mixes binding styles"
     Message="Cannot combine outer binding keyword '{outerKeyword}' with inline pattern binding keyword '{inlineKeyword}'. Use one style."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1614" Identifier="DictionaryPatternRequiresDictionaryType"
+    Title="Dictionary pattern requires a dictionary-compatible type"
+    Message="Dictionary pattern requires a dictionary-compatible type; '{type}' cannot be matched as a dictionary"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1615" Identifier="DuplicateDictionaryKey"
+    Title="Duplicate dictionary key"
+    Message="Dictionary key '{key}' is already specified earlier in this pattern"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2200" Identifier="LambdaParameterTypeCannotBeInferred"
     Title="Lambda parameter type cannot be inferred"

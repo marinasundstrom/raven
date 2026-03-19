@@ -3016,6 +3016,37 @@ internal static class AsyncLowerer
                             : p;
                     }
 
+                case BoundDictionaryPattern d:
+                    {
+                        var entries = d.Entries;
+                        var changed = false;
+                        var b = ImmutableArray.CreateBuilder<BoundDictionarySubpattern>(entries.Length);
+
+                        for (int i = 0; i < entries.Length; i++)
+                        {
+                            var entry = entries[i];
+                            var rewrittenKey = VisitExpression(entry.Key) ?? entry.Key;
+                            var rewrittenPattern = VisitPattern(entry.Pattern);
+
+                            if (!ReferenceEquals(rewrittenKey, entry.Key) ||
+                                !ReferenceEquals(rewrittenPattern, entry.Pattern))
+                            {
+                                changed = true;
+                                b.Add(new BoundDictionarySubpattern(rewrittenKey, rewrittenPattern));
+                            }
+                            else
+                            {
+                                b.Add(entry);
+                            }
+                        }
+
+                        var designator = d.Designator is null ? null : VisitDesignator(d.Designator);
+
+                        return changed || !ReferenceEquals(designator, d.Designator)
+                            ? new BoundDictionaryPattern(d.InputType, d.ReceiverType, d.KeyType, d.ValueType, designator, b.ToImmutable(), d.Reason)
+                            : d;
+                    }
+
                 case BoundDiscardPattern:
                     return pattern;
 

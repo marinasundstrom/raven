@@ -272,6 +272,30 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void DictionaryPattern_WithBracketSyntax_Parses()
+    {
+        var (pattern, tree) = ParsePattern("[\"a\": let first, \"b\": _]");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var dictionaryPattern = Assert.IsType<DictionaryPatternSyntax>(pattern);
+        Assert.Equal("[\"a\": let first, \"b\": _]", sourceText.ToString(dictionaryPattern.Span));
+        Assert.Equal(SyntaxKind.OpenBracketToken, dictionaryPattern.OpenBracketToken.Kind);
+        Assert.Equal(SyntaxKind.CloseBracketToken, dictionaryPattern.CloseBracketToken.Kind);
+        Assert.Equal(2, dictionaryPattern.Entries.Count);
+
+        var firstEntry = dictionaryPattern.Entries[0];
+        Assert.IsType<LiteralExpressionSyntax>(firstEntry.Key);
+        Assert.Equal(SyntaxKind.ColonToken, firstEntry.ColonToken.Kind);
+        Assert.IsType<VariablePatternSyntax>(firstEntry.Pattern);
+
+        var secondEntry = dictionaryPattern.Entries[1];
+        Assert.IsType<LiteralExpressionSyntax>(secondEntry.Key);
+        Assert.IsType<DiscardPatternSyntax>(secondEntry.Pattern);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void SequencePattern_WithBareFixedSegmentElement_ParsesAsDiscard()
     {
         var (pattern, tree) = ParsePattern("[..2, val end]");

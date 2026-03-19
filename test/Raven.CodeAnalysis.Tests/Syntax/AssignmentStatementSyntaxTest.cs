@@ -100,6 +100,24 @@ public class AssignmentStatementSyntaxTest
     }
 
     [Fact]
+    public void ParsesDictionaryPatternDeclarationShorthandAssignmentStatement()
+    {
+        var tree = SyntaxTree.ParseText("val [\"a\": first, \"b\": second] = values");
+        var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
+
+        var pattern = Assert.IsType<DictionaryPatternSyntax>(assignment.Left);
+        Assert.Equal(SyntaxKind.OpenBracketToken, pattern.OpenBracketToken.Kind);
+        Assert.Equal(2, pattern.Entries.Count);
+
+        Assert.IsType<LiteralExpressionSyntax>(pattern.Entries[0].Key);
+        Assert.True(pattern.Entries[0].Pattern is VariablePatternSyntax or DeclarationPatternSyntax);
+        Assert.IsType<LiteralExpressionSyntax>(pattern.Entries[1].Key);
+        Assert.True(pattern.Entries[1].Pattern is VariablePatternSyntax or DeclarationPatternSyntax);
+    }
+
+    [Fact]
     public void ParsesPositionalPatternDeclarationShorthandAssignmentStatement()
     {
         var tree = SyntaxTree.ParseText("var (first, second, _) = tuple");

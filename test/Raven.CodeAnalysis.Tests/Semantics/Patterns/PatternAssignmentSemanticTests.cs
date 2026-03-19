@@ -159,6 +159,106 @@ first + second
     }
 
     [Fact]
+    public void LetDictionaryPatternAssignment_BindsLocals()
+    {
+        const string source = """
+import System.Collections.Immutable.*
+
+val values: ImmutableDictionary<string, int> = ["a": 1, "b": 2]
+val ["a": first, "b": second] = values
+first + second
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
+            .Last();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var dictionaryPattern = Assert.IsType<BoundDictionaryPattern>(patternAssignment.Pattern);
+
+        Assert.Equal(2, dictionaryPattern.Entries.Length);
+        Assert.Equal(SpecialType.System_String, dictionaryPattern.KeyType.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, dictionaryPattern.ValueType.SpecialType);
+
+        var firstPattern = Assert.IsType<BoundDeclarationPattern>(dictionaryPattern.Entries[0].Pattern);
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstPattern.Designator);
+        Assert.Equal("first", firstDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, firstDesignator.Local.Type.SpecialType);
+
+        var secondPattern = Assert.IsType<BoundDeclarationPattern>(dictionaryPattern.Entries[1].Pattern);
+        var secondDesignator = Assert.IsType<BoundSingleVariableDesignator>(secondPattern.Designator);
+        Assert.Equal("second", secondDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, secondDesignator.Local.Type.SpecialType);
+    }
+
+    [Fact]
+    public void SequencePatternAssignment_OnNonSequenceType_ReportsSequenceDiagnostic()
+    {
+        const string source = """
+val value = 42
+val [first] = value
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+        var diagnostics = run.Compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.SequenceDeconstructionRequiresSequenceType);
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PositionalDeconstructionRequiresDeconstructableType);
+    }
+
+    [Fact]
+    public void DictionaryPatternAssignment_OnNonDictionaryType_ReportsDictionaryDiagnostic()
+    {
+        const string source = """
+val value = 42
+val ["a": first] = value
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+        var diagnostics = run.Compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.DictionaryDeconstructionRequiresDictionaryType);
+    }
+
+    [Fact]
+    public void DictionaryPatternAssignment_WithDuplicateConstantKeys_ReportsDuplicateKey()
+    {
+        const string source = """
+import System.Collections.Immutable.*
+
+val values: ImmutableDictionary<string, int> = ["a": 1]
+val ["a": first, "a": second] = values
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+        var diagnostics = run.Compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.DuplicateDictionaryKey);
+    }
+
+    [Fact]
     public void CollectionPatternDeclarationShorthand_WithVal_BindsImmutableLocals()
     {
         const string source = """

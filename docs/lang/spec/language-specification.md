@@ -2259,15 +2259,17 @@ Raven uses two related but distinct surfaces:
 * **General pattern matching forms** are used in `is`, `match`, `if val pattern = expr`,
   and `for ... in` pattern targets. These support the full pattern vocabulary:
   declaration/type patterns, constants and value patterns, comparison and range
-  patterns, positional patterns, collection patterns, property patterns, nominal
-  deconstruction patterns, member/case patterns, boolean pattern combinators,
-  and whole-pattern designations where the construct allows them.
+  patterns, positional patterns, sequence patterns, dictionary patterns,
+  property patterns, nominal deconstruction patterns, member/case patterns,
+  boolean pattern combinators, and whole-pattern designations where the
+  construct allows them.
 * **Deconstruction forms** are used in declaration/assignment positions such as
-  `val (a, b) = expr`, `(a, b) = expr`, `val [a, b] = expr`, and `[a, b] = expr`.
-  These are not general match statements. They are extraction-oriented and use
-  the positional/sequence deconstruction subset with nested captures, discards,
-  typed designations, explicit value comparisons where supported, and recursive
-  positional/sequence composition.
+  `val (a, b) = expr`, `(a, b) = expr`, `val [a, b] = expr`, `[a, b] = expr`,
+  `val ["x": value] = expr`, and `["x": value] = expr`. These are not general
+  match statements. They are extraction-oriented and use the
+  positional/sequence/dictionary deconstruction subset with nested captures,
+  discards, typed designations, explicit value comparisons where supported, and
+  recursive composition.
 
 Patterns can be used in `match` expressions or statements, or as conditions with
 `is` patterns:
@@ -2282,6 +2284,10 @@ match obj {
 
 if obj is Foo foo {
     // foo is assigned, and not null
+}
+
+if lookup is ["a": val first, "b": 2] {
+    // first is assigned only when both keys exist and "b" maps to 2
 }
 ```
 
@@ -2335,6 +2341,42 @@ if val (2, > 0.5) point = input {
 The leading `let` / `val` / `var` is required. A bare `if Pattern = expr` form is
 not recognized. When a whole-pattern designation omits its own binding keyword,
 it inherits the outer `let` / `val` / `var` binding mode.
+
+### Dictionary patterns and deconstruction
+
+Dictionary patterns use bracket syntax with keyed entries:
+
+```raven
+if lookup is ["a": val first, "b": 2] {
+    WriteLine(first)
+}
+```
+
+Each dictionary-pattern entry evaluates its key expression and then matches the
+corresponding value against the nested pattern. A dictionary pattern succeeds
+only when:
+
+* the scrutinee is dictionary-compatible,
+* every requested key exists, and
+* every nested value pattern succeeds.
+
+Dictionary compatibility is defined in terms of the dictionary surfaces Raven
+binds directly today: `IDictionary<TKey, TValue>`,
+`IReadOnlyDictionary<TKey, TValue>`, and types that implement one of those
+interfaces. Key expressions are converted to `TKey`; nested patterns are bound
+against `TValue`.
+
+Dictionary deconstruction uses the same keyed syntax in declaration or
+assignment position:
+
+```raven
+val values: IReadOnlyDictionary<string, int> = ["a": 2, "b": 3]
+val ["a": first, "b": second] = values
+```
+
+This is extraction-oriented rather than boolean. After validating that the
+source is dictionary-compatible, each entry reads the requested key and assigns
+the resulting value through the nested designation/pattern.
 
 Only `match` participates in exhaustiveness checking.
 
@@ -2697,13 +2739,13 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   An element may optionally include a name before the colon (`name: pattern`) to
   bind the element value while still applying a nested pattern.
 
-#### Collection patterns
+#### Sequence patterns
 
-* `[pattern1, pattern2, …]` — **collection pattern**. Matches when the scrutinee
+* `[pattern1, pattern2, …]` — **sequence pattern**. Matches when the scrutinee
   is a sequence-deconstructable, indexable collection and each sequence element
   pattern matches the corresponding element or segment.
 
-  * Collection patterns are supported for arrays (`T[]`), `string`, and indexable
+  * Sequence patterns are supported for arrays (`T[]`), `string`, and indexable
     collection types (`Count` + integer indexer, for example `IList<T>` /
     `IReadOnlyList<T>`).
   * The same bracketed shape is also used for collection deconstruction
@@ -2723,15 +2765,15 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     binding. At most one open rest segment is permitted.
   * Fixed-size segments may appear multiple times because their widths are fully
     determined by the syntax.
-  * In freestanding and inline collection
+  * In freestanding and inline sequence
     patterns, captures must use `val`/`var`/`let`; bare identifiers are treated
     as value patterns against existing values. Type-constrained captures may be
     written as `val x: T` or `T x`. The same rule applies inside segment forms,
     for example `..2 val start` and `...val rest`. Bare `...` and bare `..N`
     are the non-capturing exceptions.
-  * If a collection pattern contains no open rest segment, the input length must
+  * If a sequence pattern contains no open rest segment, the input length must
     match the total fixed width exactly.
-  * If a collection pattern contains an open rest segment, the input length must
+  * If a sequence pattern contains an open rest segment, the input length must
     be at least the total fixed width of the non-rest elements.
   * For arrays and indexable collections, single-element captures bind the element
     type and segment captures bind an array slice.
@@ -4031,7 +4073,7 @@ val [first, ...] = values
 val [first, ..2 middle, last] = "rune"
 ```
 
-In inline/freestanding collection patterns, spell captures explicitly:
+In inline/freestanding sequence patterns, spell captures explicitly:
 `..2 val name` or `...val rest`. In deconstruction assignments/declarations,
 bare `..2 name` and `...rest` remain valid as binding targets. Bare
 `..N` and bare `...` may be used in either form to ignore

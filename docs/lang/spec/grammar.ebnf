@@ -397,7 +397,8 @@ PrimaryPattern           ::= ParenthesizedPattern
                            | VariablePattern
                            | DeclarationPattern
                            | PositionalPattern
-                           | CollectionPattern
+                           | SequencePattern
+                           | DictionaryPattern
                            | DiscardPattern
                            | MemberPattern
                            | NominalDeconstructionPattern
@@ -429,13 +430,18 @@ DeclarationPattern       ::= Type [VariableDesignation] ;
 PositionalPattern        ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' [PatternWholeDesignation] ;
 PatternElement           ::= [PositionalPatternElementDesignation] Pattern ;
 
-CollectionPattern        ::= '[' SequencePatternElementList? ']' [PatternWholeDesignation] ;
+SequencePattern          ::= '[' SequencePatternElementList? ']' [PatternWholeDesignation] ;
 SequencePatternElementList
                          ::= SequencePatternElement {',' SequencePatternElement} ;
 SequencePatternElement   ::= [SequencePatternPrefix] Pattern
                           | '...' ;
 SequencePatternPrefix    ::= '..' [IntegerLiteral]
                            | '...' ;
+
+DictionaryPattern        ::= '[' DictionaryPatternEntryList? ']' [PatternWholeDesignation] ;
+DictionaryPatternEntryList
+                         ::= DictionaryPatternEntry {',' DictionaryPatternEntry} ;
+DictionaryPatternEntry   ::= Expression ':' Pattern ;
 
 (* Positional element designations introduce a new binding for the element.
    To avoid ambiguity with value/constant patterns, the binding keyword is required.
@@ -444,7 +450,7 @@ PositionalPatternElementDesignation
                          ::= BindingKeyword Identifier ':' ;
 
 (* Binder note: at most one open-ended rest segment (`.. pattern`, `... pattern`,
-   or bare `...`) is permitted in a collection pattern. Fixed-length array
+   or bare `...`) is permitted in a sequence pattern. Fixed-length array
    captures may arise from these segments, while fixed-size segments use
    `..N pattern` and may appear multiple times. *)
 
@@ -526,7 +532,7 @@ LambdaParameterClause    ::= '(' LambdaParameterList? ')' | Parameter ;
 LambdaParameterList      ::= LambdaParameter {',' LambdaParameter} ;
 LambdaParameter          ::= Parameter
                            | PositionalPattern
-                           | CollectionPattern ;
+                           | SequencePattern ;
 
 CastExpression           ::= '(' Type ')' UnaryExpression ;
 

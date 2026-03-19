@@ -82,6 +82,9 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.OpenBracketToken))
         {
+            if (IsDictionaryPatternStart())
+                return ParseDictionaryPattern();
+
             return ParseSequencePattern();
         }
 
@@ -332,6 +335,102 @@ internal class PatternSyntaxParser : SyntaxParser
         var designation = ParseOptionalTrailingDesignation();
 
         return PositionalPattern(openParenToken, List(elementList.ToArray()), closeParenToken, designation);
+    }
+
+    private bool IsDictionaryPatternStart()
+    {
+        if (!PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+            return false;
+
+        var parenDepth = 0;
+        var bracketDepth = 0;
+        var braceDepth = 0;
+
+        for (var offset = 1; ; offset++)
+        {
+            var token = PeekToken(offset);
+
+            switch (token.Kind)
+            {
+                case SyntaxKind.EndOfFileToken:
+                    return false;
+
+                case SyntaxKind.OpenParenToken:
+                    parenDepth++;
+                    break;
+
+                case SyntaxKind.CloseParenToken:
+                    if (parenDepth > 0)
+                        parenDepth--;
+                    break;
+
+                case SyntaxKind.OpenBracketToken:
+                    bracketDepth++;
+                    break;
+
+                case SyntaxKind.CloseBracketToken:
+                    if (bracketDepth == 0 && parenDepth == 0 && braceDepth == 0)
+                        return false;
+
+                    if (bracketDepth > 0)
+                        bracketDepth--;
+                    break;
+
+                case SyntaxKind.OpenBraceToken:
+                    braceDepth++;
+                    break;
+
+                case SyntaxKind.CloseBraceToken:
+                    if (braceDepth > 0)
+                        braceDepth--;
+                    break;
+
+                case SyntaxKind.ColonToken:
+                    if (parenDepth == 0 && bracketDepth == 0 && braceDepth == 0)
+                        return true;
+                    break;
+
+                case SyntaxKind.CommaToken:
+                    if (parenDepth == 0 && bracketDepth == 0 && braceDepth == 0)
+                        return false;
+                    break;
+            }
+        }
+    }
+
+    private DictionaryPatternSyntax ParseDictionaryPattern()
+    {
+        var openBracketToken = ReadToken();
+
+        var elementList = new List<GreenNode>();
+
+        if (!PeekToken().IsKind(SyntaxKind.CloseBracketToken))
+        {
+            elementList.Add(ParseDictionaryPatternEntry());
+
+            while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+            {
+                elementList.Add(commaToken);
+
+                if (PeekToken().IsKind(SyntaxKind.CloseBracketToken))
+                    break;
+
+                elementList.Add(ParseDictionaryPatternEntry());
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        var designation = ParseOptionalTrailingDesignation();
+
+        return DictionaryPattern(openBracketToken, List(elementList.ToArray()), closeBracketToken, designation);
+    }
+
+    private DictionaryPatternEntrySyntax ParseDictionaryPatternEntry()
+    {
+        var key = new ExpressionSyntaxParser(this).ParseExpression();
+        ConsumeTokenOrMissing(SyntaxKind.ColonToken, out var colonToken);
+        var pattern = ParseDeconstructionElementPattern();
+        return DictionaryPatternEntry(key, colonToken, pattern);
     }
 
     private SequencePatternSyntax ParseSequencePattern()
@@ -865,6 +964,7 @@ internal class PatternSyntaxParser : SyntaxParser
         return token.Kind is
             SyntaxKind.CommaToken or
             SyntaxKind.CloseParenToken or
+            SyntaxKind.CloseBracketToken or
             SyntaxKind.OpenBraceToken or
             SyntaxKind.CloseBraceToken or
             SyntaxKind.FatArrowToken or

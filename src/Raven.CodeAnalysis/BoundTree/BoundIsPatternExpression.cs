@@ -505,6 +505,7 @@ internal partial class BlockBinder
             DeclarationPatternSyntax d => BindDeclarationPattern(d, inputType),
             PositionalPatternSyntax t => BindPositionalPattern(t, inputType),
             SequencePatternSyntax s => BindSequencePattern(s, inputType),
+            DictionaryPatternSyntax d => BindDictionaryPattern(d, inputType),
             UnaryPatternSyntax u => BindUnaryPattern(u, inputType),
             BinaryPatternSyntax b => BindBinaryPattern(b, inputType),
             MemberPatternSyntax c => BindCasePattern(c, inputType),
@@ -933,7 +934,7 @@ internal partial class BlockBinder
             if (inputType.TypeKind != TypeKind.Error)
             {
                 _diagnostics.ReportMatchExpressionArmPatternInvalid(
-                    "for a collection pattern",
+                    "for a sequence pattern",
                     inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     syntax.GetLocation());
             }
@@ -966,6 +967,74 @@ internal partial class BlockBinder
             restIndex,
             elementWidths,
             elementKinds);
+    }
+
+    private BoundPattern BindDictionaryPattern(DictionaryPatternSyntax syntax, ITypeSymbol? inputType)
+    {
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var reason = BoundExpressionReason.None;
+        var receiverType = Compilation.ErrorTypeSymbol;
+        var keyType = Compilation.ErrorTypeSymbol;
+        var valueType = Compilation.ErrorTypeSymbol;
+
+        if (inputType is INamedTypeSymbol namedInput &&
+            TryGetDictionaryInterfaceInfo(namedInput, out var dictionaryReceiverType, out var dictionaryKeyType, out var dictionaryValueType))
+        {
+            receiverType = dictionaryReceiverType;
+            keyType = dictionaryKeyType;
+            valueType = dictionaryValueType;
+        }
+        else
+        {
+            if (inputType.TypeKind != TypeKind.Error)
+            {
+                _diagnostics.Report(Diagnostic.Create(
+                    CompilerDiagnostics.DictionaryPatternRequiresDictionaryType,
+                    syntax.GetLocation(),
+                    inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+            }
+
+            reason = BoundExpressionReason.TypeMismatch;
+        }
+
+        var entries = ImmutableArray.CreateBuilder<BoundDictionarySubpattern>(syntax.Entries.Count);
+
+        foreach (var entrySyntax in syntax.Entries)
+        {
+            var key = keyType.TypeKind == TypeKind.Error
+                ? BindExpression(entrySyntax.Key)
+                : BindExpressionWithTargetType(entrySyntax.Key, keyType);
+
+            if (keyType.TypeKind != TypeKind.Error &&
+                key.Type?.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(key))
+            {
+                if (IsAssignable(keyType, key.Type!, out var keyConversion))
+                    key = ApplyConversion(key, keyType, keyConversion, entrySyntax.Key);
+                else
+                    ReportCannotConvertFromTypeToType(
+                        key.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        keyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        entrySyntax.Key.GetLocation());
+            }
+
+            var boundPattern = BindPattern(entrySyntax.Pattern, valueType);
+            entries.Add(new BoundDictionarySubpattern(key, boundPattern));
+        }
+
+        ReportDuplicateDictionaryKeys(
+            entries.Select((entry, index) => (entry.Key, (SyntaxNode)syntax.Entries[index].Key)));
+
+        var designator = BindWholePatternDesignation(syntax.Designation, inputType);
+        return new BoundDictionaryPattern(
+            inputType,
+            receiverType,
+            keyType,
+            valueType,
+            designator,
+            entries.ToImmutable(),
+            reason);
     }
 
     private bool TryGetSequencePatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)
@@ -2336,6 +2405,53 @@ internal sealed class BoundPropertyPattern : BoundPattern
     public override void Accept(BoundTreeVisitor visitor) => visitor.DefaultVisit(this);
     public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor) => visitor.DefaultVisit(this);
 }
+
+internal sealed class BoundDictionaryPattern : BoundPattern
+{
+    public BoundDictionaryPattern(
+        ITypeSymbol inputType,
+        ITypeSymbol receiverType,
+        ITypeSymbol keyType,
+        ITypeSymbol valueType,
+        BoundDesignator? designator,
+        ImmutableArray<BoundDictionarySubpattern> entries,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(inputType, reason)
+    {
+        InputType = inputType;
+        ReceiverType = receiverType;
+        KeyType = keyType;
+        ValueType = valueType;
+        Designator = designator;
+        Entries = entries;
+    }
+
+    public ITypeSymbol InputType { get; }
+    public ITypeSymbol ReceiverType { get; }
+    public ITypeSymbol KeyType { get; }
+    public ITypeSymbol ValueType { get; }
+    public BoundDesignator? Designator { get; }
+    public ImmutableArray<BoundDictionarySubpattern> Entries { get; }
+
+    public override IEnumerable<BoundDesignator> GetDesignators()
+    {
+        if (Designator is not null && Designator is not BoundDiscardDesignator)
+            yield return Designator;
+
+        foreach (var entry in Entries)
+        {
+            foreach (var designator in entry.Pattern.GetDesignators())
+                yield return designator;
+        }
+    }
+
+    public override void Accept(BoundTreeVisitor visitor) => visitor.DefaultVisit(this);
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+}
+
+internal readonly record struct BoundDictionarySubpattern(
+    BoundExpression Key,
+    BoundPattern Pattern);
 
 internal readonly record struct BoundPropertySubpattern(
     ISymbol Member,

@@ -74,6 +74,7 @@ internal partial class ExpressionGenerator
             // These need object semantics in your implementation (isinst, ITuple, member lookup pipeline, etc.)
             case BoundDeclarationPattern:
             case BoundPositionalPattern:
+            case BoundDictionaryPattern:
             case BoundDeconstructPattern:
             case BoundPropertyPattern:
             case BoundCasePattern:
@@ -531,6 +532,12 @@ internal partial class ExpressionGenerator
         if (pattern is BoundPropertyPattern propertyPattern)
         {
             EmitPropertyPattern(propertyPattern, inputType, scope, scrutineeLocal2);
+            return;
+        }
+
+        if (pattern is BoundDictionaryPattern dictionaryPattern)
+        {
+            EmitDictionaryPattern(dictionaryPattern, inputType, scope, scrutineeLocal2);
             return;
         }
 
@@ -1525,6 +1532,92 @@ internal partial class ExpressionGenerator
         ILGenerator.MarkLabel(labelDone);
     }
 
+    private void EmitDictionaryPattern(BoundDictionaryPattern dictionaryPattern, ITypeSymbol inputType, Generator scope, IILocal? local)
+    {
+        var labelFail = ILGenerator.DefineLabel();
+        var labelDone = ILGenerator.DefineLabel();
+
+        var requiresBoxing = RequiresValueTypeHandling(inputType) && inputType.TypeKind != TypeKind.Error;
+        IILocal inputLocal;
+        IILocal? objectLocal = null;
+
+        if (requiresBoxing)
+        {
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(inputType));
+            objectLocal = local ?? ILGenerator.DeclareLocal(typeof(object));
+            ILGenerator.Emit(OpCodes.Stloc, objectLocal);
+            inputLocal = objectLocal;
+        }
+        else
+        {
+            var inputClr = ResolveClrType(inputType);
+            inputLocal = local ?? ILGenerator.DeclareLocal(inputClr);
+            ILGenerator.Emit(OpCodes.Stloc, inputLocal);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+        var receiverClrType = ResolveClrType(dictionaryPattern.ReceiverType);
+        IILocal receiverLocal;
+
+        if (!requiresBoxing && ClrTypesMatch(ResolveClrType(inputType), receiverClrType))
+        {
+            receiverLocal = inputLocal;
+        }
+        else
+        {
+            receiverLocal = ILGenerator.DeclareLocal(receiverClrType);
+
+            if (requiresBoxing)
+                ILGenerator.Emit(OpCodes.Ldloc, objectLocal!);
+            else
+                ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
+
+            ILGenerator.Emit(OpCodes.Castclass, receiverClrType);
+            ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+        }
+
+        var tryGetValueMethod = dictionaryPattern.ReceiverType
+            .GetMembers("TryGetValue")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method =>
+                !method.IsStatic &&
+                method.Parameters.Length == 2 &&
+                method.Parameters[1].RefKind == RefKind.Out);
+
+        if (tryGetValueMethod is null)
+            throw new InvalidOperationException($"Missing TryGetValue on '{dictionaryPattern.ReceiverType}'.");
+
+        var tryGetValueMethodInfo = GetMethodInfo(tryGetValueMethod);
+        var valueClrType = ResolveClrType(dictionaryPattern.ValueType);
+
+        foreach (var entry in dictionaryPattern.Entries)
+        {
+            var valueLocal = ILGenerator.DeclareLocal(valueClrType);
+            ILGenerator.Emit(OpCodes.Ldloc, receiverLocal);
+            EmitExpression(entry.Key, EmitContext.Value);
+            ILGenerator.Emit(OpCodes.Ldloca, valueLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, tryGetValueMethodInfo);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+            ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+            EmitPattern(entry.Pattern, dictionaryPattern.ValueType, scope);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+        }
+
+        if (dictionaryPattern.Designator is not null)
+            EmitPatternDesignator(dictionaryPattern.Designator, inputLocal, scope);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Br, labelDone);
+
+        ILGenerator.MarkLabel(labelFail);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+        ILGenerator.MarkLabel(labelDone);
+    }
+
     // ============================================
     // Constant patterns (typed, avoid boxing)
     // ============================================
@@ -2056,7 +2149,9 @@ internal partial class ExpressionGenerator
             if (!left.IsGenericType || !right.IsGenericType)
                 return false;
 
-            if (!ClrTypesMatch(left.GetGenericTypeDefinition(), right.GetGenericTypeDefinition()))
+            var leftDefinition = left.GetGenericTypeDefinition();
+            var rightDefinition = right.GetGenericTypeDefinition();
+            if (!ReferenceEquals(leftDefinition, rightDefinition) && leftDefinition != rightDefinition)
                 return false;
 
             var leftArgs = left.GetGenericArguments();
@@ -2451,6 +2546,13 @@ internal partial class ExpressionGenerator
         if (pattern is BoundRangePattern rpRange)
         {
             EmitRangePattern(rpRange, inputType, scope, scrutineeLocal2);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+            return;
+        }
+
+        if (pattern is BoundDictionaryPattern dictionaryPattern)
+        {
+            EmitDictionaryPattern(dictionaryPattern, inputType, scope, scrutineeLocal2);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
             return;
         }

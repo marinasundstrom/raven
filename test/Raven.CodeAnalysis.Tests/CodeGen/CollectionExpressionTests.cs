@@ -774,6 +774,86 @@ class Foo {
     }
 
     [Fact]
+    public void DictionaryDeconstruction_AssignsValuesByKey()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+class Foo {
+    static func GetPairSum() -> int {
+        val values: IReadOnlyDictionary<string, int> = ["a": 2, "b": 3]
+        val ["a": first, "b": second] = values
+        return first + second
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetPairSum");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Contains(
+            calledMembers,
+            static member =>
+                member.Contains("IReadOnlyDictionary", StringComparison.Ordinal) &&
+                member.Contains("::get_Item", StringComparison.Ordinal));
+        Assert.Equal(5, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void DictionaryPattern_MatchExpression_UsesTryGetValue()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+class Foo {
+    static func GetValue() -> int {
+        val values: Dictionary<string, int> = !["a": 5, "b": 2]
+        return values match {
+            ["a": val first, "b": 2] => first
+            _ => 0
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetValue");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Contains(
+            calledMembers,
+            static member => member.Contains("TryGetValue", StringComparison.Ordinal));
+        Assert.Equal(5, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
     public void SpreadInference_PreservesImmutableCollectionBuilderType()
     {
         var code = """

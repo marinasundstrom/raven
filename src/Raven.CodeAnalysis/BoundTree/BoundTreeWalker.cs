@@ -511,6 +511,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundPositionalPattern positionalPattern:
                 VisitPositionalPattern(positionalPattern);
                 break;
+            case BoundDictionaryPattern dictionaryPattern:
+                VisitDictionaryPattern(dictionaryPattern);
+                break;
             case BoundPropertyPattern propertyPattern:
                 VisitPropertyPattern(propertyPattern);
                 break;
@@ -579,6 +582,18 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         foreach (var element in node.Elements)
             VisitPattern(element);
+    }
+
+    public virtual void VisitDictionaryPattern(BoundDictionaryPattern node)
+    {
+        if (node.Designator is not null)
+            VisitDesignator(node.Designator);
+
+        foreach (var entry in node.Entries)
+        {
+            VisitExpression(entry.Key);
+            VisitPattern(entry.Pattern);
+        }
     }
 
     public override void VisitPropertyPattern(BoundPropertyPattern node)
