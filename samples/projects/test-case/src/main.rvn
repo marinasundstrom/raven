@@ -1,11 +1,19 @@
 import System.*
 import System.Console.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
 
 func Main() {
+    RunExistingPatternExamples()
+    RunCollectionPatternExamples()
+}
+
+func RunExistingPatternExamples() {
     var a = 1, b = 2
     PrintSection("Swap assignment")
     WriteLine("Before swap: a = $a, b = $b")
-    
+
     (b, a) = (a, b)
     WriteLine("After swap:  a = $a, b = $b")
 
@@ -69,6 +77,35 @@ func Main() {
     }
 }
 
+func RunCollectionPatternExamples() {
+    PrintSection("Collection literals and patterns")
+
+    val spreadSource = [|1, 2, 3|]
+    val spreadArray = [|1, ...spreadSource, 3|]
+
+    val [a, b, ...] = spreadArray
+    WriteLine("Sequence bind -> a = $a, b = $b")
+
+    for x in [2, 1..2] {
+        WriteLine(x)
+    }
+
+    for val [..2, ..2 x, ...] in [[|2, 1..4|]] {
+        WriteLine(x)
+    }
+
+    val dict = ["a": 1, "b": 2, "c": 3]
+    val dict2 = ["e": 5, ...dict]
+
+    for keyValue in dict2 {
+        WriteLine(keyValue)
+    }
+
+    for val (key, value) in dict2 {
+        WriteLine("$key: $value")
+    }
+}
+
 func Tuple() {
     val person = (no: 1, name: "John Doe")
     val (id, name) = person
@@ -88,15 +125,17 @@ func PrintSection(title: string) {
     WriteLine("== $title ==")
 }
 
-func DescribeInts(values: int[]) -> string {
+func DescribeInts(values: IEnumerable<int>) -> string {
     var text = "["
+    var isFirst = true
 
-    for i in 0..<values.Length {
-        if i > 0 {
+    for value in values {
+        if !isFirst {
             text = text + ", "
         }
 
-        text = text + values[i].ToString()
+        text = text + value.ToString()
+        isFirst = false
     }
 
     return text + "]"
@@ -111,7 +150,7 @@ func DescribePerson(person: Person) -> string {
 }
 
 record Person(
-    val Id: int, 
-    val Name: string, 
+    val Id: int,
+    val Name: string,
     val Age: int
 )

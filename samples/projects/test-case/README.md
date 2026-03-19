@@ -1,6 +1,9 @@
-# Hello World (.rvnproj)
+# Pattern Showcase (.rvnproj)
 
-This sample is a simple Hello World program.
+This sample collects Raven pattern features in one project. It keeps the
+existing tuple, nominal, `if`, and `for` pattern examples, and adds
+collection-oriented cases such as spread elements, sequence patterns, and
+dictionary iteration/deconstruction.
 
 Project file:
 
@@ -21,5 +24,5 @@ dotnet run -f net10.0 --project ../../../src/Raven.Compiler --property WarningLe
 ## Run
 
 ```bash
-dotnet bin/HelloWorld.dll
+dotnet bin/PatternShowcase.dll
 ```
