@@ -45,7 +45,7 @@ public class ArrayTypeSemanticTests : CompilationTestBase
     {
         const string source = """
 val values: int[2] = [1, 2]
-val result: int[3] = [..values, 3]
+val result: int[3] = [...values, 3]
 """;
 
         var (compilation, tree) = CreateCompilation(source);

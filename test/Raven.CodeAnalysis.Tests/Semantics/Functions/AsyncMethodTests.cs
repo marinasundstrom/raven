@@ -182,9 +182,9 @@ await Task.CompletedTask
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
 
-        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
-        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
-        var asyncMain = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("MainAsync").Single());
+        var program = GetSynthesizedProgram(compilation);
+        var main = GetSynthesizedProgramMethod(program, "Main");
+        var asyncMain = GetSynthesizedProgramMethod(program, "MainAsync");
 
         Assert.False(main.IsAsync);
         Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
@@ -207,9 +207,9 @@ val value = await Task.FromResult(1)
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
 
-        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
-        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
-        var asyncMain = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("MainAsync").Single());
+        var program = GetSynthesizedProgram(compilation);
+        var main = GetSynthesizedProgramMethod(program, "Main");
+        var asyncMain = GetSynthesizedProgramMethod(program, "MainAsync");
 
         Assert.False(main.IsAsync);
         Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
@@ -237,9 +237,9 @@ val result = Use(await Task.FromResult(1))
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
 
-        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
-        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
-        var asyncMain = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("MainAsync").Single());
+        var program = GetSynthesizedProgram(compilation);
+        var main = GetSynthesizedProgramMethod(program, "Main");
+        var asyncMain = GetSynthesizedProgramMethod(program, "MainAsync");
 
         Assert.False(main.IsAsync);
         Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
@@ -258,8 +258,8 @@ val result = Use(await Task.FromResult(1))
         var (compilation, _) = CreateCompilation(source);
         compilation.EnsureSetup();
 
-        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
-        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
+        var program = GetSynthesizedProgram(compilation);
+        var main = GetSynthesizedProgramMethod(program, "Main");
 
         Assert.False(main.IsAsync);
         Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
@@ -278,9 +278,9 @@ return await Task.FromResult(1)
         var (compilation, _) = CreateCompilation(source);
         compilation.EnsureSetup();
 
-        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
-        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
-        var asyncMain = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("MainAsync").Single());
+        var program = GetSynthesizedProgram(compilation);
+        var main = GetSynthesizedProgramMethod(program, "Main");
+        var asyncMain = GetSynthesizedProgramMethod(program, "MainAsync");
 
         Assert.Equal(SpecialType.System_Int32, main.ReturnType.SpecialType);
         var asyncReturn = Assert.IsAssignableFrom<INamedTypeSymbol>(asyncMain.ReturnType);
@@ -299,8 +299,8 @@ return await Task.FromResult(1)
         var (compilation, _) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
         compilation.EnsureSetup();
 
-        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
-        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
+        var program = GetSynthesizedProgram(compilation);
+        var main = GetSynthesizedProgramMethod(program, "Main");
 
         Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
         Assert.Empty(program.GetMembers("MainAsync"));
@@ -319,9 +319,9 @@ return ()
         var (compilation, _) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
         compilation.EnsureSetup();
 
-        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
-        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
-        var asyncMain = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("MainAsync").Single());
+        var program = GetSynthesizedProgram(compilation);
+        var main = GetSynthesizedProgramMethod(program, "Main");
+        var asyncMain = GetSynthesizedProgramMethod(program, "MainAsync");
 
         Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task, asyncMain.ReturnType.SpecialType);
@@ -471,5 +471,20 @@ class C {
         var accessorSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(accessorSyntax));
         Assert.True(accessorSymbol.IsAsync);
         Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    private static INamedTypeSymbol GetSynthesizedProgram(Compilation compilation)
+    {
+        return Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SourceGlobalNamespace
+                .GetMembers("Program")
+                .First(symbol => symbol.Locations.Any(static location => location.IsInSource)));
+    }
+
+    private static IMethodSymbol GetSynthesizedProgramMethod(INamedTypeSymbol program, string methodName)
+    {
+        return Assert.IsAssignableFrom<IMethodSymbol>(
+            program.GetMembers(methodName)
+                .First(symbol => symbol.Locations.Any(static location => location.IsInSource)));
     }
 }

@@ -124,7 +124,7 @@ class Container {
         var constructedDelegate = delegateSymbol.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
 
         Assert.Equal(
-            "delegate Formatter<int>(value: int, out result: string) -> bool",
+            "delegate Formatter<int>(ref value: int, out result: string) -> bool",
             constructedDelegate.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 

@@ -232,10 +232,10 @@ class CounterViewModel {
 }
 
 class Harness {
-    static func WriteLine(value: int) -> unit { }
+    func WriteLine(value: int) -> unit { }
 
     func Run(viewModel: CounterViewModel) -> unit {
-        use subscription = #subscribe(viewModel.Count, (value) => {
+        val subscription = #subscribe(viewModel.Count, (value) => {
             WriteLine(value)
         })
     }
@@ -245,9 +245,11 @@ class Harness {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ArgumentAwareFreestandingMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(ArgumentAwareFreestandingMacroPlugin)))
+            .AddReferences(LanguageServerTestReferences.Default);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        compilation.GetDiagnostics().Where(d => d.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error).ShouldBeEmpty();
         var root = syntaxTree.GetRoot();
         var valueReference = root.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
@@ -259,7 +261,7 @@ class Harness {
         resolution.ShouldNotBeNull();
         var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
         parameterSymbol.Name.ShouldBe("value");
-        parameterSymbol.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        parameterSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("int");
     }
 
     [Fact]
@@ -473,10 +475,31 @@ class Program {
         public bool AcceptsArguments => true;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
-            => new()
+        {
+            var propertyAccess = (MemberAccessExpressionSyntax)context.Arguments[0].Expression;
+            var callback = context.Arguments[1].Expression;
+            var propertyIdentifier = (IdentifierNameSyntax)propertyAccess.Name;
+            var signalName = propertyIdentifier.Identifier.ValueText + "Changed";
+
+            return new FreestandingMacroExpansionResult
             {
-                Expression = SyntaxFactory.IdentifierName("subscription")
+                Expression = SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            propertyAccess.Expression,
+                            SyntaxFactory.Token(SyntaxKind.DotToken),
+                            SyntaxFactory.IdentifierName(signalName)),
+                        SyntaxFactory.Token(SyntaxKind.DotToken),
+                        SyntaxFactory.IdentifierName("Subscribe")),
+                    SyntaxFactory.ArgumentList(
+                        SyntaxFactory.SeparatedList<ArgumentSyntax>(
+                        [
+                            new SyntaxNodeOrToken(SyntaxFactory.Argument(callback))
+                        ])))
             };
+        }
     }
 
     public sealed class ReactiveSubscribeMacroPlugin : IRavenMacroPlugin

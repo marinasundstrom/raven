@@ -1081,7 +1081,7 @@ val [first, second] = values
     {
         const string source = """
 val values: int[2] = [1, 2]
-val result: int[4] = [..values, 3]
+val result: int[4] = [...values, 3]
 """;
 
         var verifier = CreateVerifier(
@@ -1089,13 +1089,7 @@ val result: int[4] = [..values, 3]
             [
                 new DiagnosticResult(CompilerDiagnostics.PositionalDeconstructionElementCountMismatch.Id)
                     .WithAnySpan()
-                    .WithArguments(2, 4),
-                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
-                    .WithAnySpan()
-                    .WithArguments("int[2]", "int"),
-                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
-                    .WithAnySpan()
-                    .WithArguments("int[2]", "int")
+                    .WithArguments(3, 4)
             ]);
 
         verifier.Verify();

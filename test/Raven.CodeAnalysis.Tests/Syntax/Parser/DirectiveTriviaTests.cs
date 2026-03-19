@@ -1,5 +1,6 @@
 using System.Linq;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -45,7 +46,7 @@ func Main() {}
     }
 
     [Fact]
-    public void HashLine_WithArbitraryText_DoesNotProduceSyntaxDiagnostics()
+    public void HashLine_WithArbitraryText_IsNotTreatedAsDirectiveTrivia()
     {
         var tree = SyntaxTree.ParseText(
             """
@@ -53,6 +54,10 @@ func Main() {}
 func Main() {}
 """);
 
-        Assert.Empty(tree.GetDiagnostics());
+        var diagnostics = tree.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon);
+        Assert.DoesNotContain(
+            tree.GetRoot().DescendantTrivia(),
+            trivia => trivia.Kind == SyntaxKind.DirectiveTrivia);
     }
 }

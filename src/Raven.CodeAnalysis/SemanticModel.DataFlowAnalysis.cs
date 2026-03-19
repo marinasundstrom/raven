@@ -105,10 +105,14 @@ internal sealed class AssignmentCollector : SyntaxWalker
     public override void VisitAssignmentStatement(AssignmentStatementSyntax node)
     {
         if (_semanticModel.GetBoundNode(node) is BoundAssignmentStatement bound)
+        {
             CollectAssignedLocals(bound.Expression);
-
-        foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
-            Written.Add(local);
+        }
+        else
+        {
+            foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
+                Written.Add(local);
+        }
 
         base.VisitAssignmentStatement(node);
     }
@@ -116,10 +120,14 @@ internal sealed class AssignmentCollector : SyntaxWalker
     public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
         if (_semanticModel.GetBoundNode(node) is BoundAssignmentExpression bound)
+        {
             CollectAssignedLocals(bound);
-
-        foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
-            Written.Add(local);
+        }
+        else
+        {
+            foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
+                Written.Add(local);
+        }
 
         base.VisitAssignmentExpression(node);
     }
@@ -314,12 +322,16 @@ internal sealed class DataFlowWalker : SyntaxWalker
     public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
         if (_semanticModel.GetBoundNode(node) is BoundAssignmentExpression bound)
-            MarkAssigned(bound);
-
-        foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
         {
-            _writtenInside.Add(local);
-            _dataFlowsOut.Add(local);
+            MarkAssigned(bound);
+        }
+        else
+        {
+            foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
+            {
+                _writtenInside.Add(local);
+                _dataFlowsOut.Add(local);
+            }
         }
 
         Visit(node.Right);
@@ -328,12 +340,16 @@ internal sealed class DataFlowWalker : SyntaxWalker
     public override void VisitAssignmentStatement(AssignmentStatementSyntax node)
     {
         if (_semanticModel.GetBoundNode(node) is BoundAssignmentStatement bound)
-            MarkAssigned(bound.Expression);
-
-        foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
         {
-            _writtenInside.Add(local);
-            _dataFlowsOut.Add(local);
+            MarkAssigned(bound.Expression);
+        }
+        else
+        {
+            foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
+            {
+                _writtenInside.Add(local);
+                _dataFlowsOut.Add(local);
+            }
         }
 
         Visit(node.Right);

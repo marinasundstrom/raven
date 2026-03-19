@@ -666,7 +666,7 @@ val result = properties.Where(pi => !pi.GetMethod.IsStatic)
         var (compilation, tree) = CreateCompilation(
             source,
             options: new CompilationOptions(OutputKind.ConsoleApplication),
-            references: TestMetadataReferences.Default);
+            references: TestMetadataReferences.DefaultWithoutSystemLinqWithExtensionMethods);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();

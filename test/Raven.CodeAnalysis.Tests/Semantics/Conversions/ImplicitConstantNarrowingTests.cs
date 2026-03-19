@@ -83,7 +83,10 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: byte = 256",
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "byte")]);
+            [
+                new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "byte"),
+                new DiagnosticResult(CompilerDiagnostics.ExplicitConversionExists.Id).WithAnySpan().WithArguments("int", "byte")
+            ]);
         verifier.Verify();
     }
 
@@ -92,7 +95,10 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     {
         var verifier = CreateVerifier(
             "val x: byte = -1",
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "byte")]);
+            [
+                new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "byte"),
+                new DiagnosticResult(CompilerDiagnostics.ExplicitConversionExists.Id).WithAnySpan().WithArguments("int", "byte")
+            ]);
         verifier.Verify();
     }
 
