@@ -3628,7 +3628,7 @@ framework-provided types and faithfully propagate modifiers:
 
 ```raven
 class Accumulator {
-    static func TryAccumulate(state: &int, out doubled: &int) -> bool {
+    static func TryAccumulate(ref state: int, out doubled: int) -> bool {
         state = state + 1
         doubled = state * 2
         true
@@ -3757,7 +3757,12 @@ after the function returns.
 
 ### `ref`/`out` arguments
 
-Parameters can also be declared by reference using `&Type`. When a
+Parameters can also be declared with an explicit by-reference type using
+`&Type`. That form is valid when the type itself is intentionally part of
+the signature. Separately, `ref`, `out`, and `in` declare by-reference
+parameter passing at the call boundary and already imply aliasing, so
+their parameter types are written as plain `Type`, not `&Type`. For
+example, write `ref value: int`, not `ref value: &int`. When a
 by-reference parameter is passed **into** a function, it behaves just
 like a by-reference local: the callee receives an alias to the caller's
 storage and can both read and write through that reference. To mark a

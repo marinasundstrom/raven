@@ -637,7 +637,10 @@ reference. The callee receives an alias to the caller's storage and callers
 supply such arguments with the address-of operator `&expr`. Plain parameters are
 readonly. `ref` parameters can be read and assigned, `in` parameters are
 readonly aliases, and `out` parameters must be assigned before the method
-returns.
+returns. These modifiers already imply by-reference passing, so their declared
+types stay plain: use `ref value: int`, not `ref value: &int`. Explicit
+`&Type` parameters remain available when the by-reference type itself is the
+intended type annotation.
 
 ```raven
 func Increment(ref value: int) -> () {

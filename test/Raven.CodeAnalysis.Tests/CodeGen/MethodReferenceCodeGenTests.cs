@@ -85,7 +85,7 @@ class Counter {
     {
         const string code = """
 class Accumulator {
-    static func TryAccumulate(state: &int, out doubled: &int) -> bool {
+    static func TryAccumulate(ref state: int, out doubled: int) -> bool {
         state = 21
         doubled = 42
         true

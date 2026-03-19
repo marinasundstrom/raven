@@ -380,6 +380,10 @@
     Title="Parameter binding keyword not allowed"
     Message="Binding keyword '{bindingKeyword}' is not valid on parameter '{parameterName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0344" Identifier="ParameterModifierCannotBeCombinedWithByRefType"
+    Title="Parameter modifier cannot be combined with by-reference type"
+    Message="Parameter '{parameterName}' cannot combine '{modifier}' with an explicit by-reference type. Use '{modifier} {parameterName}: ...' instead"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0343" Identifier="ForIdentifierBindingKeywordMustBeValOrLet"
     Title="For-loop iteration variable cannot be mutable"
     Message="Iteration variable '{identifierName}' cannot be mutable in a collection `for` loop"

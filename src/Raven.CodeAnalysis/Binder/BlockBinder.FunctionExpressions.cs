@@ -180,6 +180,15 @@ partial class BlockBinder
             var refKind = RefKind.None;
             var refKindTokenKind = parameterSyntax.RefKindKeyword.Kind;
 
+            if (typeSyntax is ByRefTypeSyntax &&
+                refKindTokenKind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+            {
+                _diagnostics.ReportParameterModifierCannotBeCombinedWithByRefType(
+                    GetLambdaParameterNameForDiagnostics(parameterSyntax, index),
+                    parameterSyntax.RefKindKeyword.Text,
+                    typeSyntax.GetLocation());
+            }
+
             if (typeSyntax is ByRefTypeSyntax)
             {
                 refKind = refKindTokenKind switch

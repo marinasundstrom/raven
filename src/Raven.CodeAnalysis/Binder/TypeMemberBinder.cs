@@ -132,6 +132,20 @@ internal partial class TypeMemberBinder : Binder
         return ResolveTypeSyntaxForSignature(binder, boundTypeSyntax, RefKind.None, options);
     }
 
+    private void ReportParameterModifierByRefTypeConflictIfNeeded(ParameterSyntax parameterSyntax)
+    {
+        if (parameterSyntax.TypeAnnotation?.Type is not ByRefTypeSyntax)
+            return;
+
+        if (parameterSyntax.RefKindKeyword.Kind is not (SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword))
+            return;
+
+        _diagnostics.ReportParameterModifierCannotBeCombinedWithByRefType(
+            parameterSyntax.Identifier.ValueText,
+            parameterSyntax.RefKindKeyword.Text,
+            parameterSyntax.TypeAnnotation.Type.GetLocation());
+    }
+
     private ITypeSymbol ResolveExtensionReceiverTypeForMember(
         Binder binder,
         ImmutableArray<ITypeParameterSymbol> memberTypeParameters,
@@ -607,6 +621,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in methodDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation?.Type;
+            ReportParameterModifierByRefTypeConflictIfNeeded(p);
             var refKindTokenKind = p.RefKindKeyword.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
@@ -1150,6 +1165,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in operatorDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
+            ReportParameterModifierByRefTypeConflictIfNeeded(p);
             var refKindTokenKind = p.RefKindKeyword.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
@@ -1306,6 +1322,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in conversionDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
+            ReportParameterModifierByRefTypeConflictIfNeeded(p);
             var refKindTokenKind = p.RefKindKeyword.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
@@ -1594,6 +1611,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation?.Type;
+            ReportParameterModifierByRefTypeConflictIfNeeded(p);
             var refKindTokenKind = p.RefKindKeyword.Kind;
             var refKind = typeSyntax is ByRefTypeSyntax
                 ? refKindTokenKind switch
@@ -2843,6 +2861,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in indexerDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
+            ReportParameterModifierByRefTypeConflictIfNeeded(p);
             var refKindTokenKind = p.RefKindKeyword.Kind;
             var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
             var refKind = isByRefSyntax

@@ -255,6 +255,24 @@ class C {
         Assert.Contains(diagnostics, diagnostic => diagnostic.Id == CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id);
     }
 
+    [Theory]
+    [InlineData("ref")]
+    [InlineData("out")]
+    [InlineData("in")]
+    public void Method_ParameterModifier_CannotBeCombinedWithByRefType(string modifier)
+    {
+        var source = $$"""
+class C {
+    static func M({{modifier}} value: &int) -> unit { }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == CompilerDiagnostics.ParameterModifierCannotBeCombinedWithByRefType.Id);
+    }
+
     [Fact]
     public void Method_ValueParameter_WithVar_ReportsDiagnostic()
     {

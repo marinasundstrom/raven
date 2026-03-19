@@ -114,6 +114,15 @@ class FunctionBinder : Binder
         foreach (var p in _syntax.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation.Type;
+            if (typeSyntax is ByRefTypeSyntax &&
+                p.RefKindKeyword.Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+            {
+                _diagnostics.ReportParameterModifierCannotBeCombinedWithByRefType(
+                    p.Identifier.ValueText,
+                    p.RefKindKeyword.Text,
+                    p.TypeAnnotation.Type.GetLocation());
+            }
+
             var refKindTokenKind = p.RefKindKeyword.Kind;
             var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
 

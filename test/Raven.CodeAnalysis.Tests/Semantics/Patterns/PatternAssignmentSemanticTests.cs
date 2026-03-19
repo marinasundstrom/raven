@@ -1102,7 +1102,7 @@ val result: int[4] = [...values, 3]
 class Widget {}
 
 extension WidgetExtensions for Widget {
-    func Deconstruct(out var first: &int, out var second: &string) -> unit {
+    func Deconstruct(out var first: int, out var second: string) -> unit {
         first = 1
         second = "ok"
     }
