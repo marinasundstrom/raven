@@ -7,7 +7,7 @@ import System.Reactive.Linq.*
 func Main() {
     val viewModel = CounterViewModel()
 
-    use subscription = #subscribe(viewModel.Count, (value) => {
+    use subscription = #subscribe(viewModel.Count, func (value) => {
         WriteLine(value)
     })
 
