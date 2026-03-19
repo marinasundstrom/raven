@@ -188,6 +188,31 @@ val result = values match {
     }
 
     [Fact]
+    public void MatchExpression_WithDuplicatePropertyPatternMembers_ReportsDiagnostic()
+    {
+        const string code = """
+class Box {
+    val Value: int
+}
+
+val value = Box(Value: 1)
+
+val result = value match {
+    Box { Value: 1, Value: val other } => other
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var run = verifier.GetResult();
+        var diagnostics = run.Compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.DuplicatePropertyPatternMember);
+    }
+
+    [Fact]
     public void MatchExpression_WithBooleanLiteralArms_IsExhaustive()
     {
         const string code = """

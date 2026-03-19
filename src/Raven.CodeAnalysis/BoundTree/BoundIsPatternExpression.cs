@@ -2044,10 +2044,19 @@ internal partial class BlockBinder
         // 3) Bind subpatterns using receiverType for member lookup
         var boundProps = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(
             syntax.PropertyPatternClause.Properties.Count);
+        var seenPropertyNames = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var sub in syntax.PropertyPatternClause.Properties)
         {
             var name = sub.NameColon.Name.Identifier.ValueText;
+
+            if (!string.IsNullOrEmpty(name) && !seenPropertyNames.Add(name))
+            {
+                _diagnostics.Report(Diagnostic.Create(
+                    CompilerDiagnostics.DuplicatePropertyPatternMember,
+                    sub.NameColon.Name.GetLocation(),
+                    name));
+            }
 
             var member = LookupPatternMember(receiverType, name, sub.NameColon.Name.GetLocation());
 
