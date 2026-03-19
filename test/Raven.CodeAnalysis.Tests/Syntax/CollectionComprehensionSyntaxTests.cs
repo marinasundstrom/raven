@@ -43,6 +43,29 @@ public class CollectionComprehensionSyntaxTests
     }
 
     [Fact]
+    public void MutableCollectionExpression_ParsesLeadingExclamationToken()
+    {
+        var tree = SyntaxTree.ParseText("val xs = ![1; 2; 3]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.ExclamationToken, collection.ExclamationToken.Kind);
+        Assert.True(collection.IsMutableByDefault);
+        Assert.False(collection.IsImmutableByDefault);
+    }
+
+    [Fact]
+    public void ArrayExpression_ParsesPipeDelimitedLiteral()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [|1, 2, 3|]");
+        var array = tree.GetRoot().DescendantNodes().OfType<ArrayExpressionSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.OpenArrayToken, array.OpenArrayToken.Kind);
+        Assert.Equal(SyntaxKind.CloseArrayToken, array.CloseArrayToken.Kind);
+        Assert.True(array.IsArrayByDefault);
+        Assert.Equal(3, array.Elements.Count);
+    }
+
+    [Fact]
     public void CollectionExpression_RangeElement_ParsesAsRangeExpression()
     {
         var tree = SyntaxTree.ParseText("val xs = [1..10, 42]");
@@ -52,5 +75,43 @@ public class CollectionComprehensionSyntaxTests
         var range = Assert.IsType<RangeExpressionSyntax>(element.Expression);
 
         Assert.Equal(SyntaxKind.DotDotToken, range.DotDotToken.Kind);
+    }
+
+    [Fact]
+    public void CollectionExpression_CommaSeparated_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [1, 2, 3]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        Assert.Equal(3, collection.Elements.Count);
+        Assert.True(collection.IsImmutableByDefault);
+    }
+
+    [Fact]
+    public void CollectionExpression_SemicolonSeparated_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [1; 2; 3]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        Assert.Equal(3, collection.Elements.Count);
+        Assert.True(collection.IsImmutableByDefault);
+    }
+
+    [Fact]
+    public void CollectionExpression_Separatorless_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [1]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        Assert.Single(collection.Elements);
+    }
+
+    [Fact]
+    public void CollectionExpression_MixedSeparators_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [1, 2; 3]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        Assert.Equal(3, collection.Elements.Count);
     }
 }

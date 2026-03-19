@@ -170,6 +170,22 @@ public class ParserRecoveryTests
     }
 
     [Fact]
+    public void CompilationUnit_ArrayExpressionPipe_ParsesAsGlobalStatement()
+    {
+        var source = """
+            [|1, 2|] |> Where(x => x > 2)
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var global = Assert.IsType<GlobalStatementSyntax>(Assert.Single(root.Members));
+        Assert.IsType<ExpressionStatementSyntax>(global.Statement);
+        Assert.DoesNotContain(root.Members, member => member is IncompleteMemberDeclarationSyntax);
+        Assert.Empty(tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
     public void CompilationUnit_CollectionComprehensionBeforeDeclaration_RemainsGlobalStatement()
     {
         var source = """

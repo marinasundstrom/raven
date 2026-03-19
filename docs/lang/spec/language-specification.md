@@ -1147,8 +1147,9 @@ Additional encodings may be introduced by adding new suffixes.
 ### Collection expressions
 
 Collection expressions use bracket syntax `[element0, element1, ...]` (with an optional
-trailing comma) to build arrays and other collection types. Elements are evaluated
-from left to right. In addition to ordinary expressions, an element may be written as
+trailing comma) to build list-like collection types. Raven also supports an explicit
+array form `[|element0, element1, ...|]`. Elements are evaluated from left to right.
+In addition to ordinary expressions, an element may be written as
 `...expression`—called a *spread*. Spreads enumerate the runtime value and insert each
 item into the resulting collection in order. The spread source must be convertible to
 `System.Collections.IEnumerable` (including arrays and `IEnumerable<T>` implementations);
@@ -1183,31 +1184,44 @@ Collection expressions are target-typed:
   parameterless constructor and an instance `Add` method, the compiler constructs the
   target and calls `Add` for every element. The `Add` parameter determines the element
   conversions, and spread entries must supply compatible values. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3738-L3776】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1016-L1096】
-* **No target type** — Without an expected type, Raven first attempts spread-based
-  collection-type inference:
-  * If one or more spread operands have a concrete collection type (for example
-    `ImmutableList<int>`), that type is used as the collection target.
-  * If multiple spread operands imply the same concrete collection type, that type is used.
-  * If multiple spread operands imply different concrete collection types, inference fails
-    with diagnostic `RAV2027` and an explicit target type is required.
-  * If no concrete spread-based target can be inferred, Raven falls back to array inference:
-    it infers a best common element type by merging all element contributions (spreads use
-    their enumerated element type), then produces `T[N]` for collection literals with
-    a statically known element count and `T[]` otherwise. Spreading fixed-length arrays also
-    participates in that count: `[...a, 3]` infers `T[N+1]` when `a` has type `T[N]`, and
-    constant-bounds range elements such as `[1..3]` or `[3..MAX_VALUE]` likewise contribute
-    a known width when Raven can prove it. Other spreads and general comprehensions continue
-    to infer open arrays because their length is not statically known.
-  * Raven does not currently attempt more aggressive length inference even when it might be
-    theoretically possible. In particular, it does not infer a fixed size from collection
-    comprehensions, from spreads of open arrays guarded by runtime checks, or from arbitrary
-    enumerable values whose length could be derived indirectly through control-flow or
-    constant propagation. Those cases remain open arrays unless an explicit fixed-length target
-    type is provided.
-  * If no compatible common element type can be inferred without falling back to
-    `object`, `System.ValueType`, or interfaces, inference fails
-    with a type-mismatch diagnostic and an explicit target type is required.
+* **No target type** — Without an expected type, Raven infers a best common element type by
+  merging all element contributions (spreads use their enumerated element type). The resulting
+  collection kind then defaults from the literal modifiers:
+  * bare collection expressions produce `ImmutableList<T>`;
+  * `![...]` collection expressions produce `List<T>`;
+  * `[| ... |]` array expressions produce CLR arrays.
+  Spreads and range elements contribute element types only; they do not change the default
+  collection kind. If no compatible common element type can be inferred without falling back to
+  `object`, `System.ValueType`, or interfaces, inference fails with a type-mismatch diagnostic
+  and an explicit target type is required.
     【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3776-L3861】
+
+Collection expressions also carry optional literal syntax:
+
+* bare literals are immutable-by-default;
+* `![...]` requests a mutable default for targetless inference;
+* `[| ... |]` requests explicit CLR-array fallback instead of list-family fallback;
+* explicit target typing may still override mutability and collection kind.
+
+The intent of this design is to make local collection literals default toward immutable
+data-processing code. Mutable collection creation remains available, but it must be made
+intentional either through the `!` marker or through an explicit mutable target type.
+
+When no explicit target type is present, bare collection expressions fall back to
+`ImmutableList<T>`, `![...]` expressions fall back to `List<T>`, and `[| ... |]`
+expressions fall back to CLR arrays.
+If code wants another concrete collection type such as `Queue<T>` or `Stack<T>`, it must
+provide an explicit target type so Raven can bind the literal through the normal array or
+collection-builder rules. The choice of comma or semicolon separators does not affect the
+inferred collection kind.
+
+The current targetless default matrix is therefore:
+
+* `[a, b]` -> `ImmutableList<T>`
+* `[a; b]` -> `ImmutableList<T>`
+* `![a, b]` -> `List<T>`
+* `![a; b]` -> `List<T>`
+* `[|a, b|]` -> `T[N]` / `T[]`
 
 An empty collection expression `[]` must be used in a context that supplies a target type;
 otherwise its type cannot be inferred. When a target type is available, the compiler
@@ -1222,14 +1236,19 @@ val evenSquares = [for n in numbers if n % 2 == 0 => n * n]
 val evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
 
 val names: List<string> = ["a", "b"]
-val inferred = [1, 2.0]  // inferred as double[]
+val inferred = [1, 2.0]      // inferred as ImmutableList<double>
+val inferredList = [1; 2; 3] // inferred as ImmutableList<int>
+val mutableList = ![1, 2, 3] // inferred as List<int>
+val mutableListAlt = ![1; 2; 3]  // inferred as List<int>
+val inferredArray = [|1, 2, 3|] // inferred as int[3]
+val expandedArray = [|...inferredArray, 4|] // inferred as int[4]
 
-val baseList: ImmutableList<int> = [2, 3, 4]
+val baseList: ImmutableList<int> = [2; 3; 4]
 val preserved = [7, ...baseList, 5] // inferred as ImmutableList<int>
 
 val a: ImmutableList<int> = [1]
 val b: List<int> = [2]
-val invalid = [...a, ...b] // RAV2027: add explicit target type
+val defaulted = [...a, ...b] // inferred as ImmutableList<int>
 
 val forced: List<int> = [...a, ...b]
 val forcedObject: object[] = [1, true]

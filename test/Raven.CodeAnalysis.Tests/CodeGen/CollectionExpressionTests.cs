@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -56,7 +57,7 @@ class Foo {
     }
 
     [Fact]
-    public void ArrayCollectionExpressions_SpreadEnumerates()
+    public void CollectionExpressions_SpreadEnumerates()
     {
         var code = """
 class Foo {
@@ -64,7 +65,7 @@ class Foo {
         val marvel = ["Tony Stark", "Spiderman", "Thor"]
         val dc = ["Superman", "Batman", "Flash"]
         val characters = [...marvel, "Black Widow", ...dc]
-        return characters.Length
+        return characters.Count
     }
 }
 """;
@@ -122,6 +123,206 @@ class Foo {
         var instance = Activator.CreateInstance(type!);
 
         Assert.Equal(1, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void InferredImmutableListCollectionExpressions_AreInitializedCorrectly()
+    {
+        var code = """
+class Foo {
+    static func GetCount() -> int {
+        val values = [1, 2, 3]
+        return values.Count
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(3, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void InferredImmutableListCollectionExpressions_WithSourceDefinedElement_UseImmutableListFactory()
+    {
+        var code = """
+class Foo {
+    static func GetCount() -> int {
+        val values = [Person("Jane"), Person("Bob")]
+        return values.Count
+    }
+}
+
+record Person(Name: string)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var calledMembers = ILReader.GetCalledMembers(method!);
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Contains(
+            calledMembers,
+            static member => member.Contains("System.Collections.Immutable.ImmutableList::CreateRange", StringComparison.Ordinal));
+        Assert.Equal(2, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void InferredMutableListCollectionExpressions_AreInitializedCorrectly()
+    {
+        var code = """
+class Foo {
+    static func GetCount() -> int {
+        val values = ![1, 2, 3]
+        return values.Count
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(3, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void InferredArrayCollectionExpressions_AreInitializedCorrectly()
+    {
+        var code = """
+class Foo {
+    static func GetCount() -> int {
+        val values = [|1, 2, 3|]
+        return values.Length
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(3, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void InferredArrayCollectionExpressions_WithSpread_AreInitializedCorrectly()
+    {
+        var code = """
+class Foo {
+    static func GetCount() -> int {
+        val prefix = [|1, 2|]
+        val values = [|...prefix, 3|]
+        return values.Length
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal(3, (int)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
+    public void ExpressionBodiedMethod_ImmutableArrayTarget_UsesTargetTypedCollectionEmission()
+    {
+        var code = """
+import System.Collections.Immutable.*
+
+class Foo {
+    static func Create() -> ImmutableArray<int> => [1, 2, 3]
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("Create", BindingFlags.Public | BindingFlags.Static);
+
+        var values = (ImmutableArray<int>)method!.Invoke(null, null)!;
+
+        Assert.Equal(3, values.Length);
+        Assert.Equal([1, 2, 3], values.ToArray());
     }
 
     [Fact]

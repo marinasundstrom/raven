@@ -104,8 +104,9 @@
   <TokenKind Name="SetKeyword" Text="set" IsReservedWord="false" />
   <TokenKind Name="AddKeyword" Text="add" IsReservedWord="false" />
   <TokenKind Name="RemoveKeyword" Text="remove" IsReservedWord="false" />
-
   <!-- Operators and punctuation -->
+  <TokenKind Name="OpenArrayToken" Text="[|" />
+  <TokenKind Name="CloseArrayToken" Text="|]" />
   <TokenKind Name="ArrowToken" Text="->" />
   <TokenKind Name="FatArrowToken" Text="=>" />
   <TokenKind Name="EqualsToken" Text="=" />

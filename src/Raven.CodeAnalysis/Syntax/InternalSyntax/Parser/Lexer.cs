@@ -383,6 +383,11 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.CloseBraceToken, chStr);
 
                     case '[':
+                        if (PeekChar(out ch2) && ch2 == '|')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.OpenArrayToken, "[|");
+                        }
                         return new Token(SyntaxKind.OpenBracketToken, chStr);
 
                     case ']':
@@ -402,6 +407,11 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.EqualsToken, chStr);
 
                     case '|':
+                        if (PeekChar(out ch2) && ch2 == ']')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.CloseArrayToken, "|]");
+                        }
                         if (PeekChar(out ch2) && ch2 == '|')
                         {
                             ReadChar();

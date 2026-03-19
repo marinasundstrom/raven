@@ -375,9 +375,15 @@
     <Slot Name="RankSpecifiers" Type="List" ElementType="ArrayRankSpecifier" />
   </Node>
   <Node Name="CollectionExpression" Inherits="Expression">
+    <Slot Name="ExclamationToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken" />
     <Slot Name="Elements" Type="SeparatedList" ElementType="CollectionElement" />
     <Slot Name="CloseBracketToken" Type="Token" DefaultToken="CloseBracketToken" />
+  </Node>
+  <Node Name="ArrayExpression" Inherits="Expression">
+    <Slot Name="OpenArrayToken" Type="Token" DefaultToken="OpenArrayToken" />
+    <Slot Name="Elements" Type="SeparatedList" ElementType="CollectionElement" />
+    <Slot Name="CloseArrayToken" Type="Token" DefaultToken="CloseArrayToken" />
   </Node>
   <Node Name="BaseConstructorDeclaration" Inherits="BaseMethodDeclaration" IsAbstract="true">
     <Slot Name="InitKeyword" Type="Token" IsAbstract="true" DefaultToken="InitKeyword" />

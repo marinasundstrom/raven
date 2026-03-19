@@ -1,6 +1,15 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-03-17**.
+Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
+
+## 2026-03-19
+
+### Changed
+- Collection literals now have a clear split between general collection expressions and explicit arrays. Plain `[...]` remains the general collection form, defaulting to `ImmutableList<T>` in untyped contexts and `List<T>` when prefixed with `!`, while explicit arrays now use `[| ... |]`.
+- Target typing still governs how `[...]` binds in typed contexts, so existing assignments such as `int[] = [1, 2, 3]`, `ImmutableArray<int> = [1, 2, 3]`, and `List<int> = [1, 2, 3]` continue to work without extra syntax.
+
+Impact:
+- Raven local code now reads more consistently: `[...]` stays list-oriented unless target-typed otherwise, while `[| ... |]` carries explicit array intent through spreads and other composed expressions.
 
 ## 2026-03-18
 

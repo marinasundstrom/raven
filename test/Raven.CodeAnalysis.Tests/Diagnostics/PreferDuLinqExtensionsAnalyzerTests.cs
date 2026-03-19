@@ -12,7 +12,7 @@ public class PreferDuLinqExtensionsAnalyzerTests : AnalyzerTestBase
 import System.Linq.*
 
 func Test() {
-    val arr = [1, 2, 3]
+    val arr: int[] = [1, 2, 3]
     val first = arr.First()
 }
 """;
@@ -37,7 +37,7 @@ func Test() {
 import System.Linq.*
 
 func Test() {
-    val arr = [1, 2, 3]
+    val arr: int[] = [1, 2, 3]
     val maybeFirst = arr.FirstOrDefault()
 }
 """;
@@ -62,7 +62,7 @@ func Test() {
 import System.Linq.*
 
 func Test() {
-    val arr = [1, 2, 3]
+    val arr: int[] = [1, 2, 3]
     val first = arr.FirstOrError(() => "no items")
     val maybe = arr.FirstOrNone()
 }

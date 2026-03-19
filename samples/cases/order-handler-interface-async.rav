@@ -7,11 +7,11 @@ import System.Threading.Tasks.*
 async func Main() -> Task {
     val handler: IRequestHandler<SubmitOrder, Response<decimal>> = SubmitOrderHandler()
 
-    val items = [
+    val items = [|
         OrderItem("Item 1", 20.99m, "pc", 1),
         OrderItem("Item 2", 5.0m, "pc", 11),
         OrderItem("Item 3", 10.0m, "l", 2)
-    ]
+    |]
 
     val request = SubmitOrder(items)
 

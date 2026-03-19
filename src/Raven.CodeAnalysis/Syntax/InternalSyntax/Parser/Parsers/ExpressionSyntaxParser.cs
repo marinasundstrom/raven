@@ -234,6 +234,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private ExpressionSyntax ParseLogicalNotExpression()
     {
+        if (PeekToken().IsKind(SyntaxKind.ExclamationToken) &&
+            PeekToken(1).IsKind(SyntaxKind.OpenBracketToken))
+        {
+            return ParseCollectionExpression();
+        }
+
         if (ConsumeToken(SyntaxKind.ExclamationToken, out var token))
         {
             ExpressionSyntax ret = PrefixOperatorExpression(SyntaxKind.LogicalNotExpression, token, ParseLogicalNotExpression());
@@ -2086,6 +2092,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseCollectionExpression();
                 break;
 
+            case SyntaxKind.OpenArrayToken:
+                expr = ParseArrayExpression();
+                break;
+
             case SyntaxKind.DotToken:
                 {
                     var dot = ReadToken();
@@ -2166,15 +2176,32 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private ExpressionSyntax ParseCollectionExpression()
     {
+        ConsumeTokenOrNone(SyntaxKind.ExclamationToken, out var exclamationToken);
         var openBracketToken = ReadToken();
+        var elementList = ParseCollectionElements(SyntaxKind.CloseBracketToken);
+        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
 
+        return CollectionExpression(exclamationToken, openBracketToken, List(elementList), closeBracketToken);
+    }
+
+    private ExpressionSyntax ParseArrayExpression()
+    {
+        var openArrayToken = ReadToken();
+        var elementList = ParseCollectionElements(SyntaxKind.CloseArrayToken);
+        ConsumeTokenOrMissing(SyntaxKind.CloseArrayToken, out var closeArrayToken);
+
+        return ArrayExpression(openArrayToken, List(elementList), closeArrayToken);
+    }
+
+    private List<GreenNode> ParseCollectionElements(SyntaxKind closeTokenKind)
+    {
         List<GreenNode> elementList = new List<GreenNode>();
 
         while (true)
         {
             var t = PeekToken();
 
-            if (t.IsKind(SyntaxKind.CloseBracketToken) || t.IsKind(SyntaxKind.EndOfFileToken))
+            if (t.IsKind(closeTokenKind) || t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             CollectionElementSyntax element;
@@ -2201,11 +2228,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             elementList.Add(element);
 
-            var commaToken = PeekToken();
-            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            var separatorToken = PeekToken();
+            if (separatorToken.IsKind(SyntaxKind.CommaToken) ||
+                separatorToken.IsKind(SyntaxKind.SemicolonToken))
             {
                 ReadToken();
-                elementList.Add(commaToken);
+                elementList.Add(separatorToken);
             }
 
             if (Position == elementStart)
@@ -2221,16 +2249,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                         GetSpanOfPeekedToken(),
                         tokenText));
 
-                if (current.IsKind(SyntaxKind.CloseBracketToken) || current.IsKind(SyntaxKind.EndOfFileToken))
+                if (current.IsKind(closeTokenKind) || current.IsKind(SyntaxKind.EndOfFileToken))
                     break;
 
                 ReadToken();
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
-
-        return CollectionExpression(openBracketToken, List(elementList), closeBracketToken);
+        return elementList;
     }
     private CollectionComprehensionElementSyntax ParseCollectionComprehensionElement()
     {

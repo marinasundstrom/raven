@@ -397,11 +397,11 @@
                 },
                 {
                     "name": "punctuation.section.brackets.begin.raven",
-                    "match": "\\["
+                    "match": "(\\[\\||\\[)"
                 },
                 {
                     "name": "punctuation.section.brackets.end.raven",
-                    "match": "\\]"
+                    "match": "(\\|\\]|\\])"
                 }
             ]
         },

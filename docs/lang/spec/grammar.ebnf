@@ -603,6 +603,7 @@ PrimaryExpression        ::= Literal
                            | NameOfExpression
                            | FreestandingMacroExpression
                            | CollectionExpression
+                           | ArrayExpression
                            | Identifier
                            | MemberBindingExpression
                            | ObjectCreationExpression
@@ -645,7 +646,9 @@ Interpolation            ::= '${' Expression '}' ;
 
 ObjectCreationExpression ::= 'new' Type ArgumentList ObjectInitializer? ;
 
-CollectionExpression     ::= '[' [CollectionElement {',' CollectionElement} [',']] ']' ;
+CollectionExpression     ::= ['!'] '[' [CollectionElement {CollectionSeparator CollectionElement} [CollectionSeparator]] ']' ;
+ArrayExpression          ::= '[|' [CollectionElement {CollectionSeparator CollectionElement} [CollectionSeparator]] '|]' ;
+CollectionSeparator      ::= ',' | ';' ;
 CollectionElement        ::= Expression
                            | '..' Expression
                            | CollectionComprehensionElement ;

@@ -821,7 +821,7 @@ partial class BlockBinder : Binder
         // Collection literals are target-type-sensitive. Reusing a cached node can
         // apply a previous context (for example, inferred array) in a later binding
         // that has an explicit target type.
-        var skipCache = syntax is CollectionExpressionSyntax or FunctionExpressionSyntax;
+        var skipCache = syntax is CollectionExpressionSyntax or ArrayExpressionSyntax or FunctionExpressionSyntax;
 
         if (!skipCache && TryGetCachedBoundNode(syntax) is BoundExpression cached)
             return cached;
@@ -843,6 +843,7 @@ partial class BlockBinder : Binder
             ElementAccessExpressionSyntax elementAccess => BindElementAccessExpression(elementAccess),
             AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
             CollectionExpressionSyntax collection => BindCollectionExpression(collection),
+            ArrayExpressionSyntax arrayExpression => BindArrayExpression(arrayExpression),
             ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
             CastExpressionSyntax castExpression => BindConversionExpression(castExpression),
             AsExpressionSyntax asExpression => BindAsExpression(asExpression),
@@ -4623,6 +4624,14 @@ partial class BlockBinder : Binder
 
         // Target type from `return <expr>`.
         if (node.Parent is ReturnStatementSyntax)
+        {
+            var returnTargetType = GetContainingReturnTargetType();
+            if (returnTargetType is not null)
+                return returnTargetType;
+        }
+
+        // Target type from expression-bodied members and functions: `=> <expr>`.
+        if (node.Parent is ArrowExpressionClauseSyntax)
         {
             var returnTargetType = GetContainingReturnTargetType();
             if (returnTargetType is not null)
@@ -10105,6 +10114,28 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindCollectionExpression(CollectionExpressionSyntax syntax)
     {
+        return BindCollectionExpressionCore(
+            syntax,
+            syntax.Elements,
+            inferArrayByDefault: false,
+            isMutableByDefault: syntax.IsMutableByDefault);
+    }
+
+    private BoundExpression BindArrayExpression(ArrayExpressionSyntax syntax)
+    {
+        return BindCollectionExpressionCore(
+            syntax,
+            syntax.Elements,
+            inferArrayByDefault: true,
+            isMutableByDefault: false);
+    }
+
+    private BoundExpression BindCollectionExpressionCore(
+        SyntaxNode syntax,
+        SeparatedSyntaxList<CollectionElementSyntax> syntaxElements,
+        bool inferArrayByDefault,
+        bool isMutableByDefault)
+    {
         var targetType = GetTargetType(syntax);
 
         // Expression-statement contexts can flow Unit as a target type.
@@ -10116,7 +10147,7 @@ partial class BlockBinder : Binder
         }
 
         // Empty collection: defer to target type if available
-        if (syntax.Elements.Count == 0)
+        if (syntaxElements.Count == 0)
         {
             if (targetType != null)
             {
@@ -10137,10 +10168,10 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
-        var elements = new List<BoundExpression>(syntax.Elements.Count);
-        var elementNodes = new List<SyntaxNode>(syntax.Elements.Count);
+        var elements = new List<BoundExpression>(syntaxElements.Count);
+        var elementNodes = new List<SyntaxNode>(syntaxElements.Count);
 
-        foreach (var elementSyntax in syntax.Elements)
+        foreach (var elementSyntax in syntaxElements)
         {
             BoundExpression boundElement;
             SyntaxNode elementNode;
@@ -10183,22 +10214,6 @@ partial class BlockBinder : Binder
 
             elements.Add(boundElement);
             elementNodes.Add(elementNode);
-        }
-
-        if (targetType is null)
-        {
-            if (TryInferCollectionTargetTypeFromSpreads(elements, elementNodes, out var spreadInferredTargetType, out var spreadInferenceConflict))
-            {
-                targetType = spreadInferredTargetType;
-            }
-            else if (spreadInferenceConflict is { } conflict)
-            {
-                _diagnostics.ReportCollectionTypeCannotBeInferredFromSpreadOperands(
-                    conflict.Left.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    conflict.Right.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    conflict.Location);
-                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
-            }
         }
 
         if (targetType is not null &&
@@ -10394,11 +10409,6 @@ partial class BlockBinder : Binder
                 syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
-        var fallbackFixedLength = TryGetStaticallyKnownCollectionLength(elements, out var knownLength)
-            ? (int?)knownLength
-            : null;
-        var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType, fixedLength: fallbackFixedLength);
-
         var convertedFallback = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
 
         for (var i = 0; i < elements.Count; i++)
@@ -10425,11 +10435,38 @@ partial class BlockBinder : Binder
             convertedFallback.Add(element);
         }
 
+        if (inferArrayByDefault)
+        {
+            var fallbackFixedLength = TryGetStaticallyKnownCollectionLength(elements, out var knownLength)
+                ? (int?)knownLength
+                : null;
+            var inferredArrayType = Compilation.CreateArrayTypeSymbol(inferredElementType, fixedLength: fallbackFixedLength);
+            return new BoundCollectionExpression(inferredArrayType, convertedFallback.ToImmutable());
+        }
+
+        if (isMutableByDefault &&
+            Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1") is INamedTypeSymbol mutableListTypeDefinition)
+        {
+            var inferredMutableListType = (INamedTypeSymbol)mutableListTypeDefinition.Construct(inferredElementType);
+            var addMethod = inferredMutableListType.GetMembers("Add")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(method => !method.IsStatic && method.Parameters.Length == 1);
+
+            return new BoundCollectionExpression(inferredMutableListType, convertedFallback.ToImmutable(), addMethod);
+        }
+
+        if (Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList`1") is INamedTypeSymbol immutableListTypeDefinition)
+        {
+            var inferredImmutableListType = (INamedTypeSymbol)immutableListTypeDefinition.Construct(inferredElementType);
+            return new BoundCollectionExpression(inferredImmutableListType, convertedFallback.ToImmutable());
+        }
+
+        var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType);
         return new BoundCollectionExpression(fallbackArray, convertedFallback.ToImmutable());
     }
 
     private bool TryBindCollectionBuilderInvocation(
-        CollectionExpressionSyntax syntax,
+        SyntaxNode syntax,
         ITypeSymbol targetType,
         IReadOnlyList<BoundExpression> elements,
         IReadOnlyList<SyntaxNode> elementNodes,
@@ -10936,56 +10973,6 @@ partial class BlockBinder : Binder
             return ComprehensionRangeInfo.Invalid;
 
         return new ComprehensionRangeInfo(true, convertedStart, convertedEnd, elementType);
-    }
-
-    private bool TryInferCollectionTargetTypeFromSpreads(
-        IReadOnlyList<BoundExpression> elements,
-        IReadOnlyList<SyntaxNode> elementNodes,
-        out ITypeSymbol inferredType,
-        out (ITypeSymbol Left, ITypeSymbol Right, Location Location)? conflict)
-    {
-        inferredType = null!;
-        conflict = null;
-
-        ITypeSymbol? current = null;
-
-        for (var i = 0; i < elements.Count; i++)
-        {
-            if (elements[i] is not BoundSpreadElement spread ||
-                spread.Expression.Type is not ITypeSymbol spreadType)
-            {
-                continue;
-            }
-
-            if (!TryGetConcreteSpreadCollectionType(spreadType, out var candidateType))
-                continue;
-
-            if (current is null)
-            {
-                current = candidateType;
-                continue;
-            }
-
-            if (!SymbolEqualityComparer.Default.Equals(current, candidateType))
-            {
-                var location = i < elementNodes.Count ? elementNodes[i].GetLocation() : Location.None;
-                conflict = (current, candidateType, location);
-                return false;
-            }
-        }
-
-        if (current is null)
-            return false;
-
-        if (current is IArrayTypeSymbol { Rank: 1, IsFixedArray: false } arrayType &&
-            TryGetStaticallyKnownCollectionLength(elements, out var inferredLength))
-        {
-            inferredType = Compilation.CreateArrayTypeSymbol(arrayType.ElementType, fixedLength: inferredLength);
-            return true;
-        }
-
-        inferredType = current;
-        return true;
     }
 
     private static bool TryGetStaticallyKnownCollectionLength(

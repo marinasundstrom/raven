@@ -13,6 +13,6 @@ val utf8 = "Pågen"u8
 WriteLine(utf8.Length)
 WriteLine(Encoding.UTF8.GetString(utf8))
 
-val concatString = [...utf8, ..."'s Bageri"u8]
+val concatString = [|...utf8, ..."'s Bageri"u8|]
 
 WriteLine(Encoding.UTF8.GetString(concatString))

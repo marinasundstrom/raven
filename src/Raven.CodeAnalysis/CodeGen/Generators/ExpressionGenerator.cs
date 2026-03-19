@@ -2344,6 +2344,9 @@ internal partial class ExpressionGenerator : Generator
         }
         else if (target is INamedTypeSymbol namedType)
         {
+            if (TryEmitCollectionExpressionViaImmutableList(namedType, collectionExpression))
+                return;
+
             if (TryEmitCollectionExpressionViaBuilderAttribute(namedType, collectionExpression))
                 return;
 
@@ -2481,6 +2484,30 @@ internal partial class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
         }
+    }
+
+    private bool TryEmitCollectionExpressionViaImmutableList(INamedTypeSymbol targetType, BoundCollectionExpression collectionExpression)
+    {
+        if (!string.Equals(targetType.OriginalDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableList`1", StringComparison.Ordinal))
+            return false;
+
+        var immutableListHelpers = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList");
+        if (immutableListHelpers is null)
+            return false;
+
+        var elementType = targetType.TypeArguments[0];
+        var createRangeDefinition = immutableListHelpers
+            .GetMembers("CreateRange")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method => method.IsStatic && method.TypeParameters.Length == 1 && method.Parameters.Length == 1);
+
+        if (createRangeDefinition is null)
+            return false;
+
+        var createRange = createRangeDefinition.Construct(elementType);
+        EmitCollectionExpressionAsArray(elementType, collectionExpression);
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(createRange));
+        return true;
     }
 
     private bool TryEmitCollectionExpressionViaBuilderAttribute(INamedTypeSymbol targetType, BoundCollectionExpression collectionExpression)
@@ -2919,6 +2946,34 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
+    private void EmitCollectionExpressionAsArray(ITypeSymbol elementType, BoundCollectionExpression collectionExpression)
+    {
+        var arrayType = (IArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(elementType);
+
+        if (!collectionExpression.Elements.OfType<BoundSpreadElement>().Any())
+        {
+            ILGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Count());
+            ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
+
+            var index = 0;
+            foreach (var element in collectionExpression.Elements)
+            {
+                ILGenerator.Emit(OpCodes.Dup);
+                ILGenerator.Emit(OpCodes.Ldc_I4, index);
+                EmitExpression(element);
+                EmitStoreElement(elementType);
+                index++;
+            }
+
+            return;
+        }
+
+        if (TryEmitArrayWithArraySpreadFastPath(elementType, collectionExpression))
+            return;
+
+        EmitArrayWithSpreads(arrayType, collectionExpression);
+    }
+
     private void EmitArrayWithSpreads(IArrayTypeSymbol arrayTypeSymbol, BoundCollectionExpression collectionExpression)
     {
         var elementType = arrayTypeSymbol.ElementType;
@@ -3094,6 +3149,9 @@ internal partial class ExpressionGenerator : Generator
     {
         EmitExpression(spread.Expression);
 
+        if (spread.Expression.Type is { IsValueType: true } spreadType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(spreadType));
+
         var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
         ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
         var getEnumerator = enumerable
@@ -3171,6 +3229,9 @@ internal partial class ExpressionGenerator : Generator
     private void EmitSpreadElement(IILocal collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, MethodInfo addMethodInfo)
     {
         EmitExpression(spread.Expression);
+
+        if (spread.Expression.Type is { IsValueType: true } spreadType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(spreadType));
 
         var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
         ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
@@ -3618,6 +3679,9 @@ internal partial class ExpressionGenerator : Generator
         }
         else if (target is INamedTypeSymbol namedType)
         {
+            if (TryEmitEmptyCollectionExpressionViaImmutableList(namedType))
+                return;
+
             if (TryEmitEmptyCollectionExpressionViaBuilderAttribute(namedType))
                 return;
 
@@ -3635,6 +3699,29 @@ internal partial class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         }
+    }
+
+    private bool TryEmitEmptyCollectionExpressionViaImmutableList(INamedTypeSymbol targetType)
+    {
+        if (!string.Equals(targetType.OriginalDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableList`1", StringComparison.Ordinal))
+            return false;
+
+        var immutableListHelpers = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList");
+        if (immutableListHelpers is null)
+            return false;
+
+        var elementType = targetType.TypeArguments[0];
+        var createDefinition = immutableListHelpers
+            .GetMembers("Create")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method => method.IsStatic && method.TypeParameters.Length == 1 && method.Parameters.Length == 0);
+
+        if (createDefinition is null)
+            return false;
+
+        var createMethod = createDefinition.Construct(elementType);
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(createMethod));
+        return true;
     }
 
     private bool TryEmitEmptyCollectionExpressionViaBuilderAttribute(INamedTypeSymbol targetType)
