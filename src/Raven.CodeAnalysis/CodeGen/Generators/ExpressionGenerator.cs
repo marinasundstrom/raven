@@ -5869,7 +5869,10 @@ internal partial class ExpressionGenerator : Generator
         var materializedLocal = ILGenerator.DeclareLocal(ResolveClrType(targetType));
         var materializedType = LoadValueWithConversion(arrayLocal, arrayType, targetType);
         if (materializedType is null || !SymbolEqualityComparer.Default.Equals(GetPatternValueType(materializedType), GetPatternValueType(targetType)))
+        {
+            ILGenerator.Emit(OpCodes.Pop);
             return arrayLocal;
+        }
 
         ILGenerator.Emit(OpCodes.Stloc, materializedLocal);
         return materializedLocal;

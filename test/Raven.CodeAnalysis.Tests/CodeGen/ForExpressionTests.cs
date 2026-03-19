@@ -186,6 +186,21 @@ for val [..2, ..2 x, ...] in [[2, 1..3]] {
     }
 
     [Fact]
+    public void For_WithFixedArrayLiteralAndFixedSegmentCapture_EmitsValidProgram()
+    {
+        var code = """
+import System.Console.*
+
+for val [..2, ..2 x, ...] in [[|2, 1..4|]] {
+    WriteLine(x[1])
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["3"], output);
+    }
+
+    [Fact]
     public void For_BreakAndContinue_Work()
     {
         var code = """

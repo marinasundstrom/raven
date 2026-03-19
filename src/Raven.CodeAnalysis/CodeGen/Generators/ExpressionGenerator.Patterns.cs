@@ -598,8 +598,7 @@ internal partial class ExpressionGenerator
                 var targetType = GetSequencePatternInputType(elementPattern, restArrayType);
                 var inputLocal = MaterializeSequencePatternInput(restArrayLocal, restArrayType, targetType);
                 ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
-                EmitPattern(elementPattern, targetType, scope);
-                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+                EmitPatternTestBranchFalse(elementPattern, targetType, scope, labelFail);
                 continue;
             }
 
@@ -614,16 +613,14 @@ internal partial class ExpressionGenerator
                 var targetType = GetSequencePatternInputType(elementPattern, segmentArrayType);
                 var inputLocal = MaterializeSequencePatternInput(segmentArrayLocal, segmentArrayType, targetType);
                 ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
-                EmitPattern(elementPattern, targetType, scope);
-                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+                EmitPatternTestBranchFalse(elementPattern, targetType, scope, labelFail);
                 continue;
             }
 
             ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
             EmitLoadIndex(GetSequenceElementStartIndex(pattern, i, lengthLocal));
             EmitLoadElement(elementType);
-            EmitPattern(elementPattern, elementType, scope);
-            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+            EmitPatternTestBranchFalse(elementPattern, elementType, scope, labelFail);
         }
 
         EmitPatternDesignator(pattern.Designator, arrayLocal, scope);
@@ -759,8 +756,7 @@ internal partial class ExpressionGenerator
 
                 var restLocal = EmitStringSlice(stringLocal, GetSequencePrefixWidth(pattern, i), restLengthLocal);
                 ILGenerator.Emit(OpCodes.Ldloc, restLocal);
-                EmitPattern(elementPattern, stringType, scope);
-                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+                EmitPatternTestBranchFalse(elementPattern, stringType, scope, labelFail);
                 continue;
             }
 
@@ -771,16 +767,14 @@ internal partial class ExpressionGenerator
                     GetSequenceElementStartIndex(pattern, i, lengthLocal),
                     pattern.ElementWidths[i]);
                 ILGenerator.Emit(OpCodes.Ldloc, sliceLocal);
-                EmitPattern(elementPattern, stringType, scope);
-                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+                EmitPatternTestBranchFalse(elementPattern, stringType, scope, labelFail);
                 continue;
             }
 
             ILGenerator.Emit(OpCodes.Ldloc, stringLocal);
             EmitLoadIndex(GetSequenceElementStartIndex(pattern, i, lengthLocal));
             ILGenerator.Emit(OpCodes.Callvirt, typeof(string).GetProperty("Chars")!.GetMethod!);
-            EmitPattern(elementPattern, charType, scope);
-            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+            EmitPatternTestBranchFalse(elementPattern, charType, scope, labelFail);
         }
 
         EmitPatternDesignator(pattern.Designator, stringLocal, scope);

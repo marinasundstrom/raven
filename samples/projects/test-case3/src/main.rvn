@@ -14,8 +14,8 @@ func Main() {
         WriteLine(x)
     }
 
-    for val [..2, ..2 x, ...] in [[2, 1..4]] {
-        WriteLine(x[1])
+    for val [..2, ..2 x, ...] in [[|2, 1..4|]] {
+        WriteLine(x)
     }
 
     val dict = ["a": 1, "b": 2, "c": 3]
