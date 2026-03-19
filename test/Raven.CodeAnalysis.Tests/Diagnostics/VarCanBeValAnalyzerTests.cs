@@ -82,4 +82,44 @@ count = 1
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void VarLocal_ReassignedByTupleDeconstruction_NoDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M() -> unit {
+        var a = 1, b = 2
+        (b, a) = (a, b)
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void VarLocal_ReassignedBySequenceDeconstruction_NoDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M() -> unit {
+        var first = 0, second = 0, third = 0
+        [first, second, third] = [1, 2, 3]
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
 }

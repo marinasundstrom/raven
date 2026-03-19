@@ -9154,7 +9154,11 @@ partial class BlockBinder : Binder
                 BoundExpressionReason.TypeMismatch);
         }
 
-        return new BoundDeclarationPattern(targetType, new BoundSingleVariableDesignator(local));
+        var designator = new BoundSingleVariableDesignator(local);
+        if (identifier.Parent is SingleVariableDesignationSyntax single)
+            CacheBoundNode(single, designator);
+
+        return new BoundDeclarationPattern(targetType, designator);
     }
 
     private BoundPattern BindIdentifierTokenForDeclarationAssignment(

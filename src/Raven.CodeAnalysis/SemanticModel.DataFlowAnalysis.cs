@@ -524,20 +524,75 @@ static class DataFlowAnalysisHelpers
 
     private static IEnumerable<ILocalSymbol> GetAssignedLocals(SemanticModel semanticModel, PatternSyntax pattern)
     {
+        var seen = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+
         foreach (var identifier in pattern.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
         {
-            if (semanticModel.GetSymbolInfo(identifier).Symbol is ILocalSymbol local && !string.IsNullOrEmpty(local.Name))
+            if (semanticModel.GetSymbolInfo(identifier).Symbol is ILocalSymbol local &&
+                !string.IsNullOrEmpty(local.Name) &&
+                seen.Add(local))
+            {
                 yield return local;
+            }
         }
 
         foreach (var designation in pattern.DescendantNodesAndSelf().OfType<SingleVariableDesignationSyntax>())
         {
-            if (semanticModel.GetDeclaredSymbol(designation) is ILocalSymbol local && !string.IsNullOrEmpty(local.Name))
-                yield return local;
+            if (semanticModel.TryGetCachedBoundNode(designation) is BoundSingleVariableDesignator boundDesignator &&
+                !string.IsNullOrEmpty(boundDesignator.Local.Name) &&
+                seen.Add(boundDesignator.Local))
+            {
+                yield return boundDesignator.Local;
+                continue;
+            }
+
+            if (semanticModel.GetDeclaredSymbol(designation) is ILocalSymbol declaredLocal &&
+                !string.IsNullOrEmpty(declaredLocal.Name) &&
+                seen.Add(declaredLocal))
+            {
+                yield return declaredLocal;
+                continue;
+            }
+
+            if (designation.Parent is VariablePatternSyntax variablePattern &&
+                semanticModel.GetSymbolInfo(variablePattern).Symbol is ILocalSymbol referencedLocal &&
+                !string.IsNullOrEmpty(referencedLocal.Name) &&
+                seen.Add(referencedLocal))
+            {
+                yield return referencedLocal;
+                continue;
+            }
+
+            if (!designation.Identifier.IsMissing &&
+                semanticModel.GetBinder(designation).LookupSymbol(designation.Identifier.ValueText) is ILocalSymbol lookedUpLocal &&
+                !string.IsNullOrEmpty(lookedUpLocal.Name) &&
+                seen.Add(lookedUpLocal))
+            {
+                yield return lookedUpLocal;
+                continue;
+            }
+
+            if (semanticModel.GetSymbolInfo(designation).Symbol is ILocalSymbol designationLocal &&
+                !string.IsNullOrEmpty(designationLocal.Name) &&
+                seen.Add(designationLocal))
+            {
+                yield return designationLocal;
+            }
         }
     }
 
     private static IEnumerable<ILocalSymbol> GetAssignedLocals(SemanticModel semanticModel, ExpressionSyntax expression)
+    {
+        var seen = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var local in GetAssignedLocalsCore(semanticModel, expression))
+        {
+            if (seen.Add(local))
+                yield return local;
+        }
+    }
+
+    private static IEnumerable<ILocalSymbol> GetAssignedLocalsCore(SemanticModel semanticModel, ExpressionSyntax expression)
     {
         switch (expression)
         {
