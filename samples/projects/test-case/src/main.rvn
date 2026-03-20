@@ -78,31 +78,47 @@ func RunExistingPatternExamples() {
 }
 
 func RunCollectionPatternExamples() {
-    PrintSection("Collection literals and patterns")
+    PrintSection("Collection spread and declaration")
 
     val spreadSource = [|1, 2, 3|]
     val spreadArray = [|1, ...spreadSource, 3|]
 
-    val [a, b, ...] = spreadArray
-    WriteLine("Sequence bind -> a = $a, b = $b")
+    val [first, second, ...] = spreadArray
+    WriteLine("Input:  ${DescribeInts(spreadSource)}")
+    WriteLine("Spread: ${DescribeInts(spreadArray)}")
+    WriteLine("Bound: first = $first, second = $second")
 
-    for x in [2, 1..2] {
-        WriteLine(x)
+    PrintSection("Collection range iteration")
+    WriteLine("Input:  [2, 1..2]")
+    for value in [2, 1..2] {
+        WriteLine("item -> $value")
     }
 
-    for val [..2, ..2 x, ...] in [[|2, 1..4|]] {
-        WriteLine(x)
+    PrintSection("Collection segment pattern")
+    for val [..2, ..2 segment, ...] in [[|2, 1..4|]] {
+        WriteLine("Matched [|2, 1..4|] with [..2, ..2 segment, ...]")
+        WriteLine("Bound: segment = ${DescribeInts(segment)}")
     }
 
     val dict = ["a": 1, "b": 2, "c": 3]
     val dict2 = ["e": 5, ...dict]
 
-    for keyValue in dict2 {
-        WriteLine(keyValue)
+    PrintSection("Dictionary spread")
+    WriteLine("Source:")
+    for val (key, value) in dict {
+        WriteLine("$key: $value")
     }
-
+    WriteLine("Spread result:")
     for val (key, value) in dict2 {
         WriteLine("$key: $value")
+    }
+
+    PrintSection("Dictionary pattern")
+    val ["e": entry] = dict2
+    WriteLine("Bound from [\"e\": entry] -> entry = $entry")
+
+    if val ["c": existing] = dict2 {
+        WriteLine("Matched [\"c\": existing]; bound existing = $existing")
     }
 }
 
