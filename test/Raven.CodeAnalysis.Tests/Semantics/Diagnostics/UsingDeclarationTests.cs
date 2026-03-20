@@ -132,4 +132,28 @@ class Test {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void UseDeclaration_WithInBlock_ScopesResourceToNestedBlock()
+    {
+        const string source = """
+import System.*
+
+class Foo : IDisposable {
+    public var Value: int = 0
+    public init() {}
+    public func Run() -> int { self.Value }
+    public func Dispose() -> unit {}
+}
+
+func test() -> int {
+    use obj = Foo { Value = 2 } in {
+        return obj.Run()
+    }
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        verifier.Verify();
+    }
 }

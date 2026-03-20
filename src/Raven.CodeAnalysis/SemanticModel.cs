@@ -1319,7 +1319,7 @@ Complete:
                 statements.Add(boundStatement);
             }
 
-            if (global.Statement is UseDeclarationStatementSyntax useDeclaration)
+            if (global.Statement is UseDeclarationStatementSyntax { InBlockClause: null } useDeclaration)
             {
                 foreach (var declarator in useDeclaration.Declaration.Declarators)
                 {

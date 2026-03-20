@@ -866,9 +866,18 @@ internal class StatementSyntaxParser : SyntaxParser
                 CompilerDiagnostics.IdentifierExpected,
                 GetEndOfLastToken()));
         }
+
+        InBlockClauseSyntax? inClause = null;
+        if (PeekToken().Kind == SyntaxKind.InKeyword)
+        {
+            var inKeyword = ReadToken();
+            var block = ParseBlockStatementSyntax();
+            inClause = InBlockClause(inKeyword, block);
+        }
+
         var terminatorToken = ConsumeTerminator();
 
-        return UseDeclarationStatement(useKeyword, declaration, terminatorToken);
+        return UseDeclarationStatement(useKeyword, declaration, inClause, terminatorToken);
     }
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()

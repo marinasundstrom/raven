@@ -122,6 +122,26 @@ func test() {
     }
 
     [Fact]
+    public void UseDeclaration_WithInBlock_ParsesAsBlockContainingUseDeclaration()
+    {
+        var code = """
+func test() {
+    use obj = Foo { x = 2 } in {
+        obj.Run()
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var block = tree.GetRoot().DescendantNodes().OfType<BlockStatementSyntax>()
+            .First(b => b.Statements.Count == 2 && b.Statements[0] is UseDeclarationStatementSyntax);
+
+        var useDeclaration = Assert.IsType<UseDeclarationStatementSyntax>(block.Statements[0]);
+        var expression = Assert.IsType<InvocationExpressionSyntax>(useDeclaration.Declaration.Declarators[0].Initializer!.Value);
+        Assert.NotNull(expression.Initializer);
+    }
+
+    [Fact]
     public void SizeOfExpression_ParsesAsDedicatedSyntaxNode()
     {
         var code = "val size = sizeof(int)";

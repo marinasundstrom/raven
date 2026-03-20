@@ -309,6 +309,7 @@ Statement                ::= LocalDeclaration
 BlockStatement           ::= Block ;
 
 LocalDeclaration         ::= ('let' | 'val' | 'var' | 'const') LocalVariableDeclarators ;
+UseDeclarationStatement  ::= 'use' LocalVariableDeclarators ['in' Block] ;
 LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarator} ;
 LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
 

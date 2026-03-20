@@ -76,7 +76,7 @@ class TopLevelBinder : BlockBinder
         var localsToDispose = ImmutableArray.CreateBuilder<ILocalSymbol>();
         foreach (var stmt in globalStatements)
         {
-            if (stmt.Statement is UseDeclarationStatementSyntax useDeclaration)
+            if (stmt.Statement is UseDeclarationStatementSyntax { InBlockClause: null } useDeclaration)
             {
                 foreach (var declarator in useDeclaration.Declaration.Declarators)
                 {

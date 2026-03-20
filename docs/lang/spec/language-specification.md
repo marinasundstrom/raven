@@ -4155,6 +4155,25 @@ conversions. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L188-L224】
 
 Resources created with `use` behave like ordinary locals: they remain in scope for the enclosing block and participate in definite-assignment rules. When control leaves the block, the resource is **automatically disposed**. Disposal occurs in **reverse declaration order**, ensuring that later resources observe earlier ones still alive.
 
+When you need a narrower lifetime than the enclosing block, Raven also supports
+an explicit nested-scope form:
+
+```raven
+use stream = OpenRead(path) in {
+    // stream is only in scope here
+}
+```
+
+The `in { ... }` form is equivalent to introducing a nested block whose first
+statement is the `use` declaration. This keeps trailing object initializers
+unambiguous:
+
+```raven
+use obj = Foo { Value = 2 } in {
+    obj.Run()
+}
+```
+
 File-scope `use` declarations participate as well: they are disposed after the file’s top-level statements finish executing. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L222-L282】【F:src/Raven.CodeAnalysis/CodeGen/Generators/Generator.cs†L54-L87】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L114-L148】
 
 ```raven

@@ -744,8 +744,71 @@ partial class BlockBinder : Binder
 
     private BoundStatement BindUseDeclarationStatement(UseDeclarationStatementSyntax useDeclaration)
     {
-        var declaration = useDeclaration.Declaration;
+        if (useDeclaration.InBlockClause is not null)
+            return BindUseInClauseStatement(useDeclaration);
 
+        return BindUseDeclarationCore(useDeclaration.Declaration);
+    }
+
+    private BoundBlockStatement BindUseInClauseStatement(UseDeclarationStatementSyntax useDeclaration)
+    {
+        _scopeDepth++;
+        var depth = _scopeDepth;
+
+        try
+        {
+            var boundUse = BindUseDeclarationCore(useDeclaration.Declaration);
+
+            var inBlock = useDeclaration.InBlockClause!.Block;
+
+            EnsureLabelsDeclared(inBlock);
+
+            foreach (var stmt in inBlock.Statements)
+            {
+                if (stmt is FunctionStatementSyntax func)
+                {
+                    var functionBinder = SemanticModel.GetBinder(func, this);
+                    if (functionBinder is FunctionBinder lfBinder)
+                    {
+                        var symbol = lfBinder.GetMethodSymbol();
+                        if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                            _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
+                        else
+                            _functions[symbol.Name] = symbol;
+                    }
+                }
+            }
+
+            var boundStatements = new List<BoundStatement>(inBlock.Statements.Count + 1) { boundUse };
+            foreach (var stmt in inBlock.Statements)
+                boundStatements.Add(BindStatement(stmt));
+
+            var localsAtDepth = _localsToDispose
+                .Where(l => l.Depth == depth)
+                .Select(l => l.Local)
+                .ToList();
+
+            if (localsAtDepth.Count > 0)
+                _localsToDispose.RemoveAll(l => l.Depth == depth);
+
+            var boundBlock = new BoundBlockStatement(boundStatements.ToArray(), localsAtDepth.ToImmutableArray());
+            CacheBoundNode(useDeclaration, boundBlock);
+
+            ClearNonNullSymbolsAtDepth(depth);
+
+            foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+                _locals.Remove(name);
+
+            return boundBlock;
+        }
+        finally
+        {
+            _scopeDepth--;
+        }
+    }
+
+    private BoundStatement BindUseDeclarationCore(VariableDeclarationSyntax declaration)
+    {
         if (declaration.Declarators.Count > 0 &&
             IsDiscardDeclarator(declaration.Declarators[0]))
         {
@@ -755,9 +818,7 @@ partial class BlockBinder : Binder
         var boundDeclarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>(declaration.Declarators.Count);
 
         foreach (var declarator in declaration.Declarators)
-        {
             boundDeclarators.Add(BindLocalDeclaration(declarator));
-        }
 
         return new BoundLocalDeclarationStatement(boundDeclarators.ToImmutable(), isUsing: true);
     }

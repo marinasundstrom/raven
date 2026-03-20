@@ -301,7 +301,12 @@
   <Node Name="UseDeclarationStatement" Inherits="Statement">
     <Slot Name="UseKeyword" Type="Token" DefaultToken="UseKeyword" />
     <Slot Name="Declaration" Type="VariableDeclaration" />
+    <Slot Name="InBlockClause" Type="InBlockClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="NewLineToken" />
+  </Node>
+  <Node Name="InBlockClause" Inherits="Node">
+    <Slot Name="InKeyword" Type="Token" DefaultToken="InKeyword" />
+    <Slot Name="Block" Type="BlockStatement" />
   </Node>
   <Node Name="TryStatement" Inherits="Statement">
     <Slot Name="TryKeyword" Type="Token" DefaultToken="TryKeyword" />
