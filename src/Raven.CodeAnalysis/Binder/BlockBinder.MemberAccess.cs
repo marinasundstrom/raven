@@ -1149,17 +1149,8 @@ partial class BlockBinder
             {
                 initializer = BindObjectInitializer(typeSymbol, o1.Initializer);
             }
-            else if (callSyntax is ObjectCreationExpressionSyntax { Initializer: not null } o2)
-            {
-                initializer = BindObjectInitializer(typeSymbol, o2.Initializer);
-            }
 
-            ValidateRequiredMembers(typeSymbol, constructor, callSyntax, initializerSyntax: callSyntax switch
-            {
-                InvocationExpressionSyntax { Initializer: { } i } => i,
-                ObjectCreationExpressionSyntax { Initializer: { } i } => i,
-                _ => null
-            });
+            ValidateRequiredMembers(typeSymbol, constructor, callSyntax, initializerSyntax: callSyntax is InvocationExpressionSyntax { Initializer: { } i } ? i : null);
 
             return new BoundObjectCreationExpression(constructor, convertedArgs, receiver, initializer);
         }
@@ -1512,107 +1503,6 @@ partial class BlockBinder
         }
 
         return names;
-    }
-
-    private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)
-    {
-        INamedTypeSymbol? typeSymbol = null;
-
-        var typeExpr = BindTypeSyntaxAsExpression(syntax.Type);
-
-        if (typeExpr is BoundTypeExpression boundType)
-        {
-            typeSymbol = boundType.Type as INamedTypeSymbol;
-        }
-        else
-        {
-            //_diagnostics.ReportInvalidObjectCreation(syntax.Type.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.NotFound);
-        }
-
-        if (typeSymbol == null)
-        {
-            //_diagnostics.ReportInvalidObjectCreation(syntax.Type.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.NotFound);
-        }
-
-        if (typeSymbol == null)
-        {
-            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(syntax.Type.ToString(), syntax.Type.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.NotFound);
-        }
-
-        if (typeSymbol.TypeKind == TypeKind.Error)
-            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
-
-        var validatedType = EnsureTypeAccessible(typeSymbol, syntax.Type.GetLocation());
-        if (validatedType.TypeKind == TypeKind.Error)
-            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
-
-        if (typeSymbol.IsStatic)
-        {
-            _diagnostics.ReportStaticTypeCannotBeInstantiated(typeSymbol.Name, syntax.Type.GetLocation());
-            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
-        }
-        if (typeSymbol.IsAbstract)
-        {
-            _diagnostics.ReportCannotInstantiateAbstractType(typeSymbol.Name, syntax.Type.GetLocation());
-            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
-        }
-
-        // Bind arguments while supplying a best-effort target type from ctor parameter types.
-        var ctorsForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(typeSymbol.Constructors, syntax.ArgumentList.Arguments);
-        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(ctorsForArgumentBinding, syntax.ArgumentList.Arguments, out var hasErrors);
-
-        if (hasErrors)
-            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
-
-        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol)
-            && TryInferConstructedTypeFromTargetType(typeSymbol, syntax, out var targetTypedInferred)
-            && !SymbolEqualityComparer.Default.Equals(targetTypedInferred, typeSymbol))
-        {
-            typeSymbol = targetTypedInferred;
-
-            ctorsForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(typeSymbol.Constructors, syntax.ArgumentList.Arguments);
-            boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(ctorsForArgumentBinding, syntax.ArgumentList.Arguments, out hasErrors);
-            if (hasErrors)
-                return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
-        }
-
-        // Overload resolution
-        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
-        if (resolution.Success)
-        {
-            var constructor = resolution.Method!;
-            constructor = EnsureConstructedConstructor(constructor, typeSymbol);
-            if (!EnsureMemberAccessible(constructor, syntax.Type.GetLocation(), "constructor"))
-                return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
-            ReportObsoleteIfNeeded(constructor, syntax.GetLocation());
-
-            var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
-
-            BoundObjectInitializer? initializer = null;
-            if (syntax.Initializer is not null)
-                initializer = BindObjectInitializer(typeSymbol, syntax.Initializer);
-
-            ValidateRequiredMembers(typeSymbol, constructor, syntax, syntax.Initializer);
-
-            return new BoundObjectCreationExpression(constructor, convertedArgs, receiver: null, initializer);
-        }
-
-        if (resolution.IsAmbiguous)
-        {
-            _diagnostics.ReportCallIsAmbiguous(typeSymbol.Name, resolution.AmbiguousCandidates, syntax.GetLocation());
-            return new BoundErrorExpression(
-                typeSymbol,
-                null,
-                BoundExpressionReason.Ambiguous,
-                AsSymbolCandidates(resolution.AmbiguousCandidates));
-        }
-
-        ReportSuppressedLambdaDiagnostics(boundArguments);
-        _diagnostics.ReportNoOverloadForMethod("constructor", typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
-        return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 
     protected static IMethodSymbol EnsureConstructedConstructor(IMethodSymbol constructor, INamedTypeSymbol typeSymbol)

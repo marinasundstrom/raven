@@ -1132,33 +1132,6 @@ public static class CompletionProvider
         }
 
         /*
-        var objectInitializer = token.GetAncestor<InitializerExpressionSyntax>();
-        if (objectInitializer is not null && objectInitializer.Parent is ObjectCreationExpressionSyntax objectCreation)
-        {
-            var symbolInfo = model.GetSymbolInfo(objectCreation.Type);
-            if (symbolInfo.Symbol is INamedTypeSymbol type)
-            {
-                foreach (var member in type.GetMembers()
-                    .OfType<IPropertySymbol>()
-                    .Where(p => p.SetMethod is not null && p.SetMethod.DeclaredAccessibility == Accessibility.Public))
-                {
-                    if (seen.Add(dedupKey))
-                    {
-                        completions.Add(new CompletionItem(
-                            DisplayText: member.Name,
-                            InsertionText: member.Name,
-                            ReplacementSpan: replacementSpan,
-                            CursorOffset: member.Name.Length,
-                        Description: SafeToDisplayString(member),
-                            Symbol: member
-                        ));
-                    }
-                }
-            }
-        }
-        */
-
-        /*
         if (token.Parent is AttributeSyntax attribute && attribute.Name is IdentifierNameSyntax attrName)
         {
             foreach (var symbol in binder.LookupAvailableSymbols())

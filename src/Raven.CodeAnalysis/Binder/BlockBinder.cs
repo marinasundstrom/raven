@@ -842,7 +842,6 @@ partial class BlockBinder : Binder
             NullCoalesceExpressionSyntax coalesce => BindNullCoalesceExpression(coalesce),
             RangeExpressionSyntax rangeExpression => BindRangeExpression(rangeExpression),
             InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
-            ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
             WithExpressionSyntax withExpression => BindWithExpression(withExpression),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
             MemberBindingExpressionSyntax memberBinding => BindMemberBindingExpression(memberBinding),

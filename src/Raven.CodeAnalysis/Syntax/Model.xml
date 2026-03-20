@@ -1084,13 +1084,6 @@
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="NewLineToken" />
   </Node>
-  <Node Name="ObjectCreationExpression" Inherits="Expression">
-    <Slot Name="NewKeyword" Type="Token" DefaultToken="NewKeyword" />
-    <Slot Name="Type" Type="Type" />
-    <Slot Name="ArgumentList" Type="ArgumentList" />
-    <Slot Name="Initializer" Type="ObjectInitializerExpression" IsNullable="true" />
-  </Node>
-
   <Node Name="ObjectInitializerExpression" Inherits="Expression">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
     <Slot Name="Entries" Type="List" ElementType="ObjectInitializerEntry" />

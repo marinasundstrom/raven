@@ -1435,7 +1435,7 @@ internal sealed class ObjectCreationOperation : Operation, IObjectCreationOperat
 
     public IMethodSymbol? Constructor => _bound.Constructor;
 
-    public ImmutableArray<IOperation> Arguments => _arguments ??= Syntax is ObjectCreationExpressionSyntax creation
+    public ImmutableArray<IOperation> Arguments => _arguments ??= Syntax is InvocationExpressionSyntax creation
         ? OperationUtilities.CreateChildOperations(SemanticModel, creation.ArgumentList.Arguments)
         : ImmutableArray<IOperation>.Empty;
 
@@ -1448,12 +1448,7 @@ internal sealed class ObjectCreationOperation : Operation, IObjectCreationOperat
 
             _initializerInitialized = true;
 
-            var syntaxInitializer = Syntax switch
-            {
-                ObjectCreationExpressionSyntax objectCreation => objectCreation.Initializer,
-                InvocationExpressionSyntax invocation => invocation.Initializer,
-                _ => null
-            };
+            var syntaxInitializer = (Syntax as InvocationExpressionSyntax)?.Initializer;
 
             if (_bound.Initializer is null || syntaxInitializer is null)
                 return null;
