@@ -71,4 +71,65 @@ use foo: object = Foo()
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void UseDeclaration_FixedInitializer_DoesNotRequireDisposableShape()
+    {
+        const string source = """
+class Test {
+    unsafe static func Run() {
+        var value = 0
+        use pointer: *int = fixed &value
+        *pointer = 1
+    }
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void FixedExpression_OutsideUseInitializer_ReportsDiagnostic()
+    {
+        const string source = """
+class Test {
+    unsafe static func Run() {
+        var value = 0
+        val pointer: *int = fixed &value
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.FixedExpressionRequiresUseInitializer.Id)
+                    .WithSpan(4, 29, 4, 41)
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void FixedExpression_WithoutExplicitAddressOf_ReportsDiagnostic()
+    {
+        const string source = """
+class Test {
+    unsafe static func Run() {
+        var value = 0
+        use pointer: *int = fixed value
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.FixedExpressionRequiresAddressOfOperand.Id)
+                    .WithSpan(4, 35, 4, 40)
+            ]);
+
+        verifier.Verify();
+    }
 }

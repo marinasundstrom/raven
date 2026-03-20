@@ -206,6 +206,8 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV1910` | Error | By-reference return cannot reference value parameter storage | Cannot return a by-reference value that points to value parameter '{parameterName}' | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |
 | `RAV1911` | Error | Pointer type requires unsafe | Pointer types require unsafe mode ('--unsafe'). | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |
 | `RAV1912` | Error | Pointer operation requires unsafe | Pointer operations require unsafe mode ('--unsafe'). | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |
+| `RAV1918` | Error | Fixed expression requires use initializer | `fixed` is only valid as the initializer of a `use` declaration. | — |
+| `RAV1919` | Error | Fixed expression requires address-of operand | `fixed` requires an explicit address-of operand written as `&expr`. | — |
 | `RAV1913` | Error | Dereference requires pointer or by-reference operand | Cannot dereference '{operandType}'. '*' requires a pointer or by-reference value. | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |
 | `RAV1914` | Error | Pointer member access requires pointer receiver | You can only use '->' on a pointer; '{receiverType}' is not a pointer. | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |
 | `RAV1915` | Error | Extern members must be static | Member '{memberName}' cannot be marked 'extern' unless it is static | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |

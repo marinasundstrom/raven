@@ -655,6 +655,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = PrefixOperatorExpression(SyntaxKind.AddressOfExpression, token, expr);
                 break;
 
+            case SyntaxKind.FixedKeyword:
+                ReadToken();
+                expr = ParseFactorExpression();
+                expr = PrefixOperatorExpression(SyntaxKind.FixedExpression, token, expr);
+                break;
+
             case SyntaxKind.StarToken:
                 ReadToken();
                 expr = ParseFactorExpression();

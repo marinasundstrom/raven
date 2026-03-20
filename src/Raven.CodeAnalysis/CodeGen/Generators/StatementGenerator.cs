@@ -1130,6 +1130,12 @@ internal class StatementGenerator : Generator
         var localSymbol = declarator.Local;
         var localBuilder = GetLocal(localSymbol);
 
+        if (declarator.FixedPinnedLocal is not null && declarator.FixedAddressInitializer is not null)
+        {
+            EmitFixedDeclarator(localSymbol, localBuilder, declarator);
+            return;
+        }
+
         if (declarator.Initializer is not null)
         {
             // If the local is hoisted into the shared outer-method closure (reference-based capture),
@@ -1255,6 +1261,22 @@ internal class StatementGenerator : Generator
         // to satisfy IL verification in all control-flow shapes.
         ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
         ILGenerator.Emit(OpCodes.Initobj, ResolveClrType(localSymbol.Type));
+    }
+
+    private void EmitFixedDeclarator(ILocalSymbol localSymbol, IILocal? localBuilder, BoundVariableDeclarator declarator)
+    {
+        if (localBuilder is null || declarator.FixedPinnedLocal is null || declarator.FixedAddressInitializer is null)
+            return;
+
+        var pinnedLocalBuilder = GetLocal(declarator.FixedPinnedLocal);
+        if (pinnedLocalBuilder is null)
+            return;
+
+        new ExpressionGenerator(this, declarator.FixedAddressInitializer, preserveResult: true).Emit2();
+        ILGenerator.Emit(OpCodes.Stloc, pinnedLocalBuilder);
+        ILGenerator.Emit(OpCodes.Ldloc, pinnedLocalBuilder);
+        ILGenerator.Emit(OpCodes.Conv_U);
+        ILGenerator.Emit(OpCodes.Stloc, localBuilder);
     }
 
 }

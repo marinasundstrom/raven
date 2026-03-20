@@ -10,7 +10,7 @@ internal interface IILBuilder
     ILLabel DefineLabel();
     void MarkLabel(ILLabel label);
 
-    IILocal DeclareLocal(Type type);
+    IILocal DeclareLocal(Type type, bool pinned = false);
 
     void Emit(OpCode opcode);
     void Emit(OpCode opcode, ILLabel label);

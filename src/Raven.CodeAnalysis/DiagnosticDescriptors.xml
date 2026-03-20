@@ -671,6 +671,14 @@
     Title="Pointer operation requires unsafe"
     Message="Pointer operations require unsafe mode ('--unsafe')." Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1918" Identifier="FixedExpressionRequiresUseInitializer"
+    Title="Fixed expression requires use initializer"
+    Message="'fixed' is only valid as the initializer of a 'use' declaration." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1919" Identifier="FixedExpressionRequiresAddressOfOperand"
+    Title="Fixed expression requires address-of operand"
+    Message="'fixed' requires an explicit address-of operand written as '&amp;expr'." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1917" Identifier="UnsafeModeEnabled"
     Title="Unsafe mode is enabled" Message="Unsafe mode is enabled" Category="compiler"
     Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />

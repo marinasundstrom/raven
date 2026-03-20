@@ -90,9 +90,9 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
             _inner.MarkLabel(label);
         }
 
-        public IILocal DeclareLocal(Type type)
+        public IILocal DeclareLocal(Type type, bool pinned = false)
         {
-            var local = _inner.DeclareLocal(type);
+            var local = _inner.DeclareLocal(type, pinned);
             GetLocalId(local);
             return local;
         }

@@ -164,6 +164,12 @@ internal sealed partial class Lowerer
 
         for (var i = declarators.Length - 1; i >= 0; i--)
         {
+            if (declarators[i].FixedPinnedLocal is { } fixedPinnedLocal)
+            {
+                builder.Add(CreateFixedCleanupStatement(fixedPinnedLocal, compilation));
+                continue;
+            }
+
             var local = declarators[i].Local;
             if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
                 continue;
@@ -180,6 +186,14 @@ internal sealed partial class Lowerer
         }
 
         return builder.ToImmutable();
+    }
+
+    private static BoundStatement CreateFixedCleanupStatement(ILocalSymbol pinnedLocal, Compilation compilation)
+    {
+        var unitType = compilation.UnitTypeSymbol;
+        var left = new BoundLocalAccess(pinnedLocal);
+        var right = new BoundDefaultValueExpression(pinnedLocal.Type);
+        return new BoundAssignmentStatement(new BoundLocalAssignmentExpression(pinnedLocal, left, right, unitType));
     }
 
     private BoundStatement? CreateDisposeStatement(

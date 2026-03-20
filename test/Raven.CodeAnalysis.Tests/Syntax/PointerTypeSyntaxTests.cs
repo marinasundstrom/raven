@@ -99,6 +99,29 @@ func test() -> int {
     }
 
     [Fact]
+    public void FixedUseInitializer_ParsesAsFixedExpressionWithAddressOfOperand()
+    {
+        var code = """
+func test() {
+    var value = 0
+    unsafe {
+        use pointer: *int = fixed &value
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var useDeclaration = tree.GetRoot().DescendantNodes().OfType<UseDeclarationStatementSyntax>().Single();
+        var initializer = useDeclaration.Declaration.Declarators[0].Initializer!;
+
+        var fixedExpression = Assert.IsType<PrefixOperatorExpressionSyntax>(initializer.Value);
+        Assert.Equal(SyntaxKind.FixedExpression, fixedExpression.Kind);
+
+        var addressOf = Assert.IsType<PrefixOperatorExpressionSyntax>(fixedExpression.Expression);
+        Assert.Equal(SyntaxKind.AddressOfExpression, addressOf.Kind);
+    }
+
+    [Fact]
     public void SizeOfExpression_ParsesAsDedicatedSyntaxNode()
     {
         var code = "val size = sizeof(int)";

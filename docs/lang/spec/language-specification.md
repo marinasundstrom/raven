@@ -83,7 +83,7 @@ classifies each keyword as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
-| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `else`, `enum`, `false`, `finally`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `permits`, `return`, `sbyte`, `self`, `short`, `sizeof`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
+| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `else`, `enum`, `false`, `finally`, `fixed`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `permits`, `return`, `sbyte`, `self`, `short`, `sizeof`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
 | Contextual | `abstract`, `alias`, `explicit`, `final`, `get`, `implicit`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `operator`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `use`, `val`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers. Contextual keywords behave like ordinary
@@ -3786,6 +3786,35 @@ unsafe func assignThroughPointer() -> int {
 }
 ```
 
+### Pinning managed storage
+
+Raven uses a `use`-scoped pinning form instead of a dedicated `fixed (...) { ... }`
+statement. The initializer syntax is:
+
+```raven
+unsafe {
+    use pointer: *int = fixed &value
+}
+```
+
+Rules:
+
+* `fixed` is only valid as the initializer of a `use` declaration.
+* `fixed` requires an explicit address-of operand written as `&expr`.
+* The result type is a native pointer `*T`, where `T` is the addressed storage type.
+* The pin lasts for the lifetime of the enclosing `use` scope and is released when that scope exits, including exceptional exits.
+* `fixed` is gated by unsafe mode just like other pointer-producing operations.
+
+The explicit `&` keeps address selection separate from pinning: `&expr` identifies the storage, while `fixed` guarantees that storage remains stable for pointer use within the `use` scope.
+
+```raven
+unsafe func writeSecond(values: int[]) -> int {
+    use pointer = fixed &values[1]
+    *pointer = 42
+    values[1]
+}
+```
+
 ### Extern declarations
 
 Methods and function statements can be marked `extern` to declare that their
@@ -4420,7 +4449,7 @@ Lowest → highest (all left-associative unless noted):
 11. Additive: `+  -`
 12. Multiplicative: `*  /  %`
 13. Cast: `(T)expr`
-14. Unary (prefix): `+  -  !  typeof`
+14. Unary (prefix): `+  -  !  fixed  typeof`
 15. Postfix trailers: call `()`, member `.`, index `[]`, nullable suppression `!`, propagation `?`
 
 > 🧭 **Disambiguation:**

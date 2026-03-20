@@ -26,6 +26,7 @@
   <NodeKind Name="LogicalNotExpression" Type="PrefixOperatorExpression" />
   <NodeKind Name="BitwiseNotExpression" Type="PrefixOperatorExpression" />
   <NodeKind Name="AddressOfExpression" Type="PrefixOperatorExpression" />
+  <NodeKind Name="FixedExpression" Type="PrefixOperatorExpression" />
   <NodeKind Name="DereferenceExpression" Type="PrefixOperatorExpression" />
   <NodeKind Name="PreIncrementExpression" Type="PrefixOperatorExpression" />
   <NodeKind Name="PreDecrementExpression" Type="PrefixOperatorExpression" />

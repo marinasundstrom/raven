@@ -553,6 +553,12 @@ internal static class AsyncLowerer
 
             for (var i = declarators.Length - 1; i >= 0; i--)
             {
+                if (declarators[i].FixedPinnedLocal is { } fixedPinnedLocal)
+                {
+                    builder.Add(CreateFixedCleanupStatement(fixedPinnedLocal));
+                    continue;
+                }
+
                 var local = declarators[i].Local;
                 if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
                     continue;
@@ -569,6 +575,13 @@ internal static class AsyncLowerer
             }
 
             return builder.ToImmutable();
+        }
+
+        private BoundStatement CreateFixedCleanupStatement(ILocalSymbol pinnedLocal)
+        {
+            var left = new BoundLocalAccess(pinnedLocal);
+            var right = new BoundDefaultValueExpression(pinnedLocal.Type);
+            return new BoundAssignmentStatement(new BoundLocalAssignmentExpression(pinnedLocal, left, right, _compilation.UnitTypeSymbol));
         }
 
         private BoundStatement? CreateDisposeStatement(ILocalSymbol local, IMethodSymbol disposeMethod, bool useAwait)

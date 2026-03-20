@@ -208,6 +208,30 @@ class Test {
     }
 
     [Fact]
+    public void FixedUseInitializer_InfersPointerType()
+    {
+        const string source = """
+class Test {
+    unsafe static func Run() {
+        var value = 41
+        use pointer = fixed &value
+        *pointer = 42
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "pointer");
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
+        var pointerType = Assert.IsAssignableFrom<IPointerTypeSymbol>(local.Type);
+        Assert.Equal(SpecialType.System_Int32, pointerType.PointedAtType.SpecialType);
+    }
+
+    [Fact]
     public void PointerArrowMemberAccess_ResolvesMemberOnPointedType()
     {
         const string source = """

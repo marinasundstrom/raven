@@ -3997,7 +3997,8 @@ internal class MethodBodyGenerator
                 throw new InvalidOperationException($"Failed to resolve CLR type for local '{localSymbol.Name}' of type '{typeDisplay}' in method '{MethodSymbol}'.");
             }
 
-            var builder = ILGenerator.DeclareLocal(clrType);
+            var isPinned = collector.PinnedLocals.Contains(localSymbol);
+            var builder = ILGenerator.DeclareLocal(clrType, isPinned);
             if (ShouldEmitDebugLocalName(localSymbol))
                 builder.SetLocalSymInfo(localSymbol.Name);
             targetScope.AddLocal(localSymbol, builder);
@@ -4209,6 +4210,7 @@ internal class MethodBodyGenerator
         }
 
         public List<ILocalSymbol> Locals { get; } = new();
+        public HashSet<ILocalSymbol> PinnedLocals { get; } = new(SymbolEqualityComparer.Default);
 
         public override void VisitLocalAccess(BoundLocalAccess node)
         {
@@ -4220,10 +4222,20 @@ internal class MethodBodyGenerator
 
         public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
         {
-            foreach (var d in node.Declarators)
-                Locals.Add(d.Local);
-
             base.VisitLocalDeclarationStatement(node);
+        }
+
+        public override void VisitVariableDeclarator(BoundVariableDeclarator node)
+        {
+            Locals.Add(node.Local);
+
+            if (node.FixedPinnedLocal is not null)
+            {
+                Locals.Add(node.FixedPinnedLocal);
+                PinnedLocals.Add(node.FixedPinnedLocal);
+            }
+
+            base.VisitVariableDeclarator(node);
         }
 
         public override void VisitAssignmentStatement(BoundAssignmentStatement node)

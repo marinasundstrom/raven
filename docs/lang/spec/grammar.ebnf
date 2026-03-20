@@ -524,6 +524,7 @@ MultiplicativeExpression ::= UnaryExpression {('*' | '/' | '%') UnaryExpression}
 UnaryExpression          ::= LambdaExpression
                            | PostfixExpression
                            | ('+' | '-' | '!') UnaryExpression
+                           | 'fixed' UnaryExpression
                            | 'await' UnaryExpression
                            | CastExpression ;
 

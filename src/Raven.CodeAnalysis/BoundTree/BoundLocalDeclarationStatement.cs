@@ -18,11 +18,19 @@ sealed partial class BoundVariableDeclarator : BoundNode
 {
     public ILocalSymbol Local { get; }
     public BoundExpression? Initializer { get; }
+    public BoundAddressOfExpression? FixedAddressInitializer { get; }
+    public ILocalSymbol? FixedPinnedLocal { get; }
 
-    public BoundVariableDeclarator(ILocalSymbol local, BoundExpression? initializer)
+    public BoundVariableDeclarator(
+        ILocalSymbol local,
+        BoundExpression? initializer,
+        BoundAddressOfExpression? fixedAddressInitializer = null,
+        ILocalSymbol? fixedPinnedLocal = null)
     {
         Local = local;
         Initializer = initializer;
+        FixedAddressInitializer = fixedAddressInitializer;
+        FixedPinnedLocal = fixedPinnedLocal;
     }
 
     public ISymbol Symbol => Local;

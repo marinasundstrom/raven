@@ -186,6 +186,7 @@ partial class BlockBinder : Binder
         var decl = (VariableDeclarationSyntax)variableDeclarator.Parent!;
         var bindingKeyword = decl.BindingKeyword;
         var isUseDeclaration = decl.Parent is UseDeclarationStatementSyntax;
+        var isFixedInitializer = variableDeclarator.Initializer?.Value is PrefixOperatorExpressionSyntax { Kind: SyntaxKind.FixedExpression };
         var initializer = variableDeclarator.Initializer;
 
         var isShadowingExistingInScope = false;
@@ -209,13 +210,15 @@ partial class BlockBinder : Binder
             _diagnostics.ReportVariableShadowsPreviousDeclaration(name, variableDeclarator.Identifier.GetLocation());
         var isConst = bindingKeyword.IsKind(SyntaxKind.ConstKeyword);
         var isMutable = bindingKeyword.IsKind(SyntaxKind.VarKeyword);
-        var shouldDispose = isUseDeclaration;
+        var shouldDispose = isUseDeclaration && !isFixedInitializer;
 
         ITypeSymbol type = Compilation.ErrorTypeSymbol;
         BoundExpression? boundInitializer = null;
         ITypeSymbol? initializerValueType = null;
         ITypeSymbol? annotatedType = null;
         IMethodSymbol? functionValueTargetMethod = null;
+        BoundAddressOfExpression? fixedAddressInitializer = null;
+        ILocalSymbol? fixedPinnedLocal = null;
         var isFunctionValueAlias = false;
         var typeLocation = variableDeclarator.TypeAnnotation?.Type.GetLocation()
             ?? bindingKeyword.GetLocation();
@@ -366,7 +369,16 @@ partial class BlockBinder : Binder
         if (initializer is not null && boundInitializer is not null)
             CacheBoundNode(initializer.Value, boundInitializer);
 
-        if (isUseDeclaration)
+        if (isFixedInitializer)
+        {
+            fixedAddressInitializer = TryGetFixedAddressInitializer(boundInitializer);
+            if (fixedAddressInitializer is not null && type.TypeKind != TypeKind.Error)
+            {
+                fixedPinnedLocal = CreateSynthesizedPinnedLocal(variableDeclarator, name, fixedAddressInitializer.Type);
+            }
+        }
+
+        if (isUseDeclaration && !isFixedInitializer)
         {
             var preferAsyncDispose = PrefersAsyncUseDisposal();
             var expectedTargetDisplay = UseDisposalUtilities.GetExpectedUseTargetDisplay(Compilation, preferAsyncDispose);
@@ -398,7 +410,7 @@ partial class BlockBinder : Binder
             ? CreateFunctionValueSymbol(variableDeclarator, name, isMutable, type, functionValueTargetMethod)
             : CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue);
 
-        var declarator = new BoundVariableDeclarator(localSymbol, boundInitializer);
+        var declarator = new BoundVariableDeclarator(localSymbol, boundInitializer, fixedAddressInitializer, fixedPinnedLocal);
 
         if (shouldDispose)
             _localsToDispose.Add((declarator.Local, _scopeDepth));
@@ -406,6 +418,34 @@ partial class BlockBinder : Binder
         CacheBoundNode(variableDeclarator, declarator);
 
         return declarator;
+    }
+
+    private static BoundAddressOfExpression? TryGetFixedAddressInitializer(BoundExpression? expression)
+    {
+        while (expression is BoundConversionExpression conversion)
+        {
+            if (conversion.Expression is BoundAddressOfExpression addressOf)
+                return addressOf;
+
+            expression = conversion.Expression;
+        }
+
+        return expression as BoundAddressOfExpression;
+    }
+
+    private ILocalSymbol CreateSynthesizedPinnedLocal(VariableDeclaratorSyntax variableDeclarator, string name, ITypeSymbol type)
+    {
+        return new SourceLocalSymbol(
+            $"<{name}>pinned",
+            type,
+            isMutable: true,
+            _containingSymbol,
+            _containingSymbol?.ContainingType as INamedTypeSymbol,
+            _containingSymbol?.ContainingNamespace,
+            [],
+            [],
+            isConst: false,
+            constantValue: null);
     }
 
     private bool PrefersAsyncUseDisposal()
@@ -1159,6 +1199,9 @@ partial class BlockBinder : Binder
             case SyntaxKind.AddressOfExpression:
                 return BindAddressOfExpression(operand, unaryExpression);
 
+            case SyntaxKind.FixedExpression:
+                return BindFixedExpression(operand, unaryExpression);
+
             case SyntaxKind.DereferenceExpression:
                 return BindDereferenceExpression(operand, unaryExpression);
 
@@ -1705,6 +1748,47 @@ partial class BlockBinder : Binder
 
         //_diagnostics.ReportInvalidAddressOf(syntax.Expression.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed /*,.InvalidAddressOfTarget */);
+    }
+
+    private BoundExpression BindFixedExpression(BoundExpression operand, PrefixOperatorExpressionSyntax syntax)
+    {
+        if (!IsUnsafeEnabled)
+        {
+            _diagnostics.ReportPointerOperationRequiresUnsafe(syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.OtherError);
+        }
+
+        if (!IsInsideUseDeclarationInitializer(syntax))
+        {
+            _diagnostics.ReportFixedExpressionRequiresUseInitializer(syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.OtherError);
+        }
+
+        if (operand is not BoundAddressOfExpression addressOf)
+        {
+            _diagnostics.ReportFixedExpressionRequiresAddressOfOperand(syntax.Expression.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.OtherError);
+        }
+
+        var pointerType = Compilation.CreatePointerTypeSymbol(addressOf.ReferencedType);
+        var conversion = Compilation.ClassifyConversion(addressOf.Type, pointerType, includeUserDefined: false);
+        return new BoundConversionExpression(addressOf, pointerType, conversion);
+    }
+
+    private static bool IsInsideUseDeclarationInitializer(SyntaxNode syntax)
+    {
+        for (SyntaxNode? current = syntax; current is not null; current = current.Parent)
+        {
+            if (current is EqualsValueClauseSyntax equalsValue &&
+                equalsValue.Parent is VariableDeclaratorSyntax declarator &&
+                declarator.Parent is VariableDeclarationSyntax declaration &&
+                declaration.Parent is UseDeclarationStatementSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected BoundExpression BindByRefInvocationArgument(BoundExpression operand, RefKind refKind, SyntaxNode syntax)

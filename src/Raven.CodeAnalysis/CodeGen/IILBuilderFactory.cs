@@ -68,7 +68,7 @@ internal sealed class ReflectionEmitILBuilderFactory : IILBuilderFactory
             _inner.MarkLabel(adapter.Label);
         }
 
-        public IILocal DeclareLocal(Type type) => new LocalAdapter(_inner.DeclareLocal(type));
+        public IILocal DeclareLocal(Type type, bool pinned = false) => new LocalAdapter(_inner.DeclareLocal(type, pinned));
 
         public void Emit(OpCode opcode) => _inner.Emit(opcode);
 
