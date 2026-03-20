@@ -7,6 +7,7 @@ import System.Linq.*
 func Main() {
     RunExistingPatternExamples()
     RunCollectionPatternExamples()
+    RunCollectionComprehensionExamples()
 }
 
 func RunExistingPatternExamples() {
@@ -122,6 +123,44 @@ func RunCollectionPatternExamples() {
     }
 }
 
+func RunCollectionComprehensionExamples() {
+    PrintSection("Collection comprehensions")
+
+    val numbers = [|1, 2, 3, 4, 5|]
+    val squares = [for n in numbers => n * n]
+    val evenSquares = [for n in numbers if n % 2 == 0 => n * n]
+    val rangeValues = [for n in 3..<7 => n]
+
+    WriteLine("Input numbers: ${DescribeInts(numbers)}")
+    WriteLine("Squares:       ${DescribeInts(squares)}")
+    WriteLine("Even squares:  ${DescribeInts(evenSquares)}")
+    WriteLine("Range values:  ${DescribeInts(rangeValues)}")
+
+    val mutableSquares = ![for n in numbers => n * 10]
+    WriteLine("Mutable form:  ${DescribeInts(mutableSquares)}")
+
+    PrintSection("Dictionary comprehensions")
+
+    val lengths = [for text in [|"a", "bb", "ccc"|] => text: text.Length]
+    WriteLine("Lengths:")
+    for val (key, value) in lengths {
+        WriteLine("$key: $value")
+    }
+
+    PrintSection("Pattern comprehensions")
+
+    val people = [(1, "Ada"), (2, "Bob"), (2, "Eve")]
+    val selectedNames = [for val (2, name) in people => name]
+    WriteLine("Selected names: ${DescribeStrings(selectedNames)}")
+
+    val pairs = [("one", 1), ("two", 2), ("three", 3)]
+    val doubled = [for val (key, value) in pairs if value >= 2 => key: value * 2]
+    WriteLine("Doubled dictionary:")
+    for val (key, value) in doubled {
+        WriteLine("$key: $value")
+    }
+}
+
 func Tuple() {
     val person = (no: 1, name: "John Doe")
     val (id, name) = person
@@ -159,6 +198,22 @@ func DescribeInts(values: IEnumerable<int>) -> string {
 
 func DescribePoint(point: (int, int)) -> string {
     return "(${point.Item1}, ${point.Item2})"
+}
+
+func DescribeStrings(values: IEnumerable<string>) -> string {
+    var text = "["
+    var isFirst = true
+
+    for value in values {
+        if !isFirst {
+            text = text + ", "
+        }
+
+        text = text + value
+        isFirst = false
+    }
+
+    return text + "]"
 }
 
 func DescribePerson(person: Person) -> string {
