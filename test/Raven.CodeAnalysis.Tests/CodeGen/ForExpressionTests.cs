@@ -74,6 +74,38 @@ for x in bottom..top {
     }
 
     [Fact]
+    public void For_WithExtensionGetEnumerator_EmitsAndRuns()
+    {
+        var code = """
+import System.Console.*
+import System.Collections.Generic.*
+
+class Box {
+    val Items: List<int> = [42]
+}
+
+extension BoxEnumerable for Box {
+    func GetEnumerator() -> IEnumerator<int> {
+        val values: IEnumerable<int> = self.Items
+        return values.GetEnumerator()
+    }
+}
+
+class Program {
+    static func Main() {
+        val box = Box()
+        for value in box {
+            WriteLine(value)
+        }
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["42"], output);
+    }
+
+    [Fact]
     public void ForRange_SupportsCharAndDecimalBounds()
     {
         var code = """

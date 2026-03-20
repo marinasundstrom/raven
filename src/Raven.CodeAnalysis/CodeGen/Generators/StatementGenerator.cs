@@ -911,7 +911,7 @@ internal class StatementGenerator : Generator
         BoundInvocationExpression invocation;
         if (getEnumeratorMethod.IsExtensionMethod)
         {
-            invocation = new BoundInvocationExpression(getEnumeratorMethod, [collection], extensionReceiver: collection);
+            invocation = new BoundInvocationExpression(getEnumeratorMethod, [collection], receiver: null, extensionReceiver: null);
         }
         else
         {
