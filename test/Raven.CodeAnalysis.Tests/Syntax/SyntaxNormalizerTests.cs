@@ -119,6 +119,30 @@ class Foo {
     }
 
     [Fact]
+    public void NormalizeWhitespace_FormatsLeadingAttributeListsOnSeparateLines()
+    {
+        const string source = """
+class CounterViewModel{
+#[Observable][Required]var Count:int=0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+
+        var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
+
+        var expected = """
+class CounterViewModel {
+    [#Observable]
+    [Required]
+    var Count: int = 0
+}
+""";
+
+        Assert.Equal(expected, normalized);
+    }
+
+    [Fact]
     public void NormalizeWhitespace_FormatsPatternBindingForms()
     {
         const string source = """

@@ -277,6 +277,20 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     private bool ShouldStartNewLineBefore(SyntaxToken token)
     {
+        if (TryGetEnclosingLeadingAttributeList(_previousToken, out var previousAttributeList, out var previousAttributeOwner) &&
+            TryGetEnclosingLeadingAttributeList(token, out var currentAttributeList, out var currentAttributeOwner) &&
+            !ReferenceEquals(previousAttributeList, currentAttributeList) &&
+            ReferenceEquals(previousAttributeOwner, currentAttributeOwner))
+        {
+            return true;
+        }
+
+        if (TryGetEnclosingLeadingAttributeList(_previousToken, out _, out var attributeOwnerBefore) &&
+            IsFirstTokenAfterLeadingAttributeLists(token, attributeOwnerBefore))
+        {
+            return true;
+        }
+
         if (TryGetEnclosingAccessor(_previousToken, out var previousAccessor) &&
             TryGetEnclosingAccessor(token, out var currentAccessor) &&
             !ReferenceEquals(previousAccessor, currentAccessor) &&
@@ -551,6 +565,72 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         }
 
         member = null!;
+        return false;
+    }
+
+    private static bool TryGetEnclosingLeadingAttributeList(
+        SyntaxToken token,
+        [NotNullWhen(true)] out AttributeListSyntax? attributeList,
+        [NotNullWhen(true)] out SyntaxNode? owner)
+    {
+        attributeList = null;
+        owner = null;
+
+        for (var current = token.Parent; current is not null; current = current.Parent)
+        {
+            if (attributeList is null && current is AttributeListSyntax foundAttributeList)
+            {
+                attributeList = foundAttributeList;
+                continue;
+            }
+
+            if (attributeList is null)
+                continue;
+
+            if (OwnsLeadingAttributeList(current, attributeList))
+            {
+                owner = current;
+                return true;
+            }
+        }
+
+        attributeList = null;
+        owner = null;
+        return false;
+    }
+
+    private static bool OwnsLeadingAttributeList(SyntaxNode node, AttributeListSyntax attributeList)
+    {
+        return node switch
+        {
+            CompilationUnitSyntax compilationUnit => compilationUnit.AttributeLists.Contains(attributeList),
+            MemberDeclarationSyntax member => member.AttributeLists.Contains(attributeList),
+            AccessorDeclarationSyntax accessor => accessor.AttributeLists.Contains(attributeList),
+            _ => false
+        };
+    }
+
+    private static bool IsFirstTokenAfterLeadingAttributeLists(SyntaxToken token, SyntaxNode owner)
+    {
+        foreach (var child in owner.ChildNodesAndTokens())
+        {
+            if (child.TryGetNode(out var node))
+            {
+                if (node is AttributeListSyntax)
+                    continue;
+
+                return node.GetFirstToken(includeZeroWidth: false) == token;
+            }
+
+            if (child.TryGetToken(out var childToken))
+            {
+                if (childToken.FullWidth == 0)
+                    continue;
+
+                return childToken == token;
+            }
+        }
+
         return false;
     }
 
