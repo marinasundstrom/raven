@@ -1,0 +1,5 @@
+root = true
+
+[*.rvn]
+dotnet_diagnostic.RAV9017.severity = suggestion
+dotnet_diagnostic.RAV9012.severity = none
