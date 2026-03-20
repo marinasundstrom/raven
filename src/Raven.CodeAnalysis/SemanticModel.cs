@@ -25,7 +25,7 @@ public partial class SemanticModel
     private readonly ConcurrentDictionary<SyntaxNode, BoundNode> _loweredBoundNodeCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _loweredBoundNodeCache2 = new();
     private readonly ConcurrentDictionary<SyntaxNodeMapKey, byte> _asyncLoweringInProgress = new();
-    private readonly ConcurrentDictionary<AttributeSyntax, MacroExpansionResult?> _macroExpansionCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, ImmutableDictionary<AttributeSyntax, MacroExpansionResult?>> _macroExpansionCache = new();
     private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, FreestandingMacroExpansionResult?> _freestandingMacroExpansionCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, SyntaxNode> _macroReplacementSyntaxMap = new();
     private readonly ConcurrentDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
@@ -443,16 +443,19 @@ Complete:
         if (TryGetMacroTarget(attribute) is not { } targetDeclaration)
             return null;
 
-        return _macroExpansionCache.GetOrAdd(
-            attribute,
-            static (syntax, state) => MacroExpansionService.ExpandAttachedMacro(
+        var expansionMap = _macroExpansionCache.GetOrAdd(
+            targetDeclaration,
+            static (syntax, state) => MacroExpansionService.ExpandAttachedMacros(
                 state.Model.Compilation,
                 state.Model,
                 syntax,
-                state.TargetDeclaration,
                 state.Model._declarationDiagnostics,
                 state.CancellationToken),
-            (Model: this, TargetDeclaration: targetDeclaration, CancellationToken: cancellationToken));
+            (Model: this, CancellationToken: cancellationToken));
+
+        return expansionMap.TryGetValue(attribute, out var expansion)
+            ? expansion
+            : null;
     }
 
     public FreestandingMacroExpansionResult? GetMacroExpansion(

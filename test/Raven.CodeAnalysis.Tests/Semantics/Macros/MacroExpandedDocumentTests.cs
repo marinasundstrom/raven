@@ -95,17 +95,17 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         var expandedText = model.GetExpandedRoot().ToFullString();
 
         var firstMarkerIndex = AssertContainsAndGetIndex(expandedText, "func Before_Value() -> int");
-        var secondMarkerIndex = AssertContainsAndGetIndex(expandedText, "func BeforeAgain_Value() -> int");
-        var replacementIndex = AssertContainsAndGetIndex(expandedText, "var Second_Value: int");
+        var secondMarkerIndex = AssertContainsAndGetIndex(expandedText, "func BeforeAgain_First_Value() -> int");
+        var replacementIndex = AssertContainsAndGetIndex(expandedText, "var Second_First_Value: int");
         var firstPeerIndex = AssertContainsAndGetIndex(expandedText, "func After_Value() -> int");
-        var secondPeerIndex = AssertContainsAndGetIndex(expandedText, "func AfterAgain_Value() -> int");
+        var secondPeerIndex = AssertContainsAndGetIndex(expandedText, "func AfterAgain_First_Value() -> int");
 
         Assert.True(firstMarkerIndex < secondMarkerIndex);
         Assert.True(secondMarkerIndex < replacementIndex);
         Assert.True(replacementIndex < firstPeerIndex);
         Assert.True(firstPeerIndex < secondPeerIndex);
 
-        Assert.DoesNotContain("var Second_First_Value: int", expandedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("var Second_Value: int", expandedText, StringComparison.Ordinal);
     }
 
     private static int AssertContainsAndGetIndex(string text, string value)
@@ -231,7 +231,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
 
         public MacroExpansionResult Expand(AttachedMacroContext context)
         {
-            var property = Assert.IsType<PropertyDeclarationSyntax>(context.TargetDeclaration);
+            var property = Assert.IsType<PropertyDeclarationSyntax>(context.CurrentDeclaration);
             var identifier = property.Identifier.ValueText;
             var members = ParseMembers($$"""
                 class __GeneratedContainer {

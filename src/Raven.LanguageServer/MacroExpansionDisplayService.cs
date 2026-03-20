@@ -90,17 +90,11 @@ internal static class MacroExpansionDisplayService
     {
         display = default;
 
-        var expansion = semanticModel.GetMacroExpansion(attribute);
-        if (expansion is null)
+        var expandedNodes = semanticModel.GetExpandedDeclaration(attribute);
+        if (expandedNodes.IsDefaultOrEmpty)
             return false;
 
-        var sections = new List<string>();
-        sections.AddRange(expansion.IntroducedMembers.Select(FormatNode));
-
-        if (expansion.ReplacementDeclaration is { } replacement)
-            sections.Add(FormatNode(replacement));
-
-        sections.AddRange(expansion.PeerDeclarations.Select(FormatNode));
+        var sections = expandedNodes.Select(FormatNode).ToList();
 
         if (sections.Count == 0)
             return false;

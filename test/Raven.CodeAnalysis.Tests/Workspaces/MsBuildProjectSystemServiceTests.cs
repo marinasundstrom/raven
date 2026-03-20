@@ -323,8 +323,10 @@ val value = WidgetFactory.CreateDefault()
             var macroSourcePath = Path.Combine(macrosDirectory, "main.rvn");
             File.WriteAllText(macroSourcePath, """"
                 import System.Collections.Immutable.*
+                import System.Collections.Generic.*
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.CodeAnalysis.Syntax.*
+                import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
                 class ObservableMacroPlugin : IRavenMacroPlugin {
                     val Name: string => "Tests.Observable"
@@ -582,6 +584,122 @@ val value = WidgetFactory.CreateDefault()
                 .GetMethod("Run", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
 
             Assert.Equal(1, method!.Invoke(null, null));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void OpenProject_RavenMacroProjectReference_WithListComprehensionOverSyntaxList_ExpandsMacro()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var macrosDirectory = Path.Combine(root, "macros");
+            var appDirectory = Path.Combine(root, "app");
+            Directory.CreateDirectory(macrosDirectory);
+            Directory.CreateDirectory(appDirectory);
+
+            var macroSourcePath = Path.Combine(macrosDirectory, "main.rvn");
+            File.WriteAllText(macroSourcePath, """"
+                import System.Collections.Immutable.*
+                import Raven.CodeAnalysis.Macros.*
+                import Raven.CodeAnalysis.Syntax.*
+
+                class ObservableMacroPlugin : IRavenMacroPlugin {
+                    val Name: string => "Tests.Observable"
+
+                    func GetMacros() -> ImmutableArray<IMacroDefinition> {
+                        ImmutableArray.Create<IMacroDefinition>(ObservableMacro())
+                    }
+                }
+
+                class ObservableMacro : IAttachedDeclarationMacro {
+                    val Name: string => "Observable"
+                    val Kind: MacroKind => MacroKind.AttachedDeclaration
+                    val Targets: MacroTarget => MacroTarget.Property
+
+                    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
+                        val property = context.CurrentDeclaration as PropertyDeclarationSyntax
+                        if property is null {
+                            return MacroExpansionResult.Empty
+                        }
+
+                        MacroExpansionResult {
+                            ReplacementDeclaration = property.WithAttributeLists(FilterNonMacroAttributeLists(property.AttributeLists))
+                        }
+                    }
+
+                    func FilterNonMacroAttributeLists(attributeLists: SyntaxList<AttributeListSyntax>) -> SyntaxList<AttributeListSyntax> {
+                        List<AttributeListSyntax>([
+                            for attributeList in attributeLists
+                            if attributeList.Attributes.Count > 0 && !attributeList.Attributes[0].IsMacroAttribute()
+                                => attributeList
+                        ])
+                    }
+                }
+                """");
+
+            var macroProjectPath = Path.Combine(macrosDirectory, "ObservableMacros.rvnproj");
+            var ravenCodeAnalysisPath = typeof(Compilation).Assembly.Location;
+            File.WriteAllText(macroProjectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>ObservableMacros</AssemblyName>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="main.rvn" />
+                    <Reference Include="Raven.CodeAnalysis">
+                      <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
+                    </Reference>
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var appSourcePath = Path.Combine(appDirectory, "main.rvn");
+            File.WriteAllText(appSourcePath, """
+                import System.*
+
+                class MyViewModel {
+                    #[Observable]
+                    [Obsolete]
+                    var Title: string = ""
+                }
+                """);
+
+            var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
+            File.WriteAllText(appProjectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="main.rvn" />
+                    <RavenMacro Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(appProjectPath);
+            var compilation = workspace.GetCompilation(projectId);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            var document = project.Documents.Single(doc => doc.FilePath == appSourcePath);
+            var syntaxTree = document.GetSyntaxTreeAsync().GetAwaiter().GetResult()!;
+            var model = compilation.GetSemanticModel(syntaxTree);
+            var attribute = syntaxTree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single(a => a.Name.ToString() == "Observable");
+
+            var expansion = model.GetMacroExpansion(attribute);
+
+            Assert.NotNull(expansion);
+            Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAVM020");
+            var replacement = Assert.IsType<PropertyDeclarationSyntax>(expansion!.ReplacementDeclaration);
+            Assert.Single(replacement.AttributeLists);
+            Assert.Equal("Obsolete", replacement.AttributeLists[0].Attributes[0].Name.ToString());
         }
         finally
         {

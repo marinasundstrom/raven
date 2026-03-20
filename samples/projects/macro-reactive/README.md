@@ -27,9 +27,11 @@ Current status:
 
 - The macro plugin is written in Raven, not C#.
 - `#[Observable]` introduces a companion `CountChanged: IObservable<int>` member next to the property.
+- The attached observable macro transforms `context.CurrentDeclaration`, so it composes with earlier same-target macros while still leaving `context.TargetDeclaration` as the original syntax anchor.
 - The property replacement setter only pushes when the value actually changes.
 - `#subscribe(...)` expands structurally from a property access like `viewModel.Count` to `Subscribe(viewModel.CountChanged, ...)`.
 - The sample takes a dependency on `System.Reactive` and uses `Subject<T>` as the backing push mechanism.
+- For this sample, `#[Observable]` only supports mutable storage properties and reports a macro diagnostic for accessor-bodied or expression-bodied properties.
 
 Files:
 

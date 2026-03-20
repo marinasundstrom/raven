@@ -44,7 +44,8 @@ class MyViewModel {
 
         success.ShouldBeTrue();
         display.MacroName.ShouldBe("Observable");
-        display.FullText.ShouldContain("private field _Title: string");
+        display.FullText.ShouldContain("private field");
+        display.FullText.ShouldContain("_Title: string");
         display.FullText.ShouldContain("var Title: string");
         display.PreviewText.ShouldContain("_Title");
     }
@@ -121,6 +122,40 @@ class MyViewModel {
         display.FullText.ShouldContain("set {");
         display.FullText.ShouldNotContain("privatevar_Title");
         display.FullText.ShouldNotContain("valoldValue");
+    }
+
+    [Fact]
+    public void MacroExpansionDisplayService_ShowsComposedExpansionForStackedMacros()
+    {
+        const string code = """
+class MyViewModel {
+    #[First]
+    #[Second]
+    var Title: string
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(typeof(StackingMacroPlugin)));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var sourceText = SourceText.From(code);
+        var root = syntaxTree.GetRoot();
+        var attribute = root.DescendantNodes().OfType<AttributeSyntax>().First();
+
+        var success = MacroExpansionDisplayService.TryCreateForOffset(
+            sourceText,
+            semanticModel,
+            root,
+            attribute.Span.Start + 2,
+            out var display);
+
+        success.ShouldBeTrue();
+        display.FullText.ShouldContain("func Before_Title() -> int");
+        display.FullText.ShouldContain("var Second_First_Title: string");
+        display.FullText.ShouldContain("func AfterAgain_First_Title() -> int");
     }
 
     [Fact]
@@ -543,5 +578,68 @@ class Program {
                         ])))
             };
         }
+    }
+
+    public sealed class StackingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "StackingMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new FirstStackingMacro(), new SecondStackingMacro()];
+    }
+
+    public sealed class FirstStackingMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "First";
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var property = (PropertyDeclarationSyntax)context.TargetDeclaration;
+            var members = ParseMembers($$"""
+                class __GeneratedContainer {
+                    func Before_{{property.Identifier.ValueText}}() -> int { return 1 }
+                    var First_{{property.Identifier.ValueText}}: string { get => "" }
+                }
+                """);
+
+            return new MacroExpansionResult
+            {
+                IntroducedMembers = [members[0]],
+                ReplacementDeclaration = members[1]
+            };
+        }
+    }
+
+    public sealed class SecondStackingMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "Second";
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var property = (PropertyDeclarationSyntax)context.CurrentDeclaration;
+            var members = ParseMembers($$"""
+                class __GeneratedContainer {
+                    var Second_{{property.Identifier.ValueText}}: string { get => "" }
+                    func AfterAgain_{{property.Identifier.ValueText}}() -> int { return 2 }
+                }
+                """);
+
+            return new MacroExpansionResult
+            {
+                ReplacementDeclaration = members[0],
+                PeerDeclarations = [members[1]]
+            };
+        }
+    }
+
+    private static ImmutableArray<MemberDeclarationSyntax> ParseMembers(string source)
+    {
+        var tree = SyntaxFactory.ParseSyntaxTree(source);
+        var container = (ClassDeclarationSyntax)tree.GetRoot().Members.Single();
+        return [.. container.Members];
     }
 }

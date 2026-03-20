@@ -10,12 +10,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 - The macro spec and focused tests now explicitly define how attached declaration macros compose when multiple macros target the same declaration and when both a parent declaration and its members use macros.
 
 ### Changed
-- Attached declaration macros are now documented as source-ordered but independently expanded: each macro sees the original annotated declaration, introduced members are integrated first, the last replacement wins for the declaration itself, and peer declarations are integrated afterward.
+- Attached declaration macros are now documented as a source-ordered same-target pipeline: each macro sees both the original authored declaration and the current pre-application declaration, replacement results feed later macros on that declaration, introduced members are integrated first, the last replacement wins for the declaration itself, and peer declarations are integrated afterward.
 
 Impact:
 - Managed storage can now be pinned without introducing a separate C#-style `fixed (...) { ... }` statement, so pinning composes with Raven’s existing `use` lifetime model and keeps address selection explicit.
 - Resource lifetimes can now be narrowed inline without relying on extra surrounding braces, while object-initializer forms such as `use obj = Foo { Value = 2 } in { ... }` remain syntactically clear.
-- Macro authors now have a stable, documented composition model to target instead of inferring behavior from implementation details, which reduces the risk of stacked macros silently depending on unstable rewrite ordering.
+- Macro authors now have a stable, documented composition model to target, including explicit access to both authored syntax and composed same-target syntax, while IDE expansion views still show the full declaration result after all attached macros have run.
 
 ## 2026-03-19
 

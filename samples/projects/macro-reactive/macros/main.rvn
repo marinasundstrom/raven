@@ -15,9 +15,20 @@ class ObservableMacro : IAttachedDeclarationMacro {
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-        val property = context.TargetDeclaration as PropertyDeclarationSyntax
+        val property = context.CurrentDeclaration as PropertyDeclarationSyntax
         if property is null {
             return MacroExpansionResult.Empty
+        }
+
+        if !IsStorageProperty(property) {
+            return MacroExpansionResult {
+                MacroDiagnostics = [
+                    MacroExpansionDiagnostic.Error(
+                        "#[Observable] requires a mutable storage property without accessors or an expression body.",
+                        property.GetLocation(),
+                        "OBS001")
+                ]
+            }
         }
 
         val propertyName = property.Identifier.ValueText
@@ -33,6 +44,13 @@ class ObservableMacro : IAttachedDeclarationMacro {
                 CreateSignalProperty(property, signalStorageName, signalMemberName)
             ]
         }
+    }
+
+    func IsStorageProperty(property: PropertyDeclarationSyntax) -> bool {
+        val propertyText = property.ToFullString().Trim()
+        property.BindingKeyword.ValueText == "var"
+            && !propertyText.Contains("{")
+            && !propertyText.Contains("=>")
     }
 
     func CreateBackingField(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
@@ -74,12 +92,20 @@ class ObservableMacro : IAttachedDeclarationMacro {
 
     func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string, signalStorageName: string) -> PropertyDeclarationSyntax {
         property with {
-            AttributeLists = List<AttributeListSyntax>()
+            AttributeLists = FilterNonMacroAttributeLists(property.AttributeLists)
             AccessorList = CreateAccessorList(backingFieldName, signalStorageName)
             ExpressionBody = null
             Initializer = null
             TerminatorToken = Token(SyntaxKind.None)
         }
+    }
+
+    func FilterNonMacroAttributeLists(attributeLists: SyntaxList<AttributeListSyntax>) -> SyntaxList<AttributeListSyntax> {
+        List<AttributeListSyntax>([
+            for attributeList in attributeLists
+            if attributeList.Attributes.Count > 0 && !attributeList.Attributes[0].IsMacroAttribute()
+                => attributeList
+        ])
     }
 
     func CreateAccessorList(backingFieldName: string, signalStorageName: string) -> AccessorListSyntax {

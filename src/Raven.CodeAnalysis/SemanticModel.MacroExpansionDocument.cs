@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 
@@ -19,6 +20,38 @@ public partial class SemanticModel
         var expandedRoot = root.WithMembers(rewrittenMembers);
         expandedRoot = (CompilationUnitSyntax)RewriteFreestandingMacros(expandedRoot, this, cancellationToken);
         return Formatter.Format(expandedRoot);
+    }
+
+    public ImmutableArray<SyntaxNode> GetExpandedDeclaration(
+        AttributeSyntax attribute,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(attribute);
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureDiagnosticsCollected();
+
+        if (TryGetMacroTarget(attribute) is not { } targetDeclaration)
+            return ImmutableArray<SyntaxNode>.Empty;
+
+        if (targetDeclaration is MemberDeclarationSyntax memberDeclaration)
+            return [.. RewriteMember(memberDeclaration, this, cancellationToken)];
+
+        var sections = new List<SyntaxNode>();
+        foreach (var macroAttribute in targetDeclaration.ChildNodes().OfType<AttributeListSyntax>().SelectMany(static list => list.Attributes))
+        {
+            if (!macroAttribute.IsMacroAttribute())
+                continue;
+
+            var expansion = GetMacroExpansion(macroAttribute, cancellationToken);
+            if (expansion is null)
+                continue;
+
+            sections.AddRange(expansion.IntroducedMembers);
+            sections.Add(expansion.ReplacementDeclaration ?? targetDeclaration);
+            sections.AddRange(expansion.PeerDeclarations);
+        }
+
+        return [.. sections];
     }
 
     private static SyntaxList<MemberDeclarationSyntax> RewriteMemberList(

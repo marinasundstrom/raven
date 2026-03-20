@@ -3,6 +3,7 @@ import System.Console.*
 import System.Reactive.*
 import System.Reactive.Subjects.*
 import System.Reactive.Linq.*
+import System.ComponentModel.DataAnnotations.*
 
 func Main() {
     val viewModel = CounterViewModel()
@@ -18,5 +19,6 @@ func Main() {
 
 class CounterViewModel {
     #[Observable]
+    [Required]
     var Count: int = 0
 }

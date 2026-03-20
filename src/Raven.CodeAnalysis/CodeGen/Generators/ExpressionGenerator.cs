@@ -3252,10 +3252,9 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        EmitExpression(comprehension.Source);
+        EmitNonGenericEnumerable(comprehension.Source);
 
         var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
-        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
         var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
 
@@ -3370,10 +3369,9 @@ internal partial class ExpressionGenerator : Generator
         ITypeSymbol itemType,
         Action<IILocal> emitBody)
     {
-        EmitExpression(sourceExpression);
+        EmitNonGenericEnumerable(sourceExpression);
 
         var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
-        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
         var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
 
@@ -3766,10 +3764,9 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        EmitExpression(comprehension.Source);
+        EmitNonGenericEnumerable(comprehension.Source);
 
         var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
-        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
         var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
 
@@ -3805,12 +3802,12 @@ internal partial class ExpressionGenerator : Generator
 
         if (comprehension.Condition is not null)
         {
-            new ExpressionGenerator(scope, comprehension.Condition, EmitContext.None).Emit2();
+            new ExpressionGenerator(scope, comprehension.Condition, EmitContext.Value).Emit2();
             ILGenerator.Emit(OpCodes.Brfalse, loopNext);
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, listLocal);
-        new ExpressionGenerator(scope, comprehension.Selector, EmitContext.None).Emit2();
+        new ExpressionGenerator(scope, comprehension.Selector, EmitContext.Value).Emit2();
 
         if (comprehension.Selector.Type is { } selectorType &&
             ShouldBoxForReferenceTarget(selectorType, elementType))
@@ -3825,6 +3822,17 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, listLocal);
         var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(toArrayMethod));
+    }
+
+    private void EmitNonGenericEnumerable(BoundExpression sourceExpression)
+    {
+        EmitExpression(sourceExpression);
+
+        if (sourceExpression.Type is { IsValueType: true } sourceType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(sourceType));
+
+        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
     }
 
     private void EmitCollectionComprehensionRangeLoop(
@@ -3842,11 +3850,11 @@ internal partial class ExpressionGenerator : Generator
         var endExpr = rangeSource.Right?.Value ?? throw new InvalidOperationException("Range comprehension requires an end value.");
 
         var startLocal = ILGenerator.DeclareLocal(elementClrType);
-        new ExpressionGenerator(scope, startExpr, EmitContext.None).Emit2();
+        new ExpressionGenerator(scope, startExpr, EmitContext.Value).Emit2();
         ILGenerator.Emit(OpCodes.Stloc, startLocal);
 
         var endLocal = ILGenerator.DeclareLocal(elementClrType);
-        new ExpressionGenerator(scope, endExpr, EmitContext.None).Emit2();
+        new ExpressionGenerator(scope, endExpr, EmitContext.Value).Emit2();
         ILGenerator.Emit(OpCodes.Stloc, endLocal);
 
         var stepLocal = ILGenerator.DeclareLocal(elementClrType);
@@ -3880,12 +3888,12 @@ internal partial class ExpressionGenerator : Generator
 
         if (comprehension.Condition is not null)
         {
-            new ExpressionGenerator(scope, comprehension.Condition, EmitContext.None).Emit2();
+            new ExpressionGenerator(scope, comprehension.Condition, EmitContext.Value).Emit2();
             ILGenerator.Emit(OpCodes.Brfalse, loopNext);
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, listLocal);
-        new ExpressionGenerator(scope, comprehension.Selector, EmitContext.None).Emit2();
+        new ExpressionGenerator(scope, comprehension.Selector, EmitContext.Value).Emit2();
 
         if (comprehension.Selector.Type is { } selectorType &&
             ShouldBoxForReferenceTarget(selectorType, comprehension.ElementType))
@@ -5958,10 +5966,10 @@ internal partial class ExpressionGenerator : Generator
         // Evaluate operands (and ensure they are converted to the operator's expected operand types).
         // Raven's binder may represent operand conversions on the BoundBinaryOperator rather than by
         // injecting explicit BoundConversion nodes into Left/Right.
-        EmitExpression(binaryExpression.Left);
+        EmitPreservedValue(binaryExpression.Left);
         EmitBinaryOperandConversionIfNeeded(binaryExpression.Left.Type, op.LeftType);
 
-        EmitExpression(binaryExpression.Right);
+        EmitPreservedValue(binaryExpression.Right);
         EmitBinaryOperandConversionIfNeeded(binaryExpression.Right.Type, op.RightType);
 
         // DECIMAL PATH
@@ -6304,11 +6312,11 @@ internal partial class ExpressionGenerator : Generator
         {
             case BinaryOperatorKind.LogicalAnd:
                 // if (!left) result = false; else result = right;
-                EmitExpression(left);                      // stack: [left]
+                EmitPreservedValue(left);                 // stack: [left]
                 ILGenerator.Emit(OpCodes.Brfalse, skipLabel);
 
                 // left == true → evaluate right, result = right
-                EmitExpression(right);                     // stack: [right]
+                EmitPreservedValue(right);                // stack: [right]
                 ILGenerator.Emit(OpCodes.Br, endLabel);
 
                 // left == false → push false
@@ -6320,11 +6328,11 @@ internal partial class ExpressionGenerator : Generator
 
             case BinaryOperatorKind.LogicalOr:
                 // if (left) result = true; else result = right;
-                EmitExpression(left);                      // stack: [left]
+                EmitPreservedValue(left);                 // stack: [left]
                 ILGenerator.Emit(OpCodes.Brtrue, skipLabel);
 
                 // left == false → evaluate right, result = right
-                EmitExpression(right);                     // stack: [right]
+                EmitPreservedValue(right);                // stack: [right]
                 ILGenerator.Emit(OpCodes.Br, endLabel);
 
                 // left == true → push true
@@ -6373,7 +6381,7 @@ internal partial class ExpressionGenerator : Generator
 
                 ILGenerator.Emit(propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType ? OpCodes.Call : OpCodes.Callvirt, getter);
 
-                if (!_preserveResult)
+                if (ShouldDiscardCurrentResult(memberAccessExpression))
                     ILGenerator.Emit(OpCodes.Pop);
                 break;
 
@@ -6459,7 +6467,7 @@ internal partial class ExpressionGenerator : Generator
                     ILGenerator.Emit(opCode, fieldInfo);
                 }
 
-                if (!_preserveResult)
+                if (ShouldDiscardCurrentResult(memberAccessExpression))
                     ILGenerator.Emit(OpCodes.Pop);
                 break;
 
@@ -6612,7 +6620,7 @@ internal partial class ExpressionGenerator : Generator
             if (receiver is null)
                 throw new InvalidOperationException($"Extension property '{propertySymbol.Name}' requires a receiver.");
 
-            EmitExpression(receiver);
+            EmitPreservedValue(receiver);
         }
 
         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
@@ -6628,7 +6636,7 @@ internal partial class ExpressionGenerator : Generator
 
         if (receiver is not null)
         {
-            EmitExpression(receiver);
+            EmitPreservedValue(receiver);
             return;
         }
 
@@ -6657,7 +6665,7 @@ internal partial class ExpressionGenerator : Generator
             if (receiver is null)
                 throw new InvalidOperationException($"Instance property '{propertySymbol.Name}' requires a receiver.");
 
-            EmitExpression(receiver);
+            EmitPreservedValue(receiver);
             EmitValueTypeAddressIfNeeded(receiver.Type, propertySymbol.ContainingType);
             return;
         }
@@ -6675,13 +6683,30 @@ internal partial class ExpressionGenerator : Generator
             if (TryEmitInvocationReceiverAddress(receiver))
                 return;
 
-            EmitExpression(receiver);
+            EmitPreservedValue(receiver);
             EmitValueTypeAddressIfNeeded(receiver.Type, indexerProperty.ContainingType);
             return;
         }
 
-        EmitExpression(receiver);
+        EmitPreservedValue(receiver);
     }
+
+    private void EmitPreservedValue(BoundExpression expression)
+    {
+        var saved = _preserveResult;
+        _preserveResult = true;
+        try
+        {
+            EmitExpression(expression);
+        }
+        finally
+        {
+            _preserveResult = saved;
+        }
+    }
+
+    private bool ShouldDiscardCurrentResult(BoundExpression expression)
+        => !_preserveResult && ReferenceEquals(expression, _expression);
 
     private bool TryEmitValueTypeReceiverAddress(BoundExpression? receiver, ITypeSymbol? runtimeType, ITypeSymbol? declaredType = null)
     {

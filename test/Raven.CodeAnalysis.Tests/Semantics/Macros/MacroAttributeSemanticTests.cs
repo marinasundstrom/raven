@@ -287,6 +287,30 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void StackedMacros_ExposeOriginalAndCurrentDeclarationSeparately()
+    {
+        TrackingMacroState.Reset();
+
+        var (compilation, tree) = CreateCompilation("""
+            class Widget {
+                #[First]
+                #[Second]
+                var Value: int
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TrackingMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Last();
+
+        _ = model.GetMacroExpansion(attribute);
+
+        Assert.Equal("Value", TrackingMacroState.SecondTargetName);
+        Assert.Equal("First_Value", TrackingMacroState.SecondCurrentName);
+    }
+
+    [Fact]
     public void MacroExpansionDiagnostics_AreReportedBySemanticModel()
     {
         var (compilation, _) = CreateCompilation("""
@@ -525,6 +549,14 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             => [new InspectMembersMacro(), new RenameMemberMacro()];
     }
 
+    public sealed class TrackingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "TrackingMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new TrackingFirstMacro(), new TrackingSecondMacro()];
+    }
+
     public sealed class ValidationAttachedMacroParameters(string name)
     {
         public string Name { get; } = name;
@@ -576,6 +608,62 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             {
                 ReplacementDeclaration = members[0]
             };
+        }
+    }
+
+    public static class TrackingMacroState
+    {
+        public static string? SecondTargetName { get; set; }
+        public static string? SecondCurrentName { get; set; }
+
+        public static void Reset()
+        {
+            SecondTargetName = null;
+            SecondCurrentName = null;
+        }
+    }
+
+    public sealed class TrackingFirstMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "First";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var property = Assert.IsType<PropertyDeclarationSyntax>(context.TargetDeclaration);
+            var members = ParseMembers($$"""
+                class __GeneratedContainer {
+                    var First_{{property.Identifier.ValueText}}: int { get => 0 }
+                }
+                """);
+
+            return new MacroExpansionResult
+            {
+                ReplacementDeclaration = members[0]
+            };
+        }
+    }
+
+    public sealed class TrackingSecondMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "Second";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var target = Assert.IsType<PropertyDeclarationSyntax>(context.TargetDeclaration);
+            var current = Assert.IsType<PropertyDeclarationSyntax>(context.CurrentDeclaration);
+
+            TrackingMacroState.SecondTargetName = target.Identifier.ValueText;
+            TrackingMacroState.SecondCurrentName = current.Identifier.ValueText;
+
+            return MacroExpansionResult.Empty;
         }
     }
 

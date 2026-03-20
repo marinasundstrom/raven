@@ -142,12 +142,13 @@ Macro expansion is not a preprocessor step. The source file is parsed normally f
 
 ### Ordering and composition
 
-When multiple attached macros apply to the same declaration, Raven currently treats them as independent expansions over the original annotated declaration syntax.
+When multiple attached macros apply to the same declaration, Raven runs them as a source-ordered pipeline over one declaration.
 
 This has two consequences:
 
 * Macros on the same declaration are visited in source order.
-* Each macro receives the original target declaration in `AttachedMacroContext.TargetDeclaration`. A later macro does not receive an earlier macro's replacement declaration as its input.
+* `AttachedMacroContext.TargetDeclaration` always refers to the original authored declaration.
+* `AttachedMacroContext.CurrentDeclaration` refers to the declaration shape immediately before the current macro runs.
 
 When Raven integrates the results for one declaration, it uses this order:
 
@@ -155,9 +156,9 @@ When Raven integrates the results for one declaration, it uses this order:
 2. the effective declaration itself, where the last macro that returns `ReplacementDeclaration` wins
 3. peer declarations from all attached macros, preserving macro source order
 
-For parent/child relationships, member-level macros and parent-declaration macros also expand independently from their own original targets. A macro attached to a type should not assume that attached macros on its members have already rewritten the type syntax visible through `AttachedMacroContext.TargetDeclaration`.
+If a macro returns `ReplacementDeclaration`, that replacement becomes the `CurrentDeclaration` seen by later attached macros on the same declaration. If a macro only introduces members or peer declarations, `CurrentDeclaration` does not change.
 
-Because of this, attached macros should be written as additive and order-tolerant transforms rather than as a pipeline that depends on another macro's rewritten syntax.
+For parent/child relationships, parent-declaration macros still see the original parsed shape of the parent declaration. A macro attached to a type should not assume that attached macros on its members have already rewritten the type syntax visible through `AttachedMacroContext.TargetDeclaration` or `AttachedMacroContext.CurrentDeclaration`.
 
 The current attached-macro system supports these generic result shapes:
 
@@ -179,7 +180,7 @@ Freestanding expression macros return a generic expression-expansion result shap
 When designing attached macros:
 
 * Prefer one replacement-owning macro per declaration. If multiple macros replace the same declaration, the last replacement wins.
-* Do not rely on another attached macro having already rewritten the target declaration syntax you inspect.
+* Use `TargetDeclaration` when you need the original authored syntax, and use `CurrentDeclaration` only when you intentionally want same-target pipeline behavior.
 * Use introduced members for additive behavior and keep cross-macro coordination explicit rather than inferred from transformed syntax.
 * When a parent declaration and its members both use macros, keep the parent macro resilient to the original member syntax shape.
 * If two macros need to cooperate, define that cooperation through explicit arguments, naming conventions, or generated marker members instead of depending on expansion order side effects.

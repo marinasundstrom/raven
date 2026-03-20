@@ -31,42 +31,63 @@ internal static class MacroExpansionService
         DiagnosticSeverity.Error,
         true);
 
-    public static MacroExpansionResult? ExpandAttachedMacro(
+    public static ImmutableDictionary<AttributeSyntax, MacroExpansionResult?> ExpandAttachedMacros(
         Compilation compilation,
         SemanticModel semanticModel,
-        AttributeSyntax attribute,
         SyntaxNode targetDeclaration,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken = default)
     {
-        if (!MacroSemanticValidator.TryResolveAttachedMacro(compilation, attribute, targetDeclaration, diagnostics, out var loaded))
-            return null;
+        ArgumentNullException.ThrowIfNull(targetDeclaration);
 
-        try
+        var builder = ImmutableDictionary.CreateBuilder<AttributeSyntax, MacroExpansionResult?>();
+        var currentDeclaration = targetDeclaration;
+
+        foreach (var attribute in GetAttachedMacroAttributes(targetDeclaration))
         {
-            var context = new AttachedMacroContext(compilation, semanticModel, attribute, targetDeclaration, cancellationToken);
-            var result = ExpandWithTypedParametersIfAvailable(loaded.Macro, context, diagnostics)
-                ?? loaded.Macro.Expand(context)
-                ?? MacroExpansionResult.Empty;
-            result = ContextualizeExpansionResult(targetDeclaration, result);
-            RegisterGeneratedSyntaxTrees(compilation, semanticModel, result);
+            if (!MacroSemanticValidator.TryResolveAttachedMacro(compilation, attribute, targetDeclaration, diagnostics, out var loaded))
+            {
+                builder[attribute] = null;
+                continue;
+            }
 
-            ReportMacroDiagnostics(diagnostics, loaded.Macro.Name, attribute.Name.GetLocation(), result.MacroDiagnostics);
+            try
+            {
+                var context = new AttachedMacroContext(
+                    compilation,
+                    semanticModel,
+                    attribute,
+                    targetDeclaration,
+                    currentDeclaration,
+                    cancellationToken);
+                var result = ExpandWithTypedParametersIfAvailable(loaded.Macro, context, diagnostics)
+                    ?? loaded.Macro.Expand(context)
+                    ?? MacroExpansionResult.Empty;
+                result = ContextualizeExpansionResult(targetDeclaration, result);
+                RegisterGeneratedSyntaxTrees(compilation, semanticModel, result);
 
-            foreach (var diagnostic in result.Diagnostics)
-                diagnostics.Report(diagnostic);
+                ReportMacroDiagnostics(diagnostics, loaded.Macro.Name, attribute.Name.GetLocation(), result.MacroDiagnostics);
 
-            return result;
+                foreach (var diagnostic in result.Diagnostics)
+                    diagnostics.Report(diagnostic);
+
+                builder[attribute] = result;
+
+                if (result.ReplacementDeclaration is { } replacementDeclaration)
+                    currentDeclaration = replacementDeclaration;
+            }
+            catch (Exception ex)
+            {
+                diagnostics.Report(Diagnostic.Create(
+                    s_macroExpansionFailed,
+                    attribute.Name.GetLocation(),
+                    loaded.Macro.Name,
+                    ex.Message));
+                builder[attribute] = null;
+            }
         }
-        catch (Exception ex)
-        {
-            diagnostics.Report(Diagnostic.Create(
-                s_macroExpansionFailed,
-                attribute.Name.GetLocation(),
-                loaded.Macro.Name,
-                ex.Message));
-            return null;
-        }
+
+        return builder.ToImmutable();
     }
 
     public static FreestandingMacroExpansionResult? ExpandFreestandingMacro(
@@ -131,6 +152,7 @@ internal static class MacroExpansionService
             context.SemanticModel,
             context.Syntax,
             context.TargetDeclaration,
+            context.CurrentDeclaration,
             parameters!,
             context.CancellationToken);
 
@@ -359,4 +381,10 @@ internal static class MacroExpansionService
     {
         RegisterSyntaxTree(compilation, semanticModel, node);
     }
+
+    private static IEnumerable<AttributeSyntax> GetAttachedMacroAttributes(SyntaxNode targetDeclaration)
+        => targetDeclaration.ChildNodes()
+            .OfType<AttributeListSyntax>()
+            .SelectMany(static list => list.Attributes)
+            .Where(static attribute => attribute.IsMacroAttribute());
 }

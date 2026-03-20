@@ -13,12 +13,14 @@ public class AttachedMacroContext
         SemanticModel semanticModel,
         AttributeSyntax syntax,
         SyntaxNode targetDeclaration,
+        SyntaxNode currentDeclaration,
         CancellationToken cancellationToken = default)
     {
         Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
         SemanticModel = semanticModel ?? throw new ArgumentNullException(nameof(semanticModel));
         Syntax = syntax ?? throw new ArgumentNullException(nameof(syntax));
         TargetDeclaration = targetDeclaration ?? throw new ArgumentNullException(nameof(targetDeclaration));
+        CurrentDeclaration = currentDeclaration ?? throw new ArgumentNullException(nameof(currentDeclaration));
         Arguments = CreateArguments(syntax.ArgumentList, semanticModel);
         CancellationToken = cancellationToken;
     }
@@ -34,6 +36,8 @@ public class AttachedMacroContext
     public ImmutableArray<MacroArgument> Arguments { get; }
 
     public SyntaxNode TargetDeclaration { get; }
+
+    public SyntaxNode CurrentDeclaration { get; }
 
     public CancellationToken CancellationToken { get; }
 
@@ -75,9 +79,10 @@ public sealed class AttachedMacroContext<TParameters> : AttachedMacroContext
         SemanticModel semanticModel,
         AttributeSyntax syntax,
         SyntaxNode targetDeclaration,
+        SyntaxNode currentDeclaration,
         TParameters parameters,
         CancellationToken cancellationToken = default)
-        : base(compilation, semanticModel, syntax, targetDeclaration, cancellationToken)
+        : base(compilation, semanticModel, syntax, targetDeclaration, currentDeclaration, cancellationToken)
     {
         Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
     }
