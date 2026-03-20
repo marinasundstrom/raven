@@ -11596,55 +11596,22 @@ partial class BlockBinder : Binder
             iterationType = GetSpreadElementType(sourceType);
         }
 
-        var iterationName = string.IsNullOrWhiteSpace(syntax.Identifier.ValueText)
-            ? "__item"
-            : syntax.Identifier.ValueText;
-        var iterationLocal = CreateTempLocal(iterationName, iterationType, syntax);
+        var (iterationLocal, patternCondition, condition, selector, _, _) = BindComprehensionTargetAndBody(
+            syntax,
+            syntax.BindingKeyword,
+            syntax.Target,
+            syntax.Condition,
+            syntax.Selector,
+            iterationType,
+            keySelectorSyntax: null,
+            valueSelectorSyntax: null,
+            targetKeyType: null,
+            targetValueType: null,
+            out _,
+            out _);
 
-        var priorDepth = _scopeDepth;
-        _scopeDepth = priorDepth + 1;
-
-        var hadExisting = _locals.TryGetValue(iterationName, out var existingLocal);
-        _locals[iterationName] = (iterationLocal, _scopeDepth);
-
-        BoundExpression? condition = null;
-        BoundExpression selector;
-
-        try
-        {
-            if (syntax.Condition is not null)
-            {
-                condition = BindExpression(syntax.Condition);
-                var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
-                if (condition.Type is not null &&
-                    condition.Type.TypeKind != TypeKind.Error &&
-                    !SymbolEqualityComparer.Default.Equals(condition.Type, boolType))
-                {
-                    if (!IsAssignable(boolType, condition.Type, out var conversion))
-                    {
-                        ReportCannotConvertFromTypeToType(
-                            condition.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            boolType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            syntax.Condition.GetLocation());
-                    }
-                    else
-                    {
-                        condition = ApplyConversion(condition, boolType, conversion, syntax.Condition);
-                    }
-                }
-            }
-
-            selector = BindExpression(syntax.Selector);
-        }
-        finally
-        {
-            if (hadExisting)
-                _locals[iterationName] = existingLocal;
-            else
-                _locals.Remove(iterationName);
-
-            _scopeDepth = priorDepth;
-        }
+        if (patternCondition is not null)
+            condition = CombineBooleanConditions(patternCondition, condition);
 
         var selectorType = selector.Type ?? Compilation.ErrorTypeSymbol;
         var resultArrayType = Compilation.CreateArrayTypeSymbol(selectorType);
@@ -11698,81 +11665,22 @@ partial class BlockBinder : Binder
             iterationType = GetSpreadElementType(sourceType);
         }
 
-        var iterationName = string.IsNullOrWhiteSpace(syntax.Identifier.ValueText)
-            ? "__item"
-            : syntax.Identifier.ValueText;
-        var iterationLocal = CreateTempLocal(iterationName, iterationType, syntax);
+        var (iterationLocal, patternCondition, condition, _, keySelector, valueSelector) = BindComprehensionTargetAndBody(
+            syntax,
+            syntax.BindingKeyword,
+            syntax.Target,
+            syntax.Condition,
+            selectorSyntax: null,
+            iterationType,
+            syntax.KeySelector,
+            syntax.ValueSelector,
+            targetKeyType,
+            targetValueType,
+            out _,
+            out _);
 
-        var priorDepth = _scopeDepth;
-        _scopeDepth = priorDepth + 1;
-
-        var hadExisting = _locals.TryGetValue(iterationName, out var existingLocal);
-        _locals[iterationName] = (iterationLocal, _scopeDepth);
-
-        BoundExpression? condition = null;
-        BoundExpression keySelector;
-        BoundExpression valueSelector;
-
-        try
-        {
-            if (syntax.Condition is not null)
-            {
-                condition = BindExpression(syntax.Condition);
-                var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
-                if (condition.Type is not null &&
-                    condition.Type.TypeKind != TypeKind.Error &&
-                    !SymbolEqualityComparer.Default.Equals(condition.Type, boolType))
-                {
-                    if (!IsAssignable(boolType, condition.Type, out var conversion))
-                    {
-                        ReportCannotConvertFromTypeToType(
-                            condition.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            boolType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            syntax.Condition.GetLocation());
-                    }
-                    else
-                    {
-                        condition = ApplyConversion(condition, boolType, conversion, syntax.Condition);
-                    }
-                }
-            }
-
-            keySelector = targetKeyType is not null && targetKeyType.TypeKind != TypeKind.Error
-                ? BindExpressionWithTargetType(syntax.KeySelector, targetKeyType)
-                : BindExpression(syntax.KeySelector);
-            valueSelector = targetValueType is not null && targetValueType.TypeKind != TypeKind.Error
-                ? BindExpressionWithTargetType(syntax.ValueSelector, targetValueType)
-                : BindExpression(syntax.ValueSelector);
-
-            if (targetKeyType is not null &&
-                targetKeyType.TypeKind != TypeKind.Error &&
-                keySelector.Type is not null &&
-                keySelector.Type.TypeKind != TypeKind.Error &&
-                ShouldAttemptConversion(keySelector) &&
-                IsAssignable(targetKeyType, keySelector.Type, out var keyConversion))
-            {
-                keySelector = ApplyConversion(keySelector, targetKeyType, keyConversion, syntax.KeySelector);
-            }
-
-            if (targetValueType is not null &&
-                targetValueType.TypeKind != TypeKind.Error &&
-                valueSelector.Type is not null &&
-                valueSelector.Type.TypeKind != TypeKind.Error &&
-                ShouldAttemptConversion(valueSelector) &&
-                IsAssignable(targetValueType, valueSelector.Type, out var valueConversion))
-            {
-                valueSelector = ApplyConversion(valueSelector, targetValueType, valueConversion, syntax.ValueSelector);
-            }
-        }
-        finally
-        {
-            if (hadExisting)
-                _locals[iterationName] = existingLocal;
-            else
-                _locals.Remove(iterationName);
-
-            _scopeDepth = priorDepth;
-        }
+        if (patternCondition is not null)
+            condition = CombineBooleanConditions(patternCondition, condition);
 
         var keyType = targetKeyType is not null && targetKeyType.TypeKind != TypeKind.Error
             ? targetKeyType
@@ -11781,6 +11689,9 @@ partial class BlockBinder : Binder
             ? targetValueType
             : valueSelector.Type ?? Compilation.ErrorTypeSymbol;
 
+        var iterationName = syntax.Target is IdentifierNameSyntax identifierTarget && !string.IsNullOrWhiteSpace(identifierTarget.Identifier.ValueText)
+            ? identifierTarget.Identifier.ValueText
+            : iterationLocal.Name;
         if (condition is not null)
             condition = RewriteDictionaryComprehensionIterationAccess(condition, iterationName, iterationLocal);
         keySelector = RewriteDictionaryComprehensionIterationAccess(keySelector, iterationName, iterationLocal);
@@ -11805,6 +11716,247 @@ partial class BlockBinder : Binder
             valueSelector,
             keyType,
             valueType);
+    }
+
+    private (
+        ILocalSymbol IterationLocal,
+        BoundExpression? PatternCondition,
+        BoundExpression? Condition,
+        BoundExpression Selector,
+        BoundExpression KeySelector,
+        BoundExpression ValueSelector)
+        BindComprehensionTargetAndBody(
+            SyntaxNode syntax,
+            SyntaxToken bindingKeyword,
+            ExpressionOrPatternSyntax targetSyntax,
+            ExpressionSyntax? conditionSyntax,
+            ExpressionSyntax? selectorSyntax,
+            ITypeSymbol iterationType,
+            ExpressionSyntax? keySelectorSyntax,
+            ExpressionSyntax? valueSelectorSyntax,
+            ITypeSymbol? targetKeyType,
+            ITypeSymbol? targetValueType,
+            out ITypeSymbol? selectorType,
+            out ImmutableArray<ILocalSymbol> patternLocals)
+    {
+        selectorType = null;
+        patternLocals = ImmutableArray<ILocalSymbol>.Empty;
+
+        var iterationName = targetSyntax switch
+        {
+            IdentifierNameSyntax identifier when !string.IsNullOrWhiteSpace(identifier.Identifier.ValueText) => identifier.Identifier.ValueText,
+            _ => $"__item{_tempCounter++}"
+        };
+
+        var iterationLocal = CreateTempLocal(iterationName, iterationType, syntax);
+        var priorDepth = _scopeDepth;
+        _scopeDepth = priorDepth + 1;
+        var currentDepth = _scopeDepth;
+        var shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+
+        BoundExpression? patternCondition = null;
+        BoundExpression? condition = null;
+        BoundExpression selector = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        BoundExpression keySelector = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        BoundExpression valueSelector = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+        try
+        {
+            switch (targetSyntax)
+            {
+                case IdentifierNameSyntax identifierName:
+                    if (bindingKeyword.Kind == SyntaxKind.VarKeyword)
+                    {
+                        _diagnostics.ReportForIdentifierBindingKeywordMustBeValOrLet(
+                            identifierName.Identifier.ValueText,
+                            bindingKeyword.GetLocation());
+                    }
+
+                    RegisterComprehensionLocal(identifierName.Identifier.ValueText, iterationLocal, currentDepth, shadowedLocals);
+                    break;
+
+                case DiscardPatternSyntax:
+                    break;
+
+                case PatternSyntax patternSyntax:
+                {
+                    CapturePatternLocalShadows(patternSyntax, shadowedLocals);
+
+                    var inlineBindingKeyword = FindFirstInlinePatternBindingKeyword(patternSyntax);
+                    if (inlineBindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword &&
+                        bindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                    {
+                        _diagnostics.ReportPatternDeclarationBindingKeywordConflict(
+                            bindingKeyword.Text,
+                            inlineBindingKeyword.Text,
+                            inlineBindingKeyword.GetLocation());
+                    }
+
+                    var previousBindingKeyword = _ambientPatternDeclarationBindingKeyword;
+                    _ambientPatternDeclarationBindingKeyword = bindingKeyword.Kind;
+                    BoundPattern pattern;
+                    try
+                    {
+                        pattern = BindPattern(patternSyntax, iterationType);
+                    }
+                    finally
+                    {
+                        _ambientPatternDeclarationBindingKeyword = previousBindingKeyword;
+                    }
+
+                    patternLocals = CollectPatternDesignatorLocals(pattern);
+                    patternCondition = new BoundIsPatternExpression(
+                        new BoundLocalAccess(iterationLocal),
+                        pattern,
+                        Compilation.GetSpecialType(SpecialType.System_Boolean));
+                    break;
+                }
+
+                default:
+                    _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(targetSyntax.GetLocation());
+                    break;
+            }
+
+            if (conditionSyntax is not null)
+                condition = BindBooleanComprehensionCondition(conditionSyntax);
+
+            if (selectorSyntax is not null)
+            {
+                selector = BindExpression(selectorSyntax);
+                selectorType = selector.Type ?? Compilation.ErrorTypeSymbol;
+            }
+
+            if (keySelectorSyntax is not null)
+            {
+                keySelector = targetKeyType is not null && targetKeyType.TypeKind != TypeKind.Error
+                    ? BindExpressionWithTargetType(keySelectorSyntax, targetKeyType)
+                    : BindExpression(keySelectorSyntax);
+
+                if (targetKeyType is not null &&
+                    targetKeyType.TypeKind != TypeKind.Error &&
+                    keySelector.Type is not null &&
+                    keySelector.Type.TypeKind != TypeKind.Error &&
+                    ShouldAttemptConversion(keySelector) &&
+                    IsAssignable(targetKeyType, keySelector.Type, out var keyConversion))
+                {
+                    keySelector = ApplyConversion(keySelector, targetKeyType, keyConversion, keySelectorSyntax);
+                }
+            }
+
+            if (valueSelectorSyntax is not null)
+            {
+                valueSelector = targetValueType is not null && targetValueType.TypeKind != TypeKind.Error
+                    ? BindExpressionWithTargetType(valueSelectorSyntax, targetValueType)
+                    : BindExpression(valueSelectorSyntax);
+
+                if (targetValueType is not null &&
+                    targetValueType.TypeKind != TypeKind.Error &&
+                    valueSelector.Type is not null &&
+                    valueSelector.Type.TypeKind != TypeKind.Error &&
+                    ShouldAttemptConversion(valueSelector) &&
+                    IsAssignable(targetValueType, valueSelector.Type, out var valueConversion))
+                {
+                    valueSelector = ApplyConversion(valueSelector, targetValueType, valueConversion, valueSelectorSyntax);
+                }
+            }
+        }
+        finally
+        {
+            foreach (var entry in shadowedLocals)
+            {
+                if (entry.Value is { } shadowed)
+                    _locals[entry.Key] = shadowed;
+                else
+                    _locals.Remove(entry.Key);
+            }
+
+            _scopeDepth = priorDepth;
+        }
+
+        return (iterationLocal, patternCondition, condition, selector, keySelector, valueSelector);
+    }
+
+    private BoundExpression BindBooleanComprehensionCondition(ExpressionSyntax conditionSyntax)
+    {
+        var condition = BindExpression(conditionSyntax);
+        var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+        if (condition.Type is not null &&
+            condition.Type.TypeKind != TypeKind.Error &&
+            !SymbolEqualityComparer.Default.Equals(condition.Type, boolType))
+        {
+            if (!IsAssignable(boolType, condition.Type, out var conversion))
+            {
+                ReportCannotConvertFromTypeToType(
+                    condition.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    boolType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    conditionSyntax.GetLocation());
+            }
+            else
+            {
+                condition = ApplyConversion(condition, boolType, conversion, conditionSyntax);
+            }
+        }
+
+        return condition;
+    }
+
+    private BoundExpression? CombineBooleanConditions(BoundExpression? left, BoundExpression? right)
+    {
+        if (left is null)
+            return right;
+
+        if (right is null)
+            return left;
+
+        if (!BoundBinaryOperator.TryLookup(
+                Compilation,
+                SyntaxKind.AmpersandAmpersandToken,
+                Compilation.GetSpecialType(SpecialType.System_Boolean),
+                Compilation.GetSpecialType(SpecialType.System_Boolean),
+                out var op))
+        {
+            return right;
+        }
+
+        return new BoundBinaryExpression(left, op, right);
+    }
+
+    private void RegisterComprehensionLocal(
+        string name,
+        ILocalSymbol local,
+        int depth,
+        Dictionary<string, (ILocalSymbol Symbol, int Depth)?> shadowedLocals)
+    {
+        if (!shadowedLocals.ContainsKey(name))
+            shadowedLocals[name] = _locals.TryGetValue(name, out var existing) ? existing : null;
+
+        _locals[name] = (local, depth);
+    }
+
+    private static ImmutableArray<ILocalSymbol> CollectPatternDesignatorLocals(BoundPattern pattern)
+    {
+        var builder = ImmutableArray.CreateBuilder<ILocalSymbol>();
+        foreach (var designator in pattern.GetDesignators())
+        {
+            if (designator is BoundSingleVariableDesignator single)
+                builder.Add(single.Local);
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private void CapturePatternLocalShadows(
+        PatternSyntax patternSyntax,
+        Dictionary<string, (ILocalSymbol Symbol, int Depth)?> shadowedLocals)
+    {
+        foreach (var designation in patternSyntax.DescendantNodesAndSelf().OfType<SingleVariableDesignationSyntax>())
+        {
+            var name = designation.Identifier.ValueText;
+            if (string.IsNullOrEmpty(name) || name == "_" || shadowedLocals.ContainsKey(name))
+                continue;
+
+            shadowedLocals[name] = _locals.TryGetValue(name, out var existing) ? existing : null;
+        }
     }
 
     private static BoundExpression RewriteDictionaryComprehensionIterationAccess(

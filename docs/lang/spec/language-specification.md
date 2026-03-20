@@ -1164,6 +1164,8 @@ Collection expressions also support a list-comprehension form:
 
 * `[for item in source => selector]`
 * `[for item in source if condition => selector]`
+* `[for val (a, b) in source => selector]` and other pattern targets follow the same
+  matching/binding rules as `for` statements.
 
 Collection expressions also support dictionary-shaped elements:
 
@@ -1172,6 +1174,7 @@ Collection expressions also support dictionary-shaped elements:
 * `...key: value` inserts one entry in spread position, and
 * `for item in source => key: value` / `for item in source if condition => key: value`
   build entries through a dictionary comprehension.
+  Comprehension targets may also be patterns, including deconstruction patterns.
 
 When a collection expression contains any dictionary-shaped element, the entire
 literal is treated as dictionary-shaped. Positional elements, range elements,
@@ -1182,6 +1185,10 @@ iteration semantics as `for ... in start..end` loops.
 
 Comprehensions are lowered by the compiler into collection-building loops, so they
 follow the same target-typing and conversion rules as other collection elements.
+Pattern-targeted comprehensions also inherit `for`-statement matching semantics:
+non-matching elements are skipped, an optional `if` filter runs after the pattern
+match succeeds, and outer `let` / `val` / `var` binding keywords supply the binding
+mode for otherwise bare pattern captures.
 
 Collection expressions are target-typed:
 
@@ -1257,6 +1264,7 @@ val combined = [0, ...numbers, 4]
 val squares = [for n in numbers => n * n]
 val evenSquares = [for n in numbers if n % 2 == 0 => n * n]
 val evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
+val selectedNames = [for val (2, name) in [(1, "Ada"), (2, "Bob")] => name]
 
 val names: List<string> = ["a", "b"]
 val inferred = [1, 2.0]      // inferred as ImmutableList<double>
@@ -1270,6 +1278,7 @@ val byName = ["a": 1, "b": 2] // inferred as ImmutableDictionary<string, int>
 val mutableByName = !["a": 1, "b": 2] // inferred as Dictionary<string, int>
 val merged = [..."a": 1, ...mutableByName, "c": 3]
 val lengths = [for key in [|"a", "bb"|] => key: key.Length]
+val doubled = [for val (key, value) in [("a", 1), ("b", 2)] => key: value * 2]
 val readonlyLookup: IReadOnlyDictionary<string, int> = ["a": 1, "b": 2]
 
 val baseList: ImmutableList<int> = [2; 3; 4]

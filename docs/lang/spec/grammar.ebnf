@@ -662,9 +662,10 @@ CollectionElement        ::= Expression
                            | '...' Expression
                            | '...' Expression ':' Expression
                            | CollectionComprehensionElement ;
+ComprehensionTarget     ::= Identifier | Pattern ;
 CollectionComprehensionElement
-                         ::= 'for' Identifier 'in' Expression ['if' Expression] '=>' Expression
-                           | 'for' Identifier 'in' Expression ['if' Expression] '=>' Expression ':' Expression ;
+                         ::= 'for' ['let' | 'val' | 'var'] ComprehensionTarget 'in' Expression ['if' Expression] '=>' Expression
+                           | 'for' ['let' | 'val' | 'var'] ComprehensionTarget 'in' Expression ['if' Expression] '=>' Expression ':' Expression ;
 
 TupleExpression          ::= '(' TupleElement {',' TupleElement} ')' ;
 TupleElement             ::= [Identifier ':'] Expression ;

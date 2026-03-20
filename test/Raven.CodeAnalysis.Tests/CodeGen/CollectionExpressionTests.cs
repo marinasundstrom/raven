@@ -537,6 +537,40 @@ class Foo {
     }
 
     [Fact]
+    public void CollectionExpressions_SupportDeconstructionComprehension()
+    {
+        var code = """
+import System.Collections.Immutable.*
+
+class Foo {
+    static func GetNames() -> string {
+        val people = [(1, "Ada"), (2, "Bob"), (1, "Ignored")]
+        val names = [for val (2, name) in people => name]
+        return names[0]
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        stream.Position = 0;
+        var assembly = Assembly.Load(stream.ToArray());
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetNames");
+
+        Assert.Equal("Bob", (string)method!.Invoke(null, null)!);
+    }
+
+    [Fact]
     public void EnumerableCollectionExpressions_ArraySpread_UsesArrayCopyFastPath()
     {
         var code = """

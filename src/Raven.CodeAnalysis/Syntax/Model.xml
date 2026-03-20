@@ -102,7 +102,8 @@
   </Node>
   <Node Name="CollectionComprehensionElement" Inherits="CollectionElement">
     <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword" />
-    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="BindingKeyword" Type="Token" IsOptionalToken="true" />
+    <Slot Name="Target" Type="ExpressionOrPattern" />
     <Slot Name="InKeyword" Type="Token" DefaultToken="InKeyword" />
     <Slot Name="Source" Type="Expression" />
     <Slot Name="IfKeyword" Type="Token" IsOptionalToken="true" />
@@ -112,7 +113,8 @@
   </Node>
   <Node Name="DictionaryComprehensionElement" Inherits="CollectionElement">
     <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword" />
-    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="BindingKeyword" Type="Token" IsOptionalToken="true" />
+    <Slot Name="Target" Type="ExpressionOrPattern" />
     <Slot Name="InKeyword" Type="Token" DefaultToken="InKeyword" />
     <Slot Name="Source" Type="Expression" />
     <Slot Name="IfKeyword" Type="Token" IsOptionalToken="true" />

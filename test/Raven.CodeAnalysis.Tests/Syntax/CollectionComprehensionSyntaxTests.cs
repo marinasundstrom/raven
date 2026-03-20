@@ -14,7 +14,8 @@ public class CollectionComprehensionSyntaxTests
 
         var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
         Assert.Equal("for", comprehension.ForKeyword.Text);
-        Assert.Equal("n", comprehension.Identifier.Text);
+        Assert.Equal(SyntaxKind.None, comprehension.BindingKeyword.Kind);
+        Assert.Equal("n", Assert.IsType<IdentifierNameSyntax>(comprehension.Target).Identifier.Text);
         Assert.Equal("in", comprehension.InKeyword.Text);
         Assert.Equal(SyntaxKind.None, comprehension.IfKeyword.Kind);
         Assert.Null(comprehension.Condition);
@@ -119,6 +120,30 @@ public class CollectionComprehensionSyntaxTests
         Assert.NotNull(comprehension.Condition);
         Assert.IsType<IdentifierNameSyntax>(comprehension.KeySelector);
         Assert.NotNull(comprehension.ValueSelector);
+    }
+
+    [Fact]
+    public void CollectionComprehension_WithDeconstructionTarget_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [for val (id, name) in people => name]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
+        Assert.Equal(SyntaxKind.ValKeyword, comprehension.BindingKeyword.Kind);
+        var target = Assert.IsType<PositionalPatternSyntax>(comprehension.Target);
+        Assert.Equal(2, target.Elements.Count);
+    }
+
+    [Fact]
+    public void CollectionExpression_DictionaryComprehension_WithDeconstructionTarget_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [for val (key, value) in pairs => key: value]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var comprehension = Assert.IsType<DictionaryComprehensionElementSyntax>(collection.Elements[0]);
+        Assert.Equal(SyntaxKind.ValKeyword, comprehension.BindingKeyword.Kind);
+        var target = Assert.IsType<PositionalPatternSyntax>(comprehension.Target);
+        Assert.Equal(2, target.Elements.Count);
     }
 
     [Fact]

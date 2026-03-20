@@ -151,12 +151,17 @@ Dictionary comprehensions:
 ```raven
 let lengths = [for text in values => text: text.Length]
 let filtered = [for item in items if item.Enabled => item.Name: item.Value]
+let doubled = [for val (key, value) in pairs => key: value * 2]
 ```
 
 Current rules:
 
 - `=>` is required before the selector.
 - `for ... in source` also accepts range expressions as the source.
+- Comprehension targets may be identifiers or patterns. Pattern targets follow the same
+  matching rules as `for` statements, so non-matching elements are skipped.
+- Outer `let` / `val` / `var` on a pattern-targeted comprehension supplies the binding
+  mode for otherwise bare captures.
 - A literal becomes dictionary-shaped as soon as it contains a dictionary entry,
   dictionary spread, or dictionary comprehension.
 - Dictionary-shaped literals cannot be mixed with positional elements, range elements,
@@ -178,6 +183,4 @@ Candidate additions worth evaluating separately:
 
 - identity list comprehensions such as `[for item in items]` and
   `[for item in items if predicate]`
-- deconstruction or pattern iteration for consistency with the rest of the language, for
-  example `[for (key, value) in pairs => value]`
 - multiple `for` clauses or local `let` clauses, if Raven later wants a larger query syntax
