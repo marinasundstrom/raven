@@ -140,6 +140,25 @@ return new MacroExpansionResult
 
 Macro expansion is not a preprocessor step. The source file is parsed normally first. After parsing, the compiler resolves macros from referenced macro assemblies and requests expansions using structured Raven syntax.
 
+### Ordering and composition
+
+When multiple attached macros apply to the same declaration, Raven currently treats them as independent expansions over the original annotated declaration syntax.
+
+This has two consequences:
+
+* Macros on the same declaration are visited in source order.
+* Each macro receives the original target declaration in `AttachedMacroContext.TargetDeclaration`. A later macro does not receive an earlier macro's replacement declaration as its input.
+
+When Raven integrates the results for one declaration, it uses this order:
+
+1. introduced members from all attached macros, preserving macro source order
+2. the effective declaration itself, where the last macro that returns `ReplacementDeclaration` wins
+3. peer declarations from all attached macros, preserving macro source order
+
+For parent/child relationships, member-level macros and parent-declaration macros also expand independently from their own original targets. A macro attached to a type should not assume that attached macros on its members have already rewritten the type syntax visible through `AttachedMacroContext.TargetDeclaration`.
+
+Because of this, attached macros should be written as additive and order-tolerant transforms rather than as a pipeline that depends on another macro's rewritten syntax.
+
 The current attached-macro system supports these generic result shapes:
 
 * compiler-owned macro expansion diagnostics with custom messages and precise locations
@@ -154,6 +173,16 @@ Freestanding expression macros return a generic expression-expansion result shap
 * compiler-owned macro expansion diagnostics with custom messages and precise locations
 * raw compiler diagnostics for advanced scenarios
 * replacement expression
+
+## Author guidelines
+
+When designing attached macros:
+
+* Prefer one replacement-owning macro per declaration. If multiple macros replace the same declaration, the last replacement wins.
+* Do not rely on another attached macro having already rewritten the target declaration syntax you inspect.
+* Use introduced members for additive behavior and keep cross-macro coordination explicit rather than inferred from transformed syntax.
+* When a parent declaration and its members both use macros, keep the parent macro resilient to the original member syntax shape.
+* If two macros need to cooperate, define that cooperation through explicit arguments, naming conventions, or generated marker members instead of depending on expansion order side effects.
 
 ## Project references
 

@@ -196,6 +196,21 @@ When macro expansion runs:
 
 Macro output becomes part of the build as if written by the user.
 
+### Current attached-macro composition semantics
+
+The current implementation composes attached declaration macros by source order, but not by feeding one macro's rewritten declaration into the next macro.
+
+For one annotated declaration:
+
+1. each attached macro is resolved and expanded against the original declaration syntax
+2. introduced members from all macros are integrated first, in macro source order
+3. the declaration itself is kept or replaced, with the last `ReplacementDeclaration` taking effect
+4. peer declarations from all macros are integrated last, in macro source order
+
+For parent/child relationships, a parent declaration macro likewise sees the original parsed declaration shape for that parent. It should not assume that member-level macro replacements have already been substituted into `AttachedMacroContext.TargetDeclaration`.
+
+This means the current model is intentionally closer to "independent transforms merged deterministically" than to a chained rewrite pipeline.
+
 ---
 
 ## 5.3 Determinism Requirement

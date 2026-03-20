@@ -59,6 +59,11 @@ func Max(x: int, y: int) -> int {
   declaration.
 - Do not insert blank lines between an attribute/macro and the declaration it
   applies to.
+- When stacking attached macros, keep the order intentional and easy to read.
+- Avoid stacking multiple replacement-oriented macros on the same declaration;
+  prefer one declaration-owning macro plus additive helpers.
+- When both a parent declaration and its members use macros, keep the parent
+  macro independent from member rewrites.
 
 ```raven
 #[Observable]

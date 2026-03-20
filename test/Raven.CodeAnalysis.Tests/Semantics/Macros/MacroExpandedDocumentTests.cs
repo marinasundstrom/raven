@@ -78,12 +78,57 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         Assert.Contains("var Count: int {", expandedText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void GetExpandedRoot_StacksAttachedDeclarationMacrosBySourceOrder()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class Sample {
+                #[First]
+                #[Second]
+                var Value: int
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(StackingOrderMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var expandedText = model.GetExpandedRoot().ToFullString();
+
+        var firstMarkerIndex = AssertContainsAndGetIndex(expandedText, "func Before_Value() -> int");
+        var secondMarkerIndex = AssertContainsAndGetIndex(expandedText, "func BeforeAgain_Value() -> int");
+        var replacementIndex = AssertContainsAndGetIndex(expandedText, "var Second_Value: int");
+        var firstPeerIndex = AssertContainsAndGetIndex(expandedText, "func After_Value() -> int");
+        var secondPeerIndex = AssertContainsAndGetIndex(expandedText, "func AfterAgain_Value() -> int");
+
+        Assert.True(firstMarkerIndex < secondMarkerIndex);
+        Assert.True(secondMarkerIndex < replacementIndex);
+        Assert.True(replacementIndex < firstPeerIndex);
+        Assert.True(firstPeerIndex < secondPeerIndex);
+
+        Assert.DoesNotContain("var Second_First_Value: int", expandedText, StringComparison.Ordinal);
+    }
+
+    private static int AssertContainsAndGetIndex(string text, string value)
+    {
+        var index = text.IndexOf(value, StringComparison.Ordinal);
+        Assert.True(index >= 0, $"Expected to find '{value}' in expanded text.");
+        return index;
+    }
+
     public sealed class FormattingMacroPlugin : IRavenMacroPlugin
     {
         public string Name => nameof(FormattingMacroPlugin);
 
         public ImmutableArray<IMacroDefinition> GetMacros()
             => [new ObservableMacro(), new WrapMacro()];
+    }
+
+    public sealed class StackingOrderMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(StackingOrderMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new FirstMacro(), new SecondMacro()];
     }
 
     private sealed class ObservableMacro : IAttachedDeclarationMacro
@@ -149,5 +194,66 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                         ])))
             };
         }
+    }
+
+    private sealed class FirstMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "First";
+
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var property = Assert.IsType<PropertyDeclarationSyntax>(context.TargetDeclaration);
+            var identifier = property.Identifier.ValueText;
+            var members = ParseMembers($$"""
+                class __GeneratedContainer {
+                    func Before_{{identifier}}() -> int { return 1 }
+                    var First_{{identifier}}: int { get => 1 }
+                    func After_{{identifier}}() -> int { return 10 }
+                }
+                """);
+
+            return new MacroExpansionResult
+            {
+                IntroducedMembers = [members[0]],
+                ReplacementDeclaration = members[1],
+                PeerDeclarations = [members[2]]
+            };
+        }
+    }
+
+    private sealed class SecondMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "Second";
+
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var property = Assert.IsType<PropertyDeclarationSyntax>(context.TargetDeclaration);
+            var identifier = property.Identifier.ValueText;
+            var members = ParseMembers($$"""
+                class __GeneratedContainer {
+                    func BeforeAgain_{{identifier}}() -> int { return 2 }
+                    var Second_{{identifier}}: int { get => 2 }
+                    func AfterAgain_{{identifier}}() -> int { return 20 }
+                }
+                """);
+
+            return new MacroExpansionResult
+            {
+                IntroducedMembers = [members[0]],
+                ReplacementDeclaration = members[1],
+                PeerDeclarations = [members[2]]
+            };
+        }
+    }
+
+    private static ImmutableArray<MemberDeclarationSyntax> ParseMembers(string source)
+    {
+        var tree = SyntaxFactory.ParseSyntaxTree(source);
+        var container = Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members.Single());
+        return [.. container.Members];
     }
 }

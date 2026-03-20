@@ -1,6 +1,6 @@
-using System.Linq;
 using System;
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Semantics.Tests;
@@ -265,6 +265,28 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void ParentAndMemberMacros_ExpandIndependentlyFromOriginalTargets()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            #[InspectMembers]
+            class Widget {
+                #[RenameMember]
+                var Value: int
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ParentChildMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+
+        Assert.Single(symbol.GetMembers("Observed_Value").OfType<IMethodSymbol>());
+        Assert.Single(symbol.GetMembers("Renamed_Value").OfType<IPropertySymbol>());
+        Assert.Empty(symbol.GetMembers("Observed_Renamed_Value"));
+    }
+
+    [Fact]
     public void MacroExpansionDiagnostics_AreReportedBySemanticModel()
     {
         var (compilation, _) = CreateCompilation("""
@@ -495,9 +517,66 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             => [new ValidationAttachedMacro()];
     }
 
+    public sealed class ParentChildMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "ParentChildMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new InspectMembersMacro(), new RenameMemberMacro()];
+    }
+
     public sealed class ValidationAttachedMacroParameters(string name)
     {
         public string Name { get; } = name;
+    }
+
+    public sealed class InspectMembersMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "InspectMembers";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var type = Assert.IsType<ClassDeclarationSyntax>(context.TargetDeclaration);
+            var property = Assert.Single(type.Members.OfType<PropertyDeclarationSyntax>());
+            var members = ParseMembers($$"""
+                class __GeneratedContainer {
+                    func Observed_{{property.Identifier.ValueText}}() -> int { return 0 }
+                }
+                """);
+
+            return new MacroExpansionResult
+            {
+                IntroducedMembers = [members[0]]
+            };
+        }
+    }
+
+    public sealed class RenameMemberMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "RenameMember";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var property = Assert.IsType<PropertyDeclarationSyntax>(context.TargetDeclaration);
+            var members = ParseMembers($$"""
+                class __GeneratedContainer {
+                    var Renamed_{{property.Identifier.ValueText}}: int { get => 0 }
+                }
+                """);
+
+            return new MacroExpansionResult
+            {
+                ReplacementDeclaration = members[0]
+            };
+        }
     }
 
     public sealed class ValidationAttachedMacro : IAttachedDeclarationMacro<ValidationAttachedMacroParameters>
@@ -603,5 +682,12 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
                 IntroducedMembers = [backingField]
             };
         }
+    }
+
+    private static ImmutableArray<MemberDeclarationSyntax> ParseMembers(string source)
+    {
+        var tree = SyntaxFactory.ParseSyntaxTree(source);
+        var container = Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members.Single());
+        return [.. container.Members];
     }
 }
