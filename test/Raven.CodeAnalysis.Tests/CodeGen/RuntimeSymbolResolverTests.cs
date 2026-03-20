@@ -240,6 +240,64 @@ func Test(element: JsonElement, writer: Utf8JsonWriter, options: JsonSerializerO
         Assert.Equal(typeof(Utf8JsonWriter), serializeCall.GetParameters()[0].ParameterType);
     }
 
+    [Fact]
+    public void JsonSerializerDeserialize_WithNestedJsonElementExpression_UsesStaticQualifiedExtensionShape()
+    {
+        const string source = """
+import System.Text.Json.*
+
+func Test(root: JsonElement, options: JsonSerializerOptions) -> int {
+    return JsonSerializer.Deserialize<int>(root.GetProperty("value"), options)
+}
+""";
+
+        var calls = CaptureMethodCalls(
+            source,
+            static generator =>
+                generator.MethodSymbol.Name == "Test" &&
+                generator.MethodSymbol.ContainingType?.Name == "Program",
+            OutputKind.DynamicallyLinkedLibrary);
+
+        var deserializeCall = Assert.Single(calls.Where(static call =>
+            call.DeclaringType == typeof(JsonSerializer) &&
+            call.Name == "Deserialize" &&
+            call.GetParameters().Length == 2));
+
+        Assert.Equal(typeof(JsonElement), deserializeCall.GetParameters()[0].ParameterType);
+    }
+
+    [Fact]
+    public void JsonSerializerSerialize_WithStaticQualifierAndValueArgument_UsesExpectedOverload()
+    {
+        const string source = """
+import System.Text.Json.*
+
+class Window {
+}
+
+func Test(window: Window, options: JsonSerializerOptions) -> string {
+    return JsonSerializer.Serialize(window, options)
+}
+""";
+
+        var calls = CaptureMethodCalls(
+            source,
+            static generator =>
+                generator.MethodSymbol.Name == "Test" &&
+                generator.MethodSymbol.ContainingType?.Name == "Program",
+            OutputKind.DynamicallyLinkedLibrary);
+
+        var serializeCall = Assert.Single(calls.Where(static call =>
+            call.DeclaringType == typeof(JsonSerializer) &&
+            call.Name == "Serialize" &&
+            call.GetParameters().Length == 2));
+
+        Assert.True(
+            serializeCall.GetParameters()[0].ParameterType.IsGenericParameter ||
+            serializeCall.GetParameters()[0].ParameterType.Name == "Window");
+        Assert.Equal(typeof(JsonSerializerOptions), serializeCall.GetParameters()[1].ParameterType);
+    }
+
     private static MethodInfo[] CaptureMethodCalls(
         string source,
         Func<MethodGenerator, bool> predicate,

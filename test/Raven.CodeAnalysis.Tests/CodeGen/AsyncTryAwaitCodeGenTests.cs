@@ -154,6 +154,47 @@ class Program {
     }
 
     [Fact]
+    public void TryExpression_WithGenericInvocationInsideAsyncMethod_EmitsAndRuns()
+    {
+        const string code = """
+import System.*
+import System.Text.Json.*
+import System.Threading.Tasks.*
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+class Program {
+    static async func Run() -> Task<int> {
+        await Task.Delay(1)
+
+        val result = try JsonSerializer.Deserialize<int>("1")
+
+        if result is .Ok(val value) {
+            return value
+        }
+
+        if result is .Error(Exception ex) {
+            Console.WriteLine(ex.Message)
+            return -1
+        }
+
+        return -1
+    }
+
+    static func Main() {
+        Console.WriteLine(Program.Run().Result)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "1" }, output);
+    }
+
+    [Fact]
     public void AsyncUse_PrefersDisposeAsync_WhenAvailable()
     {
         const string code = """

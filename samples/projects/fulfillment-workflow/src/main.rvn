@@ -1,0 +1,441 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+import System.Text.Json.*
+import System.Threading.Tasks.*
+
+async func Main() -> Task<Result<(), FulfillmentError>> {
+    WriteLine("== Raven Fulfillment Workflow ==")
+
+    val batchResult = await LoadInboundBatch()
+    val batch = batchResult?
+
+    val inventoryResult = await LoadInventorySnapshot(batch.AccountId)
+    val inventory = inventoryResult?
+
+    val planResult = await BuildFulfillmentPlan(batch, inventory)
+    val plan = planResult?
+
+    PrintPlan(plan)
+    return Ok
+}
+
+async func LoadInboundBatch() -> Task<Result<InboundBatch, FulfillmentError>> {
+    await Task.Delay(20)
+
+    val rawJson = """
+        {
+          "AccountId": "ACME-EU",
+          "Orders": [
+            {
+              "OrderId": "ORD-1001",
+              "CustomerName": "Northwind Hospital",
+              "Priority": "expedited",
+              "RequestedWarehouse": "cold-hub",
+              "Lines": [
+                { "Sku": "VACCINE-01", "Quantity": 2, "IsCold": true },
+                { "Sku": "KIT-ALPHA", "Quantity": 3, "IsCold": false }
+              ]
+            },
+            {
+              "OrderId": "ORD-1002",
+              "CustomerName": "City Pharmacy",
+              "Priority": "standard",
+              "RequestedWarehouse": null,
+              "Lines": [
+                { "Sku": "MASK-BOX", "Quantity": 5, "IsCold": false },
+                { "Sku": "THERMO-CASE", "Quantity": 1, "IsCold": false }
+              ]
+            },
+            {
+              "OrderId": "ORD-1003",
+              "CustomerName": "Rural Clinic",
+              "Priority": "expedited",
+              "RequestedWarehouse": "north-hub",
+              "Lines": [
+                { "Sku": "VACCINE-01", "Quantity": 1, "IsCold": true }
+              ]
+            }
+          ]
+        }
+        """
+
+    val dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
+
+    if dtoResult is Ok(val value) {
+        if value is not null {
+            return ValidateBatch(value)
+        }
+    }
+
+    if dtoResult is Error(Exception ex) {
+        return InvalidFeedResult("Feed JSON could not be parsed: ${ex.Message}")
+    }
+
+    return InvalidFeedResult("Feed JSON resolved to null")
+}
+
+func InvalidFeedResult(message: string) -> Result<InboundBatch, FulfillmentError> {
+    val problem: FulfillmentError = .InvalidFeed(message)
+    return Error(problem)
+}
+
+func ValidateBatch(dto: InboundBatchDto) -> Result<InboundBatch, FulfillmentError> {
+    if dto.AccountId.Trim().Length == 0 {
+        val error: FulfillmentError = .Validation("AccountId is required")
+        return Error(error)
+    }
+
+    val validatedOrders = List<Order>()
+    for orderDto in dto.Orders {
+        validatedOrders.Add(ValidateOrder(orderDto)?)
+    }
+
+    return Ok(InboundBatch(dto.AccountId.Trim().ToUpperInvariant(), validatedOrders.ToArray()))
+}
+
+func ValidateOrder(dto: OrderDto) -> Result<Order, FulfillmentError> {
+    if dto.OrderId.Trim().Length == 0 {
+        val error: FulfillmentError = .Validation("OrderId is required")
+        return Error(error)
+    }
+
+    if dto.CustomerName.Trim().Length < 3 {
+        val error: FulfillmentError = .Validation("CustomerName must contain at least 3 characters for ${dto.OrderId}")
+        return Error(error)
+    }
+
+    if dto.Lines.Count == 0 {
+        val error: FulfillmentError = .Validation("Order ${dto.OrderId} must contain at least one line")
+        return Error(error)
+    }
+
+    val priority = ParsePriority(dto.Priority)?
+    val lines = List<OrderLine>()
+    for lineDto in dto.Lines {
+        lines.Add(ValidateLine(dto.OrderId, lineDto)?)
+    }
+
+    return Ok(Order(
+        dto.OrderId.Trim().ToUpperInvariant(),
+        dto.CustomerName.Trim(),
+        priority,
+        ToOption(dto.RequestedWarehouse),
+        lines.ToArray()
+    ))
+}
+
+func ValidateLine(orderId: string, dto: OrderLineDto) -> Result<OrderLine, FulfillmentError> {
+    if dto.Sku.Trim().Length == 0 {
+        val error: FulfillmentError = .Validation("Order ${orderId} contains an empty SKU")
+        return Error(error)
+    }
+
+    if dto.Quantity <= 0 {
+        val error: FulfillmentError = .Validation("Order ${orderId} contains non-positive quantity for ${dto.Sku}")
+        return Error(error)
+    }
+
+    return Ok(OrderLine(dto.Sku.Trim().ToUpperInvariant(), dto.Quantity, dto.IsCold))
+}
+
+func ParsePriority(text: string) -> Result<Priority, FulfillmentError> {
+    val normalized = text.Trim().ToLowerInvariant()
+
+    return normalized match {
+        "standard" => {
+            val priority: Priority = .Standard
+            Ok(priority)
+        }
+        "expedited" => {
+            val priority: Priority = .Expedited
+            Ok(priority)
+        }
+        _ => {
+            val error: FulfillmentError = .Validation("Unsupported priority: ${text}")
+            Error(error)
+        }
+    }
+}
+
+func ToOption(text: string?) -> Option<string> {
+    if text is null {
+        return None
+    }
+
+    val normalized = text.Trim()
+    if normalized.Length == 0 {
+        return None
+    }
+
+    return Some(normalized.ToUpperInvariant())
+}
+
+async func LoadInventorySnapshot(accountId: string) -> Task<Result<InventoryItem[], FulfillmentError>> {
+    await Task.Delay(15)
+
+    if accountId != "ACME-EU" {
+        val error: FulfillmentError = .Service("Unknown fulfillment account: ${accountId}")
+        return Error(error)
+    }
+
+    val snapshot: InventoryItem[] = [
+        InventoryItem("VACCINE-01", 2, "COLD-HUB"),
+        InventoryItem("KIT-ALPHA", 10, "NORTH-HUB"),
+        InventoryItem("MASK-BOX", 8, "CENTRAL"),
+        InventoryItem("THERMO-CASE", 0, "CENTRAL")
+    ]
+
+    return Ok(snapshot)
+}
+
+async func LoadExpeditedCapacity(accountId: string) -> Task<Result<int, FulfillmentError>> {
+    await Task.Delay(10)
+
+    if accountId == "ACME-EU" {
+        return Ok(1)
+    }
+
+    val error: FulfillmentError = .Service("No capacity feed found for ${accountId}")
+    return Error(error)
+}
+
+async func BuildFulfillmentPlan(batch: InboundBatch, inventory: InventoryItem[]) -> Task<Result<FulfillmentPlan, FulfillmentError>> {
+    val capacityResult = await LoadExpeditedCapacity(batch.AccountId)
+    var remainingExpeditedSlots = capacityResult?
+
+    val inventoryBySku: IReadOnlyDictionary<string, InventoryItem> = [for item in inventory => item.Sku: item]
+    val decisions = List<FulfillmentDecision>()
+
+    for order in batch.Orders {
+        val decision = DecideOrder(order, inventoryBySku, remainingExpeditedSlots)?
+        decisions.Add(decision)
+
+        if order.Priority is Expedited && decision is Reserve(_, _, _) {
+            remainingExpeditedSlots = remainingExpeditedSlots - 1
+        }
+    }
+
+    val alerts = List<string>()
+    val coldChainOrders = [for order in batch.Orders if HasColdLines(order.Lines) => order.Id]
+
+    for orderId in coldChainOrders {
+        alerts.Add("Cold-chain handling required for ${orderId}")
+    }
+
+    for val BackOrder(orderId, missingSkus) in decisions {
+        alerts.Add("Back order for ${orderId}: ${DescribeStrings(missingSkus)}")
+    }
+
+    return Ok(FulfillmentPlan(
+        Guid.NewGuid().ToString("N"),
+        batch.AccountId,
+        DateTimeOffset.UtcNow,
+        decisions.ToArray(),
+        alerts.ToArray()
+    ))
+}
+
+func DecideOrder(
+    order: Order,
+    inventoryBySku: IReadOnlyDictionary<string, InventoryItem>,
+    remainingExpeditedSlots: int
+) -> Result<FulfillmentDecision, FulfillmentError> {
+    if order.Priority is Expedited && remainingExpeditedSlots <= 0 {
+        val rejectedDecision: FulfillmentDecision = .Reject(order.Id, "No expedited capacity remains for this planning window")
+        return Ok(rejectedDecision)
+    }
+
+    val requestedWarehouse = order.RequestedWarehouse.UnwrapOr("AUTO")
+    val coldSkus = [for line in order.Lines if line.IsCold => line.Sku]
+
+    if coldSkus.Count > 0 && requestedWarehouse != "AUTO" && requestedWarehouse != "COLD-HUB" {
+        val rejectedDecision: FulfillmentDecision = .Reject(order.Id, "Cold-chain lines must route through COLD-HUB")
+        return Ok(rejectedDecision)
+    }
+
+    val picks = List<PickLine>()
+    val missingSkus = List<string>()
+
+    for line in order.Lines {
+        val maybeInventory = LookupInventory(inventoryBySku, line.Sku)
+
+        maybeInventory match {
+            Some(val stock) => {
+                if requestedWarehouse != "AUTO" && stock.Warehouse != requestedWarehouse {
+                    missingSkus.Add(line.Sku)
+                } else if stock.Available < line.Quantity {
+                    missingSkus.Add(line.Sku)
+                } else {
+                    val warehouse = if line.IsCold "COLD-HUB" else stock.Warehouse
+                    picks.Add(PickLine(order.Id, line.Sku, line.Quantity, warehouse))
+                }
+            }
+            None => missingSkus.Add(line.Sku)
+        }
+    }
+
+    if missingSkus.Count > 0 {
+        val backOrderDecision: FulfillmentDecision = .BackOrder(order.Id, missingSkus.ToArray())
+        return Ok(backOrderDecision)
+    }
+
+    val warehouseName = picks[0].Warehouse
+    val reservedDecision: FulfillmentDecision = .Reserve(order.Id, warehouseName, picks.ToArray())
+    return Ok(reservedDecision)
+}
+
+func LookupInventory(
+    inventoryBySku: IReadOnlyDictionary<string, InventoryItem>,
+    sku: string
+) -> Option<InventoryItem> {
+    if inventoryBySku.ContainsKey(sku) {
+        return Some(inventoryBySku[sku])
+    }
+
+    return None
+}
+
+func HasColdLines(lines: OrderLine[]) -> bool {
+    for line in lines {
+        if line.IsCold {
+            return true
+        }
+    }
+
+    return false
+}
+
+func PrintPlan(plan: FulfillmentPlan) {
+    WriteLine("")
+    WriteLine("Run id:      ${plan.RunId}")
+    WriteLine("Account:     ${plan.AccountId}")
+    WriteLine("Created at:  ${plan.CreatedAt}")
+    WriteLine("")
+
+    val reserved = [for val Reserve(orderId, warehouse, picks) in plan.Decisions => "${orderId} -> ${warehouse} (${picks.Length} picks)"]
+    val backOrders = [for val BackOrder(orderId, missingSkus) in plan.Decisions => "${orderId} missing ${DescribeStrings(missingSkus)}"]
+    val rejected = [for val Reject(orderId, reason) in plan.Decisions => "${orderId} rejected: ${reason}"]
+
+    WriteSection("Reserved")
+    WriteEntries(reserved)
+
+    WriteSection("Back orders")
+    WriteEntries(backOrders)
+
+    WriteSection("Rejected")
+    WriteEntries(rejected)
+
+    WriteSection("Alerts")
+    WriteEntries(plan.Alerts)
+}
+
+func WriteSection(title: string) {
+    WriteLine("== ${title} ==")
+}
+
+func WriteEntries(entries: IEnumerable<string>) {
+    var hasAny = false
+    for entry in entries {
+        hasAny = true
+        WriteLine(" - ${entry}")
+    }
+
+    if !hasAny {
+        WriteLine(" - none")
+    }
+
+    WriteLine("")
+}
+
+func DescribeStrings(values: IEnumerable<string>) -> string {
+    var text = "["
+    var isFirst = true
+
+    for value in values {
+        if !isFirst {
+            text = text + ", "
+        }
+
+        text = text + value
+        isFirst = false
+    }
+
+    return text + "]"
+}
+
+record class InboundBatch(
+    val AccountId: string,
+    val Orders: Order[]
+)
+
+record class Order(
+    val Id: string,
+    val CustomerName: string,
+    val Priority: Priority,
+    val RequestedWarehouse: Option<string>,
+    val Lines: OrderLine[]
+)
+
+record class OrderLine(
+    val Sku: string,
+    val Quantity: int,
+    val IsCold: bool
+)
+
+record class InventoryItem(
+    val Sku: string,
+    val Available: int,
+    val Warehouse: string
+)
+
+record class PickLine(
+    val OrderId: string,
+    val Sku: string,
+    val Quantity: int,
+    val Warehouse: string
+)
+
+record class FulfillmentPlan(
+    val RunId: string,
+    val AccountId: string,
+    val CreatedAt: DateTimeOffset,
+    val Decisions: FulfillmentDecision[],
+    val Alerts: string[]
+)
+
+union Priority {
+    Standard
+    Expedited
+}
+
+union FulfillmentDecision {
+    Reserve(orderId: string, warehouse: string, picks: PickLine[])
+    BackOrder(orderId: string, missingSkus: string[])
+    Reject(orderId: string, reason: string)
+}
+
+union FulfillmentError {
+    InvalidFeed(message: string)
+    Validation(message: string)
+    Service(message: string)
+}
+
+class InboundBatchDto {
+    var AccountId: string = ""
+    var Orders: List<OrderDto> = []
+}
+
+class OrderDto {
+    var OrderId: string = ""
+    var CustomerName: string = ""
+    var Priority: string = ""
+    var RequestedWarehouse: string? = null
+    var Lines: List<OrderLineDto> = []
+}
+
+class OrderLineDto {
+    var Sku: string = ""
+    var Quantity: int = 0
+    var IsCold: bool = false
+}

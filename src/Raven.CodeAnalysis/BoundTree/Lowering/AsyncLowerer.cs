@@ -333,6 +333,22 @@ internal static class AsyncLowerer
         }
 
         var normalizedReceiver = extensionReceiver ?? receiver;
+        var staticQualifiedExtensionCall =
+            extensionReceiver is null &&
+            receiver is BoundTypeExpression &&
+            arguments.Length == method.Parameters.Length &&
+            method.Parameters.Length > 0;
+
+        if (staticQualifiedExtensionCall)
+        {
+            return new BoundInvocationExpression(
+                method,
+                arguments,
+                receiver: null,
+                extensionReceiver: null,
+                requiresReceiverAddress: requiresReceiverAddress);
+        }
+
         if (normalizedReceiver is null)
         {
             return new BoundInvocationExpression(

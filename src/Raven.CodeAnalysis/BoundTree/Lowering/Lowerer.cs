@@ -298,6 +298,12 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         // First rewrite children.
         node = (BoundObjectCreationExpression)base.VisitObjectCreationExpression(node)!;
 
+        var hoisted = HoistObjectCreationSubexpressionsIfNeeded(node);
+        if (hoisted is not BoundObjectCreationExpression hoistedObjectCreation)
+            return hoisted;
+
+        node = hoistedObjectCreation;
+
         // If there is no initializer, nothing special to do.
         if (node.Initializer is null)
             return node;
@@ -319,6 +325,57 @@ internal sealed partial class Lowerer : BoundTreeRewriter
             initializer: null);
 
         return LowerObjectInitializerExpression(instanceExpr, node.Initializer);
+    }
+
+    private BoundExpression HoistObjectCreationSubexpressionsIfNeeded(BoundObjectCreationExpression node)
+    {
+        var receiver = node.Receiver;
+        var arguments = node.Arguments.ToArray();
+        if (!NeedsObjectCreationSubexpressionHoisting(receiver, arguments))
+            return node;
+
+        var compilation = GetCompilation();
+        var statements = new List<BoundStatement>();
+
+        BoundExpression? hoistedReceiver = null;
+        if (receiver is not null)
+            hoistedReceiver = HoistObjectCreationSubexpression(receiver, "newReceiver", statements, compilation);
+
+        var hoistedArguments = new BoundExpression[arguments.Length];
+        for (var i = 0; i < arguments.Length; i++)
+            hoistedArguments[i] = HoistObjectCreationSubexpression(arguments[i], $"newArg{i}", statements, compilation);
+
+        statements.Add(new BoundExpressionStatement(
+            new BoundObjectCreationExpression(node.Constructor, hoistedArguments, hoistedReceiver, node.Initializer)));
+
+        return compilation.BoundNodeFactory.CreateBlockExpression(statements);
+    }
+
+    private static bool NeedsObjectCreationSubexpressionHoisting(BoundExpression? receiver, BoundExpression[] arguments)
+    {
+        if (receiver is BoundBlockExpression)
+            return true;
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            if (arguments[i] is BoundBlockExpression)
+                return true;
+        }
+
+        return false;
+    }
+
+    private BoundExpression HoistObjectCreationSubexpression(
+        BoundExpression expression,
+        string nameHint,
+        List<BoundStatement> statements,
+        Compilation compilation)
+    {
+        var expressionType = expression.Type ?? compilation.ErrorTypeSymbol;
+        var temp = CreateTempLocal(nameHint, expressionType, isMutable: false);
+        statements.Add(new BoundLocalDeclarationStatement(
+            ImmutableArray.Create(new BoundVariableDeclarator(temp, expression))));
+        return new BoundLocalAccess(temp);
     }
 
     private BoundExpression LowerObjectInitializerExpression(BoundExpression instanceExpression, BoundObjectInitializer initializer)

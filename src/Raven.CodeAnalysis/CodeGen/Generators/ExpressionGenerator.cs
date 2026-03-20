@@ -6970,20 +6970,87 @@ internal partial class ExpressionGenerator : Generator
 
         if (isExtensionCall)
         {
-            var parameters = target.Parameters;
+            var parameters = target.Parameters.ToArray();
             var args2 = invocationExpression.Arguments.ToArray();
+            var hasExplicitStaticQualifier =
+                invocationExpression.ExtensionReceiver is null &&
+                invocationExpression.Receiver is BoundTypeExpression;
+            var loweredReceiverInArguments =
+                invocationExpression.ExtensionReceiver is null &&
+                invocationExpression.Receiver is null &&
+                args2.Length == parameters.Length &&
+                parameters.Length > 0;
+            var loweredStaticQualifierInArguments =
+                invocationExpression.ExtensionReceiver is null &&
+                (invocationExpression.Receiver is null || hasExplicitStaticQualifier) &&
+                args2.Length == parameters.Length + 1 &&
+                parameters.Length > 0;
+            var staticQualifiedExtensionCall =
+                hasExplicitStaticQualifier &&
+                args2.Length == parameters.Length &&
+                parameters.Length > 0;
 
-            if (!receiverAlreadyLoaded)
+            var argumentStartIndex = 0;
+            var parameterStartIndex = 1;
+
+            if (loweredStaticQualifierInArguments)
             {
-                var receiverArgument = args2.Length > 0
-                    ? args2[0]
-                    : invocationExpression.ExtensionReceiver ?? invocationExpression.Receiver
-                        ?? new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+                argumentStartIndex = 1;
+                parameterStartIndex = 0;
+            }
+            else if (staticQualifiedExtensionCall)
+            {
+                argumentStartIndex = 0;
+                parameterStartIndex = 0;
+            }
+            else if (!receiverAlreadyLoaded)
+            {
+                var receiverArgument =
+                    loweredReceiverInArguments
+                        ? args2[0]
+                        : invocationExpression.ExtensionReceiver ?? invocationExpression.Receiver;
+
+                if (receiverArgument is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Extension invocation '{target}' did not provide a receiver during emission.");
+                }
+
                 EmitArgument(receiverArgument, parameters[0]);
+
+                if (loweredReceiverInArguments)
+                {
+                    argumentStartIndex = 1;
+                }
+            }
+            else if (loweredReceiverInArguments)
+            {
+                argumentStartIndex = 1;
             }
 
-            for (int i = 1; i < args2.Length; i++)
-                EmitArgument(args2[i], parameters[i]);
+            var remainingArgumentCount = args2.Length - argumentStartIndex;
+            var remainingParameterCount = parameters.Length - parameterStartIndex;
+            if (remainingArgumentCount != remainingParameterCount)
+            {
+                var argumentDebug = string.Join(
+                    ", ",
+                    args2.Select(static argument => $"{argument.GetType().Name}:{argument.Type}"));
+                throw new InvalidOperationException(
+                    $"Extension invocation '{target}' argument count mismatch during emission. " +
+                    $"Arguments={args2.Length}, Parameters={parameters.Length}, " +
+                    $"HasExplicitStaticQualifier={hasExplicitStaticQualifier}, StaticQualifiedExtensionCall={staticQualifiedExtensionCall}, " +
+                    $"LoweredReceiverInArguments={loweredReceiverInArguments}, LoweredStaticQualifierInArguments={loweredStaticQualifierInArguments}, ReceiverAlreadyLoaded={receiverAlreadyLoaded}, " +
+                    $"ReceiverShape={invocationExpression.Receiver?.GetType().Name}:{invocationExpression.Receiver?.Type}, " +
+                    $"ExtensionReceiverShape={invocationExpression.ExtensionReceiver?.GetType().Name}:{invocationExpression.ExtensionReceiver?.Type}, " +
+                    $"ArgumentShapes=[{argumentDebug}].");
+            }
+
+            for (int argumentIndex = argumentStartIndex, parameterIndex = parameterStartIndex;
+                 argumentIndex < args2.Length;
+                 argumentIndex++, parameterIndex++)
+            {
+                EmitArgument(args2[argumentIndex], parameters[parameterIndex]);
+            }
 
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
             return;
@@ -7099,6 +7166,20 @@ internal partial class ExpressionGenerator : Generator
             paramSymbols.Length > 0 &&
             paramSymbols[^1].IsVarParams &&
             args.Length > paramSymbols.Length;
+
+        if (!hasExpandedParamsArguments &&
+            !omittedImplicitUnitArgument &&
+            args.Length != paramSymbols.Length)
+        {
+            var argumentDebug = string.Join(
+                ", ",
+                args.Select(static argument => $"{argument.GetType().Name}:{argument.Type}"));
+            throw new InvalidOperationException(
+                $"Invocation '{target}' argument count mismatch during emission. " +
+                $"Arguments={args.Length}, Parameters={paramSymbols.Length}, " +
+                $"Receiver={receiver}, ExtensionReceiver={invocationExpression.ExtensionReceiver}, " +
+                $"ArgumentShapes=[{argumentDebug}].");
+        }
 
         var regularArgumentCount = hasExpandedParamsArguments
             ? paramSymbols.Length - 1
@@ -7457,6 +7538,12 @@ internal partial class ExpressionGenerator : Generator
             if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition ?? candidate, originalDefinition))
                 continue;
 
+            if (candidate.IsExtensionMethod != original.IsExtensionMethod)
+                continue;
+
+            if (candidate.Parameters.Length != original.Parameters.Length)
+                continue;
+
             var aligned = AlignMethodTypeArguments(candidate, original);
             specialized = aligned;
             return !SymbolEqualityComparer.Default.Equals(aligned, original);
@@ -7508,6 +7595,12 @@ internal partial class ExpressionGenerator : Generator
         foreach (var candidate in receiverType.GetMembers(original.Name).OfType<IMethodSymbol>())
         {
             if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition ?? candidate, originalDefinition))
+                continue;
+
+            if (candidate.IsExtensionMethod != original.IsExtensionMethod)
+                continue;
+
+            if (candidate.Parameters.Length != original.Parameters.Length)
                 continue;
 
             var aligned = AlignMethodTypeArguments(candidate, original);
@@ -8177,7 +8270,9 @@ internal partial class ExpressionGenerator : Generator
                     break;
 
                 default:
-                    throw new NotSupportedException($"Unsupported binary condition");
+                    EmitExpression(binaryExpression);
+                    ILGenerator.Emit(OpCodes.Brfalse, end);
+                    break;
             }
         }
         else if (expression is BoundLiteralExpression literalExpression)
@@ -8256,10 +8351,13 @@ internal partial class ExpressionGenerator : Generator
 
             EmitDispose(block.LocalsToDispose);
 
-            if (resultTemp is not null)
-                ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
-            else if (resultLocal is not null)
-                ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+            if (_preserveResult)
+            {
+                if (resultTemp is not null)
+                    ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+                else if (resultLocal is not null)
+                    ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+            }
         }
         finally
         {

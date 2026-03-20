@@ -9,6 +9,24 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
+    public override BoundExpression? VisitExpression(BoundExpression? node)
+    {
+        if (node is null)
+            return null;
+
+        if (node is BoundPropagateExpression propagate)
+        {
+            var lowering = RewritePropagateExpression(propagate);
+            if (lowering is null)
+                return propagate;
+
+            lowering.Statements.Add(new BoundExpressionStatement(lowering.SuccessExpression));
+            return new BoundBlockExpression(lowering.Statements, GetCompilation().UnitTypeSymbol);
+        }
+
+        return base.VisitExpression(node);
+    }
+
     private bool TryRewritePropagateLocalDeclaration(BoundLocalDeclarationStatement node, out List<BoundStatement> statements)
     {
         statements = new List<BoundStatement>();
@@ -118,23 +136,21 @@ internal sealed partial class Lowerer
                 operandInitializer,
                 unitType));
 
-        var caughtExceptionType = propagate.ErrorType;
-        if (caughtExceptionType.TypeKind != TypeKind.Error)
-        {
-            var exceptionLocal = CreateTempLocal("propagateException", caughtExceptionType, isMutable: false);
-            var caughtErrorExpression = CreatePropagateCaughtExceptionExpression(
-                propagate,
-                new BoundLocalAccess(exceptionLocal),
-                compilation);
-            if (caughtErrorExpression is null)
-                return null;
+        var exceptionBaseType = compilation.GetSpecialType(SpecialType.System_Exception);
+        var exceptionLocal = CreateTempLocal("propagateException", exceptionBaseType, isMutable: false);
+        var caughtErrorExpression = CreatePropagateCaughtExceptionExpression(
+            propagate,
+            new BoundLocalAccess(exceptionLocal),
+            compilation);
 
+        if (caughtErrorExpression is not null)
+        {
             statements.Add(
                 new BoundTryStatement(
                     new BoundBlockStatement(new BoundStatement[] { operandAssignment }),
                     ImmutableArray.Create(
                         new BoundCatchClause(
-                            caughtExceptionType,
+                            exceptionBaseType,
                             exceptionLocal,
                             new BoundBlockStatement(new BoundStatement[]
                             {
@@ -197,7 +213,12 @@ internal sealed partial class Lowerer
         if (ctor.Parameters.Length == 1)
         {
             var targetType = ctor.Parameters[0].Type;
-            var payload = ApplyErrorConversion(caughtException, targetType, propagate.ErrorConversion, compilation);
+            var sourceType = caughtException.Type ?? compilation.ErrorTypeSymbol;
+            var conversion = compilation.ClassifyConversion(sourceType, targetType);
+            if (!conversion.Exists)
+                return null;
+
+            var payload = ApplyErrorConversion(caughtException, targetType, conversion, compilation);
             arguments.Add(payload);
         }
         else if (ctor.Parameters.Length != 0)
