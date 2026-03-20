@@ -2068,10 +2068,6 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseParenthesisOrTupleExpression();
                 break;
 
-            case SyntaxKind.NewKeyword:
-                expr = ParseNewExpression();
-                break;
-
             case SyntaxKind.DefaultKeyword:
                 expr = ParseDefaultExpression();
                 break;
@@ -2310,21 +2306,6 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return CollectionComprehensionElement(forKeyword, identifier, inKeyword, source, ifKeyword, condition, fatArrowToken, keyOrSelector);
-    }
-
-    private ExpressionSyntax ParseNewExpression()
-    {
-        var newKeyword = ReadToken();
-
-        var typeName = new NameSyntaxParser(this).ParseTypeName();
-
-        var args = ParseArgumentListSyntax();
-
-        ObjectInitializerExpressionSyntax? initializer = null;
-        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
-            initializer = ParseObjectInitializerExpression();
-
-        return ObjectCreationExpression(newKeyword, typeName, args, initializer);
     }
 
     private ExpressionSyntax ParseDefaultExpression()

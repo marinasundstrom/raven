@@ -25,7 +25,7 @@ async func test(text: string, throwExc: bool) -> Task<Result<int, Exception>> {
 async func action(text: string, throwExc: bool) -> Task<Result<string, Exception>> {
     await Task.Delay(200)
     if throwExc {
-        throw new Exception("Boom!")
+        throw Exception("Boom!")
     }
     return Ok(text)
 }

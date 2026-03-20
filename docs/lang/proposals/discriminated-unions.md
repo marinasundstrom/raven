@@ -2,7 +2,7 @@
 
 > ✅ The syntax described here is implemented in the parser and semantic model
 > (including member pattern binding and exhaustiveness). Code generation lowers
-> case construction to union constructors (`new Union(new Union_Case(...))`)
+> case construction to union constructors (`Union(Union_Case(...))`)
 > and emits `TryGet*` helpers for the union cases.
 
 Discriminated unions are value types that represent a fixed set of alternative shapes. Each alternative is modeled as a distinct nested struct type whose constructor is declared inline with the union definition. The compiler emits `TryGet*` helpers for each case and pattern matching is expressed in terms of these helpers, ensuring exhaustiveness.
@@ -37,7 +37,7 @@ Each case struct exposes the payload values via immutable fields or properties. 
 Invariant:
 
 * Case constructors stay independent case-type constructors.
-* Union wrapping is explicit via union constructors (`new Union(caseValue)`).
+* Union wrapping is explicit via union constructors (`Union(caseValue)`).
 * Case compatibility with unions is handled by conversion rules, not by
   rebinding constructors to target union types.
 

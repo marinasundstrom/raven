@@ -1928,18 +1928,8 @@ val list = List<int>()
 list.Add(2)
 ```
 
-Raven also supports the `new` keyword for **backwards compatibility** and
-for cases where you want to be explicit about creating an object:
-
-```raven
-val sb = new StringBuilder()
-val list = new List<int>()
-```
-
-This way it’s clear that *constructor-as-call* is the default, and `new` is optional/explicit.  
-
 > A standalone type name is not a constructor call in value position.
-> Use `Foo()` (or `new Foo()`) instead of `Foo`.
+> Use `Foo()` instead of `Foo`.
 
 When an object initializer trailer is present, the parameter list may be omitted for parameterless construction:
 
@@ -4331,7 +4321,7 @@ Binding model:
   selecting the matching union constructor (`.ctor(CaseType)`).
 * For member-qualified construction (`Union.Case(...)` / `.Case(...)`), lowering
   emits nested constructor calls:
-  `new Union(new Union_Case(...))`.
+  `Union(Union_Case(...))`.
 
 DU invariant:
 
@@ -4364,7 +4354,7 @@ Console.WriteLine(ok)
 Lowering shape:
 
 ```text
-new Result<int, string>(new Result_Ok<int>(99))
+Result<int, string>(Result_Ok<int>(99))
 ```
 
 Each case struct also exposes its payload via `get`-only properties and a

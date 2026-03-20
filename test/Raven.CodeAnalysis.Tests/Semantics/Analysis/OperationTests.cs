@@ -352,8 +352,8 @@ var result = tuple match {
     [Fact]
     public void GetOperation_NominalDeconstructionPattern_ExposesRecursivePatternShape()
     {
-        const string source = """
-val value: object = new Person("Ada", 42)
+const string source = """
+val value: object = Person("Ada", 42)
 val result = value match {
     Person(val name, val age) => name
     _ => ""
@@ -432,8 +432,8 @@ val result = value match {
     [Fact]
     public void GetOperation_PropertyPattern_ExposesMembersAndSubpatterns()
     {
-        const string source = """
-val value: object = new Person("Ada", 42)
+const string source = """
+val value: object = Person("Ada", 42)
 val result = value match {
     Person { Name: "Ada", Age: _ } => 1
     _ => 0

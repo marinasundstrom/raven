@@ -189,7 +189,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void NewObjectCreation_InfersTypeArgumentsFromTargetType()
+    public void NewObjectCreation_ReportsUnexpectedTokenDiagnostic()
     {
         string testCode =
             """
@@ -202,7 +202,12 @@ public class ObjectCreationTests : DiagnosticTestBase
             }
             """;
 
-        var verifier = CreateVerifier(testCode);
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult(CompilerDiagnostics.ExpressionExpected.Id).WithAnySpan(),
+                new DiagnosticResult(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id).WithAnySpan()
+            ]);
 
         verifier.Verify();
     }

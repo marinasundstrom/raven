@@ -240,7 +240,7 @@ extension OptionExtensions<T> for Option<T> {
         if self is Some(val value) {
             return value
         }
-        throw new InvalidOperationException("Option is None")
+        throw InvalidOperationException("Option is None")
     }
 
     /// Unwrap the value if Some, otherwise return the specified value

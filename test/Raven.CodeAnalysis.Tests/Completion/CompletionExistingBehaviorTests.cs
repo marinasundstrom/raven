@@ -24,7 +24,7 @@ class Counter {
     public func Increment() -> unit { }
 }
 
-val counter = new Counter();
+val counter = Counter();
 counter.Inc
 """;
 
@@ -51,7 +51,7 @@ class Counter {
     public func Increment() -> unit { }
 }
 
-val counter = new Counter();
+val counter = Counter();
 counter.Inc
 """;
 
@@ -100,7 +100,7 @@ class Logger {
     public func WriteLine(text: string) -> unit { }
 }
 
-val logger = new Logger();
+val logger = Logger();
 logger.WriteLine("Hello").
 """;
 
@@ -129,7 +129,7 @@ class Factory {
     }
 }
 
-val factory = new Factory();
+val factory = Factory();
 factory.Create().
 """;
 
@@ -157,7 +157,7 @@ class Factory {
     }
 }
 
-val factory = new Factory();
+val factory = Factory();
 factory.Create().
 """;
 
@@ -182,7 +182,7 @@ factory.Create().
 import System.*
 import System.Collections.Generic.*
 
-val numbers = new List<int>();
+val numbers = List<int>();
 numbers.
 """;
 
@@ -214,7 +214,7 @@ class Counter {
     public func Increment() -> unit { }
 }
 
-val counter = new Counter();
+val counter = Counter();
 counter.Inc
 """;
 
@@ -243,7 +243,7 @@ class Factory {
     }
 }
 
-val factory = new Factory();
+val factory = Factory();
 factory.Create().Len
 """;
 
@@ -272,7 +272,7 @@ class Counter {
     val @if: int = 0
 }
 
-val counter = new Counter();
+val counter = Counter();
 counter.i
 """;
 
@@ -299,7 +299,7 @@ counter.i
         var code = """
 import Raven.MetadataFixtures.StaticExtensions.*;
 
-val widget = new Widget(21);
+val widget = Widget(21);
 widget.Dou
 """;
 
@@ -330,7 +330,7 @@ widget.Dou
         var code = """
 import Raven.MetadataFixtures.StaticExtensions.*;
 
-val widget = new Widget(21);
+val widget = Widget(21);
 widget.
 """;
 

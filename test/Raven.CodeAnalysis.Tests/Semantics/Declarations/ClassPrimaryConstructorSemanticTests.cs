@@ -247,7 +247,7 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
     public void NominalDeconstructionPattern_BindsAgainstPrimaryConstructorClassDeconstruct()
     {
         var source = """
-            val value: object = new Person(1, "Ada");
+            val value: object = Person(1, "Ada");
 
             val result = value match {
                 Person(1, val name) => name

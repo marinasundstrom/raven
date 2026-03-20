@@ -339,7 +339,7 @@ class Character(name: string, species: Species, age: int) {
     }
 }
 
-val character = new Character("Rex", .Dog, 4)
+val character = Character("Rex", .Dog, 4)
 
 val result = character match {
     { Age: not > 34, Species: .Dog } => true

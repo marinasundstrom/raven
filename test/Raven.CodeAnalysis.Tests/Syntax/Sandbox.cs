@@ -16,7 +16,7 @@ public class Sandbox
         val list = [1, 42, 3];
         var i = 0;
 
-        val stringBuilder = new StringBuilder();
+        val stringBuilder = StringBuilder();
 
         while i < list.Length {
             val x = list[i];

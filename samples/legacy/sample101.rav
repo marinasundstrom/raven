@@ -94,14 +94,14 @@ async func test5(throwExc: bool) -> Task<Result<string, Exception>> {
 async func action(throwExc: bool) -> Task {
     await Task.Delay(200)
     if throwExc {
-        throw new Exception("Boom!")
+        throw Exception("Boom!")
     }
 }
 
 async func action2(throwExc: bool) -> Task<Result<string, Exception>> {
     await Task.Delay(200)
     if throwExc {
-        throw new Exception("Boom!")
+        throw Exception("Boom!")
     }
     return Ok("Foo")
 }

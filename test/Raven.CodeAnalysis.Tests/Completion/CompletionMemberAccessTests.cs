@@ -44,7 +44,7 @@ class Counter {
     public func Increment() -> unit { }
 }
 
-val counter = new Counter();
+val counter = Counter();
 counter.
 """;
 

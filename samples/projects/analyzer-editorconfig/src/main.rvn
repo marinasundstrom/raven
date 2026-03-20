@@ -2,7 +2,7 @@ import System.Linq.*
 import System.*
 
 func ReadName(input: string?) -> string {
-    val name = input ?? throw new Exception("Name is required")
+    val name = input ?? throw Exception("Name is required")
     return name
 }
 

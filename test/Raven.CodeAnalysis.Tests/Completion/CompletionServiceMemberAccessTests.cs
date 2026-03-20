@@ -145,7 +145,7 @@ class User {
 }
 
 func Main() -> unit {
-    val user = new User()
+    val user = User()
     user. += () => ()
 }
 """;
@@ -175,7 +175,7 @@ class User {
 }
 
 func Main() -> unit {
-    val user = new User()
+    val user = User()
     user. = 2
 }
 """;
@@ -204,7 +204,7 @@ class User {
 }
 
 func Main() -> unit {
-    val user = new User()
+    val user = User()
     user?. = 2
 }
 """;
@@ -296,7 +296,7 @@ class Person {
 
 func WriteLine(value: Person) -> unit { }
 
-val bob = new Person()
+val bob = Person()
 WriteLine(bob.)
 """;
 
@@ -321,7 +321,7 @@ WriteLine(bob.)
 import System.Collections.Generic.*;
 import System.Linq.*;
 
-val numbers = new List<int>();
+val numbers = List<int>();
 numbers.
 """;
 

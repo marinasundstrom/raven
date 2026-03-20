@@ -11,5 +11,5 @@ func handle(text: string) -> Result<(), Exception> {
 }
 
 func throwing() {
-    throw new InvalidOperationException("Too")
+    throw InvalidOperationException("Too")
 }

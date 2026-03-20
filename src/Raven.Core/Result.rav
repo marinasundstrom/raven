@@ -228,7 +228,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
         } else if self is Error(val error2) {
             error = error2
         }
-        throw new InvalidOperationException(error.ToString())
+        throw InvalidOperationException(error.ToString())
     }
 
     /// Unwrap the value if Ok, otherwise return the specified value
@@ -244,6 +244,6 @@ extension ResultExtensions<T, E> for Result<T, E> {
         if self is Error(val message) {
             return message
         }
-        throw new InvalidOperationException("Result is not Error")
+        throw InvalidOperationException("Result is not Error")
     }
 }

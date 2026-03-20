@@ -19,6 +19,6 @@ async func test() -> Task<Result<string, Exception>> {
 
 async func failingTask2() -> Task<Result<string, Exception>> {
     await Task.Delay(20)
-    throw new Exception("Boom!")
+    throw Exception("Boom!")
     return Ok("test")
 }

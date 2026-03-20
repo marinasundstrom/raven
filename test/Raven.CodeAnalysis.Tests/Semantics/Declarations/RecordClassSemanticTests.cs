@@ -73,7 +73,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     public void NominalDeconstructionPattern_BindsPrimaryConstructorProperties()
     {
         var source = """
-            val value: object = new Person("Ada", 42);
+            val value: object = Person("Ada", 42);
 
             val result = value match {
                 Person(val name, val age) => name
@@ -100,7 +100,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     public void PositionalPattern_UsesDeconstructWhenAvailable()
     {
         var source = """
-            val value: Pair = new Pair(1, 2);
+            val value: Pair = Pair(1, 2);
 
             val result = value match {
                 (val left, val right) => left

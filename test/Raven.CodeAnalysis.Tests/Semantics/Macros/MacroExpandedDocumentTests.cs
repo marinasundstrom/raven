@@ -97,7 +97,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             var tree = SyntaxFactory.ParseSyntaxTree("""
                 class __GeneratedContainer {
                     private var _Count: int = 0
-                    private val _CountChanged: Subject<int> = new Subject<int>()
+                    private val _CountChanged: Subject<int> = Subject<int>()
                     val CountChanged: IObservable<int> => _CountChanged
                     var Count: int {
                         get => _Count

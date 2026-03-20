@@ -24,7 +24,7 @@ record class User(Name: string, IsActive: bool) {
     event Foo: EventHandler<CustomEventArgs>?
 
     func RaiseEvent(arg: string) -> () 
-        => Foo?(self, new CustomEventArgs(arg))
+        => Foo?(self, CustomEventArgs(arg))
 
     override func ToString() -> string => Name
 }

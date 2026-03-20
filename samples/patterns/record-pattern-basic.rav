@@ -3,8 +3,8 @@ import System.Console.*
 
 func Main() {
     // Feature: positional record pattern.
-    val fooTrue  = new Foo(true,  (10, 20))
-    val fooFalse = new Foo(false, (1, 2))
+    val fooTrue  = Foo(true,  (10, 20))
+    val fooFalse = Foo(false, (1, 2))
 
     test(fooTrue)
     test(fooFalse)
