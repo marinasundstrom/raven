@@ -2,6 +2,11 @@
 
 > ⚠️ 🧩 This proposal has been partly implemented
 
+This proposal now documents the remaining design space around collection expressions. The
+implemented syntax is specified in [`../spec/language-specification.md`](../spec/language-specification.md)
+and [`../spec/grammar.ebnf`](../spec/grammar.ebnf). Any new changes should extend that
+shipped surface rather than reintroduce the older draft syntax that previously appeared here.
+
 ## Syntax
 
 Collection expressions provide a terse way to construct arrays and other list-like containers.
@@ -129,26 +134,50 @@ let x = [...a, ...b] // ImmutableList<int>
 let y: int[] = [...a, ...b] // ok
 ```
 
-### List comprehension
+### Comprehensions
 
-We can use list comprehension to generate sequences from within a collection expression.
+Raven currently supports one `for` clause with an optional `if` filter.
 
-We support common expression types inline - provided they return a collection.
-
-```raven
-let x = [ for i in 1 .. 10 -> i * 2 ]
-
-// Produces: 1, 4, 6, 10, ...
-```
-
-It also works like this:
+List comprehensions:
 
 ```raven
-let x = [ 1, for i in 1 .. 3 -> i, 42 ]
-
-// Produces: 1, 2, 3, 42
-
-// Where 42 is its own element
+let squares = [for i in 1..10 => i * 2]
+let evenSquares = [for i in numbers if i % 2 == 0 => i * i]
+let ranged = [for i in 1..<10 => i]
 ```
 
-In this regard, it is similar to the spread operation.
+Dictionary comprehensions:
+
+```raven
+let lengths = [for text in values => text: text.Length]
+let filtered = [for item in items if item.Enabled => item.Name: item.Value]
+```
+
+Current rules:
+
+- `=>` is required before the selector.
+- `for ... in source` also accepts range expressions as the source.
+- A literal becomes dictionary-shaped as soon as it contains a dictionary entry,
+  dictionary spread, or dictionary comprehension.
+- Dictionary-shaped literals cannot be mixed with positional elements, range elements,
+  or value-producing list comprehensions.
+
+Examples of invalid mixtures:
+
+```raven
+[1, "a": 2]
+[1..3, "a": 2]
+[for n in numbers => n, "a": 2]
+```
+
+### Remaining design questions
+
+The implemented surface intentionally stays small. Follow-up proposals can extend it from here.
+
+Candidate additions worth evaluating separately:
+
+- identity list comprehensions such as `[for item in items]` and
+  `[for item in items if predicate]`
+- deconstruction or pattern iteration for consistency with the rest of the language, for
+  example `[for (key, value) in pairs => value]`
+- multiple `for` clauses or local `let` clauses, if Raven later wants a larger query syntax
