@@ -41,7 +41,7 @@ class Customer {
         set => field = value
     }
 
-    func AddOrder(count: int) -> () {
+    func AddOrder(count: int) {
         orderCount += count
     }
 

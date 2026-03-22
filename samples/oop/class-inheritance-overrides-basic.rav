@@ -15,11 +15,11 @@ abstract class Base {
         WriteLine("Base.Test")
     }
 
-    abstract func Bar(x: int) -> ()
+    abstract func Bar(x: int)
 }
 
 class Derived(value: int) : Base {
-    final override func Bar(x: int) -> () => WriteLine("Derived.Bar: $x and $value")
+    final override func Bar(x: int) => WriteLine("Derived.Bar: $x and $value")
 }
 
 class Derived2(value: string) : Base {
@@ -27,5 +27,5 @@ class Derived2(value: string) : Base {
         WriteLine("Derived2.Test: $value")
     }
 
-    final override func Bar(x: int) -> () => WriteLine("Derived2.Bar: $x and $value")
+    final override func Bar(x: int) => WriteLine("Derived2.Bar: $x and $value")
 }

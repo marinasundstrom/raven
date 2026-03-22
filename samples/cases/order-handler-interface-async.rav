@@ -19,8 +19,8 @@ async func Main() -> Task {
     WriteLine("Result $result")
 
     val str = result match {
-        .Success(val value) => value.ToString(),
-        .Failure(val message) => message
+        Success(val value) => value.ToString(),
+        Failure(val message) => message
     }
 
     WriteLine("$str")
@@ -58,6 +58,6 @@ class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
             }
             total += lineTotal
         }
-        return .Success(total)
+        return Success(total)
     }
 }
