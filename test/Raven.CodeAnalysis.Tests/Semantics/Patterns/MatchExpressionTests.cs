@@ -1370,6 +1370,39 @@ union Result<T> {
     }
 
     [Fact]
+    public void MatchExpression_WithPureDeconstructionInsideUnionCase_RedundantCatchAllReportsDiagnostic()
+    {
+        const string code = """
+import System.*
+
+val result: Result<string, Exception> = .Ok(value: "ok")
+
+val value = result match {
+    .Ok(val text) => text
+    .Error((val message)) => message
+    _ => ""
+}
+
+extension ExceptionExt for Exception {
+    func Deconstruct(out message: string) -> unit {
+        message = self.Message
+    }
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan().WithSeverity(DiagnosticSeverity.Warning)]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithUnionScrutineeAndGuard_NotExhaustiveWithoutCatchAll()
     {
         const string code = """

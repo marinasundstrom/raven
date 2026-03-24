@@ -4004,12 +4004,15 @@ partial class BlockBinder : Binder
                     }
 
                     var parameters = deconstructPattern.DeconstructMethod.Parameters;
-                    if (parameters.Length != deconstructPattern.Arguments.Length)
+                    var parameterOffset = deconstructPattern.DeconstructMethod.IsExtensionMethod ? 1 : 0;
+                    var parameterCount = parameters.Length - parameterOffset;
+
+                    if (parameterCount != deconstructPattern.Arguments.Length)
                         return false;
 
-                    for (var i = 0; i < parameters.Length; i++)
+                    for (var i = 0; i < parameterCount; i++)
                     {
-                        if (!IsTotalPattern(parameters[i].Type, deconstructPattern.Arguments[i]))
+                        if (!IsTotalPattern(parameters[i + parameterOffset].Type, deconstructPattern.Arguments[i]))
                             return false;
                     }
 
