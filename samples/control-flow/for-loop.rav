@@ -9,7 +9,7 @@ val orders = [
 ]
 var totalPending = 0
 
-for val (id, amount) in orders {
+for val (id, amount when > 100) in orders {
     totalPending = totalPending + amount
     WriteLine("Queued order $id amount: $amount")
 }
