@@ -52,6 +52,15 @@ internal partial class ExpressionGenerator
     {
         switch (pattern)
         {
+            case BoundGuardedPattern guardedPattern:
+                {
+                    var patternRequirement = GetPatternInputRequirement(guardedPattern.Pattern);
+                    var guardRequirement = guardedPattern.GuardPattern is null
+                        ? PatternInput.Typed
+                        : GetPatternInputRequirement(guardedPattern.GuardPattern);
+                    return (PatternInput)Math.Max((int)patternRequirement, (int)guardRequirement);
+                }
+
             // constant patterns can be evaluated in typed form (for value-type scrutinees)
             case BoundConstantPattern:
                 return PatternInput.Typed;
@@ -110,6 +119,49 @@ internal partial class ExpressionGenerator
         if (pattern is BoundComparisonPattern relational)
         {
             EmitComparisonPattern(relational, inputType, scope, scrutineeLocal2);
+            return;
+        }
+
+        if (pattern is BoundGuardedPattern guardedPattern)
+        {
+            IILocal scrutineeLocal;
+            if (scrutineeLocal2 is not null)
+            {
+                ILGenerator.Emit(OpCodes.Pop);
+                scrutineeLocal = scrutineeLocal2;
+            }
+            else
+            {
+                scrutineeLocal = SpillScrutineeToLocal(inputType);
+            }
+
+            var labelFail = ILGenerator.DefineLabel();
+            var labelDone = ILGenerator.DefineLabel();
+
+            ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+            EmitPattern(guardedPattern.Pattern, inputType, scope, scrutineeLocal);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+            if (guardedPattern.GuardPattern is not null)
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+                EmitPattern(guardedPattern.GuardPattern, inputType, scope, scrutineeLocal);
+            }
+            else if (guardedPattern.GuardExpression is not null)
+            {
+                EmitExpression(guardedPattern.GuardExpression);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            }
+
+            ILGenerator.Emit(OpCodes.Br, labelDone);
+
+            ILGenerator.MarkLabel(labelFail);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+            ILGenerator.MarkLabel(labelDone);
             return;
         }
 

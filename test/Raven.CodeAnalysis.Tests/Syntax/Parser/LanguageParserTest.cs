@@ -330,4 +330,26 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         var designation = pattern.Designation.ShouldBeOfType<SingleVariableDesignationSyntax>();
         designation.Identifier.ValueText.ShouldBe("point");
     }
+
+    [Fact]
+    public void ParseForPatternTarget_WithGuardedBinding()
+    {
+        var code = """
+                   val orders = [(1001, 120)];
+                   for val (id, amount when > 100) in orders {
+                       amount
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+
+        var pattern = forStmt!.Target.ShouldBeOfType<PositionalPatternSyntax>();
+        var guarded = pattern.Elements[1].Pattern.ShouldBeOfType<GuardedPatternSyntax>();
+        guarded.Pattern.ShouldBeOfType<VariablePatternSyntax>();
+        guarded.WhenClause.Guard.ShouldBeOfType<ComparisonPatternSyntax>();
+    }
 }

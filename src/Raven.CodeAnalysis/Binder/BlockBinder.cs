@@ -2684,8 +2684,8 @@ partial class BlockBinder : Binder
             RegisterPatternDesignatorLocals(pattern, depth);
 
             BoundExpression? guard = null;
-            if (arm.WhenClause is { } whenClause)
-                guard = BindExpression(whenClause.Condition);
+            if (arm.WhenClause is { } whenClause && whenClause.Guard is ExpressionSyntax guardSyntax)
+                guard = BindExpression(guardSyntax);
 
             var expressionTargetType = armTargetType;
 
@@ -11779,38 +11779,38 @@ partial class BlockBinder : Binder
                     break;
 
                 case PatternSyntax patternSyntax:
-                {
-                    CapturePatternLocalShadows(patternSyntax, shadowedLocals);
-
-                    var inlineBindingKeyword = FindFirstInlinePatternBindingKeyword(patternSyntax);
-                    if (inlineBindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword &&
-                        bindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
                     {
-                        _diagnostics.ReportPatternDeclarationBindingKeywordConflict(
-                            bindingKeyword.Text,
-                            inlineBindingKeyword.Text,
-                            inlineBindingKeyword.GetLocation());
-                    }
+                        CapturePatternLocalShadows(patternSyntax, shadowedLocals);
 
-                    var previousBindingKeyword = _ambientPatternDeclarationBindingKeyword;
-                    _ambientPatternDeclarationBindingKeyword = bindingKeyword.Kind;
-                    BoundPattern pattern;
-                    try
-                    {
-                        pattern = BindPattern(patternSyntax, iterationType);
-                    }
-                    finally
-                    {
-                        _ambientPatternDeclarationBindingKeyword = previousBindingKeyword;
-                    }
+                        var inlineBindingKeyword = FindFirstInlinePatternBindingKeyword(patternSyntax);
+                        if (inlineBindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword &&
+                            bindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                        {
+                            _diagnostics.ReportPatternDeclarationBindingKeywordConflict(
+                                bindingKeyword.Text,
+                                inlineBindingKeyword.Text,
+                                inlineBindingKeyword.GetLocation());
+                        }
 
-                    patternLocals = CollectPatternDesignatorLocals(pattern);
-                    patternCondition = new BoundIsPatternExpression(
-                        new BoundLocalAccess(iterationLocal),
-                        pattern,
-                        Compilation.GetSpecialType(SpecialType.System_Boolean));
-                    break;
-                }
+                        var previousBindingKeyword = _ambientPatternDeclarationBindingKeyword;
+                        _ambientPatternDeclarationBindingKeyword = bindingKeyword.Kind;
+                        BoundPattern pattern;
+                        try
+                        {
+                            pattern = BindPattern(patternSyntax, iterationType);
+                        }
+                        finally
+                        {
+                            _ambientPatternDeclarationBindingKeyword = previousBindingKeyword;
+                        }
+
+                        patternLocals = CollectPatternDesignatorLocals(pattern);
+                        patternCondition = new BoundIsPatternExpression(
+                            new BoundLocalAccess(iterationLocal),
+                            pattern,
+                            Compilation.GetSpecialType(SpecialType.System_Boolean));
+                        break;
+                    }
 
                 default:
                     _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(targetSyntax.GetLocation());

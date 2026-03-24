@@ -36,6 +36,39 @@ internal abstract class BoundPattern : BoundExpression
     public virtual IEnumerable<BoundDesignator> GetDesignators() => [];
 }
 
+internal sealed class BoundGuardedPattern : BoundPattern
+{
+    public BoundGuardedPattern(
+        BoundPattern pattern,
+        BoundPattern? guardPattern,
+        BoundExpression? guardExpression,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(pattern.Type, reason)
+    {
+        Pattern = pattern;
+        GuardPattern = guardPattern;
+        GuardExpression = guardExpression;
+    }
+
+    public BoundPattern Pattern { get; }
+
+    public BoundPattern? GuardPattern { get; }
+
+    public BoundExpression? GuardExpression { get; }
+
+    public override IEnumerable<BoundDesignator> GetDesignators() => Pattern.GetDesignators();
+
+    public override void Accept(BoundTreeVisitor visitor)
+    {
+        visitor.DefaultVisit(this);
+    }
+
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+    {
+        return visitor.DefaultVisit(this);
+    }
+}
+
 internal sealed class BoundCasePattern : BoundPattern
 {
     public BoundCasePattern(
@@ -499,6 +532,7 @@ internal partial class BlockBinder
 
         var bound = syntax switch
         {
+            GuardedPatternSyntax guarded => BindGuardedPattern(guarded, inputType),
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
             ConstantPatternSyntax constant => BindConstantPattern(constant, inputType),
             VariablePatternSyntax variable => BindVariablePattern(variable, inputType),
@@ -518,6 +552,27 @@ internal partial class BlockBinder
 
         CacheBoundNode(syntax, bound);
         return bound;
+    }
+
+    private BoundPattern BindGuardedPattern(GuardedPatternSyntax syntax, ITypeSymbol? inputType)
+    {
+        var pattern = BindPattern(syntax.Pattern, inputType);
+
+        BoundPattern? guardPattern = null;
+        BoundExpression? guardExpression = null;
+
+        switch (syntax.WhenClause.Guard)
+        {
+            case PatternSyntax patternSyntax:
+                guardPattern = BindPattern(patternSyntax, inputType);
+                break;
+
+            case ExpressionSyntax expressionSyntax:
+                guardExpression = BindBooleanComprehensionCondition(expressionSyntax);
+                break;
+        }
+
+        return new BoundGuardedPattern(pattern, guardPattern, guardExpression, pattern.Reason);
     }
 
     private BoundPattern BindComparisonPattern(ComparisonPatternSyntax syntax, ITypeSymbol? inputType)

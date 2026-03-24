@@ -147,6 +147,20 @@ public class CollectionComprehensionSyntaxTests
     }
 
     [Fact]
+    public void CollectionComprehension_WithGuardedBindingTarget_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [for val (id, amount when 100..300) in orders => amount]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
+        var target = Assert.IsType<PositionalPatternSyntax>(comprehension.Target);
+        var guarded = Assert.IsType<GuardedPatternSyntax>(target.Elements[1].Pattern);
+
+        Assert.IsType<VariablePatternSyntax>(guarded.Pattern);
+        Assert.IsType<RangePatternSyntax>(guarded.WhenClause.Guard);
+    }
+
+    [Fact]
     public void CollectionExpression_CommaSeparated_Parses()
     {
         var tree = SyntaxTree.ParseText("val xs = [1, 2, 3]");

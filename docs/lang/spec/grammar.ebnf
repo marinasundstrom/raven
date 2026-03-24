@@ -385,7 +385,8 @@ Assignable               ::= Identifier
 
 (* ---------- Patterns ---------- *)
 
-Pattern                  ::= OrPattern ;
+Pattern                  ::= OrPattern [PatternGuardClause] ;
+PatternGuardClause       ::= 'when' (Pattern | Expression) ;
 
 OrPattern                ::= AndPattern {'or' AndPattern} ;
 AndPattern               ::= UnaryPattern {'and' UnaryPattern} ;

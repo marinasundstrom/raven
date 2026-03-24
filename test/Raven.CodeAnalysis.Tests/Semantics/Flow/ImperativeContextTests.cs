@@ -302,6 +302,39 @@ class C {
     }
 
     [Fact]
+    public void IfPatternStatement_WithGuardedBinding_BindsGuardedPatternAndLocal()
+    {
+        var code = """
+class C {
+    func Test(order: (int, int)) {
+        if val (id, amount when amount > 100) = order {
+            amount
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var ifPatternStmt = tree.GetRoot().DescendantNodes().OfType<IfPatternStatementSyntax>().First();
+        var bound = Assert.IsType<BoundIfStatement>(model.GetBoundNode(ifPatternStmt));
+        var condition = Assert.IsType<BoundIsPatternExpression>(bound.Condition);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(condition.Pattern);
+        var guarded = Assert.IsType<BoundGuardedPattern>(tuplePattern.Elements[1]);
+        var capture = Assert.IsType<BoundDeclarationPattern>(guarded.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(capture.Designator);
+
+        designator.Local.Name.ShouldBe("amount");
+        designator.Local.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        guarded.GuardExpression.ShouldNotBeNull();
+    }
+
+    [Fact]
     public void IfPatternStatement_WithComparisonPatternOfDifferentType_ReportsDiagnostic()
     {
         var code = """

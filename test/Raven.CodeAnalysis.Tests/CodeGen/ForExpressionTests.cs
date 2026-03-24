@@ -218,6 +218,33 @@ for val [..2, ..2 x, ...] in [[2, 1..3]] {
     }
 
     [Fact]
+    public void For_WithGuardedBindingPattern_EmitsAndRuns()
+    {
+        var code = """
+import System.Console.*
+
+record Order(val Id: int, val Amount: int)
+
+class Program {
+    static func Main() {
+        val orders = [
+            Order(1001, 120)
+            Order(1002, 80)
+            Order(1003, 210)
+        ]
+
+        for val (id, amount when > 100) in orders {
+            WriteLine("${id}:${amount}")
+        }
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["1001:120", "1003:210"], output);
+    }
+
+    [Fact]
     public void For_WithFixedArrayLiteralAndFixedSegmentCapture_EmitsValidProgram()
     {
         var code = """

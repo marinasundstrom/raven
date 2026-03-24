@@ -235,6 +235,20 @@ binding mode also applies to an optional trailing whole-pattern designation such
 as `point` in the example above. Shadowing and other pattern-binding diagnostics
 are the same as for `is` and `match` patterns.
 
+Bindings inside the pattern may also add a nested `when` guard. The guard can be
+either another pattern over the same matched sub-value or a boolean expression
+that sees the locals introduced by that binding:
+
+```raven
+for val (id, amount when > 100) in orders {
+    WriteLine(amount)
+}
+
+if val (id, amount when amount > 100) = order {
+    WriteLine(amount)
+}
+```
+
 This statement form uses Raven’s **general pattern** surface. It is not limited
 to deconstruction-only shapes, so it may use property patterns, nominal
 deconstruction patterns, member/case patterns, comparison patterns, and other

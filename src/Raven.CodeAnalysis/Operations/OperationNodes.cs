@@ -2050,7 +2050,7 @@ internal sealed class MatchOperation : Operation, ISwitchOperation
                 if (arm.WhenClause is null)
                     continue;
 
-                builder.AddIfNotNull(SemanticModel.GetOperation(arm.WhenClause.Condition));
+                builder.AddIfNotNull(SemanticModel.GetOperation(arm.WhenClause.Guard));
             }
 
             _guards = builder.ToImmutable();

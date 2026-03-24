@@ -11,19 +11,23 @@ internal class PatternSyntaxParser : SyntaxParser
 {
     private readonly bool _allowImplicitDeconstructionElementBindings;
     private readonly bool _allowWholePatternDesignation;
+    private readonly bool _allowPatternGuards;
 
     public PatternSyntaxParser(
         ParseContext parent,
         bool allowImplicitDeconstructionElementBindings = false,
-        bool allowWholePatternDesignation = true) : base(parent)
+        bool allowWholePatternDesignation = true,
+        bool allowPatternGuards = true) : base(parent)
     {
         _allowImplicitDeconstructionElementBindings = allowImplicitDeconstructionElementBindings;
         _allowWholePatternDesignation = allowWholePatternDesignation;
+        _allowPatternGuards = allowPatternGuards;
     }
 
     public PatternSyntax ParsePattern()
     {
-        return ParseOrPattern();
+        var pattern = ParseOrPattern();
+        return ParseOptionalGuardedPattern(pattern);
     }
 
     private PatternSyntax ParseOrPattern()
@@ -297,7 +301,11 @@ internal class PatternSyntaxParser : SyntaxParser
         var nameColon = NameColon(IdentifierName(nameToken), colonToken);
 
         // IMPORTANT: RHS is a *pattern*, not an expression
-        var pattern = ParsePattern();
+        var pattern = new PatternSyntaxParser(
+            this,
+            _allowImplicitDeconstructionElementBindings,
+            _allowWholePatternDesignation,
+            allowPatternGuards: true).ParsePattern();
 
         return PropertySubpattern(nameColon, pattern);
     }
@@ -652,12 +660,62 @@ internal class PatternSyntaxParser : SyntaxParser
             CanTokenBeIdentifier(PeekToken()))
         {
             var identifier = ReadIdentifierToken();
-            return VariablePattern(
+            var pattern = VariablePattern(
                 Token(SyntaxKind.None),
                 SingleVariableDesignation(Token(SyntaxKind.None), identifier));
+            return ParseOptionalGuardedPattern(pattern);
         }
 
-        return new PatternSyntaxParser(this, _allowImplicitDeconstructionElementBindings, _allowWholePatternDesignation).ParsePattern();
+        return new PatternSyntaxParser(
+            this,
+            _allowImplicitDeconstructionElementBindings,
+            _allowWholePatternDesignation,
+            allowPatternGuards: true).ParsePattern();
+    }
+
+    private PatternSyntax ParseOptionalGuardedPattern(PatternSyntax pattern)
+    {
+        if (!_allowPatternGuards || !ConsumeToken(SyntaxKind.WhenKeyword, out var whenKeyword))
+            return pattern;
+
+        var guard = ParsePatternGuard();
+        var whenClause = WhenClause(whenKeyword, guard);
+        return GuardedPattern(pattern, whenClause);
+    }
+
+    private ExpressionOrPatternSyntax ParsePatternGuard()
+    {
+        if (ShouldParsePatternGuard())
+        {
+            return new PatternSyntaxParser(
+                this,
+                allowImplicitDeconstructionElementBindings: false,
+                allowWholePatternDesignation: false,
+                allowPatternGuards: false).ParsePattern();
+        }
+
+        return new ExpressionSyntaxParser(this).ParseExpression();
+    }
+
+    private bool ShouldParsePatternGuard()
+    {
+        var current = PeekToken();
+
+        if (IsComparisonPatternStart(current) ||
+            current.IsKind(SyntaxKind.DotDotToken) ||
+            current.IsKind(SyntaxKind.NotKeyword) ||
+            current.IsKind(SyntaxKind.OpenParenToken) ||
+            current.IsKind(SyntaxKind.OpenBracketToken) ||
+            current.IsKind(SyntaxKind.OpenBraceToken) ||
+            current.IsKind(SyntaxKind.DotToken) ||
+            current.IsKind(SyntaxKind.UnderscoreToken) ||
+            current.IsKind(SyntaxKind.NullKeyword) ||
+            current.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+        {
+            return true;
+        }
+
+        return CanStartRangeBoundExpression(current) && PeekToken(1).IsKind(SyntaxKind.DotDotToken);
     }
 
     private bool TryParseImplicitBindingPattern(out PatternSyntax pattern)

@@ -133,6 +133,32 @@ val names = [for val (id, name) in people if id > 1 => name]
     }
 
     [Fact]
+    public void CollectionComprehension_WithGuardedBindingTarget_BindsPatternLocals()
+    {
+        const string source = """
+val people = [(1, "Ada"), (2, "Beatrice"), (3, "Cecil")]
+val names = [for val (id, name when name.Length > id) in people => name]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "name");
+
+        var symbol = model.GetDeclaredSymbol(designation).ShouldBeOfType<SourceLocalSymbol>();
+        symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+        symbol.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
     public void DictionaryComprehension_WithDeconstructionTarget_InfersDictionaryShape()
     {
         const string source = """

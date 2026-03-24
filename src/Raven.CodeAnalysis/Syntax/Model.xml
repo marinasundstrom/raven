@@ -681,7 +681,7 @@
   </Node>
   <Node Name="WhenClause" Inherits="Node">
     <Slot Name="WhenKeyword" Type="Token" DefaultToken="WhenKeyword" />
-    <Slot Name="Condition" Type="Expression" />
+    <Slot Name="Guard" Type="ExpressionOrPattern" />
   </Node>
   <Node Name="WithExpression" Inherits="Expression">
     <Slot Name="Expression" Type="Expression" />
@@ -825,6 +825,10 @@
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="Pattern" Inherits="ExpressionOrPattern" IsAbstract="true" />
+  <Node Name="GuardedPattern" Inherits="Pattern">
+    <Slot Name="Pattern" Type="Pattern" />
+    <Slot Name="WhenClause" Type="WhenClause" />
+  </Node>
   <Node Name="ConstantPattern" Inherits="Pattern">
     <Slot Name="Expression" Type="Expression" />
   </Node>

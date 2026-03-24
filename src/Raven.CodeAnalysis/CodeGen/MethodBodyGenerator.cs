@@ -472,7 +472,7 @@ internal class MethodBodyGenerator
             return GetMatchArmEntrySyntax(armSyntax);
 
         if (syntax is WhenClauseSyntax whenClause)
-            return whenClause.Condition;
+            return whenClause.Guard as SyntaxNode;
 
         if (syntax.GetAncestor<MatchArmSyntax>() is not null)
             return syntax;
@@ -495,7 +495,7 @@ internal class MethodBodyGenerator
             TryGetMatchArmSyntax(guardIf.ThenNode) is { } guardArmSyntax &&
             guardArmSyntax.WhenClause is { } whenClauseSyntax)
         {
-            return whenClauseSyntax.Condition;
+            return whenClauseSyntax.Guard as SyntaxNode;
         }
 
         if (statement is BoundAssignmentStatement

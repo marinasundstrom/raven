@@ -91,6 +91,24 @@ if val Person(1, name, _) = person {
 }
 ```
 
+Bindings inside recursive patterns may also carry an inline `when` guard. The
+guard may be either another pattern over the same matched value or a boolean
+expression evaluated in the scope of the bound locals:
+
+```raven
+for val (id, amount when > 100) in orders {
+    WriteLine(amount)
+}
+
+for val (id, amount when 100..300) in orders {
+    WriteLine(amount)
+}
+
+if val (id, name when name.Length > 5) = customer {
+    WriteLine(name)
+}
+```
+
 Nominal `Type(...)` patterns are driven by `Deconstruct`. Records support this
 directly, and primary-constructor classes/structs with promoted public
 parameters synthesize `Deconstruct` in declaration order.

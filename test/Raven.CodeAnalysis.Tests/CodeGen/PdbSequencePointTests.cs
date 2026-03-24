@@ -529,7 +529,7 @@ func GetValue() -> int => 1
         var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, new CompilationOptions(OutputKind.ConsoleApplication));
         var syntaxTree = SyntaxTree.ParseText(code);
         var matchExpression = syntaxTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
-        var guardLine = matchExpression.Arms[0].WhenClause!.Condition.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+        var guardLine = matchExpression.Arms[0].WhenClause!.Guard.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var firstArmLine = matchExpression.Arms[0].Expression.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var secondArmLine = matchExpression.Arms[1].Expression.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var mainMethod = FindMethod(metadataReader, static (typeName, methodName) =>

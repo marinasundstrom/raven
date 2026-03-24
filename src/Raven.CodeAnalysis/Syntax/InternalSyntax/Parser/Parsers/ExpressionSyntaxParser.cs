@@ -2613,14 +2613,15 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
                 var pattern = new PatternSyntaxParser(
                     this,
-                    allowImplicitDeconstructionElementBindings: bindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                    allowImplicitDeconstructionElementBindings: bindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword,
+                    allowPatternGuards: false)
                     .ParsePattern();
 
                 WhenClauseSyntax? whenClause = null;
                 if (ConsumeToken(SyntaxKind.WhenKeyword, out var whenKeyword))
                 {
-                    var condition = new ExpressionSyntaxParser(this).ParseExpression();
-                    whenClause = WhenClause(whenKeyword, condition);
+                    var guard = new ExpressionSyntaxParser(this).ParseExpression();
+                    whenClause = WhenClause(whenKeyword, guard);
                 }
 
                 ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var arrowToken);
