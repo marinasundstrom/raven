@@ -337,9 +337,57 @@ public partial class Compilation
         {
             if (!nullableSource.UnderlyingType.IsValueType)
             {
-                var conv = ClassifyConversion(nullableSource.UnderlyingType, destination, includeUserDefined);
-                if (conv.Exists)
-                    return Finalize(conv);
+                if (destination is NullableTypeSymbol nullableReferenceDestination &&
+                    !nullableReferenceDestination.UnderlyingType.IsValueType)
+                {
+                    var conv = ClassifyConversion(nullableSource.UnderlyingType, nullableReferenceDestination.UnderlyingType, includeUserDefined);
+                    if (conv.Exists)
+                    {
+                        return Finalize(new Conversion(
+                            isImplicit: conv.IsImplicit,
+                            isIdentity: conv.IsIdentity,
+                            isNumeric: conv.IsNumeric,
+                            isReference: true,
+                            isBoxing: conv.IsBoxing,
+                            isUnboxing: conv.IsUnboxing,
+                            isPointer: conv.IsPointer,
+                            isDiscriminatedUnion: conv.IsDiscriminatedUnion,
+                            isLifted: true,
+                            isUserDefined: conv.IsUserDefined,
+                            isAlias: conv.IsAlias,
+                            methodSymbol: conv.MethodSymbol,
+                            constructorSymbol: conv.ConstructorSymbol));
+                    }
+                }
+
+                if (destination is ITypeUnionSymbol unionDestination &&
+                    UnionContainsNull(unionDestination))
+                {
+                    foreach (var branch in unionDestination.Types)
+                    {
+                        if (branch.TypeKind == TypeKind.Null)
+                            continue;
+
+                        var conv = ClassifyConversion(nullableSource.UnderlyingType, branch, includeUserDefined);
+                        if (conv.Exists)
+                        {
+                            return Finalize(new Conversion(
+                                isImplicit: conv.IsImplicit,
+                                isIdentity: conv.IsIdentity,
+                                isNumeric: conv.IsNumeric,
+                                isReference: true,
+                                isBoxing: conv.IsBoxing,
+                                isUnboxing: conv.IsUnboxing,
+                                isPointer: conv.IsPointer,
+                                isDiscriminatedUnion: conv.IsDiscriminatedUnion,
+                                isLifted: true,
+                                isUserDefined: conv.IsUserDefined,
+                                isAlias: conv.IsAlias,
+                                methodSymbol: conv.MethodSymbol,
+                                constructorSymbol: conv.ConstructorSymbol));
+                        }
+                    }
+                }
             }
             else
             {

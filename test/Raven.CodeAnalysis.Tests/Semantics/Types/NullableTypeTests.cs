@@ -49,6 +49,23 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
+    public void ReferencedNullableReturnType_CannotImplicitlyConvertToNonNullableReference()
+    {
+        var source = """
+        import System.*
+
+        func Main() -> unit {
+            val s: string = Console.ReadLine()
+        }
+        """;
+
+        var (compilation, _) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.CannotAssignFromTypeToType));
+
+        Assert.Equal("Cannot assign 'string?' to 'string'", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void NullableSyntax_BindsToNullableTypeSymbol()
     {
         var source = """
@@ -385,9 +402,17 @@ class Foo {
         var stringConv = compilation.ClassifyConversion(stringType, nullableString);
         Assert.True(stringConv.IsImplicit);
         Assert.True(stringConv.IsIdentity);
+    }
 
+    [Fact]
+    public void NullableReference_To_NonNullableReference_Conversion_IsNotImplicit()
+    {
+        var compilation = CreateCompilation();
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var nullableString = stringType.MakeNullable();
         var reverse = compilation.ClassifyConversion(nullableString, stringType);
-        Assert.True(reverse.IsImplicit);
+
+        Assert.False(reverse.Exists && reverse.IsImplicit);
     }
 
     [Fact]
