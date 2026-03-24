@@ -1445,6 +1445,8 @@ partial class BlockBinder : Binder
             BoundFieldAccess fieldAccess => BindIncrementForField(fieldAccess, operandSyntax, binaryOperatorKind, isPostfix),
             BoundMemberAccessExpression memberAccess when memberAccess.Symbol is IPropertySymbol propertySymbol
                 => BindIncrementForProperty(memberAccess, propertySymbol, operandSyntax, binaryOperatorKind, isPostfix),
+            BoundPropertyAccess propertyAccess
+                => BindIncrementForProperty(propertyAccess, propertyAccess.Property, operandSyntax, binaryOperatorKind, isPostfix),
             _ => BindInvalidIncrementOperand(operatorToken)
         };
     }
@@ -1592,6 +1594,64 @@ partial class BlockBinder : Binder
             binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
             isPostfix,
             value => BoundFactory.CreatePropertyAssignmentExpression(memberAccess.Receiver, propertySymbol, value));
+    }
+
+    private BoundExpression BindIncrementForProperty(
+        BoundPropertyAccess propertyAccess,
+        IPropertySymbol propertySymbol,
+        ExpressionSyntax operandSyntax,
+        SyntaxKind binaryOperatorKind,
+        bool isPostfix)
+    {
+        SourceFieldSymbol? backingField = null;
+        var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
+
+        if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
+        {
+            if (!TryGetWritableAutoPropertyBackingField(propertySymbol, propertyAccess, out backingField))
+            {
+                _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, operandSyntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
+            }
+
+            if (!CanAssignToField(backingField, receiver: null, operandSyntax))
+                return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
+
+            var backingAccess = new BoundFieldAccess(backingField);
+            return BindIncrementCore(
+                operandSyntax,
+                backingAccess,
+                propertySymbol.Type,
+                binaryOperatorKind,
+                binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
+                isPostfix,
+                value => CreateFieldAssignmentExpression(receiver: null, backingField, value));
+        }
+
+        if (useFieldOnlyLowering && backingField is not null)
+        {
+            if (!CanAssignToField(backingField, receiver: null, operandSyntax))
+                return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
+
+            var backingAccess = new BoundFieldAccess(backingField);
+            return BindIncrementCore(
+                operandSyntax,
+                backingAccess,
+                propertySymbol.Type,
+                binaryOperatorKind,
+                binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
+                isPostfix,
+                value => CreateFieldAssignmentExpression(receiver: null, backingField, value));
+        }
+
+        return BindIncrementCore(
+            operandSyntax,
+            propertyAccess,
+            propertySymbol.Type,
+            binaryOperatorKind,
+            binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
+            isPostfix,
+            value => BoundFactory.CreatePropertyAssignmentExpression(receiver: null, propertySymbol, value));
     }
 
     private BoundExpression BindIncrementCore(

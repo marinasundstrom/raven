@@ -77,4 +77,74 @@ class Foo {
         Assert.Equal(23, value);
     }
 
+    [Fact]
+    public void PrefixIncrement_OnImplicitInstanceProperty_ReturnsUpdatedValue()
+    {
+        var code = """
+class Counter {
+    var value: int = 1
+
+    func Run() -> int {
+        var updated: int = ++value
+        return value * 10 + updated
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Counter", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = (int)method.Invoke(instance, Array.Empty<object>())!;
+
+        Assert.Equal(22, value);
+    }
+
+    [Fact]
+    public void PostfixDecrement_OnImplicitInstanceProperty_ReturnsOriginalThenUpdates()
+    {
+        var code = """
+class Counter {
+    var value: int = 3
+
+    func Run() -> int {
+        var original: int = value--
+        return value * 10 + original
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Counter", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = (int)method.Invoke(instance, Array.Empty<object>())!;
+
+        Assert.Equal(23, value);
+    }
+
 }
