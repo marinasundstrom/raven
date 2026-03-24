@@ -148,4 +148,25 @@ class C {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void VarLocal_PassedAsOutArgument_NoDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M(arg: string) -> unit {
+        var total = 0
+
+        int.TryParse(arg, out total)
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
 }

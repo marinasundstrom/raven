@@ -262,12 +262,25 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
         public override void VisitInvocationExpression(InvocationExpressionSyntax node)
         {
-            // Optional: ref/out handling (as you already sketched)
-            // ...
-
             Visit(node.Expression);
-            foreach (var arg in node.ArgumentList.Arguments)
-                Visit(arg.Expression);
+
+            var symbolInfo = _semanticModel.GetSymbolInfo(node);
+            var method = symbolInfo.Symbol as IMethodSymbol
+                ?? symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+
+            for (var i = 0; i < node.ArgumentList.Arguments.Count; i++)
+            {
+                var argument = node.ArgumentList.Arguments[i];
+                var parameter = TryGetParameterForArgument(method, argument, i);
+
+                if (parameter is not null &&
+                    parameter.RefKind is RefKind.Out or RefKind.Ref or RefKind.RefReadOnlyParameter)
+                {
+                    MarkWrittenFromExpression(argument.Expression);
+                }
+
+                Visit(argument.Expression);
+            }
         }
 
         // --- CONTROL FLOW: add these --------------------------------------------
@@ -355,6 +368,31 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
         private static bool IsIncrementOrDecrement(SyntaxToken operatorToken)
             => operatorToken.Kind is SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken;
+
+        private static IParameterSymbol? TryGetParameterForArgument(
+            IMethodSymbol? method,
+            ArgumentSyntax argument,
+            int position)
+        {
+            if (method is null || method.Parameters.IsDefaultOrEmpty)
+                return null;
+
+            if (argument.NameColon?.Name is IdentifierNameSyntax namedArgument)
+            {
+                var parameterName = namedArgument.Identifier.ValueText;
+                foreach (var parameter in method.Parameters)
+                {
+                    if (parameter.Name == parameterName)
+                        return parameter;
+                }
+
+                return null;
+            }
+
+            return position < method.Parameters.Length
+                ? method.Parameters[position]
+                : null;
+        }
 
         private bool IsVarDeclaration(LocalDeclarationStatementSyntax node)
         {
