@@ -1633,7 +1633,7 @@ internal partial class BlockBinder
 
         if (recordType.TypeKind != TypeKind.Error &&
             inputType.TypeKind != TypeKind.Error &&
-            !Compilation.ClassifyConversion(inputType, recordType).Exists)
+            !CanPatternMatchInputType(inputType, recordType))
         {
             _diagnostics.ReportNominalDeconstructionPatternTypeMismatch(
                 inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -2030,7 +2030,7 @@ internal partial class BlockBinder
                 // Optional: diagnose incompatibility between input and narrowed type
                 if (narrowedType.TypeKind != TypeKind.Error &&
                     inputType.TypeKind != TypeKind.Error &&
-                    !Compilation.ClassifyConversion(inputType, narrowedType).Exists)
+                    !CanPatternMatchInputType(inputType, narrowedType))
                 {
                     _diagnostics.ReportPropertyPatternTypeMismatch(
                         inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -2068,7 +2068,7 @@ internal partial class BlockBinder
             // Optional: diagnose incompatibility (same as you had)
             if (receiverType.TypeKind != TypeKind.Error &&
                 inputType.TypeKind != TypeKind.Error &&
-                !Compilation.ClassifyConversion(inputType, receiverType).Exists)
+                !CanPatternMatchInputType(inputType, receiverType))
             {
                 _diagnostics.ReportPropertyPatternTypeMismatch(
                     inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -2272,6 +2272,18 @@ internal partial class BlockBinder
             return underlying;
 
         return type;
+    }
+
+    private bool CanPatternMatchInputType(ITypeSymbol inputType, ITypeSymbol targetType)
+    {
+        inputType = StripNullableReference(UnwrapAlias(inputType));
+        targetType = StripNullableReference(UnwrapAlias(targetType));
+
+        if (inputType.TypeKind == TypeKind.Error || targetType.TypeKind == TypeKind.Error)
+            return true;
+
+        return Compilation.ClassifyConversion(inputType, targetType).Exists ||
+               Compilation.ClassifyConversion(targetType, inputType).Exists;
     }
 
     private bool HasAllPatternMembers(INamedTypeSymbol type, ImmutableArray<string> requiredMembers)

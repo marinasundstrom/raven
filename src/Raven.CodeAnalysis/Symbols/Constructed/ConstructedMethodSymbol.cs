@@ -288,7 +288,9 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
                 if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
                 {
-                    var result = underlyingType.MakeNullable();
+                    var result = underlyingType.IsNullable
+                        ? underlyingType
+                        : underlyingType.MakeNullable();
                     cache[type] = result;
                     return result;
                 }

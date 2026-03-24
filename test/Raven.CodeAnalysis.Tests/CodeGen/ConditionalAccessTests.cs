@@ -90,6 +90,43 @@ class Foo {
         Assert.Null(value);
     }
 
+    [Fact]
+    public void ConditionalAccess_ExtensionMethod_OnNullableReceiver_ReturnsValue()
+    {
+        var code = """
+import System.*
+
+class Foo(value: int) {}
+
+trait Test for Foo {
+    func Hello() -> string? {
+        return self.ToString()
+    }
+}
+
+class Runner {
+    public func Run() -> string? {
+        var f: Foo? = Foo(21)
+        return f?.Hello()
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Runner", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = (string?)method.Invoke(instance, Array.Empty<object>());
+        Assert.Equal("Foo", value);
+    }
+
     [Fact(Skip = "Conditional element access (values?[index]) is not supported by current binder/codegen.")]
     public void ConditionalElementAccess_NullArray_ReturnsNull()
     {

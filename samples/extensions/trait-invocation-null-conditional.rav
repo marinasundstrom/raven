@@ -21,7 +21,7 @@ class Foo(b: int) {
 } 
 
 trait Test for Foo {
-    func Hello() -> string {
+    func Hello() -> string? {
         return self.ToString() 
     }
 

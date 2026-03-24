@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 
@@ -23,6 +24,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
     {
         var methodContext = parameterInfo.Member as MethodBase;
         var parameterType = parameterInfo.ParameterType;
+        var attributes = parameterInfo.GetCustomAttributesData();
 
         if (parameterType.IsByRef)
         {
@@ -33,6 +35,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
             System.Reflection.NullabilityInfo nullInfo;
             lock (_nullabilityContextGate)
                 nullInfo = _nullabilityContext.Create(parameterInfo);
+            if (TryGetExplicitNullableFlags(attributes, out var explicitFlags))
+                elementType = ApplyExplicitNullableFlags(elementType, explicitFlags);
             if (nullInfo.ElementType is not null)
                 elementType = ApplyNullability(elementType, nullInfo.ElementType);
 
@@ -42,43 +46,42 @@ internal class ReflectionTypeLoader(Compilation compilation)
         var declaredType = ResolveType(parameterType, methodContext);
 
         var type = declaredType;
-
-        if (type is ITypeParameterSymbol typeParameterSymbol)
-            return type;
+        if (TryGetExplicitNullableFlags(attributes, out var parameterFlags))
+            type = ApplyExplicitNullableFlags(type!, parameterFlags);
 
         System.Reflection.NullabilityInfo parameterNullInfo;
         lock (_nullabilityContextGate)
             parameterNullInfo = _nullabilityContext.Create(parameterInfo);
         type = ApplyNullability(type!, parameterNullInfo);
-        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(parameterInfo.GetCustomAttributesData()));
+        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
     }
 
     public ITypeSymbol? ResolveType(FieldInfo fieldInfo)
     {
+        var attributes = fieldInfo.GetCustomAttributesData();
         var type = ResolveType(fieldInfo.FieldType);
-
-        if (type is ITypeParameterSymbol typeParameterSymbol)
-            return type;
+        if (TryGetExplicitNullableFlags(attributes, out var fieldFlags))
+            type = ApplyExplicitNullableFlags(type!, fieldFlags);
 
         System.Reflection.NullabilityInfo nullInfo;
         lock (_nullabilityContextGate)
             nullInfo = _nullabilityContext.Create(fieldInfo);
         type = ApplyNullability(type!, nullInfo);
-        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(fieldInfo.GetCustomAttributesData()));
+        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
     }
 
     public ITypeSymbol? ResolveType(PropertyInfo propertyInfo)
     {
+        var attributes = propertyInfo.GetCustomAttributesData();
         var type = ResolveType(propertyInfo.PropertyType);
-
-        if (type is ITypeParameterSymbol typeParameterSymbol)
-            return type;
+        if (TryGetExplicitNullableFlags(attributes, out var propertyFlags))
+            type = ApplyExplicitNullableFlags(type!, propertyFlags);
 
         System.Reflection.NullabilityInfo nullInfo;
         lock (_nullabilityContextGate)
             nullInfo = _nullabilityContext.Create(propertyInfo);
         type = ApplyNullability(type!, nullInfo);
-        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(propertyInfo.GetCustomAttributesData()));
+        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
     }
 
     public ITypeSymbol? ResolveType(EventInfo eventInfo)
@@ -87,15 +90,16 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (handlerType is null)
             return null;
 
+        var attributes = eventInfo.GetCustomAttributesData();
         var type = ResolveType(handlerType);
-
-        if (type is ITypeParameterSymbol typeParameterSymbol)
-            return type;
+        if (TryGetExplicitNullableFlags(attributes, out var eventFlags))
+            type = ApplyExplicitNullableFlags(type!, eventFlags);
 
         System.Reflection.NullabilityInfo nullInfo;
         lock (_nullabilityContextGate)
             nullInfo = _nullabilityContext.Create(eventInfo);
-        return ApplyNullability(type!, nullInfo);
+        type = ApplyNullability(type!, nullInfo);
+        return type;
     }
 
     public FieldInfo? ResolveRuntimeField(FieldInfo fieldInfo)
@@ -292,7 +296,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
         return symbol;
     }
 
-    private ITypeSymbol ApplyNullability(ITypeSymbol typeSymbol, System.Reflection.NullabilityInfo nullInfo)
+    private ITypeSymbol ApplyNullability(
+        ITypeSymbol typeSymbol,
+        System.Reflection.NullabilityInfo nullInfo)
     {
         if (typeSymbol is IArrayTypeSymbol array && nullInfo.ElementType is not null)
         {
@@ -332,6 +338,83 @@ internal class ReflectionTypeLoader(Compilation compilation)
         }
 
         return typeSymbol;
+    }
+
+    private ITypeSymbol ApplyExplicitNullableFlags(ITypeSymbol typeSymbol, ImmutableArray<byte> flags)
+    {
+        var index = 0;
+        return ApplyExplicitNullableFlags(typeSymbol, flags, ref index);
+    }
+
+    private ITypeSymbol ApplyExplicitNullableFlags(ITypeSymbol typeSymbol, ImmutableArray<byte> flags, ref int index)
+    {
+        byte flag = 0;
+        if (index < flags.Length)
+            flag = flags[index++];
+
+        if (flag == 2 && typeSymbol is not NullableTypeSymbol && !typeSymbol.IsValueType)
+        {
+            typeSymbol = typeSymbol.MakeNullable();
+        }
+
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            var elementType = ApplyExplicitNullableFlags(arrayType.ElementType, flags, ref index);
+            if (!ReferenceEquals(elementType, arrayType.ElementType))
+                typeSymbol = compilation.CreateArrayTypeSymbol(elementType, arrayType.Rank, arrayType.FixedLength);
+        }
+        else if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
+        {
+            var typeArguments = namedType.TypeArguments.ToArray();
+            var changed = false;
+
+            for (int i = 0; i < typeArguments.Length; i++)
+            {
+                var updated = ApplyExplicitNullableFlags(typeArguments[i], flags, ref index);
+                if (!ReferenceEquals(updated, typeArguments[i]))
+                {
+                    typeArguments[i] = updated;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                var reconstructed = TryConstructNamedType(namedType, typeArguments);
+                if (reconstructed is not null)
+                    typeSymbol = reconstructed;
+            }
+        }
+
+        return typeSymbol;
+    }
+
+    private static bool TryGetExplicitNullableFlags(IList<CustomAttributeData> attributes, out ImmutableArray<byte> flags)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (attribute.AttributeType.FullName != "System.Runtime.CompilerServices.NullableAttribute" ||
+                attribute.ConstructorArguments.Count != 1)
+            {
+                continue;
+            }
+
+            var argument = attribute.ConstructorArguments[0];
+            if (argument.Value is byte single)
+            {
+                flags = [single];
+                return true;
+            }
+
+            if (argument.Value is IReadOnlyCollection<CustomAttributeTypedArgument> many)
+            {
+                flags = many.Select(x => (byte)x.Value!).ToImmutableArray();
+                return true;
+            }
+        }
+
+        flags = [];
+        return false;
     }
 
     private ITypeSymbol ApplyFixedArrayMetadata(ITypeSymbol typeSymbol, int? fixedLength)

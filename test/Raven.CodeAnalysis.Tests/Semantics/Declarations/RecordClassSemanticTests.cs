@@ -97,6 +97,56 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void NominalDeconstructionPattern_AllowsNullableObjectInput()
+    {
+        var source = """
+            func Test(value: object?) {
+                if value is Person(val name, val age) {
+                }
+            }
+
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var recordPattern = tree.GetRoot().DescendantNodes().OfType<NominalDeconstructionPatternSyntax>().Single();
+        var boundPattern = Assert.IsType<BoundDeconstructPattern>(model.GetBoundNode(recordPattern));
+
+        Assert.Equal("Person", boundPattern.ReceiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Id == CompilerDiagnostics.NominalDeconstructionPatternTypeMismatch.Id);
+    }
+
+    [Fact]
+    public void PropertyPattern_AllowsNullableObjectInput()
+    {
+        var source = """
+            func Test(candidate: object?) {
+                if candidate is Shipment { IsPriority: true } {
+                }
+            }
+
+            class Shipment {
+                var IsPriority: bool
+
+                init(isPriority: bool) {
+                    IsPriority = isPriority
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var propertyPattern = tree.GetRoot().DescendantNodes().OfType<PropertyPatternSyntax>().Single();
+        var boundPattern = Assert.IsType<BoundPropertyPattern>(model.GetBoundNode(propertyPattern));
+
+        Assert.Equal("Shipment", boundPattern.ReceiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Id == CompilerDiagnostics.PropertyPatternTypeMismatch.Id);
+    }
+
+    [Fact]
     public void PositionalPattern_UsesDeconstructWhenAvailable()
     {
         var source = """

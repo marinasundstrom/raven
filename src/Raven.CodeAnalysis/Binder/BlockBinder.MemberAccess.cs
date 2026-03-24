@@ -1601,6 +1601,28 @@ partial class BlockBinder
         return type.GetPlainType();
     }
 
+    private BoundExpression GetConditionalAccessWhenNotNullReceiver(BoundExpression receiver, ITypeSymbol? lookupType)
+    {
+        if (receiver.Type is null || lookupType is null)
+            return receiver;
+
+        var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
+        if (SymbolEqualityComparer.Default.Equals(receiverType, lookupType))
+            return receiver;
+
+        var plainReceiverType = receiverType.GetPlainType();
+        if (!SymbolEqualityComparer.Default.Equals(plainReceiverType, lookupType))
+            return receiver;
+
+        var conversion = new Conversion(
+            isImplicit: true,
+            isIdentity: true,
+            isReference: !lookupType.IsValueType,
+            isLifted: receiverType is NullableTypeSymbol);
+
+        return new BoundConversionExpression(receiver, lookupType, conversion);
+    }
+
     // ============================
     // Conditional access binding
     // ============================
@@ -1954,6 +1976,7 @@ partial class BlockBinder
         }
 
         var lookupType = GetConditionalAccessLookupType(receiver.Type);
+        var whenNotNullReceiver = GetConditionalAccessWhenNotNullReceiver(receiver, lookupType);
 
         BoundExpression whenNotNull;
 
@@ -1967,7 +1990,7 @@ partial class BlockBinder
                     // - suppress null warning (because it's conditional access)
                     // - force extension lookup even if receiver is nullable
                     whenNotNull = BindMemberAccessOnReceiver(
-                        receiver,
+                        whenNotNullReceiver,
                         memberBinding.Name,
                         preferMethods: false,
                         allowEventAccess: true,
@@ -1986,7 +2009,7 @@ partial class BlockBinder
                     // First bind "<receiver>.<name>" as a method group (incl. extensions),
                     // then reuse normal invocation binding.
                     var member = BindMemberAccessOnReceiver(
-                        receiver,
+                        whenNotNullReceiver,
                         memberBinding.Name,
                         preferMethods: true,
                         allowEventAccess: false,
@@ -2020,14 +2043,14 @@ partial class BlockBinder
 
             case InvocationExpressionSyntax { Expression: ReceiverBindingExpressionSyntax } invocation:
                 {
-                    var result = BindInvocationExpressionCore(receiver, "Invoke", invocation.ArgumentList, syntax.Expression, invocation, suppressNullWarning: true);
+                    var result = BindInvocationExpressionCore(whenNotNullReceiver, "Invoke", invocation.ArgumentList, syntax.Expression, invocation, suppressNullWarning: true);
                     whenNotNull = IsErrorExpression(result) ? AsErrorExpression(result) : result;
                     break;
                 }
 
             case ElementBindingExpressionSyntax elementBinding:
                 {
-                    whenNotNull = BindElementAccessExpression(receiver, elementBinding.ArgumentList, elementBinding, suppressNullWarning: true);
+                    whenNotNull = BindElementAccessExpression(whenNotNullReceiver, elementBinding.ArgumentList, elementBinding, suppressNullWarning: true);
                     if (IsErrorExpression(whenNotNull))
                         whenNotNull = AsErrorExpression(whenNotNull);
                     break;
