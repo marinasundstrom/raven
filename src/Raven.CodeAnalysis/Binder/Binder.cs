@@ -1505,6 +1505,55 @@ internal abstract partial class Binder
         return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
     }
 
+    internal ITypeSymbol EnsureTypeValidForStorageLocation(ITypeSymbol type, Location location)
+    {
+        if (type.TypeKind == TypeKind.Error)
+            return type;
+
+        if (!TryFindStaticStorageType(type, out var staticType))
+            return type;
+
+        var display = staticType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        _diagnostics.ReportStaticTypeCannotBeUsedAsStorageType(display, location);
+        return Compilation.ErrorTypeSymbol;
+    }
+
+    private static bool TryFindStaticStorageType(ITypeSymbol type, out INamedTypeSymbol staticType)
+    {
+        switch (type)
+        {
+            case INamedTypeSymbol namedType:
+                if (namedType.IsStatic)
+                {
+                    staticType = namedType;
+                    return true;
+                }
+
+                foreach (var typeArgument in namedType.TypeArguments)
+                {
+                    if (TryFindStaticStorageType(typeArgument, out staticType))
+                        return true;
+                }
+
+                break;
+
+            case IArrayTypeSymbol arrayType:
+                return TryFindStaticStorageType(arrayType.ElementType, out staticType);
+
+            case NullableTypeSymbol nullableType:
+                return TryFindStaticStorageType(nullableType.UnderlyingType, out staticType);
+
+            case RefTypeSymbol refType:
+                return TryFindStaticStorageType(refType.ElementType, out staticType);
+
+            case AddressTypeSymbol addressType:
+                return TryFindStaticStorageType(addressType.ReferencedType, out staticType);
+        }
+
+        staticType = null!;
+        return false;
+    }
+
     private ITypeSymbol? ResolveQualifiedType(QualifiedNameSyntax qualified)
     {
         var symbol = ResolveQualifiedNamespaceOrType(qualified);

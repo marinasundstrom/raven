@@ -146,6 +146,7 @@ class FunctionBinder : Binder
                 ? byRefType.ElementType
                 : typeSyntax;
             var type = methodBinder.BindTypeSyntaxDirect(boundTypeSyntax);
+            type = methodBinder.EnsureTypeValidForStorageLocation(type, boundTypeSyntax.GetLocation());
 
             if (p.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
             {

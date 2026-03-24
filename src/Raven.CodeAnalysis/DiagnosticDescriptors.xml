@@ -276,6 +276,10 @@
     Title="Static type cannot be instantiated"
     Message="Type '{typeName}' is static and cannot be instantiated" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2810" Identifier="StaticTypeCannotBeUsedAsStorageType"
+    Title="Static type cannot be used as a storage type"
+    Message="Type '{typeName}' is static and cannot be used for a storage location"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0316" Identifier="OptionalParameterDefaultValueCannotConvert"
     Title="Optional parameter default value cannot be converted"
     Message="The default value for optional parameter '{parameterName}' cannot be converted to type '{parameterType}'"

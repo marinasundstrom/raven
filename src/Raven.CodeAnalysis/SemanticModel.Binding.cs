@@ -3660,6 +3660,7 @@ public partial class SemanticModel
                     ? byRefType.ElementType
                     : typeSyntax;
                 parameterType = classBinder.BindTypeSyntaxDirect(boundTypeSyntax);
+                parameterType = classBinder.EnsureTypeValidForStorageLocation(parameterType, boundTypeSyntax.GetLocation());
             }
 
             parameterType = TypeMemberBinder.NormalizeVarParamsParameterType(

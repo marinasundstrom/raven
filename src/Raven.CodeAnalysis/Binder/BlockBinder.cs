@@ -224,7 +224,10 @@ partial class BlockBinder : Binder
             ?? bindingKeyword.GetLocation();
         object? constantValue = null;
         if (variableDeclarator.TypeAnnotation is not null)
+        {
             annotatedType = ResolveTypeSyntaxOrError(variableDeclarator.TypeAnnotation.Type);
+            annotatedType = EnsureTypeValidForStorageLocation(annotatedType, variableDeclarator.TypeAnnotation.Type.GetLocation());
+        }
         if (initializer is not null)
         {
             // Initializers evaluate to values, but block expressions can still be used
@@ -348,6 +351,7 @@ partial class BlockBinder : Binder
         }
 
         type = EnsureTypeAccessible(type, typeLocation);
+        type = EnsureTypeValidForStorageLocation(type, typeLocation);
 
         if (!constantValueComputed &&
             isConst &&
@@ -851,6 +855,7 @@ partial class BlockBinder : Binder
         {
             var annotatedType = ResolveTypeSyntaxOrError(variableDeclarator.TypeAnnotation.Type);
             annotatedType = EnsureTypeAccessible(annotatedType, variableDeclarator.TypeAnnotation.Type.GetLocation());
+            annotatedType = EnsureTypeValidForStorageLocation(annotatedType, variableDeclarator.TypeAnnotation.Type.GetLocation());
 
             if (annotatedType.TypeKind != TypeKind.Error && ShouldAttemptConversion(boundInitializer))
             {
@@ -9426,6 +9431,7 @@ partial class BlockBinder : Binder
                 {
                     var declaredType = ResolveTypeSyntaxOrError(typed.TypeAnnotation.Type);
                     declaredType = EnsureTypeAccessible(declaredType, typed.TypeAnnotation.Type.GetLocation());
+                    declaredType = EnsureTypeValidForStorageLocation(declaredType, typed.TypeAnnotation.Type.GetLocation());
 
                     var sourceType = valueType.UnwrapLiteralType() ?? valueType;
                     if (declaredType.TypeKind != TypeKind.Error &&
@@ -9452,6 +9458,7 @@ partial class BlockBinder : Binder
     {
         var declaredType = ResolveTypeSyntaxOrError(typedDesignation.TypeAnnotation.Type);
         declaredType = EnsureTypeAccessible(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
+        declaredType = EnsureTypeValidForStorageLocation(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
 
         if (incomingType.TypeKind != TypeKind.Error &&
             declaredType.TypeKind != TypeKind.Error &&

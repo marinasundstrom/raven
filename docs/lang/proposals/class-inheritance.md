@@ -70,6 +70,12 @@ class Customer(name: string) {
 
 Classes and their members support the existing access modifiers (`public`, `internal`, `protected`, `private`). A `protected` member is accessible within the declaring class and its subclasses.
 
+### Static classes
+
+Static classes are non-instantiable containers for static members. Like C# and other .NET languages, Raven does not allow a
+static type to appear in a storage-location type position. Fields, properties, indexers, parameters, and local declarations
+must use non-static types, while non-storage contexts such as `typeof(System.IO.File)` remain valid.
+
 ## Progress
 
 - ✅ `open` classes and base type syntax

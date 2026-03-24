@@ -129,7 +129,8 @@ internal partial class TypeMemberBinder : Binder
             ? byRefType.ElementType
             : typeSyntax;
 
-        return ResolveTypeSyntaxForSignature(binder, boundTypeSyntax, RefKind.None, options);
+        var resolvedType = ResolveTypeSyntaxForSignature(binder, boundTypeSyntax, RefKind.None, options);
+        return binder.EnsureTypeValidForStorageLocation(resolvedType, boundTypeSyntax.GetLocation());
     }
 
     private void ReportParameterModifierByRefTypeConflictIfNeeded(ParameterSyntax parameterSyntax)
@@ -470,6 +471,9 @@ internal partial class TypeMemberBinder : Binder
             ITypeSymbol? fieldType = decl.TypeAnnotation is null
                 ? null
                 : ResolveTypeSyntaxForSignature(this, decl.TypeAnnotation.Type, RefKind.None);
+
+            if (decl.TypeAnnotation is not null && fieldType is not null)
+                fieldType = EnsureTypeValidForStorageLocation(fieldType, decl.TypeAnnotation.Type.GetLocation());
 
             BoundExpression? initializer = null;
             object? constantValue = null;
@@ -2822,6 +2826,7 @@ internal partial class TypeMemberBinder : Binder
     {
         ReportPartialModifierNotSupported(indexerDecl.Modifiers, "indexer", "Item");
         var propertyType = ResolveTypeSyntaxForSignature(this, indexerDecl.Type.Type, RefKind.None);
+        propertyType = EnsureTypeValidForStorageLocation(propertyType, indexerDecl.Type.Type.GetLocation());
         var modifiers = indexerDecl.Modifiers;
         ReportRedundantPublicModifierIfNeeded(modifiers);
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);

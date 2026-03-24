@@ -39,6 +39,7 @@ internal partial class TypeMemberBinder : Binder
         if (hasExplicitTypeAnnotation)
         {
             declaredPropertyType = ResolveTypeSyntaxForSignature(this, propertyTypeSyntax, RefKind.None);
+            declaredPropertyType = EnsureTypeValidForStorageLocation(declaredPropertyType, propertyTypeSyntax.GetLocation());
         }
         else if (canInferTypeFromInitializer && initializer?.Type is { } inferredType)
         {
