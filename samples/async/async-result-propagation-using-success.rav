@@ -8,7 +8,7 @@ val res = await fetch("http://www.contoso.com/")
 
 val str = res match {
     Ok(val str) => "Response is: $str"
-    Error(val message) => "Error is: $message"
+    Error(val exception) => "Error is: ${exception.Message}"
 }
 
 WriteLine(str)

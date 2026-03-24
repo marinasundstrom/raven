@@ -9,12 +9,14 @@ val orders = [
 ]
 var totalPending = 0
 
-for order in orders {
-    val amount = order.Amount
+for val (id, amount) in orders {
     totalPending = totalPending + amount
-    WriteLine("Queued order ${order.Id} amount: ${amount}")
+    WriteLine("Queued order $id amount: $amount")
 }
 
-WriteLine("Total pending amount: ${totalPending}")
+WriteLine("Total pending amount: $totalPending")
 
-record Order(Id: int, Amount: int)
+record Order(
+    val Id: int, 
+    val Amount: int
+)
