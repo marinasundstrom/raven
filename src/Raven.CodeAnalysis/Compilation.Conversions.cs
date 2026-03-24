@@ -383,8 +383,8 @@ public partial class Compilation
                                 isLifted: true,
                                 isUserDefined: conv.IsUserDefined,
                                 isAlias: conv.IsAlias,
-                                methodSymbol: conv.MethodSymbol,
-                                constructorSymbol: conv.ConstructorSymbol));
+                            methodSymbol: conv.MethodSymbol,
+                            constructorSymbol: conv.ConstructorSymbol));
                         }
                     }
                 }
