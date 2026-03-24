@@ -328,6 +328,18 @@
                     "match": "\\b(func)\\b"
                 },
                 {
+                    "name": "meta.conversion-operator.declaration.raven",
+                    "match": "\\b(func)(\\s+)(implicit|explicit)\\b",
+                    "captures": {
+                        "1": {
+                            "name": "storage.type.function.raven"
+                        },
+                        "3": {
+                            "name": "storage.modifier.raven"
+                        }
+                    }
+                },
+                {
                     "name": "storage.type.field.raven",
                     "match": "\\b(field)\\b"
                 },
@@ -344,16 +356,25 @@
                     "match": "\\b(params|val|var|let|use|const|static|abstract|virtual|override|final|sealed|new|open|partial|readonly|required|async|extern|unsafe|public|internal|protected|private|filescope)\\b"
                 },
                 {
+                    "name": "meta.type-parameter.variance.raven",
+                    "match": "(<\\s*|,\\s*)(in|out)\\b(?=\\s+[A-Za-z_][A-Za-z0-9_]*\\b)",
+                    "captures": {
+                        "2": {
+                            "name": "storage.modifier.raven"
+                        }
+                    }
+                },
+                {
                     "name": "keyword.control.raven",
                     "match": "\\b(if|else|match|when|where|for|in|as|is|by|while|do|try|catch|finally|with|return|throw|break|continue|await)\\b"
                 },
                 {
                     "name": "keyword.other.expression.raven",
-                    "match": "\\b(typeof|nameof|sizeof)\\b"
+                    "match": "\\b(typeof|nameof|sizeof|default)\\b"
                 },
                 {
                     "name": "keyword.operator.word.raven",
-                    "match": "\\b(and|or|not|default|notnull|unmanaged|permits|ref|out|in|implicit|explicit)\\b"
+                    "match": "\\b(and|or|not|notnull|unmanaged|permits|ref|out|in|implicit|explicit)\\b"
                 },
                 {
                     "name": "constant.language.raven",

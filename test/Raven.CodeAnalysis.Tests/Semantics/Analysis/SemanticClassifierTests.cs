@@ -190,4 +190,48 @@ func M(name: string?) -> string {
 
         result.Tokens[throwExpressionKeyword].ShouldBe(SemanticClassification.Keyword);
     }
+
+    [Fact]
+    public void DefaultVarianceAndConversionKeywords_AreClassifiedAsKeywords()
+    {
+        var source = """
+interface Producer<out T> {}
+interface Consumer<in T> {}
+
+class Box {
+    static func implicit(value: Box) -> string => ""
+    static func explicit(value: Box) -> int => 0
+}
+
+func Main() {
+    val box: Box = default
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var result = SemanticClassifier.Classify(tree.GetRoot(), model);
+
+        var root = tree.GetRoot();
+        var defaultKeyword = root.DescendantNodes()
+            .OfType<DefaultExpressionSyntax>()
+            .Select(n => n.DefaultKeyword)
+            .Single();
+        var varianceKeywords = root.DescendantNodes()
+            .OfType<TypeParameterSyntax>()
+            .Select(n => n.VarianceKeyword)
+            .Where(t => t.Kind is SyntaxKind.InKeyword or SyntaxKind.OutKeyword)
+            .ToArray();
+        var conversionKeywords = root.DescendantNodes()
+            .OfType<ConversionOperatorDeclarationSyntax>()
+            .Select(n => n.ConversionKindKeyword)
+            .ToArray();
+
+        result.Tokens[defaultKeyword].ShouldBe(SemanticClassification.Keyword);
+        Assert.Equal(2, varianceKeywords.Length);
+        Assert.All(varianceKeywords, keyword => result.Tokens[keyword].ShouldBe(SemanticClassification.Keyword));
+        Assert.Equal(2, conversionKeywords.Length);
+        Assert.All(conversionKeywords, keyword => result.Tokens[keyword].ShouldBe(SemanticClassification.Keyword));
+    }
 }

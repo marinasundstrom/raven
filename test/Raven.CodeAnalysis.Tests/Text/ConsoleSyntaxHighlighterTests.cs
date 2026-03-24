@@ -254,6 +254,46 @@ System.Console.WriteLine(welcome)
     }
 
     [Fact]
+    public void DefaultVarianceAndConversionKeywords_UseKeywordColor()
+    {
+        var source = """
+interface Producer<out T> {}
+interface Consumer<in T> {}
+
+class Box {
+    static func implicit(value: Box) -> string => ""
+    static func explicit(value: Box) -> int => 0
+}
+
+func Main() {
+    val box: Box = default
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var originalScheme = ConsoleSyntaxHighlighter.ColorScheme;
+        try
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
+
+            var text = root.WriteNodeToText(compilation);
+            var keywordAnsi = $"\u001b[{(int)ConsoleSyntaxHighlighter.ColorScheme.Keyword}m";
+
+            Assert.Contains($"{keywordAnsi}default", text);
+            Assert.Contains($"{keywordAnsi}in", text);
+            Assert.Contains($"{keywordAnsi}out", text);
+            Assert.Contains($"{keywordAnsi}implicit", text);
+            Assert.Contains($"{keywordAnsi}explicit", text);
+        }
+        finally
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = originalScheme;
+        }
+    }
+
+    [Fact]
     public void DiagnosticsOnly_ReturnsOnlyDiagnosticLines()
     {
         var source = """
