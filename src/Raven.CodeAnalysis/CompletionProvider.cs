@@ -85,6 +85,90 @@ public static class CompletionProvider
                    ?? candidates.FirstOrDefault();
         }
 
+        INamespaceOrTypeSymbol? TryResolveNamespaceOrType(NameSyntax name)
+        {
+            var resolved = model.GetSymbolInfo(name).Symbol?.UnderlyingSymbol as INamespaceOrTypeSymbol;
+            if (resolved is not null)
+                return resolved;
+
+            return name switch
+            {
+                IdentifierNameSyntax identifier => TryResolveIdentifierNamespaceOrType(identifier),
+                QualifiedNameSyntax qualified => TryResolveQualifiedNamespaceOrType(qualified),
+                GenericNameSyntax generic => TryResolveGenericNamespaceOrType(generic),
+                _ => null
+            };
+        }
+
+        INamespaceOrTypeSymbol? TryResolveIdentifierNamespaceOrType(IdentifierNameSyntax identifier)
+        {
+            var name = identifier.Identifier.ValueText;
+            if (string.IsNullOrWhiteSpace(name))
+                return null;
+
+            return (INamespaceOrTypeSymbol?)binder.LookupType(name)
+                ?? binder.LookupNamespace(name)
+                ?? (binder.LookupSymbol(name)?.UnderlyingSymbol as INamespaceOrTypeSymbol);
+        }
+
+        INamespaceOrTypeSymbol? TryResolveQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
+        {
+            var left = TryResolveNamespaceOrType(qualified.Left);
+            if (left is null)
+                return null;
+
+            return qualified.Right switch
+            {
+                IdentifierNameSyntax identifier => LookupQualifiedMember(left, identifier.Identifier.ValueText, arity: 0),
+                GenericNameSyntax generic => LookupQualifiedMember(left, generic.Identifier.ValueText, generic.TypeArgumentList.Arguments.Count),
+                _ => null
+            };
+        }
+
+        INamespaceOrTypeSymbol? TryResolveGenericNamespaceOrType(GenericNameSyntax generic)
+        {
+            var arity = generic.TypeArgumentList.Arguments.Count;
+            var name = generic.Identifier.ValueText;
+
+            var namedType = binder.LookupSymbols(name)
+                .OfType<INamedTypeSymbol>()
+                .FirstOrDefault(candidate => candidate.Arity == arity);
+
+            return namedType
+                ?? (binder.LookupSymbol(name)?.UnderlyingSymbol as INamespaceOrTypeSymbol);
+        }
+
+        static INamespaceOrTypeSymbol? LookupQualifiedMember(INamespaceOrTypeSymbol? container, string name, int arity)
+        {
+            if (container is null || string.IsNullOrWhiteSpace(name))
+                return null;
+
+            if (container is INamespaceSymbol namespaceSymbol)
+            {
+                return (INamespaceOrTypeSymbol?)namespaceSymbol.LookupNamespace(name)
+                    ?? SelectTypeMember(namespaceSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity)
+                    ?? (INamespaceOrTypeSymbol?)namespaceSymbol.LookupType(name);
+            }
+
+            if (container is ITypeSymbol typeSymbol)
+            {
+                return SelectTypeMember(typeSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity);
+            }
+
+            return null;
+        }
+
+        static INamedTypeSymbol? SelectTypeMember(IEnumerable<INamedTypeSymbol> candidates, int arity)
+        {
+            foreach (var candidate in candidates)
+            {
+                if (candidate.Arity == arity)
+                    return candidate;
+            }
+
+            return null;
+        }
+
         ISymbol? TryResolveReceiverSymbol(ExpressionSyntax receiverExpression)
         {
             if (receiverExpression is not IdentifierNameSyntax receiverIdentifier)
@@ -921,8 +1005,7 @@ public static class CompletionProvider
                 var nameToken = importSimple.Identifier;
                 if (position >= nameToken.Position)
                 {
-                    var symbolInfo = model.GetSymbolInfo(qualified.Left);
-                    var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
+                    var symbol = TryResolveNamespaceOrType(qualified.Left);
                     if (symbol is INamespaceOrTypeSymbol nsOrType)
                     {
                         var prefix = nameToken.ValueText;
@@ -987,8 +1070,7 @@ public static class CompletionProvider
                 var nameToken = aliasSimple.Identifier;
                 if (position >= nameToken.Position)
                 {
-                    var symbolInfo = model.GetSymbolInfo(qualified.Left);
-                    var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
+                    var symbol = TryResolveNamespaceOrType(qualified.Left);
                     if (symbol is INamespaceOrTypeSymbol nsOrType)
                     {
                         var prefix = nameToken.ValueText;
@@ -1436,10 +1518,7 @@ public static class CompletionProvider
         var qualifiedName = token.GetAncestor<QualifiedNameSyntax>();
         if (qualifiedName is not null && qualifiedName.Right is SimpleNameSyntax simple)
         {
-            var symbolInfo = model.GetSymbolInfo(qualifiedName.Left);
-            var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
-            if (symbol is null && qualifiedName.Left is IdentifierNameSyntax receiverIdentifier)
-                symbol = binder.LookupSymbol(receiverIdentifier.Identifier.ValueText);
+            var symbol = (ISymbol?)TryResolveNamespaceOrType(qualifiedName.Left);
             var prefix = simple.Identifier.ValueText;
             var nameSpan = simple.Identifier.Span;
 

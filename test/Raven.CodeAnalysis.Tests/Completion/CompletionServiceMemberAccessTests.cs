@@ -46,6 +46,33 @@ string.
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_OnQualifiedNamespaceInTypeAnnotation_ReturnsNestedTypes()
+    {
+        var code = """
+import System.*
+import System.IO.*
+
+class SessionsStorage(
+    private val file: System.IO.
+) {
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "File");
+        Assert.Contains(items, i => i.DisplayText == "FileInfo");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnConstrainedTypeParameter_ReturnsStaticConstraintMembers()
     {
         var code = """
