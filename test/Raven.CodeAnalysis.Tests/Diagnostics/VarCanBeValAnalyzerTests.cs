@@ -122,4 +122,30 @@ class C {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void VarLocal_CapturedByBlockLambda_NoDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M() -> unit {
+        var count = 0
+        val read = func () -> int {
+            return count
+        }
+
+        Consume(read())
+    }
+
+    private func Consume(value: int) -> unit { }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
 }

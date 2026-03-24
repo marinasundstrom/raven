@@ -179,6 +179,48 @@ class C {
         Assert.Equal("dict2", diagnostic.GetMessageArgs().FirstOrDefault()?.ToString());
     }
 
+    [Fact]
+    public void BareIdentifierValuePatternInMatch_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M() -> string {
+        val expected = 1
+        val actual = 1
+
+        val result = actual match {
+            expected => "ok"
+            _ => "no"
+        }
+
+        return result
+    }
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
+    [Fact]
+    public void BareIdentifierValuePatternInIsExpression_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M() -> unit {
+        val expected = 1
+        val actual = 1
+        val matches = actual is expected
+
+        Print(matches)
+    }
+
+    private func Print(value: bool) -> unit { }
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
     private static Diagnostic[] Analyze(string code)
     {
         var tree = SyntaxTree.ParseText(code);

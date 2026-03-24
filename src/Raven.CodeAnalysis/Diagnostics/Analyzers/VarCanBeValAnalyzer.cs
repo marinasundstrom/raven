@@ -139,6 +139,12 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
         private bool IsInClosure => _closureDepth > 0;
 
+        public override void DefaultVisit(SyntaxNode node)
+        {
+            foreach (var child in node.ChildNodes())
+                Visit(child);
+        }
+
         // --- Core traversal helpers ---------------------------------------------
 
         private void VisitMaybe(SyntaxNode? node)
@@ -181,13 +187,22 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
             ExitClosure();
         }
 
-        public override void VisitFunctionExpression(FunctionExpressionSyntax node)
+        public override void VisitSimpleFunctionExpression(SimpleFunctionExpressionSyntax node)
+        {
+            VisitFunctionExpressionCore(node);
+        }
+
+        public override void VisitParenthesizedFunctionExpression(ParenthesizedFunctionExpressionSyntax node)
+        {
+            VisitFunctionExpressionCore(node);
+        }
+
+        private void VisitFunctionExpressionCore(FunctionExpressionSyntax node)
         {
             // Lambda forms a closure boundary.
             EnterClosure();
 
-            // Adjust property names if yours differ (Body/ExpressionBody/Expression).
-            //VisitMaybe(node.Body);
+            VisitMaybe(node.Body);
             VisitMaybe(node.ExpressionBody);
 
             ExitClosure();

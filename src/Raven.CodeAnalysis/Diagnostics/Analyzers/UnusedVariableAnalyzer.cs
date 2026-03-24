@@ -216,17 +216,34 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
         public override void VisitIdentifierName(IdentifierNameSyntax node)
         {
+            TryMarkUsedLocal(node);
+        }
+
+        public override void VisitDeclarationPattern(DeclarationPatternSyntax node)
+        {
+            TryMarkUsedLocal(node);
+            base.VisitDeclarationPattern(node);
+        }
+
+        public override void VisitVariablePattern(VariablePatternSyntax node)
+        {
+            TryMarkUsedLocal(node);
+            base.VisitVariablePattern(node);
+        }
+
+        private void TryMarkUsedLocal(SyntaxNode node)
+        {
             if (IsWriteTarget(node))
                 return;
 
             if (_semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol is ILocalSymbol local &&
                 !string.IsNullOrEmpty(local.Name))
             {
-                _usedLocals.Add(local);
+                _usedLocals.Add(local.UnderlyingSymbol);
             }
         }
 
-        private static bool IsWriteTarget(IdentifierNameSyntax node)
+        private static bool IsWriteTarget(SyntaxNode node)
         {
             for (SyntaxNode? current = node; current is not null; current = current.Parent)
             {
