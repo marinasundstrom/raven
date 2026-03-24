@@ -20,6 +20,12 @@ namespace Raven.LanguageServer;
 
 internal sealed class DocumentStore
 {
+    private static readonly HashSet<string> UnnecessaryDiagnosticIds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        CompilerDiagnostics.UnreachableCodeDetected.Id,
+        Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.DiagnosticId
+    };
+
     private readonly WorkspaceManager _workspaceManager;
     private readonly ILogger<DocumentStore> _logger;
     private readonly SemaphoreSlim _compilerAccessGate = new(1, 1);
@@ -123,8 +129,13 @@ internal sealed class DocumentStore
 
     internal static Container<DiagnosticTag>? MapTags(CodeDiagnostic diagnostic)
     {
-        if (string.Equals(diagnostic.Id, CompilerDiagnostics.UnreachableCodeDetected.Id, StringComparison.OrdinalIgnoreCase))
+        if (UnnecessaryDiagnosticIds.Contains(diagnostic.Id) ||
+            (string.Equals(diagnostic.Id, Raven.CodeAnalysis.Diagnostics.UnusedMethodAnalyzer.DiagnosticId, StringComparison.OrdinalIgnoreCase) &&
+             diagnostic.Properties.TryGetValue(Raven.CodeAnalysis.Diagnostics.UnusedMethodAnalyzer.UnnecessaryDiagnosticProperty, out var value) &&
+             string.Equals(value, bool.TrueString, StringComparison.OrdinalIgnoreCase)))
+        {
             return new Container<DiagnosticTag>(DiagnosticTag.Unnecessary);
+        }
 
         return null;
     }

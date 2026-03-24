@@ -127,4 +127,59 @@ class Foo : IFoo {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void LocalFunction_NotInvoked_ReportsDiagnostic()
+    {
+        const string code = """
+val c = C()
+c.M()
+
+class C {
+    func M() -> () {
+        func Helper() -> () { }
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedMethodAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(UnusedMethodAnalyzer.DiagnosticId)
+                    .WithLocation(6, 14)
+                    .WithArguments("Helper")
+            ],
+            disabledDiagnostics:
+            [
+                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void LocalFunction_Invoked_DoesNotReportDiagnostic()
+    {
+        const string code = """
+val c = C()
+c.M()
+
+class C {
+    func M() -> () {
+        func Helper() -> () { }
+        Helper()
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedMethodAnalyzer>(
+            code,
+            disabledDiagnostics:
+            [
+                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id
+            ]);
+
+        verifier.Verify();
+    }
 }

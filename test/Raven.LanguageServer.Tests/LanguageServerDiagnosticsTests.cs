@@ -89,6 +89,92 @@ func Main() -> () {
         diagnostics.ShouldContain(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Information);
     }
 
+    [Fact]
+    public async Task GetDiagnosticsAsync_TagsUnusedLocalAsUnnecessary()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+class C {
+    public func M() -> unit {
+        val count = 0
+    }
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+
+        var diagnostic = diagnostics.Single(d => string.Equals(
+            d.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.DiagnosticId,
+            StringComparison.Ordinal));
+
+        diagnostic.Tags.ShouldNotBeNull();
+        diagnostic.Tags!.ShouldContain(DiagnosticTag.Unnecessary);
+        diagnostic.Severity.ShouldBe(LspDiagnosticSeverity.Warning);
+    }
+
+    [Fact]
+    public async Task GetDiagnosticsAsync_TagsUnusedLocalFunctionAsUnnecessary()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+val c = C()
+c.M()
+
+class C {
+    func M() -> () {
+        func Helper() -> () { }
+    }
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+
+        diagnostics.Count(d => string.Equals(
+            d.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.UnusedMethodAnalyzer.DiagnosticId,
+            StringComparison.Ordinal)).ShouldBe(1);
+
+        var diagnostic = diagnostics.Single(d =>
+            string.Equals(d.Code?.String, Raven.CodeAnalysis.Diagnostics.UnusedMethodAnalyzer.DiagnosticId, StringComparison.Ordinal));
+
+        diagnostic.Tags.ShouldNotBeNull();
+        diagnostic.Tags!.ShouldContain(DiagnosticTag.Unnecessary);
+        diagnostic.Severity.ShouldBe(LspDiagnosticSeverity.Warning);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))
