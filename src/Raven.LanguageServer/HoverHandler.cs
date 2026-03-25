@@ -485,12 +485,21 @@ internal sealed class HoverHandler : IHoverHandler
         if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
         {
             var containingType = constructor.ContainingType;
+            var parameters = FormatParameters(constructor.Parameters, plainTypeFormat);
+            var accessibilityPrefix = GetNonPublicAccessibilityPrefix(constructor);
+
+            if (containingType?.IsUnion == true)
+            {
+                var declarationTypeFormat = CreatePlainTypeFormat()
+                    .WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
+                var unionDisplay = containingType.ToDisplayString(declarationTypeFormat);
+                return $"{accessibilityPrefix}{unionDisplay}({parameters})";
+            }
+
             var constructorName = containingType?.Name ?? constructor.Name;
             var typeParams = containingType is not null && !containingType.TypeParameters.IsDefaultOrEmpty
                 ? $"<{string.Join(", ", containingType.TypeParameters.Select(static tp => tp.Name))}>"
                 : string.Empty;
-            var parameters = FormatParameters(constructor.Parameters, plainTypeFormat);
-            var accessibilityPrefix = GetNonPublicAccessibilityPrefix(constructor);
             return $"{accessibilityPrefix}{constructorName}{typeParams}({parameters})";
         }
 

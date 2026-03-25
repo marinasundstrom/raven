@@ -2174,32 +2174,6 @@ public partial class SemanticModel
             RegisterMember((SourceNamedTypeSymbol)member.ContainingType!, member);
         }
 
-        void EnsureImplicitUnionDefaultConstructor()
-        {
-            if (unionSymbol.TypeKind != TypeKind.Class)
-                return;
-
-            if (unionSymbol.InstanceConstructors.Any(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0))
-                return;
-
-            var defaultConstructor = new SourceMethodSymbol(
-                ".ctor",
-                unitType,
-                ImmutableArray<SourceParameterSymbol>.Empty,
-                unionSymbol,
-                unionSymbol,
-                namespaceSymbol,
-                [unionDecl.GetLocation()],
-                Array.Empty<SyntaxReference>(),
-                isStatic: false,
-                methodKind: MethodKind.Constructor,
-                declaredAccessibility: Accessibility.Public);
-
-            RegisterMember(unionSymbol, defaultConstructor);
-        }
-
-        EnsureImplicitUnionDefaultConstructor();
-
         void RegisterUnionMemberArtifacts(ITypeSymbol memberType, Location location, SyntaxReference reference)
         {
             memberTypes.Add(memberType);

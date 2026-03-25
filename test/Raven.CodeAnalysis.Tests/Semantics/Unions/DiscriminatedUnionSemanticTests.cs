@@ -1225,6 +1225,30 @@ union Result<T, E> {
     }
 
     [Fact]
+    public void UnionSymbol_DoesNotExposeImplicitParameterlessConstructor()
+    {
+        const string source = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        Assert.DoesNotContain(
+            unionSymbol.InstanceConstructors,
+            constructor => !constructor.IsStatic && constructor.Parameters.Length == 0);
+    }
+
+    [Fact]
     public void CasePattern_BindsPayloadType()
     {
         const string source = """

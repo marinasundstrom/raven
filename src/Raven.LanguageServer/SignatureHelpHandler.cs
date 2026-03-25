@@ -132,10 +132,21 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         if (method.MethodKind == MethodKind.Constructor)
         {
             var containingType = method.ContainingType;
-            name = containingType?.Name ?? method.Name;
-            typeParams = containingType is not null && !containingType.TypeParameters.IsDefaultOrEmpty
-                ? $"<{string.Join(", ", containingType.TypeParameters.Select(static tp => tp.Name))}>"
-                : string.Empty;
+            if (containingType?.IsUnion == true)
+            {
+                name = containingType.ToDisplayString(
+                    SymbolDisplayFormat.RavenSignatureFormat
+                        .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+                        .WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword));
+                typeParams = string.Empty;
+            }
+            else
+            {
+                name = containingType?.Name ?? method.Name;
+                typeParams = containingType is not null && !containingType.TypeParameters.IsDefaultOrEmpty
+                    ? $"<{string.Join(", ", containingType.TypeParameters.Select(static tp => tp.Name))}>"
+                    : string.Empty;
+            }
         }
         else
         {

@@ -181,6 +181,9 @@ public partial class Compilation
             if (symbol is not SourceNamedTypeSymbol sourceType)
                 continue;
 
+            if (sourceType is IUnionSymbol)
+                continue;
+
             if (sourceType.IsStatic)
                 continue;
 

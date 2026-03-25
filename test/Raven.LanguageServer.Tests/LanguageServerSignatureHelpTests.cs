@@ -63,6 +63,53 @@ func Main() -> () {
         result.Signatures.Select(signature => signature.Label).ShouldContain("func Foo(value: int) -> ()");
     }
 
+    [Fact]
+    public async Task SignatureHelpHandler_UnionConstructor_UsesUnionDisplayAndOmitsParameterlessConstructorAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new SignatureHelpHandler(store, NullLogger<SignatureHelpHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> () {
+    val x = Foo()
+}
+
+union Foo(int, string)
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+        var offset = code.IndexOf("Foo()", StringComparison.Ordinal) + "Foo(".Length;
+        offset.ShouldBeGreaterThan(0);
+
+        var result = await handler.Handle(new SignatureHelpParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new Raven.CodeAnalysis.Text.TextSpan(offset, 0)).Start
+        }, CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result.Signatures.ShouldNotBeNull();
+        result.Signatures.Select(signature => signature.Label).Count().ShouldBe(2);
+        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Foo(value: int)");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Foo(value: string)");
+        result.Signatures.Select(signature => signature.Label).ShouldNotContain("union class Foo()");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))
