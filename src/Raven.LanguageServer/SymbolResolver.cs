@@ -12,6 +12,12 @@ internal static class SymbolResolver
 {
     public static SymbolResolutionResult? ResolveSymbolAtPosition(SemanticModel semanticModel, SyntaxNode root, int offset)
     {
+        if (TryResolveMemberAccessAtOffset(semanticModel, root, offset, out var memberAccessResolution))
+            return memberAccessResolution;
+
+        if (TryResolveExactInvocationMemberSymbol(semanticModel, root, offset, out var exactInvocationResolution))
+            return exactInvocationResolution;
+
         if (TryResolveExactTokenMemberSymbol(semanticModel, root, offset, out var exactMemberResolution))
             return exactMemberResolution;
 
@@ -43,6 +49,75 @@ internal static class SymbolResolver
         return null;
     }
 
+    private static bool TryResolveMemberAccessAtOffset(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            var memberAccess = root.DescendantNodes()
+                .OfType<MemberAccessExpressionSyntax>()
+                .FirstOrDefault(access => access.Name.Span.Contains(normalizedOffset));
+
+            if (memberAccess is null)
+                continue;
+
+            var symbol = ResolveExplicitMemberAccessSymbol(semanticModel, memberAccess, new TextSpan(normalizedOffset, 0));
+            if (symbol is null)
+                continue;
+
+            resolution = new SymbolResolutionResult(symbol.UnderlyingSymbol, memberAccess.Name);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveExactInvocationMemberSymbol(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Parent is not IdentifierNameSyntax identifier ||
+                identifier.Parent is not MemberAccessExpressionSyntax memberAccess ||
+                !HaveEquivalentSpan(memberAccess.Name, identifier) ||
+                memberAccess.Parent is not InvocationExpressionSyntax)
+            {
+                continue;
+            }
+
+            if (!TryResolveInvocationTargetSymbol(semanticModel, identifier, token, out var symbol) ||
+                symbol is null)
+            {
+                continue;
+            }
+
+            resolution = new SymbolResolutionResult(symbol.UnderlyingSymbol, identifier);
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool TryResolveExactIdentifierSymbol(
         SemanticModel semanticModel,
         SyntaxNode root,
@@ -67,6 +142,22 @@ internal static class SymbolResolver
                 !identifier.Identifier.Span.Contains(token.Span))
             {
                 continue;
+            }
+
+            if (identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
+                HaveEquivalentSpan(memberAccess.Name, identifier))
+            {
+                // Member-access name tokens should resolve through the member/invocation paths.
+                // Falling back to bare-identifier resolution here can incorrectly return an
+                // enclosing local or imported symbol unrelated to the accessed member.
+                continue;
+            }
+
+            if (TryResolveInvocationTargetSymbol(semanticModel, identifier, token, out var invocationSymbol) &&
+                invocationSymbol is not null)
+            {
+                resolution = new SymbolResolutionResult(invocationSymbol.UnderlyingSymbol, identifier);
+                return true;
             }
 
             var operationSymbol = FindReferencedSymbolAtToken(semanticModel.GetOperation(identifier), token.Span);
@@ -117,6 +208,13 @@ internal static class SymbolResolver
 
             if (HaveEquivalentSpan(memberAccess.Name, identifier))
             {
+                if (TryResolveInvocationTargetSymbol(semanticModel, identifier, token, out var invocationSymbol) &&
+                    invocationSymbol is not null)
+                {
+                    resolution = new SymbolResolutionResult(invocationSymbol.UnderlyingSymbol, identifier);
+                    return true;
+                }
+
                 var symbol = ResolveExplicitMemberAccessSymbol(semanticModel, memberAccess, token.Span);
 
                 if (symbol is not null)
@@ -581,10 +679,13 @@ internal static class SymbolResolver
         MemberAccessExpressionSyntax memberAccess,
         TextSpan tokenSpan)
     {
-        var operationSymbol = ProjectSymbolForDisplay(
-            FindReferencedSymbolAtToken(semanticModel.GetOperation(memberAccess), tokenSpan));
-        if (operationSymbol is not null)
-            return operationSymbol;
+        if (memberAccess.Parent is InvocationExpressionSyntax invocation &&
+            memberAccess.Name.Span.Contains(tokenSpan.Start) &&
+            TryResolveUnionCaseFromInvocationContext(semanticModel, invocation, out var unionCaseSymbol) &&
+            unionCaseSymbol is not null)
+        {
+            return unionCaseSymbol;
+        }
 
         var memberAccessInfo = semanticModel.GetSymbolInfo(memberAccess);
         var chosenMemberAccessSymbol = ProjectSymbolForDisplay(
@@ -600,8 +701,17 @@ internal static class SymbolResolver
         }
 
         var nameInfo = semanticModel.GetSymbolInfo(memberAccess.Name);
-        return ProjectSymbolForDisplay(
+        var chosenNameSymbol = ProjectSymbolForDisplay(
             ChoosePreferredSymbol(nameInfo.Symbol, nameInfo.CandidateSymbols, memberAccess.Name));
+        if (chosenNameSymbol is not null)
+            return chosenNameSymbol;
+
+        var operationSymbol = ProjectSymbolForDisplay(
+            FindReferencedSymbolAtToken(semanticModel.GetOperation(memberAccess), tokenSpan));
+        if (operationSymbol is not null)
+            return operationSymbol;
+
+        return null;
     }
 
     private static ISymbol? ChoosePreferredSymbol(

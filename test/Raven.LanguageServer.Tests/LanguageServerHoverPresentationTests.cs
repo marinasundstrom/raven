@@ -22,7 +22,7 @@ class Foo(private var name: string) {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree);
 
         foreach (var reference in LanguageServerTestReferences.Default)
@@ -69,6 +69,57 @@ record ApplicationError(val Message: string)
 
         var signature = (string)buildSignature.Invoke(null, [symbol, parameterSyntax, semanticModel])!;
         signature.ShouldStartWith("val Message:");
+    }
+
+    [Fact]
+    public void QualifiedUnionCaseInvocation_HoverPrefersUnionCaseOverImportedMember()
+    {
+        const string code = """
+import System.Console.*
+
+class Runner {
+    func Run() {
+        val x = System.Result<int, string>.Error("42")
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var ravenCorePath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "src",
+            "Raven.Core",
+            "bin",
+            "Debug",
+            "net10.0",
+            "Raven.Core.dll"));
+        compilation = compilation.AddReferences(MetadataReference.CreateFromFile(ravenCorePath));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var errorIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(id => id.Identifier.ValueText == "Error");
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(
+            semanticModel,
+            root,
+            errorIdentifier.Identifier.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution.Value.Symbol.Name.ShouldBe("Error");
+        resolution.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>().IsUnionCase.ShouldBeTrue();
     }
 
     [Fact]
