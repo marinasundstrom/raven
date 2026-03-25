@@ -28,17 +28,13 @@ public class ParserNewlineTests
         var s2 = parser.ParseStatement();
 
 
-        var firstStatement = s1.CreateRed();
-        var secondStatement = s2.CreateRed();
+        var firstStatement = Assert.IsType<LocalDeclarationStatementSyntax>(s1.CreateRed());
+        var secondStatement = Assert.IsType<LocalDeclarationStatementSyntax>(s2.CreateRed());
 
         // Assert
-        Assert.NotNull(firstStatement);
-        Assert.NotNull(secondStatement);
-
-        var firstToken = firstStatement.GetLastToken();
-        Assert.Equal(SyntaxKind.NewLineToken, firstToken.Kind);
-        Assert.Equal(SyntaxKind.NewLineToken, secondStatement.GetLastToken(true).Kind);
-        Assert.Equal(SyntaxKind.NewLineToken, context.LastToken?.Kind); // newline was consumed as terminator
+        Assert.Equal(SyntaxKind.None, firstStatement.TerminatorToken.Kind);
+        Assert.Equal(SyntaxKind.None, secondStatement.TerminatorToken.Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, context.LastToken?.Kind);
     }
 
     [Fact]
@@ -55,17 +51,14 @@ public class ParserNewlineTests
         var s2 = parser.ParseStatement();
 
 
-        var firstStatement = (StatementSyntax)s1.CreateRed();
-        var secondStatement = (StatementSyntax)s2.CreateRed();
+        var firstStatement = Assert.IsType<LocalDeclarationStatementSyntax>(s1.CreateRed());
+        var secondStatement = Assert.IsType<LocalDeclarationStatementSyntax>(s2.CreateRed());
 
         // Assert
-        Assert.NotNull(firstStatement);
-        Assert.NotNull(secondStatement);
-
         var firstToken = firstStatement.GetLastToken();
         Assert.Equal(SyntaxKind.SemicolonToken, firstToken.Kind);
-        Assert.Equal(SyntaxKind.NewLineToken, secondStatement.GetLastToken(true).Kind);
-        Assert.Equal(SyntaxKind.NewLineToken, context.LastToken?.Kind); // semicolon was consumed as terminator
+        Assert.Equal(SyntaxKind.None, secondStatement.TerminatorToken.Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, context.LastToken?.Kind);
     }
 
     [Theory]
@@ -89,11 +82,13 @@ public class ParserNewlineTests
 
         literalToken.LeadingTrivia.Select(t => t.Kind).ShouldBe(new[]
         {
-            SyntaxKind.EndOfLineTrivia,
             SyntaxKind.WhitespaceTrivia,
         });
 
-        literalToken.LeadingTrivia[1].ToString().ShouldBe("    ");
+        literalToken.LeadingTrivia[0].ToString().ShouldBe("    ");
+
+        var previousToken = statement.DescendantTokens().TakeWhile(t => t != literalToken).Last();
+        previousToken.TrailingTrivia.Select(t => t.Kind).ShouldContain(SyntaxKind.EndOfLineTrivia);
     }
 
     [Fact]
@@ -106,18 +101,20 @@ public class ParserNewlineTests
         var parser = new StatementSyntaxParser(context);
 
         // Act
-        var statement = (StatementSyntax)parser.ParseStatement().CreateRed();
+        var statement = Assert.IsType<LocalDeclarationStatementSyntax>(parser.ParseStatement().CreateRed());
 
         // Assert
         var plusToken = statement.DescendantTokens().Single(t => t.Kind == SyntaxKind.PlusToken);
 
         plusToken.LeadingTrivia.Select(t => t.Kind).ShouldBe(new[]
         {
-            SyntaxKind.EndOfLineTrivia,
             SyntaxKind.WhitespaceTrivia,
         });
 
-        plusToken.LeadingTrivia[1].ToString().ShouldBe("    ");
+        plusToken.LeadingTrivia[0].ToString().ShouldBe("    ");
+
+        var previousToken = statement.DescendantTokens().TakeWhile(t => t != plusToken).Last();
+        previousToken.TrailingTrivia.Select(t => t.Kind).ShouldContain(SyntaxKind.EndOfLineTrivia);
 
         plusToken.TrailingTrivia.Select(t => t.Kind).ShouldBe(new[]
         {
@@ -126,10 +123,7 @@ public class ParserNewlineTests
 
         plusToken.TrailingTrivia[0].ToString().ShouldBe(" ");
 
-        var newline = statement.GetLastToken();
-        Assert.Equal(SyntaxKind.NewLineToken, newline.Kind);
-        newline.LeadingTrivia.ShouldBeEmpty();
-        newline.TrailingTrivia.ShouldBeEmpty();
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
     }
 
     [Fact]
@@ -165,8 +159,8 @@ public class ParserNewlineTests
         var parser = new StatementSyntaxParser(context);
 
         // Act
-        var firstStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
-        var secondStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
+        var firstStatement = Assert.IsType<LocalDeclarationStatementSyntax>(parser.ParseStatement().CreateRed());
+        var secondStatement = Assert.IsType<LocalDeclarationStatementSyntax>(parser.ParseStatement().CreateRed());
 
         // Assert
         var literal = firstStatement.DescendantTokens().Single(t => t.Kind == SyntaxKind.NumericLiteralToken);
@@ -174,12 +168,10 @@ public class ParserNewlineTests
         {
             SyntaxKind.WhitespaceTrivia,
             SyntaxKind.SingleLineCommentTrivia,
+            SyntaxKind.EndOfLineTrivia,
         });
 
-        var newline = firstStatement.GetLastToken();
-        Assert.Equal(SyntaxKind.NewLineToken, newline.Kind);
-        newline.LeadingTrivia.ShouldBeEmpty();
-        newline.TrailingTrivia.ShouldBeEmpty();
+        firstStatement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
 
         var secondStart = secondStatement.GetFirstToken();
         Assert.Equal(SyntaxKind.LetKeyword, secondStart.Kind);
@@ -196,25 +188,23 @@ public class ParserNewlineTests
         var parser = new StatementSyntaxParser(context);
 
         // Act
-        var firstStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
-        var secondStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
+        var firstStatement = Assert.IsType<LocalDeclarationStatementSyntax>(parser.ParseStatement().CreateRed());
+        var secondStatement = Assert.IsType<LocalDeclarationStatementSyntax>(parser.ParseStatement().CreateRed());
 
         // Assert
-        Assert.Equal(SyntaxKind.NewLineToken, firstStatement.GetLastToken().Kind);
+        Assert.Equal(SyntaxKind.None, firstStatement.TerminatorToken.Kind);
 
         var literal = firstStatement.DescendantTokens().Single(t => t.Kind == SyntaxKind.NumericLiteralToken);
-        literal.TrailingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.EndOfLineTrivia);
-
-        var newline = firstStatement.GetLastToken();
-        newline.LeadingTrivia.ShouldBeEmpty();
-        newline.TrailingTrivia.ShouldBeEmpty();
+        literal.TrailingTrivia.Select(t => t.Kind).ShouldContain(SyntaxKind.EndOfLineTrivia);
 
         var firstTokenOfSecondStatement = secondStatement.GetFirstToken();
         Assert.Equal(SyntaxKind.LetKeyword, firstTokenOfSecondStatement.Kind);
 
-        var indentation = firstTokenOfSecondStatement.LeadingTrivia.Single();
-        Assert.Equal(SyntaxKind.WhitespaceTrivia, indentation.Kind);
-        indentation.ToString().ShouldBe("    ");
+        firstTokenOfSecondStatement.LeadingTrivia.Select(t => t.Kind).ShouldBe(new[]
+        {
+            SyntaxKind.WhitespaceTrivia,
+        });
+        firstTokenOfSecondStatement.LeadingTrivia[0].ToString().ShouldBe("    ");
     }
 
     [Fact]
@@ -238,7 +228,7 @@ public class ParserNewlineTests
 
     [Theory]
     [InlineData("let x = 1;", SyntaxKind.SemicolonToken)]
-    [InlineData("let x = 1\n", SyntaxKind.NewLineToken)]
+    [InlineData("let x = 1\n", SyntaxKind.None)]
     [InlineData("let x = 1", SyntaxKind.None)]
     [InlineData("let x = 1}", SyntaxKind.None)]
     public void Statement_Terminators_AreRecognizedCorrectly(string source, SyntaxKind expectedKind)
@@ -275,12 +265,9 @@ public class ParserNewlineTests
         parser.ExpectToken(SyntaxKind.NumericLiteralToken);
 
         Assert.True(parser.TryConsumeTerminator(out var terminator));
-        Assert.Equal(SyntaxKind.NewLineToken, terminator.Kind);
+        Assert.Equal(SyntaxKind.None, terminator.Kind);
 
-        var redTerminator = (SyntaxToken)terminator;
-        var skipped = redTerminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
-        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
-        Assert.Equal(SyntaxKind.IdentifierToken, skippedNode.Tokens.Single().Kind);
+        Assert.Equal(SyntaxKind.EndOfFileToken, context.PeekToken().Kind);
     }
 
     [Fact]
@@ -347,10 +334,7 @@ public class ParserNewlineTests
         Assert.True(parser.TryConsumeTerminator(out var terminator));
         Assert.Equal(SyntaxKind.None, terminator.Kind);
 
-        var eof = (SyntaxToken)parser.PeekToken();
-        var skipped = eof.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
-        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
-        Assert.Equal(SyntaxKind.IdentifierToken, skippedNode.Tokens.Single().Kind);
+        Assert.Equal(SyntaxKind.EndOfFileToken, parser.PeekToken().Kind);
     }
 
     [Fact]
@@ -362,11 +346,9 @@ public class ParserNewlineTests
         var parser = new StatementSyntaxParser(context);
 
         var statement = (ExpressionStatementSyntax)parser.ParseStatement().CreateRed();
-        var terminator = statement.GetLastToken();
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
 
-        terminator.Kind.ShouldBe(SyntaxKind.NewLineToken);
-
-        AssertSkippedTokensAreLeadingTriviaOnTerminator(terminator, SyntaxKind.NumericLiteralToken);
+        parser.PeekToken().Kind.ShouldBe(SyntaxKind.EndOfFileToken);
 
         var diagnostic = Assert.Single(parser.Diagnostics);
         diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
@@ -385,7 +367,7 @@ public class ParserNewlineTests
 
         terminator.Kind.ShouldBe(SyntaxKind.SemicolonToken);
 
-        AssertSkippedTokensAreLeadingTriviaOnTerminator(terminator, SyntaxKind.IdentifierToken);
+        AssertSkippedTokensAreLeadingTriviaOnToken(terminator, SyntaxKind.IdentifierToken);
 
         var diagnostic = Assert.Single(parser.Diagnostics);
         diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
@@ -400,11 +382,9 @@ public class ParserNewlineTests
         var parser = new StatementSyntaxParser(context);
 
         var statement = (LocalDeclarationStatementSyntax)parser.ParseStatement().CreateRed();
-        var terminator = statement.GetLastToken();
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
 
-        terminator.Kind.ShouldBe(SyntaxKind.NewLineToken);
-
-        AssertSkippedTokensAreLeadingTriviaOnTerminator(terminator, SyntaxKind.IdentifierToken);
+        parser.PeekToken().Kind.ShouldBe(SyntaxKind.EndOfFileToken);
 
         var diagnostic = Assert.Single(parser.Diagnostics);
         diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
@@ -735,7 +715,7 @@ public class ParserNewlineTests
         var lexer = new Lexer(new StringReader(source));
         var context = new BaseParseContext(lexer);
 
-        var token = context.SkipUntil(SyntaxKind.SemicolonToken, SyntaxKind.NewLineToken);
+        var token = context.SkipUntil(SyntaxKind.SemicolonToken, SyntaxKind.LineFeedToken);
 
         Assert.Equal(SyntaxKind.None, token.Kind);
         Assert.Equal(SyntaxKind.EndOfFileToken, context.PeekToken().Kind);
@@ -1033,10 +1013,9 @@ public class ParserNewlineTests
         Assert.IsType<ClassDeclarationSyntax>(fileScopedNamespace.Members.Last());
     }
 
-    private static void AssertSkippedTokensAreLeadingTriviaOnTerminator(SyntaxToken terminator, SyntaxKind expectedSkippedTokenKind)
+    private static void AssertSkippedTokensAreLeadingTriviaOnToken(SyntaxToken token, SyntaxKind expectedSkippedTokenKind)
     {
-        // Recovery contract: skipped remainder is attached to the terminator token's leading trivia.
-        var skipped = terminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skipped = token.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
         var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
         skippedNode.Tokens.Single().Kind.ShouldBe(expectedSkippedTokenKind);
     }

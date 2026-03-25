@@ -66,24 +66,30 @@ var x = 2 test // RAV1019
 
 When a newline is not required to terminate a statement—or any other construct
 that relies on newline separation, such as `import` or `alias` directives—it is
-preserved as trivia on the following token. This occurs whenever the parser is
-still expecting more of the current expression and therefore treats the newline
-as part of a continuation rather than as a terminator.
+preserved as trivia at the token boundary instead of becoming a terminator
+token. In practice the line break is attached as trailing trivia on the
+preceding token, while indentation on the continued line remains leading trivia
+on the following token. This occurs whenever the parser is still expecting more
+of the current expression and therefore treats the newline as part of a
+continuation rather than as a terminator.
 
 ## Line continuations
 
 When the parser expects more tokens to complete the current expression, a
-newline is treated as trivia on the following token instead of a statement
-terminator. This permits expression-oriented code to flow naturally across
-lines without requiring a trailing operator or explicit continuation marker.
+newline is treated as trivia at the boundary between the two tokens instead of
+a statement terminator. This permits expression-oriented code to flow naturally
+across lines without requiring a trailing operator or explicit continuation
+marker.
 Expression continuation has a strict limit: only a **single** newline may
 separate the continued tokens. A blank line (two or more consecutive newlines)
 always terminates the current expression statement.
 
 Because the newline is preserved as trivia in these scenarios, any indentation
-on the continued line also remains as trivia on the subsequent token. The
-terminator token itself—whether a newline, semicolon, or closing brace—remains
-free of incidental trivia so its presence or absence is unambiguous.
+on the continued line remains as leading trivia on the subsequent token, while
+the line break itself remains trailing trivia on the preceding token. When a
+statement really is terminated by layout alone, the syntax node stores
+`SyntaxKind.None` as its terminator and relies on the surrounding trivia to
+preserve the physical newline.
 
 The most common continuations occur after an assignment operator, before a
 binary operator, or before member access (`.` / `->`). The same rule applies to
@@ -128,11 +134,11 @@ x
 .Foo()  // new statement (member binding / target-typed form)
 ```
 
-In the example above, the newline following `=` and the newline immediately
-before `+` attach to the numeric literal and the operator, respectively. The
-comment preceding a terminating newline remains trailing trivia on the
-preceding token, and the indentation before `val next` is preserved as leading
-whitespace on the next statement's first token.
+In the example above, the newline following `=` remains trailing trivia on the
+`=` token, and the newline before `+` remains trailing trivia on the preceding
+numeric literal. The comment preceding a terminating newline remains trailing
+trivia on the preceding token, and the indentation before `val next` is
+preserved as leading whitespace on the next statement's first token.
 
 ```raven
 val a = 42

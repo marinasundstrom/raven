@@ -27,6 +27,11 @@ Trivia is associated with tokens and categorized as either leading or trailing, 
 
 * **Leading Trivia**: Consists of any trivia on a new line before a token. Whitespaces at the start of a new line are attached as leading trivia to the first token on that line.
 
+Raven keeps newlines as trivia throughout parsing. The parser may treat an
+end-of-line trivia boundary as an implicit terminator or separated-list
+boundary, but the syntax tree does not promote that newline into any dedicated
+newline token kind.
+
 ## Error recovery and incomplete syntax
 
 The parser keeps the full text of malformed constructs by threading unexpected tokens into `SkippedTokensTrivia`. This structured trivia carries any tokens that could not be attached to a valid node so the syntax tree remains a faithful projection of the original text. Recovery heuristics typically attach the skipped trivia to a synthesized placeholder token or the previous token before resuming with the next viable construct.
@@ -127,3 +132,10 @@ Here are the most common methods used when reading the token stream.
       return null;
   }
   ```
+
+Raven also permits some declaration-oriented separated lists to omit the
+explicit separator token when a newline separates adjacent elements. In that
+case the parser keeps the `SeparatedSyntaxList<T>` shape and records
+`SyntaxKind.None` in the separator slot. If the expected separator is omitted on
+the same line, recovery uses `MissingToken(<expected-separator-kind>)` and
+reports a diagnostic.

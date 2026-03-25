@@ -78,7 +78,7 @@ public partial class SyntaxNodeTest
 
         var returnStatement = block.Statements.OfType<ReturnStatementSyntax>().First();
 
-        var newChild = new ExpressionStatementSyntax(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(20)), NewLineToken);
+        var newChild = new ExpressionStatementSyntax(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(20)), Token(SyntaxKind.None));
 
         var newBlock = block.ReplaceNode(returnStatement, newChild);
 

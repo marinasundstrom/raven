@@ -69,13 +69,6 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
     }
 
     /// <summary>
-    /// Gets the span used for diagnostics and symbol locations. This is
-    /// equivalent to <see cref="Span"/> but excludes a trailing newline
-    /// terminator token when present.
-    /// </summary>
-    public virtual TextSpan EffectiveSpan => Span;
-
-    /// <summary>
     /// Gets a list of the child nodes in prefix document order.
     /// </summary>
     public IEnumerable<SyntaxNode> ChildNodes()
@@ -224,7 +217,7 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
         {
             return default!;
         }
-        return SyntaxTree!.GetLocation(EffectiveSpan);
+        return SyntaxTree!.GetLocation(Span);
     }
 
     public static bool operator ==(SyntaxNode left, SyntaxNode? right) => Equals(left, right);

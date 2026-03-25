@@ -22,7 +22,7 @@ public sealed class TargetTypedUnionCaseRefactoringProvider : CodeRefactoringPro
                 CodeAction.CreateTextChange(
                     "Rewrite declaration using target-typed union case construction",
                     context.Document.Id,
-                    new TextChange(localDeclaration.EffectiveSpan, declarationSuggestion.RewrittenStatementText)));
+                    new TextChange(localDeclaration.Span, declarationSuggestion.RewrittenStatementText)));
         }
 
         foreach (var expression in node.AncestorsAndSelf().OfType<ExpressionSyntax>())

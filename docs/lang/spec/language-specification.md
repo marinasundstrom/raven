@@ -3371,6 +3371,9 @@ must be unique within the same type parameter list. A type parameter is in scope
 * constraint clauses
 * the declaration body
 
+Type parameter lists follow the same rule: commas may be written explicitly,
+but a newline is also a valid separator between adjacent type parameters.
+
 #### Variance
 
 Where permitted by the enclosing declaration, a type parameter may be annotated with
@@ -4251,6 +4254,12 @@ val thunk: () -> unit
 val comparer: (string, string) -> bool
 ```
 
+In declaration-oriented lists, a newline may stand in for the expected explicit
+separator token. The syntax tree keeps the separated-list shape and stores
+`SyntaxKind.None` for those newline-delimited separator slots. If the separator
+is omitted on the same line, recovery instead uses a missing separator token of
+the expected kind and reports a diagnostic.
+
 Single-parameter functions may omit the surrounding parentheses:
 
 ```raven
@@ -4321,6 +4330,13 @@ union Token {
 Union cases are newline-friendly by default. A comma (or semicolon) after a
 case is optional, and when present it is treated as that case's terminator
 token in syntax.
+
+Enum member lists follow the declaration-list separator rule instead of the
+union-case terminator model: explicit commas and semicolons are preserved as
+separator tokens, newline-delimited boundaries are represented with
+`SyntaxKind.None` separator slots, and same-line omission recovers with missing
+comma separators. If multiple explicit separators appear in the same enum
+member list, they must use a consistent separator kind.
 
 Unions may declare type parameters (`union Result<T, E> { ... }`). Cases are
 first-class types with their own type-parameter shape (derived from the case

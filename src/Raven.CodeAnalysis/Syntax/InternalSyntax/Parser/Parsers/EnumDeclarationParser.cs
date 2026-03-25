@@ -33,6 +33,7 @@ internal class EnumDeclarationParser : SyntaxParser
         List<GreenNode> parameterList = new List<GreenNode>();
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
+        var explicitSeparatorKind = SyntaxKind.None;
 
         while (true)
         {
@@ -45,11 +46,35 @@ internal class EnumDeclarationParser : SyntaxParser
 
             parameterList.Add(member);
 
-            var commaToken = PeekToken();
-            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            if (TryConsumeMemberSeparator(out var separatorToken, out var explicitSeparatorKindForToken))
             {
-                ReadToken();
-                parameterList.Add(commaToken);
+                if (explicitSeparatorKindForToken != SyntaxKind.None)
+                {
+                    if (explicitSeparatorKind == SyntaxKind.None)
+                    {
+                        explicitSeparatorKind = explicitSeparatorKindForToken;
+                    }
+                    else if (explicitSeparatorKind != explicitSeparatorKindForToken)
+                    {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                SyntaxFacts.GetSyntaxTokenText(explicitSeparatorKind) ?? explicitSeparatorKind.ToString()));
+                    }
+                }
+
+                parameterList.Add(separatorToken);
+            }
+            else if (!PeekToken().IsKind(SyntaxKind.CloseBraceToken) &&
+                     !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+            {
+                parameterList.Add(MissingToken(SyntaxKind.CommaToken));
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.CharacterExpected,
+                        GetSpanOfPeekedToken(),
+                        ","));
             }
         }
 
@@ -107,6 +132,36 @@ internal class EnumDeclarationParser : SyntaxParser
             initializer = new EqualsValueClauseSyntaxParser(this).Parse();
 
         return EnumMemberDeclaration(attributeLists, SyntaxList.Empty, identifier, initializer);
+    }
+
+    private bool TryConsumeMemberSeparator(out SyntaxToken separatorToken, out SyntaxKind explicitSeparatorKind)
+    {
+        var current = PeekToken();
+
+        if (current.IsKind(SyntaxKind.CommaToken) || current.IsKind(SyntaxKind.SemicolonToken))
+        {
+            separatorToken = ReadToken();
+            explicitSeparatorKind = separatorToken.Kind;
+            return true;
+        }
+
+        if (HasLineBreakBeforePeekToken())
+        {
+            separatorToken = Token(SyntaxKind.None);
+            explicitSeparatorKind = SyntaxKind.None;
+            return true;
+        }
+
+        if (current.IsKind(SyntaxKind.CloseBraceToken) || current.IsKind(SyntaxKind.EndOfFileToken))
+        {
+            separatorToken = Token(SyntaxKind.None);
+            explicitSeparatorKind = SyntaxKind.None;
+            return false;
+        }
+
+        separatorToken = Token(SyntaxKind.None);
+        explicitSeparatorKind = SyntaxKind.None;
+        return false;
     }
 
     private SyntaxList ParseModifiers()

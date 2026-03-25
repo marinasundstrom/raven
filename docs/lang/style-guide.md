@@ -25,6 +25,7 @@ class Counter {
 - Do not put spaces immediately inside `()`, `[]`, or generic argument lists.
 - Use a single space before `{` in declarations and control-flow statements.
 - Keep member access compact: `value.Length`, not `value . Length`.
+- Avoid unnecessary trailing separators in ordinary comma-delimited lists.
 
 ```raven
 func Max(x: int, y: int) -> int {

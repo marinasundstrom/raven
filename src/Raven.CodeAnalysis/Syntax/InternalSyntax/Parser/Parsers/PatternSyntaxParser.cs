@@ -783,10 +783,10 @@ internal class PatternSyntaxParser : SyntaxParser
         if (!_allowWholePatternDesignation)
             return null;
 
-        var next = PeekToken();
-        if (HasLeadingEndOfLineTrivia(next))
+        if (HasLineBreakBeforePeekToken())
             return null;
 
+        var next = PeekToken();
         var canStartDesignation =
             !IsPatternTerminatorThatCannotStartDesignation(next.Kind) &&
             (CanTokenBeIdentifier(next) ||

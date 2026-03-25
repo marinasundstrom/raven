@@ -91,58 +91,6 @@ internal partial class BaseParseContext : ParseContext
         PrintDebug($"Set treat newlines as tokens: {value}");
 
         _treatNewlinesAsTokens = value;
-
-        RewindToPosition(Position);
-
-        if (value && _lastToken is { } lastToken)
-        {
-            StageTrailingNewlinesForPendingTrivia(lastToken);
-        }
-    }
-
-    private void StageTrailingNewlinesForPendingTrivia(SyntaxToken lastToken)
-    {
-        // When switching TreatNewlinesAsTokens from false -> true, the last token may already have
-        // consumed trailing newline trivia as part of its FullWidth. We need to "replay" the final
-        // newline (and any whitespace immediately preceding it) as tokens.
-        //
-        // IMPORTANT: Do not synthesize a lookahead token without rewinding the lexer, otherwise the
-        // parser position and lexer position will drift.
-
-        var trailing = lastToken.TrailingTrivia;
-        if (trailing.Count == 0)
-            return;
-
-        int rewindWidth = 0;
-
-        for (int i = trailing.Count - 1; i >= 0; i--)
-        {
-            var trivia = trailing[i];
-
-            if (trivia.Kind == SyntaxKind.WhitespaceTrivia)
-            {
-                rewindWidth += trivia.Text.Length;
-                continue;
-            }
-
-            if (IsEndOfLineTrivia(trivia))
-            {
-                rewindWidth += trivia.Text.Length;
-
-                if (rewindWidth > 0)
-                {
-                    var newPos = Position - rewindWidth;
-                    if (newPos < 0)
-                        newPos = 0;
-
-                    RewindToPosition(newPos);
-                }
-
-                return;
-            }
-
-            break;
-        }
     }
 
     /// <summary>
@@ -173,10 +121,9 @@ internal partial class BaseParseContext : ParseContext
     }
 
     /// <summary>
-    /// Treat LineFeedToken, CarriageReturnToken, CarriageReturnLineFeedToken, and NewlineToken, as trivia.
+    /// Newlines are always represented as trivia in the syntax tree.
     /// </summary>
-    /// <value></value>
-    public bool TreatNewlineSequencesAsTrivia => !TreatNewlinesAsTokens;
+    public bool TreatNewlineSequencesAsTrivia => true;
 
     /// <summary>
     /// Use EndOfLineTrivia - instead of LineFeedTrivia, CarriageReturnTrivia, and CarriageReturnLineFeedTrivia.
@@ -264,14 +211,6 @@ internal partial class BaseParseContext : ParseContext
     {
         Token token = _lexer.PeekToken();
 
-        if (TreatNewlinesAsTokens && token.Kind == SyntaxKind.NewLineToken)
-        {
-            // Immediately return NewLineToken.
-
-            _lexer.ReadToken();
-            return new SyntaxToken(token.Kind, token.Text, token.Value, token.Length, SyntaxTriviaList.Empty, SyntaxTriviaList.Empty);
-        }
-
         SyntaxTriviaList leadingTrivia = ReadTrivia(isTrailingTrivia: false);
 
         if (_pendingTrivia.Count > 0)
@@ -280,75 +219,11 @@ internal partial class BaseParseContext : ParseContext
             _pendingTrivia.Clear();
         }
 
-        // Check if we can extract a terminator from trivia
-        var syntheticNewline = TryExtractNewlineTokenFromPendingTrivia(ref leadingTrivia);
-        if (syntheticNewline != null)
-            return syntheticNewline;
-
         token = _lexer.ReadToken();
-
-        if (token.Kind == SyntaxKind.NewLineToken)
-        {
-            // Immediately return NewLineToken.
-
-            return new SyntaxToken(token.Kind, token.Text, token.Value, token.Length, SyntaxTriviaList.Empty, SyntaxTriviaList.Empty);
-        }
 
         SyntaxTriviaList trailingTrivia = ReadTrivia(isTrailingTrivia: true);
 
         return new SyntaxToken(token.Kind, token.Text, token.Value, token.Length, leadingTrivia, trailingTrivia);
-    }
-
-    private SyntaxToken? TryExtractNewlineTokenFromPendingTrivia(ref SyntaxTriviaList leadingTrivia)
-    {
-        if (!TreatNewlinesAsTokens)
-            return null;
-
-        var encounteredDocumentationTrivia = false;
-
-        for (int i = 0; i < leadingTrivia.Count; i++)
-        {
-            var trivia = leadingTrivia[i];
-
-            encounteredDocumentationTrivia |= trivia.Kind == SyntaxKind.DocumentationCommentTrivia;
-
-            if (encounteredDocumentationTrivia)
-                continue;
-
-            if (trivia.Kind == SyntaxKind.EndOfLineTrivia && ShouldPromoteToNewlineToken())
-            {
-                // Preserve any documentation comments or other trivia for the next token
-                // instead of losing them when we surface a newline token.
-                for (int before = 0; before < i; before++)
-                {
-                    _pendingTrivia.Add(leadingTrivia[before]);
-                }
-
-                for (int after = i + 1; after < leadingTrivia.Count; after++)
-                {
-                    _pendingTrivia.Add(leadingTrivia[after]);
-                }
-
-                leadingTrivia = SyntaxTriviaList.Empty;
-
-                return new SyntaxToken(
-                    kind: SyntaxKind.NewLineToken,
-                    text: trivia.Text,
-                    value: null,
-                    width: trivia.Text.Length,
-                    leadingTrivia: SyntaxTriviaList.Empty,
-                    trailingTrivia: SyntaxTriviaList.Empty,
-                    diagnostics: null
-                );
-            }
-        }
-
-        return null;
-    }
-
-    private bool ShouldPromoteToNewlineToken()
-    {
-        return TreatNewlinesAsTokens && !IsInsideParens;
     }
 
     private void TrackBlockDepth(SyntaxToken token)
@@ -383,7 +258,7 @@ internal partial class BaseParseContext : ParseContext
                 if (isTrailingTrivia)
                     break;
 
-                List<SyntaxTrivia>? newlineTrivia = TreatNewlinesAsTokens ? [] : null;
+                List<SyntaxTrivia>? newlineTrivia = null;
                 List<DiagnosticInfo>? docDiagnostics = null;
 
                 ReadDocumentationCommentBlockInto(_stringBuilder, newlineTrivia, ref docDiagnostics);
@@ -526,23 +401,6 @@ internal partial class BaseParseContext : ParseContext
                     {
                         break;
                     }
-                    continue;
-                }
-                else if (token.Kind == SyntaxKind.NewLineToken)
-                {
-                    if (isTrailingTrivia)
-                        break;
-
-                    //trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
-
-                    Token peeked = default!;
-                    do
-                    {
-                        _lexer.ReadToken();
-                        trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
-                        peeked = _lexer.PeekToken();
-                    } while (peeked.Kind == SyntaxKind.NewLineToken);
-
                     continue;
                 }
                 else if (token.Kind == SyntaxKind.EndOfFileToken)
@@ -710,7 +568,7 @@ internal partial class BaseParseContext : ParseContext
             return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text);
         }
 
-        if (t.Kind == SyntaxKind.LineFeedToken || t.Kind == SyntaxKind.NewLineToken)
+        if (t.Kind == SyntaxKind.LineFeedToken)
         {
             _lexer.ReadToken();
             sb.Append(t.Text);
@@ -724,8 +582,7 @@ internal partial class BaseParseContext : ParseContext
 
     private static bool IsNewLine(Token token)
     {
-        return token.Kind is SyntaxKind.NewLineToken
-            or SyntaxKind.LineFeedToken
+        return token.Kind is SyntaxKind.LineFeedToken
             or SyntaxKind.CarriageReturnToken
             or SyntaxKind.CarriageReturnLineFeedToken;
     }
@@ -733,6 +590,10 @@ internal partial class BaseParseContext : ParseContext
     public override SyntaxToken SkipUntil(params IEnumerable<SyntaxKind> expectedKind)
     {
         var skippedTokens = new List<SyntaxToken>();
+        var stopAtImplicitLineBreak = expectedKind.Any(static kind =>
+            kind is SyntaxKind.LineFeedToken
+                or SyntaxKind.CarriageReturnToken
+                or SyntaxKind.CarriageReturnLineFeedToken);
 
         _pendingTrivia.Clear();
 
@@ -742,11 +603,26 @@ internal partial class BaseParseContext : ParseContext
 
         while (!expectedKind.Contains(token.Kind)
             && token.Kind != SyntaxKind.EndOfFileToken
-            && !IsBlockRecoveryStopper(token))
+            && !IsBlockRecoveryStopper(token)
+            && !(stopAtImplicitLineBreak && LastToken is { } lastToken && lastToken.TrailingTrivia.Any(IsEndOfLineTrivia)))
         {
             skippedTokens.Add(ReadToken());
 
             token = PeekToken();
+        }
+
+        if (stopAtImplicitLineBreak && LastToken is { } lineBreakToken && lineBreakToken.TrailingTrivia.Any(IsEndOfLineTrivia))
+        {
+            if (skippedTokens.Count > 0)
+            {
+                var trivia = new SyntaxTrivia(
+                    new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
+                );
+
+                _pendingTrivia.Add(trivia);
+            }
+
+            return SyntaxFactory.Token(SyntaxKind.None);
         }
 
         // If we reached end-of-file, preserve the skipped tokens as trivia and return a None token

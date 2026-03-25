@@ -19,7 +19,7 @@ public class ArgumentAndParameterListTests
     }
 
     [Fact]
-    public void ParameterList_NewlineWithoutComma_ProducesDiagnostic()
+    public void ParameterList_NewlineWithoutComma_UsesImplicitSeparator()
     {
         var source = """
             class C(
@@ -28,18 +28,21 @@ public class ArgumentAndParameterListTests
             """;
 
         var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
 
-        var diagnostic = Assert.Single(tree.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.CharacterExpected, diagnostic.Descriptor);
+        Assert.Empty(tree.GetDiagnostics());
+        Assert.NotNull(declaration.ParameterList);
+        Assert.Equal(SyntaxKind.None, declaration.ParameterList!.Parameters.GetSeparator(0).Kind);
     }
 
     [Fact]
-    public void TypeParameterList_MissingComma_ProducesDiagnostic()
+    public void TypeParameterList_SameLineWithoutComma_ProducesDiagnostic()
     {
         var tree = SyntaxTree.ParseText("class Box<T U> {}");
+        var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
 
-        var diagnostic = Assert.Single(tree.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.CharacterExpected, diagnostic.Descriptor);
+        Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CharacterExpected);
+        Assert.NotNull(declaration.TypeParameterList);
     }
 
     [Fact]
@@ -76,7 +79,7 @@ public class ArgumentAndParameterListTests
     }
 
     [Fact]
-    public void BracketedParameterList_NewlineWithoutComma_ProducesDiagnostic()
+    public void BracketedParameterList_NewlineWithoutComma_UsesImplicitSeparator()
     {
         var tree = SyntaxTree.ParseText(
             """
@@ -87,13 +90,14 @@ public class ArgumentAndParameterListTests
             """
         );
 
-        var diagnostics = tree.GetDiagnostics().ToArray();
-        Assert.NotEmpty(diagnostics);
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CharacterExpected);
+        var indexer = Assert.IsType<IndexerDeclarationSyntax>(tree.GetRoot().DescendantNodes().OfType<IndexerDeclarationSyntax>().Single());
+
+        Assert.Empty(tree.GetDiagnostics());
+        Assert.Equal(SyntaxKind.None, indexer.ParameterList.Parameters.GetSeparator(0).Kind);
     }
 
     [Fact]
-    public void TypeParameterList_NewlineWithoutComma_ProducesDiagnostic()
+    public void TypeParameterList_NewlineWithoutComma_UsesImplicitSeparator()
     {
         var tree = SyntaxTree.ParseText(
             """
@@ -101,13 +105,15 @@ public class ArgumentAndParameterListTests
                        U> {}
             """
         );
+        var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
 
-        var diagnostic = Assert.Single(tree.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.CharacterExpected, diagnostic.Descriptor);
+        Assert.Empty(tree.GetDiagnostics());
+        Assert.NotNull(declaration.TypeParameterList);
+        Assert.Equal(SyntaxKind.None, declaration.TypeParameterList!.Parameters.GetSeparator(0).Kind);
     }
 
     [Fact]
-    public void TypeArgumentList_NewlineWithoutComma_ProducesDiagnostic()
+    public void TypeArgumentList_NewlineWithoutComma_UsesImplicitSeparator()
     {
         var tree = SyntaxTree.ParseText(
             """
@@ -117,9 +123,10 @@ public class ArgumentAndParameterListTests
             }
             """
         );
+        var genericName = Assert.IsType<GenericNameSyntax>(tree.GetRoot().DescendantNodes().OfType<GenericNameSyntax>().Single());
 
-        var diagnostic = Assert.Single(tree.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.CharacterExpected, diagnostic.Descriptor);
+        Assert.Empty(tree.GetDiagnostics());
+        Assert.Equal(SyntaxKind.None, genericName.TypeArgumentList.Arguments.GetSeparator(0).Kind);
     }
 
     [Fact]

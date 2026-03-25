@@ -275,19 +275,6 @@ internal class NameSyntaxParser : SyntaxParser
                 var argumentStart = Position;
                 var t = PeekToken();
 
-                while (IsNewLineLike(t))
-                {
-                    ReadToken();
-                    t = PeekToken();
-                }
-
-                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
-                    t.IsKind(SyntaxKind.GreaterThanToken) ||
-                    t.IsKind(SyntaxKind.GreaterThanGreaterThanToken))
-                {
-                    break;
-                }
-
                 if (_allowOmittedTypeArguments &&
                     parsedArguments == 0 &&
                     t.IsKind(SyntaxKind.CommaToken))
@@ -299,10 +286,9 @@ internal class NameSyntaxParser : SyntaxParser
 
                 if (parsedArguments > 0)
                 {
-                    if (t.IsKind(SyntaxKind.CommaToken))
+                    if (TryConsumeTypeArgumentSeparator(out var separatorToken, out var hadExplicitComma))
                     {
-                        var commaToken = ReadToken();
-                        argumentList.Add(commaToken);
+                        argumentList.Add(separatorToken);
                         t = PeekToken();
 
                         while (IsNewLineLike(t))
@@ -311,7 +297,8 @@ internal class NameSyntaxParser : SyntaxParser
                             t = PeekToken();
                         }
 
-                        if (_allowOmittedTypeArguments &&
+                        if (hadExplicitComma &&
+                            _allowOmittedTypeArguments &&
                             (t.IsKind(SyntaxKind.CommaToken) ||
                              t.IsKind(SyntaxKind.GreaterThanToken) ||
                              t.IsKind(SyntaxKind.GreaterThanGreaterThanToken) ||
@@ -322,7 +309,9 @@ internal class NameSyntaxParser : SyntaxParser
                             continue;
                         }
                     }
-                    else
+                    else if (!PeekToken().IsKind(SyntaxKind.GreaterThanToken) &&
+                             !PeekToken().IsKind(SyntaxKind.GreaterThanGreaterThanToken) &&
+                             !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
                     {
                         argumentList.Add(MissingToken(SyntaxKind.CommaToken));
                         AddDiagnostic(
@@ -331,6 +320,19 @@ internal class NameSyntaxParser : SyntaxParser
                                 GetSpanOfPeekedToken(),
                                 ","));
                     }
+                }
+
+                while (IsNewLineLike(t))
+                {
+                    ReadToken();
+                    t = PeekToken();
+                }
+
+                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
+                    t.IsKind(SyntaxKind.GreaterThanToken) ||
+                    t.IsKind(SyntaxKind.GreaterThanGreaterThanToken))
+                {
+                    break;
                 }
 
                 var typeName = new NameSyntaxParser(this).ParseTypeName();
@@ -405,7 +407,40 @@ internal class NameSyntaxParser : SyntaxParser
 
     private static bool IsNewLineLike(SyntaxToken token)
     {
-        return token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
+        return token.Kind is SyntaxKind.LineFeedToken or
+            SyntaxKind.CarriageReturnToken or
+            SyntaxKind.CarriageReturnLineFeedToken;
+    }
+
+    private bool TryConsumeTypeArgumentSeparator(out SyntaxToken separatorToken, out bool hadExplicitComma)
+    {
+        var current = PeekToken();
+
+        if (current.IsKind(SyntaxKind.CommaToken))
+        {
+            hadExplicitComma = true;
+            separatorToken = ReadToken();
+            return true;
+        }
+
+        hadExplicitComma = false;
+
+        if (HasLineBreakBeforePeekToken())
+        {
+            separatorToken = Token(SyntaxKind.None);
+            return true;
+        }
+
+        if (current.IsKind(SyntaxKind.GreaterThanToken) ||
+            current.IsKind(SyntaxKind.GreaterThanGreaterThanToken) ||
+            current.IsKind(SyntaxKind.EndOfFileToken))
+        {
+            separatorToken = Token(SyntaxKind.None);
+            return false;
+        }
+
+        separatorToken = Token(SyntaxKind.None);
+        return false;
     }
 
     private TypeSyntax ParseTupleType()

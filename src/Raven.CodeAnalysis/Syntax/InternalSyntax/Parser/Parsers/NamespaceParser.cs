@@ -195,7 +195,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             if (!IsLikelyNamespaceMemberStart(next))
                 return;
 
-            if (HasLeadingEndOfLineTrivia(next))
+            if (HasLineBreakBeforePeekToken())
                 return;
 
             if (!TryGetDeclarationTerminatorKind(member, out var terminatorKind))
@@ -238,7 +238,8 @@ internal class NamespaceDeclarationParser : SyntaxParser
             var skippedTokens = ConsumeSkippedTokensUntil(token =>
                 token.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken ||
                 IsLikelyNamespaceMemberStart(token) ||
-                StatementSyntaxParser.IsTokenPotentialStatementStart(token));
+                StatementSyntaxParser.IsTokenPotentialStatementStart(token),
+                stopAtImplicitLineBreak: true);
             return CreateSkippedToken(skippedTokens, span);
         }
 

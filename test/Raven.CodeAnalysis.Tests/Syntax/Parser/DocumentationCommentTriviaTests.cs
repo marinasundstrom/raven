@@ -84,12 +84,12 @@ func Foo() {}
 
         var parser = new StatementSyntaxParser(context);
 
-        var firstStatement = parser.ParseStatement().CreateRed();
-        var secondStatement = parser.ParseStatement().CreateRed();
+        var firstStatement = Assert.IsType<Raven.CodeAnalysis.Syntax.ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+        var secondStatement = Assert.IsType<Raven.CodeAnalysis.Syntax.FunctionStatementSyntax>(parser.ParseStatement().CreateRed());
 
-        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
+        firstStatement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
 
-        var nextFirstToken = secondStatement.GetFirstToken(includeZeroWidth: true);
+        var nextFirstToken = secondStatement.GetFirstToken(true);
         nextFirstToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
     }
 
@@ -120,12 +120,12 @@ func Foo() {}
 
         var parser = new StatementSyntaxParser(context);
 
-        var firstStatement = parser.ParseStatement().CreateRed();
-        var secondStatement = parser.ParseStatement().CreateRed();
+        var firstStatement = Assert.IsType<Raven.CodeAnalysis.Syntax.ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+        var secondStatement = Assert.IsType<Raven.CodeAnalysis.Syntax.FunctionStatementSyntax>(parser.ParseStatement().CreateRed());
 
-        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
+        firstStatement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
 
-        var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
+        var funcToken = secondStatement.GetFirstToken(true);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
         funcToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
         funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.DocumentationCommentTrivia)
@@ -162,14 +162,12 @@ func Foo() {}
 
         var parser = new StatementSyntaxParser(context);
 
-        var firstStatement = parser.ParseStatement().CreateRed();
-        var secondStatement = parser.ParseStatement().CreateRed();
+        var firstStatement = Assert.IsType<Raven.CodeAnalysis.Syntax.ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+        var secondStatement = Assert.IsType<Raven.CodeAnalysis.Syntax.FunctionStatementSyntax>(parser.ParseStatement().CreateRed());
 
-        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
-        firstStatement.DescendantTrivia(descendIntoStructuredTrivia: true)
-            .ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
+        firstStatement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
 
-        var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
+        var funcToken = secondStatement.GetFirstToken(true);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
 
         var docTrivia = funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
@@ -195,14 +193,12 @@ func Foo() {}
 
         var parser = new StatementSyntaxParser(context);
 
-        var firstStatement = parser.ParseStatement().CreateRed();
-        var secondStatement = parser.ParseStatement().CreateRed();
+        var firstStatement = Assert.IsType<Raven.CodeAnalysis.Syntax.ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+        var secondStatement = Assert.IsType<Raven.CodeAnalysis.Syntax.FunctionStatementSyntax>(parser.ParseStatement().CreateRed());
 
-        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
-        firstStatement.DescendantTrivia(descendIntoStructuredTrivia: true)
-            .ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
+        firstStatement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
 
-        var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
+        var funcToken = secondStatement.GetFirstToken(true);
         funcToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
     }
@@ -224,12 +220,12 @@ func Foo() {}
 
         var parser = new StatementSyntaxParser(context);
 
-        var firstStatement = parser.ParseStatement().CreateRed();
-        var secondStatement = parser.ParseStatement().CreateRed();
+        var firstStatement = Assert.IsType<Raven.CodeAnalysis.Syntax.ExpressionStatementSyntax>(parser.ParseStatement().CreateRed());
+        var secondStatement = Assert.IsType<Raven.CodeAnalysis.Syntax.FunctionStatementSyntax>(parser.ParseStatement().CreateRed());
 
-        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
+        firstStatement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
 
-        var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
+        var funcToken = secondStatement.GetFirstToken(true);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
 
         var docTrivia = funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);

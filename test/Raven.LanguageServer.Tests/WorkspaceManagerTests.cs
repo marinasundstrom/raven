@@ -472,7 +472,7 @@ class ObservableMacroPlugin: IRavenMacroPlugin {
     val Name: string => "SampleMacros.Observable"
 
     func GetMacros() -> ImmutableArray<IMacroDefinition> {
-        ImmutableArray.Create<IMacroDefinition>(ObservableMacro())
+        [ObservableMacro()]
     }
 }
 
@@ -532,7 +532,7 @@ class FreestandingMacroPlugin: IRavenMacroPlugin {
     val Name: string => "SampleMacros.Answer"
 
     func GetMacros() -> ImmutableArray<IMacroDefinition> {
-        ImmutableArray.Create<IMacroDefinition>(AnswerMacro())
+        [AnswerMacro()]
     }
 }
 

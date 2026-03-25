@@ -144,58 +144,27 @@ internal class UnionDeclarationParser : SyntaxParser
 
     private SyntaxToken ConsumeOptionalTypeTerminator()
     {
-        var previous = TreatNewlinesAsTokens;
-        SetTreatNewlinesAsTokens(true);
+        var current = PeekToken();
 
-        try
-        {
-            var current = PeekToken();
+        if (current.Kind == SyntaxKind.SemicolonToken)
+            return ReadToken();
 
-            if (IsNewLineLike(current) || current.Kind == SyntaxKind.SemicolonToken)
-            {
-                return ReadToken();
-            }
-
-            if (current.Kind is SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken)
-            {
-                return Token(SyntaxKind.None);
-            }
-
+        if (HasLineBreakBeforePeekToken() || current.Kind is SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken)
             return Token(SyntaxKind.None);
-        }
-        finally
-        {
-            SetTreatNewlinesAsTokens(previous);
-        }
+
+        return Token(SyntaxKind.None);
     }
 
     private SyntaxToken ConsumeOptionalCaseTerminator()
     {
-        var previous = TreatNewlinesAsTokens;
-        SetTreatNewlinesAsTokens(true);
+        var current = PeekToken();
 
-        try
-        {
-            var current = PeekToken();
+        if (current.Kind is SyntaxKind.CommaToken or SyntaxKind.SemicolonToken)
+            return ReadToken();
 
-            if (current.Kind is SyntaxKind.CommaToken or SyntaxKind.SemicolonToken || IsNewLineLike(current))
-            {
-                return ReadToken();
-            }
-
+        if (HasLineBreakBeforePeekToken())
             return Token(SyntaxKind.None);
-        }
-        finally
-        {
-            SetTreatNewlinesAsTokens(previous);
-        }
-    }
 
-    private static bool IsNewLineLike(SyntaxToken token)
-    {
-        return token.Kind is SyntaxKind.NewLineToken or
-            SyntaxKind.LineFeedToken or
-            SyntaxKind.CarriageReturnToken or
-            SyntaxKind.CarriageReturnLineFeedToken;
+        return Token(SyntaxKind.None);
     }
 }

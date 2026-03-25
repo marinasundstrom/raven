@@ -337,8 +337,8 @@ public class ParserRecoveryTests
 
         var union = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
         Assert.Equal(3, union.Cases.Count);
-        Assert.True(IsUnionCaseSeparator(union.Cases[0].TerminatorToken.Kind));
-        Assert.True(IsUnionCaseSeparator(union.Cases[1].TerminatorToken.Kind));
+        Assert.Equal(SyntaxKind.None, union.Cases[0].TerminatorToken.Kind);
+        Assert.Equal(SyntaxKind.None, union.Cases[1].TerminatorToken.Kind);
     }
 
     [Fact]
@@ -358,14 +358,6 @@ public class ParserRecoveryTests
         Assert.Contains(
             tree.GetDiagnostics(),
             d => d.Descriptor == CompilerDiagnostics.ExpectedNewLineBetweenDeclarations);
-    }
-
-    private static bool IsUnionCaseSeparator(SyntaxKind kind)
-    {
-        return kind is SyntaxKind.NewLineToken or
-            SyntaxKind.LineFeedToken or
-            SyntaxKind.CarriageReturnToken or
-            SyntaxKind.CarriageReturnLineFeedToken;
     }
 
     [Fact]
@@ -458,7 +450,7 @@ public class ParserRecoveryTests
         var declaration = Assert.Single(tree.GetRoot().Members.OfType<ClassDeclarationSyntax>());
         var incomplete = Assert.IsType<IncompleteMemberDeclarationSyntax>(declaration.Members[0]);
 
-        Assert.Equal(SyntaxKind.NewLineToken, incomplete.TerminatorToken.Kind);
+        Assert.Equal(SyntaxKind.None, incomplete.TerminatorToken.Kind);
     }
 
     [Fact]

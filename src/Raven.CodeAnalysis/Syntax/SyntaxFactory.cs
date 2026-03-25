@@ -17,7 +17,6 @@ public static partial class SyntaxFactory
     public static SyntaxToken Literal(string text, int value) => (SyntaxToken)InternalSyntax.SyntaxFactory.Literal(text, value);
     public static SyntaxToken Literal(string text, string value) => (SyntaxToken)InternalSyntax.SyntaxFactory.Literal(text, value);
 
-    public static SyntaxToken NewLineToken => Token(SyntaxKind.NewLineToken);
     public static SyntaxToken EndOfFileToken => Token(SyntaxKind.EndOfFileToken);
 
     public static ExpressionSyntax ParseExpression(string text, ParseOptions? options = null)

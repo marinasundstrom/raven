@@ -44,7 +44,7 @@ public sealed class PreferTargetTypedUnionCaseCodeFixProvider : CodeFixProvider
         if (declaration is null)
             return;
 
-        var change = new TextChange(declaration.EffectiveSpan, rewritten);
+        var change = new TextChange(declaration.Span, rewritten);
         context.RegisterCodeFix(
             CodeAction.CreateTextChange(
                 "Rewrite declaration using target-typed union case construction",

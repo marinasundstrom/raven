@@ -64,23 +64,23 @@ class Program
                     startToken: StarToken
                 )
             ),
-            terminatorToken: NewLineToken
+            terminatorToken: Token(SyntaxKind.None)
         )),
     aliases: List<AliasDirectiveSyntax>(),
     members: SingletonList<MemberDeclarationSyntax>(
         GlobalStatement(
             attributeLists: List<AttributeListSyntax>(),
             modifiers: TokenList(),
-            statement: IfStatement(
-                ifKeyword: IfKeyword.WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n"))).WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
-                condition: LiteralExpression(
+            statement: new IfStatementSyntax(
+                IfKeyword.WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n"))).WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
+                LiteralExpression(
                     kind: SyntaxKind.TrueLiteralExpression,
                     token: TrueKeyword.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " ")))
                 ),
-                thenStatement: BlockStatement(
+                BlockStatement(
                     openBraceToken: OpenBraceToken,
                     statements: SingletonList<StatementSyntax>(
-                        ExpressionStatement(
+                        new ExpressionStatementSyntax(
                             expression: InvocationExpression(
                                 expression: MemberAccessExpression(
                                     kind: SyntaxKind.SimpleMemberAccessExpression,
@@ -109,16 +109,16 @@ class Program
                                     closeParenToken: CloseParenToken
                                 )
                             ),
-                            terminatorToken: NewLineToken
+                            Token(SyntaxKind.None)
                         )),
                     closeBraceToken: CloseBraceToken.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " ")))
                 ),
-                elseClause: ElseClause2(
+                ElseClause(
                     elseKeyword: ElseKeyword.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
                     statement: BlockStatement(
                         openBraceToken: OpenBraceToken,
                         statements: SingletonList<StatementSyntax>(
-                            ExpressionStatement(
+                            new ExpressionStatementSyntax(
                                 expression: LiteralExpression(
                                     kind: SyntaxKind.NumericLiteralExpression,
                                     token: Literal("42", 42).WithLeadingTrivia(TriviaList(
@@ -128,12 +128,12 @@ class Program
                                         }
                                     ))
                                 ),
-                                terminatorToken: NewLineToken
+                                Token(SyntaxKind.None)
                             )),
                         closeBraceToken: CloseBraceToken
                     )
                 ),
-                terminatorToken: Token(SyntaxKind.None)
+                Token(SyntaxKind.None)
             )
         )),
     endOfFileToken: EndOfFileToken

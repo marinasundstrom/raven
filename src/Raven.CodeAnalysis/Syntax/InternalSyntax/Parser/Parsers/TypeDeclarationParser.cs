@@ -207,7 +207,8 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var skippedTokens = ConsumeSkippedTokensUntil(token =>
             token.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken or SyntaxKind.CommaToken ||
-            IsPossibleTypeMemberStart(token));
+            IsPossibleTypeMemberStart(token),
+            stopAtImplicitLineBreak: true);
 
         return CreateSkippedToken(skippedTokens, span);
     }
@@ -230,6 +231,26 @@ internal class TypeDeclarationParser : SyntaxParser
             {
                 var token = PeekToken();
 
+                if (parsedParameters > 0)
+                {
+                    if (TryConsumeImplicitSeparator(SyntaxKind.GreaterThanToken, out var separatorToken))
+                    {
+                        parameters.Add(separatorToken);
+                    }
+                    else if (!PeekToken().IsKind(SyntaxKind.GreaterThanToken) &&
+                             !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                    {
+                        parameters.Add(MissingToken(SyntaxKind.CommaToken));
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfPeekedToken(),
+                                ","));
+                    }
+
+                    token = PeekToken();
+                }
+
                 while (IsNewLineLike(token))
                 {
                     ReadToken();
@@ -240,25 +261,6 @@ internal class TypeDeclarationParser : SyntaxParser
                     token.IsKind(SyntaxKind.GreaterThanToken))
                 {
                     break;
-                }
-
-                if (parsedParameters > 0)
-                {
-                    if (token.IsKind(SyntaxKind.CommaToken))
-                    {
-                        var commaToken = ReadToken();
-                        parameters.Add(commaToken);
-                        token = PeekToken();
-                    }
-                    else
-                    {
-                        parameters.Add(MissingToken(SyntaxKind.CommaToken));
-                        AddDiagnostic(
-                            DiagnosticInfo.Create(
-                                CompilerDiagnostics.CharacterExpected,
-                                GetSpanOfPeekedToken(),
-                                ","));
-                    }
                 }
 
                 var parameterStart = Position;
@@ -1076,6 +1078,26 @@ internal class TypeDeclarationParser : SyntaxParser
             {
                 var t = PeekToken();
 
+                if (parsedParameters > 0)
+                {
+                    if (TryConsumeImplicitSeparator(SyntaxKind.CloseParenToken, out var separatorToken))
+                    {
+                        parameterList.Add(separatorToken);
+                    }
+                    else if (!PeekToken().IsKind(SyntaxKind.CloseParenToken) &&
+                             !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                    {
+                        parameterList.Add(MissingToken(SyntaxKind.CommaToken));
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfPeekedToken(),
+                                ","));
+                    }
+
+                    t = PeekToken();
+                }
+
                 while (IsNewLineLike(t))
                 {
                     ReadToken();
@@ -1086,24 +1108,6 @@ internal class TypeDeclarationParser : SyntaxParser
                     t.IsKind(SyntaxKind.CloseParenToken))
                 {
                     break;
-                }
-
-                if (parsedParameters > 0)
-                {
-                    if (t.IsKind(SyntaxKind.CommaToken))
-                    {
-                        var commaToken = ReadToken();
-                        parameterList.Add(commaToken);
-                    }
-                    else
-                    {
-                        parameterList.Add(MissingToken(SyntaxKind.CommaToken));
-                        AddDiagnostic(
-                            DiagnosticInfo.Create(
-                                CompilerDiagnostics.CharacterExpected,
-                                GetSpanOfPeekedToken(),
-                                ","));
-                    }
                 }
 
                 var parameterStart = Position;
@@ -1383,6 +1387,26 @@ internal class TypeDeclarationParser : SyntaxParser
             {
                 var t = PeekToken();
 
+                if (parsedParameters > 0)
+                {
+                    if (TryConsumeImplicitSeparator(SyntaxKind.CloseBracketToken, out var separatorToken))
+                    {
+                        parameterList.Add(separatorToken);
+                    }
+                    else if (!PeekToken().IsKind(SyntaxKind.CloseBracketToken) &&
+                             !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                    {
+                        parameterList.Add(MissingToken(SyntaxKind.CommaToken));
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfPeekedToken(),
+                                ","));
+                    }
+
+                    t = PeekToken();
+                }
+
                 while (IsNewLineLike(t))
                 {
                     ReadToken();
@@ -1393,24 +1417,6 @@ internal class TypeDeclarationParser : SyntaxParser
                     t.IsKind(SyntaxKind.CloseBracketToken))
                 {
                     break;
-                }
-
-                if (parsedParameters > 0)
-                {
-                    if (t.IsKind(SyntaxKind.CommaToken))
-                    {
-                        var commaToken = ReadToken();
-                        parameterList.Add(commaToken);
-                    }
-                    else
-                    {
-                        parameterList.Add(MissingToken(SyntaxKind.CommaToken));
-                        AddDiagnostic(
-                            DiagnosticInfo.Create(
-                                CompilerDiagnostics.CharacterExpected,
-                                GetSpanOfPeekedToken(),
-                                ","));
-                    }
                 }
 
                 var parameterStart = Position;
@@ -1494,29 +1500,15 @@ internal class TypeDeclarationParser : SyntaxParser
 
     private SyntaxToken ConsumeOptionalTypeTerminator()
     {
-        var previous = TreatNewlinesAsTokens;
-        SetTreatNewlinesAsTokens(true);
+        var current = PeekToken();
 
-        try
-        {
-            var current = PeekToken();
+        if (current.Kind == SyntaxKind.SemicolonToken)
+            return ReadToken();
 
-            if (IsNewLineLike(current) || current.Kind == SyntaxKind.SemicolonToken)
-            {
-                return ReadToken();
-            }
-
-            if (current.Kind is SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken)
-            {
-                return Token(SyntaxKind.None);
-            }
-
+        if (HasLineBreakBeforePeekToken() || current.Kind is SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken)
             return Token(SyntaxKind.None);
-        }
-        finally
-        {
-            SetTreatNewlinesAsTokens(previous);
-        }
+
+        return Token(SyntaxKind.None);
     }
 
     private SyntaxToken ConsumeMemberTerminator()
@@ -1536,7 +1528,7 @@ internal class TypeDeclarationParser : SyntaxParser
         if (current.IsKind(SyntaxKind.EndOfFileToken) || current.IsKind(SyntaxKind.CloseBraceToken))
             return terminatorToken;
 
-        if (IsPossibleTypeMemberStart(current) && !HasLeadingEndOfLineTrivia(current))
+        if (IsPossibleTypeMemberStart(current) && !HasLineBreakBeforePeekToken())
         {
             AddDiagnostic(
                 DiagnosticInfo.Create(
@@ -1549,6 +1541,34 @@ internal class TypeDeclarationParser : SyntaxParser
 
     private static bool IsNewLineLike(SyntaxToken token)
     {
-        return token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
+        return token.Kind is SyntaxKind.LineFeedToken or
+            SyntaxKind.CarriageReturnToken or
+            SyntaxKind.CarriageReturnLineFeedToken;
+    }
+
+    private bool TryConsumeImplicitSeparator(SyntaxKind closingKind, out SyntaxToken separatorToken)
+    {
+        var current = PeekToken();
+
+        if (current.IsKind(SyntaxKind.CommaToken))
+        {
+            separatorToken = ReadToken();
+            return true;
+        }
+
+        if (HasLineBreakBeforePeekToken())
+        {
+            separatorToken = Token(SyntaxKind.None);
+            return true;
+        }
+
+        if (current.IsKind(closingKind) || current.IsKind(SyntaxKind.EndOfFileToken))
+        {
+            separatorToken = Token(SyntaxKind.None);
+            return false;
+        }
+
+        separatorToken = Token(SyntaxKind.None);
+        return false;
     }
 }

@@ -57,7 +57,7 @@ public partial class SyntaxNodeTest
                 new ReturnStatementSyntax(
                     MissingToken(SyntaxKind.ReturnKeyword),
                     expression: null,
-                    MissingToken(SyntaxKind.NewLineToken))
+                    MissingToken(SyntaxKind.SemicolonToken))
             ),
             MissingToken(SyntaxKind.CloseBraceToken));
 

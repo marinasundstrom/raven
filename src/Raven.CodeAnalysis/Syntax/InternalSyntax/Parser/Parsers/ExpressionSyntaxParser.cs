@@ -521,7 +521,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (IsNewLineLike(token))
                 return false;
 
-            if (i > 0 && HasLeadingNewLine(token))
+            if (i > 0 && TokenHasLeadingNewLine(token))
                 return false;
 
             if (token.IsKind(SyntaxKind.FatArrowToken))
@@ -1332,6 +1332,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
             else if (token.IsKind(SyntaxKind.DotToken) || token.IsKind(SyntaxKind.ArrowToken)) // Member Access
             {
+                if (TreatNewlinesAsTokens && HasLeadingNewLine(token))
+                    return expr;
+
                 // Keep fluent chains across a single newline (`a\n  .b()`), but treat a blank-line
                 // separation as a new statement so target-typed member bindings like `.Ok` can start
                 // the next expression.
@@ -1843,8 +1846,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private static bool IsNewLineLike(SyntaxKind kind)
     {
-        return kind is SyntaxKind.NewLineToken
-            or SyntaxKind.LineFeedToken
+        return kind is SyntaxKind.LineFeedToken
             or SyntaxKind.CarriageReturnToken
             or SyntaxKind.CarriageReturnLineFeedToken
             or SyntaxKind.EndOfLineTrivia;
@@ -1855,7 +1857,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return IsNewLineLike(token.Kind);
     }
 
-    private static bool HasLeadingNewLine(SyntaxToken token)
+    private bool HasLeadingNewLine(SyntaxToken token)
+    {
+        return CountLineBreaksBefore(token) > 0;
+    }
+
+    private static bool TokenHasLeadingNewLine(SyntaxToken token)
     {
         foreach (var trivia in token.LeadingTrivia)
         {
@@ -1866,21 +1873,41 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return false;
     }
 
-    private static bool HasLeadingBlankLine(SyntaxToken token)
+    private bool HasLeadingBlankLine(SyntaxToken token)
     {
-        var newlineCount = 0;
+        return CountLineBreaksBefore(token) >= 2;
+    }
+
+    private int CountLineBreaksBefore(SyntaxToken token)
+    {
+        var count = 0;
+
+        SyntaxToken lastToken = default;
+        try
+        {
+            lastToken = LastToken;
+        }
+        catch (InvalidOperationException)
+        {
+            lastToken = default;
+        }
+
+        if (lastToken != default)
+        {
+            foreach (var trivia in lastToken.TrailingTrivia)
+            {
+                if (IsNewLineLike(trivia.Kind))
+                    count++;
+            }
+        }
 
         foreach (var trivia in token.LeadingTrivia)
         {
-            if (!IsNewLineLike(trivia.Kind))
-                continue;
-
-            newlineCount++;
-            if (newlineCount >= 2)
-                return true;
+            if (IsNewLineLike(trivia.Kind))
+                count++;
         }
 
-        return false;
+        return count;
     }
 
     private bool IsLeadingDereferenceLikeStar(SyntaxToken token)
@@ -2627,9 +2654,16 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var arrowToken);
 
                 var previousTreatNewlinesDuringExpression = TreatNewlinesAsTokens;
-                SetTreatNewlinesAsTokens(true);
-
-                var expression = new ExpressionSyntaxParser(this).ParseExpression();
+                ExpressionSyntax expression;
+                if (HasLineBreakBeforePeekToken() && IsLikelyNextMatchArmHeader())
+                {
+                    expression = IdentifierName(MissingToken(SyntaxKind.IdentifierToken));
+                }
+                else
+                {
+                    SetTreatNewlinesAsTokens(true);
+                    expression = new ExpressionSyntaxParser(this).ParseExpression();
+                }
 
                 SyntaxToken terminatorToken;
                 if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken))
@@ -2703,7 +2737,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             var kind = PeekToken().Kind;
 
-            if (kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken)
+            if (kind is SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken)
             {
                 ReadToken();
                 continue;
@@ -2711,6 +2745,44 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             break;
         }
+    }
+
+    private bool IsLikelyNextMatchArmHeader()
+    {
+        const int MaxLookahead = 64;
+        var depth = 0;
+
+        for (var i = 0; i < MaxLookahead; i++)
+        {
+            var token = PeekToken(i);
+
+            if (token.IsKind(SyntaxKind.EndOfFileToken) || token.IsKind(SyntaxKind.CloseBraceToken))
+                return false;
+
+            if (i > 0 && TokenHasLeadingNewLine(token))
+                return false;
+
+            if (depth == 0 && token.IsKind(SyntaxKind.FatArrowToken))
+                return true;
+
+            if (token.IsKind(SyntaxKind.OpenParenToken)
+                || token.IsKind(SyntaxKind.OpenBracketToken)
+                || token.IsKind(SyntaxKind.OpenBraceToken))
+            {
+                depth++;
+                continue;
+            }
+
+            if (token.IsKind(SyntaxKind.CloseParenToken)
+                || token.IsKind(SyntaxKind.CloseBracketToken)
+                || token.IsKind(SyntaxKind.CloseBraceToken))
+            {
+                if (depth > 0)
+                    depth--;
+            }
+        }
+
+        return false;
     }
 
     private IfExpressionSyntax ParseIfExpressionSyntax()
@@ -3023,7 +3095,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (IsNewLineLike(t))
                 return false;
 
-            if (i > startOffset && HasLeadingNewLine(t))
+            if (i > startOffset && TokenHasLeadingNewLine(t))
                 return false;
 
             // If we're not nested, these tokens end the current expression/statement region.

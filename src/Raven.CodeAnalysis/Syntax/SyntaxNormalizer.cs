@@ -69,28 +69,19 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return token;
         }
 
-        if (IsNewLineToken(token.Kind))
-        {
-            var normalizedNewLine = SyntaxFactory.NewLineToken
-                .WithLeadingTrivia(SyntaxFactory.TriviaList())
-                .WithTrailingTrivia(SyntaxFactory.TriviaList());
-
-            TrackTokenFlow(normalizedNewLine);
-            return normalizedNewLine;
-        }
-
         if (!ShouldRewriteToken(token))
         {
-            TrackTokenFlow(token);
+            TrackTokenFlow(token, token);
             return token;
         }
 
         if (HasMeaningfulTrivia(token.LeadingTrivia) || HasMeaningfulTrivia(token.TrailingTrivia))
         {
-            TrackTokenFlow(token);
+            TrackTokenFlow(token, token);
             return token;
         }
 
+        var originalToken = token;
         var effectiveIndent = _indentLevel;
         if (token.Kind == SyntaxKind.CloseBraceToken && effectiveIndent > 0)
         {
@@ -102,25 +93,27 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         token = token.WithLeadingTrivia(leading).WithTrailingTrivia(trailing);
 
-        TrackTokenFlow(token);
+        TrackTokenFlow(originalToken, token);
 
         return token;
     }
 
-    private void TrackTokenFlow(SyntaxToken token)
+    private void TrackTokenFlow(SyntaxToken originalToken, SyntaxToken rewrittenToken)
     {
-        if (token.Kind == SyntaxKind.CloseBraceToken && _indentLevel > 0)
+        if (rewrittenToken.Kind == SyntaxKind.CloseBraceToken && _indentLevel > 0)
         {
             _indentLevel--;
         }
 
-        if (token.Kind == SyntaxKind.OpenBraceToken)
+        if (rewrittenToken.Kind == SyntaxKind.OpenBraceToken)
         {
             _indentLevel++;
         }
 
-        _pendingLineBreaks = GetPendingLineBreaksAfter(token);
-        _previousToken = token;
+        _pendingLineBreaks = CountLineBreakTrivia(rewrittenToken.TrailingTrivia) > 0
+            ? 0
+            : GetPendingLineBreaksAfter(originalToken);
+        _previousToken = rewrittenToken;
         _isFirstToken = false;
     }
 
@@ -131,23 +124,29 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return SyntaxFactory.TriviaList();
         }
 
-        if (token.Kind == SyntaxKind.EndOfFileToken || IsNewLineToken(token.Kind))
+        if (token.Kind == SyntaxKind.EndOfFileToken)
         {
             return SyntaxFactory.TriviaList();
         }
 
+        var previousHasTrailingLineBreak = CountLineBreakTrivia(_previousToken.TrailingTrivia) > 0;
         var lineBreaks = _pendingLineBreaks;
+        if (!previousHasTrailingLineBreak && HasStructuralLeadingLineBreak(token))
+        {
+            lineBreaks = Math.Max(lineBreaks, 1);
+        }
+
         if (ShouldAttachToPreviousToken(token))
         {
             lineBreaks = 0;
         }
-        else if (ShouldStartNewLineBefore(token))
+        else if (!previousHasTrailingLineBreak && ShouldStartNewLineBefore(token))
         {
             lineBreaks = Math.Max(lineBreaks, 1);
         }
         else if (token.Kind == SyntaxKind.CloseBraceToken
             && _previousToken.Kind != SyntaxKind.OpenBraceToken
-            && !IsNewLineToken(_previousToken.Kind))
+            && !previousHasTrailingLineBreak)
         {
             lineBreaks = Math.Max(lineBreaks, 1);
         }
@@ -170,6 +169,14 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             }
 
             return SyntaxFactory.TriviaList(trivias);
+        }
+
+        if (previousHasTrailingLineBreak && token.Kind != SyntaxKind.EndOfFileToken)
+        {
+            var indentText = string.Concat(Enumerable.Repeat(_indent, effectiveIndent));
+            return indentText.Length > 0
+                ? SyntaxFactory.TriviaList(SyntaxFactory.Whitespace(indentText))
+                : SyntaxFactory.TriviaList();
         }
 
         return NeedsSpace(_previousToken, token)
@@ -261,6 +268,14 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             or SyntaxKind.EndOfLineTrivia;
     }
 
+    private static bool IsLineBreakTrivia(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.LineFeedTrivia
+            or SyntaxKind.CarriageReturnTrivia
+            or SyntaxKind.CarriageReturnLineFeedTrivia
+            or SyntaxKind.EndOfLineTrivia;
+    }
+
     private bool ShouldAttachToPreviousToken(SyntaxToken token)
     {
         if (token.Kind == SyntaxKind.CloseParenToken && ShouldKeepCloseParenWithBlockBodiedLambda(token))
@@ -325,11 +340,6 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return 0;
         }
 
-        if (IsNewLineToken(token.Kind))
-        {
-            return 1;
-        }
-
         if (token.Kind == SyntaxKind.SemicolonToken)
         {
             return 1;
@@ -341,6 +351,11 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         }
 
         if (token.Kind == SyntaxKind.CloseBraceToken)
+        {
+            return 1;
+        }
+
+        if (CountLineBreakTrivia(token.TrailingTrivia) > 0)
         {
             return 1;
         }
@@ -357,7 +372,8 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     {
         for (var current = token.Parent; current is not null; current = current.Parent)
         {
-            if (current.GetLastToken(includeZeroWidth: false) != token)
+            var lastToken = current.GetLastToken(includeZeroWidth: false);
+            if (!AreSameToken(lastToken, token))
                 continue;
 
             if (current is AccessorDeclarationSyntax)
@@ -375,6 +391,71 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             if (current.Kind is SyntaxKind.ImportDirective
                 or SyntaxKind.AliasDirective
                 or SyntaxKind.GlobalStatement
+                or SyntaxKind.MatchArm
+                or SyntaxKind.EnumMemberDeclaration
+                or SyntaxKind.UnionCaseClause)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool AreSameToken(SyntaxToken left, SyntaxToken right)
+    {
+        if (left.Kind != right.Kind || left.IsMissing != right.IsMissing)
+        {
+            return false;
+        }
+
+        return left.Span.Equals(right.Span);
+    }
+
+    private static int CountLineBreakTrivia(SyntaxTriviaList triviaList)
+    {
+        var count = 0;
+
+        foreach (var trivia in triviaList)
+        {
+            if (IsLineBreakTrivia(trivia.Kind))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static bool HasStructuralLeadingLineBreak(SyntaxToken token)
+    {
+        if (CountLineBreakTrivia(token.LeadingTrivia) == 0)
+        {
+            return false;
+        }
+
+        for (var current = token.Parent; current is not null; current = current.Parent)
+        {
+            var firstToken = current.GetFirstToken(includeZeroWidth: false);
+            if (!AreSameToken(firstToken, token))
+                continue;
+
+            if (current is AccessorDeclarationSyntax)
+                return true;
+
+            if (current is StatementSyntax statement && statement.Parent is BlockStatementSyntax)
+                return true;
+
+            if (current is MemberDeclarationSyntax member &&
+                member.Parent is TypeDeclarationSyntax or CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
+            {
+                return true;
+            }
+
+            if (current.Kind is SyntaxKind.ImportDirective
+                or SyntaxKind.AliasDirective
+                or SyntaxKind.GlobalStatement
+                or SyntaxKind.MatchArm
                 or SyntaxKind.EnumMemberDeclaration
                 or SyntaxKind.UnionCaseClause)
             {
@@ -485,7 +566,6 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             or SyntaxKind.DotToken
             or SyntaxKind.ColonToken
             or SyntaxKind.QuestionToken
-            or SyntaxKind.NewLineToken
             or SyntaxKind.LineFeedToken
             or SyntaxKind.CarriageReturnToken
             or SyntaxKind.CarriageReturnLineFeedToken;
@@ -503,14 +583,6 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     {
         return (previous == SyntaxKind.QuestionToken && current == SyntaxKind.DotToken)
             || (previous == SyntaxKind.DotToken && current == SyntaxKind.DotToken);
-    }
-
-    private static bool IsNewLineToken(SyntaxKind kind)
-    {
-        return kind is SyntaxKind.NewLineToken
-            or SyntaxKind.LineFeedToken
-            or SyntaxKind.CarriageReturnToken
-            or SyntaxKind.CarriageReturnLineFeedToken;
     }
 
     private static bool TryGetEnclosingAccessor(SyntaxToken token, out AccessorDeclarationSyntax accessor)

@@ -15,10 +15,3 @@ are included.
 
 `FullSpan` includes the node's leading and trailing trivia. It corresponds to
 the exact text the parser consumed for the node.
-
-## `EffectiveSpan`
-
-`EffectiveSpan` is similar to `Span` but trims a trailing newline terminator
-token, if present. This is used when reporting diagnostics or determining
-symbol locations so that the trailing newline is not highlighted.
-

@@ -94,7 +94,7 @@ public sealed class ExpressionBodyToBlockBodyCodeFixProvider : CodeFixProvider
         var spanStart = expressionBody.Span.Start;
         var terminator = GetTerminatorToken(declaration);
 
-        if (terminator.Kind is not SyntaxKind.None and not SyntaxKind.NewLineToken)
+        if (terminator.Kind is not SyntaxKind.None)
             return new TextSpan(spanStart, terminator.Span.End - spanStart);
 
         return expressionBody.Span;

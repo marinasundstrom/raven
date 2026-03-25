@@ -152,15 +152,15 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var block = Block(
             OpenBraceToken,
             List<StatementSyntax>(
-                new ReturnStatementSyntax(ReturnKeyword, LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)), NewLineToken)
+                new ReturnStatementSyntax(ReturnKeyword, LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)), Token(SyntaxKind.None))
             ),
             CloseBraceToken);
 
         // Nodes to replace the single return statement
         var newStatements = new List<SyntaxNode>
         {
-            new ExpressionStatementSyntax(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(100)), NewLineToken),
-            new ExpressionStatementSyntax(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(200)), NewLineToken)
+            new ExpressionStatementSyntax(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(100)), Token(SyntaxKind.None)),
+            new ExpressionStatementSyntax(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(200)), Token(SyntaxKind.None))
         };
 
         // Perform the replacement

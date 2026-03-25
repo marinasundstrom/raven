@@ -79,7 +79,13 @@ Syntax lists are special nodes that can keep multiple nodes for its parent. Thei
 
 The parent of a list item is the parent syntax node of the list, and not the list.
 
-There are: Normal syntax lists and separated syntax lists (having separator tokens)
+There are: Normal syntax lists and separated syntax lists.
+
+Separated syntax lists still alternate item/slot positions, but Raven may store
+`SyntaxKind.None` in a separator slot when the source used a newline-delimited
+boundary instead of an explicit separator token. If the expected separator is
+missing on the same line, recovery uses a missing separator token of the
+expected kind instead.
 
 An example of usage of lists is the `BlockSyntax`(statement) having multiple statements that have the block as its parent. 
 

@@ -31,11 +31,50 @@ public sealed class UnusedPropertyCodeFixProvider : CodeFixProvider
         if (propertyDecl is null)
             return;
 
-        var span = propertyDecl.FullSpan;
+        var span = GetRemovalSpan(propertyDecl);
         context.RegisterCodeFix(
             CodeAction.CreateTextChange(
                 "Remove unused property",
                 context.Document.Id,
                 new TextChange(span, string.Empty)));
+    }
+
+    private static TextSpan GetRemovalSpan(PropertyDeclarationSyntax propertyDecl)
+    {
+        if (propertyDecl.Parent is TypeDeclarationSyntax containingType &&
+            containingType.Members.Count == 1 &&
+            containingType.Members[0].Span == propertyDecl.Span &&
+            TryGetBodyTokens(containingType, out var openBraceToken, out var closeBraceToken))
+        {
+            return TextSpan.FromBounds(openBraceToken.Span.End, closeBraceToken.FullSpan.Start);
+        }
+
+        return propertyDecl.FullSpan;
+    }
+
+    private static bool TryGetBodyTokens(
+        TypeDeclarationSyntax containingType,
+        out SyntaxToken openBraceToken,
+        out SyntaxToken closeBraceToken)
+    {
+        switch (containingType)
+        {
+            case ClassDeclarationSyntax classDeclaration:
+                openBraceToken = classDeclaration.OpenBraceToken;
+                closeBraceToken = classDeclaration.CloseBraceToken;
+                return true;
+            case StructDeclarationSyntax structDeclaration:
+                openBraceToken = structDeclaration.OpenBraceToken;
+                closeBraceToken = structDeclaration.CloseBraceToken;
+                return true;
+            case RecordDeclarationSyntax recordDeclaration:
+                openBraceToken = recordDeclaration.OpenBraceToken;
+                closeBraceToken = recordDeclaration.CloseBraceToken;
+                return true;
+            default:
+                openBraceToken = default;
+                closeBraceToken = default;
+                return false;
+        }
     }
 }

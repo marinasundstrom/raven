@@ -1,14 +1,14 @@
 <Factories>
   <Factory Node="EmptyStatement">
     <Overload>
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
   <Factory Node="ExpressionStatement">
     <Overload>
       <Parameter Slot="Expression" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
@@ -18,7 +18,7 @@
       <Parameter Slot="Left" />
       <Parameter Slot="OperatorToken" />
       <Parameter Slot="Right" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
@@ -28,7 +28,7 @@
       <Parameter Slot="Left" />
       <Parameter Slot="Right" />
       <Default Slot="OperatorToken" Token="EqualsToken" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
@@ -38,7 +38,7 @@
       <Parameter Slot="ThenStatement" />
       <Default Slot="IfKeyword" Token="IfKeyword" />
       <Default Slot="ElseClause" Null="true" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
@@ -51,7 +51,7 @@
       <Default Slot="IfKeyword" Token="IfKeyword" />
       <Default Slot="OperatorToken" Token="EqualsToken" />
       <Default Slot="ElseClause" Null="true" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
@@ -60,14 +60,14 @@
       <Parameter Slot="Condition" />
       <Parameter Slot="Statement" />
       <Default Slot="WhileKeyword" Token="WhileKeyword" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
   <Factory Node="LocalDeclarationStatement">
     <Overload>
       <Parameter Slot="Declaration" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
@@ -75,26 +75,26 @@
     <Overload Summary="Creates a return statement that returns a value expression.">
       <Parameter Slot="Expression" />
       <Default Slot="ReturnKeyword" Token="ReturnKeyword" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
     <Overload Summary="Creates a bare return statement with no value expression.">
       <Default Slot="ReturnKeyword" Token="ReturnKeyword" />
       <Default Slot="Expression" Null="true" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
   <Factory Node="BreakStatement">
     <Overload>
       <Default Slot="BreakKeyword" Token="BreakKeyword" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
   <Factory Node="ContinueStatement">
     <Overload>
       <Default Slot="ContinueKeyword" Token="ContinueKeyword" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 
@@ -102,7 +102,7 @@
     <Overload>
       <Parameter Slot="Expression" />
       <Default Slot="ThrowKeyword" Token="ThrowKeyword" />
-      <Default Slot="TerminatorToken" Token="NewLineToken" />
+      <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
 

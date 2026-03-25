@@ -23,7 +23,7 @@ public sealed class ThrowStatementUseResultAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeThrow(SyntaxNodeAnalysisContext context)
     {
-        var location = Location.Create(context.Node.SyntaxTree, context.Node.EffectiveSpan);
+        var location = Location.Create(context.Node.SyntaxTree, context.Node.Span);
 
         var diagnostic = Diagnostic.Create(Descriptor, location);
         context.ReportDiagnostic(diagnostic);

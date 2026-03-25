@@ -83,6 +83,21 @@ internal class SyntaxParser : ParseContext
         return token.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia));
     }
 
+    protected static bool HasTrailingEndOfLineTrivia(SyntaxToken token)
+    {
+        return token.TrailingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia));
+    }
+
+    protected bool HasLineBreakBeforePeekToken()
+    {
+        var current = PeekToken();
+
+        if (HasLeadingEndOfLineTrivia(current))
+            return true;
+
+        return LastToken is { } lastToken && HasTrailingEndOfLineTrivia(lastToken);
+    }
+
     protected static bool CanTokenBeIdentifier(SyntaxToken token)
     {
         return SyntaxFacts.CanBeIdentifier(token.Kind);
@@ -312,30 +327,23 @@ internal class SyntaxParser : ParseContext
 
     internal bool TryConsumeTerminator(out SyntaxToken token)
     {
-        bool previous = TreatNewlinesAsTokens;
-        SetTreatNewlinesAsTokens(true);
-
         var current = PeekToken();
-
-        // Fast-path: immediate terminators
-        if (IsNewLineToken(current))
-        {
-            token = ReadToken();
-            SetTreatNewlinesAsTokens(previous);
-            return true;
-        }
 
         if (current.Kind == SyntaxKind.SemicolonToken)
         {
             token = ReadToken();
-            SetTreatNewlinesAsTokens(previous);
+            return true;
+        }
+
+        if (HasLineBreakBeforePeekToken())
+        {
+            token = Token(SyntaxKind.None);
             return true;
         }
 
         if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
         {
             token = Token(SyntaxKind.None);
-            SetTreatNewlinesAsTokens(previous);
             return true;
         }
 
@@ -343,7 +351,6 @@ internal class SyntaxParser : ParseContext
             current.Kind != SyntaxKind.IdentifierToken)
         {
             token = Token(SyntaxKind.None);
-            SetTreatNewlinesAsTokens(previous);
             return true;
         }
 
@@ -363,7 +370,6 @@ internal class SyntaxParser : ParseContext
             {
                 AddSkippedToPending(skippedTokens);
                 token = Token(SyntaxKind.None);
-                SetTreatNewlinesAsTokens(previous);
                 return true;
             }
 
@@ -371,15 +377,14 @@ internal class SyntaxParser : ParseContext
             {
                 ReportInvalidExpressionTermForSkippedToken(firstSkippedToken);
                 token = ConsumeWithLeadingSkipped(skippedTokens);
-                SetTreatNewlinesAsTokens(previous);
                 return true;
             }
 
-            if (IsNewLineToken(current))
+            if (HasLineBreakBeforePeekToken())
             {
                 ReportInvalidExpressionTermForSkippedToken(firstSkippedToken);
-                token = ConsumeWithLeadingSkipped(skippedTokens);
-                SetTreatNewlinesAsTokens(previous);
+                AddSkippedToPending(skippedTokens);
+                token = Token(SyntaxKind.None);
                 return true;
             }
 
@@ -388,7 +393,6 @@ internal class SyntaxParser : ParseContext
                 AddSkippedToPending(skippedTokens);
                 GetBaseContext()._lookaheadTokens.Clear();
                 token = Token(SyntaxKind.None);
-                SetTreatNewlinesAsTokens(previous);
                 return true;
             }
         }
@@ -422,7 +426,6 @@ internal class SyntaxParser : ParseContext
             SyntaxKind.SemicolonToken => false,
             SyntaxKind.CommaToken => false,
             SyntaxKind.ColonToken => false,
-            SyntaxKind.NewLineToken => false,
             SyntaxKind.LineFeedToken => false,
             SyntaxKind.CarriageReturnToken => false,
             SyntaxKind.CarriageReturnLineFeedToken => false,
@@ -470,7 +473,7 @@ internal class SyntaxParser : ParseContext
         GetBaseContext()._pendingTrivia.Add(trivia);
     }
 
-    protected List<SyntaxToken> ConsumeSkippedTokensUntil(Func<SyntaxToken, bool> shouldStop)
+    protected List<SyntaxToken> ConsumeSkippedTokensUntil(Func<SyntaxToken, bool> shouldStop, bool stopAtImplicitLineBreak = false)
     {
         var skippedTokens = new List<SyntaxToken>();
 
@@ -481,7 +484,9 @@ internal class SyntaxParser : ParseContext
             skippedTokens.Add(current);
 
             var next = PeekToken();
-            if (next.Kind == SyntaxKind.EndOfFileToken || shouldStop(next))
+            if (next.Kind == SyntaxKind.EndOfFileToken ||
+                shouldStop(next) ||
+                (stopAtImplicitLineBreak && HasLineBreakBeforePeekToken()))
                 break;
         }
 
@@ -528,25 +533,5 @@ internal class SyntaxParser : ParseContext
         }
 
         return (BaseParseContext)ctx;
-    }
-
-    private static bool IsNewLineToken(SyntaxToken token)
-    {
-        return token.Kind is
-            SyntaxKind.LineFeedToken or
-            SyntaxKind.CarriageReturnToken or
-            SyntaxKind.CarriageReturnLineFeedToken or
-            SyntaxKind.NewLineToken;
-    }
-
-    private static SyntaxKind GetTriviaKindForNewLineToken(BaseParseContext baseContext, SyntaxToken newlineToken)
-    {
-        return newlineToken.Text switch
-        {
-            "\r\n" => baseContext.CarriageReturnLineFeedTriviaKind,
-            "\r" => baseContext.CarriageReturnTriviaKind,
-            "\n" => baseContext.LineFeedTriviaKind,
-            _ => baseContext.LineFeedTriviaKind,
-        };
     }
 }

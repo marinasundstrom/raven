@@ -23,7 +23,6 @@ internal static partial class SyntaxFactory
     public static readonly SyntaxTrivia Space = new(SyntaxKind.WhitespaceTrivia, " ");
     public static readonly SyntaxTrivia Tab = new(SyntaxKind.TabTrivia, "\t");
 
-    public static readonly SyntaxToken NewLineToken = new(SyntaxKind.NewLineToken, "");
     public static readonly SyntaxToken EndOfFileToken = new(SyntaxKind.EndOfFileToken, "");
 
     public static SyntaxTrivia SingleLineComment(string text) => new(SyntaxKind.SingleLineCommentTrivia, text);

@@ -398,7 +398,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         if (!IsPossibleCompilationUnitMemberStart(next))
             return;
 
-        if (HasLeadingEndOfLineTrivia(next))
+        if (HasLineBreakBeforePeekToken())
             return;
 
         if (!TryGetDeclarationTerminatorKind(member, out var terminatorKind))
@@ -443,7 +443,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         var skippedTokens = ConsumeSkippedTokensUntil(token =>
             token.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken ||
             IsPossibleCompilationUnitMemberStart(token) ||
-            StatementSyntaxParser.IsTokenPotentialStatementStart(token));
+            StatementSyntaxParser.IsTokenPotentialStatementStart(token),
+            stopAtImplicitLineBreak: true);
 
         return CreateSkippedToken(skippedTokens, span);
     }

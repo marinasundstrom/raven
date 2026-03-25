@@ -46,6 +46,7 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `PreferValInsteadOfLetAnalyzer`
 - `AutoPropertyInitializationAnalyzer`
 - `PreferNewLineBetweenDeclarationsAnalyzer`
+- `UnnecessaryTrailingSeparatorAnalyzer`
 - `ThrowStatementUseResultAnalyzer`
 - `MemberCanBePrivateAnalyzer`
 - `MemberCanBeStaticAnalyzer`
@@ -72,6 +73,11 @@ normal diagnostics stream.
 `PreferNewLineBetweenDeclarationsAnalyzer` is intentionally not in that promotion list: it is closer
 to formatting policy than refactoring and should eventually be handled by formatting configuration
 instead of either diagnostics or refactoring providers.
+
+`UnnecessaryTrailingSeparatorAnalyzer` (`RAV9028`) currently covers comma-delimited separated lists
+with a closing delimiter, such as parameter lists, type-argument lists, and similar comma-only
+syntax forms. It warns when a real trailing comma is present before the closing token. Implicit
+newline-delimited boundaries represented by `SyntaxKind.None` are not reported.
 
 Built-in code fixes currently include:
 - `RAV9016` (`Make member private`)

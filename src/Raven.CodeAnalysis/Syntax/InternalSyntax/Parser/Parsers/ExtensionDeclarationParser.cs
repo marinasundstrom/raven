@@ -533,28 +533,15 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
 
     private SyntaxToken ConsumeOptionalTypeTerminator()
     {
-        var previous = TreatNewlinesAsTokens;
-        SetTreatNewlinesAsTokens(true);
+        var current = PeekToken();
+        if (current.Kind == SyntaxKind.SemicolonToken)
+            return ReadToken();
 
-        try
-        {
-            var current = PeekToken();
-            if (IsNewLineLike(current) || current.Kind == SyntaxKind.SemicolonToken)
-                return ReadToken();
-
-            if (current.Kind is SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken)
-                return Token(SyntaxKind.None);
-
+        if (HasLineBreakBeforePeekToken() || current.Kind is SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken)
             return Token(SyntaxKind.None);
-        }
-        finally
-        {
-            SetTreatNewlinesAsTokens(previous);
-        }
-    }
 
-    private static bool IsNewLineLike(SyntaxToken token)
-        => token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
+        return Token(SyntaxKind.None);
+    }
 
     private void ReportUnexpectedTokenAndAdvance()
     {

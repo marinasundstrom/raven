@@ -211,7 +211,6 @@ internal class StatementSyntaxParser : SyntaxParser
             SyntaxKind.SemicolonToken => true,
             SyntaxKind.CommaToken => false,
             SyntaxKind.ColonToken => false,
-            SyntaxKind.NewLineToken => false,
             SyntaxKind.LineFeedToken => false,
             SyntaxKind.CarriageReturnToken => false,
             SyntaxKind.CarriageReturnLineFeedToken => false,
@@ -225,9 +224,9 @@ internal class StatementSyntaxParser : SyntaxParser
         var span = GetSpanOfPeekedToken();
 
         var skippedTokens = ConsumeSkippedTokensUntil(static token =>
-            token.Kind is SyntaxKind.SemicolonToken or SyntaxKind.CloseBraceToken or SyntaxKind.NewLineToken or
-            SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken ||
-            IsTokenPotentialStatementStart(token));
+            token.Kind is SyntaxKind.SemicolonToken or SyntaxKind.CloseBraceToken ||
+            IsTokenPotentialStatementStart(token),
+            stopAtImplicitLineBreak: true);
 
         var skippedToken = CreateSkippedToken(skippedTokens, span);
 
@@ -307,7 +306,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             if (!TryConsumeTerminator(out terminatorToken))
             {
-                SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
+                SkipUntil(SyntaxKind.LineFeedToken, SyntaxKind.CarriageReturnToken, SyntaxKind.CarriageReturnLineFeedToken, SyntaxKind.SemicolonToken);
             }
         }
         else
@@ -674,22 +673,14 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             while (true)
             {
-                var t = PeekToken();
-
-                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
-                    t.IsKind(SyntaxKind.CloseParenToken))
-                {
-                    break;
-                }
-
                 if (parsedParameters > 0)
                 {
-                    if (t.IsKind(SyntaxKind.CommaToken))
+                    if (TryConsumeParameterSeparator(SyntaxKind.CloseParenToken, out var separatorToken))
                     {
-                        var commaToken = ReadToken();
-                        parameterList.Add(commaToken);
+                        parameterList.Add(separatorToken);
                     }
-                    else
+                    else if (!PeekToken().IsKind(SyntaxKind.CloseParenToken) &&
+                             !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
                     {
                         parameterList.Add(MissingToken(SyntaxKind.CommaToken));
                         AddDiagnostic(
@@ -698,6 +689,14 @@ internal class StatementSyntaxParser : SyntaxParser
                                 GetSpanOfPeekedToken(),
                                 ","));
                     }
+                }
+
+                var t = PeekToken();
+
+                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
+                    t.IsKind(SyntaxKind.CloseParenToken))
+                {
+                    break;
                 }
 
                 var parameterStart = Position;
@@ -807,6 +806,32 @@ internal class StatementSyntaxParser : SyntaxParser
         return ParameterList(openParenTokenValue, List(parameterList.ToArray()), closeParenToken);
     }
 
+    private bool TryConsumeParameterSeparator(SyntaxKind closingKind, out SyntaxToken separatorToken)
+    {
+        var current = PeekToken();
+
+        if (current.IsKind(SyntaxKind.CommaToken))
+        {
+            separatorToken = ReadToken();
+            return true;
+        }
+
+        if (HasLineBreakBeforePeekToken())
+        {
+            separatorToken = Token(SyntaxKind.None);
+            return true;
+        }
+
+        if (current.IsKind(closingKind) || current.IsKind(SyntaxKind.EndOfFileToken))
+        {
+            separatorToken = Token(SyntaxKind.None);
+            return false;
+        }
+
+        separatorToken = Token(SyntaxKind.None);
+        return false;
+    }
+
     private StatementSyntax? ParseReturnStatementSyntax()
     {
         var returnKeyword = ReadToken();
@@ -825,7 +850,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             if (!TryConsumeTerminator(out terminatorToken))
             {
-                SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
+                SkipUntil(SyntaxKind.LineFeedToken, SyntaxKind.CarriageReturnToken, SyntaxKind.CarriageReturnLineFeedToken, SyntaxKind.SemicolonToken);
             }
         }
         else
@@ -1026,9 +1051,6 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private SyntaxToken ConsumeTerminatorWithSkippedTokens(bool addSemicolonDiagnostic)
     {
-        bool previous = TreatNewlinesAsTokens;
-        SetTreatNewlinesAsTokens(true);
-
         var skippedTokens = new List<SyntaxToken>();
         bool reportedDiagnostic = false;
 
@@ -1036,19 +1058,16 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             var current = PeekToken();
 
-            if (IsNewLineToken(current))
+            if (HasLineBreakBeforePeekToken())
             {
-                var terminator = ReadToken();
-                var tokenWithTrivia = AttachSkippedTokens(terminator, skippedTokens);
-                SetTreatNewlinesAsTokens(previous);
-                return tokenWithTrivia;
+                AddSkippedTokensToPending(skippedTokens);
+                return Token(SyntaxKind.None);
             }
 
             if (current.Kind == SyntaxKind.SemicolonToken)
             {
                 var terminator = ReadToken();
                 var tokenWithTrivia = AttachSkippedTokens(terminator, skippedTokens);
-                SetTreatNewlinesAsTokens(previous);
                 return tokenWithTrivia;
             }
 
@@ -1064,7 +1083,6 @@ internal class StatementSyntaxParser : SyntaxParser
                             GetEndOfLastToken()));
                 }
 
-                SetTreatNewlinesAsTokens(previous);
                 return Token(SyntaxKind.None);
             }
 
@@ -1078,15 +1096,6 @@ internal class StatementSyntaxParser : SyntaxParser
             }
 
             skippedTokens.Add(ReadToken());
-        }
-
-        static bool IsNewLineToken(SyntaxToken token)
-        {
-            return token.Kind is
-                SyntaxKind.LineFeedToken or
-                SyntaxKind.CarriageReturnToken or
-                SyntaxKind.CarriageReturnLineFeedToken or
-                SyntaxKind.NewLineToken;
         }
 
         SyntaxToken AttachSkippedTokens(SyntaxToken terminator, List<SyntaxToken> skippedTokens)

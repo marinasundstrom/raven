@@ -1625,6 +1625,7 @@ public partial class SemanticModel
                 continue;
 
             ReportMissingAbstractBaseMembers(classSymbol, classDecl, classBinder.Diagnostics);
+            ReportIncompletePartialMembers(classSymbol, classBinder.Diagnostics);
         }
 
         foreach (var (interfaceDecl, interfaceBinder) in interfaceBinders)
@@ -2989,17 +2990,15 @@ public partial class SemanticModel
         if (classBinder.ContainingSymbol is SourceNamedTypeSymbol { IsRecord: true })
             RegisterRecordValueMembers(classDecl, classBinder);
 
-        var primaryDeclaration = parentType.DeclaringSyntaxReferences.FirstOrDefault();
-        if (primaryDeclaration is not null &&
-            primaryDeclaration.SyntaxTree == classDecl.SyntaxTree &&
-            primaryDeclaration.Span == classDecl.Span)
-        {
-            ReportIncompletePartialMethods(parentType, classBinder.Diagnostics);
-            ReportIncompletePartialProperties(parentType, classBinder.Diagnostics);
-            ReportIncompletePartialEvents(parentType, classBinder.Diagnostics);
-        }
         classBinder.EnsureDefaultConstructor();
 
+    }
+
+    private static void ReportIncompletePartialMembers(INamedTypeSymbol containingType, DiagnosticBag diagnostics)
+    {
+        ReportIncompletePartialMethods(containingType, diagnostics);
+        ReportIncompletePartialProperties(containingType, diagnostics);
+        ReportIncompletePartialEvents(containingType, diagnostics);
     }
 
     private static void ReportIncompletePartialMethods(INamedTypeSymbol containingType, DiagnosticBag diagnostics)

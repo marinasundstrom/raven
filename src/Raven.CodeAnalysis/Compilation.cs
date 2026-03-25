@@ -703,7 +703,7 @@ public partial class Compilation
     {
         if (memberDeclaration is BaseNamespaceDeclarationSyntax namespaceDeclarationSyntax)
         {
-            Location[] locations = [syntaxTree.GetLocation(namespaceDeclarationSyntax.EffectiveSpan)];
+            Location[] locations = [syntaxTree.GetLocation(namespaceDeclarationSyntax.Span)];
 
             SyntaxReference[] references = [namespaceDeclarationSyntax.GetReference()];
 
@@ -719,7 +719,7 @@ public partial class Compilation
         else if (memberDeclaration is TypeDeclarationSyntax classDeclaration &&
                  classDeclaration is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax)
         {
-            Location[] locations = [syntaxTree.GetLocation(classDeclaration.EffectiveSpan)];
+            Location[] locations = [syntaxTree.GetLocation(classDeclaration.Span)];
 
             SyntaxReference[] references = [classDeclaration.GetReference()];
 
@@ -827,7 +827,7 @@ public partial class Compilation
         }
         else if (memberDeclaration is InterfaceDeclarationSyntax interfaceDeclaration)
         {
-            Location[] locations = [syntaxTree.GetLocation(interfaceDeclaration.EffectiveSpan)];
+            Location[] locations = [syntaxTree.GetLocation(interfaceDeclaration.Span)];
 
             SyntaxReference[] references = [interfaceDeclaration.GetReference()];
 
@@ -863,7 +863,7 @@ public partial class Compilation
         }
         else if (memberDeclaration is ExtensionDeclarationSyntax extensionDeclaration)
         {
-            Location[] locations = [syntaxTree.GetLocation(extensionDeclaration.EffectiveSpan)];
+            Location[] locations = [syntaxTree.GetLocation(extensionDeclaration.Span)];
 
             SyntaxReference[] references = [extensionDeclaration.GetReference()];
 
@@ -905,7 +905,7 @@ public partial class Compilation
         }
         else if (memberDeclaration is DelegateDeclarationSyntax delegateDeclaration)
         {
-            Location[] locations = [syntaxTree.GetLocation(delegateDeclaration.EffectiveSpan)];
+            Location[] locations = [syntaxTree.GetLocation(delegateDeclaration.Span)];
             SyntaxReference[] references = [delegateDeclaration.GetReference()];
 
             var containingType = declaringSymbol as INamedTypeSymbol;
@@ -1028,7 +1028,7 @@ public partial class Compilation
         }
         else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
         {
-            Location[] locations = [syntaxTree.GetLocation(methodDeclaration.EffectiveSpan)];
+            Location[] locations = [syntaxTree.GetLocation(methodDeclaration.Span)];
 
             SyntaxReference[] references = [methodDeclaration.GetReference()];
 

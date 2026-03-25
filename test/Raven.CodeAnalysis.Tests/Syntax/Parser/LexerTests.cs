@@ -216,23 +216,9 @@ public class LexerTests
     }
 
     [Fact]
-    public void LineFeed_WithUnifiedNewLineToken_ReturnsNewLineToken()
+    public void LineFeed_ReturnsLineFeedToken()
     {
         var lexer = new Lexer(new StringReader("\n"));
-        var token = lexer.ReadToken();
-
-        Assert.Equal(SyntaxKind.NewLineToken, token.Kind);
-        Assert.Equal("\n", token.Text);
-    }
-
-    [Fact]
-    public void LineFeed_WithoutUnifiedNewLineToken_ReturnsLineFeedToken()
-    {
-        var lexer = new Lexer(new StringReader("\n"))
-        {
-            UseUnifiedNewLineToken = false,
-        };
-
         var token = lexer.ReadToken();
 
         Assert.Equal(SyntaxKind.LineFeedToken, token.Kind);
@@ -240,12 +226,12 @@ public class LexerTests
     }
 
     [Fact]
-    public void CarriageReturnLineFeed_WhenMerged_ReturnsSingleNewLineToken()
+    public void CarriageReturnLineFeed_WhenMerged_ReturnsSingleToken()
     {
         var lexer = new Lexer(new StringReader("\r\n"));
         var token = lexer.ReadToken();
 
-        Assert.Equal(SyntaxKind.NewLineToken, token.Kind);
+        Assert.Equal(SyntaxKind.CarriageReturnLineFeedToken, token.Kind);
         Assert.Equal("\r\n", token.Text);
     }
 
@@ -255,7 +241,6 @@ public class LexerTests
         var lexer = new Lexer(new StringReader("\r\n"))
         {
             MergeCarriageReturnAndLineFeed = false,
-            UseUnifiedNewLineToken = false,
         };
 
         var carriageReturn = lexer.ReadToken();

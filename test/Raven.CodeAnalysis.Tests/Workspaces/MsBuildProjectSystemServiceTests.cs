@@ -332,7 +332,7 @@ val value = WidgetFactory.CreateDefault()
                     val Name: string => "Tests.Observable"
 
                     func GetMacros() -> ImmutableArray<IMacroDefinition> {
-                        ImmutableArray.Create<IMacroDefinition>(ObservableMacro())
+                        [ObservableMacro()]
                     }
                 }
 
@@ -373,7 +373,7 @@ val value = WidgetFactory.CreateDefault()
 
                         MacroExpansionResult {
                             ReplacementDeclaration = replacement
-                            IntroducedMembers = ImmutableArray.Create<MemberDeclarationSyntax>(backingStorage)
+                            IntroducedMembers = [container.Members[0]]
                         }
                     }
                 }
@@ -460,7 +460,7 @@ val value = WidgetFactory.CreateDefault()
                     val Name: string => "Tests.Observable"
 
                     func GetMacros() -> ImmutableArray<IMacroDefinition> {
-                        ImmutableArray.Create<IMacroDefinition>(ObservableMacro())
+                        [ObservableMacro()]
                     }
                 }
 
@@ -507,7 +507,7 @@ val value = WidgetFactory.CreateDefault()
 
                         MacroExpansionResult {
                             ReplacementDeclaration = replacement
-                            IntroducedMembers = ImmutableArray.Create<MemberDeclarationSyntax>(backingStorage)
+                            IntroducedMembers = [container.Members[0]]
                         }
                     }
                 }
@@ -607,12 +607,13 @@ val value = WidgetFactory.CreateDefault()
                 import System.Collections.Immutable.*
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.CodeAnalysis.Syntax.*
+                import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
                 class ObservableMacroPlugin : IRavenMacroPlugin {
                     val Name: string => "Tests.Observable"
 
                     func GetMacros() -> ImmutableArray<IMacroDefinition> {
-                        ImmutableArray.Create<IMacroDefinition>(ObservableMacro())
+                        [ObservableMacro()]
                     }
                 }
 

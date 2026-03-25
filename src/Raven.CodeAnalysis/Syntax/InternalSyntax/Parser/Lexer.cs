@@ -73,19 +73,13 @@ internal class Lexer : ILexer
     }
 
     /// <summary>
-    /// NewLineToken for CR and LF
-    /// </summary>
-    /// <value></value>
-    public bool UseUnifiedNewLineToken { get; set; } = true;
-
-    /// <summary>
     /// Treat the sequence CR and LF as one symbol.
     /// </summary>
     /// <value></value>
     public bool MergeCarriageReturnAndLineFeed { get; set; } = true;
 
-    public SyntaxKind LineFeedTokenKind => UseUnifiedNewLineToken ? SyntaxKind.NewLineToken : SyntaxKind.LineFeedToken;
-    public SyntaxKind CarriageReturnLineFeedTokenKind => UseUnifiedNewLineToken ? SyntaxKind.NewLineToken : SyntaxKind.CarriageReturnLineFeedToken;
+    public SyntaxKind LineFeedTokenKind => SyntaxKind.LineFeedToken;
+    public SyntaxKind CarriageReturnLineFeedTokenKind => SyntaxKind.CarriageReturnLineFeedToken;
 
     public Token ReadToken()
     {
@@ -1648,7 +1642,7 @@ internal class Lexer : ILexer
         return new Token(SyntaxKind.NumericLiteralToken, text, 0, text.Length);
     }
 
-    // NOTE: Comment lexing uses IsEndOfLine to ensure single-line comments never consume newline tokens.
+    // NOTE: Comment lexing uses IsEndOfLine to ensure single-line comments never consume line break characters.
     private static bool IsHexDigitForNumericLiteral(char ch)
     {
         return (ch >= '0' && ch <= '9')

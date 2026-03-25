@@ -155,11 +155,17 @@ UnionCaseTerminator      ::= ',' | TypeTerminator ;
    Commas are optional between cases; newline separators remain valid. *)
 
 BaseList                 ::= ':' Type {',' Type} ;
+(* In declaration-oriented separated lists such as parameter lists, type
+   parameter lists, type argument lists, and enum-member lists, Raven also
+   accepts newline as a boundary. Some lists, such as enum-member lists, also
+   admit alternate explicit separators like `;`. The syntax tree keeps the
+   separated-list shape and records `SyntaxKind.None` for implicit separator
+   slots. Same-line omission is still an error and recovers with a missing
+   expected separator token. *)
 
 ClassBody                ::= '{' {ClassMember} '}' ;
 
-TypeTerminator           ::= NewLineToken | ';' ;
-NewLineToken             ::= /* newline trivia promoted to a token after type declarations */ ;
+TypeTerminator           ::= end-of-line-trivia | ';' ;
 
 ClassMember              ::= FieldDeclaration
                            | ConstDeclaration
@@ -368,7 +374,7 @@ MatchArmList             ::= MatchArm {MatchArm} ;
 MatchArm                 ::= MatchArmBindingKeyword? Pattern MatchGuardClause? '=>' Expression MatchArmTerminator? ;
 MatchArmBindingKeyword   ::= 'val' | 'let' | 'var' ;
 MatchGuardClause         ::= 'when' Expression ;
-MatchArmTerminator       ::= NewLineToken | ';' ;
+MatchArmTerminator       ::= end-of-line-trivia | ';' ;
 
 AssignmentExpression     ::= Assignable AssignmentOperator AssignmentExpression
                            | DeconstructionAssignment
@@ -589,7 +595,7 @@ ObjectInitializerExpressionEntry
 
 (* Terminators are context-sensitive in Raven; commas are permitted but not required when a newline ends the entry. *)
 ObjectInitializerTerminator
-                           ::= ',' | NewLineToken | ';' ;
+                           ::= ',' | end-of-line-trivia | ';' ;
 
 (* ---------- With expressions ---------- *)
 
@@ -597,7 +603,7 @@ WithExpression           ::= 'with' '{' { WithAssignment } '}' ;
 
 WithAssignment           ::= Identifier '=' Expression WithAssignmentTerminator? ;
 
-WithAssignmentTerminator ::= ',' | NewLineToken | ';' ;
+WithAssignmentTerminator ::= ',' | end-of-line-trivia | ';' ;
 MemberBindingExpression  ::= '.' Identifier ;
 (* Member binding is target-typed; for discriminated unions, `.Case(...)` binds
    to a case on the expected union type. *)

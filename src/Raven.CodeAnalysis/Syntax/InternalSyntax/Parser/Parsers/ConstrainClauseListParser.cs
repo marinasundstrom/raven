@@ -165,7 +165,6 @@ internal class ConstrainClauseListParser : SyntaxParser
             SyntaxKind.OpenBraceToken or
             SyntaxKind.CloseBraceToken or
             SyntaxKind.SemicolonToken or
-            SyntaxKind.NewLineToken or
             SyntaxKind.LineFeedToken or
             SyntaxKind.CarriageReturnToken or
             SyntaxKind.CarriageReturnLineFeedToken or
@@ -174,6 +173,6 @@ internal class ConstrainClauseListParser : SyntaxParser
 
     private static bool IsNewLineLike(SyntaxToken token)
     {
-        return token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
+        return token.Kind is SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
     }
 }

@@ -5,15 +5,15 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public sealed class SyntaxFactoryStatementTests
 {
     [Fact]
-    public void ExpressionStatement_DefaultsTerminatorToNewLine()
+    public void ExpressionStatement_DefaultsTerminatorToNone()
     {
         var statement = ExpressionStatement(IdentifierName("value"));
 
-        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.NewLineToken);
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
     }
 
     [Fact]
-    public void AssignmentStatement_DefaultsTerminatorToNewLine()
+    public void AssignmentStatement_DefaultsTerminatorToNone()
     {
         var statement = AssignmentStatement(
             SyntaxKind.SimpleAssignmentStatement,
@@ -21,38 +21,38 @@ public sealed class SyntaxFactoryStatementTests
             EqualsToken,
             LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(1)));
 
-        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.NewLineToken);
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
     }
 
     [Fact]
-    public void ReturnStatement_DefaultsTerminatorToNewLine()
+    public void ReturnStatement_DefaultsTerminatorToNone()
     {
         var statement = ReturnStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(1)));
 
-        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.NewLineToken);
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
     }
 
     [Fact]
-    public void ReturnStatement_WithoutExpression_DefaultsTerminatorToNewLine()
+    public void ReturnStatement_WithoutExpression_DefaultsTerminatorToNone()
     {
         var statement = ReturnStatement();
 
-        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.NewLineToken);
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
         statement.Expression.ShouldBeNull();
     }
 
     [Fact]
-    public void IfStatement_DefaultsTerminatorToNewLine()
+    public void IfStatement_DefaultsTerminatorToNone()
     {
         var statement = IfStatement(
             IdentifierName("condition"),
             BlockStatement(List<StatementSyntax>()));
 
-        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.NewLineToken);
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
     }
 
     [Fact]
-    public void IfPatternStatement_DefaultsTerminatorToNewLine()
+    public void IfPatternStatement_DefaultsTerminatorToNone()
     {
         var statement = IfPatternStatement(
             ValKeyword,
@@ -60,11 +60,11 @@ public sealed class SyntaxFactoryStatementTests
             IdentifierName("value"),
             BlockStatement(List<StatementSyntax>()));
 
-        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.NewLineToken);
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
     }
 
     [Fact]
-    public void LocalDeclarationStatement_DefaultsTerminatorToNewLine()
+    public void LocalDeclarationStatement_DefaultsTerminatorToNone()
     {
         var declaration = VariableDeclaration(
             VarKeyword,
@@ -79,6 +79,6 @@ public sealed class SyntaxFactoryStatementTests
 
         var statement = LocalDeclarationStatement(declaration);
 
-        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.NewLineToken);
+        statement.TerminatorToken.Kind.ShouldBe(SyntaxKind.None);
     }
 }

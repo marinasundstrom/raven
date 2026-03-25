@@ -219,6 +219,28 @@ let r = x match {
     }
 
     [Fact]
+    public void MatchExpression_WithLeadingDotPatternsOnSeparateLines_ParsesArms()
+    {
+        const string code = """
+let result = token match {
+    .Identifier(val text) => text
+    .Number(val value) => value.ToString()
+    _ => ""
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(3, match.Arms.Count);
+        Assert.All(match.Arms, arm => Assert.False(arm.Expression.IsMissing));
+        Assert.IsType<MemberPatternSyntax>(match.Arms[0].Pattern);
+        Assert.IsType<MemberPatternSyntax>(match.Arms[1].Pattern);
+        Assert.IsType<DiscardPatternSyntax>(match.Arms[2].Pattern);
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void MatchExpression_InvalidTokenBetweenArms_RecoversAndParsesFollowingArm()
     {
         const string code = """

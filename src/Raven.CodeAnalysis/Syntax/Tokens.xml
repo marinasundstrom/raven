@@ -183,7 +183,6 @@
   <TokenKind Name="LineFeedToken" Value="\n" IsTrivia="true" />
   <TokenKind Name="CarriageReturnToken" Value="\r" IsTrivia="true" />
   <TokenKind Name="CarriageReturnLineFeedToken" Value="\r\n" IsTrivia="true" />
-  <TokenKind Name="NewLineToken" Value="\n" />
   <TokenKind Name="EndOfFileToken" Value="" />
 
   <!-- Tokens without fixed text -->
