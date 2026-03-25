@@ -522,6 +522,55 @@ union Either<T1, T2>(T1, T2)
     }
 
     [Fact]
+    public void ParenthesizedUnion_NominalDeconstructionPatternExtractsMemberValue()
+    {
+        const string code = """
+class Runner {
+    public static func DescribeCash() -> string {
+        val value = Payment(Cash(42.0m))
+        return value match {
+            Cash(val amount) => "cash $amount"
+            Card(val reference) => "card $reference"
+        }
+    }
+
+    public static func DescribeCard() -> string {
+        val value = Payment(Card("invoice"))
+        return value match {
+            Cash(val amount) => "cash $amount"
+            Card(val reference) => "card $reference"
+        }
+    }
+}
+
+record Cash(Amount: decimal)
+record Card(Reference: string)
+
+union Payment(Cash, Card)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "parenthesized-union-nominal-match",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var runnerType = assembly.GetType("Runner", throwOnError: true)!;
+        var cashMethod = runnerType.GetMethod("DescribeCash", BindingFlags.Public | BindingFlags.Static)!;
+        var cardMethod = runnerType.GetMethod("DescribeCard", BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.Equal("cash 42,0", cashMethod.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal("card invoice", cardMethod.Invoke(null, Array.Empty<object?>()));
+    }
+
+    [Fact]
     public void DiscriminatedUnionCaseTypes_AnnotatedWithMarkerAttribute()
     {
         var code = """

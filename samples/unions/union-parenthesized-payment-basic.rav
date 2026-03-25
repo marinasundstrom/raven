@@ -7,8 +7,8 @@ func PrintPaymentSource(value: Payment) {
     WriteLine(value)
 
     val description = value match {
-        Cash cash => "cash ${cash.Amount}"
-        Card card => "card ${card.Reference}"
+        Cash(val amount) => "cash $amount"
+        Card(val reference) => "card $reference"
     }
 
     WriteLine(description)

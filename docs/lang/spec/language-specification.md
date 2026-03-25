@@ -4455,8 +4455,8 @@ In pattern position:
   `Result.Ok(...)`, or `Ok(...)` when unambiguous for the scrutinee's union.
 * Parenthesized unions are matched with ordinary patterns over their declared
   member types. For example, `union Payment(Cash, Card)` is matched with
-  `Cash(...)` and `Card(...)`, and `union Either<int, string>(int, string)` is
-  matched with `int value` and `string text`.
+  `Cash(val amount)` and `Card(val reference)`, and `union Either<int, string>(int, string)`
+  is matched with `int value` and `string text`.
 
 ### Canonical case-construction forms
 

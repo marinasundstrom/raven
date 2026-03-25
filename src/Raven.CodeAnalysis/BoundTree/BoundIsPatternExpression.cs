@@ -115,6 +115,40 @@ internal sealed class BoundCasePattern : BoundPattern
     }
 }
 
+internal sealed class BoundUnionMemberPattern : BoundPattern
+{
+    public BoundUnionMemberPattern(
+        ITypeSymbol unionType,
+        ITypeSymbol memberType,
+        IMethodSymbol tryGetMethod,
+        BoundPattern pattern,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(unionType, reason)
+    {
+        UnionType = unionType;
+        MemberType = memberType;
+        TryGetMethod = tryGetMethod;
+        Pattern = pattern;
+    }
+
+    public ITypeSymbol UnionType { get; }
+    public ITypeSymbol MemberType { get; }
+    public IMethodSymbol TryGetMethod { get; }
+    public BoundPattern Pattern { get; }
+
+    public override IEnumerable<BoundDesignator> GetDesignators() => Pattern.GetDesignators();
+
+    public override void Accept(BoundTreeVisitor visitor)
+    {
+        visitor.DefaultVisit(this);
+    }
+
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+    {
+        return visitor.DefaultVisit(this);
+    }
+}
+
 internal abstract class BoundUnaryPattern : BoundPattern
 {
     public BoundPattern Pattern { get; }
@@ -845,7 +879,10 @@ internal partial class BlockBinder
             return new BoundConstantPattern(nullLiteral);
         }
 
-        return new BoundDeclarationPattern(declaredType, designator);
+        var declarationPattern = new BoundDeclarationPattern(declaredType, designator);
+        return TryWrapUnionMemberPattern(syntax.Type, inputType, declaredType, declarationPattern, out var unionMemberPattern)
+            ? unionMemberPattern
+            : declarationPattern;
     }
 
     private bool TryInferDeclarationPatternTypeFromIdentifierSyntax(
@@ -1595,6 +1632,9 @@ internal partial class BlockBinder
 
     private BoundPattern BindNominalDeconstructionPattern(NominalDeconstructionPatternSyntax syntax, ITypeSymbol? inputType)
     {
+        if (TryBindUnionMemberNominalDeconstructionPattern(syntax, inputType, out var unionMemberPattern))
+            return unionMemberPattern;
+
         if (TryBindNominalDeconstructionPatternAsCasePattern(syntax, inputType, out var casePattern))
             return casePattern;
 
@@ -1602,6 +1642,118 @@ internal partial class BlockBinder
 
         var boundType = BindTypeSyntaxAsExpression(syntax.Type);
         var recordType = EnsureTypeAccessible(boundType.Type, syntax.Type.GetLocation());
+
+        if (recordType.TypeKind == TypeKind.Error)
+        {
+            var props = BindNominalDeconstructionPatternSubpatternsAsDiscards(syntax);
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: Compilation.ErrorTypeSymbol,
+                narrowedType: recordType,
+                designator: BindWholePatternDesignation(syntax.Designation, inputType),
+                properties: props,
+                reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        if (recordType is not INamedTypeSymbol)
+        {
+            _diagnostics.ReportNominalDeconstructionPatternRequiresDeconstructableType(
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Type.GetLocation());
+
+            var props = BindNominalDeconstructionPatternSubpatternsAsDiscards(syntax);
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: Compilation.ErrorTypeSymbol,
+                narrowedType: recordType,
+                designator: BindWholePatternDesignation(syntax.Designation, inputType),
+                properties: props,
+                reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        if (recordType.TypeKind != TypeKind.Error &&
+            inputType.TypeKind != TypeKind.Error &&
+            !CanPatternMatchInputType(inputType, recordType))
+        {
+            _diagnostics.ReportNominalDeconstructionPatternTypeMismatch(
+                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Type.GetLocation());
+        }
+
+        var deconstructArity = GetDeconstructArity(recordType);
+        if (deconstructArity is null)
+        {
+            _diagnostics.ReportNominalDeconstructionPatternRequiresDeconstructableType(
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Type.GetLocation());
+
+            var props = BindNominalDeconstructionPatternSubpatternsAsDiscards(syntax);
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: Compilation.ErrorTypeSymbol,
+                narrowedType: recordType,
+                designator: BindWholePatternDesignation(syntax.Designation, recordType),
+                properties: props,
+                reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        var argumentList = syntax.ArgumentList;
+        var argumentCount = argumentList.Arguments.Count;
+
+        if (argumentCount != deconstructArity.Value)
+        {
+            _diagnostics.ReportNominalDeconstructionPatternArgumentCountMismatch(
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                deconstructArity.Value,
+                argumentCount,
+                argumentList.GetLocation());
+        }
+
+        var deconstructMethod = FindDeconstructMethod(recordType, argumentCount);
+        if (deconstructMethod is null)
+        {
+            var props = BindNominalDeconstructionPatternSubpatternsAsDiscards(syntax);
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: recordType,
+                narrowedType: recordType,
+                designator: BindWholePatternDesignation(syntax.Designation, recordType),
+                properties: props,
+                reason: BoundExpressionReason.NotFound);
+        }
+
+        return BindDeconstructPattern(
+            syntax.ArgumentList.Arguments,
+            deconstructMethod,
+            inputType,
+            narrowedType: recordType,
+            designation: syntax.Designation);
+    }
+
+    private bool TryBindUnionMemberNominalDeconstructionPattern(
+        NominalDeconstructionPatternSyntax syntax,
+        ITypeSymbol? inputType,
+        out BoundPattern? pattern)
+    {
+        pattern = null;
+
+        if (!TryResolveUnionMemberPatternTarget(syntax.Type, inputType, out var memberType, out var tryGetMethod))
+            return false;
+
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var innerPattern = BindNominalDeconstructionPatternAgainstKnownType(syntax, inputType, memberType);
+        pattern = new BoundUnionMemberPattern(inputType, memberType, tryGetMethod, innerPattern);
+        return true;
+    }
+
+    private BoundPattern BindNominalDeconstructionPatternAgainstKnownType(
+        NominalDeconstructionPatternSyntax syntax,
+        ITypeSymbol inputType,
+        ITypeSymbol memberType)
+    {
+        var recordType = EnsureTypeAccessible(memberType, syntax.Type.GetLocation());
 
         if (recordType.TypeKind == TypeKind.Error)
         {
@@ -1941,9 +2093,16 @@ internal partial class BlockBinder
         ITypeSymbol? lookupType,
         IUnionSymbol unionType,
         IUnionCaseTypeSymbol caseSymbol)
+        => FindTryGetMethod(lookupType, unionType, (ITypeSymbol)caseSymbol);
+
+    private IMethodSymbol? FindTryGetMethod(
+        ITypeSymbol? lookupType,
+        IUnionSymbol unionType,
+        ITypeSymbol targetType)
     {
-        var targetCaseType = ((ITypeSymbol)caseSymbol).GetPlainType();
+        var targetCaseType = targetType.GetPlainType();
         var targetUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)unionType);
+        var targetUnionCase = targetType.TryGetUnionCase();
 
         bool MatchesTargetCase(IMethodSymbol method)
         {
@@ -1959,7 +2118,8 @@ internal partial class BlockBinder
             if (parameterCase is not null)
             {
                 var parameterUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)parameterCase.Union);
-                return parameterCase.Ordinal == caseSymbol.Ordinal
+                return targetUnionCase is not null &&
+                    parameterCase.Ordinal == targetUnionCase.Ordinal
                     && AreSameUnionPatternTarget(parameterUnion, targetUnion);
             }
 
@@ -1988,7 +2148,7 @@ internal partial class BlockBinder
         }
 
         AddCandidate(unionType);
-        AddCandidate(caseSymbol);
+        AddCandidate(targetType as INamedTypeSymbol);
 
         if (lookupType is INamedTypeSymbol namedLookup)
             AddCandidate(namedLookup);
@@ -2005,6 +2165,78 @@ internal partial class BlockBinder
         }
 
         return null;
+    }
+
+    private bool TryWrapUnionMemberPattern(
+        TypeSyntax memberTypeSyntax,
+        ITypeSymbol? inputType,
+        ITypeSymbol memberType,
+        BoundPattern innerPattern,
+        out BoundPattern unionMemberPattern)
+    {
+        unionMemberPattern = innerPattern;
+
+        if (!TryResolveUnionMemberPatternTarget(memberTypeSyntax, inputType, out var resolvedMemberType, out var tryGetMethod))
+            return false;
+
+        if (!AreSameUnionMemberPatternTarget(memberType, resolvedMemberType))
+            return false;
+
+        unionMemberPattern = new BoundUnionMemberPattern(inputType!, resolvedMemberType, tryGetMethod, innerPattern);
+        return true;
+    }
+
+    private bool TryResolveUnionMemberPatternTarget(
+        TypeSyntax memberTypeSyntax,
+        ITypeSymbol? inputType,
+        out ITypeSymbol memberType,
+        out IMethodSymbol tryGetMethod)
+    {
+        memberType = Compilation.ErrorTypeSymbol;
+        tryGetMethod = null!;
+
+        if (inputType is null)
+            return false;
+
+        var unionType = inputType.TryGetUnion()
+            ?? inputType.TryGetUnionCase()?.Union;
+
+        if (unionType is null || unionType.MemberTypes.IsDefaultOrEmpty)
+            return false;
+
+        var boundType = BindTypeSyntaxAsExpression(memberTypeSyntax);
+        var resolvedType = EnsureTypeAccessible(boundType.Type, memberTypeSyntax.GetLocation());
+        if (resolvedType.TypeKind == TypeKind.Error)
+            return false;
+
+        var projectedMemberType = unionType.MemberTypes.FirstOrDefault(member =>
+            AreSameUnionMemberPatternTarget(member, resolvedType));
+
+        if (projectedMemberType is null)
+            return false;
+
+        var resolvedTryGetMethod = FindTryGetMethod(inputType, unionType, projectedMemberType);
+        if (resolvedTryGetMethod is null)
+            return false;
+
+        memberType = projectedMemberType;
+        tryGetMethod = resolvedTryGetMethod;
+        return true;
+    }
+
+    private static bool AreSameUnionMemberPatternTarget(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        var leftPlain = left.GetPlainType();
+        var rightPlain = right.GetPlainType();
+        if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
+            return true;
+
+        var leftDefinition = left.OriginalDefinition ?? left;
+        var rightDefinition = right.OriginalDefinition ?? right;
+        return SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition);
     }
 
     private BoundPattern BindCasePatternArgument(PatternSyntax syntax, ITypeSymbol parameterType)

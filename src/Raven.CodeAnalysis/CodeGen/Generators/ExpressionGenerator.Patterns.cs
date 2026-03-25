@@ -87,6 +87,7 @@ internal partial class ExpressionGenerator
             case BoundDeconstructPattern:
             case BoundPropertyPattern:
             case BoundCasePattern:
+            case BoundUnionMemberPattern:
                 return PatternInput.Object;
 
             default:
@@ -218,6 +219,12 @@ internal partial class ExpressionGenerator
                 ILGenerator.MarkLabel(labelDone);
             }
 
+            return;
+        }
+
+        if (pattern is BoundUnionMemberPattern unionMemberPattern)
+        {
+            EmitUnionMemberPattern(unionMemberPattern, inputType, scope, scrutineeLocal2);
             return;
         }
 
@@ -2944,5 +2951,92 @@ internal partial class ExpressionGenerator
             caseClrType = CloseNestedCarrierCaseType(outElementType, unionClrType);
 
         return tryGetMethod;
+    }
+
+    private void EmitUnionMemberPattern(
+        BoundUnionMemberPattern unionMemberPattern,
+        ITypeSymbol inputType,
+        Generator scope,
+        IILocal? scrutineeLocal2)
+    {
+        var unionClrType = Generator.InstantiateType(ResolveClrType(unionMemberPattern.UnionType));
+        var tryGetMethod = CloseMethodOnRuntimeCarrier(unionClrType, GetMethodInfo(unionMemberPattern.TryGetMethod));
+        var memberClrType = TryGetOutLocalElementType(tryGetMethod) is { } outElementType
+            ? CloseTypeFromMethodContext(outElementType, tryGetMethod.DeclaringType)
+            : Generator.InstantiateType(ResolveClrType(unionMemberPattern.MemberType));
+
+        if (inputType.TypeKind != TypeKind.Error)
+        {
+            var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
+            if (unionClrType.IsValueType && ClrTypesMatch(inputClr, unionClrType))
+            {
+                IILocal unionLocal;
+                if (scrutineeLocal2 is not null)
+                {
+                    unionLocal = scrutineeLocal2;
+                    ILGenerator.Emit(OpCodes.Pop);
+                }
+                else
+                {
+                    unionLocal = ILGenerator.DeclareLocal(unionClrType);
+                    ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+                }
+
+                var valueLocal = ILGenerator.DeclareLocal(memberClrType);
+                var labelFail = ILGenerator.DefineLabel();
+                var labelDone = ILGenerator.DefineLabel();
+
+                ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+                ILGenerator.Emit(OpCodes.Ldloca, valueLocal);
+                ILGenerator.Emit(OpCodes.Call, tryGetMethod);
+                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+                ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+                EmitPatternTestBranchFalse(unionMemberPattern.Pattern, unionMemberPattern.MemberType, scope, labelFail, valueLocal);
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                ILGenerator.Emit(OpCodes.Br, labelDone);
+
+                ILGenerator.MarkLabel(labelFail);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.MarkLabel(labelDone);
+                return;
+            }
+        }
+
+        if (RequiresValueTypeHandling(inputType) && inputType.TypeKind != TypeKind.Error)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(inputType));
+
+        inputType = Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var unionCarrierLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
+        var valueLocal2 = ILGenerator.DeclareLocal(memberClrType);
+        var labelSuccess = ILGenerator.DefineLabel();
+        var labelTryGetFail = ILGenerator.DefineLabel();
+        var labelTryGetDone = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Isinst, unionClrType);
+        ILGenerator.Emit(OpCodes.Dup);
+        ILGenerator.Emit(OpCodes.Brtrue, labelSuccess);
+        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Br, labelTryGetDone);
+
+        ILGenerator.MarkLabel(labelSuccess);
+        ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, unionClrType);
+        ILGenerator.Emit(OpCodes.Stloc, unionCarrierLocal);
+
+        ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, unionCarrierLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, valueLocal2);
+        ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, tryGetMethod);
+        ILGenerator.Emit(OpCodes.Brfalse, labelTryGetFail);
+
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal2);
+        EmitPatternTestBranchFalse(unionMemberPattern.Pattern, unionMemberPattern.MemberType, scope, labelTryGetFail, valueLocal2);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Br, labelTryGetDone);
+
+        ILGenerator.MarkLabel(labelTryGetFail);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.MarkLabel(labelTryGetDone);
     }
 }
