@@ -45,4 +45,42 @@ class Container
         Assert.Equal(RefKind.Out, parameters[1].RefKind);
         Assert.Equal(SpecialType.System_String, parameters[1].Type.SpecialType);
     }
+
+    [Fact]
+    public void MethodDeclaration_BindsTupleAndFunctionSignatureInNestedType()
+    {
+        const string source = """
+class Container
+{
+    func Transform(callback: (int, string) -> bool) -> (left: int, right: string)
+    {
+        return (1, "ok")
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodDeclaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
+
+        var parameter = Assert.Single(methodSymbol.Parameters);
+        var callbackType = Assert.IsAssignableFrom<INamedTypeSymbol>(parameter.Type);
+        Assert.Equal(TypeKind.Delegate, callbackType.TypeKind);
+        var invoke = callbackType.GetDelegateInvokeMethod();
+        Assert.NotNull(invoke);
+        Assert.Equal(SpecialType.System_Boolean, invoke!.ReturnType.SpecialType);
+        Assert.Equal(2, invoke.Parameters.Length);
+        Assert.Equal(SpecialType.System_Int32, invoke.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, invoke.Parameters[1].Type.SpecialType);
+
+        var tupleReturn = Assert.IsAssignableFrom<ITupleTypeSymbol>(methodSymbol.ReturnType);
+        Assert.Equal("left", tupleReturn.TupleElements[0].Name);
+        Assert.Equal(SpecialType.System_Int32, tupleReturn.TupleElements[0].Type.SpecialType);
+        Assert.Equal("right", tupleReturn.TupleElements[1].Name);
+        Assert.Equal(SpecialType.System_String, tupleReturn.TupleElements[1].Type.SpecialType);
+    }
 }

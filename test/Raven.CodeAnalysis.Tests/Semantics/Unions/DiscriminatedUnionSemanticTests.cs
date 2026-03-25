@@ -891,6 +891,46 @@ union Result<T, E> {
     }
 
     [Fact]
+    public void UnionCaseParameters_ComplexTypes_BindViaBindTypeSyntaxPath()
+    {
+        const string source = """
+union Payloads {
+    Callback(fn: (int, string) -> bool)
+    Pair(value: (left: int, right: string))
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        var callbackCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Callback"));
+        var callbackCtor = callbackCase.InstanceConstructors.Single();
+        var callbackType = Assert.IsAssignableFrom<INamedTypeSymbol>(callbackCtor.Parameters[0].Type);
+        Assert.Equal(TypeKind.Delegate, callbackType.TypeKind);
+        var invoke = callbackType.GetDelegateInvokeMethod();
+        Assert.NotNull(invoke);
+        Assert.Equal(SpecialType.System_Boolean, invoke!.ReturnType.SpecialType);
+        Assert.Equal(2, invoke.Parameters.Length);
+        Assert.Equal(SpecialType.System_Int32, invoke.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, invoke.Parameters[1].Type.SpecialType);
+
+        var pairCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Pair"));
+        var pairCtor = pairCase.InstanceConstructors.Single();
+        var tupleType = Assert.IsAssignableFrom<ITupleTypeSymbol>(pairCtor.Parameters[0].Type);
+        Assert.Equal("left", tupleType.TupleElements[0].Name);
+        Assert.Equal(SpecialType.System_Int32, tupleType.TupleElements[0].Type.SpecialType);
+        Assert.Equal("right", tupleType.TupleElements[1].Name);
+        Assert.Equal(SpecialType.System_String, tupleType.TupleElements[1].Type.SpecialType);
+    }
+
+    [Fact]
     public void ConstructedGenericUnionCases_ProjectConcreteTypeArguments()
     {
         const string source = """

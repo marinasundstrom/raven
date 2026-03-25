@@ -423,7 +423,7 @@ internal abstract partial class Binder
                 };
             }
 
-            var args = BindTypeArguments(typeArguments, typeParams, importedScopes);
+            var args = BindTypeArguments(typeArguments, typeParams, importedScopes, allowBinderLookup: true);
             if (!args.Success)
                 return args;
 

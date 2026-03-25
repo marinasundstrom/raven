@@ -30,9 +30,15 @@ internal abstract partial class Binder
         TypeArgumentAmbiguous,
         TypeArgumentFailed,
 
+        TupleElementFailed,
+        FunctionParameterFailed,
+        FunctionReturnFailed,
+
         ArrayElementFailed,
         ByRefElementFailed,
+        PointerElementFailed,
         NullableUnderlyingFailed,
+        PointerTypeRequiresUnsafe,
 
         Ambiguous
     }
@@ -117,8 +123,9 @@ internal abstract partial class Binder
 
         // Imported scopes
         var importedScopes = options.ImportedScopesOverride ?? GetImportedScopesForTypeResolution();
+        var allowBinderLookup = options.ImportedScopesOverride is null;
 
-        return BindTypeCore(syntax, mergedTypeParams, importedScopes);
+        return BindTypeCore(syntax, mergedTypeParams, importedScopes, allowBinderLookup);
     }
 
     // -----------------------------
@@ -128,17 +135,22 @@ internal abstract partial class Binder
     private ResolveTypeResult BindTypeCore(
         TypeSyntax syntax,
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
     {
         return syntax switch
         {
-            IdentifierNameSyntax id => BindIdentifier(id, typeParams, importedScopes),
-            GenericNameSyntax g => BindGenericName(g, typeParams, importedScopes),
-            QualifiedNameSyntax q => BindQualifiedName(q, typeParams, importedScopes),
+            IdentifierNameSyntax id => BindIdentifier(id, typeParams, importedScopes, allowBinderLookup),
+            GenericNameSyntax g => BindGenericName(g, typeParams, importedScopes, allowBinderLookup),
+            QualifiedNameSyntax q => BindQualifiedName(q, typeParams, importedScopes, allowBinderLookup),
             PredefinedTypeSyntax p => BindPredefined(p, importedScopes),
-            ArrayTypeSyntax a => BindArray(a, typeParams, importedScopes),
-            ByRefTypeSyntax br => BindByRef(br, typeParams, importedScopes),
-            NullableTypeSyntax n => BindNullable(n, typeParams, importedScopes),
+            UnitTypeSyntax => BindUnit(),
+            TupleTypeSyntax t => BindTuple(t, typeParams, importedScopes, allowBinderLookup),
+            FunctionTypeSyntax f => BindFunction(f, typeParams, importedScopes, allowBinderLookup),
+            ArrayTypeSyntax a => BindArray(a, typeParams, importedScopes, allowBinderLookup),
+            ByRefTypeSyntax br => BindByRef(br, typeParams, importedScopes, allowBinderLookup),
+            PointerTypeSyntax p => BindPointer(p, typeParams, importedScopes, allowBinderLookup),
+            NullableTypeSyntax n => BindNullable(n, typeParams, importedScopes, allowBinderLookup),
             _ => Fail(syntax, TypeResolutionFailureKind.UnsupportedTypeSyntax)
         };
     }
@@ -150,13 +162,21 @@ internal abstract partial class Binder
     private ResolveTypeResult BindIdentifier(
         IdentifierNameSyntax id,
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
     {
         var name = id.Identifier.ValueText;
 
         if (typeParams.TryGetValue(name, out var substituted))
         {
             return new ResolveTypeResult { ResolvedType = substituted };
+        }
+
+        if (allowBinderLookup)
+        {
+            var bound = TryBindIdentifierFromBinderLookup(id);
+            if (bound is not null)
+                return bound;
         }
 
         var lookup = LookupNamedTypeByParts(new[] { name }, importedScopes);
@@ -185,6 +205,62 @@ internal abstract partial class Binder
         };
     }
 
+    private ResolveTypeResult? TryBindIdentifierFromBinderLookup(IdentifierNameSyntax id)
+    {
+        if (id.Identifier.IsMissing)
+            return null;
+
+        var type = LookupType(id.Identifier.ValueText);
+        if (type is null)
+            return null;
+
+        if (type is INamedTypeSymbol named)
+        {
+            if (named.IsAlias)
+            {
+                return new ResolveTypeResult
+                {
+                    ResolvedType = named,
+                    ResolvedNamedDefinition = named
+                };
+            }
+
+            var normalized = NormalizeDefinition(named);
+            if (normalized.Arity > 0 && normalized.IsUnboundGenericType)
+            {
+                var zeroArity = FindAccessibleNamedType(id.Identifier.ValueText, 0);
+                if (zeroArity is not null)
+                {
+                    return new ResolveTypeResult
+                    {
+                        ResolvedType = zeroArity,
+                        ResolvedNamedDefinition = zeroArity
+                    };
+                }
+
+                return new ResolveTypeResult
+                {
+                    ResolvedType = Compilation.ErrorTypeSymbol,
+                    ResolvedNamedDefinition = normalized,
+                    Failed = true,
+                    FailureKinds = ImmutableArray.Create(TypeResolutionFailureKind.ArityMismatch),
+                    Issues = ImmutableArray.Create(ResolveTypeResult.ResolutionIssue.Failure(id, TypeResolutionFailureKind.ArityMismatch))
+                };
+            }
+
+            return new ResolveTypeResult
+            {
+                ResolvedType = normalized,
+                ResolvedNamedDefinition = normalized
+            };
+        }
+
+        return new ResolveTypeResult
+        {
+            ResolvedType = type
+        };
+    }
+
     // -----------------------------
     // GenericName: Foo<T>
     // -----------------------------
@@ -192,32 +268,45 @@ internal abstract partial class Binder
     private ResolveTypeResult BindGenericName(
         GenericNameSyntax g,
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
     {
         var name = g.Identifier.ValueText;
 
-        var arity = g.TypeArgumentList.Arguments.Count;
-        var lookup = LookupNamedTypeByParts(new[] { name }, importedScopes, arity);
-        if (lookup.IsAmbiguous)
-            return Ambiguous(g, lookup.Candidates);
+        var arity = ComputeGenericArity(g);
+        INamedTypeSymbol? definition = null;
 
-        if (lookup.Definition is null)
+        if (allowBinderLookup)
+            definition = FindNamedTypeForGeneric(g, arity);
+
+        ImmutableArray<INamedTypeSymbol> ambiguousCandidates = ImmutableArray<INamedTypeSymbol>.Empty;
+        if (definition is null)
+        {
+            var lookup = LookupNamedTypeByParts(new[] { name }, importedScopes, arity);
+            if (lookup.IsAmbiguous)
+                return Ambiguous(g, lookup.Candidates);
+
+            definition = lookup.Definition;
+            ambiguousCandidates = lookup.Candidates;
+        }
+
+        if (definition is null)
             return Fail(g, TypeResolutionFailureKind.GenericTypeNotFound);
 
         if (HasOmittedTypeArguments(g.TypeArgumentList))
         {
             return new ResolveTypeResult
             {
-                ResolvedType = lookup.Definition,
-                ResolvedNamedDefinition = lookup.Definition
+                ResolvedType = definition,
+                ResolvedNamedDefinition = definition
             };
         }
 
-        var args = BindTypeArguments(g.TypeArgumentList, typeParams, importedScopes);
+        var args = BindTypeArguments(g.TypeArgumentList, typeParams, importedScopes, allowBinderLookup);
         if (!args.Success)
             return args;
 
-        return Construct(lookup.Definition, args.ResolvedTypeArguments);
+        return Construct(definition, args.ResolvedTypeArguments);
     }
 
     // -----------------------------
@@ -227,13 +316,30 @@ internal abstract partial class Binder
     private ResolveTypeResult BindQualifiedName(
         QualifiedNameSyntax q,
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
     {
+        if (allowBinderLookup)
+        {
+            using (_diagnostics.CreateNonReportingScope())
+            {
+                var resolved = ResolveQualifiedType(q);
+                if (resolved is not null && resolved.TypeKind != TypeKind.Error)
+                {
+                    return new ResolveTypeResult
+                    {
+                        ResolvedType = resolved,
+                        ResolvedNamedDefinition = resolved as INamedTypeSymbol
+                    };
+                }
+            }
+        }
+
         // Fast-path: nested type lookup when the left side is a TYPE (including constructed generic types).
         // This is required for forms like `Outer<int>.Inner<string>` and `Foo<int>.Bar`.
         // If the left side resolves to a named type, we bind the right side as a nested type member.
         {
-            var leftAsType = BindTypeCore((TypeSyntax)q.Left, typeParams, importedScopes);
+            var leftAsType = BindTypeCore((TypeSyntax)q.Left, typeParams, importedScopes, allowBinderLookup);
             if (leftAsType.Success && leftAsType.ResolvedType is INamedTypeSymbol leftNamed)
             {
                 // Right side: Identifier (non-generic nested type)
@@ -262,7 +368,7 @@ internal abstract partial class Binder
                 if (q.Right is GenericNameSyntax rg)
                 {
                     var nestedName = rg.Identifier.ValueText;
-                    var nestedArity = rg.TypeArgumentList.Arguments.Count;
+                    var nestedArity = ComputeGenericArity(rg);
                     var nestedCandidates = leftNamed
                         .GetTypeMembers(nestedName)
                         .Where(t => t.Arity == nestedArity)
@@ -281,7 +387,7 @@ internal abstract partial class Binder
                             };
                         }
 
-                        var args = BindTypeArguments(rg.TypeArgumentList, typeParams, importedScopes);
+                        var args = BindTypeArguments(rg.TypeArgumentList, typeParams, importedScopes, allowBinderLookup);
                         if (!args.Success)
                             return args;
 
@@ -301,7 +407,7 @@ internal abstract partial class Binder
             var left = Flatten(q.Left);
             var parts = left.Concat(new[] { g.Identifier.ValueText }).ToArray();
 
-            var arity = g.TypeArgumentList.Arguments.Count;
+            var arity = ComputeGenericArity(g);
             var lookup = LookupNamedTypeByParts(parts, importedScopes, arity);
             if (lookup.IsAmbiguous)
                 return Ambiguous(q, lookup.Candidates);
@@ -319,7 +425,7 @@ internal abstract partial class Binder
             }
 
             // ✅ same arg resolution as GenericName
-            var args = BindTypeArguments(g.TypeArgumentList, typeParams, importedScopes);
+            var args = BindTypeArguments(g.TypeArgumentList, typeParams, importedScopes, allowBinderLookup);
             if (!args.Success)
                 return args;
 
@@ -364,6 +470,7 @@ internal abstract partial class Binder
             SyntaxKind.CharKeyword => new[] { "System", "Char" },
             SyntaxKind.FloatKeyword => new[] { "System", "Single" },
             SyntaxKind.DoubleKeyword => new[] { "System", "Double" },
+            SyntaxKind.DecimalKeyword => new[] { "System", "Decimal" },
             SyntaxKind.ByteKeyword => new[] { "System", "Byte" },
             SyntaxKind.ObjectKeyword => new[] { "System", "Object" },
             SyntaxKind.NIntKeyword => new[] { "System", "IntPtr" },
@@ -389,6 +496,138 @@ internal abstract partial class Binder
         };
     }
 
+    private ResolveTypeResult BindUnit()
+    {
+        return new ResolveTypeResult
+        {
+            ResolvedType = Compilation.GetSpecialType(SpecialType.System_Unit)
+        };
+    }
+
+    private ResolveTypeResult BindTuple(
+        TupleTypeSyntax tuple,
+        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
+    {
+        var failures = ImmutableArray.CreateBuilder<TypeResolutionFailureKind>();
+        var issues = ImmutableArray.CreateBuilder<ResolveTypeResult.ResolutionIssue>();
+        var elements = new (string? Name, ITypeSymbol Type)[tuple.Elements.Count];
+
+        for (int i = 0; i < tuple.Elements.Count; i++)
+        {
+            var elementSyntax = tuple.Elements[i];
+            var resolved = BindTypeCore(elementSyntax.Type, typeParams, importedScopes, allowBinderLookup);
+            if (!resolved.Success)
+            {
+                failures.Add(TypeResolutionFailureKind.TupleElementFailed);
+                if (!resolved.FailureKinds.IsDefaultOrEmpty)
+                    failures.AddRange(resolved.FailureKinds);
+
+                issues.Add(ResolveTypeResult.ResolutionIssue.Failure(elementSyntax.Type, TypeResolutionFailureKind.TupleElementFailed));
+                if (!resolved.Issues.IsDefaultOrEmpty)
+                    issues.AddRange(resolved.Issues);
+                continue;
+            }
+
+            elements[i] = (elementSyntax.NameColon?.Name.ToString(), resolved.ResolvedType);
+        }
+
+        if (failures.Count > 0)
+        {
+            return new ResolveTypeResult
+            {
+                ResolvedType = Compilation.ErrorTypeSymbol,
+                Failed = true,
+                FailureKinds = failures.ToImmutable(),
+                Issues = issues.ToImmutable()
+            };
+        }
+
+        return new ResolveTypeResult
+        {
+            ResolvedType = Compilation.CreateTupleTypeSymbol(elements)
+        };
+    }
+
+    private ResolveTypeResult BindFunction(
+        FunctionTypeSyntax function,
+        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
+    {
+        var failures = ImmutableArray.CreateBuilder<TypeResolutionFailureKind>();
+        var issues = ImmutableArray.CreateBuilder<ResolveTypeResult.ResolutionIssue>();
+        var parameterTypes = new List<ITypeSymbol>();
+
+        if (function.ParameterList is not null)
+        {
+            foreach (var parameterSyntax in function.ParameterList.Parameters)
+            {
+                var resolved = BindTypeCore(parameterSyntax, typeParams, importedScopes, allowBinderLookup);
+                if (!resolved.Success)
+                {
+                    failures.Add(TypeResolutionFailureKind.FunctionParameterFailed);
+                    if (!resolved.FailureKinds.IsDefaultOrEmpty)
+                        failures.AddRange(resolved.FailureKinds);
+
+                    issues.Add(ResolveTypeResult.ResolutionIssue.Failure(parameterSyntax, TypeResolutionFailureKind.FunctionParameterFailed));
+                    if (!resolved.Issues.IsDefaultOrEmpty)
+                        issues.AddRange(resolved.Issues);
+                    continue;
+                }
+
+                parameterTypes.Add(resolved.ResolvedType);
+            }
+        }
+        else if (function.Parameter is not null)
+        {
+            var parameterResult = BindTypeCore(function.Parameter, typeParams, importedScopes, allowBinderLookup);
+            if (!parameterResult.Success)
+            {
+                failures.Add(TypeResolutionFailureKind.FunctionParameterFailed);
+                if (!parameterResult.FailureKinds.IsDefaultOrEmpty)
+                    failures.AddRange(parameterResult.FailureKinds);
+
+                issues.Add(ResolveTypeResult.ResolutionIssue.Failure(function.Parameter, TypeResolutionFailureKind.FunctionParameterFailed));
+                if (!parameterResult.Issues.IsDefaultOrEmpty)
+                    issues.AddRange(parameterResult.Issues);
+            }
+            else
+            {
+                parameterTypes.Add(parameterResult.ResolvedType);
+            }
+        }
+
+        var returnResult = BindTypeCore(function.ReturnType, typeParams, importedScopes, allowBinderLookup);
+        if (!returnResult.Success)
+        {
+            failures.Add(TypeResolutionFailureKind.FunctionReturnFailed);
+            if (!returnResult.FailureKinds.IsDefaultOrEmpty)
+                failures.AddRange(returnResult.FailureKinds);
+
+            issues.Add(ResolveTypeResult.ResolutionIssue.Failure(function.ReturnType, TypeResolutionFailureKind.FunctionReturnFailed));
+            if (!returnResult.Issues.IsDefaultOrEmpty)
+                issues.AddRange(returnResult.Issues);
+        }
+
+        if (failures.Count > 0)
+        {
+            return new ResolveTypeResult
+            {
+                ResolvedType = Compilation.ErrorTypeSymbol,
+                Failed = true,
+                FailureKinds = failures.ToImmutable(),
+                Issues = issues.ToImmutable()
+            };
+        }
+
+        return new ResolveTypeResult
+        {
+            ResolvedType = Compilation.CreateFunctionTypeSymbol(parameterTypes.ToArray(), returnResult.ResolvedType)
+        };
+    }
+
     // -----------------------------
     // Wrappers (recurse through BindTypeCore, preserving params/imports)
     // -----------------------------
@@ -396,9 +635,10 @@ internal abstract partial class Binder
     private ResolveTypeResult BindArray(
         ArrayTypeSyntax a,
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
     {
-        var element = BindTypeCore(a.ElementType, typeParams, importedScopes);
+        var element = BindTypeCore(a.ElementType, typeParams, importedScopes, allowBinderLookup);
         if (!element.Success)
             return element with
             {
@@ -424,9 +664,10 @@ internal abstract partial class Binder
     private ResolveTypeResult BindByRef(
         ByRefTypeSyntax br,
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
     {
-        var element = BindTypeCore(br.ElementType, typeParams, importedScopes);
+        var element = BindTypeCore(br.ElementType, typeParams, importedScopes, allowBinderLookup);
         if (!element.Success)
             return element with
             {
@@ -438,12 +679,42 @@ internal abstract partial class Binder
         return new ResolveTypeResult { ResolvedType = new RefTypeSymbol(element.ResolvedType) };
     }
 
+    private ResolveTypeResult BindPointer(
+        PointerTypeSyntax p,
+        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
+    {
+        if (!IsUnsafeEnabled)
+        {
+            return new ResolveTypeResult
+            {
+                ResolvedType = Compilation.ErrorTypeSymbol,
+                Failed = true,
+                FailureKinds = ImmutableArray.Create(TypeResolutionFailureKind.PointerTypeRequiresUnsafe),
+                Issues = ImmutableArray.Create(ResolveTypeResult.ResolutionIssue.Failure(p, TypeResolutionFailureKind.PointerTypeRequiresUnsafe))
+            };
+        }
+
+        var element = BindTypeCore(p.ElementType, typeParams, importedScopes, allowBinderLookup);
+        if (!element.Success)
+            return element with
+            {
+                Failed = true,
+                FailureKinds = element.FailureKinds.Add(TypeResolutionFailureKind.PointerElementFailed),
+                Issues = element.Issues.Add(ResolveTypeResult.ResolutionIssue.Failure(p.ElementType, TypeResolutionFailureKind.PointerElementFailed))
+            };
+
+        return new ResolveTypeResult { ResolvedType = Compilation.CreatePointerTypeSymbol(element.ResolvedType) };
+    }
+
     private ResolveTypeResult BindNullable(
         NullableTypeSyntax n,
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
     {
-        var underlying = BindTypeCore(n.ElementType, typeParams, importedScopes);
+        var underlying = BindTypeCore(n.ElementType, typeParams, importedScopes, allowBinderLookup);
         if (!underlying.Success)
             return underlying with
             {
@@ -462,7 +733,8 @@ internal abstract partial class Binder
     private ResolveTypeResult BindTypeArguments(
         TypeArgumentListSyntax list,
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
     {
         var failures = ImmutableArray.CreateBuilder<TypeResolutionFailureKind>();
         var issues = ImmutableArray.CreateBuilder<ResolveTypeResult.ResolutionIssue>();
@@ -471,7 +743,7 @@ internal abstract partial class Binder
         for (int i = 0; i < list.Arguments.Count; i++)
         {
             var argSyntax = list.Arguments[i].Type;
-            var resolved = BindTypeCore(argSyntax, typeParams, importedScopes);
+            var resolved = BindTypeCore(argSyntax, typeParams, importedScopes, allowBinderLookup);
 
             if (resolved.IsAmbiguous)
             {
@@ -516,11 +788,12 @@ internal abstract partial class Binder
     private static bool HasOmittedTypeArguments(TypeArgumentListSyntax list)
     {
         if (list.Arguments.Count == 0)
-            return false;
+            return true;
 
         foreach (var argument in list.Arguments)
         {
-            if (!argument.Type.IsMissing)
+            if (argument.Type is not IdentifierNameSyntax { Identifier.IsMissing: true } &&
+                !argument.Type.IsMissing)
                 return false;
         }
 
@@ -824,6 +1097,16 @@ internal abstract partial class Binder
                         continue;
                     }
 
+                    if (arity is null && i == nameParts.Length - 1)
+                    {
+                        var zeroArity = named.FirstOrDefault(static t => t.Arity == 0);
+                        if (zeroArity is not null)
+                        {
+                            current = NormalizeDefinition(zeroArity);
+                            continue;
+                        }
+                    }
+
                     // Multiple types with the same name in the same namespace (possible with metadata + source merges).
                     // Treat as ambiguous by returning null here; caller aggregates ambiguity.
                     return null;
@@ -840,6 +1123,16 @@ internal abstract partial class Binder
                         continue;
                     }
 
+                    if (arity is null && i == nameParts.Length - 1)
+                    {
+                        var zeroArity = nested.FirstOrDefault(static t => t.Arity == 0);
+                        if (zeroArity is not null)
+                        {
+                            current = NormalizeDefinition(zeroArity);
+                            continue;
+                        }
+                    }
+
                     // Not found or ambiguous
                     return null;
                 }
@@ -853,11 +1146,7 @@ internal abstract partial class Binder
 
     internal bool TryResolveNamedTypeFromTypeSyntax(TypeSyntax syntax, out INamedTypeSymbol? namedType)
     {
-        if (TryBindNamedTypeFromTypeSyntax(syntax, out namedType))
-            return true;
-
-        namedType = BindTypeSyntaxDirect(syntax) as INamedTypeSymbol;
-        return namedType is not null;
+        return TryBindNamedTypeFromTypeSyntax(syntax, out namedType, reportDiagnostics: true);
     }
 
     internal bool TryBindNamedTypeFromTypeSyntax(

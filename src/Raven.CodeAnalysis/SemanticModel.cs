@@ -595,7 +595,7 @@ Complete:
             var result = binder.BindTypeSyntax(typeSyntax);
             var type = result.Success
                 ? result.ResolvedType
-                : binder.BindTypeSyntaxDirect(typeSyntax);
+                : null;
 
             if (type is null || type.TypeKind == TypeKind.Error)
                 return new TypeInfo(null, null);

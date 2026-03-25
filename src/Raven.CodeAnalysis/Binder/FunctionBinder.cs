@@ -88,7 +88,7 @@ class FunctionBinder : Binder
 
         var returnType = _syntax.ReturnType is null
             ? inferredReturnType
-            : methodBinder.BindTypeSyntaxDirect(_syntax.ReturnType.Type);
+            : methodBinder.BindTypeSyntaxAndReport(_syntax.ReturnType.Type);
 
         if (isAsync && _syntax.ReturnType is { } annotatedReturn && !IsValidAsyncReturnType(returnType))
         {
@@ -145,7 +145,7 @@ class FunctionBinder : Binder
             var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
                 ? byRefType.ElementType
                 : typeSyntax;
-            var type = methodBinder.BindTypeSyntaxDirect(boundTypeSyntax);
+            var type = methodBinder.BindTypeSyntaxAndReport(boundTypeSyntax);
             type = methodBinder.EnsureTypeValidForStorageLocation(type, boundTypeSyntax.GetLocation());
 
             if (p.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)

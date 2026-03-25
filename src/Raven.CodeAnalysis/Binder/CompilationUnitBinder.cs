@@ -13,6 +13,15 @@ class CompilationUnitBinder : Binder
 
     public override SemanticModel SemanticModel { get; }
 
+    public override ITypeSymbol? LookupType(string name)
+    {
+        var parentType = base.LookupType(name);
+        if (parentType != null)
+            return parentType;
+
+        return Compilation.GlobalNamespace.GetMembers(name).OfType<ITypeSymbol>().FirstOrDefault();
+    }
+
     public override ISymbol? LookupSymbol(string name)
     {
         var parentSymbol = base.LookupSymbol(name);

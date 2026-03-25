@@ -370,8 +370,8 @@ class BinderFactory
         {
             using (provisionalImportBinder.Diagnostics.CreateNonReportingScope())
             {
-                var type = provisionalImportBinder.BindTypeSyntaxDirect(syntax);
-                return type.TypeKind == TypeKind.Error ? null : type;
+                var result = provisionalImportBinder.BindTypeSyntax(syntax);
+                return result.Success ? result.ResolvedType : null;
             }
         }
 

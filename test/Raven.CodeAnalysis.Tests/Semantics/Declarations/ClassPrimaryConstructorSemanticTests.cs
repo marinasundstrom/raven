@@ -128,6 +128,40 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void PrimaryConstructor_ComplexParameterTypes_BindViaBindTypeSyntaxPath()
+    {
+        var source = """
+            class Pipeline(callback: (int, string) -> bool, pair: (left: int, right: string))
+            {
+                func Accepts() -> () { }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var parameters = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().ToArray();
+
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var callbackParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameters[0]));
+        var callbackType = Assert.IsAssignableFrom<INamedTypeSymbol>(callbackParameter.Type);
+        Assert.Equal(TypeKind.Delegate, callbackType.TypeKind);
+        var invoke = callbackType.GetDelegateInvokeMethod();
+        Assert.NotNull(invoke);
+        Assert.Equal(SpecialType.System_Boolean, invoke!.ReturnType.SpecialType);
+        Assert.Equal(2, invoke.Parameters.Length);
+        Assert.Equal(SpecialType.System_Int32, invoke.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, invoke.Parameters[1].Type.SpecialType);
+
+        var pairParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameters[1]));
+        var tupleType = Assert.IsAssignableFrom<ITupleTypeSymbol>(pairParameter.Type);
+        Assert.Equal("left", tupleType.TupleElements[0].Name);
+        Assert.Equal(SpecialType.System_Int32, tupleType.TupleElements[0].Type.SpecialType);
+        Assert.Equal("right", tupleType.TupleElements[1].Name);
+        Assert.Equal(SpecialType.System_String, tupleType.TupleElements[1].Type.SpecialType);
+    }
+
+    [Fact]
     public void PrimaryConstructor_PromotedParameterAccessibility_AppliesToSynthesizedProperty()
     {
         var source = """

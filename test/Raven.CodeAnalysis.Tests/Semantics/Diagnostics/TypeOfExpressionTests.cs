@@ -1,6 +1,5 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Testing;
-
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -82,4 +81,18 @@ val name = t.Name
         verifier.Verify();
     }
 
+    [Fact]
+    public void TypeOf_WithOpenGenericSourceType_BindsSuccessfully()
+    {
+        const string testCode = """
+class Box<T> { }
+
+val t = typeof(Box<>)
+val name = t.Name
+""";
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }

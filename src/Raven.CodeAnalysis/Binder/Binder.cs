@@ -188,8 +188,13 @@ internal abstract partial class Binder
         {
             try
             {
-                var type = BindTypeSyntaxDirect(typeSyntax);
-                return new SymbolInfo(type);
+                using (_diagnostics.CreateNonReportingScope())
+                {
+                    var result = BindTypeSyntax(typeSyntax);
+                    return result.Success
+                        ? new SymbolInfo(result.ResolvedType)
+                        : SymbolInfo.None;
+                }
             }
             catch
             {
@@ -1198,176 +1203,21 @@ internal abstract partial class Binder
     public virtual ITypeSymbol ResolveType(TypeSyntax typeSyntax)
         => ResolveTypeInternal(typeSyntax, refKindHint: null);
 
-    [Obsolete("Migration compatibility shim. Prefer BindTypeSyntax/BindType and ResolveTypeResult-driven flows.")]
-    internal ITypeSymbol BindTypeSyntaxDirect(TypeSyntax typeSyntax)
-        => BindTypeSyntaxDirect(typeSyntax, options: null, refKindHint: null, allowLegacyFallback: true);
-
-    [Obsolete("Migration compatibility shim. Prefer BindTypeSyntax/BindType and ResolveTypeResult-driven flows.")]
-    internal ITypeSymbol BindTypeSyntaxDirect(TypeSyntax typeSyntax, RefKind? refKindHint)
-        => BindTypeSyntaxDirect(typeSyntax, options: null, refKindHint, allowLegacyFallback: true);
-
-    [Obsolete("Migration compatibility shim. Prefer BindTypeSyntax/BindType and ResolveTypeResult-driven flows.")]
-    internal ITypeSymbol BindTypeSyntaxDirect(TypeSyntax typeSyntax, TypeResolutionOptions? options)
-        => BindTypeSyntaxDirect(typeSyntax, options, refKindHint: null, allowLegacyFallback: true);
-
-    internal ITypeSymbol BindTypeSyntaxDirect(
+    internal ITypeSymbol BindTypeSyntaxAndReport(
         TypeSyntax typeSyntax,
-        TypeResolutionOptions? options,
-        RefKind? refKindHint,
-        bool allowLegacyFallback = true)
+        TypeResolutionOptions? options = null,
+        RefKind? refKindHint = null)
     {
-        if (TryResolveTypeViaBindType(typeSyntax, options, refKindHint, allowLegacyFallback, out var resolved))
-            return resolved;
+        var result = BindTypeSyntax(typeSyntax, options);
+        if (result.Success)
+            return ApplyBoundTypeContract(result.ResolvedType, typeSyntax.GetLocation(), refKindHint);
 
-        if (!allowLegacyFallback)
-        {
-            var result = BindTypeSyntax(typeSyntax, options);
-            if (result.Success)
-                return ApplyBoundTypeContract(result.ResolvedType, typeSyntax.GetLocation(), refKindHint);
-
-            ReportResolveTypeResultDiagnostics(result, typeSyntax);
-            return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
-        }
-
-        return ResolveTypeInternalLegacy(typeSyntax, refKindHint);
+        ReportResolveTypeResultDiagnostics(result, typeSyntax);
+        return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
     }
 
     private ITypeSymbol ResolveTypeInternal(TypeSyntax typeSyntax, RefKind? refKindHint)
-        => BindTypeSyntaxDirect(typeSyntax, options: null, refKindHint, allowLegacyFallback: true);
-
-    private bool TryResolveTypeViaBindType(
-        TypeSyntax typeSyntax,
-        TypeResolutionOptions? options,
-        RefKind? refKindHint,
-        bool allowLegacyFallback,
-        out ITypeSymbol resolved)
-    {
-        var useLegacyCompatibilityFallback = allowLegacyFallback && options is null;
-
-        if (!CanResolveViaBindType(typeSyntax))
-        {
-            if (!allowLegacyFallback)
-            {
-                var bindResult = BindTypeSyntax(typeSyntax, options);
-                if (bindResult.Success)
-                {
-                    resolved = ApplyBoundTypeContract(bindResult.ResolvedType, typeSyntax.GetLocation(), refKindHint);
-                    return true;
-                }
-
-                ReportResolveTypeResultDiagnostics(bindResult, typeSyntax);
-                resolved = ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
-                return true;
-            }
-
-            resolved = Compilation.ErrorTypeSymbol;
-            return false;
-        }
-
-        var result = BindTypeSyntax(typeSyntax, options);
-        if (result.Success)
-        {
-            var boundResolved = ApplyBoundTypeContract(result.ResolvedType, typeSyntax.GetLocation(), refKindHint);
-
-            // Migration safety net: keep legacy behavior authoritative when outcomes differ.
-            // This avoids precedence/validation regressions while we consolidate to BindType.
-            if (useLegacyCompatibilityFallback &&
-                CanCompareAgainstLegacy(typeSyntax) &&
-                TryResolveTypeViaLegacySilent(typeSyntax, refKindHint, out var legacyResolved))
-            {
-                if (IsErrorTypeResult(legacyResolved))
-                {
-                    // BindType resolved successfully but legacy failed. Prefer BindType as the
-                    // migration target to avoid re-introducing legacy precedence failures.
-                    resolved = boundResolved;
-                    return true;
-                }
-
-                if (!SymbolEqualityComparer.Default.Equals(legacyResolved, boundResolved))
-                {
-                    resolved = legacyResolved;
-                    return true;
-                }
-            }
-
-            // During migration, preserve legacy contract for syntax forms where additional
-            // post-resolution checks still live only in the legacy path (e.g. constraints).
-            if (useLegacyCompatibilityFallback &&
-                NeedsLegacyValidation(typeSyntax, result.ResolvedType) &&
-                TryResolveTypeViaLegacyFallback(typeSyntax, refKindHint, out var legacyValidated))
-            {
-                resolved = legacyValidated;
-                return true;
-            }
-
-            resolved = boundResolved;
-            return true;
-        }
-
-        if (useLegacyCompatibilityFallback)
-        {
-            // Preserve exact legacy diagnostics/contract when BindType cannot resolve yet.
-            resolved = ResolveTypeInternalLegacy(typeSyntax, refKindHint);
-            return true;
-        }
-
-        ReportResolveTypeResultDiagnostics(result, typeSyntax);
-        resolved = ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
-        return true;
-    }
-
-    private bool CanResolveViaBindType(TypeSyntax typeSyntax)
-    {
-        return typeSyntax is NameSyntax
-            or PredefinedTypeSyntax
-            or ArrayTypeSyntax
-            or ByRefTypeSyntax
-            or NullableTypeSyntax;
-    }
-
-    private static bool NeedsLegacyValidation(TypeSyntax typeSyntax, ITypeSymbol resolvedType)
-    {
-        if (resolvedType is INamedTypeSymbol named &&
-            named.Arity > 0 &&
-            named.IsUnboundGenericType)
-        {
-            return true;
-        }
-
-        return typeSyntax is GenericNameSyntax
-            || typeSyntax is NullableTypeSyntax
-            || typeSyntax is QualifiedNameSyntax q && q.Right is GenericNameSyntax;
-    }
-
-    private bool TryResolveTypeViaLegacyFallback(TypeSyntax typeSyntax, RefKind? refKindHint, out ITypeSymbol resolved)
-    {
-        if (TryResolveTypeViaLegacySilent(typeSyntax, refKindHint, out var legacy) &&
-            !IsErrorTypeResult(legacy))
-        {
-            resolved = legacy;
-            return true;
-        }
-
-        resolved = Compilation.ErrorTypeSymbol;
-        return false;
-    }
-
-    private bool TryResolveTypeViaLegacySilent(TypeSyntax typeSyntax, RefKind? refKindHint, out ITypeSymbol resolved)
-    {
-        using (_diagnostics.CreateNonReportingScope())
-            resolved = ResolveTypeInternalLegacy(typeSyntax, refKindHint);
-
-        return true;
-    }
-
-    private static bool CanCompareAgainstLegacy(TypeSyntax typeSyntax)
-    {
-        return typeSyntax is NameSyntax
-            or PredefinedTypeSyntax
-            or ArrayTypeSyntax
-            or ByRefTypeSyntax
-            or NullableTypeSyntax;
-    }
+        => BindTypeSyntaxAndReport(typeSyntax, refKindHint: refKindHint);
 
     private ITypeSymbol ApplyBoundTypeContract(ITypeSymbol type, Location location, RefKind? refKindHint)
     {
@@ -1375,14 +1225,6 @@ internal abstract partial class Binder
             return ApplyAccessibilityAndRefKind(type, location, refKindHint);
 
         return ApplyRefKindHint(type, refKindHint);
-    }
-
-    private static bool IsErrorTypeResult(ITypeSymbol type)
-    {
-        while (type is RefTypeSymbol refType)
-            type = refType.ElementType;
-
-        return type.TypeKind == TypeKind.Error;
     }
 
     internal void ReportResolveTypeResultDiagnostics(ResolveTypeResult result, TypeSyntax? rootSyntax = null)
@@ -1443,6 +1285,9 @@ internal abstract partial class Binder
                     yield return Diagnostic.Create(CompilerDiagnostics.CallIsAmbiguous, location, first, second);
                     break;
                 }
+            case TypeResolutionFailureKind.PointerTypeRequiresUnsafe:
+                yield return Diagnostic.Create(CompilerDiagnostics.PointerTypeRequiresUnsafe, location);
+                break;
             default:
                 yield return Diagnostic.Create(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext, location, issueSyntax?.ToString() ?? fallbackName);
                 break;
@@ -1467,6 +1312,9 @@ internal abstract partial class Binder
     private static bool IsWrapperResolutionIssue(TypeResolutionFailureKind kind)
     {
         return kind is TypeResolutionFailureKind.TypeArgumentFailed
+            or TypeResolutionFailureKind.TupleElementFailed
+            or TypeResolutionFailureKind.FunctionParameterFailed
+            or TypeResolutionFailureKind.FunctionReturnFailed
             or TypeResolutionFailureKind.ArrayElementFailed
             or TypeResolutionFailureKind.ByRefElementFailed
             or TypeResolutionFailureKind.NullableUnderlyingFailed;
@@ -1858,7 +1706,7 @@ internal abstract partial class Binder
 
         var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(generic.TypeArgumentList.Arguments.Count);
         foreach (var argument in generic.TypeArgumentList.Arguments)
-            builder.Add(BindTypeSyntaxDirect(argument.Type));
+            builder.Add(BindTypeSyntaxAndReport(argument.Type));
 
         // Recovery path: malformed generic type argument lists can produce
         // sparse/missing entries, so avoid MoveToImmutable's capacity contract.
@@ -2004,7 +1852,7 @@ internal abstract partial class Binder
         {
             if (reference.GetSyntax() is TypeConstraintSyntax typeConstraint)
             {
-                var resolved = BindTypeSyntaxDirect(typeConstraint.Type);
+                var resolved = BindTypeSyntaxAndReport(typeConstraint.Type);
                 builder.Add(resolved);
             }
         }

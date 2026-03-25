@@ -116,7 +116,7 @@ internal partial class TypeMemberBinder : Binder
         RefKind refKindHint,
         Binder.TypeResolutionOptions? options = null)
     {
-        return binder.BindTypeSyntaxDirect(typeSyntax, options, refKindHint, allowLegacyFallback: true);
+        return binder.BindTypeSyntaxAndReport(typeSyntax, options, refKindHint);
     }
 
     private ITypeSymbol ResolveParameterTypeSyntaxForSignature(
@@ -251,11 +251,9 @@ internal partial class TypeMemberBinder : Binder
 
     private INamedTypeSymbol? ResolveNamedTypeSyntax(Binder binder, TypeSyntax typeSyntax)
     {
-        var result = binder.BindTypeSyntax(typeSyntax);
-        if (!result.Success)
-            return binder.BindTypeSyntaxDirect(typeSyntax) as INamedTypeSymbol;
-
-        return result.ResolvedType as INamedTypeSymbol;
+        return binder.TryBindNamedTypeFromTypeSyntax(typeSyntax, out var namedType, reportDiagnostics: true)
+            ? namedType
+            : null;
     }
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)

@@ -54,6 +54,27 @@ class C { }
     }
 
     [Fact]
+    public void AttributeNameWithoutSuffix_PrefersAttributeOverNonAttributeType()
+    {
+        const string source = """
+import System.Text.Json.*
+import System.Text.Json.Serialization.*
+
+[JsonConverter(typeof(JsonConverterFactory))]
+class C { }
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+
+        var attribute = Assert.Single(type.GetAttributes());
+        Assert.Equal("JsonConverterAttribute", attribute.AttributeClass?.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void GenericAttributeNameWithoutSuffix_BindsTypeArguments()
     {
         const string source = """

@@ -1212,11 +1212,7 @@ public partial class SemanticModel
             using (provisionalImportBinder.Diagnostics.CreateNonReportingScope())
             {
                 var result = provisionalImportBinder.BindTypeSyntax(syntax);
-                if (result.Success)
-                    return result.ResolvedType;
-
-                var legacy = provisionalImportBinder.BindTypeSyntaxDirect(syntax);
-                return legacy.TypeKind == TypeKind.Error ? null : legacy;
+                return result.Success ? result.ResolvedType : null;
             }
         }
 
@@ -1545,7 +1541,7 @@ public partial class SemanticModel
                             var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                             foreach (var t in interfaceDecl.BaseList.Types)
                             {
-                                if (parentBinder.TryResolveNamedTypeFromTypeSyntax(t.Type, out var resolved) &&
+                                if (parentBinder.TryBindNamedTypeFromTypeSyntax(t.Type, out var resolved, reportDiagnostics: true) &&
                                     resolved is not null &&
                                     resolved.TypeKind == TypeKind.Interface)
                                     builder.Add(resolved);
@@ -1767,7 +1763,7 @@ public partial class SemanticModel
 
         foreach (var typeSyntax in permitsClause.Types)
         {
-            if (!declarationBinder.TryResolveNamedTypeFromTypeSyntax(typeSyntax, out var resolved) || resolved is null)
+            if (!declarationBinder.TryBindNamedTypeFromTypeSyntax(typeSyntax, out var resolved, reportDiagnostics: true) || resolved is null)
             {
                 _declarationDiagnostics.ReportPermitsTypeNotFound(
                     typeSyntax.ToString(),
@@ -2034,11 +2030,7 @@ public partial class SemanticModel
 
         ITypeSymbol ResolveTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKindHint)
         {
-            var result = binder.BindTypeSyntax(typeSyntax);
-            if (!result.Success)
-                return binder.BindTypeSyntaxDirect(typeSyntax);
-
-            return result.ResolvedType;
+            return binder.BindTypeSyntaxAndReport(typeSyntax, refKindHint: refKindHint);
         }
 
         ITypeSymbol ResolveParameterTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKind)
@@ -2328,7 +2320,7 @@ public partial class SemanticModel
                         var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
                             ? byRefType.ElementType
                             : typeSyntax;
-                        parameterType = unionBinder.BindTypeSyntaxDirect(boundTypeSyntax);
+                        parameterType = unionBinder.BindTypeSyntaxAndReport(boundTypeSyntax);
                     }
 
                     parameterType = TypeMemberBinder.NormalizeVarParamsParameterType(
@@ -2938,7 +2930,7 @@ public partial class SemanticModel
                         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                         foreach (var t in nestedInterface.BaseList.Types)
                         {
-                            if (classBinder.TryResolveNamedTypeFromTypeSyntax(t.Type, out var resolved) &&
+                            if (classBinder.TryBindNamedTypeFromTypeSyntax(t.Type, out var resolved, reportDiagnostics: true) &&
                                 resolved is not null &&
                                 resolved.TypeKind == TypeKind.Interface)
                                 builder.Add(resolved);
@@ -3408,7 +3400,7 @@ public partial class SemanticModel
                             var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                             foreach (var t in nestedInterface.BaseList.Types)
                             {
-                                if (interfaceBinder.TryResolveNamedTypeFromTypeSyntax(t.Type, out var resolved) &&
+                                if (interfaceBinder.TryBindNamedTypeFromTypeSyntax(t.Type, out var resolved, reportDiagnostics: true) &&
                                     resolved is not null &&
                                     resolved.TypeKind == TypeKind.Interface)
                                     builder.Add(resolved);
@@ -3450,7 +3442,7 @@ public partial class SemanticModel
     {
         if (extensionBinder.ContainingSymbol is SourceNamedTypeSymbol extensionSymbol)
         {
-            var receiverType = extensionBinder.BindTypeSyntaxDirect(extensionDecl.ReceiverType);
+            var receiverType = extensionBinder.BindTypeSyntaxAndReport(extensionDecl.ReceiverType);
             extensionSymbol.SetExtensionReceiverType(receiverType);
         }
 
@@ -3658,7 +3650,7 @@ public partial class SemanticModel
                 var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
                     ? byRefType.ElementType
                     : typeSyntax;
-                parameterType = classBinder.BindTypeSyntaxDirect(boundTypeSyntax);
+                parameterType = classBinder.BindTypeSyntaxAndReport(boundTypeSyntax);
                 parameterType = classBinder.EnsureTypeValidForStorageLocation(parameterType, boundTypeSyntax.GetLocation());
             }
 

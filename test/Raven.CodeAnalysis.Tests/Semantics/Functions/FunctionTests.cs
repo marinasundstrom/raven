@@ -68,6 +68,42 @@ func outer() {
     }
 
     [Fact]
+    public void Function_WithTupleAndFunctionSignature_BindsWithBindTypeSyntaxPath()
+    {
+        var source = """
+func outer() {
+    func inner(callback: (int, string) -> bool) -> (left: int, right: string) {
+        return (1, "ok")
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(inner));
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+
+        var parameter = Assert.Single(symbol.Parameters);
+        var callbackType = Assert.IsAssignableFrom<INamedTypeSymbol>(parameter.Type);
+        Assert.Equal(TypeKind.Delegate, callbackType.TypeKind);
+        var invoke = callbackType.GetDelegateInvokeMethod();
+        Assert.NotNull(invoke);
+        Assert.Equal(SpecialType.System_Boolean, invoke!.ReturnType.SpecialType);
+        Assert.Equal(2, invoke.Parameters.Length);
+        Assert.Equal(SpecialType.System_Int32, invoke.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, invoke.Parameters[1].Type.SpecialType);
+
+        var tupleReturn = Assert.IsAssignableFrom<ITupleTypeSymbol>(symbol.ReturnType);
+        Assert.Equal(2, tupleReturn.TupleElements.Length);
+        Assert.Equal("left", tupleReturn.TupleElements[0].Name);
+        Assert.Equal(SpecialType.System_Int32, tupleReturn.TupleElements[0].Type.SpecialType);
+        Assert.Equal("right", tupleReturn.TupleElements[1].Name);
+        Assert.Equal(SpecialType.System_String, tupleReturn.TupleElements[1].Type.SpecialType);
+    }
+
+    [Fact]
     public void GenericFunction_CanInferTypeArgumentsForInvocation()
     {
         var source = """

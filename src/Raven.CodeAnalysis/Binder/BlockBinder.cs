@@ -9478,15 +9478,7 @@ partial class BlockBinder : Binder
 
     private ITypeSymbol ResolveTypeSyntaxOrError(TypeSyntax typeSyntax, RefKind refKindHint = RefKind.None)
     {
-        var result = BindTypeSyntax(typeSyntax);
-        if (!result.Success)
-            return BindTypeSyntaxDirect(typeSyntax, refKindHint);
-
-        var resolved = result.ResolvedType;
-        if (RequiresByRefType(typeSyntax, refKindHint) && resolved is not RefTypeSymbol)
-            return new RefTypeSymbol(resolved);
-
-        return resolved;
+        return BindTypeSyntaxAndReport(typeSyntax, refKindHint: refKindHint);
     }
 
     private BoundPattern BindSingleVariableDesignationForAssignment(

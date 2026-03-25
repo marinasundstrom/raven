@@ -9,10 +9,10 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class TypeSyntaxDirectResolutionTests : CompilationTestBase
+public class TypeSyntaxResolutionTests : CompilationTestBase
 {
     [Fact]
-    public void BindTypeSyntaxDirect_ResolvesPredefinedType()
+    public void BindTypeSyntaxAndReport_ResolvesPredefinedType()
     {
         const string source = "val value: int = 0";
 
@@ -25,13 +25,32 @@ public class TypeSyntaxDirectResolutionTests : CompilationTestBase
         var typeSyntax = declarator.TypeAnnotation!.Type;
         var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
 
-        var resolved = binder.BindTypeSyntaxDirect(typeSyntax);
+        var resolved = binder.BindTypeSyntaxAndReport(typeSyntax);
 
         Assert.Equal(SpecialType.System_Int32, resolved.SpecialType);
     }
 
     [Fact]
-    public void BindTypeSyntaxDirect_TupleType_UsesLegacyFallback()
+    public void BindTypeSyntaxAndReport_ResolvesDecimalPredefinedType()
+    {
+        const string source = "val value: decimal = 1m";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var typeSyntax = declarator.TypeAnnotation!.Type;
+        var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
+
+        var resolved = binder.BindTypeSyntaxAndReport(typeSyntax);
+
+        Assert.Equal(SpecialType.System_Decimal, resolved.SpecialType);
+    }
+
+    [Fact]
+    public void BindTypeSyntaxAndReport_BindsTupleType()
     {
         const string source = """
 val pair: (int, string) = (1, "x")
@@ -46,12 +65,189 @@ val pair: (int, string) = (1, "x")
         var typeSyntax = declarator.TypeAnnotation!.Type;
         var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
 
-        var resolved = binder.BindTypeSyntaxDirect(typeSyntax);
+        var resolved = binder.BindTypeSyntaxAndReport(typeSyntax);
 
         Assert.Equal(TypeKind.Tuple, resolved.TypeKind);
         Assert.DoesNotContain(
             binder.Diagnostics.AsEnumerable(),
             d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void BindTypeSyntax_BindsTupleType()
+    {
+        const string source = """
+val pair: (left: int, right: string) = (1, "x")
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var typeSyntax = declarator.TypeAnnotation!.Type;
+        var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
+
+        var result = binder.BindTypeSyntax(typeSyntax);
+
+        Assert.True(result.Success);
+        var tupleType = Assert.IsAssignableFrom<ITupleTypeSymbol>(result.ResolvedType);
+        Assert.Equal(2, tupleType.TupleElements.Length);
+        Assert.Equal("left", tupleType.TupleElements[0].Name);
+        Assert.Equal(SpecialType.System_Int32, tupleType.TupleElements[0].Type.SpecialType);
+        Assert.Equal("right", tupleType.TupleElements[1].Name);
+        Assert.Equal(SpecialType.System_String, tupleType.TupleElements[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void BindTypeSyntax_BindsFunctionType()
+    {
+        const string source = "val callback: (int, string) -> bool = null";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var typeSyntax = declarator.TypeAnnotation!.Type;
+        var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
+
+        var result = binder.BindTypeSyntax(typeSyntax);
+
+        Assert.True(result.Success);
+        var functionType = Assert.IsAssignableFrom<INamedTypeSymbol>(result.ResolvedType);
+        Assert.Equal(TypeKind.Delegate, functionType.TypeKind);
+        var invoke = functionType.GetDelegateInvokeMethod();
+        Assert.NotNull(invoke);
+        Assert.Equal(2, invoke!.Parameters.Length);
+        Assert.Equal(SpecialType.System_Int32, invoke.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, invoke.Parameters[1].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Boolean, invoke.ReturnType.SpecialType);
+    }
+
+    [Fact]
+    public void BindTypeSyntax_BindsUnitType()
+    {
+        const string source = "val value: () = ()";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var typeSyntax = declarator.TypeAnnotation!.Type;
+        var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
+
+        var result = binder.BindTypeSyntax(typeSyntax);
+
+        Assert.True(result.Success);
+        Assert.Equal(SpecialType.System_Unit, result.ResolvedType.SpecialType);
+    }
+
+    [Fact]
+    public void DeclarationBinding_BindsGenericBaseTypeAndInterfaceViaBindTypeSyntax()
+    {
+        const string source = """
+interface Marker<T> {}
+abstract class Base<T> {}
+class Derived : Base<int>, Marker<string> {}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+            .Single(static x => x.Identifier.ValueText == "Derived");
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+
+        var baseType = Assert.IsAssignableFrom<INamedTypeSymbol>(symbol.BaseType);
+        Assert.Equal("Base", baseType.Name);
+        Assert.Single(baseType.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, baseType.TypeArguments[0].SpecialType);
+
+        var implemented = Assert.Single(symbol.Interfaces);
+        Assert.Equal("Marker", implemented.Name);
+        Assert.Single(implemented.TypeArguments);
+        Assert.Equal(SpecialType.System_String, implemented.TypeArguments[0].SpecialType);
+    }
+
+    [Fact]
+    public void DeclarationBinding_BindsInterfaceBaseListViaBindTypeSyntax()
+    {
+        const string source = """
+interface Parent<T> {}
+interface Child : Parent<int> {}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>()
+            .Single(static x => x.Identifier.ValueText == "Child");
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+
+        var implemented = Assert.Single(symbol.Interfaces);
+        Assert.Equal("Parent", implemented.Name);
+        Assert.Single(implemented.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, implemented.TypeArguments[0].SpecialType);
+    }
+
+    [Fact]
+    public void SemanticModel_GetTypeInfo_BindsFunctionTypeSyntax()
+    {
+        const string source = "val callback: (int, string) -> bool = null";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var typeInfo = model.GetTypeInfo(declarator.TypeAnnotation!.Type);
+
+        var functionType = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.Type);
+        Assert.Equal(TypeKind.Delegate, functionType.TypeKind);
+        var invoke = functionType.GetDelegateInvokeMethod();
+        Assert.NotNull(invoke);
+        Assert.Equal(SpecialType.System_Boolean, invoke!.ReturnType.SpecialType);
+        Assert.Equal(2, invoke.Parameters.Length);
+        Assert.Equal(SpecialType.System_Int32, invoke.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, invoke.Parameters[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void SemanticModel_GetSymbolInfo_OnTypeSyntax_UsesBindTypeSyntaxPath()
+    {
+        const string source = """
+import System.Collections.Generic.*
+val values: List<int> = null
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var symbolInfo = model.GetSymbolInfo(declarator.TypeAnnotation!.Type);
+
+        var named = Assert.IsAssignableFrom<INamedTypeSymbol>(symbolInfo.Symbol);
+        Assert.Equal("List", named.Name);
+        Assert.Single(named.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, named.TypeArguments[0].SpecialType);
     }
 
     [Fact]
@@ -75,7 +271,7 @@ val pair: (int, string) = (1, "x")
     }
 
     [Fact]
-    public void BindTypeSyntaxDirect_WithOptions_AppliesTypeParameterSubstitution()
+    public void BindTypeSyntaxAndReport_WithOptions_AppliesTypeParameterSubstitution()
     {
         const string source = "val value: T = 0";
 
@@ -96,7 +292,7 @@ val pair: (int, string) = (1, "x")
             }
         };
 
-        var resolved = binder.BindTypeSyntaxDirect(typeSyntax, options);
+        var resolved = binder.BindTypeSyntaxAndReport(typeSyntax, options);
 
         Assert.Equal(SpecialType.System_Int32, resolved.SpecialType);
     }
@@ -177,7 +373,7 @@ val pair: (int, string) = (1, "x")
     }
 
     [Fact]
-    public void BindTypeSyntaxDirect_MissingType_PreservesLegacyReporting()
+    public void BindTypeSyntaxAndReport_MissingType_ProjectsDiagnostics()
     {
         const string source = "val value: MissingType = 0";
 
@@ -190,7 +386,7 @@ val pair: (int, string) = (1, "x")
         var typeSyntax = declarator.TypeAnnotation!.Type;
         var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
 
-        var resolved = binder.BindTypeSyntaxDirect(typeSyntax);
+        var resolved = binder.BindTypeSyntaxAndReport(typeSyntax);
 
         Assert.Equal(TypeKind.Error, resolved.TypeKind);
         Assert.Contains(
@@ -199,7 +395,7 @@ val pair: (int, string) = (1, "x")
     }
 
     [Fact]
-    public void BindTypeSyntaxDirect_UnboundGenericIdentifier_PreservesLegacyReporting()
+    public void BindTypeSyntaxAndReport_UnboundGenericIdentifier_ProjectsDiagnostics()
     {
         const string source = """
 import System.Collections.Generic.*
@@ -215,7 +411,7 @@ val value: List = null
         var typeSyntax = declarator.TypeAnnotation!.Type;
         var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
 
-        var resolved = binder.BindTypeSyntaxDirect(typeSyntax);
+        var resolved = binder.BindTypeSyntaxAndReport(typeSyntax);
 
         Assert.Contains(
             binder.Diagnostics.AsEnumerable(),
@@ -223,7 +419,7 @@ val value: List = null
     }
 
     [Fact]
-    public void BindTypeSyntaxDirect_AllowLegacyFallbackFalse_DisablesLegacyTupleFallback()
+    public void BindTypeSyntaxAndReport_BindsTupleTypeViaBindType()
     {
         const string source = "val pair: (int, string) = (1, \"x\")";
 
@@ -236,16 +432,12 @@ val value: List = null
         var typeSyntax = declarator.TypeAnnotation!.Type;
         var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
 
-        var resolved = binder.BindTypeSyntaxDirect(
-            typeSyntax,
-            options: null,
-            refKindHint: null,
-            allowLegacyFallback: false);
+        var resolved = binder.BindTypeSyntaxAndReport(typeSyntax);
 
-        Assert.Equal(TypeKind.Error, resolved.TypeKind);
-        Assert.Contains(
+        Assert.Equal(TypeKind.Tuple, resolved.TypeKind);
+        Assert.DoesNotContain(
             binder.Diagnostics.AsEnumerable(),
-            d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+            d => d.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
