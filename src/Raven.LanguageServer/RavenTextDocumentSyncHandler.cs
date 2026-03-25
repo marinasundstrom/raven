@@ -201,6 +201,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private Task<Unit> ScheduleDiagnosticsPublishAsync(DocumentUri uri)
     {
         var source = new CancellationTokenSource();
+        var token = source.Token;
         int? expectedVersion = _documentVersions.TryGetValue(uri, out var currentVersion)
             ? currentVersion
             : null;
@@ -238,8 +239,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             try
             {
-                await Task.Delay(DiagnosticsDebounceMilliseconds, source.Token).ConfigureAwait(false);
-                await PublishDiagnosticsAsync(uri, source.Token, expectedVersion).ConfigureAwait(false);
+                await Task.Delay(DiagnosticsDebounceMilliseconds, token).ConfigureAwait(false);
+                await PublishDiagnosticsAsync(uri, token, expectedVersion).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -253,7 +254,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 if (_pendingDiagnostics.TryGetValue(uri, out var active) && ReferenceEquals(active, source))
                     _pendingDiagnostics.TryRemove(uri, out _);
 
-                source.Dispose();
+                try
+                {
+                    source.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
             }
         }, CancellationToken.None);
 
@@ -264,8 +271,21 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     {
         if (_pendingDiagnostics.TryRemove(uri, out var pending))
         {
-            pending.Cancel();
-            pending.Dispose();
+            try
+            {
+                pending.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            try
+            {
+                pending.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
     }
 

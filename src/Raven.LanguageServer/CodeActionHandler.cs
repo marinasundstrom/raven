@@ -54,9 +54,13 @@ internal sealed class CodeActionHandler : ICodeActionHandler
         try
         {
             using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
-            if (!_documents.TryGetDocumentContext(request.TextDocument.Uri, out var document, out var compilation) || compilation is null)
+            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            if (context is null)
                 return new CommandOrCodeActionContainer();
 
+            var document = context.Value.Document;
+            var compilation = context.Value.Compilation;
+            var syntaxTree = context.Value.SyntaxTree;
             var documentText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
             var selectionSpan = GetRequestedSpan(documentText, request.Range);
             if (!_workspaceManager.TryGetCodeFixes(request.TextDocument.Uri, out var fixes, cancellationToken: cancellationToken))
@@ -74,10 +78,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
 
             var actions = new List<CommandOrCodeAction>(filteredFixes.Length + filteredRefactorings.Length + 1);
 
-            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-            if (syntaxTree is not null &&
-                SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite) &&
-                compilation.SyntaxTrees.Contains(syntaxTree))
+            if (SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite))
             {
                 var semanticModel = compilation.GetSemanticModel(syntaxTree);
                 var root = syntaxTree.GetRoot(cancellationToken);

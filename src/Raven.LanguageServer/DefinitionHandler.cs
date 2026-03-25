@@ -40,17 +40,17 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         try
         {
             using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
-            if (!_documents.TryGetDocumentContext(request.TextDocument.Uri, out var document, out var compilation) || compilation is null)
+            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            if (context is null)
                 return new LocationOrLocationLinks();
 
-            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-            if (syntaxTree is null)
-                return new LocationOrLocationLinks();
-
-            var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            var document = context.Value.Document;
+            var compilation = context.Value.Compilation;
+            var syntaxTree = context.Value.SyntaxTree;
+            var sourceText = context.Value.SourceText;
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
             var root = syntaxTree.GetRoot(cancellationToken);
-            var offset = PositionHelper.ToOffset(sourceText, request.Position);
+            var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 
             if (TryResolveMacroDefinition(document.Project, root, offset, sourceText, out var macroLinks))
                 return new LocationOrLocationLinks(macroLinks);

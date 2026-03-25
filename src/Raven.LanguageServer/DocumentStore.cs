@@ -20,6 +20,12 @@ namespace Raven.LanguageServer;
 
 internal sealed class DocumentStore
 {
+    internal readonly record struct DocumentAnalysisContext(
+        Document Document,
+        Compilation Compilation,
+        SyntaxTree SyntaxTree,
+        Raven.CodeAnalysis.Text.SourceText SourceText);
+
     private static readonly HashSet<string> UnnecessaryDiagnosticIds = new(StringComparer.OrdinalIgnoreCase)
     {
         CompilerDiagnostics.UnreachableCodeDetected.Id,
@@ -47,6 +53,32 @@ internal sealed class DocumentStore
         [NotNullWhen(true)] out Document? document,
         [NotNullWhen(true)] out Compilation? compilation)
         => _workspaceManager.TryGetDocumentContext(uri, out document, out compilation);
+
+    public async Task<DocumentAnalysisContext?> GetAnalysisContextAsync(DocumentUri uri, CancellationToken cancellationToken)
+    {
+        if (!TryGetDocumentContext(uri, out var document, out var compilation) ||
+            document is null ||
+            compilation is null)
+        {
+            return null;
+        }
+
+        var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+        if (syntaxTree is null)
+            return null;
+
+        var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        if (!compilation.SyntaxTrees.Contains(syntaxTree))
+        {
+            syntaxTree = FindMatchingCompilationSyntaxTree(compilation, syntaxTree, document.FilePath);
+            if (syntaxTree is null)
+                return null;
+
+            sourceText = syntaxTree.GetText() ?? sourceText;
+        }
+
+        return new DocumentAnalysisContext(document, compilation, syntaxTree, sourceText);
+    }
 
     public bool TryGetCompilation(DocumentUri uri, [NotNullWhen(true)] out Compilation? compilation)
         => _workspaceManager.TryGetCompilation(uri, out compilation);
@@ -165,6 +197,33 @@ internal sealed class DocumentStore
     {
         var fullPath = Path.GetFullPath(path);
         return fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    private static SyntaxTree? FindMatchingCompilationSyntaxTree(Compilation compilation, SyntaxTree syntaxTree, string? documentFilePath)
+    {
+        if (compilation.SyntaxTrees.Contains(syntaxTree))
+            return syntaxTree;
+
+        var candidatePath = documentFilePath ?? syntaxTree.FilePath;
+        if (!string.IsNullOrWhiteSpace(candidatePath))
+        {
+            var normalizedCandidatePath = NormalizePath(candidatePath);
+            foreach (var compilationSyntaxTree in compilation.SyntaxTrees)
+            {
+                if (string.IsNullOrWhiteSpace(compilationSyntaxTree.FilePath))
+                    continue;
+
+                if (string.Equals(
+                        NormalizePath(compilationSyntaxTree.FilePath),
+                        normalizedCandidatePath,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return compilationSyntaxTree;
+                }
+            }
+        }
+
+        return null;
     }
 
     private sealed class CompilerAccessLease : IDisposable
