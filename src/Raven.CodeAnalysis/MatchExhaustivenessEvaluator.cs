@@ -334,7 +334,7 @@ internal sealed class MatchExhaustivenessEvaluator
         }
     }
 
-    private bool IsTotalPattern(ITypeSymbol inputType, BoundPattern pattern)
+    private bool IsTotalPattern(ITypeSymbol inputType, BoundPattern pattern, bool assumeNonNull = false)
     {
         inputType = UnwrapAlias(inputType);
 
@@ -369,7 +369,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
                     for (var i = 0; i < tuplePattern.Elements.Length; i++)
                     {
-                        if (!IsTotalPattern(elementTypes[i], tuplePattern.Elements[i]))
+                        if (!IsTotalPattern(elementTypes[i], tuplePattern.Elements[i], assumeNonNull))
                             return false;
                     }
 
@@ -377,18 +377,19 @@ internal sealed class MatchExhaustivenessEvaluator
                 }
             case BoundPropertyPattern propertyPattern:
                 {
-                    if (CanBeNull(inputType))
+                    if (!assumeNonNull && CanBeNull(inputType))
                         return false;
 
                     if (propertyPattern.NarrowedType is not null &&
-                        !IsAssignable(propertyPattern.NarrowedType, inputType))
+                        !IsAssignable(propertyPattern.NarrowedType, inputType) &&
+                        !(assumeNonNull && ArePatternTypesEquivalent(propertyPattern.NarrowedType, inputType)))
                     {
                         return false;
                     }
 
                     foreach (var property in propertyPattern.Properties)
                     {
-                        if (!IsTotalPattern(property.Type, property.Pattern))
+                        if (!IsTotalPattern(property.Type, property.Pattern, assumeNonNull))
                             return false;
                     }
 
@@ -396,11 +397,12 @@ internal sealed class MatchExhaustivenessEvaluator
                 }
             case BoundDeconstructPattern deconstructPattern:
                 {
-                    if (CanBeNull(inputType))
+                    if (!assumeNonNull && CanBeNull(inputType))
                         return false;
 
                     if (deconstructPattern.NarrowedType is not null &&
-                        !IsAssignable(deconstructPattern.NarrowedType, inputType))
+                        !IsAssignable(deconstructPattern.NarrowedType, inputType) &&
+                        !(assumeNonNull && ArePatternTypesEquivalent(deconstructPattern.NarrowedType, inputType)))
                     {
                         return false;
                     }
@@ -410,18 +412,18 @@ internal sealed class MatchExhaustivenessEvaluator
                     var parameterCount = parameters.Length - parameterOffset;
                     for (var i = 0; i < parameterCount; i++)
                     {
-                        if (!IsTotalPattern(parameters[i + parameterOffset].Type, deconstructPattern.Arguments[i]))
+                        if (!IsTotalPattern(parameters[i + parameterOffset].Type, deconstructPattern.Arguments[i], assumeNonNull))
                             return false;
                     }
 
                     return true;
                 }
             case BoundOrPattern orPattern:
-                return IsTotalPattern(inputType, orPattern.Left) ||
-                       IsTotalPattern(inputType, orPattern.Right);
+                return IsTotalPattern(inputType, orPattern.Left, assumeNonNull) ||
+                       IsTotalPattern(inputType, orPattern.Right, assumeNonNull);
             case BoundAndPattern andPattern:
-                return IsTotalPattern(inputType, andPattern.Left) &&
-                       IsTotalPattern(inputType, andPattern.Right);
+                return IsTotalPattern(inputType, andPattern.Left, assumeNonNull) &&
+                       IsTotalPattern(inputType, andPattern.Right, assumeNonNull);
             default:
                 return false;
         }
@@ -580,6 +582,19 @@ internal sealed class MatchExhaustivenessEvaluator
                 }
 
                 break;
+            case BoundUnionMemberPattern unionMemberPattern:
+                {
+                    var matchedCase = TryResolveCoveredUnionCase(union, unionMemberPattern.MemberType, unionMemberPattern.TryGetMethod);
+                    if (matchedCase is not null &&
+                        IsTotalPattern(unionMemberPattern.MemberType, unionMemberPattern.Pattern, assumeNonNull: true))
+                    {
+                        remaining.RemoveWhere(candidate =>
+                            candidate.Ordinal == matchedCase.Ordinal ||
+                            SymbolEqualityComparer.Default.Equals(candidate, matchedCase));
+                    }
+
+                    break;
+                }
             case BoundOrPattern orPattern:
                 RemoveCoveredCases(remaining, orPattern.Left, union);
                 RemoveCoveredCases(remaining, orPattern.Right, union);
@@ -639,6 +654,69 @@ internal sealed class MatchExhaustivenessEvaluator
         }
 
         return true;
+    }
+
+    private static IUnionCaseTypeSymbol? TryResolveCoveredUnionCase(
+        IUnionSymbol union,
+        ITypeSymbol memberType,
+        IMethodSymbol? tryGetMethod = null)
+    {
+        if (tryGetMethod is not null && tryGetMethod.Parameters.Length == 1)
+        {
+            var parameterType = tryGetMethod.Parameters[0].GetByRefElementType();
+            var parameterCase = parameterType.TryGetUnionCase();
+            if (parameterCase is not null)
+            {
+                var parameterUnion = UnwrapAlias((ITypeSymbol)parameterCase.Union);
+                if (AreSameUnionPatternTarget(parameterUnion, UnwrapAlias((ITypeSymbol)union)))
+                    return parameterCase.OriginalDefinition as IUnionCaseTypeSymbol ?? parameterCase;
+            }
+
+            if (parameterType is INamedTypeSymbol namedParameterType)
+            {
+                var nameMatch = union.CaseTypes.FirstOrDefault(caseType =>
+                    string.Equals(caseType.Name, namedParameterType.Name, StringComparison.Ordinal));
+                if (nameMatch is not null)
+                    return nameMatch.OriginalDefinition as IUnionCaseTypeSymbol ?? nameMatch;
+            }
+        }
+
+        var normalizedMemberType = UnwrapAlias(memberType);
+        var memberCase = normalizedMemberType.TryGetUnionCase();
+        if (memberCase is not null)
+        {
+            var memberUnion = UnwrapAlias((ITypeSymbol)memberCase.Union);
+            if (AreSameUnionPatternTarget(memberUnion, UnwrapAlias((ITypeSymbol)union)))
+                return memberCase.OriginalDefinition as IUnionCaseTypeSymbol ?? memberCase;
+        }
+
+        foreach (var caseType in union.CaseTypes)
+        {
+            var normalizedCaseType = UnwrapAlias((ITypeSymbol)((caseType.OriginalDefinition as IUnionCaseTypeSymbol) ?? caseType));
+
+            if (ArePatternTypesEquivalent(normalizedCaseType, normalizedMemberType))
+                return caseType.OriginalDefinition as IUnionCaseTypeSymbol ?? caseType;
+        }
+
+        for (var i = 0; i < union.MemberTypes.Length && i < union.CaseTypes.Length; i++)
+        {
+            var normalizedCaseMemberType = UnwrapAlias(union.MemberTypes[i]);
+            if (ArePatternTypesEquivalent(normalizedCaseMemberType, normalizedMemberType))
+            {
+                var caseType = union.CaseTypes[i];
+                return caseType.OriginalDefinition as IUnionCaseTypeSymbol ?? caseType;
+            }
+        }
+
+        if (normalizedMemberType is INamedTypeSymbol namedMemberType)
+        {
+            var nameMatch = union.CaseTypes.FirstOrDefault(caseType =>
+                string.Equals(caseType.Name, namedMemberType.Name, StringComparison.Ordinal));
+            if (nameMatch is not null)
+                return nameMatch.OriginalDefinition as IUnionCaseTypeSymbol ?? nameMatch;
+        }
+
+        return null;
     }
 
     private void RemoveMembersAssignableToPattern(

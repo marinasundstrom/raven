@@ -175,4 +175,29 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
         Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
     }
+
+    [Fact]
+    public void ImplementedGenericInterface_ConstraintFailure_ReportsDiagnostic()
+    {
+        var source = """
+            union Response<T> {
+                Success(value: T)
+                Failure(message: string)
+            }
+
+            interface IRequestHandler<TRequest, TReturn>
+                where TReturn : new() {
+            }
+
+            class SubmitOrderHandler : IRequestHandler<int, Response<decimal>> {
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+    }
 }

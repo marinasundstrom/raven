@@ -80,6 +80,18 @@ internal abstract class TypeDeclarationBinder : Binder
                 if (!TryBindNamedTypeFromTypeSyntax(baseTypeSyntax.Type, out var resolved, reportDiagnostics: true) || resolved is null)
                     continue;
 
+                if (resolved.ConstructedFrom is INamedTypeSymbol genericDefinition &&
+                    !SymbolEqualityComparer.Default.Equals(genericDefinition, resolved) &&
+                    !resolved.TypeArguments.IsDefaultOrEmpty)
+                {
+                    var typeArgumentSyntax = GetRightmostTypeArgumentList(baseTypeSyntax.Type);
+                    ValidateTypeArgumentConstraints(
+                        genericDefinition,
+                        resolved.TypeArguments,
+                        i => GetTypeArgumentLocation(typeArgumentSyntax, baseTypeSyntax.Type.GetLocation(), i),
+                        genericDefinition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+                }
+
                 if (resolved.TypeKind == TypeKind.Interface)
                 {
                     resolvedInterfaces.Add(resolved);
@@ -102,6 +114,16 @@ internal abstract class TypeDeclarationBinder : Binder
         }
 
         return new NominalTypeShape(baseType, interfaces);
+    }
+
+    private static SeparatedSyntaxList<TypeArgumentSyntax> GetRightmostTypeArgumentList(TypeSyntax syntax)
+    {
+        return syntax switch
+        {
+            GenericNameSyntax generic => generic.TypeArgumentList.Arguments,
+            QualifiedNameSyntax qualified => GetRightmostTypeArgumentList(qualified.Right),
+            _ => default,
+        };
     }
 
     private void ReportInvalidInheritedBaseType(TypeDeclarationSyntax declaration, BaseListSyntax baseList, INamedTypeSymbol? baseType)

@@ -1738,6 +1738,21 @@ internal partial class BlockBinder
     {
         pattern = null;
 
+        if (inputType is not null &&
+            (inputType.TryGetUnion() ?? inputType.TryGetUnionCase()?.Union) is IUnionSymbol union &&
+            !union.CaseTypes.IsDefaultOrEmpty &&
+            TryGetCasePatternHead(syntax.Type, out var caseName, out var qualifierType, out _) &&
+            !string.IsNullOrEmpty(caseName))
+        {
+            var qualifierMatchesUnion = qualifierType is null ||
+                                        AreSameUnionMemberPatternTarget(qualifierType, union);
+            if (qualifierMatchesUnion &&
+                union.CaseTypes.Any(c => string.Equals(c.Name, caseName, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+        }
+
         if (!TryResolveUnionMemberPatternTarget(syntax.Type, inputType, out var memberType, out var tryGetMethod))
             return false;
 

@@ -188,6 +188,28 @@ public class SemanticFactsTests
     }
 
     [Fact]
+    public void SatisfiesConstructorConstraint_ReturnsFalseForUnionClassWithoutPublicParameterlessConstructor()
+    {
+        var source = """
+union Response<T> {
+    Success(value: T)
+    Failure(message: string)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var response = GetSourceType(compilation, "Response");
+
+        Assert.False(SemanticFacts.SatisfiesConstructorConstraint(response));
+    }
+
+    [Fact]
     public void ImplementsInterface_ReturnsTrueForArrayInterfaces()
     {
         var tree = SyntaxTree.ParseText("class C {}");

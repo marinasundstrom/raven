@@ -1370,6 +1370,28 @@ union Result<T> {
     }
 
     [Fact]
+    public void MatchExpression_WithBodyFormUnionCasePatterns_IsExhaustive()
+    {
+        const string code = """
+union Response<T> {
+    Success(value: T)
+    Failure(message: string)
+}
+
+func Describe(result: Response<int>) -> string {
+    return result match {
+        Success(val value) => value.ToString()
+        Failure(val message) => message
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithPureDeconstructionInsideUnionCase_RedundantCatchAllReportsDiagnostic()
     {
         const string code = """

@@ -33,7 +33,7 @@ union Response<T> {
 
 interface IRequestHandler<TRequest, TReturn> 
     where TRequest : class 
-    where TReturn : new () {
+    where TReturn : class {
  
     func Handle(request: TRequest, cancellationToken: CancellationToken) -> Task<TReturn>; 
 }
