@@ -3206,8 +3206,9 @@ into a synchronous `Program.Main` plus an async `Program.MainAsync` that returns
 `Task` or `Task<int>` depending on whether the script returns a value. Only
 console applications may include file-scope code, and
 it may appear in at most one file per compilation. When present, these
-statements must come before any other declarations in the file or its
-file-scoped namespace.
+statements execute in source order. Top-level type declarations are hoisted for
+binding, so helper types may appear anywhere in the file or its file-scoped
+namespace without changing the execution order of file-scope code.
 
 Function declarations (local function statements) within file-scope code are
 hoisted and may be referenced from anywhere in that file-scoped region,

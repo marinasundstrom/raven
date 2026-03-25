@@ -23,7 +23,7 @@ import System.Console.*
 WriteLine("Hello, World!")
 ```
 
-Top-level statements are supported. Executable file-scope code must appear before type declarations.
+Top-level statements are supported. Top-level type declarations are hoisted for binding, so scripts can place helper types near the file-scope code that uses them.
 
 ---
 

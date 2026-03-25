@@ -1314,26 +1314,6 @@ public partial class SemanticModel
                 && ShouldCreateImplicitTopLevelProgramForCompilationUnit(cu)));
         var hasExecutableFileScopedCode = bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax);
 
-        void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
-        {
-            var seenTypeDeclaration = false;
-            foreach (var member in members)
-            {
-                if (member is GlobalStatementSyntax gs)
-                {
-                    if (seenTypeDeclaration)
-                        parentBinder.Diagnostics.ReportFileScopedCodeOutOfOrder(gs.GetLocation());
-                }
-                else if (IsTypeDeclarationMember(member))
-                {
-                    seenTypeDeclaration = true;
-                }
-            }
-        }
-
-        static bool IsTypeDeclarationMember(MemberDeclarationSyntax member)
-            => member is BaseTypeDeclarationSyntax or DelegateDeclarationSyntax;
-
         if (fileScopedNamespace != null)
         {
             foreach (var member in cu.Members)
@@ -1343,12 +1323,6 @@ public partial class SemanticModel
 
                 parentBinder.Diagnostics.ReportFileScopedNamespaceOutOfOrder(member.GetLocation());
             }
-
-            CheckOrder(fileScopedNamespace.Members);
-        }
-        else
-        {
-            CheckOrder(cu.Members);
         }
 
         if (hasExecutableFileScopedCode)

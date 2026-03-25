@@ -176,19 +176,25 @@ func Main() -> unit {
     }
 
     [Fact]
-    public void GlobalStatement_AfterTypeDeclaration_ReportsOutOfOrderDiagnostic()
+    public void GlobalStatements_CanBeInterleavedWithTopLevelTypeDeclarations()
     {
         const string source = """
-class Widget { }
+            val widget = Widget(Name: "inline")
 
-val x = 1
-""";
+            record Widget(Name: string)
+
+            val name = widget.Name
+        """;
 
         var tree = SyntaxTree.ParseText(source);
-        var compilation = CreateCompilation(tree, assemblyName: "app");
+        var compilation = CreateCompilation(
+            [tree],
+            new CompilationOptions(OutputKind.ConsoleApplication),
+            assemblyName: "app");
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -210,20 +216,26 @@ class Widget { }
     }
 
     [Fact]
-    public void FileScopedNamespace_GlobalStatement_AfterTypeDeclaration_ReportsOutOfOrderDiagnostic()
+    public void FileScopedNamespace_GlobalStatements_CanBeInterleavedWithTypeDeclarations()
     {
         const string source = """
-namespace App;
+            namespace App;
 
-class Widget { }
+            val widget = Widget(Name: "inline")
 
-val x = 1
-""";
+            record Widget(Name: string)
+
+            val name = widget.Name
+            """;
 
         var tree = SyntaxTree.ParseText(source);
-        var compilation = CreateCompilation(tree, assemblyName: "app");
+        var compilation = CreateCompilation(
+            [tree],
+            new CompilationOptions(OutputKind.ConsoleApplication),
+            assemblyName: "app");
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
     }
 }

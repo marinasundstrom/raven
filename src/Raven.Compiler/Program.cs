@@ -1366,7 +1366,7 @@ if (diagnostics.Length > 0)
     Console.WriteLine();
 }
 
-var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error && d.Descriptor.Id != "RAV1011");
+var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error);
 var emitFailed = result is { Success: false };
 
 if (errors.Any() || emitFailed || ilVerifyFailed)

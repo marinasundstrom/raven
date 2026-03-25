@@ -162,7 +162,6 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV1008` | Error | Duplicate named argument | Named argument '{name}' specified multiple times | — |
 | `RAV1009` | Error | Unrecognized escape sequence | Unrecognized escape sequence | — |
 | `RAV1010` | Error | Newline in constant | Newline in constant | — |
-| `RAV1011` | Error | File-scope code out of order | File-scope code must appear before any declarations | — |
 | `RAV1012` | Error | File-scope code requires console application | Only console applications may contain file-scope code | — |
 | `RAV1013` | Error | File-scope code may only appear in one file | File-scope code may only appear in one file | — |
 | `RAV1014` | Error | Console application requires entry point | Entry point 'Main' not found | — |

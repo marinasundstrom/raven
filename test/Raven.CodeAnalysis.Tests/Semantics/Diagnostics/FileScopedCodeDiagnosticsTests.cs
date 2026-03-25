@@ -1,6 +1,7 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -27,16 +28,19 @@ public class FileScopedCodeDiagnosticsTests
     }
 
     [Fact(Skip = "Requires reference assemblies in this environment")]
-    public void FileScopedCode_AfterDeclaration_ProducesDiagnostic()
+    public void FileScopedCode_CanAppearAfterTypeDeclaration()
     {
         var code = """
+val x = S()
+
 struct S {}
+
 0
 """;
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("app", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
     }
 
     [Fact(Skip = "Requires reference assemblies in this environment")]
@@ -52,4 +56,3 @@ namespace Foo;
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedNamespaceOutOfOrder);
     }
 }
-
