@@ -595,7 +595,7 @@ internal sealed class HoverHandler : IHoverHandler
             return $"{binding} {local.Name}: {localType}";
         }
 
-        if (symbol is IDiscriminatedUnionCaseSymbol unionCase)
+        if (symbol is IUnionCaseTypeSymbol unionCase)
         {
             var parameters = FormatParameters(unionCase.ConstructorParameters, plainTypeFormat);
             return $"{unionCase.Name}({parameters})";

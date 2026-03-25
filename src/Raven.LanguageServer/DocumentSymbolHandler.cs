@@ -118,7 +118,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                 return true;
             case UnionDeclarationSyntax unionDeclaration:
                 {
-                    var unionChildren = unionDeclaration.Cases
+                    var unionChildren = unionDeclaration.CaseTypes
                         .Select(unionCase => CreateSymbol(
                             unionCase.Identifier.Text,
                             SymbolKind.EnumMember,

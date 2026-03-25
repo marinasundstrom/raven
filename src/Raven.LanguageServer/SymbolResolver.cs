@@ -545,7 +545,7 @@ internal static class SymbolResolver
 
             // In type positions we always prefer the union carrier type over a case type,
             // otherwise hover displays the case as "Name(...)".
-            symbol = resolvedType!.UnderlyingDiscriminatedUnion ?? resolvedType;
+            symbol = resolvedType!.UnderlyingUnionType ?? resolvedType;
             return true;
         }
 
@@ -1096,9 +1096,9 @@ internal static class SymbolResolver
         if (targetType is null)
             return false;
 
-        if (targetType is IDiscriminatedUnionSymbol union && targetType.IsDiscriminatedUnion)
+        if (targetType is IUnionSymbol union && targetType.IsUnion)
         {
-            var unionCase = union.Cases.FirstOrDefault(c => string.Equals(c.Name, invokedName, StringComparison.Ordinal));
+            var unionCase = union.CaseTypes.FirstOrDefault(c => string.Equals(c.Name, invokedName, StringComparison.Ordinal));
             if (unionCase is not null)
             {
                 symbol = unionCase;
@@ -1106,8 +1106,8 @@ internal static class SymbolResolver
             }
         }
 
-        if (targetType is IDiscriminatedUnionCaseSymbol caseType &&
-            targetType.IsDiscriminatedUnionCase &&
+        if (targetType is IUnionCaseTypeSymbol caseType &&
+            targetType.IsUnionCase &&
             string.Equals(caseType.Name, invokedName, StringComparison.Ordinal))
         {
             symbol = caseType;
@@ -1147,16 +1147,16 @@ internal static class SymbolResolver
         if (scrutineeType is null)
             return false;
 
-        IDiscriminatedUnionSymbol? union = null;
-        if (scrutineeType is IDiscriminatedUnionSymbol unionType && scrutineeType.IsDiscriminatedUnion)
+        IUnionSymbol? union = null;
+        if (scrutineeType is IUnionSymbol unionType && scrutineeType.IsUnion)
             union = unionType;
-        else if (scrutineeType is IDiscriminatedUnionCaseSymbol caseType && scrutineeType.IsDiscriminatedUnionCase)
+        else if (scrutineeType is IUnionCaseTypeSymbol caseType && scrutineeType.IsUnionCase)
             union = caseType.Union;
 
         if (union is null)
             return false;
 
-        var caseSymbol = union.Cases.FirstOrDefault(c => string.Equals(c.Name, caseName, StringComparison.Ordinal));
+        var caseSymbol = union.CaseTypes.FirstOrDefault(c => string.Equals(c.Name, caseName, StringComparison.Ordinal));
         if (caseSymbol is null)
             return false;
 
