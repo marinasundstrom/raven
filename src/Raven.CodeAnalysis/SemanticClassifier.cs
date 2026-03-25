@@ -144,36 +144,36 @@ public static class SemanticClassifier
         SemanticModel model,
         SemanticClassification current)
     {
-        if (IsDiscriminatedUnionCasePatternNode(bindNode))
+        if (IsUnionCasePatternNode(bindNode))
         {
             if (current == SemanticClassification.Type)
                 return SemanticClassification.Type;
 
-            if (symbol is ITypeSymbol typeSymbol && typeSymbol.IsDiscriminatedUnionCase)
+            if (symbol is ITypeSymbol typeSymbol && typeSymbol.IsUnionCase)
                 return SemanticClassification.Type;
 
-            if (symbol is IMethodSymbol methodSymbol && methodSymbol.ReturnType.IsDiscriminatedUnionCase)
+            if (symbol is IMethodSymbol methodSymbol && methodSymbol.ReturnType.IsUnionCase)
                 return SemanticClassification.Type;
 
             if (symbol is IMethodSymbol methodOnDiscriminatedUnion &&
-                (methodOnDiscriminatedUnion.ContainingType.IsDiscriminatedUnionCase ||
-                 methodOnDiscriminatedUnion.ContainingType.IsDiscriminatedUnion))
+                (methodOnDiscriminatedUnion.ContainingType.IsUnionCase ||
+                 methodOnDiscriminatedUnion.ContainingType.IsUnion))
             {
                 return SemanticClassification.Type;
             }
 
             if (symbol is IPropertySymbol propertyOnDiscriminatedUnion &&
-                (propertyOnDiscriminatedUnion.ContainingType?.IsDiscriminatedUnionCase == true ||
-                 propertyOnDiscriminatedUnion.ContainingType?.IsDiscriminatedUnion == true ||
-                 propertyOnDiscriminatedUnion.Type.IsDiscriminatedUnionCase))
+                (propertyOnDiscriminatedUnion.ContainingType?.IsUnionCase == true ||
+                 propertyOnDiscriminatedUnion.ContainingType?.IsUnion == true ||
+                 propertyOnDiscriminatedUnion.Type.IsUnionCase))
             {
                 return SemanticClassification.Type;
             }
 
             if (symbol is IFieldSymbol fieldOnDiscriminatedUnion &&
-                (fieldOnDiscriminatedUnion.ContainingType?.IsDiscriminatedUnionCase == true ||
-                 fieldOnDiscriminatedUnion.ContainingType?.IsDiscriminatedUnion == true ||
-                 fieldOnDiscriminatedUnion.Type.IsDiscriminatedUnionCase))
+                (fieldOnDiscriminatedUnion.ContainingType?.IsUnionCase == true ||
+                 fieldOnDiscriminatedUnion.ContainingType?.IsUnion == true ||
+                 fieldOnDiscriminatedUnion.Type.IsUnionCase))
             {
                 return SemanticClassification.Type;
             }
@@ -184,7 +184,7 @@ public static class SemanticClassifier
             if (bindNode is ExpressionSyntax expression)
             {
                 var typeInfo = model.GetTypeInfo(expression).Type;
-                if (typeInfo?.IsDiscriminatedUnionCase == true)
+                if (typeInfo?.IsUnionCase == true)
                     return SemanticClassification.Type;
             }
         }
@@ -195,7 +195,7 @@ public static class SemanticClassifier
         return current;
     }
 
-    private static bool IsDiscriminatedUnionCasePatternNode(SyntaxNode bindNode)
+    private static bool IsUnionCasePatternNode(SyntaxNode bindNode)
     {
         return bindNode switch
         {

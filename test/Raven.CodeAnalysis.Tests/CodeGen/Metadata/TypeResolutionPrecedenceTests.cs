@@ -134,8 +134,8 @@ public union Result<T> {
         var constructedUnion = Assert.IsAssignableFrom<INamedTypeSymbol>(
             unionSymbol.Construct(compilation.GetSpecialType(SpecialType.System_Int32)));
         var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedUnion.LookupType("Ok"));
-        Assert.NotNull(okCase.TryGetDiscriminatedUnionCase());
-        Assert.NotNull(constructedUnion.TryGetDiscriminatedUnion());
+        Assert.NotNull(okCase.TryGetUnionCase());
+        Assert.NotNull(constructedUnion.TryGetUnion());
         var unionConstructors = constructedUnion.Constructors
             .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
             .ToArray();
@@ -145,7 +145,7 @@ public union Result<T> {
         var conversion = compilation.ClassifyConversion(okCase, constructedUnion);
 
         Assert.True(conversion.Exists);
-        Assert.True(conversion.IsDiscriminatedUnion);
+        Assert.True(conversion.IsUnion);
         Assert.False(conversion.IsUserDefined);
         Assert.Null(conversion.MethodSymbol);
         Assert.NotNull(conversion.ConstructorSymbol);

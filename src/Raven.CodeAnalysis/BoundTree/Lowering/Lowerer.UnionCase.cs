@@ -42,6 +42,13 @@ internal sealed partial class Lowerer
         // Build: new CaseType(args...)
         var caseCreation = new BoundObjectCreationExpression(ctor, loweredArgs);
 
+        if (node.UnionType.TypeKind == TypeKind.Class &&
+            node.CaseType.BaseType is INamedTypeSymbol caseBase &&
+            SymbolEqualityComparer.Default.Equals(caseBase, node.UnionType))
+        {
+            return caseCreation;
+        }
+
         var unionCtor = node.UnionType.TryGetUnionCarrierConstructor(node.CaseType, out var resolvedCtor)
             ? resolvedCtor
             : null;

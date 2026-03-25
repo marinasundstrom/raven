@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal static class DiscriminatedUnionFieldUtilities
+internal static class UnionFieldUtilities
 {
     internal const string TagFieldName = "<Tag>";
     internal const int TagFieldOffset = 0;
@@ -23,7 +23,7 @@ internal static class DiscriminatedUnionFieldUtilities
         return normalized.EndsWith("Payload", StringComparison.Ordinal);
     }
 
-    internal static IFieldSymbol? TryGetPayloadField(INamedTypeSymbol unionType, IDiscriminatedUnionCaseSymbol caseSymbol)
+    internal static IFieldSymbol? TryGetPayloadField(INamedTypeSymbol unionType, IUnionCaseTypeSymbol caseSymbol)
     {
         var target = $"{caseSymbol.Name}Payload";
         foreach (var field in unionType.GetMembers().OfType<IFieldSymbol>())
@@ -40,7 +40,7 @@ internal static class DiscriminatedUnionFieldUtilities
             .OfType<IFieldSymbol>()
             .FirstOrDefault(field => IsPayloadFieldName(field.Name));
 
-    internal static IFieldSymbol GetRequiredPayloadField(INamedTypeSymbol unionType, IDiscriminatedUnionCaseSymbol caseSymbol)
+    internal static IFieldSymbol GetRequiredPayloadField(INamedTypeSymbol unionType, IUnionCaseTypeSymbol caseSymbol)
     {
         return TryGetPayloadField(unionType, caseSymbol)
             ?? throw new InvalidOperationException($"Union '{unionType.Name}' is missing backing field for case '{caseSymbol.Name}'.");

@@ -121,16 +121,16 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 "System.Runtime.CompilerServices.UnionCaseAttribute" or
                 "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
             {
-                IDiscriminatedUnionSymbol? unionSymbol = null;
+                IUnionSymbol? unionSymbol = null;
 
-                if (containingType is IDiscriminatedUnionSymbol containingUnion)
+                if (containingType is IUnionSymbol containingUnion)
                 {
                     unionSymbol = containingUnion;
                 }
 
                 if (TryGetAttributeConstructorTypeArgument(attribute, out var unionType))
                 {
-                    unionSymbol = reflectionTypeLoader.ResolveType(unionType) as IDiscriminatedUnionSymbol;
+                    unionSymbol = reflectionTypeLoader.ResolveType(unionType) as IUnionSymbol;
                 }
 
                 return new PEDiscriminatedUnionCaseSymbol(
@@ -151,7 +151,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             return new PEDiscriminatedUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
         }
 
-        if (containingType is IDiscriminatedUnionSymbol parentUnion)
+        if (containingType is IUnionSymbol parentUnion)
         {
             return new PEDiscriminatedUnionCaseSymbol(
                 reflectionTypeLoader,
@@ -173,8 +173,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         {
             var fields = typeInfo.DeclaredFields;
 
-            return fields.Any(f => DiscriminatedUnionFieldUtilities.IsTagFieldName(f.Name))
-                && fields.Any(f => DiscriminatedUnionFieldUtilities.IsPayloadFieldName(f.Name));
+            return fields.Any(f => UnionFieldUtilities.IsTagFieldName(f.Name))
+                && fields.Any(f => UnionFieldUtilities.IsPayloadFieldName(f.Name));
         }
         catch (ArgumentException)
         {

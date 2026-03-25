@@ -417,10 +417,10 @@ public static class CompletionProvider
             var insertionText = symbol is IMethodSymbol
                 ? escapedName + "()"
                 : escapedName;
-            var displayText = symbol is IDiscriminatedUnionCaseSymbol unionCase
+            var displayText = symbol is IUnionCaseTypeSymbol unionCase
                 ? ((INamedTypeSymbol)unionCase).FormatUnionCaseForDiagnostic()
                 : escapedName;
-            var dedupKey = symbol is IDiscriminatedUnionCaseSymbol
+            var dedupKey = symbol is IUnionCaseTypeSymbol
                 ? displayText
                 : symbol.Name;
 
@@ -605,8 +605,8 @@ public static class CompletionProvider
             if (typeAccessSymbol is INamedTypeSymbol namedType)
             {
                 var staticMembers = namedType.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
-                return namedType is IDiscriminatedUnionSymbol union
-                    ? staticMembers.Concat(union.Cases.Where(IsAccessible))
+                return namedType is IUnionSymbol union
+                    ? staticMembers.Concat(union.CaseTypes.Where(IsAccessible))
                     : staticMembers;
             }
 

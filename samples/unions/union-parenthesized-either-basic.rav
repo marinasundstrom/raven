@@ -1,0 +1,12 @@
+import System.*
+import System.Console.*
+
+// Feature: parenthesized generic union declaration over existing types.
+PrintPaymentSource(42)
+PrintPaymentSource("invoice")
+
+func PrintPaymentSource(value: Either<int, string>) {
+    WriteLine(value)
+}
+
+union Either<T1, T2>(T1, T2)

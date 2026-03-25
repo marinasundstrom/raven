@@ -42,8 +42,8 @@ internal sealed class MatchExhaustivenessEvaluator
         }
         else
         {
-            var discriminatedUnion = scrutineeType.TryGetDiscriminatedUnion()
-                ?? scrutineeType.TryGetDiscriminatedUnionCase()?.Union;
+            var discriminatedUnion = scrutineeType.TryGetUnion()
+                ?? scrutineeType.TryGetUnionCase()?.Union;
 
             if (discriminatedUnion is not null)
             {
@@ -164,10 +164,10 @@ internal sealed class MatchExhaustivenessEvaluator
     private ImmutableArray<string> GetMissingDiscriminatedUnionCases(
         ITypeSymbol scrutineeType,
         ImmutableArray<BoundMatchArm> arms,
-        IDiscriminatedUnionSymbol union,
+        IUnionSymbol union,
         MatchExhaustivenessOptions options)
     {
-        var remaining = new HashSet<IDiscriminatedUnionCaseSymbol>(union.Cases, SymbolReferenceComparer<IDiscriminatedUnionCaseSymbol>.Instance);
+        var remaining = new HashSet<IUnionCaseTypeSymbol>(union.CaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
 
         foreach (var arm in arms)
         {
@@ -538,9 +538,9 @@ internal sealed class MatchExhaustivenessEvaluator
     }
 
     private void RemoveCoveredCases(
-        HashSet<IDiscriminatedUnionCaseSymbol> remaining,
+        HashSet<IUnionCaseTypeSymbol> remaining,
         BoundPattern pattern,
-        IDiscriminatedUnionSymbol union)
+        IUnionSymbol union)
     {
         switch (pattern)
         {
@@ -558,8 +558,8 @@ internal sealed class MatchExhaustivenessEvaluator
                         break;
                     }
 
-                    var declarationUnion = declaredType.TryGetDiscriminatedUnion()
-                        ?? declaredType.TryGetDiscriminatedUnionCase()?.Union;
+                    var declarationUnion = declaredType.TryGetUnion()
+                        ?? declaredType.TryGetUnionCase()?.Union;
 
                     if (declarationUnion is not null &&
                         AreSameUnionPatternTarget(UnwrapAlias(declarationUnion), UnwrapAlias(union)))
@@ -573,7 +573,7 @@ internal sealed class MatchExhaustivenessEvaluator
                 if (AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
                     CasePatternCoversAllArguments(casePattern))
                 {
-                    var matchedCase = casePattern.CaseSymbol.OriginalDefinition as IDiscriminatedUnionCaseSymbol ?? casePattern.CaseSymbol;
+                    var matchedCase = casePattern.CaseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? casePattern.CaseSymbol;
                     remaining.RemoveWhere(candidate =>
                         candidate.Ordinal == matchedCase.Ordinal ||
                         SymbolEqualityComparer.Default.Equals(candidate, matchedCase));

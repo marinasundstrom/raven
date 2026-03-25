@@ -465,7 +465,7 @@ public interface IPatternOperation : IOperation
 
 public interface ICasePatternOperation : IPatternOperation
 {
-    IDiscriminatedUnionCaseSymbol CaseSymbol { get; }
+    IUnionCaseTypeSymbol CaseSymbol { get; }
 
     IMethodSymbol TryGetMethod { get; }
 

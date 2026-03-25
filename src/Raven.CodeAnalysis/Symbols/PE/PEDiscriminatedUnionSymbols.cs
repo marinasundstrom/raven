@@ -7,9 +7,10 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscriminatedUnionSymbol
+internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IUnionSymbol
 {
-    private ImmutableArray<IDiscriminatedUnionCaseSymbol>? _cases;
+    private ImmutableArray<IUnionCaseTypeSymbol>? _cases;
+    private ImmutableArray<ITypeSymbol>? _memberTypes;
     private IFieldSymbol? _discriminatorField;
     private IFieldSymbol? _payloadField;
 
@@ -24,7 +25,7 @@ internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscrimin
     {
     }
 
-    public ImmutableArray<IDiscriminatedUnionCaseSymbol> Cases
+    public ImmutableArray<IUnionCaseTypeSymbol> CaseTypes
     {
         get
         {
@@ -32,17 +33,17 @@ internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscrimin
                 return _cases.Value;
 
             var cases = GetMembers()
-                .OfType<IDiscriminatedUnionCaseSymbol>()
+                .OfType<IUnionCaseTypeSymbol>()
                 .ToImmutableArray();
 
             if (cases.IsDefaultOrEmpty && ContainingNamespace is not null)
             {
                 cases = ContainingNamespace
                     .GetAllMembersRecursive()
-                    .OfType<IDiscriminatedUnionCaseSymbol>()
+                    .OfType<IUnionCaseTypeSymbol>()
                     .Where(caseSymbol => SymbolEqualityComparer.Default.Equals(caseSymbol.Union, this))
                     .Distinct(SymbolEqualityComparer.Default)
-                    .OfType<IDiscriminatedUnionCaseSymbol>()
+                    .OfType<IUnionCaseTypeSymbol>()
                     .ToImmutableArray();
             }
 
@@ -52,11 +53,14 @@ internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscrimin
     }
 
     public IFieldSymbol DiscriminatorField =>
-        _discriminatorField ??= FindUnionField(DiscriminatedUnionFieldUtilities.IsTagFieldName)
+        _discriminatorField ??= FindUnionField(UnionFieldUtilities.IsTagFieldName)
             ?? throw new InvalidOperationException($"Missing discriminator field on discriminated union '{Name}'.");
 
+    public ImmutableArray<ITypeSymbol> MemberTypes =>
+        _memberTypes ??= CaseTypes.Cast<ITypeSymbol>().ToImmutableArray();
+
     public IFieldSymbol PayloadField =>
-        _payloadField ??= FindUnionField(DiscriminatedUnionFieldUtilities.IsPayloadFieldName)
+        _payloadField ??= FindUnionField(UnionFieldUtilities.IsPayloadFieldName)
             ?? throw new InvalidOperationException($"Missing payload field on discriminated union '{Name}'.");
 
     private IFieldSymbol? FindUnionField(Func<string, bool> predicate)
@@ -74,10 +78,10 @@ internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscrimin
     }
 }
 
-internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscriminatedUnionCaseSymbol
+internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IUnionCaseTypeSymbol
 {
-    private IDiscriminatedUnionSymbol? _union;
-    private readonly IDiscriminatedUnionSymbol? _unionFromAttribute;
+    private IUnionSymbol? _union;
+    private readonly IUnionSymbol? _unionFromAttribute;
     private string? _logicalCaseName;
     private ImmutableArray<IParameterSymbol>? _constructorParameters;
     private int? _ordinal;
@@ -89,7 +93,7 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
-        IDiscriminatedUnionSymbol? unionFromAttribute)
+        IUnionSymbol? unionFromAttribute)
         : base(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations,
         addAsMember: false)
     {
@@ -98,14 +102,14 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
 
     public override string Name => _logicalCaseName ??= ComputeLogicalCaseName();
 
-    public IDiscriminatedUnionSymbol Union
+    public IUnionSymbol Union
     {
         get
         {
             if (_union is not null)
                 return _union;
 
-            if (ContainingType is IDiscriminatedUnionSymbol containingUnion)
+            if (ContainingType is IUnionSymbol containingUnion)
                 return _union = containingUnion;
 
             if (_unionFromAttribute is not null)
@@ -142,7 +146,7 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
             if (_ordinal is not null)
                 return _ordinal.Value;
 
-            var cases = Union.Cases;
+            var cases = Union.CaseTypes;
             var index = cases.IndexOf(this, SymbolEqualityComparer.Default);
             _ordinal = index >= 0 ? index : 0;
             return _ordinal.Value;
@@ -156,16 +160,16 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
         if (union is null)
             return rawName;
 
-        _ = DiscriminatedUnionFacts.TryGetLogicalCaseNameFromMetadata(union.Name, rawName, out var logicalCaseName);
+        _ = UnionFacts.TryGetLogicalCaseNameFromMetadata(union.Name, rawName, out var logicalCaseName);
         return logicalCaseName;
     }
 
-    private IDiscriminatedUnionSymbol? TryGetKnownUnion()
+    private IUnionSymbol? TryGetKnownUnion()
     {
         if (_union is not null)
             return _union;
 
-        if (ContainingType is IDiscriminatedUnionSymbol containingUnion)
+        if (ContainingType is IUnionSymbol containingUnion)
             return containingUnion;
 
         if (_unionFromAttribute is not null)
@@ -174,7 +178,7 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
         return ResolveUnionFromAttribute();
     }
 
-    private IDiscriminatedUnionSymbol? ResolveUnionFromAttribute()
+    private IUnionSymbol? ResolveUnionFromAttribute()
     {
         foreach (var attribute in PENamedTypeSymbol.GetCustomAttributesSafe(_typeInfo))
         {
@@ -188,7 +192,7 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
                 continue;
 
             var resolvedUnion = _reflectionTypeLoader.ResolveType(unionType);
-            return resolvedUnion as IDiscriminatedUnionSymbol;
+            return resolvedUnion as IUnionSymbol;
         }
 
         // Fallback for metadata that omits explicit case->union attributes:
@@ -199,9 +203,9 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
 
             var inferredUnion = ContainingNamespace
                 .GetAllMembersRecursive()
-                .OfType<IDiscriminatedUnionSymbol>()
+                .OfType<IUnionSymbol>()
                 .FirstOrDefault(unionSymbol =>
-                    DiscriminatedUnionFacts.TryGetLogicalCaseNameFromMetadata(
+                    UnionFacts.TryGetLogicalCaseNameFromMetadata(
                         unionSymbol.Name,
                         rawCaseName,
                         out _));

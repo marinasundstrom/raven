@@ -2,13 +2,15 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SourceDiscriminatedUnionSymbol : SourceNamedTypeSymbol, IDiscriminatedUnionSymbol
+internal sealed class SourceDiscriminatedUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
 {
-    private ImmutableArray<IDiscriminatedUnionCaseSymbol> _cases = ImmutableArray<IDiscriminatedUnionCaseSymbol>.Empty;
+    private ImmutableArray<IUnionCaseTypeSymbol> _cases = ImmutableArray<IUnionCaseTypeSymbol>.Empty;
+    private ImmutableArray<ITypeSymbol> _memberTypes = ImmutableArray<ITypeSymbol>.Empty;
 
     public SourceDiscriminatedUnionSymbol(
         string name,
         INamedTypeSymbol baseType,
+        TypeKind typeKind,
         ISymbol containingSymbol,
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
@@ -16,11 +18,13 @@ internal sealed class SourceDiscriminatedUnionSymbol : SourceNamedTypeSymbol, ID
         SyntaxReference[] declaringSyntaxReferences,
         Accessibility declaredAccessibility,
         string? metadataName = null)
-        : base(name, baseType, TypeKind.Struct, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, isSealed: true, declaredAccessibility: declaredAccessibility, metadataName: metadataName)
+        : base(name, baseType, typeKind, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, isSealed: true, declaredAccessibility: declaredAccessibility, metadataName: metadataName)
     {
     }
 
-    public ImmutableArray<IDiscriminatedUnionCaseSymbol> Cases => _cases;
+    public ImmutableArray<IUnionCaseTypeSymbol> CaseTypes => _cases;
+
+    public ImmutableArray<ITypeSymbol> MemberTypes => _memberTypes;
 
     public IFieldSymbol DiscriminatorField { get; private set; } = null!;
 
@@ -28,9 +32,14 @@ internal sealed class SourceDiscriminatedUnionSymbol : SourceNamedTypeSymbol, ID
 
     public ImmutableArray<IFieldSymbol> PayloadFields { get; private set; } = ImmutableArray<IFieldSymbol>.Empty;
 
-    internal void SetCases(IEnumerable<IDiscriminatedUnionCaseSymbol> cases)
+    internal void SetCases(IEnumerable<IUnionCaseTypeSymbol> cases)
     {
         _cases = cases.ToImmutableArray();
+    }
+
+    internal void SetMemberTypes(IEnumerable<ITypeSymbol> memberTypes)
+    {
+        _memberTypes = memberTypes.ToImmutableArray();
     }
 
     internal void SetDiscriminatorField(SourceFieldSymbol discriminator)

@@ -103,9 +103,12 @@ internal class TypeGenerator
             if (TypeSymbol is SourceDiscriminatedUnionSymbol unionSymbol)
             {
                 var unionNamed = (INamedTypeSymbol)unionSymbol;
-                typeAttributes |= unionNamed.IsGenericType
-                    ? TypeAttributes.SequentialLayout
-                    : TypeAttributes.ExplicitLayout;
+                if (unionNamed.TypeKind == TypeKind.Struct)
+                {
+                    typeAttributes |= unionNamed.IsGenericType
+                        ? TypeAttributes.SequentialLayout
+                        : TypeAttributes.ExplicitLayout;
+                }
             }
         }
 
@@ -307,9 +310,10 @@ internal class TypeGenerator
 
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
 
-        if (TypeSymbol is SourceDiscriminatedUnionSymbol)
+        if (TypeSymbol is SourceDiscriminatedUnionSymbol discriminatedUnionSymbol)
         {
-            ApplyDiscriminatedUnionLayout();
+            if (discriminatedUnionSymbol.TypeKind == TypeKind.Struct)
+                ApplyDiscriminatedUnionLayout();
             var discriminatedUnionAttribute = CodeGen.CreateDiscriminatedUnionAttribute();
             TypeBuilder!.SetCustomAttribute(discriminatedUnionAttribute);
         }
@@ -380,7 +384,7 @@ internal class TypeGenerator
     {
         var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
 
-        foreach (var caseSymbol in unionSymbol.Cases)
+        foreach (var caseSymbol in unionSymbol.CaseTypes)
         {
             foreach (var parameter in caseSymbol.ConstructorParameters)
             {
@@ -571,10 +575,10 @@ internal class TypeGenerator
         {
             if (ShouldUseExplicitUnionLayout(unionSymbol))
             {
-                if (DiscriminatedUnionFieldUtilities.IsTagFieldName(fieldSymbol.Name))
-                    fieldBuilder.SetOffset(DiscriminatedUnionFieldUtilities.TagFieldOffset);
-                else if (DiscriminatedUnionFieldUtilities.IsPayloadFieldName(fieldSymbol.Name))
-                    fieldBuilder.SetOffset(DiscriminatedUnionFieldUtilities.PayloadFieldOffset);
+                if (UnionFieldUtilities.IsTagFieldName(fieldSymbol.Name))
+                    fieldBuilder.SetOffset(UnionFieldUtilities.TagFieldOffset);
+                else if (UnionFieldUtilities.IsPayloadFieldName(fieldSymbol.Name))
+                    fieldBuilder.SetOffset(UnionFieldUtilities.PayloadFieldOffset);
             }
         }
 

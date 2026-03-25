@@ -2767,7 +2767,7 @@ partial class BlockBinder : Binder
                 expression is BoundUnionCaseExpression &&
                 pattern is BoundCasePattern &&
                 scrutinee.Type is INamedTypeSymbol scrutineeUnion &&
-                pattern.Type.TryGetDiscriminatedUnionCase()?.Union is INamedTypeSymbol caseUnion &&
+                pattern.Type.TryGetUnionCase()?.Union is INamedTypeSymbol caseUnion &&
                 SymbolEqualityComparer.Default.Equals(
                     (scrutineeUnion.OriginalDefinition as INamedTypeSymbol) ?? scrutineeUnion,
                     (caseUnion.OriginalDefinition as INamedTypeSymbol) ?? caseUnion))
@@ -2855,12 +2855,12 @@ partial class BlockBinder : Binder
 
         var resultType = (INamedTypeSymbol?)resultDefinition.Construct(expressionType, exceptionType);
 
-        var union = resultType.TryGetDiscriminatedUnion();
+        var union = resultType.TryGetUnion();
         if (union is null)
             return ErrorExpression();
 
-        var okCase = union.Cases.FirstOrDefault(@case => @case.Name == "Ok");
-        var errorCase = union.Cases.FirstOrDefault(@case => @case.Name == "Error");
+        var okCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "Ok");
+        var errorCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "Error");
         if (okCase is null || errorCase is null)
             return ErrorExpression();
 
@@ -3117,9 +3117,9 @@ partial class BlockBinder : Binder
     private sealed record PropagationInfo(
         PropagationKind Kind,
         INamedTypeSymbol UnionType,
-        IDiscriminatedUnionSymbol Union,
-        IDiscriminatedUnionCaseSymbol OkCase,
-        IDiscriminatedUnionCaseSymbol ErrorCase,
+        IUnionSymbol Union,
+        IUnionCaseTypeSymbol OkCase,
+        IUnionCaseTypeSymbol ErrorCase,
         ITypeSymbol OkPayloadType,
         ITypeSymbol? ErrorPayloadType,
         ITypeSymbol OkCaseType,
@@ -3130,14 +3130,17 @@ partial class BlockBinder : Binder
     private static bool TryGetPropagationInfo(INamedTypeSymbol typeSymbol, out PropagationInfo info)
     {
         info = null!;
-        var union = typeSymbol.TryGetDiscriminatedUnion();
+        if (!UnionFacts.UsesCarrierRepresentation(typeSymbol))
+            return false;
+
+        var union = typeSymbol.TryGetUnion();
         if (union is null)
             return false;
 
         if (typeSymbol.Name == "Result")
         {
-            var okCase = union.Cases.FirstOrDefault(@case => @case.Name == "Ok");
-            var errorCase = union.Cases.FirstOrDefault(@case => @case.Name == "Error");
+            var okCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "Ok");
+            var errorCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "Error");
             if (okCase is null || errorCase is null)
                 return false;
 
@@ -3161,8 +3164,8 @@ partial class BlockBinder : Binder
 
         if (typeSymbol.Name == "Option")
         {
-            var okCase = union.Cases.FirstOrDefault(@case => @case.Name == "Some");
-            var errorCase = union.Cases.FirstOrDefault(@case => @case.Name == "None");
+            var okCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "Some");
+            var errorCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "None");
             if (okCase is null || errorCase is null)
                 return false;
 
@@ -3315,8 +3318,8 @@ partial class BlockBinder : Binder
                 }
             case BoundCasePattern casePattern:
                 {
-                    var scrutineeUnion = scrutineeType.TryGetDiscriminatedUnion()
-                        ?? scrutineeType.TryGetDiscriminatedUnionCase()?.Union;
+                    var scrutineeUnion = scrutineeType.TryGetUnion()
+                        ?? scrutineeType.TryGetUnionCase()?.Union;
 
                     var caseUnion = UnwrapAlias(casePattern.CaseSymbol.Union);
 
@@ -3530,10 +3533,10 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        if (patternType.TryGetDiscriminatedUnionCase() is { } caseType)
+        if (patternType.TryGetUnionCase() is { } caseType)
         {
-            var targetUnion = scrutineeType.TryGetDiscriminatedUnion()
-                ?? scrutineeType.TryGetDiscriminatedUnionCase()?.Union;
+            var targetUnion = scrutineeType.TryGetUnion()
+                ?? scrutineeType.TryGetUnionCase()?.Union;
 
             if (targetUnion is not null &&
                 AreSameUnionPatternTarget(UnwrapAlias(targetUnion), UnwrapAlias(caseType.Union)))
@@ -3651,8 +3654,8 @@ partial class BlockBinder : Binder
             return;
         }
 
-        var discriminatedUnion = scrutineeType.TryGetDiscriminatedUnion()
-            ?? scrutineeType.TryGetDiscriminatedUnionCase()?.Union;
+        var discriminatedUnion = scrutineeType.TryGetUnion()
+            ?? scrutineeType.TryGetUnionCase()?.Union;
 
         if (discriminatedUnion is not null)
         {
@@ -3917,14 +3920,14 @@ partial class BlockBinder : Binder
         SyntaxNode matchSyntax,
         SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms,
-        IDiscriminatedUnionSymbol union,
+        IUnionSymbol union,
         int catchAllIndex)
     {
-        var remaining = new HashSet<IDiscriminatedUnionCaseSymbol>(union.Cases, SymbolReferenceComparer<IDiscriminatedUnionCaseSymbol>.Instance);
+        var remaining = new HashSet<IUnionCaseTypeSymbol>(union.CaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
 
-        HashSet<IDiscriminatedUnionCaseSymbol>? guaranteedRemaining = null;
+        HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
         if (catchAllIndex >= 0)
-            guaranteedRemaining = new HashSet<IDiscriminatedUnionCaseSymbol>(remaining, SymbolReferenceComparer<IDiscriminatedUnionCaseSymbol>.Instance);
+            guaranteedRemaining = new HashSet<IUnionCaseTypeSymbol>(remaining, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
 
         var reportedRedundantCatchAll = false;
 
@@ -4251,9 +4254,9 @@ partial class BlockBinder : Binder
     }
 
     private void RemoveCoveredCases(
-        HashSet<IDiscriminatedUnionCaseSymbol> remaining,
+        HashSet<IUnionCaseTypeSymbol> remaining,
         BoundPattern pattern,
-        IDiscriminatedUnionSymbol union)
+        IUnionSymbol union)
     {
         switch (pattern)
         {
@@ -4271,8 +4274,8 @@ partial class BlockBinder : Binder
                         break;
                     }
 
-                    var declarationUnion = declaredType.TryGetDiscriminatedUnion()
-                        ?? declaredType.TryGetDiscriminatedUnionCase()?.Union;
+                    var declarationUnion = declaredType.TryGetUnion()
+                        ?? declaredType.TryGetUnionCase()?.Union;
 
                     if (declarationUnion is not null &&
                         AreSameUnionPatternTarget(UnwrapAlias(declarationUnion), UnwrapAlias(union)))
@@ -6198,7 +6201,7 @@ partial class BlockBinder : Binder
                 {
                     if (!isInvocationCallee &&
                         unionCaseFromLookup is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
-                        caseType.TryGetDiscriminatedUnionCase() is not null)
+                        caseType.TryGetUnionCase() is not null)
                     {
                         var unitArgCtor = caseType.Constructors.FirstOrDefault(ctor =>
                             ctor.Parameters.Length == 1 &&
@@ -6274,7 +6277,7 @@ partial class BlockBinder : Binder
                     {
                         if (!isInvocationCallee &&
                             unionCase is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
-                            caseType.TryGetDiscriminatedUnionCase() is not null)
+                            caseType.TryGetUnionCase() is not null)
                         {
                             var unitArgCtor = caseType.Constructors.FirstOrDefault(ctor =>
                                 ctor.Parameters.Length == 1 &&
@@ -7789,7 +7792,7 @@ partial class BlockBinder : Binder
                 // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
                 // Union case types are treated as plain type instantiations (not target-typed).
                 // But if the same case name exists in multiple unions in scope, report ambiguity.
-                if (namedType.TryGetDiscriminatedUnionCase() is not null)
+                if (namedType.TryGetUnionCase() is not null)
                 {
                     var caseCandidates = LookupUnionCaseTypeCandidates(id.Identifier.ValueText);
                     if (caseCandidates.Length > 1)
@@ -7886,12 +7889,54 @@ partial class BlockBinder : Binder
 
         var caseType = creationExpr.Constructor.ContainingType as INamedTypeSymbol ?? unionCaseCallee.CaseType;
         var unionType = ResolveInvokedUnionCaseUnionType(unionCaseCallee, caseType, syntax);
+        var constructor = creationExpr.Constructor;
+        var arguments = creationExpr.Arguments.ToImmutableArray();
+
+        if (unionType.TryGetUnion() is not null &&
+            ProjectCaseTypeToUnionArguments(caseType, unionType) is INamedTypeSymbol projectedCaseType &&
+            !SymbolEqualityComparer.Default.Equals(projectedCaseType, caseType))
+        {
+            var projectedConstructor = projectedCaseType.Constructors.FirstOrDefault(candidate =>
+            {
+                if (candidate.Parameters.Length != arguments.Length)
+                    return false;
+
+                for (var i = 0; i < candidate.Parameters.Length; i++)
+                {
+                    var conversion = Compilation.ClassifyConversion(arguments[i].Type!, candidate.Parameters[i].Type);
+                    if (!conversion.Exists || !conversion.IsImplicit)
+                        return false;
+                }
+
+                return true;
+            });
+
+            if (projectedConstructor is not null)
+            {
+                var convertedArguments = ImmutableArray.CreateBuilder<BoundExpression>(arguments.Length);
+                for (var i = 0; i < arguments.Length; i++)
+                {
+                    var argument = arguments[i];
+                    var parameterType = projectedConstructor.Parameters[i].Type;
+                    var conversion = Compilation.ClassifyConversion(argument.Type!, parameterType);
+
+                    convertedArguments.Add(
+                        conversion.Exists && !conversion.IsIdentity
+                            ? new BoundConversionExpression(argument, parameterType, conversion)
+                            : argument);
+                }
+
+                caseType = projectedCaseType;
+                constructor = projectedConstructor;
+                arguments = convertedArguments.MoveToImmutable();
+            }
+        }
 
         return new BoundUnionCaseExpression(
             unionType,
             caseType,
-            creationExpr.Constructor,
-            ImmutableArray.CreateRange(creationExpr.Arguments));
+            constructor,
+            arguments);
     }
 
     private BoundUnionCaseExpression RefineInvokedUnionCaseCalleeForContext(
@@ -7906,8 +7951,8 @@ partial class BlockBinder : Binder
         targetType = UnwrapTaskLikeTargetType(targetType);
 
         var targetUnion =
-            targetType.TryGetDiscriminatedUnion() as INamedTypeSymbol
-            ?? targetType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+            targetType.TryGetUnion() as INamedTypeSymbol
+            ?? targetType.TryGetUnionCase()?.Union as INamedTypeSymbol;
 
         if (targetUnion is null ||
             !SymbolEqualityComparer.Default.Equals(unionCaseCallee.UnionType.OriginalDefinition, targetUnion.OriginalDefinition))
@@ -7940,7 +7985,7 @@ partial class BlockBinder : Binder
         // Start with the callee-carried union (e.g. Result<int,string> from Result<int,string>.Error),
         // then only fall back to the case-reported union when needed.
         var resolvedUnion = unionCaseCallee.UnionType;
-        var caseUnion = caseType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+        var caseUnion = caseType.TryGetUnionCase()?.Union as INamedTypeSymbol;
 
         if (caseUnion is not null)
         {
@@ -7959,8 +8004,8 @@ partial class BlockBinder : Binder
             if (boundReceiver is BoundTypeExpression { Type: INamedTypeSymbol receiverType })
             {
                 var receiverUnion =
-                    receiverType.TryGetDiscriminatedUnion() as INamedTypeSymbol
-                    ?? receiverType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+                    receiverType.TryGetUnion() as INamedTypeSymbol
+                    ?? receiverType.TryGetUnionCase()?.Union as INamedTypeSymbol;
 
                 if (receiverUnion is not null &&
                     (resolvedUnion is null ||
@@ -7982,8 +8027,8 @@ partial class BlockBinder : Binder
         targetType = UnwrapTaskLikeTargetType(targetType);
 
         var targetUnion =
-            targetType.TryGetDiscriminatedUnion() as INamedTypeSymbol
-            ?? targetType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+            targetType.TryGetUnion() as INamedTypeSymbol
+            ?? targetType.TryGetUnionCase()?.Union as INamedTypeSymbol;
 
         if (targetUnion is null)
             return resolvedUnion;
@@ -8336,7 +8381,7 @@ partial class BlockBinder : Binder
 
         void AddCaseIfMatch(INamedTypeSymbol caseType)
         {
-            if (caseType.TryGetDiscriminatedUnionCase() is null)
+            if (caseType.TryGetUnionCase() is null)
                 return;
 
             if (!string.Equals(caseType.Name, name, StringComparison.Ordinal))
@@ -8353,11 +8398,11 @@ partial class BlockBinder : Binder
 
         void AddCasesFromUnionCarrier(INamedTypeSymbol carrier)
         {
-            var union = carrier.TryGetDiscriminatedUnion();
+            var union = carrier.TryGetUnion();
             if (union is null)
                 return;
 
-            foreach (var caseType in union.Cases)
+            foreach (var caseType in union.CaseTypes)
             {
                 if (!string.Equals(caseType.Name, name, StringComparison.Ordinal))
                     continue;
@@ -12444,8 +12489,8 @@ partial class BlockBinder : Binder
     {
         carrierType = null!;
 
-        if (!TryGetDiscriminatedUnionCarrier(left, out var leftCarrier) ||
-            !TryGetDiscriminatedUnionCarrier(right, out var rightCarrier))
+        if (!TryGetUnionCarrier(left, out var leftCarrier) ||
+            !TryGetUnionCarrier(right, out var rightCarrier))
         {
             return false;
         }
@@ -12457,17 +12502,17 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private static bool TryGetDiscriminatedUnionCarrier(ITypeSymbol sourceType, out INamedTypeSymbol carrierType)
+    private static bool TryGetUnionCarrier(ITypeSymbol sourceType, out INamedTypeSymbol carrierType)
     {
         carrierType = null!;
 
-        if (sourceType.TryGetDiscriminatedUnion() is INamedTypeSymbol unionType)
+        if (sourceType.TryGetUnion() is INamedTypeSymbol unionType)
         {
             carrierType = unionType;
             return true;
         }
 
-        var caseSymbol = sourceType.TryGetDiscriminatedUnionCase();
+        var caseSymbol = sourceType.TryGetUnionCase();
         if (caseSymbol is null)
             return false;
 
@@ -12490,7 +12535,7 @@ partial class BlockBinder : Binder
 
     private static bool TryProjectDiscriminatedUnionFromCaseArguments(
         INamedTypeSymbol caseType,
-        IDiscriminatedUnionCaseSymbol caseSymbol,
+        IUnionCaseTypeSymbol caseSymbol,
         out INamedTypeSymbol projectedCarrier)
     {
         projectedCarrier = null!;
@@ -12498,7 +12543,7 @@ partial class BlockBinder : Binder
         if (caseType.TypeArguments.IsDefaultOrEmpty)
             return false;
 
-        var caseDefinition = caseSymbol.OriginalDefinition as IDiscriminatedUnionCaseSymbol ?? caseSymbol;
+        var caseDefinition = caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
         if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
             caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
             caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length)
@@ -14422,12 +14467,12 @@ partial class BlockBinder : Binder
 
     private static (string First, string Second) GetAmbiguousCaseDisplayNames(
         INamedTypeSymbol first, INamedTypeSymbol second)
-        => DiscriminatedUnionSymbolExtensions.FormatAmbiguousCasePair(first, second);
+        => UnionSymbolExtensions.FormatAmbiguousCasePair(first, second);
 
     private INamedTypeSymbol? TryGetUnionCarrierForCase(INamedTypeSymbol caseType)
     {
-        // Fast path: IDiscriminatedUnionCaseSymbol already holds a direct reference to its union.
-        if (caseType.TryGetDiscriminatedUnionCase() is { Union: INamedTypeSymbol directUnion })
+        // Fast path: IUnionCaseTypeSymbol already holds a direct reference to its union.
+        if (caseType.TryGetUnionCase() is { Union: INamedTypeSymbol directUnion })
             return directUnion;
 
         // Fallback: for nested cases, ContainingType is the union.
@@ -14443,11 +14488,11 @@ partial class BlockBinder : Binder
             if (symbol is not INamedTypeSymbol namedType)
                 continue;
 
-            var union = namedType.TryGetDiscriminatedUnion();
+            var union = namedType.TryGetUnion();
             if (union is null)
                 continue;
 
-            foreach (var c in union.Cases)
+            foreach (var c in union.CaseTypes)
             {
                 if (ReferenceEquals(c.OriginalDefinition, key))
                     return namedType;
@@ -14462,10 +14507,10 @@ partial class BlockBinder : Binder
 
             foreach (var importedType in importBinder.GetImportedTypes().OfType<INamedTypeSymbol>())
             {
-                var union = importedType.TryGetDiscriminatedUnion();
+                var union = importedType.TryGetUnion();
                 if (union is not null)
                 {
-                    foreach (var c in union.Cases)
+                    foreach (var c in union.CaseTypes)
                     {
                         if (ReferenceEquals(c.OriginalDefinition, key))
                             return importedType;
@@ -14480,11 +14525,11 @@ partial class BlockBinder : Binder
                     if (aliasSymbol.UnderlyingSymbol is not INamedTypeSymbol aliasNamedType)
                         continue;
 
-                    var union = aliasNamedType.TryGetDiscriminatedUnion();
+                    var union = aliasNamedType.TryGetUnion();
                     if (union is null)
                         continue;
 
-                    foreach (var c in union.Cases)
+                    foreach (var c in union.CaseTypes)
                     {
                         if (ReferenceEquals(c.OriginalDefinition, key))
                             return aliasNamedType;

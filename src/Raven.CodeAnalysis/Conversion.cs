@@ -12,8 +12,7 @@ public struct Conversion
     public bool IsBoxing { get; }
     public bool IsUnboxing { get; }
     public bool IsPointer { get; }
-    public bool IsDiscriminatedUnion { get; }
-    public bool IsUnion => IsDiscriminatedUnion;
+    public bool IsUnion { get; }
     public bool IsLifted { get; }
 
     public bool IsUserDefined { get; }
@@ -44,7 +43,7 @@ public struct Conversion
         IsBoxing = isBoxing;
         IsUnboxing = isUnboxing;
         IsPointer = isPointer;
-        IsDiscriminatedUnion = isDiscriminatedUnion;
+        IsUnion = isDiscriminatedUnion;
         IsLifted = isLifted;
         IsUserDefined = isUserDefined;
         IsAlias = isAlias;
@@ -70,7 +69,7 @@ public struct Conversion
            IsReference == other.IsReference &&
            IsBoxing == other.IsBoxing &&
            IsUnboxing == other.IsUnboxing &&
-           IsDiscriminatedUnion == other.IsDiscriminatedUnion &&
+           IsUnion == other.IsUnion &&
            IsLifted == other.IsLifted &&
            IsUserDefined == other.IsUserDefined &&
            IsAlias == other.IsAlias &&
@@ -88,7 +87,7 @@ public struct Conversion
         hash.Add(IsReference);
         hash.Add(IsBoxing);
         hash.Add(IsUnboxing);
-        hash.Add(IsDiscriminatedUnion);
+        hash.Add(IsUnion);
         hash.Add(IsPointer);
         hash.Add(IsLifted);
         hash.Add(IsUserDefined);
@@ -115,7 +114,7 @@ public struct Conversion
             isBoxing: IsBoxing,
             isUnboxing: IsUnboxing,
             isPointer: IsPointer,
-            isDiscriminatedUnion: IsDiscriminatedUnion,
+            isDiscriminatedUnion: IsUnion,
             isLifted: IsLifted,
             isUserDefined: IsUserDefined,
             isAlias: combined,

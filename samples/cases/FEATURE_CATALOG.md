@@ -46,20 +46,20 @@ Pattern note:
 - `samples/cases/character-filter-patterns.rav`
 
 ## 4) Type Unions, DUs, and Records (`docs/lang/spec/type-system.md`)
-- `samples/discriminated-union/union-basic.rav`
-- `samples/discriminated-union/union-case-construction-basic.rav`
-- `samples/discriminated-union/union-shape-match-basic.rav`
-- `samples/discriminated-union/union-result-case-patterns.rav`
-- `samples/discriminated-union/union-generic-result-basic.rav`
-- `samples/discriminated-union/union-generic-result-option-mapping.rav`
+- `samples/unions/union-basic.rav`
+- `samples/unions/union-case-construction-basic.rav`
+- `samples/unions/union-shape-match-basic.rav`
+- `samples/unions/union-result-case-patterns.rav`
+- `samples/unions/union-generic-result-basic.rav`
+- `samples/unions/union-generic-result-option-mapping.rav`
 - `samples/patterns/record-pattern-basic.rav`
-- `samples/discriminated-union/union-cases-generic-basic.rav`
+- `samples/unions/union-cases-generic-basic.rav`
 
 ## 5) Error Handling and Propagation (`docs/lang/spec/error-handling.md`)
 - `samples/result-and-options/result-basic.rav`
 - `samples/result-and-options/result-unit-basic.rav`
 - `samples/result-and-options/option-basic.rav`
-- `samples/result-and-options/either-basic.rav`
+- `samples/unions/union-parenthesized-either-basic.rav`
 - `samples/result-and-options/option-propagation-basic.rav`
 - `samples/result-and-options/result-propagation-basic.rav`
 - `samples/result-and-options/result-propagation-try-expression-basic.rav`

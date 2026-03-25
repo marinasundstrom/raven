@@ -2,9 +2,9 @@ namespace Raven.CodeAnalysis;
 
 internal static class MatchCaseDisplay
 {
-    public static string ForDiscriminatedUnionCase(IDiscriminatedUnionCaseSymbol caseSymbol)
+    public static string ForDiscriminatedUnionCase(IUnionCaseTypeSymbol caseSymbol)
     {
-        var definition = caseSymbol.OriginalDefinition as IDiscriminatedUnionCaseSymbol ?? caseSymbol;
+        var definition = caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
         return definition.Name;
     }
 }

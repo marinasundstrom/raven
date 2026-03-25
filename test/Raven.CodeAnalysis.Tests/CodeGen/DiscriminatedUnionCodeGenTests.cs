@@ -88,7 +88,7 @@ union Option {
     }
 
     [Fact]
-    public void PublicUnionCases_AreEmittedAsPublicNestedStructs()
+    public void PublicUnionCases_AreEmittedAsPublicTypes()
     {
         const string code = """
 import System.*
@@ -118,7 +118,7 @@ public union Result<T> {
         var okCtor = okCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(int) }, modifiers: null);
         Assert.NotNull(okCtor);
 
-        var errorCase = assembly.GetType("Result_Error", throwOnError: true)!;
+        var errorCase = assembly.GetType("Result_Error`1", throwOnError: true)!.MakeGenericType(typeof(int));
         Assert.True(errorCase.IsPublic);
         var errorCtor = errorCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(string) }, modifiers: null);
         Assert.NotNull(errorCtor);
@@ -281,6 +281,148 @@ union Option {
         Assert.Contains(
             unionType.GetCustomAttributesData(),
             a => a.AttributeType.FullName == "System.Runtime.CompilerServices.UnionAttribute");
+    }
+
+    [Fact]
+    public void UnionWithoutStorageModifier_EmitsReferenceTypeCarrier()
+    {
+        var code = """
+union Option {
+    Some(value: int)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+
+        Assert.True(unionType.IsClass);
+        Assert.False(unionType.IsValueType);
+    }
+
+    [Fact]
+    public void UnionStruct_EmitsValueTypeCarrier()
+    {
+        var code = """
+union struct Option {
+    Some(value: int)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+
+        Assert.True(unionType.IsValueType);
+    }
+
+    [Fact]
+    public void NominalUnion_EmitsConstructorsForMemberTypes()
+    {
+        var code = """
+record Left(value: int)
+record Right(message: string)
+
+union Either(Left, Right)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var eitherType = runtimeAssembly.GetType("Either", throwOnError: true)!;
+        var leftType = runtimeAssembly.GetType("Left", throwOnError: true)!;
+        var rightType = runtimeAssembly.GetType("Right", throwOnError: true)!;
+
+        Assert.NotNull(eitherType.GetConstructor([leftType]));
+        Assert.NotNull(eitherType.GetConstructor([rightType]));
+    }
+
+    [Fact]
+    public void GenericParenthesizedUnion_ConstructorsAssignCarrierState()
+    {
+        const string code = """
+class Runner {
+    public static func Left() -> Either<int, string> {
+        return 42
+    }
+
+    public static func Right() -> Either<int, string> {
+        return "invoice"
+    }
+}
+
+union Either<T1, T2>(T1, T2)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "generic-parenthesized-union",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var runnerType = assembly.GetType("Runner", throwOnError: true)!;
+        var leftMethod = runnerType.GetMethod("Left", BindingFlags.Public | BindingFlags.Static)!;
+        var rightMethod = runnerType.GetMethod("Right", BindingFlags.Public | BindingFlags.Static)!;
+
+        var left = leftMethod.Invoke(null, Array.Empty<object?>());
+        var right = rightMethod.Invoke(null, Array.Empty<object?>());
+
+        Assert.Equal("42", left?.ToString());
+        Assert.Equal("invoice", right?.ToString());
     }
 
     [Fact]
@@ -749,7 +891,7 @@ class Container {
 
         var caseValue = createMethod.Invoke(instance, Array.Empty<object?>());
         Assert.NotNull(caseValue);
-        Assert.Equal("Result`2", caseValue!.GetType().Name);
+        Assert.Contains("Result_Error", caseValue!.GetType().Name, StringComparison.Ordinal);
         Assert.Contains("Error", caseValue.ToString(), StringComparison.Ordinal);
     }
 
@@ -835,16 +977,12 @@ class Container {
         var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
         var closedCaseType = caseTypeDefinition.MakeGenericType(typeof(int));
 
-        Assert.Equal(closedUnionType, unionValue!.GetType());
-
-        var conversionCtor = closedUnionType.GetConstructor(new[] { closedCaseType })!;
+        Assert.Equal(closedCaseType, unionValue!.GetType());
+        Assert.True(closedUnionType.IsAssignableFrom(unionValue.GetType()));
 
         var ctor = closedCaseType.GetConstructor(new[] { typeof(int) })!;
         var caseInstance = ctor.Invoke(new object?[] { 7 });
-
-        var converted = conversionCtor.Invoke(new[] { caseInstance });
-        Assert.NotNull(converted);
-        Assert.Equal(closedUnionType, converted!.GetType());
+        Assert.IsAssignableFrom(closedUnionType, caseInstance);
     }
 
     [Fact]

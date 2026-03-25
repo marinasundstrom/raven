@@ -163,9 +163,9 @@ if [[ -z "${RAVEN_CORE:-}" ]]; then
 fi
 
 #
-# Make sure the compiler has been built after its runtime dependency exists.
-dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+# Make sure the compiler host is rebuilt after its compiler-core dependency.
 dotnet build "$REPO_ROOT/src/Raven.CodeAnalysis" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
 # TestDep is currently net10.0-only, so build it with its declared framework.
 dotnet build "$REPO_ROOT/src/TestDep" -c "$BUILD_CONFIG"
 

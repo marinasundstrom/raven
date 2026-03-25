@@ -83,25 +83,27 @@ Raven lifecycle declarations map to CLR methods:
 * `init(...)` remains constructor-shape syntax and maps to `.ctor` overloads.
 * `finally { ... }` lowers as a `Finalize` override.
 
-## Discriminated union interop (C#)
-Discriminated unions compile into a nested-struct hierarchy that C# can consume
-directly. Each case becomes a public nested `struct` with a constructor that
+## Union interop (C#)
+Raven unions compile into a carrier type plus independent case types that C#
+can consume directly. Each case becomes a public type with a constructor that
 accepts the payload values, a set of get-only properties for those payloads,
-and a `Deconstruct(out ...)` method that mirrors the payload order. The outer
-union struct declares an overloaded constructor per case (`.ctor(CaseType)`)
-and overloaded `TryGetValue(out CaseType value)` helpers to safely extract a
-case instance.
+and a `Deconstruct(out ...)` method that mirrors the payload order. The union
+carrier exposes overloaded `TryGetValue(out CaseType value)` helpers to safely
+extract a case instance. For parenthesized unions such as
+`union Either<T1, T2>(T1, T2)`, the carrier is declared over existing member
+types instead of synthesized case types, so the carrier constructor and
+`TryGetValue` overloads operate directly on those member types.
 
-Producing a union from C# is done by constructing the case and then calling the
-union constructor:
+Producing a union from C# is done by constructing the case and then converting
+it to the carrier:
 
 ```csharp
 // Raven
 // union Token { Identifier(text: string) Number(value: int) }
 
 var identifier = new TokenIdentifier("hello");
-Token token = new Token(identifier); // Token(TokenIdentifier)
-Token other = new Token(new TokenNumber(42));
+Token token = identifier;
+Token other = new TokenNumber(42);
 ```
 
 Consuming a union from C# involves calling an overloaded `TryGetValue` helper
@@ -115,7 +117,20 @@ if (token.TryGetValue(out TokenIdentifier identifier))
 }
 ```
 
-These members allow C# callers to work with Raven discriminated unions without
+For a parenthesized union, extraction is performed directly on the member type:
+
+```csharp
+// Raven
+// union Either<T1, T2>(T1, T2)
+
+Either<int, string> value = 42;
+if (value.TryGetValue(out int left))
+{
+    Console.WriteLine(left);
+}
+```
+
+These members allow C# callers to work with Raven unions without
 needing reflection, while Raven still relies on the synthesized metadata
 attributes to preserve the union semantics for other tools.
 

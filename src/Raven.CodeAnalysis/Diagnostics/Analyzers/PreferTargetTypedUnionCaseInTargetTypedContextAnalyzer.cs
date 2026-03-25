@@ -88,7 +88,7 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
         if (!TryGetUnionCaseAccess(expression, out var access))
             return false;
 
-        var targetUnion = targetType.TryGetDiscriminatedUnion();
+        var targetUnion = targetType.TryGetUnion();
         if (targetUnion is null)
             return false;
 
@@ -96,7 +96,7 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
         if (qualifiedType is null || qualifiedType.TypeKind == TypeKind.Error)
             return false;
 
-        var qualifiedUnion = qualifiedType.TryGetDiscriminatedUnion();
+        var qualifiedUnion = qualifiedType.TryGetUnion();
         if (qualifiedUnion is null)
             return false;
 

@@ -473,11 +473,11 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     bool IsNullable => TypeKind == TypeKind.Nullable;
 
-    bool IsDiscriminatedUnion
+    bool IsUnion
     {
         get
         {
-            if (this is IDiscriminatedUnionSymbol)
+            if (this is IUnionSymbol)
                 return true;
 
             return GetAttributes().Any(static attribute =>
@@ -487,11 +487,11 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
         }
     }
 
-    bool IsDiscriminatedUnionCase
+    bool IsUnionCase
     {
         get
         {
-            if (this is IDiscriminatedUnionCaseSymbol)
+            if (this is IUnionCaseTypeSymbol)
                 return true;
 
             return GetAttributes().Any(static attribute =>
@@ -501,14 +501,14 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
         }
     }
 
-    INamedTypeSymbol? UnderlyingDiscriminatedUnion
+    INamedTypeSymbol? UnderlyingUnionType
     {
         get
         {
-            if (this is IDiscriminatedUnionSymbol union)
+            if (this is IUnionSymbol union)
                 return union;
 
-            if (this is IDiscriminatedUnionCaseSymbol caseSymbol)
+            if (this is IUnionCaseTypeSymbol caseSymbol)
                 return caseSymbol.Union;
 
             foreach (var attribute in GetAttributes())
@@ -652,18 +652,20 @@ public interface ITypeUnionSymbol : ITypeSymbol
     ITypeSymbol? DeclaredUnderlyingType { get; }
 }
 
-public interface IDiscriminatedUnionSymbol : INamedTypeSymbol
+public interface IUnionSymbol : INamedTypeSymbol
 {
-    ImmutableArray<IDiscriminatedUnionCaseSymbol> Cases { get; }
+    ImmutableArray<IUnionCaseTypeSymbol> CaseTypes { get; }
+
+    ImmutableArray<ITypeSymbol> MemberTypes { get; }
 
     IFieldSymbol DiscriminatorField { get; }
 
     IFieldSymbol PayloadField { get; }
 }
 
-public interface IDiscriminatedUnionCaseSymbol : INamedTypeSymbol
+public interface IUnionCaseTypeSymbol : INamedTypeSymbol
 {
-    IDiscriminatedUnionSymbol Union { get; }
+    IUnionSymbol Union { get; }
 
     ImmutableArray<IParameterSymbol> ConstructorParameters { get; }
 

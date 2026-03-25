@@ -111,6 +111,9 @@ internal sealed partial class Lowerer
         if (operandType is null || operandType.TypeKind == TypeKind.Error || operandNamedType is null)
             return null;
 
+        if (!UnionFacts.UsesCarrierRepresentation(operandNamedType))
+            return null;
+
         var tryGetMethod = FindTryGetMethod(operandNamedType, propagate);
         if (tryGetMethod is null)
             return null;

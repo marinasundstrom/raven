@@ -78,11 +78,11 @@ public sealed class PreferTargetTypedUnionCaseAnalyzer : DiagnosticAnalyzer
         if (qualifiedType is null || qualifiedType.TypeKind == TypeKind.Error)
             return false;
 
-        var union = qualifiedType.TryGetDiscriminatedUnion();
+        var union = qualifiedType.TryGetUnion();
         if (union is null)
             return false;
 
-        var inferredCase = localType.TryGetDiscriminatedUnionCase();
+        var inferredCase = localType.TryGetUnionCase();
         if (inferredCase is null)
             return false;
 
@@ -96,7 +96,7 @@ public sealed class PreferTargetTypedUnionCaseAnalyzer : DiagnosticAnalyzer
             _ => access.MemberAccess.Name.ToString()
         };
 
-        if (!union.Cases.Any(c => string.Equals(c.Name, caseName, StringComparison.Ordinal)))
+        if (!union.CaseTypes.Any(c => string.Equals(c.Name, caseName, StringComparison.Ordinal)))
             return false;
 
         var typeText = qualifiedType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);

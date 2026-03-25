@@ -72,7 +72,7 @@ internal sealed class BoundGuardedPattern : BoundPattern
 internal sealed class BoundCasePattern : BoundPattern
 {
     public BoundCasePattern(
-        IDiscriminatedUnionCaseSymbol caseSymbol,
+        IUnionCaseTypeSymbol caseSymbol,
         IMethodSymbol tryGetMethod,
         ImmutableArray<BoundPattern> arguments,
         BoundDesignator? designator = null,
@@ -85,7 +85,7 @@ internal sealed class BoundCasePattern : BoundPattern
         Designator = designator;
     }
 
-    public IDiscriminatedUnionCaseSymbol CaseSymbol { get; }
+    public IUnionCaseTypeSymbol CaseSymbol { get; }
 
     public IMethodSymbol TryGetMethod { get; }
 
@@ -452,20 +452,20 @@ internal partial class BlockBinder
             // Prefer DU-case interpretation for bare identifiers in pattern position.
             // Example: `match r { Ok => ...; Error(val e) => ... }`
             var lookupType = inputType;
-            var unionType = lookupType?.TryGetDiscriminatedUnion()
-                ?? lookupType?.TryGetDiscriminatedUnionCase()?.Union;
+            var unionType = lookupType?.TryGetUnion()
+                ?? lookupType?.TryGetUnionCase()?.Union;
 
             if (unionType is not null)
             {
                 var caseName = identifierType.Identifier.ValueText;
-                var caseSymbol = unionType.Cases.FirstOrDefault(c => c.Name == caseName);
+                var caseSymbol = unionType.CaseTypes.FirstOrDefault(c => c.Name == caseName);
 
                 if (caseSymbol is not null)
                 {
                     if (caseSymbol is INamedTypeSymbol caseNamed &&
                         unionType is INamedTypeSymbol unionNamed)
                     {
-                        caseSymbol = ProjectCaseSymbolToUnionArguments(caseNamed, unionNamed) as IDiscriminatedUnionCaseSymbol
+                        caseSymbol = ProjectCaseSymbolToUnionArguments(caseNamed, unionNamed) as IUnionCaseTypeSymbol
                             ?? caseSymbol;
                     }
 
@@ -1728,13 +1728,13 @@ internal partial class BlockBinder
         if (lookupType is null)
             return false;
 
-        var unionType = lookupType.TryGetDiscriminatedUnion()
-            ?? lookupType.TryGetDiscriminatedUnionCase()?.Union;
+        var unionType = lookupType.TryGetUnion()
+            ?? lookupType.TryGetUnionCase()?.Union;
 
         if (unionType is null)
             return false;
 
-        var caseSymbol = unionType.Cases.FirstOrDefault(c => c.Name == caseName);
+        var caseSymbol = unionType.CaseTypes.FirstOrDefault(c => c.Name == caseName);
         if (caseSymbol is null)
         {
             _diagnostics.ReportCasePatternCaseNotFound(
@@ -1749,7 +1749,7 @@ internal partial class BlockBinder
         if (caseSymbol is INamedTypeSymbol caseNamed &&
             unionType is INamedTypeSymbol unionNamed)
         {
-            caseSymbol = ProjectCaseSymbolToUnionArguments(caseNamed, unionNamed) as IDiscriminatedUnionCaseSymbol
+            caseSymbol = ProjectCaseSymbolToUnionArguments(caseNamed, unionNamed) as IUnionCaseTypeSymbol
                 ?? caseSymbol;
         }
 
@@ -1939,8 +1939,8 @@ internal partial class BlockBinder
 
     private IMethodSymbol? FindTryGetMethod(
         ITypeSymbol? lookupType,
-        IDiscriminatedUnionSymbol unionType,
-        IDiscriminatedUnionCaseSymbol caseSymbol)
+        IUnionSymbol unionType,
+        IUnionCaseTypeSymbol caseSymbol)
     {
         var targetCaseType = ((ITypeSymbol)caseSymbol).GetPlainType();
         var targetUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)unionType);
@@ -1955,7 +1955,7 @@ internal partial class BlockBinder
                 return false;
 
             var parameterType = parameter.GetByRefElementType().GetPlainType();
-            var parameterCase = parameterType.TryGetDiscriminatedUnionCase();
+            var parameterCase = parameterType.TryGetUnionCase();
             if (parameterCase is not null)
             {
                 var parameterUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)parameterCase.Union);

@@ -25,7 +25,7 @@ internal sealed partial class Lowerer
 
         var rewrittenExpression = (BoundExpression?)Visit(node.Expression) ?? node.Expression;
 
-        if (node.Conversion.IsDiscriminatedUnion)
+        if (node.Conversion.IsUnion)
         {
             if (ReferenceEquals(rewrittenExpression, node.Expression))
                 return node;
@@ -41,7 +41,7 @@ internal sealed partial class Lowerer
 
     private BoundExpression LowerDiscriminatedUnionConversion(BoundConversionExpression node, BoundExpression rewrittenExpression)
     {
-        var caseDefinition = rewrittenExpression.Type?.TryGetDiscriminatedUnionCase()
+        var caseDefinition = rewrittenExpression.Type?.TryGetUnionCase()
             ?? throw new InvalidOperationException("Missing discriminated union case information.");
         var unionType = (INamedTypeSymbol)node.Type!;
         if (unionType.IsGenericType &&
@@ -51,8 +51,8 @@ internal sealed partial class Lowerer
         }
 
         // Reproject the case via the target union to keep synthesized case locals concrete.
-        var projectedCase = unionType is IDiscriminatedUnionSymbol projectedUnion
-            ? projectedUnion.Cases.FirstOrDefault(c => c.Ordinal == caseDefinition.Ordinal) ?? caseDefinition
+        var projectedCase = unionType is IUnionSymbol projectedUnion
+            ? projectedUnion.CaseTypes.FirstOrDefault(c => c.Ordinal == caseDefinition.Ordinal) ?? caseDefinition
             : caseDefinition;
 
         var projectedCaseType = (INamedTypeSymbol)projectedCase;

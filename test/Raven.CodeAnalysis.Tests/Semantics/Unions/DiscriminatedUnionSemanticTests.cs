@@ -26,11 +26,81 @@ union Option {
         var model = compilation.GetSemanticModel(tree);
 
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var caseClause = unionDecl.Cases[0];
+        var caseClause = unionDecl.CaseTypes[0];
         var symbol = model.GetDeclaredSymbol(caseClause);
 
-        var caseSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionCaseSymbol>(symbol);
+        var caseSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(symbol);
         Assert.Equal("None", caseSymbol.Name);
+    }
+
+    [Fact]
+    public void UnionDeclaration_WithoutStorageModifier_DefaultsToClassUnionAndClassCases()
+    {
+        const string source = """
+union Option {
+    None
+    Some(value: int)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        Assert.Equal(TypeKind.Class, unionSymbol.TypeKind);
+        Assert.All(unionSymbol.CaseTypes, static @case => Assert.Equal(TypeKind.Class, @case.TypeKind));
+        Assert.Equal(2, unionSymbol.MemberTypes.Length);
+    }
+
+    [Fact]
+    public void UnionDeclaration_WithStructModifier_UsesStructUnionAndStructCases()
+    {
+        const string source = """
+union struct Option {
+    None
+    Some(value: int)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        Assert.Equal(TypeKind.Struct, unionSymbol.TypeKind);
+        Assert.All(unionSymbol.CaseTypes, static @case => Assert.Equal(TypeKind.Struct, @case.TypeKind));
+    }
+
+    [Fact]
+    public void NominalUnionDeclaration_BindsDeclaredMemberTypes()
+    {
+        const string source = """
+record Left(value: int)
+record Right(message: string)
+
+union Either(Left, Right)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        Assert.Equal(TypeKind.Class, unionSymbol.TypeKind);
+        Assert.Empty(unionSymbol.CaseTypes);
+        Assert.Collection(
+            unionSymbol.MemberTypes,
+            left => Assert.Equal("Left", left.Name),
+            right => Assert.Equal("Right", right.Name));
     }
 
     [Fact]
@@ -850,7 +920,7 @@ union Option {
         var model = compilation.GetSemanticModel(tree);
 
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
         var conversionMethods = unionSymbol
             .GetMembers("op_Implicit")
@@ -879,11 +949,11 @@ union Result<T, E> {
 
         var model = compilation.GetSemanticModel(tree);
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
-        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Ok"));
-        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Error"));
-        var pendingCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Pending"));
+        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single(c => c.Name == "Ok"));
+        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single(c => c.Name == "Error"));
+        var pendingCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single(c => c.Name == "Pending"));
 
         Assert.Equal(1, okCase.Arity);
         Assert.Equal(1, errorCase.Arity);
@@ -908,9 +978,9 @@ union Payloads {
 
         var model = compilation.GetSemanticModel(tree);
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
-        var callbackCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Callback"));
+        var callbackCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single(c => c.Name == "Callback"));
         var callbackCtor = callbackCase.InstanceConstructors.Single();
         var callbackType = Assert.IsAssignableFrom<INamedTypeSymbol>(callbackCtor.Parameters[0].Type);
         Assert.Equal(TypeKind.Delegate, callbackType.TypeKind);
@@ -921,7 +991,7 @@ union Payloads {
         Assert.Equal(SpecialType.System_Int32, invoke.Parameters[0].Type.SpecialType);
         Assert.Equal(SpecialType.System_String, invoke.Parameters[1].Type.SpecialType);
 
-        var pairCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Pair"));
+        var pairCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single(c => c.Name == "Pair"));
         var pairCtor = pairCase.InstanceConstructors.Single();
         var tupleType = Assert.IsAssignableFrom<ITupleTypeSymbol>(pairCtor.Parameters[0].Type);
         Assert.Equal("left", tupleType.TupleElements[0].Name);
@@ -948,15 +1018,15 @@ union Result<T, E> {
 
         var model = compilation.GetSemanticModel(tree);
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
-        var constructedUnion = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(
+        var constructedUnion = Assert.IsAssignableFrom<IUnionSymbol>(
             unionSymbol.Construct(
                 compilation.GetSpecialType(SpecialType.System_Int32),
                 compilation.GetSpecialType(SpecialType.System_String)));
 
-        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedUnion.Cases.Single(c => c.Name == "Ok"));
-        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedUnion.Cases.Single(c => c.Name == "Error"));
+        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedUnion.CaseTypes.Single(c => c.Name == "Ok"));
+        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedUnion.CaseTypes.Single(c => c.Name == "Error"));
 
         Assert.Equal(SpecialType.System_Int32, okCase.TypeArguments.Single().SpecialType);
         Assert.Equal(SpecialType.System_String, errorCase.TypeArguments.Single().SpecialType);
@@ -980,10 +1050,10 @@ union Result<T, E> {
 
         var model = compilation.GetSemanticModel(tree);
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
-        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Ok"));
-        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.Cases.Single(c => c.Name == "Error"));
+        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single(c => c.Name == "Ok"));
+        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single(c => c.Name == "Error"));
 
         Assert.Equal("Ok", okCase.Name);
         Assert.Equal("Result_Ok`1", okCase.MetadataName);
@@ -1004,8 +1074,8 @@ union Option {
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
-        var caseSymbol = unionSymbol.Cases.Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var caseSymbol = unionSymbol.CaseTypes.Single();
 
         var property = caseSymbol.GetMembers("Value").OfType<IPropertySymbol>().Single();
         Assert.Equal(Accessibility.Private, property.DeclaredAccessibility);
@@ -1031,8 +1101,8 @@ union Option {
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
-        var caseSymbol = unionSymbol.Cases.Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var caseSymbol = unionSymbol.CaseTypes.Single();
 
         var constructor = Assert.Single(caseSymbol.GetMembers(".ctor").OfType<IMethodSymbol>());
         Assert.Contains(unionSymbol.GetMembers(".ctor"), m => SymbolEqualityComparer.Default.Equals(m, constructor));
@@ -1074,15 +1144,15 @@ class Container {
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
-        var caseSymbol = unionSymbol.Cases.Single(c => c.Name == "Some");
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var caseSymbol = unionSymbol.CaseTypes.Single(c => c.Name == "Some");
 
         var constructedUnion = (INamedTypeSymbol)unionSymbol.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
         var conversion = compilation.ClassifyConversion(caseSymbol, constructedUnion);
 
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
-        Assert.True(conversion.IsDiscriminatedUnion);
+        Assert.True(conversion.IsUnion);
         Assert.False(conversion.IsUserDefined);
         Assert.Null(conversion.MethodSymbol);
         Assert.NotNull(conversion.ConstructorSymbol);
@@ -1140,15 +1210,15 @@ union Result<T, E> {
 
         var model = compilation.GetSemanticModel(tree);
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
-        foreach (var caseSymbol in unionSymbol.Cases)
+        foreach (var caseSymbol in unionSymbol.CaseTypes)
         {
             Assert.Contains(
                 unionSymbol.Constructors,
                 constructor => constructor.Parameters.Length == 1 &&
                                string.Equals(
-                                   constructor.Parameters[0].Type.TryGetDiscriminatedUnionCase()?.Name,
+                                   constructor.Parameters[0].Type.TryGetUnionCase()?.Name,
                                    caseSymbol.Name,
                                    StringComparison.Ordinal));
         }
@@ -1298,7 +1368,7 @@ union Test {
 
         var model = compilation.GetSemanticModel(tree);
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
         Assert.Equal(2, unionSymbol.GetMembers("TryGetValue").OfType<IMethodSymbol>().Count());
     }
 

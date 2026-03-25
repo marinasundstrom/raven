@@ -2,6 +2,17 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 
+## 2026-03-25
+
+### Changed
+- Raven unions now explicitly use one runtime model: a carrier plus independent case types. Body-form unions continue to synthesize case types, but those case types no longer form an inheritance hierarchy with the union root.
+- Union construction, matching, propagation, and conditional-access lowering now consistently target carrier semantics, with `TryGetValue(out CaseType)` and pattern matching as the extraction surface.
+- Compiler naming and docs continue the move away from the old “discriminated union” terminology toward the simpler `union` / `union case` vocabulary where possible.
+
+Impact:
+- `union` now has a clearer contract: it describes a closed carrier type rather than an inheritance-oriented object model.
+- Users who want OOP subtype semantics should prefer Raven sealed hierarchies, while unions remain the right tool for closed carrier-style data modeling and Result/Option-style APIs.
+
 ## 2026-03-24
 
 ### Changed

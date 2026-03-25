@@ -1653,6 +1653,13 @@ partial class BlockBinder
     ITypeSymbol payloadType,
     ITypeSymbol? errorType)
     {
+        if ((kind is BoundCarrierKind.Option or BoundCarrierKind.Result) &&
+            (!UnionFacts.UsesCarrierRepresentation(carrierReceiver.Type) ||
+             !UnionFacts.UsesCarrierRepresentation(carrierGeneric)))
+        {
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
         // Synthesize a payload local that exists only for this node’s WhenPresent binding
         var payloadLocal = CreateTempLocal("payload", payloadType, syntax);
         var payloadReceiver = new BoundLocalAccess(payloadLocal);
@@ -1902,10 +1909,10 @@ partial class BlockBinder
 
     private static INamedTypeSymbol? FindUnionCase(INamedTypeSymbol carrier, string name)
     {
-        var union = carrier.TryGetDiscriminatedUnion();
+        var union = carrier.TryGetUnion();
         if (union is not null)
         {
-            var caseSymbol = union.Cases.FirstOrDefault(@case => @case.Name == name);
+            var caseSymbol = union.CaseTypes.FirstOrDefault(@case => @case.Name == name);
             if (caseSymbol is INamedTypeSymbol namedCase)
                 return namedCase;
         }
@@ -3340,8 +3347,8 @@ partial class BlockBinder
         targetType = UnwrapTaskLikeTargetType(targetType);
 
         var targetUnion =
-            targetType.TryGetDiscriminatedUnion() as INamedTypeSymbol
-            ?? targetType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+            targetType.TryGetUnion() as INamedTypeSymbol
+            ?? targetType.TryGetUnionCase()?.Union as INamedTypeSymbol;
 
         if (targetUnion is null)
             return expression;
@@ -3358,10 +3365,20 @@ partial class BlockBinder
 
         if (IsUninstantiatedGenericType(unionCase.UnionType) || !IsUninstantiatedGenericType(targetUnion))
         {
+            var projectedCaseType = ProjectCaseTypeToUnionArguments(unionCase.CaseType, targetUnion) as INamedTypeSymbol
+                ?? unionCase.CaseType;
+            var projectedConstructor = unionCase.CaseConstructor;
+            if (projectedConstructor is not null &&
+                !SymbolEqualityComparer.Default.Equals(projectedCaseType, unionCase.CaseType))
+            {
+                projectedConstructor = projectedCaseType.InstanceConstructors.FirstOrDefault(candidate =>
+                    candidate.Parameters.Length == unionCase.CaseConstructor.Parameters.Length);
+            }
+
             return new BoundUnionCaseExpression(
                 targetUnion,
-                unionCase.CaseType,
-                unionCase.CaseConstructor,
+                projectedCaseType,
+                projectedConstructor,
                 unionCase.Arguments);
         }
 
@@ -3604,7 +3621,7 @@ partial class BlockBinder
                         unionTypeForUnit = rawUnionCase.UnionType;
                     }
                     else if (unionCase is BoundTypeExpression { Type: INamedTypeSymbol legacyCaseType } &&
-                             legacyCaseType.TryGetDiscriminatedUnionCase() is not null)
+                             legacyCaseType.TryGetUnionCase() is not null)
                     {
                         caseTypeForUnit = legacyCaseType;
                     }
@@ -3664,20 +3681,20 @@ partial class BlockBinder
         // Keep two views:
         // 1) union definition for case-name lookup
         // 2) carrier type (possibly constructed) for projecting case type arguments
-        var unionSymbol = namedType.TryGetDiscriminatedUnion()
-            ?? namedType.TryGetDiscriminatedUnionCase()?.Union;
+        var unionSymbol = namedType.TryGetUnion()
+            ?? namedType.TryGetUnionCase()?.Union;
 
         var unionCarrier = unionSymbol is not null
             ? namedType
-            : namedType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+            : namedType.TryGetUnionCase()?.Union as INamedTypeSymbol;
 
-        if (unionCarrier is null && unionSymbol is not null && namedType.TryGetDiscriminatedUnion() is not null)
+        if (unionCarrier is null && unionSymbol is not null && namedType.TryGetUnion() is not null)
             unionCarrier = namedType;
 
         if (unionSymbol is null || unionCarrier is null)
             return null;
 
-        var caseSymbol = unionSymbol.Cases.FirstOrDefault(@case => @case.Name == memberName);
+        var caseSymbol = unionSymbol.CaseTypes.FirstOrDefault(@case => @case.Name == memberName);
         if (caseSymbol is not ITypeSymbol typeMember)
             return null;
 
@@ -3700,7 +3717,7 @@ partial class BlockBinder
         if (!caseType.IsGenericType || caseType.TypeParameters.IsDefaultOrEmpty)
             return caseType;
 
-        var unionDefinition = unionType.TryGetDiscriminatedUnion() ?? unionType;
+        var unionDefinition = unionType.TryGetUnion() ?? unionType;
         var unionTypeParameters = unionDefinition.TypeParameters;
         var unionTypeArguments = unionType.TypeArguments;
 
@@ -3709,14 +3726,14 @@ partial class BlockBinder
 
         var projectedArguments = new ITypeSymbol[caseType.TypeParameters.Length];
         var changed = false;
-        var caseSymbol = caseType.TryGetDiscriminatedUnionCase();
+        var caseSymbol = caseType.TryGetUnionCase();
         if (caseSymbol is null)
             return caseType;
 
         for (var i = 0; i < caseType.TypeParameters.Length; i++)
         {
             var parameter = caseType.TypeParameters[i];
-            if (DiscriminatedUnionFacts.TryProjectCaseTypeParameterFromUnionArguments(
+            if (UnionFacts.TryProjectCaseTypeParameterFromUnionArguments(
                 caseSymbol,
                 parameter,
                 unionTypeParameters,
@@ -3771,11 +3788,11 @@ partial class BlockBinder
     /// </summary>
     private BoundExpression? BindDiscriminatedUnionCaseType(ITypeSymbol typeMember, INamedTypeSymbol? unionCarrier = null)
     {
-        var isUnionCase = typeMember.TryGetDiscriminatedUnionCase() is not null;
+        var isUnionCase = typeMember.TryGetUnionCase() is not null;
 
         if (!isUnionCase &&
             typeMember is INamedTypeSymbol namedType &&
-            namedType.ContainingType?.TryGetDiscriminatedUnion() is not null)
+            namedType.ContainingType?.TryGetUnion() is not null)
         {
             isUnionCase = true;
         }
@@ -3793,8 +3810,8 @@ partial class BlockBinder
             // Resolve the union carrier: prefer the explicitly supplied one, then fall back to
             // what the case type itself reports.
             var resolvedUnion = unionCarrier
-                ?? caseType.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol
-                ?? caseType.ContainingType?.TryGetDiscriminatedUnion() as INamedTypeSymbol;
+                ?? caseType.TryGetUnionCase()?.Union as INamedTypeSymbol
+                ?? caseType.ContainingType?.TryGetUnion() as INamedTypeSymbol;
 
             var parameterlessCtor = caseType.Constructors.FirstOrDefault(static ctor => ctor.Parameters.Length == 0);
 

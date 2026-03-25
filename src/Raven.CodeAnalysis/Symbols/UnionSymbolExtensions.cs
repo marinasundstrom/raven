@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal static class DiscriminatedUnionSymbolExtensions
+internal static class UnionSymbolExtensions
 {
     /// <summary>
     /// Formats a discriminated union case type for use in diagnostic messages as
@@ -23,7 +23,7 @@ internal static class DiscriminatedUnionSymbolExtensions
         this INamedTypeSymbol caseType,
         bool includeNamespace = false)
     {
-        var unionCase = caseType.TryGetDiscriminatedUnionCase();
+        var unionCase = caseType.TryGetUnionCase();
         if (unionCase is null)
             return caseType.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
 
@@ -63,8 +63,8 @@ internal static class DiscriminatedUnionSymbolExtensions
     public static (string First, string Second) FormatAmbiguousCasePair(
         INamedTypeSymbol first, INamedTypeSymbol second)
     {
-        var firstUnion  = first.TryGetDiscriminatedUnionCase()?.Union  as INamedTypeSymbol;
-        var secondUnion = second.TryGetDiscriminatedUnionCase()?.Union as INamedTypeSymbol;
+        var firstUnion  = first.TryGetUnionCase()?.Union  as INamedTypeSymbol;
+        var secondUnion = second.TryGetUnionCase()?.Union as INamedTypeSymbol;
 
         // If both carriers share the same short name we need the namespace to distinguish them.
         bool includeNs = string.Equals(firstUnion?.Name, secondUnion?.Name, System.StringComparison.Ordinal);
@@ -111,38 +111,38 @@ internal static class DiscriminatedUnionSymbolExtensions
         return string.Join(".", parts);
     }
 
-    public static IDiscriminatedUnionCaseSymbol? TryGetDiscriminatedUnionCase(this ITypeSymbol? type)
+    public static IUnionCaseTypeSymbol? TryGetUnionCase(this ITypeSymbol? type)
     {
         if (type is null)
             return null;
 
-        if (type is IDiscriminatedUnionCaseSymbol caseSymbol && type.IsDiscriminatedUnionCase)
+        if (type is IUnionCaseTypeSymbol caseSymbol && type.IsUnionCase)
             return caseSymbol;
 
-        if (type is INamedTypeSymbol named && named.IsDiscriminatedUnionCase)
+        if (type is INamedTypeSymbol named && named.IsUnionCase)
             return named switch
             {
-                IDiscriminatedUnionCaseSymbol constructedCase => constructedCase,
-                _ when named.ConstructedFrom is IDiscriminatedUnionCaseSymbol constructedDefinition => constructedDefinition,
+                IUnionCaseTypeSymbol constructedCase => constructedCase,
+                _ when named.ConstructedFrom is IUnionCaseTypeSymbol constructedDefinition => constructedDefinition,
                 _ => null,
             };
 
         return null;
     }
 
-    public static IDiscriminatedUnionSymbol? TryGetDiscriminatedUnion(this ITypeSymbol? type)
+    public static IUnionSymbol? TryGetUnion(this ITypeSymbol? type)
     {
         if (type is null)
             return null;
 
-        if (type is IDiscriminatedUnionSymbol unionSymbol && type.IsDiscriminatedUnion)
+        if (type is IUnionSymbol unionSymbol && type.IsUnion)
             return unionSymbol;
 
-        if (type is INamedTypeSymbol named && named.IsDiscriminatedUnion)
+        if (type is INamedTypeSymbol named && named.IsUnion)
             return named switch
             {
-                IDiscriminatedUnionSymbol constructedUnion => constructedUnion,
-                _ when named.ConstructedFrom is IDiscriminatedUnionSymbol constructedDefinition => constructedDefinition,
+                IUnionSymbol constructedUnion => constructedUnion,
+                _ when named.ConstructedFrom is IUnionSymbol constructedDefinition => constructedDefinition,
                 _ => null,
             };
 

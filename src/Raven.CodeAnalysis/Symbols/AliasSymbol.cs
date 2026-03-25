@@ -122,11 +122,11 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
 
     public bool IsTypeUnion => _type.IsTypeUnion;
 
-    public bool IsDiscriminatedUnion => _type.IsDiscriminatedUnion;
+    public bool IsUnion => _type.IsUnion;
 
-    public bool IsDiscriminatedUnionCase => _type.IsDiscriminatedUnionCase;
+    public bool IsUnionCase => _type.IsUnionCase;
 
-    public INamedTypeSymbol? UnderlyingDiscriminatedUnion => _type.UnderlyingDiscriminatedUnion;
+    public INamedTypeSymbol? UnderlyingUnionType => _type.UnderlyingUnionType;
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => _type.Interfaces;
 

@@ -282,7 +282,7 @@ internal abstract class Generator
 
         if (from.SpecialType == SpecialType.System_Object &&
             to is INamedTypeSymbol destinationCarrierFromObject &&
-            destinationCarrierFromObject.TryGetDiscriminatedUnion() is IDiscriminatedUnionSymbol destinationDiscriminatedUnion &&
+            destinationCarrierFromObject.TryGetUnion() is IUnionSymbol destinationDiscriminatedUnion &&
             (conversion.IsUnboxing || conversion.IsReference) &&
             EmitObjectToDiscriminatedUnionConversion(destinationCarrierFromObject, destinationDiscriminatedUnion))
         {
@@ -291,13 +291,13 @@ internal abstract class Generator
 
         if (from is ITypeUnionSymbol sourceTypeUnionForCarrier &&
             to is INamedTypeSymbol destinationCarrier &&
-            destinationCarrier.TryGetDiscriminatedUnion() is not null &&
+            destinationCarrier.TryGetUnion() is not null &&
             EmitDiscriminatedUnionTypeUnionConversion(sourceTypeUnionForCarrier, destinationCarrier))
         {
             return;
         }
 
-        if (conversion.IsDiscriminatedUnion)
+        if (conversion.IsUnion)
         {
             if (from is ITypeUnionSymbol sourceTypeUnion &&
                 to is INamedTypeSymbol destinationNamedUnion &&
@@ -553,10 +553,10 @@ internal abstract class Generator
         }
     }
 
-    private bool EmitObjectToDiscriminatedUnionConversion(INamedTypeSymbol destinationNamedUnion, IDiscriminatedUnionSymbol destinationUnion)
+    private bool EmitObjectToDiscriminatedUnionConversion(INamedTypeSymbol destinationNamedUnion, IUnionSymbol destinationUnion)
     {
-        var caseConversions = new List<(ITypeSymbol CaseType, Conversion Conversion)>(destinationUnion.Cases.Length);
-        foreach (var caseSymbol in destinationUnion.Cases)
+        var caseConversions = new List<(ITypeSymbol CaseType, Conversion Conversion)>(destinationUnion.CaseTypes.Length);
+        foreach (var caseSymbol in destinationUnion.CaseTypes)
         {
             var caseType = (ITypeSymbol)caseSymbol;
             var conversion = Compilation.ClassifyConversion(caseType, destinationNamedUnion);

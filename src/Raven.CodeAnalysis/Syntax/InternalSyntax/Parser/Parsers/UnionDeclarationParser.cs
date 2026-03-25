@@ -18,6 +18,7 @@ internal class UnionDeclarationParser : SyntaxParser
         var modifiers = ParseModifiers();
 
         var unionKeyword = ExpectToken(SyntaxKind.UnionKeyword);
+        var classOrStructKeyword = ConsumeClassOrStructKeyword();
 
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))
@@ -35,39 +36,55 @@ internal class UnionDeclarationParser : SyntaxParser
             typeParameterList = new TypeDeclarationParser(this).ParseTypeParameterList();
         }
 
-        var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
-
-        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
-
-        List<GreenNode> cases = new();
-
-        while (true)
+        UnionMemberTypeListSyntax? memberTypes = null;
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            var next = PeekToken();
-
-            if (next.IsKind(SyntaxKind.CloseBraceToken))
-            {
-                break;
-            }
-
-            if (next.IsKind(SyntaxKind.CommaToken))
-            {
-                ReadToken();
-                continue;
-            }
-
-            var caseStart = Position;
-            var unionCase = ParseCase();
-            cases.Add(unionCase);
-
-            // Ensure parser progress when recovery produced only missing tokens.
-            if (Position == caseStart && !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
-            {
-                ReadToken();
-            }
+            memberTypes = ParseUnionMemberTypeList();
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+        var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
+
+        SyntaxToken openBraceToken;
+        SyntaxToken closeBraceToken;
+        List<GreenNode> cases = new();
+
+        if (memberTypes is null)
+        {
+            ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out openBraceToken);
+
+            while (true)
+            {
+                var next = PeekToken();
+
+                if (next.IsKind(SyntaxKind.CloseBraceToken))
+                {
+                    break;
+                }
+
+                if (next.IsKind(SyntaxKind.CommaToken))
+                {
+                    ReadToken();
+                    continue;
+                }
+
+                var caseStart = Position;
+                var unionCase = ParseCase();
+                cases.Add(unionCase);
+
+                // Ensure parser progress when recovery produced only missing tokens.
+                if (Position == caseStart && !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                {
+                    ReadToken();
+                }
+            }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out closeBraceToken);
+        }
+        else
+        {
+            openBraceToken = Token(SyntaxKind.None);
+            closeBraceToken = Token(SyntaxKind.None);
+        }
 
         var terminatorToken = ConsumeOptionalTypeTerminator();
 
@@ -75,13 +92,86 @@ internal class UnionDeclarationParser : SyntaxParser
             attributeLists,
             modifiers,
             unionKeyword,
+            classOrStructKeyword,
             identifier,
             typeParameterList,
+            memberTypes,
             constraintClauses,
             openBraceToken,
             List(cases),
             closeBraceToken,
             terminatorToken);
+    }
+
+    private SyntaxToken ConsumeClassOrStructKeyword()
+    {
+        if (PeekToken().Kind is SyntaxKind.ClassKeyword or SyntaxKind.StructKeyword)
+            return ReadToken();
+
+        return Token(SyntaxKind.None);
+    }
+
+    private UnionMemberTypeListSyntax ParseUnionMemberTypeList()
+    {
+        var openParenToken = ExpectToken(SyntaxKind.OpenParenToken);
+        var types = new List<GreenNode>();
+        var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(false);
+
+        SyntaxToken closeParenToken;
+
+        try
+        {
+            var parsedTypes = 0;
+            while (true)
+            {
+                var current = PeekToken();
+
+                if (parsedTypes > 0)
+                {
+                    if (current.IsKind(SyntaxKind.CommaToken))
+                    {
+                        types.Add(ReadToken());
+                        current = PeekToken();
+                    }
+                    else if (!current.IsKind(SyntaxKind.CloseParenToken) &&
+                             !current.IsKind(SyntaxKind.EndOfFileToken))
+                    {
+                        types.Add(MissingToken(SyntaxKind.CommaToken));
+                    }
+                }
+
+                while (current.Kind is SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken)
+                {
+                    ReadToken();
+                    current = PeekToken();
+                }
+
+                if (current.IsKind(SyntaxKind.CloseParenToken) || current.IsKind(SyntaxKind.EndOfFileToken))
+                    break;
+
+                var typeName = new NameSyntaxParser(this).ParseTypeName();
+                if (typeName is null or { IsMissing: true })
+                {
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetSpanOfPeekedToken()));
+                    typeName = IdentifierName(MissingToken(SyntaxKind.IdentifierToken));
+                }
+
+                types.Add(typeName);
+                parsedTypes++;
+            }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out closeParenToken);
+        }
+        finally
+        {
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
+        }
+
+        return UnionMemberTypeList(openParenToken, List(types), closeParenToken);
     }
 
     private UnionCaseClauseSyntax ParseCase()

@@ -27,10 +27,16 @@ compiling standalone projects.
 
 ### `Option<T>`
 
-A discriminated union with two cases:
+A union carrier with two cases:
 
 - `Some(value: T)` holds a value.
 - `None` represents the absence of a value.
+
+`Option<T>` uses Raven's standard union carrier model:
+
+- runtime values are `Option<T>` carriers
+- case values convert into the carrier
+- extraction uses `TryGetValue(out Some<T>)` / `TryGetValue(out None)` and pattern matching
 
 `Option<T>` extension helpers:
 
@@ -49,10 +55,12 @@ A discriminated union with two cases:
 
 ### `Result<T, E>`
 
-`Result<T, E>` has two cases:
+`Result<T, E>` is also a union carrier:
 
 - `Ok(value: T)` for success.
 - `Error(data: E)` for failure.
+
+Like `Option<T>`, `Result<T, E>` uses carrier semantics rather than inheritance semantics. Case values convert into the carrier, and extraction happens through `TryGetValue(out CaseType)` or pattern matching.
 
 `Result<T, E>` extension helpers:
 
@@ -95,6 +103,8 @@ A discriminated union with two cases:
 
 These unions provide lightweight error-handling primitives while keeping Raven
 programs compatible with the .NET type system.
+
+When you want OOP-style subtype semantics, prefer Raven sealed hierarchies instead of unions.
 
 ### `Unit`
 

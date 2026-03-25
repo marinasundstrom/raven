@@ -1271,8 +1271,8 @@ internal class CodeGenerator
             .ToArray();
 
         var unionCaseTypes = declaredTypes
-            .OfType<IDiscriminatedUnionSymbol>()
-            .SelectMany(union => union.Cases)
+            .OfType<IUnionSymbol>()
+            .SelectMany(union => union.CaseTypes)
             .OfType<ITypeSymbol>()
             .Where(t => t.DeclaringSyntaxReferences.Length > 0)
             .ToArray();

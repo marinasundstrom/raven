@@ -3,9 +3,9 @@ using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SourceDiscriminatedUnionCaseTypeSymbol : SourceNamedTypeSymbol, IDiscriminatedUnionCaseSymbol
+internal sealed class SourceDiscriminatedUnionCaseTypeSymbol : SourceNamedTypeSymbol, IUnionCaseTypeSymbol
 {
-    private readonly IDiscriminatedUnionSymbol _union;
+    private readonly IUnionSymbol _union;
     private readonly string _metadataBaseName;
     private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _projectedUnionTypeParameters = ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty.WithComparers(SymbolEqualityComparer.Default);
 
@@ -13,15 +13,16 @@ internal sealed class SourceDiscriminatedUnionCaseTypeSymbol : SourceNamedTypeSy
         string name,
         string metadataBaseName,
         int ordinal,
-        IDiscriminatedUnionSymbol union,
+        IUnionSymbol union,
         INamedTypeSymbol baseType,
+        TypeKind typeKind,
         ISymbol containingSymbol,
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         Accessibility declaredAccessibility)
-        : base(name, baseType, TypeKind.Struct, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, isSealed: true, declaredAccessibility: declaredAccessibility)
+        : base(name, baseType, typeKind, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, isSealed: true, declaredAccessibility: declaredAccessibility)
     {
         _union = union;
         _metadataBaseName = metadataBaseName;
@@ -56,7 +57,7 @@ internal sealed class SourceDiscriminatedUnionCaseTypeSymbol : SourceNamedTypeSy
 
     public int Ordinal { get; }
 
-    public IDiscriminatedUnionSymbol Union => _union;
+    public IUnionSymbol Union => _union;
 
     internal void SetConstructorParameters(IEnumerable<SourceParameterSymbol> parameters)
     {

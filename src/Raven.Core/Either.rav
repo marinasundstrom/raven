@@ -1,8 +1,0 @@
-namespace System
-
-import System.*
-
-union Either<L, R> {
-    Left(value: L)
-    Right(value: R)
-}

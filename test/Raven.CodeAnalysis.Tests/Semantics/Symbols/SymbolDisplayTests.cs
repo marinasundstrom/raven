@@ -124,4 +124,34 @@ class MacroArgument {
         symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
             .ShouldBe("TryParseValue<T>(out value: int) -> bool");
     }
+
+    [Fact]
+    public void UnionType_ToDisplayString_IncludesUnionRepresentationKeyword()
+    {
+        const string source = """
+union Response<T> {
+    Success(value: T)
+    Failure(message: string)
+}
+
+union struct ValueOption<T> {
+    Some(value: T)
+    None
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarations = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().ToArray();
+
+        var response = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
+        var valueOption = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
+
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithKindOptions(
+            SymbolDisplayFormat.MinimallyQualifiedFormat.KindOptions |
+            SymbolDisplayKindOptions.IncludeTypeKeyword);
+
+        response.ToDisplayString(format).ShouldBe("union class Response<T>");
+        valueOption.ToDisplayString(format).ShouldBe("union struct ValueOption<T>");
+    }
 }

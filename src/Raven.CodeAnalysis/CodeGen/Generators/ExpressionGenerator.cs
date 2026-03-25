@@ -654,8 +654,8 @@ internal partial class ExpressionGenerator : Generator
         if (typeSymbol is not INamedTypeSymbol namedType)
             return false;
 
-        if (namedType.TryGetDiscriminatedUnionCase() is null &&
-            namedType.ContainingType?.TryGetDiscriminatedUnion() is null)
+        if (namedType.TryGetUnionCase() is null &&
+            namedType.ContainingType?.TryGetUnion() is null)
         {
             return false;
         }
@@ -1553,8 +1553,8 @@ internal partial class ExpressionGenerator : Generator
             if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
                 return true;
 
-            var leftCase = leftPlain.TryGetDiscriminatedUnionCase();
-            var rightCase = rightPlain.TryGetDiscriminatedUnionCase();
+            var leftCase = leftPlain.TryGetUnionCase();
+            var rightCase = rightPlain.TryGetUnionCase();
             if (leftCase is not null && rightCase is not null)
             {
                 if (leftCase.Ordinal == rightCase.Ordinal)
@@ -1598,7 +1598,7 @@ internal partial class ExpressionGenerator : Generator
             {
                 tryGetOkSymbol = tryGetCandidates.FirstOrDefault(m =>
                     string.Equals(
-                        m.Parameters[0].GetByRefElementType().TryGetDiscriminatedUnionCase()?.Name,
+                        m.Parameters[0].GetByRefElementType().TryGetUnionCase()?.Name,
                         expr.OkCaseName,
                         StringComparison.Ordinal));
             }
@@ -1833,7 +1833,7 @@ internal partial class ExpressionGenerator : Generator
                     m.Parameters.Length == 1 &&
                     m.Parameters[0].RefKind == RefKind.Out &&
                     string.Equals(
-                        m.Parameters[0].GetByRefElementType().TryGetDiscriminatedUnionCase()?.Name,
+                        m.Parameters[0].GetByRefElementType().TryGetUnionCase()?.Name,
                         expr.ErrorCaseName,
                         StringComparison.Ordinal));
 
@@ -4847,7 +4847,7 @@ internal partial class ExpressionGenerator : Generator
                     }
 
                     var needsTagConversion = fieldSymbol.Type.SpecialType == SpecialType.System_Byte
-                        && DiscriminatedUnionFieldUtilities.IsTagFieldName(fieldSymbol.Name);
+                        && UnionFieldUtilities.IsTagFieldName(fieldSymbol.Name);
 
                     if (!cacheRightValue)
                     {

@@ -6,24 +6,31 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal static class DiscriminatedUnionFacts
+internal static class UnionFacts
 {
     private const char CaseMetadataSeparator = '_';
 
-    public static bool IsDiscriminatedUnionType(ITypeSymbol? type)
+    public static bool IsUnionType(ITypeSymbol? type)
     {
-        return type?.IsDiscriminatedUnion == true;
+        return type?.IsUnion == true;
     }
 
-    public static bool IsDiscriminatedUnionCaseType(ITypeSymbol? type)
+    public static bool IsUnionCaseType(ITypeSymbol? type)
     {
-        return type?.IsDiscriminatedUnionCase == true;
+        return type?.IsUnionCase == true;
     }
 
     public static bool TryGetCaseUnionType(ITypeSymbol? caseType, out ITypeSymbol? unionType)
     {
-        unionType = caseType?.UnderlyingDiscriminatedUnion;
+        unionType = caseType?.UnderlyingUnionType;
         return unionType is not null;
+    }
+
+    public static bool UsesCarrierRepresentation(ITypeSymbol? type)
+    {
+        var named = type?.GetPlainType() as INamedTypeSymbol;
+        var union = named?.TryGetUnion();
+        return named is not null && union is not null;
     }
 
     public static string GetCasePropertyName(string parameterName)
@@ -66,7 +73,7 @@ internal static class DiscriminatedUnionFacts
     }
 
     public static bool TryProjectCaseTypeParameterFromUnionArguments(
-        IDiscriminatedUnionCaseSymbol caseSymbol,
+        IUnionCaseTypeSymbol caseSymbol,
         ITypeParameterSymbol caseTypeParameter,
         ImmutableArray<ITypeParameterSymbol> unionTypeParameters,
         ImmutableArray<ITypeSymbol> unionTypeArguments,
@@ -110,7 +117,7 @@ internal static class DiscriminatedUnionFacts
     }
 
     private static bool TryMapCaseTypeParameterToUnionTypeParameter(
-        IDiscriminatedUnionCaseSymbol caseSymbol,
+        IUnionCaseTypeSymbol caseSymbol,
         ITypeParameterSymbol caseTypeParameter,
         out ITypeParameterSymbol unionTypeParameter)
     {
@@ -155,7 +162,7 @@ internal static class DiscriminatedUnionFacts
         return false;
     }
 
-    private static SourceDiscriminatedUnionCaseTypeSymbol? TryGetSourceCaseDefinition(IDiscriminatedUnionCaseSymbol caseSymbol)
+    private static SourceDiscriminatedUnionCaseTypeSymbol? TryGetSourceCaseDefinition(IUnionCaseTypeSymbol caseSymbol)
     {
         if (caseSymbol is SourceDiscriminatedUnionCaseTypeSymbol sourceCase)
             return sourceCase;

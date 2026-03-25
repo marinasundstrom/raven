@@ -2172,7 +2172,7 @@ internal sealed class CasePatternOperation : PatternOperation, ICasePatternOpera
         _bound = bound;
     }
 
-    public IDiscriminatedUnionCaseSymbol CaseSymbol => _bound.CaseSymbol;
+    public IUnionCaseTypeSymbol CaseSymbol => _bound.CaseSymbol;
 
     public IMethodSymbol TryGetMethod => _bound.TryGetMethod;
 

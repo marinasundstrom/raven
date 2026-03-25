@@ -40,7 +40,7 @@ import System.Text.Json.Serialization.*
 /// }
 /// ```
 [JsonConverter(typeof(OptionJsonConverterFactory))]
-union Option<T> {
+union struct Option<T> {
     /// Represents some value
     Some(value: T)
 

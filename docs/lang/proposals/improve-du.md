@@ -1,7 +1,7 @@
-# Proposal: Improve Implementation of Discriminated Unions and Align with Sealed Hierarchies
+# Proposal: Improve Implementation of Unions with a Single Carrier Model
 
 **Thesis**
-This proposal makes union cases first-class independent types while preserving a single carrier representation, enabling consistent construction, pattern matching, higher-order usage, and cross-language interop without relying on nested CLR case types.
+This proposal makes union cases first-class independent types while preserving a single carrier representation, enabling consistent construction, pattern matching, higher-order usage, and cross-language interop without relying on nested CLR case types or inheritance-based lowering.
 
 ---
 
@@ -25,6 +25,8 @@ The goal is practical interop:
 * Raven can consume union-like types from C# (as they emerge).
 * C# can consume Raven unions via normal metadata.
 * Runtime representation remains conventional .NET.
+
+`union` remains a carrier feature in Raven. If a user wants inheritance-oriented OOP modeling, they should use Raven sealed hierarchies instead of unions.
 
 The C# union proposal can be read here: [https://github.com/dotnet/csharplang/blob/main/proposals/unions.md](https://github.com/dotnet/csharplang/blob/main/proposals/unions.md)
 
@@ -152,6 +154,21 @@ This keeps alignment without coupling Raven to a specific C# implementation stra
 
 ---
 
+## Representation Rule
+
+Raven unions always use carrier semantics.
+
+That means:
+
+* the declared union type is the runtime carrier
+* synthesized case types are helper/member types, not subtypes of the carrier
+* conversion from a case value to the union value goes through the carrier
+* pattern matching and `TryGetValue(out CaseType)` operate on the carrier
+
+Sealed hierarchies remain the separate feature for inheritance-oriented modeling.
+
+---
+
 ## 1. Design Objectives
 
 ### 1.1 Impact of the change
@@ -177,7 +194,7 @@ User-facing impact is minimal:
 2. Support partial generic case types.
 3. Preserve a single efficient carrier type.
 4. Remove dependency on nested CLR case types.
-5. Align pattern matching with sealed hierarchies.
+5. Keep pattern matching aligned with carrier extraction.
 6. Keep ergonomic member syntax as sugar.
 7. Align scoping with F# rules.
 8. Preserve propagation semantics.
@@ -244,7 +261,7 @@ public interface IDiscriminatedUnionCaseSymbol : INamedTypeSymbol
 }
 ```
 
-Contracts remain valid.
+Contracts remain valid, though Raven now prefers the union-first names `IUnionSymbol` and `IUnionCaseTypeSymbol` in compiler APIs.
 
 What changes:
 

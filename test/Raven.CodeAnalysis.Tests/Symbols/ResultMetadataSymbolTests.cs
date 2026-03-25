@@ -24,11 +24,11 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<IDiscriminatedUnionSymbol>()
+                .OfType<IUnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Cases.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Cases.Single(c => c.Name == "Error"));
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.CaseTypes.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.CaseTypes.Single(c => c.Name == "Error"));
 
             var tryGetMethods = resultDefinition.GetMembers("TryGetValue").OfType<IMethodSymbol>().ToArray();
             var tryGetOk = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, okCase)));
@@ -60,15 +60,15 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<IDiscriminatedUnionSymbol>()
+                .OfType<IUnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
             var stringType = compilation.GetSpecialType(SpecialType.System_String);
             var exceptionType = compilation.GetTypeByMetadataName("System.Exception")!;
-            var constructedResult = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
+            var constructedResult = Assert.IsAssignableFrom<IUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Cases.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Cases.Single(c => c.Name == "Error"));
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.CaseTypes.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.CaseTypes.Single(c => c.Name == "Error"));
 
             var tryGetMethods = constructedResult.GetMembers("TryGetValue").OfType<IMethodSymbol>().ToArray();
             var tryGetOk = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, okCase)));
@@ -100,11 +100,11 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<IDiscriminatedUnionSymbol>()
+                .OfType<IUnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Cases.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Cases.Single(c => c.Name == "Error"));
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.CaseTypes.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.CaseTypes.Single(c => c.Name == "Error"));
 
             var constructors = resultDefinition.Constructors
                 .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
@@ -134,15 +134,15 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<IDiscriminatedUnionSymbol>()
+                .OfType<IUnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
             var stringType = compilation.GetSpecialType(SpecialType.System_String);
             var exceptionType = compilation.GetTypeByMetadataName("System.Exception")!;
-            var constructedResult = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
+            var constructedResult = Assert.IsAssignableFrom<IUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Cases.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Cases.Single(c => c.Name == "Error"));
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.CaseTypes.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.CaseTypes.Single(c => c.Name == "Error"));
 
             var constructors = constructedResult.Constructors
                 .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)

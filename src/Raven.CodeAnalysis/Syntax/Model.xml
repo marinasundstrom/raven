@@ -951,13 +951,20 @@
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="UnionKeyword" Type="Token" DefaultToken="UnionKeyword" />
+    <Slot Name="ClassOrStructKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
+    <Slot Name="MemberTypes" Type="UnionMemberTypeList" IsNullable="true" />
     <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
-    <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" DefaultToken="OpenBraceToken" />
-    <Slot Name="Cases" Type="List" ElementType="UnionCaseClause" />
-    <Slot Name="CloseBraceToken" Type="Token" IsInherited="true" DefaultToken="CloseBraceToken" />
+    <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" IsOptionalToken="true" DefaultToken="OpenBraceToken" />
+    <Slot Name="CaseTypes" Type="List" ElementType="UnionCaseClause" />
+    <Slot Name="CloseBraceToken" Type="Token" IsInherited="true" IsOptionalToken="true" DefaultToken="CloseBraceToken" />
     <Slot Name="TerminatorToken" Type="Token" IsInherited="true" IsOptionalToken="true" />
+  </Node>
+  <Node Name="UnionMemberTypeList" Inherits="Node">
+    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
+    <Slot Name="Types" Type="SeparatedList" ElementType="Type" />
+    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
   <Node Name="UnionCaseClause" Inherits="Node">
     <Slot Name="Identifier" Type="Token" />

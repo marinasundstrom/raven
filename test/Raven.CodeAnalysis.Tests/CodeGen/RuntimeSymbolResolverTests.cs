@@ -137,8 +137,8 @@ async func Compute() -> ValueTask {
                 compilation.GetTypeByMetadataName("System.Exception"));
             var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
                 resultDefinition.Construct(intType, exceptionType));
-            var resultUnion = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(constructedResult.TryGetDiscriminatedUnion());
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultUnion.Cases.Single(c => c.Name == "Ok"));
+            var resultUnion = Assert.IsAssignableFrom<IUnionSymbol>(constructedResult.TryGetUnion());
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultUnion.CaseTypes.Single(c => c.Name == "Ok"));
             var tryGetOkSymbol = Assert.Single(
                 constructedResult
                     .GetMembers("TryGetValue")

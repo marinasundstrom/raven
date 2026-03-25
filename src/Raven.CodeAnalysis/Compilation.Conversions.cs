@@ -146,6 +146,9 @@ public partial class Compilation
             return conversion.WithAlias(aliasInvolved);
         }
 
+        if (SymbolEqualityComparer.Default.Equals(source, destination))
+            return Finalize(new Conversion(isImplicit: true, isIdentity: true));
+
         if (TryGetExpressionTreeDelegateType(destination, out var expressionTreeDelegate) &&
             source is INamedTypeSymbol sourceDelegate &&
             (sourceDelegate.TypeKind == TypeKind.Delegate || sourceDelegate.GetDelegateInvokeMethod() is not null) &&
@@ -204,8 +207,8 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
         }
 
-        var sourceUnionCase = source.TryGetDiscriminatedUnionCase();
-        var destinationUnion = destination.TryGetDiscriminatedUnion();
+        var sourceUnionCase = source.TryGetUnionCase();
+        var destinationUnion = destination.TryGetUnion();
         var sourceUnionForCase = ResolveSourceUnionForCase(source, sourceUnionCase);
         if (sourceUnionCase is not null &&
             sourceUnionForCase is not null &&
@@ -351,7 +354,7 @@ public partial class Compilation
                             isBoxing: conv.IsBoxing,
                             isUnboxing: conv.IsUnboxing,
                             isPointer: conv.IsPointer,
-                            isDiscriminatedUnion: conv.IsDiscriminatedUnion,
+                            isDiscriminatedUnion: conv.IsUnion,
                             isLifted: true,
                             isUserDefined: conv.IsUserDefined,
                             isAlias: conv.IsAlias,
@@ -379,7 +382,7 @@ public partial class Compilation
                                 isBoxing: conv.IsBoxing,
                                 isUnboxing: conv.IsUnboxing,
                                 isPointer: conv.IsPointer,
-                                isDiscriminatedUnion: conv.IsDiscriminatedUnion,
+                                isDiscriminatedUnion: conv.IsUnion,
                                 isLifted: true,
                                 isUserDefined: conv.IsUserDefined,
                                 isAlias: conv.IsAlias,
@@ -626,7 +629,7 @@ public partial class Compilation
             }
         }
 
-        if (source.TryGetDiscriminatedUnionCase() is { } unionCase &&
+        if (source.TryGetUnionCase() is { } unionCase &&
             !SymbolEqualityComparer.Default.Equals(source, unionCase.Union))
         {
             var unionConversion = ClassifyConversion(unionCase.Union, destination, includeUserDefined);
@@ -689,8 +692,8 @@ public partial class Compilation
 
         bool SourceMatchesDiscriminatedUnionCase(ITypeSymbol sourceType, ITypeSymbol parameterType)
         {
-            var sourceCase = sourceType.TryGetDiscriminatedUnionCase();
-            var parameterUnion = parameterType.TryGetDiscriminatedUnion();
+            var sourceCase = sourceType.TryGetUnionCase();
+            var parameterUnion = parameterType.TryGetUnion();
             var sourceUnion = ResolveSourceUnionForCase(sourceType, sourceCase);
 
             if (sourceCase is null || sourceUnion is null || parameterUnion is null)
@@ -738,7 +741,7 @@ public partial class Compilation
             return true;
         }
 
-        static ITypeSymbol? ResolveSourceUnionForCase(ITypeSymbol sourceType, IDiscriminatedUnionCaseSymbol? sourceCase)
+        static ITypeSymbol? ResolveSourceUnionForCase(ITypeSymbol sourceType, IUnionCaseTypeSymbol? sourceCase)
         {
             if (sourceCase is null || sourceCase.Union is not INamedTypeSymbol sourceUnion)
                 return null;
@@ -754,7 +757,7 @@ public partial class Compilation
 
         static bool TryProjectUnionFromCaseArguments(
             INamedTypeSymbol caseType,
-            IDiscriminatedUnionCaseSymbol caseSymbol,
+            IUnionCaseTypeSymbol caseSymbol,
             out INamedTypeSymbol? projectedUnion)
         {
             projectedUnion = null;
@@ -762,7 +765,7 @@ public partial class Compilation
             if (caseType.TypeArguments.IsDefaultOrEmpty)
                 return false;
 
-            var caseDefinition = caseSymbol.OriginalDefinition as IDiscriminatedUnionCaseSymbol ?? caseSymbol;
+            var caseDefinition = caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
             if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
                 caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
                 caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length)
@@ -914,9 +917,9 @@ public partial class Compilation
         receiverTypes.Add(source);
         receiverTypes.Add(destination);
 
-        if (source.TryGetDiscriminatedUnionCase() is { } sourceUnionCase)
+        if (source.TryGetUnionCase() is { } sourceUnionCase)
             receiverTypes.Add(sourceUnionCase.Union);
-        if (destination.TryGetDiscriminatedUnionCase() is { } destinationUnionCase)
+        if (destination.TryGetUnionCase() is { } destinationUnionCase)
             receiverTypes.Add(destinationUnionCase.Union);
 
         foreach (var method in extensionOperators)
@@ -1310,7 +1313,7 @@ public partial class Compilation
         if (destinationNamed.TryGetUnionCarrierConstructor(source, out var constructor))
             return EnsureConstructedConstructor(constructor, destinationNamed);
 
-        var sourceCase = source.TryGetDiscriminatedUnionCase();
+        var sourceCase = source.TryGetUnionCase();
         var sourceDefinition = source.OriginalDefinition ?? source;
         var sourceCaseDefinition = (sourceCase as ITypeSymbol)?.OriginalDefinition ?? sourceCase as ITypeSymbol;
 

@@ -41,8 +41,8 @@ Core purpose of samples (all three at once):
 - Range pattern: `samples/patterns/range-pattern-basic.rav`
 - Property patterns: `samples/patterns/property-pattern-basic.rav`
 - Try expression + pattern matching: `samples/patterns/try-expression-match.rav`
-- Discriminated union basics: `samples/discriminated-union/union-basic.rav`
-- Generic discriminated unions: `samples/discriminated-union/union-generic-result-basic.rav`
+- Union basics: `samples/unions/union-basic.rav`
+- Generic unions: `samples/unions/union-generic-result-basic.rav`
 - Result basics: `samples/result-and-options/result-basic.rav`
 - Option basics: `samples/result-and-options/option-basic.rav`
 - Propagation (`?`): `samples/result-and-options/result-propagation-basic.rav`

@@ -1385,7 +1385,7 @@ internal sealed class OverloadResolver
             parts.Add("unboxing");
         if (conversion.IsPointer)
             parts.Add("pointer");
-        if (conversion.IsDiscriminatedUnion)
+        if (conversion.IsUnion)
             parts.Add("union");
         if (conversion.IsUserDefined)
             parts.Add("user-defined");

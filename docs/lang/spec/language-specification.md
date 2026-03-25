@@ -4305,27 +4305,39 @@ To model absence explicitly in domain logic, Raven recommends the **Option
 union** defined in `src/Raven.Core/Option.rav` (`System.Option<T>`). Use
 nullable types primarily for .NET interop surfaces.
 
-### Discriminated unions
+### Unions
 
-A discriminated union declaration defines a value type composed of a fixed set
-of **cases**. Union values are stored inline (as value types) and do not allocate
-on the managed heap. Each case acts like an inline constructor with an optional
-payload described by a parameter list. Unions use the `union` keyword:
+A union declaration defines a nominal carrier type composed of a fixed set of
+**cases**. The declared union type is the runtime carrier; case values convert
+into that carrier and are extracted through pattern matching or overloaded
+`TryGetValue(out CaseType)` helpers. Unions use the `union` keyword and support
+two declaration forms:
 
 > ℹ️ **Interop direction:** Raven plans to align its union metadata and
 > interop surface with the upcoming C#/.NET **Unions** concept (targeted around
 > the .NET 11 wave), while preserving Raven's own language semantics.
 
-> ❗ **Important:** Declared `union` types are nominal **tagged unions** (also
-> called **discriminated unions**).
+> ❗ **Important:** Declared `union` types are nominal tagged unions with
+> carrier semantics. They are not inheritance hierarchies.
 
 ```raven
+// Body form: declares the carrier and synthesizes the case types.
 union Token {
     Identifier(text: string)
     Number(value: int)
     Unknown
 }
+
+// Parenthesized form: declares the carrier over existing member types.
+union Payment(Cash, Card)
+
+// Generic parenthesized form over existing member types.
+union Either<T1, T2>(T1, T2)
 ```
+
+In the body form, Raven synthesizes the case/member types from the listed case
+clauses. In the parenthesized form, the union is declared over existing member
+types and does not synthesize named cases such as `Left` or `Right`.
 
 Union cases are newline-friendly by default. A comma (or semicolon) after a
 case is optional, and when present it is treated as that case's terminator
@@ -4338,14 +4350,23 @@ separator tokens, newline-delimited boundaries are represented with
 comma separators. If multiple explicit separators appear in the same enum
 member list, they must use a consistent separator kind.
 
-Unions may declare type parameters (`union Result<T, E> { ... }`). Cases are
-first-class types with their own type-parameter shape (derived from the case
-payload), and can be referenced either via the union-member surface or with the
-leading-dot shorthand:
+Unions may declare type parameters (`union Result<T, E> { ... }`,
+`union Either<T1, T2>(T1, T2)`). In the body form, synthesized cases are
+first-class types whose generic shape is derived from the case payload, and can
+be referenced either via the union-member surface or with the leading-dot
+shorthand:
 
 ```raven
 val token = Token.Identifier("foo")
 val other: Token = .Unknown
+```
+
+In the parenthesized form, the existing member types convert directly into the
+carrier:
+
+```raven
+val left: Either<int, string> = 42
+val right: Either<int, string> = "invoice"
 ```
 
 Line-continuation details for leading-dot forms are defined in
@@ -4353,11 +4374,19 @@ Line-continuation details for leading-dot forms are defined in
 
 Case types are first-class named types linked to their union case symbol. The
 language surface treats them as case members of the union (`Token.Identifier`,
-`Result.Ok`, ...), but metadata layout does not require CLR nesting.
+`Result.Ok`, ...), but they do not form a subtype hierarchy with the carrier
+and metadata layout does not require CLR nesting.
+
+For parenthesized unions, the member types are existing nominal or primitive
+types rather than synthesized case types. The carrier still exposes
+construction and extraction through the same carrier-based conversion model.
 
 The union carrier exposes case inspection through overloaded `TryGetValue(out
 CaseType)` methods (one overload per case type). Raven does not depend on
 `TryGetCaseName` forms.
+
+If a program needs inheritance-oriented OOP modeling, it should use Raven's
+sealed hierarchy features instead of `union`.
 
 In pattern position, cases may be matched with member-qualified forms
 (`.Ok(...)`, `Result.Ok(...)`) or unqualified forms (`Ok(...)`, `Ok`) when
@@ -4391,16 +4420,13 @@ Binding model:
   wins before union-case lookup: locals and parameters first, then visible
   instance/static members and imported symbols, then unqualified union cases.
 * If a union value is required, case-to-union conversion applies implicitly by
-  selecting the matching union constructor (`.ctor(CaseType)`).
-* For member-qualified construction (`Union.Case(...)` / `.Case(...)`), lowering
-  emits nested constructor calls:
-  `Union(Union_Case(...))`.
+  constructing the matching carrier value from the case value.
 
-DU invariant:
+Union invariants:
 
 * Case constructors are independent case-type constructors; they are not
   rebound as union constructors.
-* Union wrapping is represented by union constructors (`.ctor(CaseType)`).
+* Union wrapping is represented by carrier construction from a case value.
 * Compatibility is decided by case-to-union conversion rules (including
   payload subtype-to-supertype widening where valid).
 
@@ -4412,22 +4438,15 @@ Type argument behavior:
   (`Result<int, MyError>.Ok(2)`) or from target typing
   (`val r: Result<int, MyError> = .Ok(2)`).
 
-For every case `Case`, the compiler synthesizes a corresponding union
-constructor overload `Union(Case value)`. Assigning, returning, or passing a
-case value therefore automatically produces the union instance through
-constructor-based conversion classification. In lowered form, member-qualified
-case construction wraps via constructors:
+For every case `Case`, assigning, returning, or passing a case value
+automatically produces the union carrier through case-to-union conversion.
+Member-qualified case construction still constructs the case first and then
+converts to the carrier when the surrounding context requires the union value:
 
 ```raven
-val ok: Result<int, string> = Ok(99)          // implicit case-to-union conversion via Result(Result_Ok<int>)
+val ok: Result<int, string> = Ok(99)          // implicit case-to-union conversion
 val err = Result<int, string>.Error("boom")
 Console.WriteLine(ok)
-```
-
-Lowering shape:
-
-```text
-Result<int, string>(Result_Ok<int>(99))
 ```
 
 Each case struct also exposes its payload via `get`-only properties and a
@@ -4443,7 +4462,7 @@ Pattern matching exhaustively checks every case; see
 
 Raven has two primary ways to model a finite, closed set of alternatives:
 
-1. **Discriminated unions** (`union`)
+1. **Unions** (`union`)
 2. **Sealed hierarchies** (`sealed class` / `sealed record class`)
 
 Both participate in exhaustiveness analysis for `match`, and both represent a
@@ -4451,12 +4470,12 @@ known closed shape at compile time. The key difference is modeling style:
 
 | Use this | When you need |
 | --- | --- |
-| `union` | Algebraic data modeling with explicit case payloads, lightweight case construction (`Ok(...)`, `.Ok(...)`), and value-oriented closed alternatives. |
+| `union` | Algebraic data modeling with explicit case payloads, carrier-based construction/extraction (`Ok(...)`, `.Ok(...)`, `TryGetValue`), and closed alternatives. |
 | `sealed` hierarchy | Object-oriented subtype modeling with shared base behavior, virtual/interface-style design, and class hierarchy semantics. |
 
 #### Choosing between them
 
-Choose **discriminated unions** when:
+Choose **unions** when:
 
 * the alternatives are primarily data cases,
 * payloads are part of the case definition,

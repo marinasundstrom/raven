@@ -213,7 +213,7 @@ internal class StatementGenerator : Generator
 
         if (expression is not null)
         {
-            if (expression is BoundConversionExpression { Conversion.IsDiscriminatedUnion: true } duConversion &&
+            if (expression is BoundConversionExpression { Conversion.IsUnion: true } duConversion &&
                 !isVoidLikeReturn)
             {
                 expression = duConversion.Expression;

@@ -247,13 +247,13 @@ internal static class TypeSymbolNormalization
         union = null;
 
         var unwrapped = UnwrapAlias(member);
-        if (unwrapped.TryGetDiscriminatedUnion() is INamedTypeSymbol unionType)
+        if (unwrapped.TryGetUnion() is INamedTypeSymbol unionType)
         {
             union = unionType;
             return true;
         }
 
-        var caseSymbol = member.TryGetDiscriminatedUnionCase();
+        var caseSymbol = member.TryGetUnionCase();
         if (caseSymbol is not null)
         {
             if (member is INamedTypeSymbol caseNamed &&
@@ -274,14 +274,14 @@ internal static class TypeSymbolNormalization
         if (namedMember.ContainingType is not INamedTypeSymbol containingType)
             return false;
 
-        var containingUnion = UnwrapAlias(containingType).TryGetDiscriminatedUnion() as INamedTypeSymbol;
+        var containingUnion = UnwrapAlias(containingType).TryGetUnion() as INamedTypeSymbol;
         if (containingUnion is null)
             return false;
 
-        if (containingUnion is not IDiscriminatedUnionSymbol discriminatedUnionSymbol)
+        if (containingUnion is not IUnionSymbol discriminatedUnionSymbol)
             return false;
 
-        if (!discriminatedUnionSymbol.Cases.Any(@case => string.Equals(@case.Name, namedMember.Name, System.StringComparison.Ordinal)))
+        if (!discriminatedUnionSymbol.CaseTypes.Any(@case => string.Equals(@case.Name, namedMember.Name, System.StringComparison.Ordinal)))
             return false;
 
         union = containingType;
@@ -290,7 +290,7 @@ internal static class TypeSymbolNormalization
 
     private static bool TryProjectUnionFromCaseArguments(
         INamedTypeSymbol caseType,
-        IDiscriminatedUnionCaseSymbol caseSymbol,
+        IUnionCaseTypeSymbol caseSymbol,
         out INamedTypeSymbol? projectedUnion)
     {
         projectedUnion = null;
@@ -298,7 +298,7 @@ internal static class TypeSymbolNormalization
         if (caseType.TypeArguments.IsDefaultOrEmpty)
             return false;
 
-        var caseDefinition = caseSymbol.OriginalDefinition as IDiscriminatedUnionCaseSymbol ?? caseSymbol;
+        var caseDefinition = caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
         if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
             caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
             caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length)

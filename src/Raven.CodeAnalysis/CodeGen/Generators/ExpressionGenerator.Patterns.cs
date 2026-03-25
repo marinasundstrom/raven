@@ -373,13 +373,13 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Br, labelDone);
 
             ILGenerator.MarkLabel(labelSuccess);
-            ILGenerator.Emit(OpCodes.Unbox_Any, unionClrType);
+            ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, unionClrType);
             ILGenerator.Emit(OpCodes.Stloc, unionLocal);
 
             ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
             ILGenerator.Emit(OpCodes.Initobj, caseClrType);
 
-            ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+            ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, unionLocal);
             ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
             ILGenerator.Emit(OpCodes.Call, tryGetMethod);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
@@ -404,7 +404,7 @@ internal partial class ExpressionGenerator
                     break;
                 }
 
-                ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+                ILGenerator.Emit(caseClrType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, caseLocal);
                 ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
                 // IMPORTANT: do not pre-box; nested patterns decide.
@@ -2127,7 +2127,7 @@ internal partial class ExpressionGenerator
     // Misc helpers (existing in your project)
     // ============================================
 
-    private static bool IsDiscriminatedUnionValueType(ITypeSymbol type)
+    private static bool IsUnionValueType(ITypeSymbol type)
     {
         if (type is not INamedTypeSymbol named)
             return false;
@@ -2136,11 +2136,11 @@ internal partial class ExpressionGenerator
             return false;
 
         // Constructed generic DU instances may not carry DU metadata directly.
-        if (named.TryGetDiscriminatedUnion() is not null)
+        if (named.TryGetUnion() is not null)
             return true;
 
         var def = named.OriginalDefinition;
-        return def is not null && def.TryGetDiscriminatedUnion() is not null;
+        return def is not null && def.TryGetUnion() is not null;
     }
 
     private static bool RequiresValueTypeHandling(ITypeSymbol typeSymbol)
@@ -2710,13 +2710,13 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Br, labelFail);
 
             ILGenerator.MarkLabel(labelHasUnion);
-            ILGenerator.Emit(OpCodes.Unbox_Any, unionClrType);
+            ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, unionClrType);
             ILGenerator.Emit(OpCodes.Stloc, unionLocal);
 
             ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
             ILGenerator.Emit(OpCodes.Initobj, caseClrType);
 
-            ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+            ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, unionLocal);
             ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
             ILGenerator.Emit(OpCodes.Call, tryGetMethod);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
@@ -2741,7 +2741,7 @@ internal partial class ExpressionGenerator
                     break;
                 }
 
-                ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+                ILGenerator.Emit(caseClrType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, caseLocal);
                 ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
                 EmitPatternBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, null);

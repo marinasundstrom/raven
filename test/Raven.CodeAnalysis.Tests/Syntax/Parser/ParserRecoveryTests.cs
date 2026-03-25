@@ -314,9 +314,9 @@ public class ParserRecoveryTests
 
         Assert.Equal(2, root.Members.Count);
         var union = Assert.IsType<UnionDeclarationSyntax>(root.Members[0]);
-        Assert.Equal(3, union.Cases.Count);
-        Assert.Equal(SyntaxKind.CommaToken, union.Cases[0].TerminatorToken.Kind);
-        Assert.Equal(SyntaxKind.CommaToken, union.Cases[1].TerminatorToken.Kind);
+        Assert.Equal(3, union.CaseTypes.Count);
+        Assert.Equal(SyntaxKind.CommaToken, union.CaseTypes[0].TerminatorToken.Kind);
+        Assert.Equal(SyntaxKind.CommaToken, union.CaseTypes[1].TerminatorToken.Kind);
         var trailingGlobal = Assert.IsType<GlobalStatementSyntax>(root.Members[1]);
         Assert.IsType<FunctionStatementSyntax>(trailingGlobal.Statement);
     }
@@ -336,9 +336,9 @@ public class ParserRecoveryTests
         var root = tree.GetRoot();
 
         var union = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
-        Assert.Equal(3, union.Cases.Count);
-        Assert.Equal(SyntaxKind.None, union.Cases[0].TerminatorToken.Kind);
-        Assert.Equal(SyntaxKind.None, union.Cases[1].TerminatorToken.Kind);
+        Assert.Equal(3, union.CaseTypes.Count);
+        Assert.Equal(SyntaxKind.None, union.CaseTypes[0].TerminatorToken.Kind);
+        Assert.Equal(SyntaxKind.None, union.CaseTypes[1].TerminatorToken.Kind);
     }
 
     [Fact]
