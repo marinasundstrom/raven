@@ -2,6 +2,11 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
+using Microsoft.Extensions.Logging.Abstractions;
+
+using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Operations;
@@ -27,6 +32,8 @@ class Foo(private var name: string) {
 
         foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
@@ -58,6 +65,8 @@ record ApplicationError(val Message: string)
 
         foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
@@ -627,7 +636,7 @@ class C {
     }
 
     [Fact]
-    public void EventSubscriptionLambdaParameter_HoverUsesInferredDelegateParameterType()
+    public async Task EventSubscriptionLambdaParameter_HoverUsesInferredDelegateParameterType()
     {
         const string code = """
 import System.*
@@ -636,7 +645,7 @@ class ChangedArgs(var PropertyName: string)
 
 delegate PropertyChangedHandler(sender: object?, e: ChangedArgs) -> unit
 
-class Program {
+class App {
     static func Log(value: string) -> unit { }
 
     static func Main() -> unit {
@@ -647,55 +656,95 @@ class Program {
 }
 """;
 
-        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(syntaxTree);
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-hover-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
 
-        foreach (var reference in LanguageServerTestReferences.Default)
-            compilation = compilation.AddReferences(reference);
-
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
-        var root = syntaxTree.GetRoot();
-        var lambdaParameters = root
-            .DescendantNodes()
-            .OfType<ParenthesizedFunctionExpressionSyntax>()
-            .Single()
-            .ParameterList
-            .Parameters;
-
-        var buildSignatureForHover = typeof(HoverHandler)
-            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
-
-        var lambdaOperation = semanticModel.GetOperation(root
-            .DescendantNodes()
-            .OfType<ParenthesizedFunctionExpressionSyntax>()
-            .Single()).ShouldBeAssignableTo<ILambdaOperation>();
-        lambdaOperation.Parameters[1].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("ChangedArgs");
-
-        var argsParameter = semanticModel.GetFunctionExpressionParameterSymbol(lambdaParameters[1]);
-        argsParameter.ShouldNotBeNull();
-        argsParameter!.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("ChangedArgs");
-
-        foreach (var (parameterName, expectedType) in new[]
-                 {
-                     ("args", "ChangedArgs")
-                 })
+        try
         {
-            var lambdaParameter = lambdaParameters.Single(parameter => parameter.Identifier.ValueText == parameterName);
-            var hoverOffset = lambdaParameter.Identifier.SpanStart + 1;
-            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+            var projectPath = Path.Combine(tempRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
 
-            resolution.ShouldNotBeNull();
-            var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
-            parameterSymbol.Name.ShouldBe(parameterName);
-            parameterSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe(expectedType);
+            var documentPath = Path.Combine(tempRoot, "src", "main.rvn");
+            Directory.CreateDirectory(Path.GetDirectoryName(documentPath)!);
+            File.WriteAllText(documentPath, code);
 
-            var signature = (string)buildSignatureForHover.Invoke(
-                null,
-                [parameterSymbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "temp",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
 
-            signature.ShouldContain($"{parameterName}: {expectedType}");
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(documentPath);
+            store.UpsertDocument(uri, code);
+
+            var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+            context.ShouldNotBeNull();
+
+            var compilation = context.Value.Compilation;
+            var syntaxTree = context.Value.SyntaxTree;
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            compilation.GetDiagnostics().Where(d => d.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error).ShouldBeEmpty();
+            var root = syntaxTree.GetRoot();
+            var lambdaParameters = root
+                .DescendantNodes()
+                .OfType<ParenthesizedFunctionExpressionSyntax>()
+                .Single()
+                .ParameterList
+                .Parameters;
+
+            var buildSignatureForHover = typeof(HoverHandler)
+                .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+            var lambdaOperation = semanticModel.GetOperation(root
+                .DescendantNodes()
+                .OfType<ParenthesizedFunctionExpressionSyntax>()
+                .Single()).ShouldBeAssignableTo<ILambdaOperation>();
+            lambdaOperation.Parameters[1].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("ChangedArgs");
+
+            var argsParameter = semanticModel.GetFunctionExpressionParameterSymbol(lambdaParameters[1]);
+            argsParameter.ShouldNotBeNull();
+            argsParameter!.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("ChangedArgs");
+
+            foreach (var (parameterName, expectedType) in new[]
+                     {
+                         ("args", "ChangedArgs")
+                     })
+            {
+                var lambdaParameter = lambdaParameters.Single(parameter => parameter.Identifier.ValueText == parameterName);
+                var hoverOffset = lambdaParameter.Identifier.SpanStart + 1;
+                var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+                resolution.ShouldNotBeNull();
+                var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+                parameterSymbol.Name.ShouldBe(parameterName);
+                parameterSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe(expectedType);
+
+                var signature = (string)buildSignatureForHover.Invoke(
+                    null,
+                    [parameterSymbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
+
+                signature.ShouldContain($"{parameterName}: {expectedType}");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
         }
     }
 

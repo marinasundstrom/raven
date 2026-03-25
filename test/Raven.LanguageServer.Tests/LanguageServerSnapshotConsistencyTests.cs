@@ -59,6 +59,26 @@ public sealed class LanguageServerSnapshotConsistencyTests : IDisposable
         Should.NotThrow(() => context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree));
     }
 
+    [Fact]
+    public async Task GetAnalysisContextAsync_RapidSuccessiveUpdates_StaysSnapshotConsistentAsync()
+    {
+        var (store, _, uri) = CreateWorkspace("val number = 42");
+
+        store.UpsertDocument(uri, "val number = 100");
+        store.UpsertDocument(uri, """
+record Payment(amount: int)
+
+val payment = Payment(42)
+""");
+
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+
+        context.ShouldNotBeNull();
+        context.Value.SourceText.ToString().ShouldContain("record Payment");
+        context.Value.Compilation.SyntaxTrees.ShouldContain(context.Value.SyntaxTree);
+        Should.NotThrow(() => context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree));
+    }
+
     private (DocumentStore store, WorkspaceManager manager, DocumentUri uri) CreateWorkspace(string text)
     {
         Directory.CreateDirectory(_tempRoot);

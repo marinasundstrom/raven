@@ -613,9 +613,18 @@ internal sealed class HoverHandler : IHoverHandler
         {
             var declarationTypeFormat = CreatePlainTypeFormat();
 
+            if (contextNode is FunctionTypeSyntax functionTypeSyntax &&
+                TryFormatFunctionTypeSyntaxSignature(functionTypeSyntax, semanticModel, declarationTypeFormat, out var functionTypeSignature))
+            {
+                return functionTypeSignature;
+            }
+
             if (typeSymbol is INamedTypeSymbol delegateType &&
                 delegateType.TypeKind == TypeKind.Delegate)
             {
+                if (TryFormatDelegateTypeSignature(delegateType, declarationTypeFormat, out var delegateSignature))
+                    return delegateSignature;
+
                 return delegateType.ToDisplayString(declarationTypeFormat);
             }
 
@@ -1368,6 +1377,25 @@ internal sealed class HoverHandler : IHoverHandler
 
         var returnType = invokeMethod.ReturnType.ToDisplayString(plainTypeFormat);
         signature = $"({parameters}) -> {returnType}";
+        return true;
+    }
+
+    private static bool TryFormatFunctionTypeSyntaxSignature(
+        FunctionTypeSyntax functionTypeSyntax,
+        SemanticModel semanticModel,
+        SymbolDisplayFormat plainTypeFormat,
+        out string signature)
+    {
+        _ = semanticModel;
+        _ = plainTypeFormat;
+
+        var parameterTypes = functionTypeSyntax.Parameter is { } singleParameter
+            ? [singleParameter.ToString()]
+            : functionTypeSyntax.ParameterList is { } parameterList
+                ? parameterList.Parameters.Select(static parameter => parameter.ToString()).ToList()
+                : [];
+
+        signature = $"({string.Join(", ", parameterTypes)}) -> {functionTypeSyntax.ReturnType}";
         return true;
     }
 

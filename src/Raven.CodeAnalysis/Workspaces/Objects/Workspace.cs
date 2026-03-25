@@ -123,10 +123,23 @@ public class Workspace
         return GetCompilation(projectId, new HashSet<ProjectId>());
     }
 
+    public Compilation GetCompilation(Project project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        return GetCompilation(project, new HashSet<ProjectId>());
+    }
+
     private Compilation GetCompilation(ProjectId projectId, HashSet<ProjectId> building)
     {
         var project = CurrentSolution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        return GetCompilation(project, building);
+    }
+
+    private Compilation GetCompilation(Project project, HashSet<ProjectId> building)
+    {
+        var projectId = project.Id;
 
         if (!building.Add(projectId))
             throw new InvalidOperationException("Circular project reference detected.");
@@ -184,7 +197,9 @@ public class Workspace
 
         foreach (var projRef in project.ProjectReferences)
         {
-            var compRef = GetCompilation(projRef.ProjectId, building).ToMetadataReference();
+            var referencedProject = project.Solution.GetProject(projRef.ProjectId)
+                ?? throw new ArgumentException("Project not found", nameof(projRef.ProjectId));
+            var compRef = GetCompilation(referencedProject, building).ToMetadataReference();
             references.Add(compRef);
         }
 
