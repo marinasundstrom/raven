@@ -2927,9 +2927,10 @@ Rules:
     value: `.Case(...) caseValue`.
   * Use `_` to explicitly discard a payload.
 
-#### Discriminated-union case patterns
+#### Union case patterns
 
-Discriminated-union cases may be matched using three equivalent forms:
+Body-form unions synthesize named case types, and those cases may be matched
+using three equivalent forms:
 
 * `.Case(...)` — target-typed/member form.
 * `Union.Case(...)` — explicitly qualified union-member form.
@@ -2938,6 +2939,18 @@ Discriminated-union cases may be matched using three equivalent forms:
 
 For a case carrying a single `unit` payload, a bare `Case` pattern is sugar for
 `Case(())`.
+
+Parenthesized unions do not synthesize case names. They are matched using the
+ordinary pattern for one of their declared member types:
+
+```raven
+union Payment(Cash, Card)
+
+val description = payment match {
+    Cash(val amount) => "cash $amount"
+    Card(val reference) => "card $reference"
+}
+```
 
 #### Pattern combinators
 
@@ -4435,9 +4448,14 @@ member/case and throws `InvalidCastException` otherwise. Pattern matching and
 If a program needs inheritance-oriented OOP modeling, it should use Raven's
 sealed hierarchy features instead of `union`.
 
-In pattern position, cases may be matched with member-qualified forms
-(`.Ok(...)`, `Result.Ok(...)`) or unqualified forms (`Ok(...)`, `Ok`) when
-unambiguous for the scrutinee's union.
+In pattern position:
+
+* Body-form unions are matched with case patterns such as `.Ok(...)`,
+  `Result.Ok(...)`, or `Ok(...)` when unambiguous for the scrutinee's union.
+* Parenthesized unions are matched with ordinary patterns over their declared
+  member types. For example, `union Payment(Cash, Card)` is matched with
+  `Cash(...)` and `Card(...)`, and `union Either<int, string>(int, string)` is
+  matched with `int value` and `string text`.
 
 ### Canonical case-construction forms
 

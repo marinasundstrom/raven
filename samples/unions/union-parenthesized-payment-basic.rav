@@ -1,0 +1,21 @@
+import System.Console.*
+
+// Feature: parenthesized union declaration over existing nominal member types.
+PrintPaymentSource(Cash(42.0m))
+PrintPaymentSource(Card("invoice"))
+
+func PrintPaymentSource(value: Payment) {
+    WriteLine(value)
+
+    val description = value match {
+        Cash cash => "cash " + cash.Amount.ToString()
+        Card card => "card " + card.Reference
+    }
+
+    WriteLine(description)
+}
+
+record Cash(Amount: decimal)
+record Card(Reference: string)
+
+union Payment(Cash, Card)

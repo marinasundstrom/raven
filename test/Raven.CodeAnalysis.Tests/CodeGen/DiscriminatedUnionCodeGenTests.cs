@@ -476,6 +476,52 @@ union Either<T1, T2>(T1, T2)
     }
 
     [Fact]
+    public void GenericParenthesizedUnion_TypePatternMatchExtractsMemberValue()
+    {
+        const string code = """
+class Runner {
+    public static func DescribeLeft() -> string {
+        val value: Either<int, string> = 42
+        return value match {
+            int amount => "cash $amount"
+            string reference => "card $reference"
+        }
+    }
+
+    public static func DescribeRight() -> string {
+        val value: Either<int, string> = "invoice"
+        return value match {
+            int amount => "cash $amount"
+            string reference => "card $reference"
+        }
+    }
+}
+
+union Either<T1, T2>(T1, T2)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "generic-parenthesized-union-match",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var runnerType = assembly.GetType("Runner", throwOnError: true)!;
+        var leftMethod = runnerType.GetMethod("DescribeLeft", BindingFlags.Public | BindingFlags.Static)!;
+        var rightMethod = runnerType.GetMethod("DescribeRight", BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.Equal("cash 42", leftMethod.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal("card invoice", rightMethod.Invoke(null, Array.Empty<object?>()));
+    }
+
+    [Fact]
     public void DiscriminatedUnionCaseTypes_AnnotatedWithMarkerAttribute()
     {
         var code = """

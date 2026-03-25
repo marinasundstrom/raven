@@ -7,6 +7,13 @@ PrintPaymentSource("invoice")
 
 func PrintPaymentSource(value: Either<int, string>) {
     WriteLine(value)
+
+    val description = value match {
+        int amount => "cash $amount"
+        string reference => "card $reference"
+    }
+
+    WriteLine(description)
 }
 
 union Either<T1, T2>(T1, T2)

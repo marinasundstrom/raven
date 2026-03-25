@@ -98,6 +98,24 @@ internal partial class ExpressionGenerator
     {
         scope ??= this;
 
+        static bool TypesMatch(ITypeSymbol? left, ITypeSymbol? right)
+        {
+            if (left is null || right is null)
+                return false;
+
+            if (SymbolEqualityComparer.Default.Equals(left, right))
+                return true;
+
+            var leftPlain = left.GetPlainType();
+            var rightPlain = right.GetPlainType();
+            if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
+                return true;
+
+            var leftDefinition = left.OriginalDefinition ?? left;
+            var rightDefinition = right.OriginalDefinition ?? right;
+            return SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition);
+        }
+
         // Spill the scrutinee into a local of its current IL stack type (avoids forcing object boxing)
         IILocal SpillScrutineeToLocal(ITypeSymbol curType)
         {
@@ -207,6 +225,100 @@ internal partial class ExpressionGenerator
         {
             var typeSymbol = declarationPattern.Type;
             var clrType = ResolveClrType(typeSymbol);
+
+            if (inputType.TryGetUnion() is INamedTypeSymbol unionType &&
+                inputType is INamedTypeSymbol inputNamedType)
+            {
+                var tryGetSymbol = inputNamedType
+                    .GetMembers("TryGetValue")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(m =>
+                        !m.IsStatic &&
+                        m.Parameters.Length == 1 &&
+                        m.Parameters[0].RefKind == RefKind.Out &&
+                        TypesMatch(m.Parameters[0].GetByRefElementType(), typeSymbol));
+
+                if (tryGetSymbol is not null)
+                {
+                    var unionClrType = Generator.InstantiateType(ResolveClrType(inputType));
+                    var tryGetMethod = CloseMethodOnRuntimeCarrier(unionClrType, GetMethodInfo(tryGetSymbol));
+                    var outParameter = tryGetMethod.GetParameters() is [{ ParameterType: var outType }] &&
+                                       outType.IsByRef &&
+                                       outType.GetElementType() is Type outElementType
+                        ? CloseTypeFromMethodContext(outElementType, tryGetMethod.DeclaringType)
+                        : Generator.InstantiateType(clrType);
+
+                    if (inputType.TypeKind != TypeKind.Error)
+                    {
+                        var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
+                        if (unionClrType.IsValueType && ClrTypesMatch(inputClr, unionClrType))
+                        {
+                            IILocal unionLocal;
+                            if (scrutineeLocal2 is not null)
+                            {
+                                unionLocal = scrutineeLocal2;
+                                ILGenerator.Emit(OpCodes.Pop);
+                            }
+                            else
+                            {
+                                unionLocal = ILGenerator.DeclareLocal(unionClrType);
+                                ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+                            }
+
+                            var valueLocal = ILGenerator.DeclareLocal(outParameter);
+                            var labelFail = ILGenerator.DefineLabel();
+                            var labelDone = ILGenerator.DefineLabel();
+
+                            ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+                            ILGenerator.Emit(OpCodes.Ldloca, valueLocal);
+                            ILGenerator.Emit(OpCodes.Call, tryGetMethod);
+                            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+                            EmitPatternDesignator(declarationPattern.Designator, valueLocal, scope);
+                            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                            ILGenerator.Emit(OpCodes.Br, labelDone);
+
+                            ILGenerator.MarkLabel(labelFail);
+                            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                            ILGenerator.MarkLabel(labelDone);
+                            return;
+                        }
+                    }
+
+                    EnsureObjectOnStack(ref inputType);
+
+                    var unionCarrierLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
+                    var valueLocal2 = ILGenerator.DeclareLocal(outParameter);
+                    var labelSuccess = ILGenerator.DefineLabel();
+                    var labelTryGetFail = ILGenerator.DefineLabel();
+                    var labelTryGetDone = ILGenerator.DefineLabel();
+
+                    ILGenerator.Emit(OpCodes.Isinst, unionClrType);
+                    ILGenerator.Emit(OpCodes.Dup);
+                    ILGenerator.Emit(OpCodes.Brtrue, labelSuccess);
+                    ILGenerator.Emit(OpCodes.Pop);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                    ILGenerator.Emit(OpCodes.Br, labelTryGetDone);
+
+                    ILGenerator.MarkLabel(labelSuccess);
+                    ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, unionClrType);
+                    ILGenerator.Emit(OpCodes.Stloc, unionCarrierLocal);
+
+                    ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, unionCarrierLocal);
+                    ILGenerator.Emit(OpCodes.Ldloca, valueLocal2);
+                    ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, tryGetMethod);
+                    ILGenerator.Emit(OpCodes.Brfalse, labelTryGetFail);
+
+                    EmitPatternDesignator(declarationPattern.Designator, valueLocal2, scope);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                    ILGenerator.Emit(OpCodes.Br, labelTryGetDone);
+
+                    ILGenerator.MarkLabel(labelTryGetFail);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                    ILGenerator.MarkLabel(labelTryGetDone);
+                    return;
+                }
+            }
 
             // Fast path: if the scrutinee is already exactly the declared type, bind directly
             // without boxing or isinst/unbox.any.
