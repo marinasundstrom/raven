@@ -299,6 +299,14 @@ internal abstract class Generator
 
         if (conversion.IsUnion)
         {
+            if (!conversion.IsImplicit &&
+                from is INamedTypeSymbol sourceNamedUnion &&
+                sourceNamedUnion.TryGetUnion() is not null &&
+                EmitExplicitUnionExtraction(sourceNamedUnion, to))
+            {
+                return;
+            }
+
             if (from is ITypeUnionSymbol sourceTypeUnion &&
                 to is INamedTypeSymbol destinationNamedUnion &&
                 EmitDiscriminatedUnionTypeUnionConversion(sourceTypeUnion, destinationNamedUnion))
@@ -430,6 +438,41 @@ internal abstract class Generator
         }
 
         throw new NotSupportedException("Unsupported conversion");
+    }
+
+    private bool EmitExplicitUnionExtraction(INamedTypeSymbol unionType, ITypeSymbol memberType)
+    {
+        var tryGetMethod = unionType
+            .GetMembers("TryGetValue")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(method =>
+                !method.IsStatic &&
+                method.Parameters.Length == 1 &&
+                method.Parameters[0].RefKind == RefKind.Out &&
+                (SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, memberType) ||
+                 SymbolEqualityComparer.Default.Equals(
+                     method.Parameters[0].Type.OriginalDefinition ?? method.Parameters[0].Type,
+                     memberType.OriginalDefinition ?? memberType)));
+
+        if (tryGetMethod is null)
+            return false;
+
+        var memberClrType = ResolveClrType(memberType);
+        var valueLocal = ILGenerator.DeclareLocal(memberClrType);
+        var successLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Ldloca, valueLocal);
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(tryGetMethod));
+        ILGenerator.Emit(OpCodes.Brtrue, successLabel);
+
+        var invalidCastCtor = typeof(InvalidCastException).GetConstructor(Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing InvalidCastException constructor.");
+        ILGenerator.Emit(OpCodes.Newobj, invalidCastCtor);
+        ILGenerator.Emit(OpCodes.Throw);
+
+        ILGenerator.MarkLabel(successLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+        return true;
     }
 
     private void EmitUnionConversion(ITypeSymbol from, ITypeUnionSymbol unionTo)

@@ -61,6 +61,20 @@ public class CastExpressionTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void ExplicitCast_UnionToMemberType_NoDiagnostic()
+    {
+        const string code = """
+        val value: Either<int, string> = 42
+        val left = (int)value
+
+        union Either<T1, T2>(T1, T2)
+        """;
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
     public void ExplicitCast_WithAdditionalParentheses_ReportsRedundantCastDiagnostic()
     {
         string code = """

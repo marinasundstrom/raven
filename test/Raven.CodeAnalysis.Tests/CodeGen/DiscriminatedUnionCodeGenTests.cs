@@ -426,6 +426,56 @@ union Either<T1, T2>(T1, T2)
     }
 
     [Fact]
+    public void GenericParenthesizedUnion_ExplicitCastExtractsMemberType()
+    {
+        const string code = """
+import System.*
+
+class Runner {
+    public static func Left() -> int {
+        val value: Either<int, string> = 42
+        return (int)value
+    }
+
+    public static func Invalid() -> string {
+        val value: Either<int, string> = 42
+        return (string)value
+    }
+}
+
+union Either<T1, T2>(T1, T2)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "generic-parenthesized-union-cast",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var runnerType = assembly.GetType("Runner", throwOnError: true)!;
+        var leftMethod = runnerType.GetMethod("Left", BindingFlags.Public | BindingFlags.Static)!;
+        var invalidMethod = runnerType.GetMethod("Invalid", BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.Equal(42, leftMethod.Invoke(null, Array.Empty<object?>()));
+        Assert.Throws<TargetInvocationException>(() => invalidMethod.Invoke(null, Array.Empty<object?>()));
+        try
+        {
+            invalidMethod.Invoke(null, Array.Empty<object?>());
+        }
+        catch (TargetInvocationException ex)
+        {
+            Assert.IsType<InvalidCastException>(ex.InnerException);
+        }
+    }
+
+    [Fact]
     public void DiscriminatedUnionCaseTypes_AnnotatedWithMarkerAttribute()
     {
         var code = """

@@ -915,6 +915,18 @@ val s = obj as string
 `(T)expr` performs a runtime check and throws an `InvalidCastException` when the value cannot convert to `T`. Use this form for downcasts, numeric narrowing, or unboxing scenarios.
 `expr as T` attempts the conversion and returns `null` (or a nullable value type) instead of throwing on failure.
 
+For unions, an explicit cast from the carrier to a member/case type is also
+permitted as an assertion-style extraction:
+
+```raven
+val value: Either<int, string> = 42
+val left = (int)value
+```
+
+This conversion succeeds only when the carrier currently holds the requested
+member/case type; otherwise it throws `InvalidCastException`. It is an explicit
+union extraction conversion, not a subtype or inheritance conversion.
+
 ### `typeof` expressions
 
 The `typeof` operator produces the runtime [`System.Type`](https://learn.microsoft.com/dotnet/api/system.type)
@@ -4383,7 +4395,18 @@ construction and extraction through the same carrier-based conversion model.
 
 The union carrier exposes case inspection through overloaded `TryGetValue(out
 CaseType)` methods (one overload per case type). Raven does not depend on
-`TryGetCaseName` forms.
+`TryGetCaseName` forms. Raven also permits an explicit cast from the union
+carrier to a member/case type as an escape hatch for assertion-style
+extraction:
+
+```raven
+val value: Either<int, string> = 42
+val left = (int)value
+```
+
+The cast succeeds only when the carrier currently contains the requested
+member/case and throws `InvalidCastException` otherwise. Pattern matching and
+`TryGetValue(out ...)` remain the preferred extraction forms.
 
 If a program needs inheritance-oriented OOP modeling, it should use Raven's
 sealed hierarchy features instead of `union`.

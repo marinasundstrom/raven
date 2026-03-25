@@ -248,6 +248,19 @@ public partial class Compilation
             }
         }
 
+        if (source is INamedTypeSymbol sourceNamedUnion &&
+            sourceNamedUnion.TryGetUnion() is not null &&
+            destination is ITypeSymbol destinationMemberType &&
+            FindUnionTryGetValueMethod(sourceNamedUnion, destinationMemberType) is not null)
+        {
+            return Finalize(new Conversion(
+                isImplicit: false,
+                isDiscriminatedUnion: true,
+                isUserDefined: false,
+                methodSymbol: null,
+                constructorSymbol: null));
+        }
+
         bool ElementTypesAreCompatible(ITypeSymbol sourceElement, ITypeSymbol destinationElement)
         {
             bool sourceElementUsedAlias = false;
@@ -1359,6 +1372,29 @@ public partial class Compilation
 
             return new SubstitutedMethodSymbol(constructorSymbol, constructedType);
         }
+    }
+
+    private static IMethodSymbol? FindUnionTryGetValueMethod(INamedTypeSymbol unionType, ITypeSymbol memberType)
+    {
+        foreach (var method in unionType.GetMembers("TryGetValue").OfType<IMethodSymbol>())
+        {
+            if (method.IsStatic || method.Parameters.Length != 1)
+                continue;
+
+            var parameter = method.Parameters[0];
+            if (parameter.RefKind != RefKind.Out)
+                continue;
+
+            if (SymbolEqualityComparer.Default.Equals(parameter.Type, memberType))
+                return method;
+
+            var parameterDefinition = parameter.Type.OriginalDefinition ?? parameter.Type;
+            var memberDefinition = memberType.OriginalDefinition ?? memberType;
+            if (SymbolEqualityComparer.Default.Equals(parameterDefinition, memberDefinition))
+                return method;
+        }
+
+        return null;
     }
 
     private bool IsReferenceConversion(ITypeSymbol source, ITypeSymbol destination)
