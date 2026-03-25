@@ -26,7 +26,7 @@ public static class RavenQuoter
         public IReadOnlyList<ParameterInfo> Parameters { get; }
     }
 
-    private static readonly Dictionary<Type, FactoryInfo?> s_factoryCache = new();
+    private static readonly Dictionary<Type, IReadOnlyList<FactoryInfo>> s_factoryCache = new();
 
     public static string QuoteText(string ravenSource, RavenQuoterOptions? options = null)
     {
@@ -76,7 +76,7 @@ public static class RavenQuoter
         return w.ToString();
     }
 
-    private static FactoryInfo? GetFactoryInfo(Type nodeType)
+    private static IReadOnlyList<FactoryInfo> GetFactoryInfos(Type nodeType)
     {
         lock (s_factoryCache)
         {
@@ -93,25 +93,18 @@ public static class RavenQuoter
             .Where(m => m.Name == simpleName && nodeType.IsAssignableFrom(m.ReturnType))
             .ToArray();
 
-        MethodInfo? selected = null;
-
-        if (methods.Length == 1)
-        {
-            selected = methods[0];
-        }
-        else if (methods.Length > 1)
-        {
-            selected = methods.OrderByDescending(m => m.GetParameters().Length).FirstOrDefault();
-        }
-
-        var info = selected is null ? null : new FactoryInfo(selected);
+        var infos = methods
+            .OrderBy(m => m.GetParameters().Length)
+            .ThenBy(m => m.ToString(), StringComparer.Ordinal)
+            .Select(static m => new FactoryInfo(m))
+            .ToArray();
 
         lock (s_factoryCache)
         {
-            s_factoryCache[nodeType] = info;
+            s_factoryCache[nodeType] = infos;
         }
 
-        return info;
+        return infos;
     }
 
     private static PropertyInfo? FindPropertyForParameter(Type nodeType, ParameterInfo parameter)
@@ -177,37 +170,59 @@ public static class RavenQuoter
 
             var usedProperties = new HashSet<PropertyInfo>();
 
-            var factory = GetFactoryInfo(type);
+            var factories = GetFactoryInfos(type);
+            FactoryInfo? factory = null;
             List<(ParameterInfo Parameter, object? Value)>? paramValues = null;
 
-            if (factory is not null)
+            foreach (var candidate in factories)
             {
-                paramValues = new List<(ParameterInfo, object?)>();
-                bool ok = true;
+                var candidateValues = new List<(ParameterInfo, object?)>();
+                var candidateProperties = new HashSet<PropertyInfo>();
+                var args = new object?[candidate.Parameters.Count];
+                var ok = true;
 
-                foreach (var param in factory.Parameters)
+                for (int i = 0; i < candidate.Parameters.Count; i++)
                 {
+                    var param = candidate.Parameters[i];
                     var prop = FindPropertyForParameter(type, param);
                     if (prop is null)
                     {
-                        if (param.HasDefaultValue)
-                            break;
-
                         ok = false;
                         break;
                     }
 
                     var value = prop.GetValue(node);
-                    paramValues.Add((param, value));
-                    usedProperties.Add(prop);
+                    candidateValues.Add((param, value));
+                    candidateProperties.Add(prop);
+                    args[i] = value;
                 }
 
                 if (!ok)
                 {
-                    factory = null;
-                    paramValues = null;
-                    usedProperties.Clear();
+                    continue;
                 }
+
+                try
+                {
+                    if (candidate.Method.Invoke(null, args) is not SyntaxNode recreatedNode)
+                        continue;
+
+                    if (!NodesMatchForSelection(node, recreatedNode))
+                        continue;
+                }
+                catch (ArgumentException)
+                {
+                    continue;
+                }
+                catch (TargetInvocationException)
+                {
+                    continue;
+                }
+
+                factory = candidate;
+                paramValues = candidateValues;
+                usedProperties = candidateProperties;
+                break;
             }
 
             if (factory is not null && paramValues is not null && paramValues.Count > 0)
@@ -310,6 +325,17 @@ public static class RavenQuoter
                 _w.Write(")");
                 _w.Unindent();
             }
+        }
+
+        private bool NodesMatchForSelection(SyntaxNode original, SyntaxNode recreated)
+        {
+            if (original.GetType() != recreated.GetType())
+                return false;
+
+            var originalText = _options.IncludeTrivia ? original.ToFullString() : original.ToString();
+            var recreatedText = _options.IncludeTrivia ? recreated.ToFullString() : recreated.ToString();
+
+            return string.Equals(originalText, recreatedText, StringComparison.Ordinal);
         }
 
         private void WriteValue(Type type, object? value)
