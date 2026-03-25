@@ -4320,10 +4320,10 @@ nullable types primarily for .NET interop surfaces.
 ### Unions
 
 A union declaration defines a nominal carrier type composed of a fixed set of
-**cases**. The declared union type is the runtime carrier; case values convert
-into that carrier and are extracted through pattern matching or overloaded
-`TryGetValue(out CaseType)` helpers. Unions use the `union` keyword and support
-two declaration forms:
+possible runtime shapes. The declared union type is the runtime carrier; member
+or case values convert into that carrier and are extracted through pattern
+matching or overloaded `TryGetValue(out CaseType)` helpers. Unions use the
+`union` keyword and support two declaration forms:
 
 > ℹ️ **Interop direction:** Raven plans to align its union metadata and
 > interop surface with the upcoming C#/.NET **Unions** concept (targeted around
@@ -4332,24 +4332,48 @@ two declaration forms:
 > ❗ **Important:** Declared `union` types are nominal tagged unions with
 > carrier semantics. They are not inheritance hierarchies.
 
-```raven
-// Body form: declares the carrier and synthesizes the case types.
-union Token {
-    Identifier(text: string)
-    Number(value: int)
-    Unknown
-}
+The two declaration forms are:
 
-// Parenthesized form: declares the carrier over existing member types.
+* **Parenthesized form**: declares a union carrier over existing member types.
+* **Body form**: declares a union carrier and synthesizes named case types.
+
+#### Parenthesized form
+
+Use the parenthesized form when the union should be defined over existing
+nominal or primitive member types:
+
+```raven
+record Cash(amount: decimal)
+record Card(last4: string)
+
 union Payment(Cash, Card)
 
-// Generic parenthesized form over existing member types.
-union Either<T1, T2>(T1, T2)
+val payment = Payment(Card("4242"))
+WriteLine(payment)
+```
+
+The union is declared over the specified member types and does not synthesize
+additional named cases such as `Left` or `Right`.
+
+#### Body form
+
+Use the body form when Raven should synthesize named case types as part of the
+union declaration:
+
+```raven
+union LookupResult {
+    Found(id: int)
+    Missing
+}
+
+val status = LookupResult.Found(42)
+WriteLine(status)
 ```
 
 In the body form, Raven synthesizes the case/member types from the listed case
-clauses. In the parenthesized form, the union is declared over existing member
-types and does not synthesize named cases such as `Left` or `Right`.
+clauses. These synthesized types behave as named case types of the union and
+are addressed through the union surface (`LookupResult.Found`,
+`LookupResult.Missing`, or the leading-dot shorthand where allowed).
 
 Union cases are newline-friendly by default. A comma (or semicolon) after a
 case is optional, and when present it is treated as that case's terminator
@@ -4377,8 +4401,8 @@ In the parenthesized form, the existing member types convert directly into the
 carrier:
 
 ```raven
-val left: Either<int, string> = 42
-val right: Either<int, string> = "invoice"
+val cashPayment: Payment = Cash(12.50m)
+val cardPayment: Payment = Card("4242")
 ```
 
 Line-continuation details for leading-dot forms are defined in
