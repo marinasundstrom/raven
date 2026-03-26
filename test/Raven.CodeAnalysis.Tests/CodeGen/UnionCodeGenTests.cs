@@ -11,7 +11,7 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class DiscriminatedUnionCodeGenTests
+public class UnionCodeGenTests
 {
     [Fact]
     public void UnionCaseConstructor_AssignsFields()
@@ -519,6 +519,45 @@ union Either<T1, T2>(T1, T2)
 
         Assert.Equal("cash 42", leftMethod.Invoke(null, Array.Empty<object?>()));
         Assert.Equal("card invoice", rightMethod.Invoke(null, Array.Empty<object?>()));
+    }
+
+    [Fact]
+    public void GenericParenthesizedUnion_NestedGenericMemberTypesEmitConstructorsAndConstraints()
+    {
+        const string code = """
+import System.Collections.Generic.*
+
+union MyResult2<T>(List<T>, int)
+    where T : class
+
+union MyResult3(List<int>, string)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "generic-parenthesized-union-nested-members",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+
+        var genericUnionDefinition = assembly.GetType("MyResult2`1", throwOnError: true)!;
+        var genericParameter = genericUnionDefinition.GetGenericArguments().Single();
+        Assert.True((genericParameter.GenericParameterAttributes & GenericParameterAttributes.ReferenceTypeConstraint) != 0);
+
+        var constructedGenericUnion = genericUnionDefinition.MakeGenericType(typeof(string));
+        Assert.NotNull(constructedGenericUnion.GetConstructor([typeof(List<string>)]));
+        Assert.NotNull(constructedGenericUnion.GetConstructor([typeof(int)]));
+
+        var concreteUnion = assembly.GetType("MyResult3", throwOnError: true)!;
+        Assert.NotNull(concreteUnion.GetConstructor([typeof(List<int>)]));
+        Assert.NotNull(concreteUnion.GetConstructor([typeof(string)]));
     }
 
     [Fact]

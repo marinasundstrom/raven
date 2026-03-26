@@ -9,7 +9,7 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public sealed class DiscriminatedUnionSemanticTests : CompilationTestBase
+public sealed class UnionSemanticTests : CompilationTestBase
 {
     [Fact]
     public void GetDeclaredSymbol_ReturnsCaseSymbol()
@@ -101,6 +101,62 @@ union Either(Left, Right)
             unionSymbol.MemberTypes,
             left => Assert.Equal("Left", left.Name),
             right => Assert.Equal("Right", right.Name));
+    }
+
+    [Fact]
+    public void GenericNominalUnionDeclaration_BindsNestedGenericMemberTypes()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+union MyResult2<T>(List<T>, int)
+union MyResult3(List<int>, string)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var unions = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().ToArray();
+        var genericUnion = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unions[0]));
+        var concreteUnion = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unions[1]));
+
+        var genericListMember = Assert.IsAssignableFrom<INamedTypeSymbol>(genericUnion.MemberTypes[0]);
+        Assert.Equal("System.Collections.Generic.List`1", genericListMember.OriginalDefinition!.ToFullyQualifiedMetadataName());
+        Assert.True(SymbolEqualityComparer.Default.Equals(genericUnion.TypeParameters[0], genericListMember.TypeArguments[0]));
+        Assert.Equal(SpecialType.System_Int32, genericUnion.MemberTypes[1].SpecialType);
+
+        var concreteListMember = Assert.IsAssignableFrom<INamedTypeSymbol>(concreteUnion.MemberTypes[0]);
+        Assert.Equal("System.Collections.Generic.List`1", concreteListMember.OriginalDefinition!.ToFullyQualifiedMetadataName());
+        Assert.Equal(SpecialType.System_Int32, concreteListMember.TypeArguments[0].SpecialType);
+        Assert.Equal(SpecialType.System_String, concreteUnion.MemberTypes[1].SpecialType);
+    }
+
+    [Fact]
+    public void GenericNominalUnionDeclaration_PreservesTypeParameterConstraints()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+union MyResult<T>(List<T>, int)
+    where T : class
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var typeParameter = Assert.Single(unionSymbol.TypeParameters);
+
+        Assert.True((typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0);
+        var listMember = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.MemberTypes[0]);
+        Assert.True(SymbolEqualityComparer.Default.Equals(typeParameter, listMember.TypeArguments[0]));
     }
 
     [Fact]

@@ -12,7 +12,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.CodeGen;
 
-public class DiscriminatedUnionGenericsTests
+public class UnionGenericsTests
 {
     private const string GenericUnionSample = """
 import System.*

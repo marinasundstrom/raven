@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -58,6 +59,22 @@ public class UnionDeclarationParserTests
         Assert.NotNull(declaration.MemberTypes);
         Assert.Empty(declaration.CaseTypes);
         Assert.Equal(2, declaration.MemberTypes!.Types.Count);
+    }
+
+    [Fact]
+    public void UnionDeclaration_WithGenericNominalMembers_ParsesMemberTypes()
+    {
+        var source = "union MyResult2<T>(List<T>, int)";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
+
+        Assert.NotNull(declaration.TypeParameterList);
+        Assert.NotNull(declaration.MemberTypes);
+        Assert.Empty(declaration.CaseTypes);
+        Assert.Equal("List<T>", declaration.MemberTypes!.Types[0].ToString());
+        Assert.Equal("int", declaration.MemberTypes.Types[1].ToString());
     }
 
     [Fact]

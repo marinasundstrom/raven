@@ -26,7 +26,7 @@ Important: many are **intentional mixed tests**, not pure misplacements.
 Already completed in this reorg pass:
 
 - `Semantics/*Emission*` moved to `CodeGen/Metadata/`
-- `Semantics/DiscriminatedUnionGenericsTests.cs` moved to `CodeGen/Runtime/`
+- `Semantics/UnionGenericsTests.cs` moved to `CodeGen/Runtime/`
 - `Semantics/*Diagnostics*` and other diagnostics-first files moved to `Semantics/Diagnostics/`
 - `Semantics/*Lowerer*` and lowerer-shape tests moved to `Semantics/Lowering/`
 - `Semantics/PartialClassTests.cs` split into:

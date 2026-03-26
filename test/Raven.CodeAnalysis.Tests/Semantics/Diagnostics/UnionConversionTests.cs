@@ -210,7 +210,7 @@ record AppError(Message: string)
     }
 }
 
-public class DiscriminatedUnionCaseConversionClassificationTests : CompilationTestBase
+public class UnionCaseConversionClassificationTests : CompilationTestBase
 {
     private static readonly string ResultUnionDecl = """
 union Result<T, E> {
