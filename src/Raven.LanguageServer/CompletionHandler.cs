@@ -177,18 +177,62 @@ internal static class CompletionItemMapper
 
     private static CompletionItemLabelDetails? TryCreateLabelDetails(ISymbol? symbol)
     {
+        var containerDescription = TryGetContainerDescription(symbol);
+
         return symbol switch
         {
             IMethodSymbol { IsExtensionMethod: true } => new CompletionItemLabelDetails
             {
-                Detail = " (extension)"
+                Detail = " (extension)",
+                Description = containerDescription
             },
             IPropertySymbol property when property.IsExtensionProperty() => new CompletionItemLabelDetails
             {
-                Detail = " (extension)"
+                Detail = " (extension)",
+                Description = containerDescription
+            },
+            _ when containerDescription is not null => new CompletionItemLabelDetails
+            {
+                Description = containerDescription
             },
             _ => null
         };
+    }
+
+    private static string? TryGetContainerDescription(ISymbol? symbol)
+    {
+        if (symbol is null)
+            return null;
+
+        var containing = symbol.ContainingSymbol;
+        if (containing is null || containing.Kind == Raven.CodeAnalysis.SymbolKind.Assembly)
+            return null;
+
+        if (containing is INamespaceSymbol namespaceSymbol)
+            return GetNamespaceDisplayString(namespaceSymbol);
+
+        return containing.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat
+            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
+            .WithKindOptions(SymbolDisplayKindOptions.None));
+    }
+
+    private static string? GetNamespaceDisplayString(INamespaceSymbol namespaceSymbol)
+    {
+        if (namespaceSymbol.IsGlobalNamespace)
+            return null;
+
+        var parts = new List<string>();
+        for (var current = namespaceSymbol; current is not null && !current.IsGlobalNamespace; current = current.ContainingNamespace)
+        {
+            if (!string.IsNullOrEmpty(current.Name))
+                parts.Add(current.Name);
+        }
+
+        if (parts.Count == 0)
+            return null;
+
+        parts.Reverse();
+        return string.Join(".", parts);
     }
 
     private static bool TryBuildSnippetText(string insertionText, int? cursorOffset, out string newText)

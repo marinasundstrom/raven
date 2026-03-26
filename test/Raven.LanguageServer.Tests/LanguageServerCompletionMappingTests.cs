@@ -68,23 +68,50 @@ public class LanguageServerCompletionMappingTests
         mapped.LabelDetails!.Detail.ShouldBe(" (extension)");
     }
 
+    [Fact]
+    public void ToLspCompletion_SymbolCompletion_UsesFullyQualifiedContainerDescription()
+    {
+        var text = SourceText.From("Lis");
+        var global = FakeNamespaceSymbol.Global;
+        var system = new FakeNamespaceSymbol("System", global);
+        var collections = new FakeNamespaceSymbol("Collections", system);
+        var generic = new FakeNamespaceSymbol("Generic", collections);
+        var item = new Raven.CodeAnalysis.CompletionItem(
+            DisplayText: "List",
+            InsertionText: "List()",
+            ReplacementSpan: new TextSpan(0, 3),
+            CursorOffset: "List()".Length - 1,
+            Symbol: new FakeValueSymbol("List", generic, generic));
+
+        var mapped = CompletionItemMapper.ToLspCompletion(item, text);
+
+        mapped.LabelDetails.ShouldNotBeNull();
+        mapped.LabelDetails!.Description.ShouldBe("System.Collections.Generic");
+    }
+
     private abstract class FakeSymbol : ISymbol
     {
-        protected FakeSymbol(RavenSymbolKind kind, string name)
+        protected FakeSymbol(
+            RavenSymbolKind kind,
+            string name,
+            ISymbol? containingSymbol = null,
+            INamespaceSymbol? containingNamespace = null)
         {
             Kind = kind;
             Name = name;
             MetadataName = name;
+            ContainingSymbol = containingSymbol;
+            ContainingNamespace = containingNamespace;
         }
 
         public RavenSymbolKind Kind { get; }
         public string Name { get; }
         public string MetadataName { get; }
-        public ISymbol? ContainingSymbol => null;
+        public ISymbol? ContainingSymbol { get; }
         public IAssemblySymbol? ContainingAssembly => null;
         public IModuleSymbol? ContainingModule => null;
         public INamedTypeSymbol? ContainingType => null;
-        public INamespaceSymbol? ContainingNamespace => null;
+        public INamespaceSymbol? ContainingNamespace { get; }
         public ImmutableArray<RavenLocation> Locations => ImmutableArray<RavenLocation>.Empty;
         public Accessibility DeclaredAccessibility => Accessibility.Public;
         public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => ImmutableArray<SyntaxReference>.Empty;
@@ -138,5 +165,49 @@ public class LanguageServerCompletionMappingTests
         public IMethodSymbol? ConstructedFrom => this;
         public bool SetsRequiredMembers => false;
         public IMethodSymbol Construct(params ITypeSymbol[] typeArguments) => this;
+    }
+
+    private sealed class FakeValueSymbol : FakeSymbol
+    {
+        public FakeValueSymbol(string name, ISymbol containingSymbol, INamespaceSymbol containingNamespace)
+            : base(RavenSymbolKind.Local, name, containingSymbol, containingNamespace)
+        {
+        }
+    }
+
+    private sealed class FakeNamespaceSymbol : FakeSymbol, INamespaceSymbol
+    {
+        public static FakeNamespaceSymbol Global { get; } = new(string.Empty, null, isGlobalNamespace: true);
+
+        private readonly bool _isGlobalNamespace;
+
+        public FakeNamespaceSymbol(string name, INamespaceSymbol? containingNamespace = null)
+            : this(name, containingNamespace, isGlobalNamespace: false)
+        {
+        }
+
+        private FakeNamespaceSymbol(string name, INamespaceSymbol? containingNamespace, bool isGlobalNamespace)
+            : base(
+                RavenSymbolKind.Namespace,
+                name,
+                containingSymbol: containingNamespace,
+                containingNamespace: containingNamespace)
+        {
+            _isGlobalNamespace = isGlobalNamespace;
+        }
+
+        public bool IsGlobalNamespace => _isGlobalNamespace;
+        public bool IsNamespace => true;
+        public bool IsType => false;
+        public ImmutableArray<INamespaceSymbol> NamespaceMembers => ImmutableArray<INamespaceSymbol>.Empty;
+        public ImmutableArray<INamedTypeSymbol> TypeMembers => ImmutableArray<INamedTypeSymbol>.Empty;
+        public ImmutableArray<ISymbol> GetMembers() => ImmutableArray<ISymbol>.Empty;
+        public ImmutableArray<ISymbol> GetMembers(string name) => ImmutableArray<ISymbol>.Empty;
+        public ITypeSymbol? LookupType(string name) => null;
+        public bool IsMemberDefined(string name, out ISymbol? symbol)
+        {
+            symbol = null;
+            return false;
+        }
     }
 }
