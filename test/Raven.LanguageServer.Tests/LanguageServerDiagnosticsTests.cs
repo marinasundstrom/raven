@@ -175,9 +175,68 @@ class C {
         diagnostic.Severity.ShouldBe(LspDiagnosticSeverity.Warning);
     }
 
+    [Fact]
+    public async Task GetDiagnosticsAsync_TopLevelGenericWhereClauseSelfConstraint_DoesNotReportTypeParameterOutOfScope()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.*
+import System.Console.*
+
+func Main() -> () {
+    val r = Parse<int>("42")
+    WriteLine(r)
+}
+
+func Parse<T>(str: string) -> T
+    where T: IParsable<T>
+    => T.Parse(str, null)
+""";
+
+        store.UpsertDocument(uri, code);
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+
+        diagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal)).ShouldBeFalse();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))
             Directory.Delete(_tempRoot, recursive: true);
+    }
+
+    private static string WriteProject(string directory, string name, string contents)
+    {
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, $"{name}.rvnproj");
+        File.WriteAllText(path, contents);
+        return path;
     }
 }

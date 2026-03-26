@@ -218,14 +218,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 {
                 }
 
-                try
-                {
-                    previous.Dispose();
-                }
-                catch (ObjectDisposedException)
-                {
-                }
-
                 return source;
             });
 
@@ -274,14 +266,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             try
             {
                 pending.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-
-            try
-            {
-                pending.Dispose();
             }
             catch (ObjectDisposedException)
             {

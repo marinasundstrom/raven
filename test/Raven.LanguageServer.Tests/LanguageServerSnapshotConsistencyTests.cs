@@ -79,6 +79,41 @@ val payment = Payment(42)
         Should.NotThrow(() => context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree));
     }
 
+    [Fact]
+    public async Task GetAnalysisContextAsync_ProjectBackedDocumentFullReplacement_DoesNotRetainStaleGenericScopeDiagnosticsAsync()
+    {
+        var (store, _, uri) = CreateWorkspace("""
+import System.*
+
+func Main() -> () {
+    val value = 42
+    Console.WriteLine(value)
+}
+""");
+
+        store.UpsertDocument(uri, """
+import System.*
+import System.Console.*
+
+func Main() -> () {
+    val r = Parse<int>("42")
+    WriteLine(r)
+}
+
+func Parse<T>(str: string) -> T
+    where T: IParsable<T>
+    => T.Parse(str, null)
+""");
+
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        diagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal)).ShouldBeFalse();
+
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        context.Value.Compilation.SyntaxTrees.ShouldContain(context.Value.SyntaxTree);
+        Should.NotThrow(() => context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree));
+    }
+
     private (DocumentStore store, WorkspaceManager manager, DocumentUri uri) CreateWorkspace(string text)
     {
         Directory.CreateDirectory(_tempRoot);
