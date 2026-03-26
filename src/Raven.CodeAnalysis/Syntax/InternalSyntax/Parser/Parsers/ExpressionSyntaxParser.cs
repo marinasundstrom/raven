@@ -18,6 +18,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private readonly bool _allowLambdaExpressions;
     private readonly bool _stopOnLeadingNewlineBinaryOperator;
     private readonly bool _stopAtDotDotToken;
+    private bool _stopAfterPrimaryExpression;
     private const int RangeOperatorPrecedence = 4;
 
     public ExpressionSyntaxParser(
@@ -1295,6 +1296,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         ExpressionSyntax expr = ParsePrimaryExpression();
 
+        if (_stopAfterPrimaryExpression)
+        {
+            _stopAfterPrimaryExpression = false;
+            return expr;
+        }
+
         expr = AddTrailers(start, expr);
 
         return expr;
@@ -1606,6 +1613,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     }
                 }
 
+                if (ShouldStopArgumentListRecoveryAfter(arg))
+                    break;
+
                 if (Position == argumentStart)
                 {
                     var token = PeekToken();
@@ -1648,6 +1658,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken);
+    }
+
+    private bool ShouldStopArgumentListRecoveryAfter(ArgumentSyntax argument)
+    {
+        return IsUnterminatedSingleLineStringExpression(argument.Expression);
     }
 
     public ArgumentSyntax ParseArgument()
@@ -2048,8 +2063,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.StringLiteralToken:
 
                 ReadToken();
+                var isUnterminatedSingleLineString = IsUnterminatedSingleLineStringToken(token);
                 var tokenText = token.Text;
-                var inner = tokenText.Length >= 2 ? tokenText.Substring(1, tokenText.Length - 2) : string.Empty;
+                var inner = GetSingleLineStringInnerText(tokenText, isUnterminatedSingleLineString);
                 var hasInterpolation = ContainsInterpolation(inner);
                 if (TryReadEncodedStringSuffix(token, out var suffixToken, out var encoding))
                 {
@@ -2061,6 +2077,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = hasInterpolation
                     ? ParseInterpolatedStringExpression(token)
                     : LiteralExpression(SyntaxKind.StringLiteralExpression, token);
+
+                if (isUnterminatedSingleLineString)
+                    _stopAfterPrimaryExpression = true;
                 break;
 
             case SyntaxKind.MultiLineStringLiteralToken:

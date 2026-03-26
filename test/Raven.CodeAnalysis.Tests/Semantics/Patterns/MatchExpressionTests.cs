@@ -857,6 +857,32 @@ val result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithDuplicateCasePattern_ReportsDiagnostic()
+    {
+        const string code = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+
+val value: Result<int, string> = Ok(2)
+
+val result = value match {
+    Ok(2) => "Lucky you!"
+    Ok(2) => "Still lucky!"
+    Ok(val payload) => payload.ToString()
+    Error(val err) => err
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult(CompilerDiagnostics.MatchExpressionArmUnreachable.Id).WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_DiscardArm_BindsToDiscardPattern()
     {
         const string code = """

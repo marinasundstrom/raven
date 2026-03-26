@@ -17,7 +17,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     {
         var contents = new List<InterpolatedStringContentSyntax>();
         var raw = token.Text;
-        var inner = raw.Length >= 2 ? raw.Substring(1, raw.Length - 2) : string.Empty;
+        var isUnterminated = IsUnterminatedSingleLineStringToken(token);
+        var inner = GetSingleLineStringInnerText(raw, isUnterminated);
 
         int segmentStart = 0;
         for (int i = 0; i < inner.Length;)
@@ -99,6 +100,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             SyntaxTriviaList.Empty,
             token.TrailingTrivia);
 
+        if (isUnterminated)
+            endToken = SyntaxToken.Missing(SyntaxKind.StringEndToken);
+
         return InterpolatedStringExpression(startToken, List(contents), endToken);
 
         void AddTextSegment(string segmentRaw)
@@ -156,6 +160,34 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return (backslashCount & 1) == 1;
+    }
+
+    private static bool IsUnterminatedSingleLineStringToken(SyntaxToken token)
+    {
+        return token.Kind == SyntaxKind.StringLiteralToken &&
+               (token.Text.Length < 2 || token.Text[^1] != '"');
+    }
+
+    private static bool IsUnterminatedSingleLineStringExpression(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            LiteralExpressionSyntax { Token.Kind: SyntaxKind.StringLiteralToken } literal =>
+                IsUnterminatedSingleLineStringToken(literal.Token),
+            InterpolatedStringExpressionSyntax interpolated =>
+                interpolated.StringEndToken.IsMissing,
+            _ => false
+        };
+    }
+
+    private static string GetSingleLineStringInnerText(string raw, bool isUnterminated)
+    {
+        if (raw.Length <= 1)
+            return string.Empty;
+
+        return isUnterminated
+            ? raw.Substring(1)
+            : raw.Substring(1, raw.Length - 2);
     }
 
     // Scans the body of an interpolation that starts immediately after `${`.
