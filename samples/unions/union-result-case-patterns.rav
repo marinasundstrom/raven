@@ -21,7 +21,6 @@ func describe(result: Result<int, string>) -> string {
         Success(val value) => "Result: '$value'"
         Error(2, val error) => "$error (!!!)"
         Error(val errorCode, val error) => "$error (???)"
-        Error(val code, val error) => "Error $code: $error"
     }
 }
 

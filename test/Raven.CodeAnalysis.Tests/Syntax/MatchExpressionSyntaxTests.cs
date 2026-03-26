@@ -277,6 +277,60 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_UnterminatedStringArm_RecoversFollowingArmAndLaterUnion()
+    {
+        const string code = """
+func Main() {
+    val value = 1
+
+    val result = value match {
+        1 => WriteLine("oops)
+        _ => 0
+    }
+}
+
+union Result(int)
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+        var match = root.DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var union = root.DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+
+        Assert.Equal(2, match.Arms.Count);
+        Assert.IsType<DiscardPatternSyntax>(match.Arms[1].Pattern);
+        Assert.Equal("Result", union.Identifier.ValueText);
+    }
+
+    [Fact]
+    public void MatchExpression_UnterminatedInterpolatedStringShorthandArm_StopsAtEndOfLine()
+    {
+        const string code = """
+func Main() {
+    val x2 = MyResult(42)
+
+    match x2 {
+        string str => WriteLine("Str: $str")
+        int no => WriteLine("No: $no)
+    }
+}
+
+union MyResult(string, int)
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+        var match = root.DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        var union = root.DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var secondInvocation = Assert.IsType<InvocationExpressionSyntax>(match.Arms[1].Expression);
+
+        Assert.Equal(2, match.Arms.Count);
+        Assert.Empty(secondInvocation.ArgumentList.Arguments);
+        Assert.True(secondInvocation.ArgumentList.CloseParenToken.IsMissing);
+        Assert.Equal("MyResult", union.Identifier.ValueText);
+    }
+
+    [Fact]
     public void MatchExpression_WithBlockExpressionArms_ParsesArmExpressionsAsBlocks()
     {
         const string code = """

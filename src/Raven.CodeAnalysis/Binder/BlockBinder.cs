@@ -3624,12 +3624,219 @@ partial class BlockBinder : Binder
                 continue;
             }
 
-            if (arm.Guard is not null)
-                continue;
+            for (var previousIndex = 0; previousIndex < i; previousIndex++)
+            {
+                var previousArm = arms[previousIndex];
+                if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(previousArm.Guard))
+                    continue;
 
-            if (IsCatchAllPattern(scrutineeType, arm.Pattern))
+                if (!ArePatternsEquivalentForReachability(previousArm.Pattern, arm.Pattern))
+                    continue;
+
+                _diagnostics.ReportMatchExpressionArmUnreachable(
+                    armSyntaxes[i].Pattern.GetLocation());
+                goto NextArm;
+            }
+
+            if (BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard) &&
+                IsCatchAllPattern(scrutineeType, arm.Pattern))
                 seenCatchAll = true;
+
+        NextArm:
+            ;
         }
+    }
+
+    private bool ArePatternsEquivalentForReachability(BoundPattern left, BoundPattern right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        if (left.GetType() != right.GetType())
+            return false;
+
+        switch (left)
+        {
+            case BoundCasePattern leftCase when right is BoundCasePattern rightCase:
+                return SymbolEqualityComparer.Default.Equals(leftCase.CaseSymbol, rightCase.CaseSymbol) &&
+                       HaveEquivalentPatterns(leftCase.Arguments, rightCase.Arguments);
+
+            case BoundUnionMemberPattern leftUnion when right is BoundUnionMemberPattern rightUnion:
+                return ArePatternTypesEquivalent(leftUnion.UnionType, rightUnion.UnionType) &&
+                       ArePatternTypesEquivalent(leftUnion.MemberType, rightUnion.MemberType) &&
+                       ArePatternsEquivalentForReachability(leftUnion.Pattern, rightUnion.Pattern);
+
+            case BoundNotPattern leftNot when right is BoundNotPattern rightNot:
+                return ArePatternsEquivalentForReachability(leftNot.Pattern, rightNot.Pattern);
+
+            case BoundAndPattern leftAnd when right is BoundAndPattern rightAnd:
+                return ArePatternsEquivalentForReachability(leftAnd.Left, rightAnd.Left) &&
+                       ArePatternsEquivalentForReachability(leftAnd.Right, rightAnd.Right);
+
+            case BoundOrPattern leftOr when right is BoundOrPattern rightOr:
+                return ArePatternsEquivalentForReachability(leftOr.Left, rightOr.Left) &&
+                       ArePatternsEquivalentForReachability(leftOr.Right, rightOr.Right);
+
+            case BoundDeclarationPattern leftDeclaration when right is BoundDeclarationPattern rightDeclaration:
+                return ArePatternTypesEquivalent(leftDeclaration.DeclaredType, rightDeclaration.DeclaredType);
+
+            case BoundPositionalPattern leftPositional when right is BoundPositionalPattern rightPositional:
+                return ArePatternTypesEquivalent(leftPositional.Type, rightPositional.Type) &&
+                       leftPositional.RestIndex == rightPositional.RestIndex &&
+                       leftPositional.ElementWidths.SequenceEqual(rightPositional.ElementWidths) &&
+                       leftPositional.ElementKinds.SequenceEqual(rightPositional.ElementKinds) &&
+                       HaveEquivalentPatterns(leftPositional.Elements, rightPositional.Elements);
+
+            case BoundDeconstructPattern leftDeconstruct when right is BoundDeconstructPattern rightDeconstruct:
+                return ArePatternTypesEquivalent(leftDeconstruct.InputType, rightDeconstruct.InputType) &&
+                       ArePatternTypesEquivalent(leftDeconstruct.ReceiverType, rightDeconstruct.ReceiverType) &&
+                       AreNullablePatternTypesEquivalent(leftDeconstruct.NarrowedType, rightDeconstruct.NarrowedType) &&
+                       SymbolEqualityComparer.Default.Equals(leftDeconstruct.DeconstructMethod, rightDeconstruct.DeconstructMethod) &&
+                       HaveEquivalentPatterns(leftDeconstruct.Arguments, rightDeconstruct.Arguments);
+
+            case BoundConstantPattern leftConstant when right is BoundConstantPattern rightConstant:
+                return AreConstantPatternsEquivalent(leftConstant, rightConstant);
+
+            case BoundDiscardPattern:
+                return true;
+
+            case BoundPropertyPattern leftProperty when right is BoundPropertyPattern rightProperty:
+                return ArePatternTypesEquivalent(leftProperty.InputType, rightProperty.InputType) &&
+                       ArePatternTypesEquivalent(leftProperty.ReceiverType, rightProperty.ReceiverType) &&
+                       AreNullablePatternTypesEquivalent(leftProperty.NarrowedType, rightProperty.NarrowedType) &&
+                       HaveEquivalentPropertySubpatterns(leftProperty.Properties, rightProperty.Properties);
+
+            case BoundDictionaryPattern leftDictionary when right is BoundDictionaryPattern rightDictionary:
+                return ArePatternTypesEquivalent(leftDictionary.InputType, rightDictionary.InputType) &&
+                       ArePatternTypesEquivalent(leftDictionary.ReceiverType, rightDictionary.ReceiverType) &&
+                       ArePatternTypesEquivalent(leftDictionary.KeyType, rightDictionary.KeyType) &&
+                       ArePatternTypesEquivalent(leftDictionary.ValueType, rightDictionary.ValueType) &&
+                       HaveEquivalentDictionarySubpatterns(leftDictionary.Entries, rightDictionary.Entries);
+
+            case BoundComparisonPattern leftComparison when right is BoundComparisonPattern rightComparison:
+                return ArePatternTypesEquivalent(leftComparison.InputType, rightComparison.InputType) &&
+                       leftComparison.Operator == rightComparison.Operator &&
+                       AreExpressionsEquivalentForPatternValue(leftComparison.Value, rightComparison.Value);
+
+            case BoundRangePattern leftRange when right is BoundRangePattern rightRange:
+                return ArePatternTypesEquivalent(leftRange.Type, rightRange.Type) &&
+                       leftRange.IsUpperExclusive == rightRange.IsUpperExclusive &&
+                       AreExpressionsEquivalentForPatternValue(leftRange.LowerBound, rightRange.LowerBound) &&
+                       AreExpressionsEquivalentForPatternValue(leftRange.UpperBound, rightRange.UpperBound);
+
+            default:
+                return false;
+        }
+    }
+
+    private bool HaveEquivalentPatterns(ImmutableArray<BoundPattern> left, ImmutableArray<BoundPattern> right)
+    {
+        if (left.Length != right.Length)
+            return false;
+
+        for (var i = 0; i < left.Length; i++)
+        {
+            if (!ArePatternsEquivalentForReachability(left[i], right[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private bool HaveEquivalentPropertySubpatterns(
+        ImmutableArray<BoundPropertySubpattern> left,
+        ImmutableArray<BoundPropertySubpattern> right)
+    {
+        if (left.Length != right.Length)
+            return false;
+
+        for (var i = 0; i < left.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(left[i].Member, right[i].Member) ||
+                !ArePatternTypesEquivalent(left[i].Type, right[i].Type) ||
+                !ArePatternsEquivalentForReachability(left[i].Pattern, right[i].Pattern))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool HaveEquivalentDictionarySubpatterns(
+        ImmutableArray<BoundDictionarySubpattern> left,
+        ImmutableArray<BoundDictionarySubpattern> right)
+    {
+        if (left.Length != right.Length)
+            return false;
+
+        for (var i = 0; i < left.Length; i++)
+        {
+            if (!AreExpressionsEquivalentForPatternValue(left[i].Key, right[i].Key) ||
+                !ArePatternsEquivalentForReachability(left[i].Pattern, right[i].Pattern))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool AreConstantPatternsEquivalent(BoundConstantPattern left, BoundConstantPattern right)
+    {
+        if (!ArePatternTypesEquivalent(left.Type, right.Type))
+            return false;
+
+        var leftConstant = left.ConstantValue;
+        var rightConstant = right.ConstantValue;
+        if (leftConstant is not null || rightConstant is not null)
+            return Equals(leftConstant, rightConstant);
+
+        return AreExpressionsEquivalentForPatternValue(left.Expression, right.Expression);
+    }
+
+    private bool AreExpressionsEquivalentForPatternValue(BoundExpression? left, BoundExpression? right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        if (left is null || right is null || left.GetType() != right.GetType())
+            return false;
+
+        switch (left)
+        {
+            case BoundLiteralExpression leftLiteral when right is BoundLiteralExpression rightLiteral:
+                return Equals(leftLiteral.Value, rightLiteral.Value) &&
+                       AreNullablePatternTypesEquivalent(leftLiteral.Type, rightLiteral.Type);
+
+            case BoundConversionExpression leftConversion when right is BoundConversionExpression rightConversion:
+                return AreNullablePatternTypesEquivalent(leftConversion.Type, rightConversion.Type) &&
+                       AreExpressionsEquivalentForPatternValue(leftConversion.Expression, rightConversion.Expression);
+
+            case BoundFieldAccess leftField when right is BoundFieldAccess rightField:
+                return SymbolEqualityComparer.Default.Equals(leftField.Field, rightField.Field) &&
+                       AreExpressionsEquivalentForPatternValue(leftField.Receiver, rightField.Receiver);
+
+            case BoundPropertyAccess leftProperty when right is BoundPropertyAccess rightProperty:
+                return SymbolEqualityComparer.Default.Equals(leftProperty.Property, rightProperty.Property);
+
+            case BoundLocalAccess leftLocal when right is BoundLocalAccess rightLocal:
+                return SymbolEqualityComparer.Default.Equals(leftLocal.Local, rightLocal.Local);
+
+            case BoundParameterAccess leftParameter when right is BoundParameterAccess rightParameter:
+                return SymbolEqualityComparer.Default.Equals(leftParameter.Parameter, rightParameter.Parameter);
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool AreNullablePatternTypesEquivalent(ITypeSymbol? left, ITypeSymbol? right)
+    {
+        if (left is null || right is null)
+            return left is null && right is null;
+
+        return ArePatternTypesEquivalent(left, right);
     }
 
     private void EnsureMatchExhaustive(
