@@ -13,8 +13,12 @@ public static class SemanticClassifier
         {
             var kind = descendant.Kind;
 
+            if (kind is SyntaxKind.IsKeyword or SyntaxKind.AsKeyword)
+            {
+                tokenMap[descendant] = SemanticClassification.Operator;
+            }
             // Reserved words
-            if (descendant.IsKeyword())
+            else if (descendant.IsKeyword())
             {
                 tokenMap[descendant] = SemanticClassification.Keyword;
             }
@@ -268,6 +272,7 @@ public enum SemanticClassification
     Keyword,
     NumericLiteral,
     StringLiteral,
+    Operator,
     Interpolation,
     Comment,
     Namespace,

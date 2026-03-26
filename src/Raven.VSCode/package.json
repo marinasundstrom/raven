@@ -131,6 +131,121 @@
         "path": "./syntaxes/raven.tmLanguage.json"
       }
     ],
+    "semanticTokenScopes": [
+      {
+        "language": "raven",
+        "scopes": {
+          "keyword": [
+            "keyword.other.using.raven",
+            "keyword.other.alias.raven",
+            "keyword.control.conditional.raven",
+            "keyword.control.loop.raven",
+            "keyword.control.exception.raven",
+            "keyword.control.flow.raven",
+            "keyword.control.async.raven",
+            "keyword.declaration.constraint.raven",
+            "keyword.other.expression.raven",
+            "keyword.control.raven",
+            "keyword.other.conversion.raven",
+            "keyword.other.raven",
+            "keyword"
+          ],
+          "string": [
+            "string.quoted.double.raven"
+          ],
+          "number": [
+            "constant.numeric.raven"
+          ],
+          "comment": [
+            "comment.raven"
+          ],
+          "operator": [
+            "keyword.operator.word.raven",
+            "keyword.operator.raven"
+          ],
+          "namespace": [
+            "entity.name.namespace.raven",
+            "entity.name.namespace"
+          ],
+          "type": [
+            "entity.name.type.raven",
+            "entity.name.type"
+          ],
+          "class": [
+            "entity.name.type.raven",
+            "entity.name.type"
+          ],
+          "struct": [
+            "entity.name.type.raven",
+            "entity.name.type"
+          ],
+          "interface": [
+            "entity.name.type.raven",
+            "entity.name.type"
+          ],
+          "enum": [
+            "entity.name.type.raven",
+            "entity.name.type"
+          ],
+          "method": [
+            "entity.name.function.raven",
+            "entity.name.function"
+          ],
+          "property": [
+            "variable.other.property.raven",
+            "variable.other.property",
+            "variable.other"
+          ],
+          "variable": [
+            "variable.other.raven",
+            "variable.other"
+          ],
+          "parameter": [
+            "variable.parameter.raven",
+            "variable.parameter"
+          ],
+          "label": [
+            "entity.name.label.raven",
+            "entity.name.label"
+          ],
+          "event": [
+            "entity.name.event.raven",
+            "entity.name.event",
+            "variable.other.property"
+          ],
+          "type.defaultLibrary": [
+            "support.type.builtin.raven",
+            "support.type"
+          ],
+          "class.defaultLibrary": [
+            "support.type.builtin.raven",
+            "support.type"
+          ],
+          "struct.defaultLibrary": [
+            "support.type.builtin.raven",
+            "support.type"
+          ],
+          "method.defaultLibrary": [
+            "support.function.raven",
+            "support.function"
+          ],
+          "property.readonly": [
+            "variable.other.constant.property.raven",
+            "variable.other.property.raven",
+            "variable.other.property"
+          ],
+          "variable.readonly": [
+            "variable.other.constant.raven",
+            "variable.other.raven",
+            "variable.other"
+          ],
+          "parameter.readonly": [
+            "variable.parameter.raven",
+            "variable.parameter"
+          ]
+        }
+      }
+    ],
     "configuration": {
       "title": "Raven",
       "properties": {
