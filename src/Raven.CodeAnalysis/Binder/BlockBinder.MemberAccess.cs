@@ -1134,6 +1134,16 @@ partial class BlockBinder
             return BindConstructorInvocation(targetTypedInferred, boundArguments, callSyntax, receiverSyntax, receiver);
         }
 
+        // If the generic type is still open at this point, constructor-argument inference and
+        // target typing both failed to determine its type arguments. Do not allow overload
+        // resolution to proceed on the open constructors, because that would incorrectly accept
+        // calls like `MyResult(42)` for `union MyResult<T>(List<T>, int)`.
+        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol))
+        {
+            _diagnostics.ReportTypeRequiresTypeArguments(typeSymbol.Name, typeSymbol.Arity, receiverSyntax.GetLocation());
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
+        }
+
         var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
         if (resolution.Success)
         {
@@ -1328,6 +1338,23 @@ partial class BlockBinder
                     projected[i] = current;
                 }
             }
+
+            // Constructor-argument inference must resolve all of the constructed type's own
+            // type parameters. Otherwise open-generic invocations like `MyResult(42)` would
+            // incorrectly succeed by selecting only the non-generic constructor branch.
+            var fullyResolved = true;
+            for (var i = 0; i < projected.Length; i++)
+            {
+                if (projected[i] is ITypeParameterSymbol projectedParameter &&
+                    SymbolEqualityComparer.Default.Equals(projectedParameter, typeParameters[i]))
+                {
+                    fullyResolved = false;
+                    break;
+                }
+            }
+
+            if (!fullyResolved)
+                continue;
 
             if (!changed)
                 continue;

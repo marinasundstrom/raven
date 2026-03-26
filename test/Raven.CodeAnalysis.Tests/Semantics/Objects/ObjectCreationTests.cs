@@ -236,6 +236,29 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void GenericUnionInvocation_WithoutTargetType_DoesNotInferUnusedTypeArguments()
+    {
+        string testCode =
+            """
+            import System.Collections.Generic.*
+
+            func Main() {
+                val test = MyResult(42)
+            }
+
+            union MyResult<T>(List<T>, int)
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult(CompilerDiagnostics.TypeRequiresTypeArguments.Id).WithSpan(4, 16, 4, 24).WithArguments("MyResult", 1)
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void PrimaryConstructor_ValParameter_PromotesToInstanceProperty()
     {
         string testCode =
