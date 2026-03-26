@@ -75,7 +75,7 @@ internal sealed class HoverHandler : IHoverHandler
                 return null;
 
             var symbol = resolution.Value.Symbol;
-            var signature = BuildSignatureForHover(symbol, resolution.Value.Node, semanticModel, root, offset);
+            var signature = BuildDisplaySignatureForHover(symbol, resolution.Value.Node, semanticModel, root, offset);
             var containing = BuildContainingDisplay(symbol, semanticModel);
             var documentation = symbol.GetDocumentationComment();
             var functionCaptures = semanticModel.GetCapturedVariables(symbol);
@@ -745,6 +745,23 @@ internal sealed class HoverHandler : IHoverHandler
             return signature;
 
         return overridden;
+    }
+
+    private static string BuildDisplaySignatureForHover(
+        ISymbol symbol,
+        SyntaxNode contextNode,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset)
+    {
+        var signature = BuildSignatureForHover(symbol, contextNode, semanticModel, root, offset);
+
+        return symbol switch
+        {
+            IMethodSymbol { IsExtensionMethod: true } => $"(extension) {signature}",
+            IPropertySymbol property when property.IsExtensionProperty() => $"(extension) {signature}",
+            _ => signature
+        };
     }
 
     private static bool TryBuildDeclaredTypeHoverSignatureOverride(
@@ -1456,6 +1473,9 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static string? BuildContainingDisplay(ISymbol symbol, SemanticModel semanticModel)
     {
+        if (TryGetExtensionContainerDisplay(symbol, out var extensionContaining))
+            return extensionContaining;
+
         if (symbol is IParameterSymbol parameterSymbol &&
             IsPromotedPrimaryConstructorParameter(parameterSymbol) &&
             parameterSymbol.ContainingSymbol is IMethodSymbol constructor &&
@@ -1486,6 +1506,12 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static string BuildKindDisplay(ISymbol symbol)
     {
+        if (symbol is IMethodSymbol { IsExtensionMethod: true })
+            return "Extension method";
+
+        if (symbol is IPropertySymbol property && property.IsExtensionProperty())
+            return "Extension property";
+
         if (symbol is IParameterSymbol parameterSymbol &&
             IsPromotedPrimaryConstructorParameter(parameterSymbol))
         {
@@ -1502,6 +1528,27 @@ internal sealed class HoverHandler : IHoverHandler
             return "Constructor";
 
         return symbol.Kind.ToString();
+    }
+
+    private static bool TryGetExtensionContainerDisplay(ISymbol symbol, out string? display)
+    {
+        display = null;
+
+        var containingType = symbol switch
+        {
+            IMethodSymbol { IsExtensionMethod: true } method => method.ContainingType,
+            IPropertySymbol property when property.IsExtensionProperty() => property.ContainingType,
+            _ => null
+        };
+
+        if (containingType is null)
+            return false;
+
+        display = containingType.ToDisplayString(
+            SymbolDisplayFormat.RavenSignatureFormat
+                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
+                .WithKindOptions(SymbolDisplayKindOptions.None));
+        return true;
     }
 
     private static bool IsPromotedPrimaryConstructorParameter(IParameterSymbol parameter)

@@ -1367,6 +1367,7 @@ public static class CompletionProvider
                                 ));
                             }
                         }
+
                     }
 
                     return completions;
@@ -1504,6 +1505,7 @@ public static class CompletionProvider
                                 ));
                             }
                         }
+
                     }
 
                     return completions;
@@ -1609,6 +1611,7 @@ public static class CompletionProvider
                             ));
                         }
                     }
+
                 }
 
                 if (completions.Count > 0)

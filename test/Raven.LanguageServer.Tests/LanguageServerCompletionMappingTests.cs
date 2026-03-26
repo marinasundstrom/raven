@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
@@ -6,8 +8,6 @@ using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
-
-using System.Collections.Immutable;
 
 using RavenLocation = Raven.CodeAnalysis.Location;
 using RavenSymbolKind = Raven.CodeAnalysis.SymbolKind;

@@ -91,13 +91,13 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
             var tokenEntries = classification.Tokens
                 .Select(pair => CreateEntry(pair.Key.Span, pair.Value, pair.Key, semanticModel))
-                .Where(static entry => entry.TokenType is not null)
+                .Where(static entry => entry!.TokenType is not null)
                 .Cast<SemanticTokenEntry>()
                 .ToArray();
 
             var triviaEntries = classification.Trivia
                 .Select(pair => CreateEntry(pair.Key.Span, pair.Value))
-                .Where(static entry => entry.TokenType is not null)
+                .Where(static entry => entry!.TokenType is not null)
                 .Cast<SemanticTokenEntry>()
                 .ToArray();
 
@@ -158,7 +158,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             SemanticClassification.Field => SemanticTokenType.Variable,
             SemanticClassification.Event => SemanticTokenType.Event,
             SemanticClassification.NullableAnnotation => SemanticTokenType.Operator,
-            _ => null
+            _ => null!
         };
 
     private static SemanticTokenType? MapTokenType(

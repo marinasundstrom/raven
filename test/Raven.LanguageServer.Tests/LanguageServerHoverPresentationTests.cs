@@ -81,6 +81,98 @@ record ApplicationError(val Message: string)
     }
 
     [Fact]
+    public void ExtensionMethodHover_ShowsExtensionKindAndQualifiedContainingType()
+    {
+        const string code = """
+namespace Demo.Tools
+
+class Widget
+
+class Runner {
+    func Test(widget: Widget) -> int {
+        widget.Double()
+    }
+}
+
+extension WidgetExtensions for Widget {
+    func Double() -> int => 2
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var identifier = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(access => access.Name.Identifier.ValueText == "Double")
+            .Name;
+        var symbol = semanticModel.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+
+        var buildKindDisplay = typeof(HoverHandler)
+            .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildContainingDisplay = typeof(HoverHandler)
+            .GetMethod("BuildContainingDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var kind = (string)buildKindDisplay.Invoke(null, [symbol])!;
+        var containing = (string?)buildContainingDisplay.Invoke(null, [symbol, semanticModel]);
+
+        kind.ShouldBe("Extension method");
+        containing.ShouldBe("Demo.Tools.WidgetExtensions");
+    }
+
+    [Fact]
+    public void ExtensionMethodHover_Signature_IsPrefixedWithExtensionTag()
+    {
+        const string code = """
+namespace Demo.Tools
+
+class Widget
+
+class Runner {
+    func Test(widget: Widget) -> int {
+        widget.Double()
+    }
+}
+
+extension WidgetExtensions for Widget {
+    func Double() -> int => 2
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var access = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(node => node.Name.Identifier.ValueText == "Double");
+        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+
+        var buildDisplaySignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildDisplaySignatureForHover.Invoke(null, [symbol, access.Name, semanticModel, root, access.Name.Span.Start])!;
+
+        signature.ShouldStartWith("(extension) ");
+        signature.ShouldContain("func Double()");
+    }
+
+    [Fact]
     public void QualifiedUnionCaseInvocation_HoverPrefersUnionCaseOverImportedMember()
     {
         const string code = """
@@ -171,7 +263,7 @@ class Functions {
     }
 
     [Fact]
-    public async Task LocalHover_UsesCompactUnionTypeSignature()
+    public async Task LocalHover_UsesCompactUnionTypeSignatureAsync()
     {
         const string code = """
 func Main() -> unit {
@@ -704,7 +796,7 @@ class C {
     }
 
     [Fact]
-    public async Task EventSubscriptionLambdaParameter_HoverUsesInferredDelegateParameterType()
+    public async Task EventSubscriptionLambdaParameter_HoverUsesInferredDelegateParameterTypeAsync()
     {
         const string code = """
 import System.*

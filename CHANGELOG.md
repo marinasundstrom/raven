@@ -2,6 +2,15 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 
+## 2026-03-26
+
+### Changed
+- Hover text for extension members now identifies them as extension methods/properties and shows the qualified declaring extension container instead of collapsing them into an ordinary containing type display.
+
+Impact:
+- Extension APIs are easier to distinguish from ordinary instance members during hover in VS Code, especially when users need to see which extension declaration contributes a member.
+- Hover now makes it clear which extension declaration contributes a member when multiple similarly named members are in scope.
+
 ## 2026-03-25
 
 ### Changed
