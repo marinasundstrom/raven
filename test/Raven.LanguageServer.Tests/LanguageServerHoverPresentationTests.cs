@@ -171,6 +171,74 @@ class Functions {
     }
 
     [Fact]
+    public async Task LocalHover_UsesCompactUnionTypeSignature()
+    {
+        const string code = """
+func Main() -> unit {
+    val invoiceTotal: Either<int, string> = 42
+}
+
+union Either<T1, T2>(T1, T2)
+""";
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-hover-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var projectPath = Path.Combine(tempRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+            var documentPath = Path.Combine(tempRoot, "src", "main.rvn");
+            Directory.CreateDirectory(Path.GetDirectoryName(documentPath)!);
+            File.WriteAllText(documentPath, code);
+
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "temp",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
+
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(documentPath);
+            store.UpsertDocument(uri, code);
+
+            var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+            context.ShouldNotBeNull();
+
+            var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+            var root = context.Value.SyntaxTree.GetRoot();
+            var localDeclarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "invoiceTotal");
+            var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+            var buildSignature = typeof(HoverHandler)
+                .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+            var signature = (string)buildSignature.Invoke(null, [localSymbol, localDeclarator, semanticModel])!;
+            signature.ShouldBe("val invoiceTotal: Either<int, string>");
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ProtectedMethodHover_UsesProtectedKeyword()
     {
         const string code = """

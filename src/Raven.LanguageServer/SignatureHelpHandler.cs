@@ -137,7 +137,10 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 name = containingType.ToDisplayString(
                     SymbolDisplayFormat.RavenSignatureFormat
                         .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
-                        .WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword));
+                        .WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword)
+                        .WithMiscellaneousOptions(
+                            SymbolDisplayFormat.RavenSignatureFormat.MiscellaneousOptions |
+                            SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes));
                 typeParams = string.Empty;
             }
             else

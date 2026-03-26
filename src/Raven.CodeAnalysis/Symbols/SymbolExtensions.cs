@@ -195,6 +195,17 @@ public static partial class SymbolExtensions
                 text = FormatType(typeSymbol, format);
             }
 
+            if (typeSymbol is INamedTypeSymbol namedUnionType &&
+                namedUnionType.IsUnion &&
+                namedUnionType is IUnionSymbol unionSymbol &&
+                format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes) &&
+                !unionSymbol.MemberTypes.IsDefaultOrEmpty)
+            {
+                var memberFormat = format.WithKindOptions(format.KindOptions & ~SymbolDisplayKindOptions.IncludeTypeKeyword);
+                var members = string.Join(", ", unionSymbol.MemberTypes.Select(member => FormatType(member, memberFormat)));
+                text += $"({members})";
+            }
+
             if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword) &&
                             symbol is INamedTypeSymbol namedTypeSymbol &&
                             !isNamedDelegateDeclarationDisplay)
@@ -390,6 +401,7 @@ public static partial class SymbolExtensions
                 result.Append(string.Join(", ", arguments));
                 result.Append('>');
             }
+
         }
 
         if (symbol is IMethodSymbol methodSymbol)

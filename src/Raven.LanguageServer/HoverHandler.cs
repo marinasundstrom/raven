@@ -491,7 +491,10 @@ internal sealed class HoverHandler : IHoverHandler
             if (containingType?.IsUnion == true)
             {
                 var declarationTypeFormat = CreatePlainTypeFormat()
-                    .WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
+                    .WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword)
+                    .WithMiscellaneousOptions(
+                        CreatePlainTypeFormat().MiscellaneousOptions |
+                        SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
                 var unionDisplay = containingType.ToDisplayString(declarationTypeFormat);
                 return $"{accessibilityPrefix}{unionDisplay}({parameters})";
             }
@@ -611,7 +614,10 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is ITypeSymbol typeSymbol)
         {
-            var declarationTypeFormat = CreatePlainTypeFormat();
+            var declarationTypeFormat = CreatePlainTypeFormat()
+                .WithMiscellaneousOptions(
+                    CreatePlainTypeFormat().MiscellaneousOptions |
+                    SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
 
             if (contextNode is FunctionTypeSyntax functionTypeSyntax &&
                 TryFormatFunctionTypeSyntaxSignature(functionTypeSyntax, semanticModel, declarationTypeFormat, out var functionTypeSignature))

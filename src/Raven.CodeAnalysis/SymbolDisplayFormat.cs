@@ -354,7 +354,8 @@ public enum SymbolDisplayMiscellaneousOptions
     CollapseTupleTypes = 1024,
     ExpandedValueTuple = 2048,
     ExpandAliases = 4096,
-    IncludeTupleElementNames = 8192
+    IncludeTupleElementNames = 8192,
+    IncludeUnionMemberTypes = 16384
 }
 
 [Flags]

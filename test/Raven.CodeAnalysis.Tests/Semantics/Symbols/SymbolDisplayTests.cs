@@ -129,6 +129,11 @@ class MacroArgument {
     public void UnionType_ToDisplayString_IncludesUnionRepresentationKeyword()
     {
         const string source = """
+record Cash(amount: decimal)
+record Card(reference: string)
+
+union Payment(Cash, Card)
+
 union Response<T> {
     Success(value: T)
     Failure(message: string)
@@ -144,14 +149,54 @@ union struct ValueOption<T> {
         var model = compilation.GetSemanticModel(tree);
         var declarations = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().ToArray();
 
-        var response = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
-        var valueOption = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
+        var payment = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
+        var response = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
+        var valueOption = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[2]));
 
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithKindOptions(
             SymbolDisplayFormat.MinimallyQualifiedFormat.KindOptions |
             SymbolDisplayKindOptions.IncludeTypeKeyword);
+        var declarationFormat = format.WithMiscellaneousOptions(
+            format.MiscellaneousOptions | SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
 
+        payment.ToDisplayString(format).ShouldBe("union class Payment");
         response.ToDisplayString(format).ShouldBe("union class Response<T>");
         valueOption.ToDisplayString(format).ShouldBe("union struct ValueOption<T>");
+
+        payment.ToDisplayString(declarationFormat).ShouldBe("union class Payment(Cash, Card)");
+        response.ToDisplayString(declarationFormat).ShouldBe("union class Response<T>(Success<T>, Failure)");
+        valueOption.ToDisplayString(declarationFormat).ShouldBe("union struct ValueOption<T>(Some<T>, None)");
+    }
+
+    [Fact]
+    public void GenericParenthesizedUnion_ToDisplayString_IncludesTypeArgumentsAndMemberTypes()
+    {
+        const string source = """
+union Either<T1, T2>(T1, T2)
+
+func Test() {
+    val value: Either<int, string> = 42
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var local = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+
+        var either = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var value = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(local));
+
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithKindOptions(
+            SymbolDisplayFormat.MinimallyQualifiedFormat.KindOptions |
+            SymbolDisplayKindOptions.IncludeTypeKeyword);
+        var declarationFormat = format.WithMiscellaneousOptions(
+            format.MiscellaneousOptions | SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
+
+        either.ToDisplayString(format).ShouldBe("union class Either<T1, T2>");
+        value.Type.ToDisplayString(format).ShouldBe("union class Either<int, string>");
+
+        either.ToDisplayString(declarationFormat).ShouldBe("union class Either<T1, T2>(T1, T2)");
+        value.Type.ToDisplayString(declarationFormat).ShouldBe("union class Either<int, string>(int, string)");
     }
 }
