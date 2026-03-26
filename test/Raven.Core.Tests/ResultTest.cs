@@ -124,13 +124,13 @@ extension TestExt<T> for IEnumerable<T> {
 
         var caseText = okCase.ToString();
         Assert.NotNull(caseText);
-        Assert.Contains(".Ok(\"Foo\")", caseText!, StringComparison.Ordinal);
+        Assert.Contains("Result<String, InvalidOperationException>.Ok(\"Foo\")", caseText!, StringComparison.Ordinal);
         Assert.DoesNotContain(".Ok(Foo)", caseText!, StringComparison.Ordinal);
 
         var carrier = ConvertCaseToCarrier(resultType, okCase);
         var carrierText = carrier.ToString();
         Assert.NotNull(carrierText);
-        Assert.Contains(".Ok(\"Foo\")", carrierText!, StringComparison.Ordinal);
+        Assert.Contains("Result<String, InvalidOperationException>.Ok(\"Foo\")", carrierText!, StringComparison.Ordinal);
         Assert.DoesNotContain(".Ok(Foo)", carrierText!, StringComparison.Ordinal);
     }
 

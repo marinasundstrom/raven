@@ -3205,13 +3205,19 @@ internal class MethodBodyGenerator
 
     private void EmitDiscriminatedUnionToString(SourceDiscriminatedUnionSymbol unionSymbol)
     {
+        var useCaseTypes = !unionSymbol.CaseTypes.IsDefaultOrEmpty && unionSymbol.CaseTypes.Length > 0;
+        if (!useCaseTypes)
+        {
+            EmitParenthesizedUnionToString(unionSymbol);
+            return;
+        }
+
         var discriminatorField = ((SourceFieldSymbol)unionSymbol.DiscriminatorField)
             .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
         var objectToString = typeof(object).GetMethod(nameof(ToString), Type.EmptyTypes)!;
         var endLabel = ILGenerator.DefineLabel();
         var memberTypes = unionSymbol.MemberTypes;
         var payloadFields = unionSymbol.PayloadFields;
-        var useCaseTypes = !unionSymbol.CaseTypes.IsDefaultOrEmpty && unionSymbol.CaseTypes.Length > 0;
         var count = useCaseTypes ? unionSymbol.CaseTypes.Length : Math.Min(memberTypes.Length, payloadFields.Length);
 
         for (var index = 0; index < count; index++)
@@ -3229,20 +3235,169 @@ internal class MethodBodyGenerator
             var payloadField = payloadFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
             var payloadType = payloadFieldSymbol.Type;
 
-            ILGenerator.Emit(OpCodes.Ldarg_0);
-
-            if (payloadType.IsValueType || payloadType is ITypeParameterSymbol)
+            if (useCaseTypes)
             {
-                ILGenerator.Emit(OpCodes.Ldflda, payloadField);
-                var payloadClrType = ResolveUnionCaseClrType(payloadType);
-                ILGenerator.Emit(OpCodes.Constrained, payloadClrType);
+                EmitDiscriminatedUnionCarrierCaseToString(unionSymbol, (SourceDiscriminatedUnionCaseTypeSymbol)unionSymbol.CaseTypes[index], payloadFieldSymbol);
             }
             else
             {
-                ILGenerator.Emit(OpCodes.Ldfld, payloadField);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+
+                if (payloadType.IsValueType || payloadType is ITypeParameterSymbol)
+                {
+                    ILGenerator.Emit(OpCodes.Ldflda, payloadField);
+                    var payloadClrType = ResolveUnionCaseClrType(payloadType);
+                    ILGenerator.Emit(OpCodes.Constrained, payloadClrType);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Ldfld, payloadField);
+                }
+
+                ILGenerator.Emit(OpCodes.Callvirt, objectToString);
             }
 
-            ILGenerator.Emit(OpCodes.Callvirt, objectToString);
+            ILGenerator.Emit(OpCodes.Br, endLabel);
+
+            ILGenerator.MarkLabel(nextLabel);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldstr, "<Uninitialized>");
+        ILGenerator.MarkLabel(endLabel);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitDiscriminatedUnionCarrierCaseToString(
+        SourceDiscriminatedUnionSymbol unionSymbol,
+        SourceDiscriminatedUnionCaseTypeSymbol caseSymbol,
+        SourceFieldSymbol payloadFieldSymbol)
+    {
+        var builderType = typeof(StringBuilder);
+        var builderCtor = builderType.GetConstructor(Type.EmptyTypes)!;
+        var appendString = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(string) })!;
+        var builderToString = builderType.GetMethod(nameof(StringBuilder.ToString), Type.EmptyTypes)!;
+        var objectToString = typeof(object).GetMethod(nameof(ToString), Type.EmptyTypes)!;
+        var stringIndexOf = typeof(string).GetMethod(nameof(string.IndexOf), new[] { typeof(char) })!;
+        var stringSubstring = typeof(string).GetMethod(nameof(string.Substring), new[] { typeof(int) })!;
+        var payloadField = payloadFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var payloadType = payloadFieldSymbol.Type;
+
+        var builderLocal = ILGenerator.DeclareLocal(builderType);
+        builderLocal.SetLocalSymInfo("builder");
+        var caseTextLocal = ILGenerator.DeclareLocal(typeof(string));
+        caseTextLocal.SetLocalSymInfo("caseText");
+        var dotIndexLocal = ILGenerator.DeclareLocal(typeof(int));
+        dotIndexLocal.SetLocalSymInfo("dotIndex");
+
+        ILGenerator.Emit(OpCodes.Newobj, builderCtor);
+        ILGenerator.Emit(OpCodes.Stloc, builderLocal);
+        EmitFriendlyUnionDisplayName(unionSymbol, builderLocal, appendString, typeof(StringBuilder).GetMethod(nameof(StringBuilder.Append), new[] { typeof(char) })!);
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        if (payloadType.IsValueType || payloadType is ITypeParameterSymbol)
+        {
+            ILGenerator.Emit(OpCodes.Ldflda, payloadField);
+            var payloadClrType = ResolveUnionCaseClrType(payloadType);
+            ILGenerator.Emit(OpCodes.Constrained, payloadClrType);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ldfld, payloadField);
+        }
+
+        ILGenerator.Emit(OpCodes.Callvirt, objectToString);
+        ILGenerator.Emit(OpCodes.Stloc, caseTextLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, caseTextLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'.');
+        ILGenerator.Emit(OpCodes.Callvirt, stringIndexOf);
+        ILGenerator.Emit(OpCodes.Stloc, dotIndexLocal);
+
+        var appendWholeCaseLabel = ILGenerator.DefineLabel();
+        var doneLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldloc, dotIndexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Blt, appendWholeCaseLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, caseTextLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, dotIndexLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, stringSubstring);
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.Emit(OpCodes.Br, doneLabel);
+
+        ILGenerator.MarkLabel(appendWholeCaseLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, caseTextLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        ILGenerator.MarkLabel(doneLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, builderToString);
+    }
+
+    private void EmitParenthesizedUnionToString(SourceDiscriminatedUnionSymbol unionSymbol)
+    {
+        var builderType = typeof(StringBuilder);
+        var builderCtor = builderType.GetConstructor(Type.EmptyTypes)!;
+        var appendString = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(string) })!;
+        var appendChar = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(char) })!;
+        var builderToString = builderType.GetMethod(nameof(StringBuilder.ToString), Type.EmptyTypes)!;
+        var stringReplace = typeof(string).GetMethod(nameof(string.Replace), new[] { typeof(string), typeof(string) })!;
+        var objectToString = typeof(object).GetMethod(nameof(ToString), Type.EmptyTypes)!;
+        var discriminatorField = ((SourceFieldSymbol)unionSymbol.DiscriminatorField)
+            .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var endLabel = ILGenerator.DefineLabel();
+        var memberTypes = unionSymbol.MemberTypes;
+        var payloadFields = unionSymbol.PayloadFields;
+        var count = Math.Min(memberTypes.Length, payloadFields.Length);
+
+        for (var index = 0; index < count; index++)
+        {
+            var nextLabel = ILGenerator.DefineLabel();
+            var payloadFieldSymbol = (SourceFieldSymbol)payloadFields[index];
+            var payloadField = payloadFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            var builderLocal = ILGenerator.DeclareLocal(builderType);
+            builderLocal.SetLocalSymInfo("builder");
+
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldfld, discriminatorField);
+            ILGenerator.Emit(OpCodes.Ldc_I4, index);
+            ILGenerator.Emit(OpCodes.Bne_Un, nextLabel);
+
+            ILGenerator.Emit(OpCodes.Newobj, builderCtor);
+            ILGenerator.Emit(OpCodes.Stloc, builderLocal);
+
+            EmitFriendlyUnionDisplayName(unionSymbol, builderLocal, appendString, appendChar);
+
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'(');
+            ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+            ILGenerator.Emit(OpCodes.Pop);
+
+            EmitAppendFormattedValue(
+                builderLocal,
+                () =>
+                {
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    ILGenerator.Emit(OpCodes.Ldfld, payloadField);
+                },
+                payloadFieldSymbol.Type,
+                appendString,
+                appendChar,
+                stringReplace,
+                objectToString);
+
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)')');
+            ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+            ILGenerator.Emit(OpCodes.Pop);
+
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, builderToString);
             ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(nextLabel);
@@ -3320,10 +3475,7 @@ internal class MethodBodyGenerator
 
         ILGenerator.Emit(OpCodes.Newobj, builderCtor);
         ILGenerator.Emit(OpCodes.Stloc, builderLocal);
-        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
-        ILGenerator.Emit(OpCodes.Ldstr, caseSymbol.Union.Name);
-        ILGenerator.Emit(OpCodes.Callvirt, appendString);
-        ILGenerator.Emit(OpCodes.Pop);
+        EmitFriendlyUnionDisplayName(caseSymbol.Union, builderLocal, appendString, appendChar);
 
         ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
         ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'.');
@@ -3443,6 +3595,7 @@ internal class MethodBodyGenerator
 
         return parameterInfos;
     }
+
 
     private static string GetUnionCasePropertyName(string parameterName)
     {
@@ -3585,6 +3738,261 @@ internal class MethodBodyGenerator
         ILGenerator.MarkLabel(skipGenericsLabel);
     }
 
+    private void EmitFriendlyUnionDisplayName(
+        IUnionSymbol unionSymbol,
+        IILocal builderLocal,
+        MethodInfo appendString,
+        MethodInfo appendChar)
+    {
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldstr, unionSymbol.Name);
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        EmitCurrentInstanceGenericArguments(builderLocal, appendString, appendChar);
+    }
+
+    private void EmitCurrentInstanceGenericArguments(
+        IILocal builderLocal,
+        MethodInfo appendString,
+        MethodInfo appendChar)
+    {
+        var objectGetType = typeof(object).GetMethod(nameof(GetType))!;
+        var typeGenericArgumentsGetter = typeof(Type).GetProperty(nameof(Type.GenericTypeArguments))!.GetMethod!;
+        var currentType = MethodSymbol.ContainingType;
+        if (currentType is null)
+            return;
+
+        var currentTypeClr = ResolveClrType(currentType);
+        var runtimeTypeLocal = ILGenerator.DeclareLocal(typeof(Type));
+        runtimeTypeLocal.SetLocalSymInfo("currentType");
+        var argsLocal = ILGenerator.DeclareLocal(typeof(Type[]));
+        argsLocal.SetLocalSymInfo("currentTypeArgs");
+        var argsLengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        argsLengthLocal.SetLocalSymInfo("currentTypeArgLength");
+        var argIndexLocal = ILGenerator.DeclareLocal(typeof(int));
+        argIndexLocal.SetLocalSymInfo("currentTypeArgIndex");
+        var argTypeLocal = ILGenerator.DeclareLocal(typeof(Type));
+        argTypeLocal.SetLocalSymInfo("currentTypeArg");
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        if (currentType.IsValueType)
+            ILGenerator.Emit(OpCodes.Constrained, currentTypeClr);
+        ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
+        ILGenerator.Emit(OpCodes.Stloc, runtimeTypeLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, runtimeTypeLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, typeGenericArgumentsGetter);
+        ILGenerator.Emit(OpCodes.Stloc, argsLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, argsLocal);
+        ILGenerator.Emit(OpCodes.Ldlen);
+        ILGenerator.Emit(OpCodes.Conv_I4);
+        ILGenerator.Emit(OpCodes.Stloc, argsLengthLocal);
+
+        var noGenericArgsLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldloc, argsLengthLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, noGenericArgsLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'<');
+        ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Stloc, argIndexLocal);
+
+        var loopCheckLabel = ILGenerator.DefineLabel();
+        var loopBodyLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Br, loopCheckLabel);
+        ILGenerator.MarkLabel(loopBodyLabel);
+
+        var skipCommaLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldloc, argIndexLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, skipCommaLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldstr, ", ");
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.MarkLabel(skipCommaLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, argsLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, argIndexLocal);
+        ILGenerator.Emit(OpCodes.Ldelem_Ref);
+        ILGenerator.Emit(OpCodes.Stloc, argTypeLocal);
+
+        EmitFriendlyTypeNameFromLocal(argTypeLocal, builderLocal, includeNamespace: false, appendString, appendChar, remainingDepth: 4);
+
+        ILGenerator.Emit(OpCodes.Ldloc, argIndexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Add);
+        ILGenerator.Emit(OpCodes.Stloc, argIndexLocal);
+
+        ILGenerator.MarkLabel(loopCheckLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, argIndexLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, argsLengthLocal);
+        ILGenerator.Emit(OpCodes.Blt, loopBodyLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'>');
+        ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        ILGenerator.MarkLabel(noGenericArgsLabel);
+    }
+
+    private void EmitFriendlyTypeNameFromLocal(
+        IILocal typeLocal,
+        IILocal builderLocal,
+        bool includeNamespace,
+        MethodInfo appendString,
+        MethodInfo appendChar,
+        int remainingDepth)
+    {
+        var typeNameGetter = typeof(Type).GetProperty(nameof(Type.Name))!.GetMethod!;
+        var typeNamespaceGetter = typeof(Type).GetProperty(nameof(Type.Namespace))!.GetMethod!;
+        var typeGenericArgumentsGetter = typeof(Type).GetProperty(nameof(Type.GenericTypeArguments))!.GetMethod!;
+        var stringIndexOf = typeof(string).GetMethod(nameof(string.IndexOf), new[] { typeof(char) })!;
+        var stringSubstring = typeof(string).GetMethod(nameof(string.Substring), new[] { typeof(int), typeof(int) })!;
+        var stringIsNullOrEmpty = typeof(string).GetMethod(nameof(string.IsNullOrEmpty), new[] { typeof(string) })!;
+
+        var nameLocal = ILGenerator.DeclareLocal(typeof(string));
+        nameLocal.SetLocalSymInfo("friendlyTypeName");
+        var namespaceLocal = ILGenerator.DeclareLocal(typeof(string));
+        namespaceLocal.SetLocalSymInfo("friendlyTypeNamespace");
+        var tickIndexLocal = ILGenerator.DeclareLocal(typeof(int));
+        tickIndexLocal.SetLocalSymInfo("friendlyTypeTickIndex");
+        var argsLocal = ILGenerator.DeclareLocal(typeof(Type[]));
+        argsLocal.SetLocalSymInfo("friendlyTypeArgs");
+        var argsLengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        argsLengthLocal.SetLocalSymInfo("friendlyTypeArgLength");
+        var argIndexLocal = ILGenerator.DeclareLocal(typeof(int));
+        argIndexLocal.SetLocalSymInfo("friendlyTypeArgIndex");
+        var argTypeLocal = ILGenerator.DeclareLocal(typeof(Type));
+        argTypeLocal.SetLocalSymInfo("friendlyTypeArg");
+
+        ILGenerator.Emit(OpCodes.Ldloc, typeLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, typeNameGetter);
+        ILGenerator.Emit(OpCodes.Stloc, nameLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, typeLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, typeNamespaceGetter);
+        ILGenerator.Emit(OpCodes.Stloc, namespaceLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, nameLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'`');
+        ILGenerator.Emit(OpCodes.Callvirt, stringIndexOf);
+        ILGenerator.Emit(OpCodes.Stloc, tickIndexLocal);
+
+        var noTickLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldloc, tickIndexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Blt, noTickLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, nameLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ldloc, tickIndexLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, stringSubstring);
+        ILGenerator.Emit(OpCodes.Stloc, nameLocal);
+        ILGenerator.MarkLabel(noTickLabel);
+
+        EmitFriendlyTypeBaseName(nameLocal, namespaceLocal, builderLocal, includeNamespace, appendString, stringIsNullOrEmpty);
+
+        if (remainingDepth <= 0)
+            return;
+
+        ILGenerator.Emit(OpCodes.Ldloc, typeLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, typeGenericArgumentsGetter);
+        ILGenerator.Emit(OpCodes.Stloc, argsLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, argsLocal);
+        ILGenerator.Emit(OpCodes.Ldlen);
+        ILGenerator.Emit(OpCodes.Conv_I4);
+        ILGenerator.Emit(OpCodes.Stloc, argsLengthLocal);
+
+        var noGenericArgsLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldloc, argsLengthLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, noGenericArgsLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'<');
+        ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Stloc, argIndexLocal);
+
+        var loopCheckLabel = ILGenerator.DefineLabel();
+        var loopBodyLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Br, loopCheckLabel);
+        ILGenerator.MarkLabel(loopBodyLabel);
+
+        var skipCommaLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldloc, argIndexLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, skipCommaLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldstr, ", ");
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.MarkLabel(skipCommaLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, argsLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, argIndexLocal);
+        ILGenerator.Emit(OpCodes.Ldelem_Ref);
+        ILGenerator.Emit(OpCodes.Stloc, argTypeLocal);
+
+        EmitFriendlyTypeNameFromLocal(argTypeLocal, builderLocal, includeNamespace: false, appendString, appendChar, remainingDepth - 1);
+
+        ILGenerator.Emit(OpCodes.Ldloc, argIndexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Add);
+        ILGenerator.Emit(OpCodes.Stloc, argIndexLocal);
+
+        ILGenerator.MarkLabel(loopCheckLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, argIndexLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, argsLengthLocal);
+        ILGenerator.Emit(OpCodes.Blt, loopBodyLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'>');
+        ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        ILGenerator.MarkLabel(noGenericArgsLabel);
+    }
+
+    private void EmitFriendlyTypeBaseName(
+        IILocal nameLocal,
+        IILocal namespaceLocal,
+        IILocal builderLocal,
+        bool includeNamespace,
+        MethodInfo appendString,
+        MethodInfo stringIsNullOrEmpty)
+    {
+        var appendNameLabel = ILGenerator.DefineLabel();
+
+        if (includeNamespace)
+        {
+            var skipNamespaceLabel = ILGenerator.DefineLabel();
+            ILGenerator.Emit(OpCodes.Ldloc, namespaceLocal);
+            ILGenerator.Emit(OpCodes.Call, stringIsNullOrEmpty);
+            ILGenerator.Emit(OpCodes.Brtrue, skipNamespaceLabel);
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, namespaceLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, appendString);
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldstr, ".");
+            ILGenerator.Emit(OpCodes.Callvirt, appendString);
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.MarkLabel(skipNamespaceLabel);
+        }
+
+        ILGenerator.MarkLabel(appendNameLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, nameLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+    }
+
     private void EmitAppendFormattedValue(
         IILocal builderLocal,
         Action emitLoadValue,
@@ -3596,6 +4004,8 @@ internal class MethodBodyGenerator
     {
         var objectGetType = typeof(object).GetMethod(nameof(GetType))!;
         var typeFromHandle = typeof(Type).GetMethod(nameof(Type.GetTypeFromHandle), new[] { typeof(RuntimeTypeHandle) })!;
+        var typeToString = typeof(Type).GetMethod(nameof(ToString), Type.EmptyTypes)!;
+        var stringEquals = typeof(string).GetMethod(nameof(string.Equals), new[] { typeof(string), typeof(string) })!;
 
         if (valueType.SpecialType == SpecialType.System_String)
         {
@@ -3714,19 +4124,53 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ceq);
         ILGenerator.Emit(OpCodes.Brtrue, boxedCharLabel);
 
-        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        var boxedTextLocal = ILGenerator.DeclareLocal(typeof(string));
+        boxedTextLocal.SetLocalSymInfo("boxedText");
+        var boxedTypeLocal = ILGenerator.DeclareLocal(typeof(Type));
+        boxedTypeLocal.SetLocalSymInfo("boxedType");
+        var boxedTypeTextLocal = ILGenerator.DeclareLocal(typeof(string));
+        boxedTypeTextLocal.SetLocalSymInfo("boxedTypeText");
+        var boxedAppendFriendlyTypeLabel = ILGenerator.DefineLabel();
+        var boxedAppendTextLabel = ILGenerator.DefineLabel();
+        var boxedHasTextLabel = ILGenerator.DefineLabel();
+
         ILGenerator.Emit(OpCodes.Ldloc, boxedValueLocal);
         ILGenerator.Emit(OpCodes.Callvirt, objectToString);
-        ILGenerator.Emit(OpCodes.Dup);
+        ILGenerator.Emit(OpCodes.Stloc, boxedTextLocal);
 
-        var boxedHasTextLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldloc, boxedTextLocal);
         ILGenerator.Emit(OpCodes.Brtrue, boxedHasTextLabel);
-        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
         ILGenerator.Emit(OpCodes.Ldstr, "null");
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.Emit(OpCodes.Br, boxedDoneLabel);
+
         ILGenerator.MarkLabel(boxedHasTextLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, boxedValueLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
+        ILGenerator.Emit(OpCodes.Stloc, boxedTypeLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, boxedTypeLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, typeToString);
+        ILGenerator.Emit(OpCodes.Stloc, boxedTypeTextLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, boxedTextLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, boxedTypeTextLocal);
+        ILGenerator.Emit(OpCodes.Call, stringEquals);
+        ILGenerator.Emit(OpCodes.Brtrue, boxedAppendFriendlyTypeLabel);
+
+        ILGenerator.MarkLabel(boxedAppendTextLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, boxedTextLocal);
         ILGenerator.Emit(OpCodes.Callvirt, appendString);
         ILGenerator.Emit(OpCodes.Pop);
 
+        ILGenerator.Emit(OpCodes.Br, boxedDoneLabel);
+
+        ILGenerator.MarkLabel(boxedAppendFriendlyTypeLabel);
+        EmitFriendlyTypeNameFromLocal(boxedTypeLocal, builderLocal, includeNamespace: true, appendString, appendChar, remainingDepth: 4);
         ILGenerator.Emit(OpCodes.Br, boxedDoneLabel);
 
         ILGenerator.MarkLabel(boxedStringLabel);
