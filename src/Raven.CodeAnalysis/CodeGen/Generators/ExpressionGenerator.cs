@@ -736,7 +736,7 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        var operandClrType = ResolveClrType(typeOfExpression.OperandType);
+        var operandClrType = Generator.InstantiateType(ResolveClrType(typeOfExpression.OperandType));
 
         ILGenerator.Emit(OpCodes.Ldtoken, operandClrType);
         ILGenerator.Emit(OpCodes.Call, GetTypeFromHandleMethod);
@@ -7119,7 +7119,7 @@ internal partial class ExpressionGenerator : Generator
             {
                 if (!receiverAddressLoaded && effectiveReceiverType is not null)
                 {
-                    var constrainedClrType = ResolveClrType(effectiveReceiverType);
+                    var constrainedClrType = Generator.InstantiateType(ResolveClrType(effectiveReceiverType));
                     var tmp = ILGenerator.DeclareLocal(constrainedClrType);
                     ILGenerator.Emit(OpCodes.Stloc, tmp);
                     ILGenerator.Emit(OpCodes.Ldloca, tmp);
@@ -7128,7 +7128,7 @@ internal partial class ExpressionGenerator : Generator
             }
             else if (effectiveReceiverType?.IsValueType == true)
             {
-                var clrType = ResolveClrType(effectiveReceiverType);
+                var clrType = Generator.InstantiateType(ResolveClrType(effectiveReceiverType));
                 var methodDeclaringType = target.ContainingType;
 
                 if (methodDeclaringType.SpecialType == SpecialType.System_Object ||

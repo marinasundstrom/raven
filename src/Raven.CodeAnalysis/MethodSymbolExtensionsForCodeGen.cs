@@ -34,9 +34,9 @@ internal static class MethodSymbolCodeGenResolver
         MethodInfo resolved = methodSymbol switch
         {
             SourceMethodSymbol sourceMethod
-                => (MethodInfo)codeGen.GetMemberBuilder(sourceMethod),
+                => ResolveSourceMethodInfo(sourceMethod, codeGen),
             SourceLambdaSymbol sourceLambda
-                => (MethodInfo)codeGen.GetMemberBuilder(sourceLambda),
+                => ResolveSourceMethodInfo(sourceLambda, codeGen),
             SubstitutedMethodSymbol substitutedMethod
                 => substitutedMethod.GetMethodInfo(codeGen),
             ConstructedMethodSymbol constructedMethod
@@ -88,6 +88,22 @@ internal static class MethodSymbolCodeGenResolver
             return codeGen.CacheRuntimeMethod(methodSymbol, resolved);
 
         return resolved;
+    }
+
+    private static MethodInfo ResolveSourceMethodInfo(IMethodSymbol sourceMethod, CodeGenerator codeGen)
+    {
+        var builder = (MethodInfo)codeGen.GetMemberBuilder((SourceSymbol)sourceMethod);
+
+        if (sourceMethod.ContainingType is not INamedTypeSymbol containingType ||
+            !containingType.IsGenericType)
+        {
+            return builder;
+        }
+
+        var constructedDeclaringType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(containingType, codeGen);
+        return TryMapToConstructedDeclaringType(constructedDeclaringType, builder)
+            ?? TryMapByGenericDefinitionSearch(constructedDeclaringType, builder)
+            ?? builder;
     }
 
     private static bool CanUseStableMethodCache(IMethodSymbol methodSymbol)

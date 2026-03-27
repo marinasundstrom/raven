@@ -53,7 +53,7 @@ public static class TypeSymbolExtensionsForCodeGen
             throw new ArgumentNullException(nameof(codeGen));
 
         if (!visiting.Add(typeSymbol))
-            return ResolveCycleFallback(typeSymbol, codeGen, treatUnitAsVoid, isTopLevel);
+            return ResolveCycleFallback(typeSymbol, codeGen, treatUnitAsVoid, usage, isTopLevel);
 
         try
         {
@@ -250,7 +250,15 @@ public static class TypeSymbolExtensionsForCodeGen
             if (typeSymbol is INamedTypeSymbol namedType)
             {
                 if (codeGen.TryEnsureRuntimeTypeForSymbol(namedType, out var builtType))
+                {
+                    if (usage == RuntimeTypeUsage.MethodBody &&
+                        TryConstructMethodBodyGenericType(namedType, builtType, codeGen, treatUnitAsVoid, visiting, out var constructedBuiltType))
+                    {
+                        return constructedBuiltType;
+                    }
+
                     return builtType;
+                }
 
                 var metadataName = namedType.ToFullyQualifiedMetadataName();
 
@@ -327,7 +335,12 @@ public static class TypeSymbolExtensionsForCodeGen
         return ImmutableArray<ITypeSymbol>.Empty;
     }
 
-    private static Type ResolveCycleFallback(ITypeSymbol typeSymbol, CodeGenerator codeGen, bool treatUnitAsVoid, bool isTopLevel)
+    private static Type ResolveCycleFallback(
+        ITypeSymbol typeSymbol,
+        CodeGenerator codeGen,
+        bool treatUnitAsVoid,
+        RuntimeTypeUsage usage,
+        bool isTopLevel)
     {
         if (CodeGenFlags.PrintDebug)
             PrintDebug($"[CodeGen:Type] Cycle fallback for {typeSymbol}");
@@ -345,7 +358,15 @@ public static class TypeSymbolExtensionsForCodeGen
         if (typeSymbol is INamedTypeSymbol named)
         {
             if (codeGen.TryEnsureRuntimeTypeForSymbol(named, out var builtType))
+            {
+                if (usage == RuntimeTypeUsage.MethodBody &&
+                    TryConstructMethodBodyGenericType(named, builtType, codeGen, treatUnitAsVoid, visiting: null, out var constructedBuiltType))
+                {
+                    return constructedBuiltType;
+                }
+
                 return builtType;
+            }
 
             if (named.ConstructedFrom is INamedTypeSymbol definition && !ReferenceEquals(definition, named))
             {
@@ -393,6 +414,39 @@ public static class TypeSymbolExtensionsForCodeGen
 
         type = null!;
         return false;
+    }
+
+    private static bool TryConstructMethodBodyGenericType(
+        INamedTypeSymbol symbol,
+        Type runtimeType,
+        CodeGenerator codeGen,
+        bool treatUnitAsVoid,
+        HashSet<ITypeSymbol>? visiting,
+        out Type constructedType)
+    {
+        if (!symbol.IsGenericType ||
+            symbol.TypeArguments.IsDefaultOrEmpty ||
+            (!runtimeType.IsGenericTypeDefinition && !runtimeType.ContainsGenericParameters))
+        {
+            constructedType = null!;
+            return false;
+        }
+
+        var genericDefinition = runtimeType.IsGenericTypeDefinition
+            ? runtimeType
+            : runtimeType.GetGenericTypeDefinition();
+        var arguments = symbol.TypeArguments
+            .Select(argument => GetClrTypeInternal(
+                argument,
+                codeGen,
+                treatUnitAsVoid,
+                RuntimeTypeUsage.MethodBody,
+                isTopLevel: false,
+                visiting ?? new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance)))
+            .ToArray();
+
+        constructedType = genericDefinition.MakeGenericType(arguments);
+        return true;
     }
 
     private static Type GetNullableRuntimeType(Compilation compilation)

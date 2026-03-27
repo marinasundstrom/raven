@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -673,6 +674,76 @@ union Result<T> {
     }
 
     [Fact]
+    public void PrintBoundTree_IncludesSynthesizedUnionMethodBodies()
+    {
+        const string source = """
+union Token {
+    Identifier(text: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+            model.PrintBoundTree(colorize: false, includeBinderInfo: false, includeBinderChainOnRoots: false);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString();
+        Assert.Contains("=== Synthesized Method Bodies ===", output);
+        Assert.Contains("SynthesizedMethod=virtual override Token.ToString() -> string", output);
+        Assert.Contains("SynthesizedMethod=Token.<RavenUnionDisplayName>() -> string", output);
+        Assert.Contains("SynthesizedMethod=virtual override Identifier.ToString() -> string", output);
+        Assert.Contains("SynthesizedMethod=Identifier.<RavenUnionDisplayName>() -> string", output);
+    }
+
+    [Fact]
+    public void PrintBoundTree_IncludesGenericUnionDisplayNameSynthesis()
+    {
+        const string source = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+            model.PrintBoundTree(colorize: false, includeBinderInfo: false, includeBinderChainOnRoots: false, includeErrorNodes: true);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString();
+        Assert.Contains("SynthesizedMethod=virtual override Result<T, E>.ToString() -> string", output);
+        Assert.Contains("SynthesizedMethod=Result<T, E>.<RavenUnionDisplayName>() -> string", output);
+        Assert.Contains("FieldAccess [Type=Ok<T>, Symbol=Result<T, E>.<OkPayload>: Ok<T>, Field=Result<T, E>.<OkPayload>: Ok<T>]", output);
+        Assert.Contains("Symbol=static Result<T, E>.<RavenFriendlyTypeName>(type: Type) -> string", output);
+        Assert.Contains("TypeOfExpression [Type=Type, OperandType=T, SystemType=Type]", output);
+        Assert.Contains("TypeOfExpression [Type=Type, OperandType=E, SystemType=Type]", output);
+    }
+
+    [Fact]
     public void UnqualifiedCaseInvocation_BindsWhenUniqueInScope()
     {
         const string source = """
@@ -1095,9 +1166,9 @@ union Payloads {
     public void ConstructedGenericUnionCases_ProjectConcreteTypeArguments()
     {
         const string source = """
-union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+union Result {
+    Ok(value: int)
+    Error(error: string)
 }
 """;
 

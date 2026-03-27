@@ -124,6 +124,26 @@ public static class BoundTreePrinter
             PrintRoot(root, nodeToSyntax, visitedNodes, visitedSyntaxes, binderIds, getBinderId, includeBinderInfo, includeBinderChainOnRoots);
             PrintChildren(root, nodeToSyntax, string.Empty, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes, binderIds, getBinderId, includeBinderInfo, showBinderOnlyOnChange, parentBinderId: null);
         }
+
+        var synthesizedRoots = GetSynthesizedMethodRoots(model, view);
+        if (synthesizedRoots.Count == 0)
+            return;
+
+        if (printedAny)
+            Console.WriteLine();
+
+        Console.WriteLine(MaybeColorize("=== Synthesized Method Bodies ===", AnsiColor.BrightCyan));
+
+        var emptyNodeToSyntax = new Dictionary<BoundNode, (SyntaxNode Syntax, Binder Binder)>(ReferenceEqualityComparer.Instance);
+        for (var i = 0; i < synthesizedRoots.Count; i++)
+        {
+            var (method, body) = synthesizedRoots[i];
+            if (i > 0)
+                Console.WriteLine();
+
+            PrintSynthesizedRoot(method, body);
+            PrintChildren(body, emptyNodeToSyntax, string.Empty, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes, binderIds, getBinderId, includeBinderInfo: false, showBinderOnlyOnChange, parentBinderId: null);
+        }
     }
 
     private static bool IsBlockRoot(BoundNode node)
@@ -367,6 +387,18 @@ public static class BoundTreePrinter
             visitedSyntaxes.Add(syntax.Syntax);
     }
 
+    private static void PrintSynthesizedRoot(IMethodSymbol method, BoundBlockStatement body)
+    {
+        var name = body.GetType().Name;
+        if (name.StartsWith("Bound", StringComparison.Ordinal))
+            name = name["Bound".Length..];
+
+        var coloredName = MaybeColorize(name, AnsiColor.Yellow);
+        var key = MaybeColorize("SynthesizedMethod", AnsiColor.BrightGreen);
+        var value = MaybeColorize(FormatSymbol(method), AnsiColor.Cyan);
+        Console.WriteLine($"{coloredName} [{key}={value}]");
+    }
+
     private static IEnumerable<BoundNode> EnumerateChildNodes(IEnumerable<ChildEntry> entries)
     {
         foreach (var entry in entries)
@@ -382,6 +414,53 @@ public static class BoundTreePrinter
 
             foreach (var child in EnumerateChildNodes(entry.Children))
                 yield return child;
+        }
+    }
+
+    private static List<(IMethodSymbol Method, BoundBlockStatement Body)> GetSynthesizedMethodRoots(
+        SemanticModel model,
+        BoundTreeView view)
+    {
+        model.EnsureDeclarations();
+        model.EnsureRootBinderCreated();
+
+        var methods = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        var result = new List<(IMethodSymbol Method, BoundBlockStatement Body)>();
+
+        foreach (var unionDeclaration in model.SyntaxTree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>())
+        {
+            if (model.TryGetUnionSymbol(unionDeclaration, out var unionSymbol))
+                CollectSynthesizedMethodRoots(model, view, unionSymbol, methods, result);
+
+            foreach (var caseClause in unionDeclaration.CaseTypes)
+            {
+                if (model.TryGetUnionCaseSymbol(caseClause, out var caseSymbol))
+                    CollectSynthesizedMethodRoots(model, view, caseSymbol, methods, result);
+            }
+        }
+
+        return result;
+    }
+
+    private static void CollectSynthesizedMethodRoots(
+        SemanticModel model,
+        BoundTreeView view,
+        INamedTypeSymbol containingType,
+        HashSet<IMethodSymbol> methods,
+        List<(IMethodSymbol Method, BoundBlockStatement Body)> result)
+    {
+        foreach (var method in containingType.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (!method.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+                continue;
+
+            if (!methods.Add(method))
+                continue;
+
+            if (!model.Compilation.TryGetSynthesizedMethodBody(method, view, out var body) || body is null)
+                continue;
+
+            result.Add((method, body));
         }
     }
 

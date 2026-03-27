@@ -8,6 +8,7 @@
     <RavenCoreOutputDirectory>$(OutputPath)$(TargetFramework)/</RavenCoreOutputDirectory>
     <TargetPath>$(RavenCoreOutputDirectory)Raven.Core.dll</TargetPath>
     <BuiltProjectOutputGroupDependsOn>$(BuiltProjectOutputGroupDependsOn);CollectRavenCoreOutput</BuiltProjectOutputGroupDependsOn>
+    <BuildDependsOn>CompileRavenCore;$(BuildDependsOn)</BuildDependsOn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,10 +18,7 @@
   </ItemGroup>
 
   <Target Name="CompileRavenCore"
-    Condition="'$(TargetFramework)' != ''"
-    BeforeTargets="Build"
-    Inputs="@(RavenSource)"
-    Outputs="$(RavenCoreOutputDirectory)Raven.Core.dll">
+    Condition="'$(TargetFramework)' != ''">
     <MakeDir Directories="$(RavenCoreOutputDirectory)" />
     <Exec
       Command="dotnet run -f $(TargetFramework) --property WarningLevel=0 --project ../Raven.Compiler/Raven.Compiler.csproj -p:UseRavenCoreReference=false -- --emit-core-types-only --framework $(TargetFramework) --output-type classlib -o &quot;$(RavenCoreOutputDirectory)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />

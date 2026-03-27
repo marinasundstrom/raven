@@ -985,6 +985,35 @@ internal class MethodBodyGenerator
             return;
         }
 
+        if (Compilation.TryGetSynthesizedMethodBody(MethodSymbol, BoundTreeView.Lowered, out var synthesizedBody) &&
+            synthesizedBody is not null)
+        {
+            DeclareLocals(synthesizedBody);
+            EmitMethodBlock(synthesizedBody);
+            return;
+        }
+
+        if (MethodSymbol.Name == SynthesizedUnionMethodNames.DisplayNameHelper &&
+            MethodSymbol.Parameters.Length == 0 &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_String)
+        {
+            if (MethodSymbol.ContainingType is SourceDiscriminatedUnionCaseTypeSymbol or SourceDiscriminatedUnionSymbol)
+            {
+                EmitSynthesizedUnionDisplayName();
+                return;
+            }
+        }
+
+        if (MethodSymbol.Name == SynthesizedUnionMethodNames.FriendlyTypeNameHelper &&
+            MethodSymbol.Parameters.Length == 1 &&
+            MethodSymbol.Parameters[0].Type.SpecialType == SpecialType.System_Type &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_String &&
+            MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol)
+        {
+            EmitSynthesizedFriendlyTypeName();
+            return;
+        }
+
         if (MethodSymbol.Name == nameof(object.ToString) &&
             MethodSymbol.Parameters.Length == 0 &&
             MethodSymbol.ReturnType.SpecialType == SpecialType.System_String)
@@ -2923,6 +2952,56 @@ internal class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
         }
 
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitSynthesizedUnionDisplayName()
+    {
+        IUnionSymbol unionSymbol = MethodSymbol.ContainingType switch
+        {
+            SourceDiscriminatedUnionSymbol union => union,
+            SourceDiscriminatedUnionCaseTypeSymbol caseSymbol => caseSymbol.Union,
+            _ => throw new InvalidOperationException("Union display-name helper emitted for non-union method.")
+        };
+
+        var builderType = typeof(StringBuilder);
+        var builderCtor = builderType.GetConstructor(Type.EmptyTypes)!;
+        var appendString = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(string) })!;
+        var appendChar = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(char) })!;
+        var builderToString = builderType.GetMethod(nameof(StringBuilder.ToString), Type.EmptyTypes)!;
+
+        var builderLocal = ILGenerator.DeclareLocal(builderType);
+        builderLocal.SetLocalSymInfo("builder");
+
+        ILGenerator.Emit(OpCodes.Newobj, builderCtor);
+        ILGenerator.Emit(OpCodes.Stloc, builderLocal);
+        EmitFriendlyUnionDisplayName(unionSymbol, builderLocal, appendString, appendChar);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, builderToString);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitSynthesizedFriendlyTypeName()
+    {
+        var builderType = typeof(StringBuilder);
+        var builderCtor = builderType.GetConstructor(Type.EmptyTypes)!;
+        var appendString = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(string) })!;
+        var appendChar = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(char) })!;
+        var builderToString = builderType.GetMethod(nameof(StringBuilder.ToString), Type.EmptyTypes)!;
+
+        var builderLocal = ILGenerator.DeclareLocal(builderType);
+        builderLocal.SetLocalSymInfo("builder");
+        var typeLocal = ILGenerator.DeclareLocal(typeof(Type));
+        typeLocal.SetLocalSymInfo("type");
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Stloc, typeLocal);
+
+        ILGenerator.Emit(OpCodes.Newobj, builderCtor);
+        ILGenerator.Emit(OpCodes.Stloc, builderLocal);
+        EmitFriendlyTypeNameFromLocal(typeLocal, builderLocal, includeNamespace: false, appendString, appendChar, remainingDepth: 4);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, builderToString);
         ILGenerator.Emit(OpCodes.Ret);
     }
 

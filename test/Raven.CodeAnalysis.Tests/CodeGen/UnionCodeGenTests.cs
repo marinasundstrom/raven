@@ -1329,6 +1329,77 @@ class Container {
     }
 
     [Fact]
+    public void GenericUnionCaseToString_DirectCaseInstance_FormatsCapturedTypeArguments()
+    {
+        var code = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var okCaseType = runtimeAssembly.GetType("Result_Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
+        var okCase = okCaseType.GetConstructor(new[] { typeof(int) })!.Invoke([42]);
+
+        Assert.Equal("Result<Int32>.Ok(42)", okCase!.ToString());
+    }
+
+    [Fact]
+    public void GenericUnionCaseDisplayNameHelper_DirectCaseInstance_FormatsCapturedTypeArguments()
+    {
+        var code = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var okCaseType = runtimeAssembly.GetType("Result_Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
+        var okCase = okCaseType.GetConstructor(new[] { typeof(int) })!.Invoke([42]);
+        var displayNameHelper = okCaseType.GetMethod("<RavenUnionDisplayName>", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var displayName = (string)displayNameHelper.Invoke(okCase, Array.Empty<object?>())!;
+
+        Assert.Equal("Result<Int32>", displayName);
+    }
+
+    [Fact]
     public void UnionMemberCaseInvocation_InLambda_ReturnsExpectedResult()
     {
         var code = """

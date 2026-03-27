@@ -2133,6 +2133,7 @@ public partial class SemanticModel
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+        var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
         var objectToString = GetObjectToStringMethod();
         int ordinal = 0;
 
@@ -2640,6 +2641,21 @@ public partial class SemanticModel
 
             RegisterCaseMember(caseToString);
 
+            var caseDisplayNameHelper = new SourceMethodSymbol(
+                SynthesizedUnionMethodNames.DisplayNameHelper,
+                stringType!,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                caseSymbol,
+                caseSymbol,
+                namespaceSymbol,
+                new[] { caseClause.GetLocation() },
+                Array.Empty<SyntaxReference>(),
+                isStatic: false,
+                methodKind: MethodKind.Ordinary,
+                declaredAccessibility: Accessibility.Private);
+
+            RegisterCaseMember(caseDisplayNameHelper);
+
             caseToString.SetOverriddenMethod(objectToString);
             RegisterUnionCaseSymbol(caseClause, caseSymbol);
             caseSymbols.Add(caseSymbol);
@@ -2733,6 +2749,7 @@ public partial class SemanticModel
             declaredAccessibility: Accessibility.Internal);
 
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+        var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
         var objectToString = GetObjectToStringMethod();
 
         var unionToString = new SourceMethodSymbol(
@@ -2748,6 +2765,46 @@ public partial class SemanticModel
             methodKind: MethodKind.Ordinary,
             isOverride: true,
             declaredAccessibility: Accessibility.Public);
+
+        _ = new SourceMethodSymbol(
+            SynthesizedUnionMethodNames.DisplayNameHelper,
+            stringType!,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            unionSymbol,
+            unionSymbol,
+            namespaceSymbol,
+            new[] { unionDecl.GetLocation() },
+            Array.Empty<SyntaxReference>(),
+            isStatic: false,
+            methodKind: MethodKind.Ordinary,
+            declaredAccessibility: Accessibility.Private);
+
+        var friendlyTypeNameHelper = new SourceMethodSymbol(
+            SynthesizedUnionMethodNames.FriendlyTypeNameHelper,
+            stringType!,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            unionSymbol,
+            unionSymbol,
+            namespaceSymbol,
+            new[] { unionDecl.GetLocation() },
+            Array.Empty<SyntaxReference>(),
+            isStatic: true,
+            methodKind: MethodKind.Ordinary,
+            declaredAccessibility: Accessibility.Private);
+
+        if (systemType is not null)
+        {
+            var typeParameter = new SourceParameterSymbol(
+                "type",
+                systemType,
+                friendlyTypeNameHelper,
+                unionSymbol,
+                namespaceSymbol,
+                [unionDecl.GetLocation()],
+                Array.Empty<SyntaxReference>());
+
+            friendlyTypeNameHelper.SetParameters([typeParameter]);
+        }
 
         unionToString.SetOverriddenMethod(objectToString);
         unionSymbol.SetDiscriminatorField(discriminatorField);

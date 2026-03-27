@@ -165,11 +165,26 @@ fi
 #
 # Make sure the compiler host is rebuilt after its compiler-core dependency.
 dotnet build "$REPO_ROOT/src/Raven.CodeAnalysis" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
-dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION" -p:UseRavenCoreReference=false
 # TestDep is currently net10.0-only, so build it with its declared framework.
 dotnet build "$REPO_ROOT/src/TestDep" -c "$BUILD_CONFIG"
 
 COMPILER_BIN="$PROJECT_DIR/bin/$BUILD_CONFIG/$DOTNET_VERSION/$COMPILER_EXC"
+
+if [[ -z "${RAVEN_CORE:-}" || ! -f "$RAVEN_CORE" ]]; then
+  DIRECT_RAVEN_CORE="$REPO_ROOT/src/Raven.Core/bin/$BUILD_CONFIG/$DOTNET_VERSION/Raven.Core.dll"
+  RAVEN_CORE_SOURCES=()
+  while IFS= read -r source; do
+    RAVEN_CORE_SOURCES+=("$source")
+  done < <(find "$REPO_ROOT/src/Raven.Core" -maxdepth 1 -name '*.rav' | sort)
+  if [[ -x "$COMPILER_BIN" && ${#RAVEN_CORE_SOURCES[@]} -gt 0 ]]; then
+    "$COMPILER_BIN" -- --emit-core-types-only --framework "$DOTNET_VERSION" --output-type classlib \
+      -o "$DIRECT_RAVEN_CORE" "${RAVEN_CORE_SOURCES[@]}"
+    if [[ -f "$DIRECT_RAVEN_CORE" ]]; then
+      RAVEN_CORE="$DIRECT_RAVEN_CORE"
+    fi
+  fi
+fi
 
 if [[ -z "${RAVEN_CODE_ANALYSIS:-}" ]]; then
   for candidate in \
