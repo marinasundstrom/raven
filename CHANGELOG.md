@@ -5,9 +5,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 ## 2026-03-26
 
 ### Changed
+- Synthesized union `ToString()` bodies now quote generic string and char payloads on the bound-body path, so parenthesized generic unions print values like `Either<Int32, String>("invoice")` and `Either<Char, String>('x')` instead of emitting raw unquoted payload text.
 - Hover text for extension members now identifies them as extension methods/properties and shows the qualified declaring extension container instead of collapsing them into an ordinary containing type display.
 
 Impact:
+- Generic union `ToString()` output is now consistent with other quoted literal-style displays for string and char payloads, especially on synthesized carrier formatting paths.
 - Extension APIs are easier to distinguish from ordinary instance members during hover in VS Code, especially when users need to see which extension declaration contributes a member.
 - Hover now makes it clear which extension declaration contributes a member when multiple similarly named members are in scope.
 

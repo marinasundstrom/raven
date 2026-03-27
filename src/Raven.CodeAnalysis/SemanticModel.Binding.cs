@@ -2656,6 +2656,39 @@ public partial class SemanticModel
 
             RegisterCaseMember(caseDisplayNameHelper);
 
+            var caseFormatValueHelper = new SourceMethodSymbol(
+                SynthesizedUnionMethodNames.FormatValueHelper,
+                stringType!,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                caseSymbol,
+                caseSymbol,
+                namespaceSymbol,
+                new[] { caseClause.GetLocation() },
+                Array.Empty<SyntaxReference>(),
+                isStatic: true,
+                methodKind: MethodKind.Ordinary,
+                declaredAccessibility: Accessibility.Private);
+
+            var caseFormatValueParameter = new SourceParameterSymbol(
+                "value",
+                Compilation.GetSpecialType(SpecialType.System_Object)!,
+                caseFormatValueHelper,
+                caseSymbol,
+                namespaceSymbol,
+                [caseClause.GetLocation()],
+                Array.Empty<SyntaxReference>());
+            var caseFormatValueTypeParameter = new SourceParameterSymbol(
+                "valueType",
+                Compilation.GetSpecialType(SpecialType.System_Type)!,
+                caseFormatValueHelper,
+                caseSymbol,
+                namespaceSymbol,
+                [caseClause.GetLocation()],
+                Array.Empty<SyntaxReference>());
+            caseFormatValueHelper.SetParameters([caseFormatValueParameter, caseFormatValueTypeParameter]);
+
+            RegisterCaseMember(caseFormatValueHelper);
+
             caseToString.SetOverriddenMethod(objectToString);
             RegisterUnionCaseSymbol(caseClause, caseSymbol);
             caseSymbols.Add(caseSymbol);
@@ -2792,6 +2825,19 @@ public partial class SemanticModel
             methodKind: MethodKind.Ordinary,
             declaredAccessibility: Accessibility.Private);
 
+        var formatValueHelper = new SourceMethodSymbol(
+            SynthesizedUnionMethodNames.FormatValueHelper,
+            stringType!,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            unionSymbol,
+            unionSymbol,
+            namespaceSymbol,
+            new[] { unionDecl.GetLocation() },
+            Array.Empty<SyntaxReference>(),
+            isStatic: true,
+            methodKind: MethodKind.Ordinary,
+            declaredAccessibility: Accessibility.Private);
+
         if (systemType is not null)
         {
             var typeParameter = new SourceParameterSymbol(
@@ -2804,6 +2850,24 @@ public partial class SemanticModel
                 Array.Empty<SyntaxReference>());
 
             friendlyTypeNameHelper.SetParameters([typeParameter]);
+
+            var formatValueParameter = new SourceParameterSymbol(
+                "value",
+                Compilation.GetSpecialType(SpecialType.System_Object)!,
+                formatValueHelper,
+                unionSymbol,
+                namespaceSymbol,
+                [unionDecl.GetLocation()],
+                Array.Empty<SyntaxReference>());
+            var formatValueTypeParameter = new SourceParameterSymbol(
+                "valueType",
+                systemType,
+                formatValueHelper,
+                unionSymbol,
+                namespaceSymbol,
+                [unionDecl.GetLocation()],
+                Array.Empty<SyntaxReference>());
+            formatValueHelper.SetParameters([formatValueParameter, formatValueTypeParameter]);
         }
 
         unionToString.SetOverriddenMethod(objectToString);

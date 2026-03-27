@@ -1647,6 +1647,45 @@ class Container {
     }
 
     [Fact]
+    public void UnionToString_QuotesGenericCharPayload()
+    {
+        var code = """
+class Container {
+    public static func Create() -> Either<char, string> {
+        return 'x'
+    }
+}
+
+union Either<T1, T2>(T1, T2)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var createMethod = containerType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static)!;
+        var unionValue = createMethod.Invoke(null, Array.Empty<object?>());
+
+        Assert.NotNull(unionValue);
+        Assert.Equal("Either<Char, String>('x')", unionValue!.ToString());
+    }
+
+    [Fact]
     public void UnionToString_ReturnsUninitializedWhenTagIsInvalid()
     {
         var code = """

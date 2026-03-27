@@ -29,6 +29,17 @@ internal static class SynthesizedMethodBodyFactory
             }
         }
 
+        if (method.Name == SynthesizedUnionMethodNames.FormatValueHelper &&
+            method.IsStatic &&
+            method.Parameters.Length == 2 &&
+            method.Parameters[0].Type.SpecialType == SpecialType.System_Object &&
+            method.Parameters[1].Type.SpecialType == SpecialType.System_Type &&
+            method.ReturnType.SpecialType == SpecialType.System_String)
+        {
+            body = CreateUnionFormatValueHelperBody(compilation, method);
+            return true;
+        }
+
         if (method.Name == nameof(object.ToString) &&
             method.Parameters.Length == 0 &&
             method.ReturnType.SpecialType == SpecialType.System_String)
@@ -124,7 +135,7 @@ internal static class SynthesizedMethodBodyFactory
         {
             var payloadField = payloadFields[index];
             var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadField);
-            var formatted = FormatUnionValue(compilation, payloadAccess);
+            var formatted = FormatUnionValue(compilation, method, payloadAccess);
             var text = ConcatSequence(
                 compilation,
                 [
@@ -190,7 +201,7 @@ internal static class SynthesizedMethodBodyFactory
                 }
 
                 var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), field);
-                parts.Add(FormatUnionValue(compilation, payloadAccess));
+                parts.Add(FormatUnionValue(compilation, method, payloadAccess));
             }
 
             parts.Add(CreateStringLiteral(compilation, ")"));
@@ -533,8 +544,75 @@ internal static class SynthesizedMethodBodyFactory
             [new BoundTypeOfExpression(typeSymbol, compilation.GetSpecialType(SpecialType.System_Type)!)]);
     }
 
-    private static BoundExpression FormatUnionValue(Compilation compilation, BoundExpression value)
-        => CreateObjectToStringInvocation(compilation, value);
+    private static BoundExpression FormatUnionValue(Compilation compilation, IMethodSymbol method, BoundExpression value)
+        => InvokeUnionFormatValueHelper(compilation, method, value);
+
+    private static BoundBlockStatement CreateUnionFormatValueHelperBody(Compilation compilation, IMethodSymbol method)
+    {
+        var statements = new List<BoundStatement>();
+        var stringType = compilation.GetSpecialType(SpecialType.System_String)!;
+        var charType = compilation.GetSpecialType(SpecialType.System_Char)!;
+        var typeType = compilation.GetSpecialType(SpecialType.System_Type)!;
+
+        var valueParameter = method.Parameters[0];
+        var valueTypeParameter = method.Parameters[1];
+        var valueAccess = new BoundParameterAccess(valueParameter);
+        var valueTypeAccess = new BoundParameterAccess(valueTypeParameter);
+
+        statements.Add(new BoundIfStatement(
+            CreateBinaryExpression(
+                compilation,
+                SyntaxKind.EqualsEqualsToken,
+                valueAccess,
+                CreateNullLiteral(compilation)),
+            new BoundReturnStatement(CreateStringLiteral(compilation, "null"))));
+
+        statements.Add(new BoundIfStatement(
+            CreateBinaryExpression(
+                compilation,
+                SyntaxKind.EqualsEqualsToken,
+                valueTypeAccess,
+                new BoundTypeOfExpression(stringType, typeType)),
+            new BoundReturnStatement(CreateQuotedStringValue(
+                compilation,
+                CreateConversion(compilation, valueAccess, stringType),
+                quote: "\""))));
+
+        statements.Add(new BoundIfStatement(
+            CreateBinaryExpression(
+                compilation,
+                SyntaxKind.EqualsEqualsToken,
+                valueTypeAccess,
+                new BoundTypeOfExpression(charType, typeType)),
+            new BoundReturnStatement(CreateQuotedStringValue(
+                compilation,
+                CreateObjectToStringInvocation(compilation, valueAccess),
+                quote: "'"))));
+
+        statements.Add(new BoundReturnStatement(CreateObjectToStringInvocation(compilation, valueAccess)));
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundExpression InvokeUnionFormatValueHelper(Compilation compilation, IMethodSymbol method, BoundExpression value)
+    {
+        var containingType = GetInvocationContainingType(method);
+        var helper = containingType
+            .GetMembers(SynthesizedUnionMethodNames.FormatValueHelper)
+            .OfType<IMethodSymbol>()
+            .First(m => m.IsStatic &&
+                        m.Parameters.Length == 2 &&
+                        m.Parameters[0].Type.SpecialType == SpecialType.System_Object &&
+                        m.Parameters[1].Type.SpecialType == SpecialType.System_Type &&
+                        m.ReturnType.SpecialType == SpecialType.System_String);
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object)!;
+
+        return new BoundInvocationExpression(
+            helper,
+            [
+                CreateConversion(compilation, value, objectType),
+                new BoundTypeOfExpression(value.Type, compilation.GetSpecialType(SpecialType.System_Type)!)
+            ]);
+    }
 
     private static BoundExpression CreateObjectToStringInvocation(Compilation compilation, BoundExpression receiver)
     {
@@ -544,6 +622,20 @@ internal static class SynthesizedMethodBodyFactory
             .First(m => m.Parameters.Length == 0);
 
         return new BoundInvocationExpression(objectToString, Array.Empty<BoundExpression>(), receiver);
+    }
+
+    private static BoundExpression CreateQuotedStringValue(
+        Compilation compilation,
+        BoundExpression value,
+        string quote)
+    {
+        return ConcatSequence(
+            compilation,
+            [
+                CreateStringLiteral(compilation, quote),
+                value,
+                CreateStringLiteral(compilation, quote)
+            ]);
     }
 
     private static IMethodSymbol ResolveMethod(INamedTypeSymbol type, string name, IReadOnlyList<ITypeSymbol> parameterTypes)
@@ -689,6 +781,18 @@ internal static class SynthesizedMethodBodyFactory
 
     private static BoundLiteralExpression CreateStringLiteral(Compilation compilation, string value)
         => new(BoundLiteralExpressionKind.StringLiteral, value, compilation.GetSpecialType(SpecialType.System_String)!);
+
+    private static BoundLiteralExpression CreateNullLiteral(Compilation compilation)
+        => new(BoundLiteralExpressionKind.NullLiteral, null!, compilation.NullTypeSymbol);
+
+    private static BoundExpression CreateConversion(Compilation compilation, BoundExpression expression, ITypeSymbol targetType)
+    {
+        var conversion = compilation.ClassifyConversion(expression.Type, targetType, includeUserDefined: false);
+        if (!conversion.Exists)
+            throw new InvalidOperationException($"Failed to bind synthesized conversion from '{expression.Type}' to '{targetType}'.");
+
+        return new BoundConversionExpression(expression, targetType, conversion);
+    }
 
     private static List<(string Name, SourceFieldSymbol Field)> CollectUnionCaseParameters(SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
     {
