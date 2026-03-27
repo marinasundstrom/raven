@@ -1,56 +1,47 @@
 # Control flow
 
-Raven is primarily **expression-oriented**: most constructs yield values and can
-appear wherever an expression is expected, reflecting its expression-first design.
-While Raven aims to be expression-oriented and declarative, it can still be used
-in an imperative and procedural manner when desired.
+Raven is expression-oriented, but it also supports statement-form control flow
+for sequencing, early exits, and interop-friendly imperative code.
 
 ## Expression and statement context
 
-Every occurrence of code appears in either an **expression** or a **statement**
+Every occurrence of code appears in either an expression context or a statement
 context.
 
-* An **expression context** expects a value. Examples include the right-hand
-  side of an assignment, arguments in an invocation, the scrutinee or arms of a
-  `match`, the condition and branches of an `if` expression, and the final
-  position in a block expression where the block's resulting value is produced.
-  Any expression form is valid in these positions, including control-flow
-  expressions (`if`, `while`, `for`, `match`), lambdas, tuples, collection
-  expressions, and nested blocks. The expression contributes to type inference
-  and must evaluate to a value assignable to the surrounding context's target
-  type.
-* A **statement context** expects an effect rather than a value. Statement
-  positions occur inside blocks before the final expression, inside method and
-  accessor bodies, and anywhere a newline (or semicolon) can terminate a
-  statement. The parser rewrites standalone expressions in these positions into
-  expression statements that discard the produced value. Declarations such as
-  `let`/`var` bindings and dedicated control-flow statements all occupy
-  statement contexts.
+### Concept
 
-Only certain constructs are legal exclusively in statement context because they
-do not yield a value:
+* An expression context expects a value.
+* A statement context expects an effect.
+* Expressions are valid in statement context; their values are discarded unless
+  captured.
+* Some constructs are statement-only because they do not yield a value.
 
-* Statement-form `return` (including the omission of a value when returning `unit`).
-* Iterator statements `yield return` and `yield break`.
-* Loop-control transfers `break` and `continue`.
-* Statement-form `throw` that propagates exceptions.
-* Statement-form `try` blocks that attach `catch` or `finally` clauses.
+### Example
 
-Using any of these constructs inside an expression context produces the
-diagnostics called out in the sections below. Conversely, expression constructs
-are always valid in statement context—their values are simply discarded unless
-captured.
+```raven
+val value = if flag { 1 } else { 2 }
 
-For clarity and early exits, the language nevertheless permits certain imperative
-statement forms, such as the explicit `return` statement. Statements are
-terminated by a **newline**, or by an **optional semicolon** `;` that may separate
-multiple statements on one line. Newlines inside parentheses, brackets, or braces
-do not terminate statements. Multiple consecutive newlines act as a single
-separator so you may visually group related statements without affecting
-execution. Blocks also terminate with `}`, and certain keywords (such as `else`,
-`catch`, and `finally`) implicitly end the preceding construct. These tokens,
-along with end-of-file, fulfil the same terminating role as a newline when they
-appear.
+if flag {
+    Log("side effect")
+}
+```
+
+### Rules
+
+* Expression contexts include assignment right-hand sides, invocation
+  arguments, `match` scrutinees and arms, `if` expression branches, and the
+  final position of a block expression.
+* Statement contexts include block bodies before the final expression, method
+  bodies, accessor bodies, and any location terminated by a newline or
+  semicolon.
+* Statement-form `return`, `yield return`, `yield break`, `break`, `continue`,
+  statement-form `throw`, and statement-form `try` are valid only in statement
+  context.
+* Statements are terminated by a newline, an optional semicolon, `}`, or a
+  construct-closing keyword such as `else`, `catch`, or `finally`.
+* Newlines inside parentheses, brackets, or braces do not terminate
+  statements.
+* End-of-file fulfills the same terminating role as a newline.
 
 When extra tokens remain on the same line after a statement has already
 completed, the parser reports `RAV1019: Expected newline or ';' to terminate the
@@ -64,39 +55,16 @@ System.Console.WriteLine("Examples") ff; // RAV1019
 var x = 2 test // RAV1019
 ```
 
-When a newline is not required to terminate a statement—or any other construct
-that relies on newline separation, such as `import` or `alias` directives—it is
-preserved as trivia at the token boundary instead of becoming a terminator
-token. In practice the line break is attached as trailing trivia on the
-preceding token, while indentation on the continued line remains leading trivia
-on the following token. This occurs whenever the parser is still expecting more
-of the current expression and therefore treats the newline as part of a
-continuation rather than as a terminator.
-
 ## Line continuations
 
-When the parser expects more tokens to complete the current expression, a
-newline is treated as trivia at the boundary between the two tokens instead of
-a statement terminator. This permits expression-oriented code to flow naturally
-across lines without requiring a trailing operator or explicit continuation
-marker.
-Expression continuation has a strict limit: only a **single** newline may
-separate the continued tokens. A blank line (two or more consecutive newlines)
-always terminates the current expression statement.
+Line continuation is layout-sensitive and uses at most one newline.
 
-Because the newline is preserved as trivia in these scenarios, any indentation
-on the continued line remains as leading trivia on the subsequent token, while
-the line break itself remains trailing trivia on the preceding token. When a
-statement really is terminated by layout alone, the syntax node stores
-`SyntaxKind.None` as its terminator and relies on the surrounding trivia to
-preserve the physical newline.
+### Concept
 
-The most common continuations occur after an assignment operator, before a
-binary operator, or before member access (`.` / `->`). The same rule applies to
-all of them:
+When the parser still expects more of the current expression, one newline is
+treated as continuation trivia instead of as a statement terminator.
 
-- one newline continues the expression,
-- two or more newlines break continuation and begin a new statement/expression.
+### Example
 
 ```raven
 val sum =
@@ -134,55 +102,42 @@ x
 .Foo()  // new statement (member binding / target-typed form)
 ```
 
-In the example above, the newline following `=` remains trailing trivia on the
-`=` token, and the newline before `+` remains trailing trivia on the preceding
-numeric literal. The comment preceding a terminating newline remains trailing
-trivia on the preceding token, and the indentation before `val next` is
-preserved as leading whitespace on the next statement's first token.
-
 ```raven
 val a = 42
 val b = 1; b = 3
 ```
 
+### Rules
+
+* One newline may continue the current expression.
+* Two or more consecutive newlines always terminate the current expression
+  statement.
+* Continuation commonly occurs after assignment operators, before binary
+  operators, and before member access (`.` or `->`).
+* Indentation on the continued line remains trivia and does not change the
+  semantics of the continued expression.
+
 ## Assignment statements
 
-Assignments in statement position produce an `AssignmentStatement` node rather
-than flowing through `ExpressionStatement`. The left-hand side accepts both
-assignable expressions and patterns, mirroring tuple and declaration
-assignments. Raven recognizes `_ = expression` as a discard assignment where the
-left-hand side is a dedicated discard expression. The assignment still runs the
-right-hand side but the result is explicitly ignored.
+Assignments in statement position produce assignment statements rather than
+expression statements.
 
-`AssignmentStatementSyntax.IsDiscard` reports whether the assignment targets the
-discard identifier (either via a discard pattern or the discard expression).
+* The left-hand side may be an assignable expression or a pattern.
+* `_ = expr` is a discard assignment; the right-hand side still executes.
 
 ## Expression statements
 
-Most other expressions can appear as statements.
+Most other expressions can appear as statements, in which case their values are
+discarded.
 
-Control flow constructs such as `if`, `while`, `for`, statement-form `match`,
-and statement-form `try`
-also have dedicated
-statement forms for convenience. The parser rewrites an expression in statement
-position to the corresponding statement node when the value is discarded.
-`ExpressionStatement` covers the remaining expressions that may appear on their
-own line and always evaluates to `unit`.
-
-Values produced by expression statements are discarded and do not become implicit
-function return values.
-
-Rule of thumb for statement-form control flow:
-
-* Statement-form control flow may contain value-producing expressions in its
-  branches/arms.
-* Statement-form `if` accepts either braced block statements or a single
-  statement branch without braces.
-* Those values are discarded unless the construct participates in tail implicit
-  return rewriting and appears as the final statement of a value-returning
-  member.
-* Today, that tail implicit-return behavior applies to statement-form `match`
-  and statement-form `if` with an `else` branch.
+* Statement-form `if`, `while`, `for`, `match`, and `try` have dedicated
+  statement nodes.
+* Remaining standalone expressions become expression statements and evaluate to
+  `unit`.
+* Values produced by expression statements do not become implicit return values.
+* Statement-form `match`, and statement-form `if` with an `else` branch, may
+  contribute an implicit tail return when they are the final statement in a
+  value-returning body.
 
 Statement-form `if` also has a dedicated pattern-binding form:
 

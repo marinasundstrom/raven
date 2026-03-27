@@ -1,12 +1,16 @@
 # Raven type system
 
-Raven is a statically typed language whose types correspond directly to CLR types. The compiler uses .NET type symbols so that every Raven type has a concrete runtime representation. Conceptually, every CLR type (including structs and other value types) behaves as an object in Raven: value types keep their value semantics, but they participate uniformly in member lookup and generics through boxing when necessary. Nullability is explicit for both reference and value types, so `?` and `null` are treated consistently regardless of runtime representation.
+Raven is statically typed, and every Raven type has a concrete CLR runtime
+representation.
 
-> ❗ **Important:** `T?` is the canonical nullable form in Raven. `unit` (`()`)
-> is separate: it means "no meaningful result" (void-like), not nullable
-> absence. For domain-level absence, prefer `Option<T>` instead of nullable
-> types. `Option<T>` supports implicit interop conversions with nullable forms
-> (`Option<T> <-> T?`).
+## Core rules
+
+* Type identity follows CLR type identity unless Raven defines a language-level
+  construct such as nullable annotations or function-type syntax.
+* Nullability is explicit for both reference and value types.
+* `T?` is the canonical nullable form.
+* `unit` (`()`) means "no meaningful result"; it is not a nullable-absence
+  construct.
 
 ## Primitive types
 
@@ -70,27 +74,31 @@ val inferred = 1
 
 ### Arrays
 
-`T[]` becomes `System.Array` with element type `T`. Raven also supports
-single-dimensional fixed-length array types written as `T[N]`. These remain CLR
-arrays at runtime, but the compiler preserves the declared length as metadata for
-type checking, conversions, and pattern analysis. Array element types preserve
-their nullability and generic arguments, and indexing uses the CLI's
-single-dimensional, zero-based representation (`System.Array.CreateInstance` with
-lower bound 0). Multidimensional arrays follow the underlying CLI semantics but
-use explicit syntax such as `T[,]` when supported by the grammar.
+Arrays use CLR array runtime shapes, including fixed-length metadata when the
+type is written with an explicit length.
 
-Fixed-length arrays implicitly convert to open arrays of the same element type,
-but the reverse conversion is rejected because the length is not statically
-known. Conversions between `T[N]` and `T[M]` also require the same fixed length.
-Raven reports dedicated diagnostics for those cases so array-size mismatches are
-described directly instead of surfacing as generic type-conversion failures.
+#### Concept
 
-Raven intentionally keeps fixed-length inference conservative. The compiler
-currently infers `T[N]` only when the total element count is directly available
-from the collection expression itself, including spreads of other fixed-length
-arrays. It does not currently infer fixed sizes from comprehensions, from open
-arrays after runtime guards, or from general enumerable values even if their
-length could be proven by a more advanced analysis.
+* `T[]` is an open array type.
+* `T[N]` is a single-dimensional fixed-length array type.
+* Array element types preserve nullability and generic arguments.
+* Multidimensional arrays follow CLR semantics when the grammar permits forms
+  such as `T[,]`.
+
+#### Example
+
+```raven
+val open: int[] = [1, 2, 3]
+val fixed: int[3] = [1, 2, 3]
+```
+
+#### Rules
+
+* `T[N]` implicitly converts to `T[]`.
+* `T[]` does not implicitly convert to `T[N]`.
+* `T[N]` converts to `T[M]` only when `N` and `M` are the same length.
+* Fixed-length inference is conservative and applies only when the element count
+  is directly available from the collection expression.
 
 ### Tuples
 
@@ -98,11 +106,12 @@ length could be proven by a more advanced analysis.
 
 ### Function types
 
-Function types provide a delegate-like type literal. The syntax mirrors a function
-signature: write parameter types, then `->`, then the return type. A single
-parameter may omit its parentheses, while zero parameters
-use the empty tuple `()`.
-Function type signatures are arrow-only and do not use the `func` keyword.
+Function types are delegate-like type literals written with arrow syntax.
+
+#### Concept
+
+Write parameter types, then `->`, then the return type. A single parameter may
+omit parentheses; zero parameters use `()`.
 
 ```raven
 val logger: string -> unit
@@ -118,49 +127,44 @@ func do(op: (int, int) -> int) -> int {
 }
 ```
 
-The compiler resolves a function type to an existing delegate declaration when a
-matching signature is available. This includes the .NET `Func<>`/`Action<>`
-families as well as user-defined delegates. When no suitable delegate exists,
-the compiler synthesizes an internal delegate whose parameter and return types
-match the function type literal. These synthesized delegates participate in
-metadata emission so that consumers written in C# or other .NET languages can
-invoke them normally.
+#### Rules
 
-In expression position, unnamed function expressions may use `func (...) => ...`,
-`func (...) { ... }`, or shorthand `(...) => ...` / `x => ...`. Function expressions
-also allow modifier forms before `func`: `async func`, `static func`, and
-`static async func`. Static function expressions cannot capture enclosing locals
-or parameters. The shorthand form is primarily for ergonomic higher-order call sites;
-it does not change the resulting function value.
-
-Nested arrows associate to the right: `int -> string -> bool` means a delegate
-that accepts an `int` and returns another delegate of type `string -> bool`.
-Return types may be any Raven type, including unions. Function types themselves
-may appear anywhere a normal type is expected—alias declarations, parameter
-annotations, local bindings, generics, and so on.
+* Function type syntax is arrow-only and does not use the `func` keyword.
+* Nested arrows associate to the right: `int -> string -> bool` means
+  `int -> (string -> bool)`.
+* Function types may appear anywhere a normal type annotation is allowed.
+* The compiler binds a function type to an existing compatible delegate when one
+  exists, including `Func<>`, `Action<>`, and user-defined delegates.
+* If no compatible delegate exists, the compiler synthesizes one with the same
+  signature.
 
 ### Nullable values
 
-Appending `?` creates a nullable type. Raven does not assume reference types are
-nullable by default; `?` is required to permit `null`, just as it is for value
-types. Value types are emitted as
-`System.Nullable<T>` while reference types use C#'s nullable metadata. Nullable
-types are distinct from their non-nullable counterparts for purposes of type
-identity and overload resolution. The compiler treats `T?` as accepting both
-`T` and `null`, while plain `T` rejects `null` unless the target is widened to a
-nullable form (for example, when joining flow branches into a union). Nullable
-value types lift member access through the underlying `Nullable<T>` API; nullable
-reference types retain the same runtime representation as their non-nullable
-form but influence static flow analysis and conversion rules.
+Appending `?` creates a nullable type. Raven does not treat reference types as
+nullable by default.
 
-In nullable modeling, `T?` is canonical.
+#### Concept
 
-Raven also supports postfix `expr!` as a narrow nullable escape hatch. It
-suppresses nullable checking for that single expression and produces the
-underlying non-nullable type. This is primarily intended for interop boundaries
-or other cases where an external API is known to be non-null despite exposing a
-nullable type. It does not relax Raven's strict nullability rules elsewhere.
-Using `!` reports warning `RAV0403`.
+* `T?` accepts both `T` and `null`.
+* Plain `T` rejects `null`.
+* Nullable value types are emitted as `System.Nullable<T>`.
+* Nullable reference types use nullable-reference metadata while keeping the
+  same runtime representation as `T`.
+
+#### Example
+
+```raven
+val name: string? = null
+val count: int? = 1
+```
+
+#### Rules
+
+* Nullable and non-nullable forms are distinct for type identity and overload
+  resolution.
+* `T?` is the canonical nullable form in Raven.
+* Postfix `expr!` suppresses nullable checking for a single expression and
+  reports warning `RAV0403`.
 
 #### Strict null checks and flow narrowing
 
@@ -423,10 +427,3 @@ val parsed = int.Parse("42") // string literal selects the overload taking strin
 
 Overload ranking follows the normal conversion ladder for the argument and
 parameter types in each candidate signature.
-
-## Open issues and suggested follow-ups
-
-- **Distribution of `System.Unit`.** Each compiled assembly currently defines its
-  own `System.Unit` type. To simplify interop, consider shipping a shared
-  reference assembly or mapping `unit` directly onto `System.Void` where the
-  runtime allows it.

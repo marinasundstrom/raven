@@ -1,15 +1,13 @@
-> ⚠️ This is a living document that is subject to change.
-
 # Classes, structs, and interfaces
 
-This chapter describes Raven's object-oriented constructs: declaring classes and structs, defining members, and implementing interfaces.
+This chapter defines Raven's object-oriented type declarations and member forms.
 
 ## Members (classes/structs)
 
 Raven supports classes and structs with properties, methods, constructors,
 indexers, fields, and const members. The model is property-first: `val`/`var`
 declarations in type bodies define properties by default. Explicit `field` and
-`const` declarations are available for low-level or constant storage scenarios.
+`const` declarations provide explicit storage forms when needed.
 
 Modifiers are C#-like but validated by the binder (e.g., `abstract` members
 require an `abstract` type; `override` requires a virtual base member).
@@ -33,10 +31,10 @@ class Counter(name: string) {
 }
 ```
 
-**Notes**
+**Rules**
 
 * `val`/`var` type members declare properties.
-* `field` declarations are explicit storage and are intended for low-level scenarios.
+* `field` declarations are explicit storage members.
 * `const` declarations are compile-time constants and map to CLR literal fields.
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
@@ -67,8 +65,10 @@ and `sealed`, and all members must be `static`. Instance fields, methods,
 constructors (including primary constructors), properties, events, or indexers
 are not permitted inside a static class.
 
-Use `final` alongside `override` to seal an override and prevent further overrides in derived types (`final override` in Raven,
-equivalent to C#'s `sealed override`). The compiler reports an error if `final` is applied without `override`.
+Use `final` alongside `override` to seal an override and prevent further
+overrides in derived types (`final override` in Raven, equivalent to C#'s
+`sealed override`). The compiler reports an error if `final` is applied without
+`override`.
 
 ### Field declarations (low-level storage)
 
@@ -156,7 +156,8 @@ Default accessibility depends on the declaration context:
   interface, in which case they are implicitly `public`.
 * Member declarations (fields, methods, properties, indexers, constructors, and lifecycle blocks)
   default to `public` for classes/structs and interfaces.
-  Use `private`/`internal`/`protected` only when narrower visibility is intended.
+  Narrower visibility requires an explicit modifier such as `private`,
+  `internal`, or `protected`.
 
 Constructors and lifecycle declarations follow these rules as well.
 
@@ -164,7 +165,8 @@ Constructors and lifecycle declarations follow these rules as well.
 
 ### Initialization model
 
-Raven’s preferred object-initialization model is:
+Raven supports type-header parameters plus `init` blocks as its object
+initialization model:
 
 * a type parameter list on the class/struct header (primary-constructor parameters), plus
 * one or more `init { ... }` blocks for initialization logic.
@@ -262,12 +264,12 @@ contract, while storage is an implementation detail.
 
 #### Property kinds
 
-- `val`: publicly read-only after initialization.
-- `var`: publicly mutable after initialization.
+* `val`: publicly read-only after initialization.
+* `var`: publicly mutable after initialization.
+* Accessors may be omitted when the declaration contract fully defines the
+  intended surface.
 
-Raven treats `val`/`var` primarily as language-level state contracts, not just CLR property syntax sugar. The default ergonomic style is to rely on the declaration contract (`val`/`var`) and omit explicit accessors unless you need API-shaping control.
-
-`val` may still declare `set`/`init` accessors. A `set` accessor on `val` must
+`val` may declare `set`/`init` accessors. A `set` accessor on `val` must
 be less accessible than the getter. `init` remains compatible with public
 object-initializer assignment.
 
@@ -311,7 +313,8 @@ Accessor defaults:
 
 When a storage property declares an accessor list that omits `get`, the compiler still synthesizes the getter to preserve the `val`/`var` contract. For example, `val Status: OrderStatus { private set; }` emits a public getter and a private setter.
 For `var`, writable access is part of the public contract: explicit `set`/`init` accessors must match the property's accessibility.
-Use explicit accessor lists mainly for API-facing scenarios where that control is intentional.
+Explicit accessor lists are required when the property surface differs from the
+default `val`/`var` contract.
 
 #### Computed properties
 
@@ -367,8 +370,8 @@ Lowering is valid for private storage properties that do not require accessor
 logic. Computed properties are not lowered this way.
 
 When applied, reads/writes may lower to direct field access and accessor methods
-may be omitted from emitted metadata. This is an implementation optimization:
-source-level behavior remains property-centric.
+may be omitted from emitted metadata. Source-level behavior remains
+property-centric.
 
 ### Events
 
@@ -415,14 +418,14 @@ class Button {
 
 ### Class inheritance
 
-Classes are sealed by default. Marking a class `open` allows it to be used as a base type. This explicit opt-in keeps instantiable
-classes from being inherited accidentally—the class author must deliberately allow derivation before clients can extend it. The
-`abstract` modifier also enables inheritance: abstract classes are implicitly open and may serve as base types without the `open`
-keyword. Abstract classes cannot be instantiated directly (`RAV0611`). Raven also supports **sealed hierarchies** in the style of Kotlin and modern Java. Applying the `sealed` modifier to a class
-or record class creates a closed hierarchy whose direct subtypes are fixed at compile time. A sealed class is implicitly
-abstract — it cannot be instantiated directly; only its permitted subtypes can be. Writing `sealed abstract` is allowed but the
-`abstract` modifier is redundant and produces warning `RAV0340`. The compiler treats those subtypes as
-the exhaustive set for purposes such as pattern-matching analysis.
+Classes are sealed by default. Marking a class `open` permits inheritance.
+`abstract` classes are implicitly open and cannot be instantiated directly
+(`RAV0611`).
+
+Applying `sealed` to a class or record class creates a closed hierarchy whose
+direct subtypes are fixed at compile time. A sealed class is implicitly
+abstract and cannot be instantiated directly. Writing `sealed abstract` is
+allowed, but `abstract` is redundant and produces warning `RAV0340`.
 
 A base class is specified with a colon followed by the type name:
 
@@ -431,7 +434,9 @@ open class Parent {}
 class Child : Parent {}
 ```
 
-If the base list contains additional types after the base class, each of those entries must be an interface that the class implements. When no base class is provided, the compiler implicitly uses `object` and treats the first entry as an interface instead:
+If the base list contains additional types after the base class, each of those
+entries must be interfaces. When no base class is provided, the compiler uses
+`object` and treats the first entry as an interface instead:
 
 ```raven
 class Worker : IDisposable, ILogger {
@@ -440,15 +445,17 @@ class Worker : IDisposable, ILogger {
 }
 ```
 
-Implementations are matched by name, parameter count, and `ref`/`out` modifiers. Each successfully matched member is emitted as a
-final override so the CLR records the implementation in the type's interface map. See [Interfaces](#interfaces) for interface declaration rules and inheritance.
+Implementations are matched by name, parameter count, and `ref`/`out`
+modifiers. Each successfully matched member is emitted as a final override so
+the CLR records the implementation in the type's interface map. See
+[Interfaces](#interfaces) for interface declaration rules and inheritance.
 
 For struct-like declarations (`struct` and `record struct`), the base list is interface-only; the runtime base remains `System.ValueType`.
 
-If a derived class omits a constructor, the base class' parameterless constructor is invoked automatically. Access modifiers
-(`public`, `internal`, `protected`, `private`) apply as usual; `protected` members are accessible to derived classes. An
-instance constructor may chain to a specific base overload by adding a constructor initializer between its parameter list and
-body:
+If a derived class omits a constructor, the base class's parameterless
+constructor is invoked automatically. Access modifiers apply as usual. An
+instance constructor may chain to a specific base overload by adding a
+constructor initializer between its parameter list and body:
 
 ```raven
 open class Base { init(value: int) {} }
@@ -463,7 +470,7 @@ class Derived : Base {
 The initializer is only available on ordinary instance constructors. Static constructors report `RAV0312`, and named
 constructors continue to behave as user-defined factories without chaining.
 
-> ⚠️ **Limitation:** Only single inheritance is supported.
+Only single inheritance is supported.
 
 #### Sealed hierarchies and `permits`
 
@@ -503,9 +510,11 @@ record class Leaf : Node {}
 record class Branch : Node {}
 ```
 
-**Match exhaustiveness.** The compiler uses the sealed hierarchy's permitted subtypes for exhaustiveness analysis of
-`match` expressions. Closed branches (sealed intermediates) are checked by concrete leaf type. Open intermediates
-(non-sealed sub-hierarchies) must be covered by matching the intermediate type itself.
+**Match exhaustiveness.** The compiler uses the sealed hierarchy's permitted
+subtypes for exhaustiveness analysis of `match` expressions. Closed branches
+(sealed intermediates) are checked by concrete leaf type. Open intermediates
+(non-sealed sub-hierarchies) must be covered by matching the intermediate type
+itself.
 
 When all required coverage types are handled, the match is considered exhaustive:
 
@@ -531,14 +540,10 @@ val result = expr match {
 }
 ```
 
-**IL emission.** Sealed hierarchy base types are emitted as `abstract` (not IL `sealed`) so that the CLR allows
-subclassing by the permitted types. A `[ClosedHierarchy]` attribute is emitted on the base type carrying the permitted
-`Type[]` array for runtime reflection.
-
-> ❗ **Important:** Raven's `sealed` keyword follows Kotlin and Java's terminology rather than C#'s. In C#, `sealed`
-> means "cannot be inherited". In Raven that concept is already the default (classes are sealed by default). The `sealed`
-> modifier instead designates a hierarchy whose direct subclasses are known at compile time, and the type is implicitly
-> abstract.
+**IL emission.** Sealed hierarchy base types are emitted as `abstract` (not IL
+`sealed`) so that the CLR allows subclassing by the permitted types. A
+`[ClosedHierarchy]` attribute is emitted on the base type carrying the
+permitted `Type[]` array for runtime reflection.
 
 For guidance on choosing sealed hierarchies versus discriminated unions, see
 [Closed-shape types](language-specification.md#closed-shape-types).

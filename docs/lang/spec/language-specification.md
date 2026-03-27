@@ -1,5 +1,3 @@
-> ⚠️ This is a living document that is subject to change.
-
 # Language specification
 
 This page is the entry point to the Raven language specification. It defines
@@ -36,7 +34,8 @@ pages for the feature-specific normative text:
 * **Normative requirements** use key words such as “must”, “may”, and “should” to describe observable language behaviour.
 * Notes and tips highlight rationale, examples, or implementation remarks. They are informative rather than normative.
 * Code snippets use the `.rav` file extension and omit surrounding boilerplate unless it is essential to the rule being described.
-* When behaviour is intentionally unspecified or still under design, this specification calls it out explicitly and, where possible, links to suggested follow-up work.
+* When behaviour is intentionally unspecified or still under design, this
+  specification calls it out explicitly.
 * Callout boxes use a small, consistent emoji set:
   * `ℹ️` **Info** for factual clarification and context.
   * `⚠️` **Warning** for pitfalls or behavior likely to surprise.
@@ -229,16 +228,13 @@ return `unit`. In .NET, `unit` corresponds to `void` (see [implementation notes]
 
 ## Null and absence
 
-Raven distinguishes "nullable value" from "no meaningful result":
+Raven distinguishes nullable values from `unit`:
 
 * `T?` is the canonical way to represent nullable values.
 * `unit` (`()`) represents no meaningful result (`void`-like), not nullability.
-* `Option<T>` is the recommended way to model absence in APIs and business
-  logic. Nullable forms (`T?`) are primarily for nullability and
-  .NET interop boundaries.
-* `Option<T>` supports implicit interop conversions with nullable forms
-  (`Option<T> <-> T?`) so domain models can stay option-based while external
-  .NET boundaries remain nullable-friendly.
+
+Carrier types such as `Option<T>` and `Result<T, E>` are described in the
+carrier sections of this specification rather than as part of nullability.
 
 ## Statements
 
@@ -320,11 +316,13 @@ func Save() -> Result<(), Error> {
 }
 ```
 
-Also works for member-binding: `.Ok`
+The target-typed member form `.Ok` is also valid when the target type is known.
 
 This rule applies uniformly to **all** discriminated unions, not only `Result` or `Option`. The case must declare exactly one constructor parameter whose type is `unit`; cases with additional parameters or non-`unit` payloads still require an explicit argument list.
 
-This mirrors the existing pattern-matching rule where a bare case such as `.Ok` matches `.Ok(())` when the payload is `unit`, ensuring consistency between expression construction and pattern matching.
+This mirrors the pattern-matching rule where a bare case such as `Ok` matches
+`Ok(())` when the payload is `unit`, with `.Ok` remaining available as the
+target-typed shorthand.
 
 ### Type inference
 
@@ -520,328 +518,193 @@ the `await` with the result of ` GetResult()`.
 
 ### Try expressions
 
-`try expression` evaluates its operand and captures either the resulting value
-or an exception into a `System.Result<T, System.Exception>`. The operand must be
-any expression that is valid in the current context. The compiler assigns the
-`try` expression the `Result` type whose `T` is the operand type (or `unit` when
-the operand produces no value), enabling pattern matching on successful results
-versus failures. Nested `try` expressions are disallowed and produce `RAV1906`.
+`try` captures exceptions as values. `try?` combines capture with carrier
+propagation.
 
-`try? expression` combines `try` with the propagation operator and is sugar for
-`(try expression)?`. It evaluates the operand into a `Result<T, Exception>` and
-then propagates errors to the enclosing `Result`/`Option` return type, producing
-the success payload as the expression value. A trailing `match` is not permitted
-after `try?`; use `try expression` when matching is required. The compiler
-reports `RAV1908` if a `match` suffix follows a `try?` expression.
+| Form | Result type | Success case | Failure case |
+| --- | --- | --- | --- |
+| `try expr` | `Result<T, Exception>` | `.Ok(value)` or `.Ok(())` | `.Error(exception)` |
+| `try? expr` | `T` inside an enclosing carrier-returning context | yields the success payload | propagates the captured error through the enclosing `Result`/`Option` |
 
-Execution enters a `try`/`catch` block that stores the operand’s value in a
-temporary. If evaluation completes without throwing, the temporary value is
-wrapped in `Ok(...)` and becomes the expression’s final value. If evaluation
-throws an exception, the runtime catches the `System.Exception` instance and
-wraps it in `Error(...)` instead. When the operand’s value type is `unit`, the
-success case is still `Ok(())`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1565-L1595】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3672-L3759】
+#### Concept
 
-When matching, a bare case like `Ok` is sugar for `Ok(())` if the case carries
-a single payload. This makes unit-typed results concise to handle.
+`try expr` evaluates `expr` exactly once and converts the outcome to
+`Result<T, Exception>`, where `T` is the operand type. If the operand has type
+`unit`, the success case is `Ok(())`.
 
-`await` may appear inside a `try` expression when used in an async method or
-lambda. The awaited result still flows to the success case, and exceptions
-propagate to the `Result`'s error case without altering the `try` expression's
-shape. 【F:test/Raven.CodeAnalysis.Tests/Semantics/ExceptionHandlingTests.cs†L89-L123】
+`try? expr` is shorthand for `(try expr)?`. It is valid only when the enclosing
+function or lambda returns a compatible `Result<_, _>` or `Option<_>`.
 
-#### Examples
-
-The `try` keyword produces a `Result<T, Exception>` value that can be consumed with `match` or `is` patterns.
-
-##### Matching success vs failure
+#### Example
 
 ```raven
 import System.*
-import System.Console.*
 
-func ParseInt(text: string) -> string {
+func describeNumber(text: string) -> string {
     return try int.Parse(text) match {
         Ok(val value) => "Parsed: $value"
         Error(FormatException ex) => "Invalid format: ${ex.Message}"
-        Error(_) => "Unknown error"
+        Error(_) => "Unexpected failure"
     }
 }
 
-WriteLine(ParseInt("123"))
-WriteLine(ParseInt("foo"))
-```
-
-##### Propagating with `try?`
-
-```raven
-func ParseInt(text: string) -> Result<int, string> {
+func parseRequiredInt(text: string) -> Result<int, Exception> {
     val value = try? int.Parse(text)
-    return Ok(value)
+    return .Ok(value)
 }
-```
 
-##### `try` expression returning `unit`
-
-When the operand produces no value, the success case is `Ok(())`. A bare `Ok`
-arm is sugar for `Ok(())`. Also works for member binding `.Ok`
-
-```raven
-import System.*
-import System.Console.*
-
-func SaveFile(path: string, text: string) -> string {
+func saveText(path: string, text: string) -> string {
     return try System.IO.File.WriteAllText(path, text) match {
-        Ok => "Saved!"
+        Ok => "Saved"
         Error(UnauthorizedAccessException ex) => "Access denied: ${ex.Message}"
         Error(IOException ex) => "I/O error: ${ex.Message}"
-        Error(_) => "Unknown error"
-    }
-}
-
-WriteLine(SaveFile("out.txt", "Hello"))
-```
-
-##### Using `try` with `await`
-
-```raven
-import System.*
-import System.Console.*
-import System.Net.Http.*
-
-func Download(url: string) -> string {
-    val http = HttpClient()
-
-    return try await http.GetStringAsync(url) match {
-        Ok(val text) => text
-        Error(HttpRequestException ex) => "Network error: ${ex.Message}"
-        Error(_) => "Unknown error"
+        Error(_) => "Unexpected failure"
     }
 }
 ```
 
-##### Handling Result values with `is` patterns
+#### Rules
 
-### Result and Option propagation (`?`)
+* The operand may be any expression that is valid in the current context.
+* `try expr` does not accept `catch` or `finally` clauses; use statement-form
+  `try` for structured exception handling.
+* Nested `try` expressions are invalid and produce `RAV1906`.
+* A trailing `match` after `try?` is invalid and produces `RAV1908`.
+* `await` may appear inside `try expr` when the enclosing context is async.
+* In pattern position, `Ok` is shorthand for `Ok(())` when the success payload
+  is `unit`; `.Ok` remains available as the target-typed shorthand.
 
-The postfix `?` operator unwraps a `Result<T, E>` or `Option<T>` value by extracting its success payload (`T`) or short-circuiting the current function by returning the error/none case.
+### Result and Option carrier operators
 
-`expr?` is only valid inside a function or lambda whose return type matches the propagated shape:
+`Result<T, E>` and `Option<T>` share the same carrier terminology throughout the
+spec: `?` unwraps or propagates, and `?.` conditionally maps over the success
+case.
 
-* For `Result`: the operand expression must have type `Result<T, E>`, and the enclosing return type must be `Result<_, _>`. When the operand evaluates to `.Ok(value)`, the propagation expression yields `value`. When the operand evaluates to `.Error(error)`, the propagation expression performs an early return of `.Error(error)` from the enclosing function.
-* For `Option`: the operand expression must have type `Option<T>`, and the enclosing return type must be `Option<_>`. When the operand evaluates to `.Some(value)`, the propagation expression yields `value`. When the operand evaluates to `.None`, the propagation expression performs an early return of `.None` from the enclosing function.
+| Form | Receiver | Result | Empty or error case |
+| --- | --- | --- | --- |
+| `expr?` | `Result<T, E>` | `T` | propagates `.Error(error)` |
+| `expr?` | `Option<T>` | `T` | propagates `.None` |
+| `expr?.Member` | `Result<T, E>` | `Result<U, E>` | preserves `.Error(error)` |
+| `expr?.Member` | `Option<T>` | `Option<U>` | preserves `.None` |
 
-The `?` operator is **not** a general control-flow expression: it does not permit `return` statements inside `match` arms. Instead, propagation introduces an implicit control-flow split that is lowered as branching when emitting code.
+#### Propagation (`?`)
 
-Propagation is context-sensitive with conditional access. In postfix position:
+##### Concept
 
-* `expr?.Member`, `expr?(...)`, and `expr?[...]` form conditional access and do not perform Result propagation.
-* `expr?` with no following trailer performs Result propagation.
+The postfix `?` operator unwraps a carrier value and propagates the non-success
+case to the nearest enclosing carrier-returning function or lambda.
 
-#### Examples
-
-##### Unwrapping a Result
+##### Example
 
 ```raven
-func ReadValue() -> Result<int, Exception> {
-    val value = ParseInt("123")?
-    return Ok(value)
-}
-```
-
-##### Propagating errors from chained calls
-
-```raven
-func LoadAndParse(path: string) -> Result<int, Exception> {
+func loadAndParse(path: string) -> Result<int, Exception> {
     val text = ReadAllText(path)?
     val value = ParseInt(text)?
-    return Ok(value)
-}
-```
-
-##### Propagating into a different error type with an extension implicit converter
-
-```raven
-class ParserError { }
-class DomainError { }
-
-extension ErrorConverters for ParserError {
-    static func implicit(value: ParserError) -> DomainError {
-        return DomainError()
-    }
+    return .Ok(value)
 }
 
-func Parse(text: string) -> Result<int, ParserError> {
-    return Error(ParserError())
-}
-
-func Execute(text: string) -> Result<int, DomainError> {
-    val value = Parse(text)?
-    return Ok(value)
-}
-```
-
-When propagation uses a user-defined implicit conversion on the error channel,
-the compiler reports informational diagnostic `RAV1506` (at `?`, or at `?.` for
-direct-return carrier conditional access).
-
-##### Unwrapping Option values
-
-```raven
-func GetEven(values: int[]) -> Option<int> {
+func firstEven(values: int[]) -> Option<int> {
     val value = FindFirstEven(values)?
-    return Some(value)
+    return .Some(value)
 }
 ```
 
-##### Using propagation in larger expressions
+##### Rules
 
-Propagation may appear inside larger expressions. The compiler evaluates the operand exactly once and introduces temporaries as needed.
+* For `Result<T, E>`, `.Ok(value)` yields `value` and `.Error(error)`
+  immediately returns `.Error(error)` from the enclosing context.
+* For `Option<T>`, `.Some(value)` yields `value` and `.None` immediately returns
+  `.None` from the enclosing context.
+* `expr?` is valid only when the enclosing function or lambda returns a
+  compatible `Result<_, _>` or `Option<_>`.
+* The operand is evaluated exactly once; the compiler may introduce temporaries
+  to preserve that rule.
+* `expr?` performs propagation only when `?` is not followed by a trailer. In
+  postfix position, `expr?.Member`, `expr?(...)`, and `expr?[...]` are parsed as
+  conditional-access forms instead.
 
-```raven
-func Describe(text: string) -> Result<string, Exception> {
-    return Ok("Value: ${ParseInt(text)?}")
-}
-```
+If propagation relies on a user-defined implicit conversion on the error
+channel, the compiler reports informational diagnostic `RAV1506`.
 
-```raven
-import System.*
-import System.Console.*
+#### Conditional member access (`?.`)
 
-func Describe(text: string) -> string {
-    val result = try int.Parse(text)
+##### Concept
 
-    if result is Ok(val value) {
-        return "Ok: $value"
-    }
+Carrier conditional access maps a member access over the success case of a
+carrier without unwrapping the carrier itself.
 
-    if result is Error(FormatException ex) {
-        return "Format invalid: ${ex.Message}"
-    }
-
-    return "Other error"
-}
-
-WriteLine(Describe("10"))
-WriteLine(Describe("abc"))
-```
-
-### Nullable suppression (`!`)
-
-The postfix `!` operator suppresses nullable checking for a single expression and
-produces its underlying non-nullable type.
-
-* For nullable references, `expr!` changes the static type from `T?` to `T`
-  without adding a runtime null check.
-* For nullable value types, `expr!` unwraps `T?` to `T` using the underlying
-  nullable-value access path.
-
-This operator is intended as a narrow escape hatch for interop boundaries and
-other cases where the programmer has stronger nullability knowledge than the
-type exposed by an API. It does not relax Raven's strict nullability rules for
-other expressions. Using `!` reports warning `RAV0403` to make the escape hatch
-visible in source and build output.
-
-Examples:
+##### Example
 
 ```raven
-func ReadName(service: ExternalService) -> int {
-    val name = service.TryGetName()!
-    return name.Length
-}
-```
+record class User(Name: string, Item: Option<Item>)
+record class Item(Name: string)
 
-```raven
-func Increment(value: int?) -> int {
-    val required = value!
-    return required + 1
-}
-```
-
-### Carrier conditional access for `Result` and `Option`
-
-Raven supports *carrier-aware* conditional member access using `?.` for `Result<T, E>` and `Option<T>`.
-
-This is distinct from ordinary conditional access:
-
-* For nullable/reference conditional access, `?.`, `?[...]`, and `?(...)` behave as conditional access on the underlying value (when supported).
-* For **carrier types** (`Result` / `Option`), **only** the member form `?.Member` is supported.
-
-  * `?[...]` and `?(...)` **do not** apply to `Result` or `Option` and are not lifted.
-
-#### `Result<T, E>?.Member`
-
-If the receiver has type `Result<T, E>`, then `receiver?.Member` is evaluated as:
-
-* If `receiver` is `Ok(payload)`: evaluate `payload.Member` and wrap the result back into `Result<…, E>`.
-* If `receiver` is `Error(error)`: do **not** evaluate `Member`; the result is `Error(error)`.
-
-In other words, `?.` maps over `Ok` while preserving the original error type `E`.
-
-#### `Option<T>?.Member`
-
-If the receiver has type `Option<T>`, then `receiver?.Member` is evaluated as:
-
-* If `receiver` is `Some(payload)`: evaluate `payload.Member` and wrap the result back into `Option<…>`.
-* If `receiver` is `None`: do **not** evaluate `Member`; the result is `None`.
-
-In other words, `?.` maps over `Some` while preserving `None`.
-
-#### Interaction with the propagation operator `?`
-
-The postfix propagation operator `?` unwraps a carrier value and propagates the “empty/error” case to the nearest enclosing carrier-returning context.
-
-This allows chaining carrier-aware `?.` and then unwrapping at the end:
-
-```raven
-func f() -> Result<int, Err> {
-    // GetUser() : Result<User, Err>
-    // ?.Name   : Result<string, Err>
-    // ?.Length : Result<int, Err>
-    // trailing ? unwraps Result<int, Err> -> int and propagates Error
-    val len = GetUser()?.Name?.Length?
-
-    return Ok(len + 1)
-}
-
-func GetUser() -> Result<User, Err> {
-    return Error(Err.MissingUser)
-}
-
-record class User(Name: string)
-
-union Err {
+union LookupError {
     MissingUser
-    MissingName
+    MissingItem
 }
 
-```
+func getUser() -> Result<User, LookupError> {
+    return .Error(.MissingUser)
+}
 
-Example where the payload itself is an `Option`:
+func userNameLength() -> Result<int, LookupError> {
+    val length = getUser()?.Name?.Length?
+    return .Ok(length)
+}
 
-```raven
-func GetItem() -> Result<string, Err> {
-    // GetUser() : Result<User, Err>
-    // ?.Item    : Result<Option<Item>, Err>
-    // trailing ? unwraps the Result and propagates Error, leaving Option<Item>
-    val maybeItem = GetUser()?.Item?
+func selectedItemName() -> Result<string, LookupError> {
+    val maybeItem = getUser()?.Item?
 
     return maybeItem match {
-        Some(val item) => Ok(item.Name)
-        None           => Error(Err.MissingName)
+        .Some(val item) => .Ok(item.Name)
+        .None => .Error(.MissingItem)
     }
 }
-
-record class Item(Name: string)
 ```
 
-#### Not supported for carriers
+##### Rules
 
-For `Result` and `Option`, the following conditional forms are not lifted and are therefore not supported:
+* For `Result<T, E>`, `expr?.Member` evaluates `Member` only when `expr` is
+  `.Ok(payload)` and returns `Result<U, E>`.
+* For `Option<T>`, `expr?.Member` evaluates `Member` only when `expr` is
+  `.Some(payload)` and returns `Option<U>`.
+* The member-access form is the only lifted carrier conditional-access form.
+* `expr?[index]` and `expr?(args)` are not lifted for `Result` or `Option`.
+* If indexing or invocation is required, unwrap first with `?`, pattern
+  matching, or an explicit helper API.
 
-* `receiver?[index]`
-* `receiver?(args)`
+#### End-to-end example
 
-If you need indexing or invocation, unwrap first (with `?`, `UnwrapOrDefault`, or pattern matching), then apply indexing/invocation on the unwrapped value.
+The following example shows `try`, propagation, and carrier conditional access
+working together:
+
+```raven
+record class User(Name: string)
+
+union LookupError {
+    Io(message: string)
+    InvalidUser
+}
+
+func readNameLength(path: string) -> Result<int, LookupError> {
+    val text = try System.IO.File.ReadAllText(path) match {
+        .Ok(val content) => .Ok(content)
+        .Error(val ex) => .Error(.Io(ex.Message))
+    }?
+
+    val length = parseUser(text)?.Name?.Length?
+    return .Ok(length)
+}
+
+func parseUser(text: string) -> Result<User, LookupError> {
+    if text == "" {
+        return .Error(.InvalidUser)
+    }
+
+    return .Ok(User(text))
+}
+```
 
 ### Standard carrier helper APIs (Raven.Core)
 
@@ -1444,13 +1307,11 @@ Content entries use one of the following binding rules:
 * **Content property convention** — If the initialized type has an accessible, settable instance property named `Content`, Raven treats the first content entry as an assignment to that property (as if it were written `Content = <expr>`). When this convention applies, at most one content entry is permitted.
 * **Add method convention** — Otherwise, each content entry is forwarded to the initialized instance by binding it as an `Add(<expr>)` call during lowering. The `Add` method must be an accessible instance method that takes exactly one parameter whose type is compatible with the content entry expression.
 
-If more than one content entry is provided for a type that uses the Content property convention, the compiler reports `RAV1505`.
+If more than one content entry is provided for a type that uses the Content
+property convention, the compiler reports `RAV1505`.
 
 
 > 🧭 **Disambiguation:** The grammar permits an initializer trailer after any invocation, but a `{` that starts a new statement (for example in statement headers such as `if`/`while`/`for`, or after a newline) begins a block statement/body and is not parsed as an object initializer trailer. This is a context-sensitive parsing rule.
-
-> ℹ️ **Info:** The Content property convention is intended to support DSL-style UI composition (for example SwiftUI/Flutter-like syntax). Container types that accept multiple children should expose a collection-like API (for example `Add(TChild)` or a `Children` collection) instead of `Content`.
-
 
 #### Required members and init semantics
 
@@ -1535,7 +1396,8 @@ The receiver expression is evaluated exactly once. Each assignment expression is
 
 Assignments in a with initializer must target writable instance fields or properties. `init` accessors are permitted because with initializers are treated as initializer contexts (matching object initializer semantics).
 
-With expressions are the preferred way to update record values, producing a new record instance while preserving the original:
+With expressions update record values by producing a new record instance while
+preserving the original:
 
 ```raven
 record Point(X: int, Y: int)
@@ -1559,23 +1421,29 @@ If none of these conventions apply, the compiler reports `RAV0240` to indicate t
 ### Extensions (Traits)
 
 Extensions provide helper members for an existing receiver type without
-modifying the original declaration. The `extension` keyword declares a
-namespace-scoped container that targets a specific type via a `for` clause.
-Importing the container (for example, `import MyApp.StringExt.*`) brings its
-members into scope for lookup.
+modifying the original declaration. The `extension` and `trait` keywords declare
+the same construct.
 
+An extension declaration is a namespace-scoped container that targets a
+specific type via a `for` clause. Importing the container brings its members
+into scope for lookup.
 
-Extensions may be declared using either the `extension` keyword or the `trait` keyword. Both forms declare the same construct and are semantically equivalent in the current version of Raven; the choice of keyword is intended to communicate author intent. The `trait` keyword emphasizes behavioral composition, while `extension` emphasizes convenience and interoperability.
+An extension or trait declaration may omit its identifier, in which case the
+compiler synthesizes a private, mangled container name. Public extensions or
+traits must declare an explicit identifier so the container can be referenced
+and imported by name. Applying `filescope` keeps the declaration file-local and
+mangles the emitted metadata name even when the source uses an explicit
+identifier.
 
-An extension/trait declaration may omit its identifier, in which case the compiler synthesizes a private, mangled name for the generated container type. **Public** extensions/traits (those intended to be consumed across assemblies) must declare an explicit identifier so the container can be referenced and imported by name. Unnamed extensions are intended for internal, assembly-local augmentation. Applying `filescope` likewise keeps the declaration file-local and mangles the emitted container metadata name even when the source declaration uses an explicit identifier.
-
-
-Extensions and traits may declare type parameters and generic constraints (`where` clauses). These constraints participate in extension resolution: an extension is considered applicable only when its type parameters can be inferred and all declared constraints are satisfied for the receiver type. Extensions whose constraints are not met are ignored during member lookup.
+Extensions and traits may declare type parameters and generic constraints.
+These constraints participate in extension resolution: an extension is
+applicable only when its type parameters can be inferred and all declared
+constraints are satisfied for the receiver type. Extensions whose constraints
+are not met are ignored during member lookup.
 
 Examples:
 
 ```raven
-// Named extension: can be imported and referenced by name.
 extension StringExt for string {
     func ToSlug() -> string => self.Trim().ToLowerInvariant().Replace(" ", "-")
 }
@@ -1585,13 +1453,10 @@ val slug = " Hello World ".ToSlug()
 ```
 
 ```raven
-// Unnamed extension: identifier omitted; the compiler synthesizes a mangled container name.
-// Intended for internal / assembly-local augmentation (and cannot be imported by name).
 extension for string {
     func IsNullOrWhiteSpace() -> bool => self.Trim().Length == 0
 }
 
-// In the same compilation unit where it is visible:
 val empty = "   ".IsNullOrWhiteSpace()
 ```
 
@@ -1637,8 +1502,6 @@ import MyApp.ListStatics.*
 val empty = List<int>.Empty()
 val cap = List<int>.DefaultCapacity
 ```
-
-> ℹ️ **Info:** Extensions are trait-like: they group behavior that is treated as part of the target type for member lookup and overload resolution, without introducing storage or inheritance. In the current version of Raven, extensions and traits are applied implicitly based on scope. The design is still evolving, and future versions may introduce explicitly applied traits.
 
 Each member inside the body is implicitly an extension member for the receiver
 type. Members may be function declarations or computed properties. The compiler
@@ -2449,10 +2312,6 @@ When the scrutinee type is open-ended (for example, `object` or another
 extensible base type), exhaustiveness generally cannot be proven without a
 discard arm, or type pattern for type `object`.
 
-Patterns let you inspect values using concise, algebraic syntax. They appear in
-`is` predicates and in `match` expressions and participate in Raven’s
-flow-sensitive type analysis.
-
 ### `match` forms
 
 Raven supports both expression and statement-position `match` syntax:
@@ -2565,7 +2424,7 @@ These accept Raven’s full pattern vocabulary:
 
 These contexts may use comparison/range/property/member/nominal-deconstruction
 patterns, boolean pattern combinators, and optional whole-pattern designations
-where the specific construct permits them.
+where the specific construct allows them.
 
 **Deconstruction contexts**
 
@@ -2580,7 +2439,7 @@ These accept the deconstruction subset:
 Deconstruction contexts are extraction-oriented. They support positional and
 sequence decomposition, nested positional/sequence composition, discards,
 typed designations, mutability/binding shorthands, and explicit value checks
-that are part of those deconstruction forms. They do **not** currently use the
+that are part of those deconstruction forms. They do **not** use the
 full general matching surface as assignment targets. In particular, property
 patterns, nominal/member/case-pattern heads, comparison-only top-level
 patterns, and other pure match-only forms are not assignment/declaration heads.
@@ -2629,10 +2488,10 @@ patterns, and other pure match-only forms are not assignment/declaration heads.
 
   For example:
 
-  * `.Ok(42)` matches the literal value `42`.
-  * `.Ok(discountedProduct)` matches the runtime value of the in-scope symbol
+  * `Ok(42)` matches the literal value `42`.
+  * `Ok(discountedProduct)` matches the runtime value of the in-scope symbol
     `discountedProduct`.
-  * `.Ok(val n)` binds the payload to a new immutable local `n`.
+  * `Ok(val n)` binds the payload to a new immutable local `n`.
 
   The same rule applies uniformly in positional patterns and discriminated-union case
   payloads.
@@ -2930,12 +2789,15 @@ Rules:
 #### Union case patterns
 
 Body-form unions synthesize named case types, and those cases may be matched
-using three equivalent forms:
+using three equivalent forms. The unqualified case form is the default pattern
+syntax; the qualified and target-typed forms are alternatives for disambiguation
+or stylistic clarity:
 
-* `.Case(...)` — target-typed/member form.
+* `Case(...)` or `Case` — unqualified case pattern. This is the default form
+  when the case name is unambiguous for the scrutinee's union case set.
 * `Union.Case(...)` — explicitly qualified union-member form.
-* `Case(...)` or `Case` — unqualified form, allowed when the case name is
-  unambiguous for the scrutinee’s union case set.
+* `.Case(...)` — target-typed/member shorthand when the scrutinee determines the
+  union.
 
 For a case carrying a single `unit` payload, a bare `Case` pattern is sugar for
 `Case(())`.
@@ -3082,8 +2944,7 @@ The outermost undeclared namespace is the **global namespace**.
 ## Enum declarations
 
 An `enum` declaration defines a set of **named constants** backed by an integral
-underlying type. Enums model simple symbolic values and are primarily intended
-for interoperability and compatibility with existing .NET APIs.
+underlying type. Enums model symbolic values and preserve CLR enum semantics.
 
 ```raven
 enum Color {
@@ -3093,14 +2954,9 @@ enum Color {
 }
 ```
 
-> ℹ️ **Design Note:** Enums in Raven represent *named constants only*. They do **not** support
-> attaching additional data to individual members, and they are treated as
-> **non-exhaustive** in pattern matching. This reflects their CLR representation
-> and preserves compatibility with existing .NET libraries.
->
-> Because enum values are not closed over time (new values may appear via casts,
-> interop, or future versions), `match` expressions over enums are not required
-> to be exhaustive, and the compiler does not enforce completeness.
+Enums represent named constants only. They do not support associated payloads
+or per-member structure. `match` expressions over enums are not required to be
+exhaustive, and the compiler does not enforce completeness.
 
 ### Underlying type
 
@@ -3172,8 +3028,8 @@ Discriminated unions provide:
 * strongly typed payloads attached to each case, and
 * safer evolution as new cases are added.
 
-Enums remain appropriate for simple symbolic values, flags, and interop
-scenarios where CLR compatibility is required.
+Enums remain appropriate for simple symbolic values, flags, and CLR-compatible
+APIs.
 
 ### Runtime representation
 
@@ -4023,9 +3879,9 @@ Not currently supported as deconstruction heads:
 * range heads such as `1..10`
 * boolean-combinator heads such as `p1 and p2`, `not p`
 
-For element type matching + capture, Raven accepts both:
+For element type matching and capture, Raven accepts both:
 
-* `val name: Type` (preferred Raven style)
+* `val name: Type`
 * `Type name` (type-pattern style)
 
 ```raven
@@ -4306,8 +4162,8 @@ return represents an action with no meaningful result.
 Unnamed function expressions support explicit and shorthand forms:
 `func (x: int) => x + 1`, `func (x: int) { x + 1 }`, `async func (x: int) => x + 1`,
 `static func (x: int) => x + 1`, and `(x: int) => x + 1`
-(or `x => x + 1`). The shorthand form is intended as call-site convenience,
-especially for higher-order APIs such as LINQ methods.
+(or `x => x + 1`). The shorthand form is valid anywhere the equivalent explicit
+function expression is valid.
 
 Function expressions may optionally declare a local identifier:
 `func Fib(n: int) => Fib(n - 1)`. This identifier is visible only inside the
@@ -4327,34 +4183,61 @@ default, and `null` can only flow through nullable annotations (`T?`). The same
 rules apply uniformly to reference and value types; the distinction only
 affects runtime representation, not the surface type rules.
 
-To model absence explicitly in domain logic, Raven recommends the **Option
-union** defined in `src/Raven.Core/Option.rav` (`System.Option<T>`). Use
-nullable types primarily for .NET interop surfaces.
+#### Nullable suppression (`!`)
+
+`!` suppresses nullable checking for a single expression. Use it only when the
+programmer has stronger knowledge than the exposed type.
+
+##### Concept
+
+* For nullable references, `expr!` changes the static type from `T?` to `T`
+  without inserting a runtime null check.
+* For nullable value types, `expr!` unwraps `T?` to `T`.
+
+##### Example
+
+```raven
+func ReadName(service: ExternalService) -> int {
+    val name = service.TryGetName()!
+    return name.Length
+}
+```
+
+```raven
+func Increment(value: int?) -> int {
+    val required = value!
+    return required + 1
+}
+```
+
+##### Rules
+
+* `!` affects only the annotated expression.
+* `!` does not relax nullability rules for surrounding expressions.
+* Using `!` reports warning `RAV0403`.
 
 ### Unions
 
-A union declaration defines a nominal carrier type composed of a fixed set of
-possible runtime shapes. The declared union type is the runtime carrier; member
-or case values convert into that carrier and are extracted through pattern
-matching or overloaded `TryGetValue(out CaseType)` helpers. Unions use the
-`union` keyword and support two declaration forms:
+Unions define nominal carrier types with a fixed set of cases. A union value is
+always stored as the declared carrier type, and case values convert to that
+carrier implicitly when required.
 
-> ℹ️ **Interop direction:** Raven plans to align its union metadata and
-> interop surface with the upcoming C#/.NET **Unions** concept (targeted around
-> the .NET 11 wave), while preserving Raven's own language semantics.
+For non-normative rationale and interop notes, see
+[Design notes](design-notes.md#unions-and-carrier-types).
 
-> ❗ **Important:** Declared `union` types are nominal tagged unions with
-> carrier semantics. They are not inheritance hierarchies.
+| Form | Syntax | Cases | Typical pattern form |
+| --- | --- | --- | --- |
+| Parenthesized | `union Payment(Cash, Card)` | existing member types | `Cash(...)`, `Card(...)` |
+| Body form | `union LookupResult { Found(id: int) Missing }` | synthesized case types | `Found(...)`, `Missing` |
 
-The two declaration forms are:
+#### Parenthesized unions
 
-* **Parenthesized form**: declares a union carrier over existing member types.
-* **Body form**: declares a union carrier and synthesizes named case types.
+##### Concept
 
-#### Parenthesized form
+The parenthesized form declares a carrier over existing nominal or primitive
+types. Raven does not synthesize additional case types for this form.
 
-Use the parenthesized form when the union should be defined over existing
-nominal or primitive member types:
+##### Example
 
 ```raven
 record Cash(amount: decimal)
@@ -4362,17 +4245,25 @@ record Card(last4: string)
 
 union Payment(Cash, Card)
 
-val payment = Payment(Card("4242"))
-WriteLine(payment)
+val paidInCash: Payment = Cash(12.50m)
+val paidByCard: Payment = Card("4242")
 ```
 
-The union is declared over the specified member types and does not synthesize
-additional named cases such as `Left` or `Right`.
+##### Rules
 
-#### Body form
+* Each listed member type is part of the carrier's closed case set.
+* Pattern matching uses ordinary patterns over those member types.
+* Construction occurs by constructing a listed member type and then converting it
+  to the carrier when needed.
 
-Use the body form when Raven should synthesize named case types as part of the
-union declaration:
+#### Body-form unions
+
+##### Concept
+
+The body form declares a carrier and synthesizes named case types from the case
+clauses.
+
+##### Example
 
 ```raven
 union LookupResult {
@@ -4380,83 +4271,62 @@ union LookupResult {
     Missing
 }
 
-val status = LookupResult.Found(42)
-WriteLine(status)
+val found: LookupResult = Found(42)
+val missing: LookupResult = Missing
 ```
 
-In the body form, Raven synthesizes the case/member types from the listed case
-clauses. These synthesized types behave as named case types of the union and
-are addressed through the union surface (`LookupResult.Found`,
-`LookupResult.Missing`, or the leading-dot shorthand where allowed).
+##### Rules
 
-Union cases are newline-friendly by default. A comma (or semicolon) after a
-case is optional, and when present it is treated as that case's terminator
-token in syntax.
+* Each case clause declares one synthesized case type.
+* Case references may use `Union.Case`, `.Case`, or unqualified `Case` when
+  resolution is unambiguous.
+* A comma or semicolon after a case is optional; when present it terminates that
+  case declaration.
+* Generic unions are allowed in both forms, for example
+  `union Result<T, E> { Ok(value: T) Error(error: E) }`.
 
-Enum member lists follow the declaration-list separator rule instead of the
-union-case terminator model: explicit commas and semicolons are preserved as
-separator tokens, newline-delimited boundaries are represented with
-`SyntaxKind.None` separator slots, and same-line omission recovers with missing
-comma separators. If multiple explicit separators appear in the same enum
-member list, they must use a consistent separator kind.
-
-Unions may declare type parameters (`union Result<T, E> { ... }`,
-`union Either<T1, T2>(T1, T2)`). In the body form, synthesized cases are
-first-class types whose generic shape is derived from the case payload, and can
-be referenced either via the union-member surface or with the leading-dot
-shorthand:
-
-```raven
-val token = Token.Identifier("foo")
-val other: Token = .Unknown
-```
-
-In the parenthesized form, the existing member types convert directly into the
-carrier:
-
-```raven
-val cashPayment: Payment = Cash(12.50m)
-val cardPayment: Payment = Card("4242")
-```
-
-Line-continuation details for leading-dot forms are defined in
+Line-continuation details for leading-dot case forms are defined in
 [Control flow: Line continuations](control-flow.md#line-continuations).
 
-Case types are first-class named types linked to their union case symbol. The
-language surface treats them as case members of the union (`Token.Identifier`,
-`Result.Ok`, ...), but they do not form a subtype hierarchy with the carrier
-and metadata layout does not require CLR nesting.
+#### Case construction and extraction
 
-For parenthesized unions, the member types are existing nominal or primitive
-types rather than synthesized case types. The carrier still exposes
-construction and extraction through the same carrier-based conversion model.
+##### Concept
 
-The union carrier exposes case inspection through overloaded `TryGetValue(out
-CaseType)` methods (one overload per case type). Raven does not depend on
-`TryGetCaseName` forms. Raven also permits an explicit cast from the union
-carrier to a member/case type as an escape hatch for assertion-style
-extraction:
+Case construction creates a case value first. Conversion to the carrier happens
+when the surrounding context requires the union type.
+
+##### Example
 
 ```raven
-val value: Either<int, string> = 42
-val left = (int)value
+val ok: Result<int, string> = Ok(99)
+val err = Result<int, string>.Error("boom")
+
+val outcome: Either<int, string> = 42
+val left = (int)outcome
 ```
 
-The cast succeeds only when the carrier currently contains the requested
-member/case and throws `InvalidCastException` otherwise. Pattern matching and
-`TryGetValue(out ...)` remain the preferred extraction forms.
+##### Rules
 
-If a program needs inheritance-oriented OOP modeling, it should use Raven's
-sealed hierarchy features instead of `union`.
+* `Case(...)` constructs the case value directly.
+* `Union.Case(...)` resolves the case through the union surface and constructs
+  the same case value.
+* `.Case(...)` resolves the case from the target type's union case set.
+* Unqualified `Case(...)` is valid only when case lookup is unambiguous. Normal
+  lexical lookup wins before union-case lookup.
+* `TryGetValue(out CaseType)` exposes carrier inspection for each case type.
+* An explicit cast from the carrier to a member or case type succeeds only when
+  the carrier currently holds that case; otherwise it throws
+  `InvalidCastException`.
+* Pattern matching is preferred to explicit casts for ordinary extraction.
 
 In pattern position:
 
-* Body-form unions are matched with case patterns such as `.Ok(...)`,
-  `Result.Ok(...)`, or `Ok(...)` when unambiguous for the scrutinee's union.
-* Parenthesized unions are matched with ordinary patterns over their declared
-  member types. For example, `union Payment(Cash, Card)` is matched with
-  `Cash(val amount)` and `Card(val reference)`, and `union Either<int, string>(int, string)`
-  is matched with `int value` and `string text`.
+* Body-form unions use `Case(...)` or `Case` by default when the case name is
+  unambiguous.
+* `Union.Case(...)` is available for explicit qualification.
+* `.Case(...)` remains available as target-typed shorthand when the scrutinee
+  already determines the union.
+* Parenthesized unions use ordinary patterns over their declared member types.
 
 ### Canonical case-construction forms
 
@@ -4477,11 +4347,11 @@ val r: Result<int, MyError> = .Ok(2)
 Binding model:
 
 * `Case(...)` constructs the case type value directly.
+* Unqualified `Case(...)` is allowed when case resolution is unambiguous in
+  scope; otherwise a qualified form (`Union.Case(...)`) or alias is required.
 * `Union.Case(...)` resolves `Case` from the union’s declared case set, then
   constructs the case value.
 * `.Case(...)` resolves `Case` from the target type’s union case set.
-* Unqualified `Case(...)` is allowed when case resolution is unambiguous in
-  scope; otherwise a qualified form (`Union.Case(...)`) or alias is required.
 * For an unqualified identifier in expression position, ordinary lexical lookup
   wins before union-case lookup: locals and parameters first, then visible
   instance/static members and imported symbols, then unqualified union cases.
@@ -4521,8 +4391,8 @@ members make deconstruction and positional patterns available in Raven and
 improve interoperability with other .NET languages.
 
 Pattern matching exhaustively checks every case; see
-[Pattern matching](#pattern-matching) for case-pattern forms (`.Case`,
-`Union.Case`, and unqualified `Case`) inside `match` expressions.
+[Pattern matching](#pattern-matching) for case-pattern forms (unqualified
+`Case`, `Union.Case`, and `.Case`) inside `match` expressions.
 
 ### Closed-shape types
 
@@ -4589,19 +4459,4 @@ Lowest → highest (all left-associative unless noted):
 >   **pattern** such as a positional deconstruction.
 > * `^` index expressions are parsed as an adjacent prefix form (`^expr`); whitespace between `^` and the operand is not allowed.
 > * Prefix unary `+`/`-` are also adjacent forms (`+3`, `-2`); whitespace between the operator and operand is not allowed.
-
-## Outstanding questions and suggested follow-ups
-
-The current implementation leaves a few behaviours underspecified. The following
-items capture those gaps and outline the preferred direction for addressing them:
-
-- **`if` expressions without `else` in value contexts.** The compiler currently
-  allows `val x = if cond { 1 }` even though the false branch does not yield a
-  value, which in turn produces incomplete IL. Either require an `else` branch
-  when the result is consumed or implicitly supply `()` for the missing branch.
-  Both options should be accompanied by diagnostics that guide authors toward
-  the intended usage.
-- **`await for` cancellation-token flow.** `GetAsyncEnumerator` optional
-  parameters are currently filled with default values during lowering. Add
-  first-class source syntax for cancellation propagation and pass-through.
  
