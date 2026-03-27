@@ -9,7 +9,12 @@ public class UnionDeclarationParserTests
     [Fact]
     public void UnionDeclaration_WithCases_ParsesCaseList()
     {
-        var source = "union Token { Identifier(text: string) Unknown }";
+        var source = """
+            union Token {
+                Identifier(text: string)
+                Unknown
+            }
+            """;
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 
@@ -28,6 +33,40 @@ public class UnionDeclarationParserTests
                 Assert.Equal("Unknown", second.Identifier.Text);
                 Assert.Null(second.ParameterList);
             });
+
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void UnionDeclaration_WithSemicolonSeparatedCases_ParsesCaseList()
+    {
+        var source = "union Token { Identifier(text: string); Unknown }";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
+
+        Assert.Collection(
+            declaration.CaseTypes,
+            first => Assert.Equal(SyntaxKind.SemicolonToken, first.TerminatorToken.Kind),
+            second => Assert.Equal(SyntaxKind.None, second.TerminatorToken.Kind));
+
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void UnionDeclaration_OnSameLineWithoutSeparator_ReportsDiagnostic()
+    {
+        var source = "union LookupResult { Found(id: int) Missing }";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
+        Assert.Equal(2, declaration.CaseTypes.Count);
+
+        Assert.Contains(
+            tree.GetDiagnostics(),
+            d => d.Descriptor == CompilerDiagnostics.ExpectedNewLineBetweenDeclarations);
     }
 
     [Fact]

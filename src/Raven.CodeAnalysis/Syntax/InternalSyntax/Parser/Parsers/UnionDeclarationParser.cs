@@ -247,14 +247,30 @@ internal class UnionDeclarationParser : SyntaxParser
 
     private SyntaxToken ConsumeOptionalCaseTerminator()
     {
-        var current = PeekToken();
-
-        if (current.Kind is SyntaxKind.CommaToken or SyntaxKind.SemicolonToken)
+        if (PeekToken().IsKind(SyntaxKind.CommaToken))
             return ReadToken();
 
-        if (HasLineBreakBeforePeekToken())
-            return Token(SyntaxKind.None);
+        TryConsumeTerminator(out var terminatorToken);
 
-        return Token(SyntaxKind.None);
+        var current = PeekToken();
+
+        if (terminatorToken.IsKind(SyntaxKind.SemicolonToken))
+            return terminatorToken;
+
+        if (!terminatorToken.IsKind(SyntaxKind.None))
+            return terminatorToken;
+
+        if (current.IsKind(SyntaxKind.EndOfFileToken) || current.IsKind(SyntaxKind.CloseBraceToken))
+            return terminatorToken;
+
+        if (CanTokenBeIdentifier(current) && !HasLineBreakBeforePeekToken())
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.ExpectedNewLineBetweenDeclarations,
+                    GetInsertionSpanBeforePeekedToken()));
+        }
+
+        return terminatorToken;
     }
 }
