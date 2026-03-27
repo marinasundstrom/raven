@@ -3763,7 +3763,7 @@ internal class MethodBodyGenerator
         if (currentType is null)
             return;
 
-        var currentTypeClr = ResolveClrType(currentType);
+        var currentTypeClr = Generator.InstantiateType(ResolveClrType(currentType));
         var runtimeTypeLocal = ILGenerator.DeclareLocal(typeof(Type));
         runtimeTypeLocal.SetLocalSymInfo("currentType");
         var argsLocal = ILGenerator.DeclareLocal(typeof(Type[]));
@@ -3777,7 +3777,7 @@ internal class MethodBodyGenerator
 
         ILGenerator.Emit(OpCodes.Ldarg_0);
         if (currentType.IsValueType)
-            ILGenerator.Emit(OpCodes.Constrained, currentTypeClr);
+            ILGenerator.Emit(OpCodes.Box, currentTypeClr);
         ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
         ILGenerator.Emit(OpCodes.Stloc, runtimeTypeLocal);
 

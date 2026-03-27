@@ -235,6 +235,41 @@ union Option<T> {
     }
 
     [Fact]
+    public void IdentifierInvocation_TargetTypedGenericUnionStructCase_BindsWithoutErrors()
+    {
+        const string source = """
+namespace System
+
+import System.*
+
+union struct Option<T> {
+    Some(value: T)
+    None
+}
+
+class C<T> {
+    func M(payload: T) -> Option<T> {
+        val option: Option<T> = Some(payload)
+        return option
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is IdentifierNameSyntax id && id.Identifier.ValueText == "Some");
+
+        Assert.NotNull(invocation);
+    }
+
+    [Fact]
     public void MemberAccessInvocation_OnUnconstructedCarrier_CaseArgumentsInferFromConstructor()
     {
         const string source = """

@@ -7987,7 +7987,7 @@ partial class BlockBinder : Binder
                     return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
                 }
 
-                return BindConstructorInvocation(unionCaseCallee.CaseType, syntax, receiverSyntax: syntax.Expression, receiver: null);
+                return BindInvokedUnionCaseExpression(unionCaseCallee, syntax);
             }
             else if (boundIdentifier is BoundLocalAccess or BoundParameterAccess or BoundFieldAccess or BoundPropertyAccess)
             {
@@ -8008,6 +8008,14 @@ partial class BlockBinder : Binder
                         _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
                         return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
                     }
+                }
+
+                var invocationTargetType = GetTargetType(syntax);
+                if (invocationTargetType is not null)
+                {
+                    var unwrappedTargetType = UnwrapTaskLikeTargetType(invocationTargetType);
+                    if (TryBindDiscriminatedUnionCase(unwrappedTargetType, id.Identifier.ValueText, id.Identifier.GetLocation()) is BoundUnionCaseExpression contextualUnionCase)
+                        return BindInvokedUnionCaseExpression(contextualUnionCase, syntax);
                 }
 
                 return BindConstructorInvocation(namedType, syntax, receiverSyntax: syntax.Expression, receiver: null);

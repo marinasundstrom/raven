@@ -1134,6 +1134,16 @@ partial class BlockBinder
             return BindConstructorInvocation(targetTypedInferred, boundArguments, callSyntax, receiverSyntax, receiver);
         }
 
+        // Generic union case construction can also be target-typed from the enclosing union carrier,
+        // e.g. `val option: Option<T> = Some(payload)`. That target does not match the case type
+        // directly, so regular target-typed constructor inference cannot see it.
+        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol)
+            && TryInferConstructedUnionCaseTypeFromTargetType(typeSymbol, callSyntax, out var targetTypedUnionCase)
+            && !SymbolEqualityComparer.Default.Equals(targetTypedUnionCase, typeSymbol))
+        {
+            return BindConstructorInvocation(targetTypedUnionCase, boundArguments, callSyntax, receiverSyntax, receiver);
+        }
+
         // If the generic type is still open at this point, constructor-argument inference and
         // target typing both failed to determine its type arguments. Do not allow overload
         // resolution to proceed on the open constructors, because that would incorrectly accept
@@ -1210,9 +1220,13 @@ partial class BlockBinder
         {
             for (int i = 0; i < typeArguments.Length; i++)
             {
-                if (typeArguments[i] is not ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Type })
+                if (typeArguments[i] is not ITypeParameterSymbol argumentTypeParameter)
+                    return false;
+
+                if (!AreSameTypeParameterIdentity(argumentTypeParameter, typeParameters[i]))
                     return false;
             }
+
             return true;
         }
 
@@ -1270,7 +1284,7 @@ partial class BlockBinder
             if (targetArgument is not ITypeParameterSymbol)
                 hasConcreteTargetArgument = true;
 
-            if (!SymbolEqualityComparer.Default.Equals(projected[i], currentTypeArguments[i]))
+            if (!AreEquivalentGenericInstantiationArgument(projected[i], currentTypeArguments[i]))
                 changed = true;
         }
 
@@ -1278,6 +1292,52 @@ partial class BlockBinder
             return false;
 
         inferredType = (INamedTypeSymbol)typeDefinition.Construct(projected);
+        return true;
+    }
+
+    private bool TryInferConstructedUnionCaseTypeFromTargetType(
+        INamedTypeSymbol typeSymbol,
+        SyntaxNode callSyntax,
+        out INamedTypeSymbol inferredType)
+    {
+        inferredType = typeSymbol;
+
+        if (!typeSymbol.IsGenericType || typeSymbol.TypeParameters.IsDefaultOrEmpty)
+            return false;
+
+        if (typeSymbol.TryGetUnionCase() is not { } unionCase)
+            return false;
+
+        var targetType = GetTargetType(callSyntax);
+        if (targetType is null || targetType.TypeKind == TypeKind.Error)
+            return false;
+
+        targetType = UnwrapAlias(targetType);
+        targetType = UnwrapTaskLikeTargetType(targetType);
+
+        if (targetType is not INamedTypeSymbol targetNamedType)
+            return false;
+
+        var targetUnion = targetNamedType.TryGetUnion() as INamedTypeSymbol
+            ?? targetNamedType.TryGetUnionCase()?.Union as INamedTypeSymbol;
+        var caseUnion = unionCase.Union as INamedTypeSymbol;
+
+        if (targetUnion is null || caseUnion is null)
+            return false;
+
+        var caseUnionDefinition = (caseUnion.OriginalDefinition as INamedTypeSymbol) ?? caseUnion;
+        var targetUnionDefinition = (targetUnion.OriginalDefinition as INamedTypeSymbol) ?? targetUnion;
+        if (!SymbolEqualityComparer.Default.Equals(caseUnionDefinition, targetUnionDefinition))
+            return false;
+
+        var caseDefinition = (typeSymbol.OriginalDefinition as INamedTypeSymbol) ?? typeSymbol;
+        if (ProjectCaseTypeToUnionArguments(caseDefinition, targetUnion) is not INamedTypeSymbol projectedCaseType)
+            return false;
+
+        if (AreEquivalentGenericInstantiationArgument(projectedCaseType, typeSymbol))
+            return false;
+
+        inferredType = projectedCaseType;
         return true;
     }
 
@@ -1330,7 +1390,7 @@ partial class BlockBinder
                 if (substitutions.TryGetValue(parameter, out var replacement))
                 {
                     projected[i] = replacement;
-                    if (!SymbolEqualityComparer.Default.Equals(current, replacement))
+                    if (!AreEquivalentGenericInstantiationArgument(current, replacement))
                         changed = true;
                 }
                 else
@@ -1346,7 +1406,7 @@ partial class BlockBinder
             for (var i = 0; i < projected.Length; i++)
             {
                 if (projected[i] is ITypeParameterSymbol projectedParameter &&
-                    SymbolEqualityComparer.Default.Equals(projectedParameter, typeParameters[i]))
+                    AreSameTypeParameterIdentity(projectedParameter, typeParameters[i]))
                 {
                     fullyResolved = false;
                     break;
@@ -1400,6 +1460,43 @@ partial class BlockBinder
         }
 
         return substitutions.Count > 0;
+    }
+
+    private static bool AreEquivalentGenericInstantiationArgument(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (left is ITypeParameterSymbol leftTypeParameter && right is ITypeParameterSymbol rightTypeParameter)
+            return AreSameTypeParameterIdentity(leftTypeParameter, rightTypeParameter);
+
+        return SymbolEqualityComparer.Default.Equals(left, right);
+    }
+
+    private static bool AreSameTypeParameterIdentity(ITypeParameterSymbol left, ITypeParameterSymbol right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        left = (ITypeParameterSymbol)(left.OriginalDefinition ?? left);
+        right = (ITypeParameterSymbol)(right.OriginalDefinition ?? right);
+
+        if (ReferenceEquals(left, right))
+            return true;
+
+        if (left.OwnerKind != right.OwnerKind || left.Ordinal != right.Ordinal)
+            return false;
+
+        if (!string.Equals(left.Name, right.Name, StringComparison.Ordinal))
+            return false;
+
+        if (left.OwnerKind == TypeParameterOwnerKind.Method)
+        {
+            var leftOwner = (IMethodSymbol?)(left.DeclaringMethodParameterOwner?.OriginalDefinition ?? left.DeclaringMethodParameterOwner);
+            var rightOwner = (IMethodSymbol?)(right.DeclaringMethodParameterOwner?.OriginalDefinition ?? right.DeclaringMethodParameterOwner);
+            return SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner);
+        }
+
+        var leftTypeOwner = (INamedTypeSymbol?)(left.DeclaringTypeParameterOwner?.OriginalDefinition ?? left.DeclaringTypeParameterOwner);
+        var rightTypeOwner = (INamedTypeSymbol?)(right.DeclaringTypeParameterOwner?.OriginalDefinition ?? right.DeclaringTypeParameterOwner);
+        return SymbolEqualityComparer.Default.Equals(leftTypeOwner, rightTypeOwner);
     }
 
     private bool TryUnifyConstructorParameterType(
@@ -3768,7 +3865,7 @@ partial class BlockBinder
                 out var mapped))
             {
                 projectedArguments[i] = mapped;
-                if (!SymbolEqualityComparer.Default.Equals(mapped, parameter))
+                if (!AreEquivalentGenericInstantiationArgument(mapped, parameter))
                     changed = true;
             }
             else
