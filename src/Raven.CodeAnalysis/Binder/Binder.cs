@@ -8,6 +8,41 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
+internal readonly struct BinderExtensionLookupKey : IEquatable<BinderExtensionLookupKey>
+{
+    public BinderExtensionLookupKey(string? name, ITypeSymbol receiverType, bool includePartialMatches)
+    {
+        Name = name;
+        ReceiverType = receiverType;
+        IncludePartialMatches = includePartialMatches;
+    }
+
+    public string? Name { get; }
+
+    public ITypeSymbol ReceiverType { get; }
+
+    public bool IncludePartialMatches { get; }
+
+    public bool Equals(BinderExtensionLookupKey other)
+    {
+        return string.Equals(Name, other.Name, StringComparison.Ordinal) &&
+               IncludePartialMatches == other.IncludePartialMatches &&
+               SymbolEqualityComparer.Default.Equals(ReceiverType, other.ReceiverType);
+    }
+
+    public override bool Equals(object? obj)
+        => obj is BinderExtensionLookupKey other && Equals(other);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Name, StringComparer.Ordinal);
+        hash.Add(IncludePartialMatches);
+        hash.Add(SymbolEqualityComparer.Default.GetHashCode(ReceiverType));
+        return hash.ToHashCode();
+    }
+}
+
 internal abstract partial class Binder
 {
     protected readonly DiagnosticBag _diagnostics;
