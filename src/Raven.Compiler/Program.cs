@@ -1006,16 +1006,25 @@ ImmutableArray<Diagnostic> diagnostics = requiresWorkspaceDiagnostics
 EmitResult? result = null;
 if (!noEmit)
 {
-    var pdbFilePath = Path.ChangeExtension(outputFilePath, ".pdb");
-
-    using (var stream = File.Open(outputFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
-    using (var pdbStream = File.Open(pdbFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+    if (requiresWorkspaceDiagnostics && diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
     {
-        result = compilation.Emit(stream, pdbStream);
+        result = new EmitResult(false, diagnostics);
+    }
+    else
+    {
+        var pdbFilePath = Path.ChangeExtension(outputFilePath, ".pdb");
+
+        using (var stream = File.Open(outputFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        using (var pdbStream = File.Open(pdbFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            result = requiresWorkspaceDiagnostics
+                ? compilation.Emit(stream, pdbStream, diagnostics)
+                : compilation.Emit(stream, pdbStream);
+        }
     }
 
     diagnostics = requiresWorkspaceDiagnostics
-        ? diagnostics.Concat(result!.Diagnostics).Distinct().ToImmutableArray()
+        ? result!.Diagnostics
         : result!.Diagnostics;
 }
 
