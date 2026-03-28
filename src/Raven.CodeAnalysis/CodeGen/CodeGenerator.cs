@@ -1399,7 +1399,7 @@ internal class CodeGenerator
 
     private void EnsureTopLevelAsyncLowered(CompilationUnitSyntax compilationUnit, SemanticModel semanticModel)
     {
-        var bindableGlobals = Compilation.CollectBindableGlobalStatements(compilationUnit);
+        var bindableGlobals = Compilation.GetBindableGlobalStatements(compilationUnit);
         var (_, _, asyncMain) = Compilation.GetOrCreateTopLevelProgram(
             compilationUnit,
             Compilation.SourceGlobalNamespace,

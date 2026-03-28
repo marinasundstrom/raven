@@ -1313,7 +1313,7 @@ public partial class SemanticModel
     {
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
 
-        var bindableGlobals = Compilation.CollectBindableGlobalStatements(cu);
+        var bindableGlobals = Compilation.GetBindableGlobalStatements(cu);
         var hasNonGlobalMembers = Compilation.HasNonGlobalMembers(cu);
         var hadDisabledGlobalStatements = false;
 
@@ -1421,7 +1421,7 @@ public partial class SemanticModel
                 .Select(tree => tree.GetRoot() as CompilationUnitSyntax)
                 .FirstOrDefault(root =>
                     root is not null
-                    && Compilation.CollectBindableGlobalStatements(root).Count == 0
+                    && Compilation.GetBindableGlobalStatements(root).Count == 0
                     && !Compilation.HasNonGlobalMembers(root))
                 ?.SyntaxTree;
 

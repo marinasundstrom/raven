@@ -218,7 +218,7 @@ class FunctionBinder : Binder
         if (_syntax.SyntaxTree.GetRoot() is not CompilationUnitSyntax compilationUnit)
             return null;
 
-        var bindableGlobals = Compilation.CollectBindableGlobalStatements(compilationUnit);
+        var bindableGlobals = Compilation.GetBindableGlobalStatements(compilationUnit);
         if (bindableGlobals.Count == 0)
             return null;
 

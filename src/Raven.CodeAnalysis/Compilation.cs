@@ -29,6 +29,8 @@ public partial class Compilation
     private readonly ConcurrentDictionary<Assembly, Assembly> _metadataToRuntimeAssemblyMap = new();
     private readonly ConcurrentDictionary<string, Assembly> _runtimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<SyntaxTree, SourceDiagnosticSuppressionMap> _sourceDiagnosticSuppressionMaps = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ImmutableArray<GlobalStatementSyntax>> _bindableGlobalStatementsCache = new();
+    private readonly ConcurrentDictionary<SyntaxTree, bool> _hasNonGlobalMembersCache = new();
     private static readonly ConcurrentDictionary<string, string> s_globalAssemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, Assembly> s_globalRuntimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
     private static int s_trustedPlatformAssembliesInitialized;
@@ -43,10 +45,12 @@ public partial class Compilation
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
     private readonly object _declarationGate = new();
+    private readonly object _declarationTableGate = new();
     private bool _sourceDeclarationsComplete;
     private bool _isDeclaringSourceTypes;
     private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
     private BoundNodeFactory? _boundNodeFactory;
+    private DeclarationTable? _declarationTable;
     private ErrorSymbol _errorSymbol;
     private bool isSettingUp;
     private MacroRegistry? _macroRegistry;
@@ -109,7 +113,7 @@ public partial class Compilation
 
     internal BinderFactory BinderFactory { get; private set; }
 
-    internal DeclarationTable DeclarationTable { get; private set; }
+    internal DeclarationTable DeclarationTable => _declarationTable ?? EnsureDeclarationTableCreated();
 
     internal SymbolFactory SymbolFactory { get; } = new SymbolFactory();
 
@@ -243,7 +247,6 @@ public partial class Compilation
         }
 
         BinderFactory = new BinderFactory(this);
-        DeclarationTable = new DeclarationTable(SyntaxTrees);
 
         var assemblyDeclaringSyntaxReferences = SyntaxTrees
             .Select(static tree => tree.GetRoot().GetReference())
@@ -257,6 +260,17 @@ public partial class Compilation
         _macroRegistry = MacroRegistry.Create(_macroReferences);
 
         InitializeTopLevelPrograms();
+    }
+
+    private DeclarationTable EnsureDeclarationTableCreated()
+    {
+        if (_declarationTable is not null)
+            return _declarationTable;
+
+        lock (_declarationTableGate)
+        {
+            return _declarationTable ??= new DeclarationTable(SyntaxTrees);
+        }
     }
 
     internal MacroRegistry GetMacroRegistry()
@@ -375,7 +389,7 @@ public partial class Compilation
             if (tree.GetRoot() is not CompilationUnitSyntax compilationUnit)
                 continue;
 
-            var bindableGlobals = CollectBindableGlobalStatements(compilationUnit);
+            var bindableGlobals = GetBindableGlobalStatements(compilationUnit);
             if (bindableGlobals.Count == 0)
                 continue;
 
@@ -406,7 +420,7 @@ public partial class Compilation
             if (tree.GetRoot() is not CompilationUnitSyntax compilationUnit)
                 continue;
 
-            var bindableGlobals = CollectBindableGlobalStatements(compilationUnit);
+            var bindableGlobals = GetBindableGlobalStatements(compilationUnit);
             if (bindableGlobals.Count != 0 || HasNonGlobalMembers(compilationUnit))
                 continue;
 
@@ -461,20 +475,44 @@ public partial class Compilation
         return (programClass, mainMethod, asyncImplementation);
     }
 
-    internal static List<GlobalStatementSyntax> CollectBindableGlobalStatements(CompilationUnitSyntax compilationUnit)
+    internal IReadOnlyList<GlobalStatementSyntax> GetBindableGlobalStatements(CompilationUnitSyntax compilationUnit)
     {
-        var bindableGlobals = new List<GlobalStatementSyntax>();
+        var syntaxTree = compilationUnit.SyntaxTree;
+        if (syntaxTree is null)
+            return CollectBindableGlobalStatementsCore(compilationUnit);
+
+        return _bindableGlobalStatementsCache.GetOrAdd(
+            syntaxTree,
+            static (_, root) => CollectBindableGlobalStatementsCore(root),
+            compilationUnit);
+    }
+
+    private static ImmutableArray<GlobalStatementSyntax> CollectBindableGlobalStatementsCore(CompilationUnitSyntax compilationUnit)
+    {
+        var builder = ImmutableArray.CreateBuilder<GlobalStatementSyntax>();
 
         foreach (var global in compilationUnit.DescendantNodes().OfType<GlobalStatementSyntax>())
         {
             if (global.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax)
-                bindableGlobals.Add(global);
+                builder.Add(global);
         }
 
-        return bindableGlobals;
+        return builder.ToImmutable();
     }
 
-    internal static bool HasNonGlobalMembers(CompilationUnitSyntax compilationUnit)
+    internal bool HasNonGlobalMembers(CompilationUnitSyntax compilationUnit)
+    {
+        var syntaxTree = compilationUnit.SyntaxTree;
+        if (syntaxTree is null)
+            return HasNonGlobalMembersCore(compilationUnit);
+
+        return _hasNonGlobalMembersCache.GetOrAdd(
+            syntaxTree,
+            static (_, root) => HasNonGlobalMembersCore(root),
+            compilationUnit);
+    }
+
+    private static bool HasNonGlobalMembersCore(CompilationUnitSyntax compilationUnit)
     {
         foreach (var member in compilationUnit.Members)
         {
