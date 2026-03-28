@@ -46,12 +46,7 @@ internal partial class BoundBinaryOperator
             return false;
         }
 
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var int64 = compilation.GetSpecialType(SpecialType.System_Int64);
         var nintType = compilation.GetSpecialType(SpecialType.System_IntPtr);
-        var doubleType = compilation.GetSpecialType(SpecialType.System_Double);
-        var decimalType = compilation.GetSpecialType(SpecialType.System_Decimal);
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
 
         if (TryCreatePointerArithmetic(kind, left, right, nintType, out op))
@@ -96,134 +91,8 @@ internal partial class BoundBinaryOperator
             }
         }
 
-        var candidates = new[]
-        {
-            // int arithmetic
-            new BoundBinaryOperator(BinaryOperatorKind.Addition,        intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.Subtraction,     intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.Division,        intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.Modulo,          intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor,      intType, intType, intType),
-
-            // int shifts
-            new BoundBinaryOperator(BinaryOperatorKind.ShiftLeft,       intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.ShiftRight,      intType, intType, intType),
-
-            // bool non-short-circuit operators
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      boolType, boolType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       boolType, boolType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor,      boolType, boolType, boolType),
-
-            // int (left) with long (right)
-            new BoundBinaryOperator(BinaryOperatorKind.Addition,        intType, int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Subtraction,     intType, int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  intType, int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Division,        intType, int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Modulo,          intType, int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      intType, int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       intType, int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor,      intType, int64,  int64),
-
-            // long arithmetic
-            new BoundBinaryOperator(BinaryOperatorKind.Addition,        int64,  int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Subtraction,     int64,  int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  int64,  int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Division,        int64,  int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Modulo,          int64,  int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      int64,  int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       int64,  int64,  int64),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor,      int64,  int64,  int64),
-
-            // long shifts (shift count is still int)
-            new BoundBinaryOperator(BinaryOperatorKind.ShiftLeft,       int64,  intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.ShiftRight,      int64,  intType, int64),
-
-            // long (left) with int (right)
-            new BoundBinaryOperator(BinaryOperatorKind.Addition,        int64,  intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Subtraction,     int64,  intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  int64,  intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Division,        int64,  intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Modulo,          int64,  intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      int64,  intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       int64,  intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor,      int64,  intType, int64),
-
-            // double arithmetic
-            new BoundBinaryOperator(BinaryOperatorKind.Addition,       doubleType, doubleType, doubleType),
-            new BoundBinaryOperator(BinaryOperatorKind.Subtraction,    doubleType, doubleType, doubleType),
-            new BoundBinaryOperator(BinaryOperatorKind.Multiplication, doubleType, doubleType, doubleType),
-            new BoundBinaryOperator(BinaryOperatorKind.Division,       doubleType, doubleType, doubleType),
-            new BoundBinaryOperator(BinaryOperatorKind.Modulo,         doubleType, doubleType, doubleType),
-
-            // double comparisons
-            new BoundBinaryOperator(BinaryOperatorKind.Equality,       doubleType, doubleType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.Inequality,     doubleType, doubleType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.GreaterThan,    doubleType, doubleType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.LessThan,       doubleType, doubleType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.GreaterThanOrEqual, doubleType, doubleType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.LessThanOrEqual,    doubleType, doubleType, boolType),
-
-            // decimal arithmetic
-            new BoundBinaryOperator(BinaryOperatorKind.Addition,       decimalType, decimalType, decimalType),
-            new BoundBinaryOperator(BinaryOperatorKind.Subtraction,    decimalType, decimalType, decimalType),
-            new BoundBinaryOperator(BinaryOperatorKind.Multiplication, decimalType, decimalType, decimalType),
-            new BoundBinaryOperator(BinaryOperatorKind.Division,       decimalType, decimalType, decimalType),
-            new BoundBinaryOperator(BinaryOperatorKind.Modulo,         decimalType, decimalType, decimalType),
-
-            // decimal comparisons
-            new BoundBinaryOperator(BinaryOperatorKind.Equality,       decimalType, decimalType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.Inequality,     decimalType, decimalType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.GreaterThan,    decimalType, decimalType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.LessThan,       decimalType, decimalType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.GreaterThanOrEqual, decimalType, decimalType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.LessThanOrEqual,    decimalType, decimalType, boolType),
-
-            // string
-            new BoundBinaryOperator(BinaryOperatorKind.Addition,        stringType, stringType, stringType),
-
-            // int comparisons
-            new BoundBinaryOperator(BinaryOperatorKind.Equality,        intType, intType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.Inequality,      intType, intType, boolType),
-
-            new BoundBinaryOperator(BinaryOperatorKind.GreaterThan,     intType, intType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.LessThan,        intType, intType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.GreaterThanOrEqual, intType, intType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.LessThanOrEqual, intType, intType, boolType),
-
-            // bool logical operators
-            new BoundBinaryOperator(BinaryOperatorKind.LogicalAnd,      boolType, boolType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.LogicalOr,       boolType, boolType, boolType),
-        };
-
-        // Try regular match first
-        var match = candidates.FirstOrDefault(op =>
-            MatchesSyntaxKind(kind, op.OperatorKind) &&
-            TypesMatchForBuiltInOperator(op.LeftType, left) &&
-            TypesMatchForBuiltInOperator(op.RightType, right));
-
-        if (match is not null)
-        {
-            op = match;
+        if (TryLookupPredefinedOperator(compilation, kind, left, right, boolType, out op))
             return true;
-        }
-
-        // Try C#-style binary numeric promotion, then lookup again (covers int/long with double/decimal).
-        if (TryApplyBinaryNumericPromotion(compilation, kind, left, right, out var promotedLeft, out var promotedRight))
-        {
-            var promotedMatch = candidates.FirstOrDefault(op =>
-                MatchesSyntaxKind(kind, op.OperatorKind) &&
-                TypesMatchForBuiltInOperator(op.LeftType, promotedLeft) &&
-                TypesMatchForBuiltInOperator(op.RightType, promotedRight));
-
-            if (promotedMatch is not null)
-            {
-                op = promotedMatch;
-                return true;
-            }
-        }
 
         // Reference equality/inequality (C#-style: same reference type)
         if (left.IsReferenceType &&
@@ -273,22 +142,7 @@ internal partial class BoundBinaryOperator
             var underlyingLeft = left.GetNullableUnderlyingType() ?? left;
             var underlyingRight = right.GetNullableUnderlyingType() ?? right;
 
-            BoundBinaryOperator? lifted = candidates.FirstOrDefault(op =>
-                MatchesSyntaxKind(kind, op.OperatorKind) &&
-                TypesMatchForBuiltInOperator(op.LeftType, underlyingLeft) &&
-                TypesMatchForBuiltInOperator(op.RightType, underlyingRight));
-
-            // Try promotion on underlying types, then lookup again (e.g. int? + double?)
-            if (lifted is null &&
-                TryApplyBinaryNumericPromotion(compilation, kind, underlyingLeft, underlyingRight, out var pLeft, out var pRight))
-            {
-                lifted = candidates.FirstOrDefault(op =>
-                    MatchesSyntaxKind(kind, op.OperatorKind) &&
-                    TypesMatchForBuiltInOperator(op.LeftType, pLeft) &&
-                    TypesMatchForBuiltInOperator(op.RightType, pRight));
-            }
-
-            if (lifted is not null)
+            if (TryLookup(compilation, kind, underlyingLeft, underlyingRight, out var lifted))
             {
                 var liftedKind = lifted.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
                 var resultType = liftedKind is BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality
@@ -343,6 +197,229 @@ internal partial class BoundBinaryOperator
 
         op = new BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol);
         return false;
+    }
+
+    private static bool TryLookupPredefinedOperator(
+        Compilation compilation,
+        SyntaxKind kind,
+        ITypeSymbol left,
+        ITypeSymbol right,
+        ITypeSymbol boolType,
+        out BoundBinaryOperator op)
+    {
+        if (TryLookupBooleanOperator(kind, left, right, boolType, out op))
+            return true;
+
+        if (TryLookupShiftOperator(compilation, kind, left, right, out op))
+            return true;
+
+        if (!TryApplyBinaryNumericPromotion(compilation, kind, left, right, out var promotedLeft, out var promotedRight))
+        {
+            op = default!;
+            return false;
+        }
+
+        var leftSpecialType = promotedLeft.SpecialType;
+        var rightSpecialType = promotedRight.SpecialType;
+        if (leftSpecialType == SpecialType.None || rightSpecialType == SpecialType.None || leftSpecialType != rightSpecialType)
+        {
+            op = default!;
+            return false;
+        }
+
+        switch (kind)
+        {
+            case SyntaxKind.PlusToken:
+                if (IsArithmeticNumericType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.Addition, promotedLeft, promotedRight, promotedLeft);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.MinusToken:
+                if (IsArithmeticNumericType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.Subtraction, promotedLeft, promotedRight, promotedLeft);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.StarToken:
+                if (IsArithmeticNumericType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.Multiplication, promotedLeft, promotedRight, promotedLeft);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.SlashToken:
+                if (IsArithmeticNumericType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.Division, promotedLeft, promotedRight, promotedLeft);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.PercentToken:
+                if (IsArithmeticNumericType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.Modulo, promotedLeft, promotedRight, promotedLeft);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.EqualsEqualsToken:
+                if (IsEqualityComparablePredefinedType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.Equality, promotedLeft, promotedRight, boolType);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.NotEqualsToken:
+                if (IsEqualityComparablePredefinedType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.Inequality, promotedLeft, promotedRight, boolType);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.GreaterThanToken:
+                if (IsOrderedNumericType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.GreaterThan, promotedLeft, promotedRight, boolType);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.LessThanToken:
+                if (IsOrderedNumericType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.LessThan, promotedLeft, promotedRight, boolType);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.GreaterThanOrEqualsToken:
+                if (IsOrderedNumericType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.GreaterThanOrEqual, promotedLeft, promotedRight, boolType);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.LessThanOrEqualsToken:
+                if (IsOrderedNumericType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.LessThanOrEqual, promotedLeft, promotedRight, boolType);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.AmpersandToken:
+                if (IsBitwiseIntegralType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd, promotedLeft, promotedRight, promotedLeft);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.BarToken:
+                if (IsBitwiseIntegralType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr, promotedLeft, promotedRight, promotedLeft);
+                    return true;
+                }
+                break;
+
+            case SyntaxKind.CaretToken:
+                if (IsBitwiseIntegralType(leftSpecialType))
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor, promotedLeft, promotedRight, promotedLeft);
+                    return true;
+                }
+                break;
+        }
+
+        op = default!;
+        return false;
+    }
+
+    private static bool TryLookupBooleanOperator(
+        SyntaxKind kind,
+        ITypeSymbol left,
+        ITypeSymbol right,
+        ITypeSymbol boolType,
+        out BoundBinaryOperator op)
+    {
+        if (left.SpecialType != SpecialType.System_Boolean || right.SpecialType != SpecialType.System_Boolean)
+        {
+            op = default!;
+            return false;
+        }
+
+        switch (kind)
+        {
+            case SyntaxKind.AmpersandToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd, boolType, boolType, boolType);
+                return true;
+
+            case SyntaxKind.BarToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr, boolType, boolType, boolType);
+                return true;
+
+            case SyntaxKind.CaretToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor, boolType, boolType, boolType);
+                return true;
+
+            case SyntaxKind.AmpersandAmpersandToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.LogicalAnd, boolType, boolType, boolType);
+                return true;
+
+            case SyntaxKind.BarBarToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.LogicalOr, boolType, boolType, boolType);
+                return true;
+
+            case SyntaxKind.EqualsEqualsToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.Equality, boolType, boolType, boolType);
+                return true;
+
+            case SyntaxKind.NotEqualsToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.Inequality, boolType, boolType, boolType);
+                return true;
+        }
+
+        op = default!;
+        return false;
+    }
+
+    private static bool TryLookupShiftOperator(
+        Compilation compilation,
+        SyntaxKind kind,
+        ITypeSymbol left,
+        ITypeSymbol right,
+        out BoundBinaryOperator op)
+    {
+        if (kind is not (SyntaxKind.LessThanLessThanToken or SyntaxKind.GreaterThanGreaterThanToken))
+        {
+            op = default!;
+            return false;
+        }
+
+        if (!TryPromoteShiftLeftOperand(compilation, left, out var promotedLeft) ||
+            !TryPromoteShiftRightOperand(compilation, right, out var promotedRight))
+        {
+            op = default!;
+            return false;
+        }
+
+        op = new BoundBinaryOperator(
+            kind == SyntaxKind.LessThanLessThanToken ? BinaryOperatorKind.ShiftLeft : BinaryOperatorKind.ShiftRight,
+            promotedLeft,
+            promotedRight,
+            promotedLeft);
+        return true;
     }
 
     private static bool TryCreatePointerArithmetic(
@@ -427,125 +504,85 @@ internal partial class BoundBinaryOperator
         if (!IsNumericPromotionOperator(kind))
             return false;
 
+        left = left.UnwrapLiteralType() ?? left;
+        right = right.UnwrapLiteralType() ?? right;
+
+        if (!IsSupportedPredefinedNumericType(left.SpecialType) || !IsSupportedPredefinedNumericType(right.SpecialType))
+            return false;
+
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var int64Type = compilation.GetSpecialType(SpecialType.System_Int64);
+        var longType = compilation.GetSpecialType(SpecialType.System_Int64);
+        var uintType = compilation.GetSpecialType(SpecialType.System_UInt32);
+        var ulongType = compilation.GetSpecialType(SpecialType.System_UInt64);
+        var floatType = compilation.GetSpecialType(SpecialType.System_Single);
         var doubleType = compilation.GetSpecialType(SpecialType.System_Double);
         var decimalType = compilation.GetSpecialType(SpecialType.System_Decimal);
-        var byteType = compilation.GetSpecialType(SpecialType.System_Byte);
-        var charType = compilation.GetSpecialType(SpecialType.System_Char);
 
-        static bool Eq(ITypeSymbol a, ITypeSymbol b) => TypesMatchForBuiltInOperator(a, b);
+        var leftSpecialType = left.SpecialType;
+        var rightSpecialType = right.SpecialType;
 
-        static bool IsIntegralForPromotion(ITypeSymbol t, ITypeSymbol byteType, ITypeSymbol charType, ITypeSymbol intType, ITypeSymbol int64Type) =>
-            SymbolEqualityComparer.Default.Equals(t, byteType) ||
-            SymbolEqualityComparer.Default.Equals(t, charType) ||
-            SymbolEqualityComparer.Default.Equals(t, intType) ||
-            SymbolEqualityComparer.Default.Equals(t, int64Type);
-
-        static bool IsSmallIntegral(ITypeSymbol t, ITypeSymbol byteType, ITypeSymbol charType) =>
-            SymbolEqualityComparer.Default.Equals(t, byteType) ||
-            SymbolEqualityComparer.Default.Equals(t, charType);
-
-        var leftIsDecimal = Eq(left, decimalType);
-        var rightIsDecimal = Eq(right, decimalType);
-
-        var leftIsDouble = Eq(left, doubleType);
-        var rightIsDouble = Eq(right, doubleType);
-
-        // C#-style: small integral types (byte/char) are promoted to int before further numeric promotion.
-        // This ensures e.g. `byte + byte` binds as `int + int` and mixed operations work naturally.
-        if (IsSmallIntegral(left, byteType, charType))
-            promotedLeft = intType;
-
-        if (IsSmallIntegral(right, byteType, charType))
-            promotedRight = intType;
-
-        // If we promoted either operand, update the working types.
-        left = promotedLeft;
-        right = promotedRight;
-
-        // decimal "wins" over integral, but does NOT implicitly mix with double.
-        if (leftIsDecimal || rightIsDecimal)
+        if (leftSpecialType == SpecialType.System_Decimal || rightSpecialType == SpecialType.System_Decimal)
         {
-            if (leftIsDouble || rightIsDouble)
+            if (leftSpecialType is SpecialType.System_Single or SpecialType.System_Double ||
+                rightSpecialType is SpecialType.System_Single or SpecialType.System_Double)
+            {
+                return false;
+            }
+
+            promotedLeft = decimalType;
+            promotedRight = decimalType;
+            return true;
+        }
+
+        if (leftSpecialType == SpecialType.System_Double || rightSpecialType == SpecialType.System_Double)
+        {
+            promotedLeft = doubleType;
+            promotedRight = doubleType;
+            return true;
+        }
+
+        if (leftSpecialType == SpecialType.System_Single || rightSpecialType == SpecialType.System_Single)
+        {
+            promotedLeft = floatType;
+            promotedRight = floatType;
+            return true;
+        }
+
+        if (leftSpecialType == SpecialType.System_UInt64 || rightSpecialType == SpecialType.System_UInt64)
+        {
+            if (IsSignedIntegralType(leftSpecialType) || IsSignedIntegralType(rightSpecialType))
                 return false;
 
-            if (leftIsDecimal && rightIsDecimal)
-                return true;
-
-            if (leftIsDecimal && IsIntegralForPromotion(right, byteType, charType, intType, int64Type))
-            {
-                promotedRight = decimalType;
-                return true;
-            }
-
-            if (rightIsDecimal && IsIntegralForPromotion(left, byteType, charType, intType, int64Type))
-            {
-                promotedLeft = decimalType;
-                return true;
-            }
-
-            return false;
-        }
-
-        // double "wins" over integral.
-        if (leftIsDouble || rightIsDouble)
-        {
-            if (leftIsDouble && rightIsDouble)
-                return true;
-
-            if (leftIsDouble && IsIntegralForPromotion(right, byteType, charType, intType, int64Type))
-            {
-                promotedRight = doubleType;
-                return true;
-            }
-
-            if (rightIsDouble && IsIntegralForPromotion(left, byteType, charType, intType, int64Type))
-            {
-                promotedLeft = doubleType;
-                return true;
-            }
-
-            return false;
-        }
-
-        // Pure integral promotion (e.g. int + long, byte + int, etc.)
-        var leftIsLong = Eq(left, int64Type);
-        var rightIsLong = Eq(right, int64Type);
-
-        if (leftIsLong || rightIsLong)
-        {
-            if (leftIsLong && IsIntegralForPromotion(right, byteType, charType, intType, int64Type))
-            {
-                promotedRight = int64Type;
-                return true;
-            }
-
-            if (rightIsLong && IsIntegralForPromotion(left, byteType, charType, intType, int64Type))
-            {
-                promotedLeft = int64Type;
-                return true;
-            }
-        }
-
-        // If we had only small integrals, we already promoted them to int above.
-        if (Eq(promotedLeft, intType) && Eq(promotedRight, intType))
-            return true;
-
-        // If either side is int and the other is integral, promote the other to int.
-        if (Eq(promotedLeft, intType) && IsIntegralForPromotion(promotedRight, byteType, charType, intType, int64Type))
-        {
-            promotedRight = intType;
+            promotedLeft = ulongType;
+            promotedRight = ulongType;
             return true;
         }
 
-        if (Eq(promotedRight, intType) && IsIntegralForPromotion(promotedLeft, byteType, charType, intType, int64Type))
+        if (leftSpecialType == SpecialType.System_Int64 || rightSpecialType == SpecialType.System_Int64)
         {
-            promotedLeft = intType;
+            promotedLeft = longType;
+            promotedRight = longType;
             return true;
         }
 
-        return false;
+        if (leftSpecialType == SpecialType.System_UInt32 || rightSpecialType == SpecialType.System_UInt32)
+        {
+            if (leftSpecialType is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_SByte ||
+                rightSpecialType is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_SByte)
+            {
+                promotedLeft = longType;
+                promotedRight = longType;
+                return true;
+            }
+
+            promotedLeft = uintType;
+            promotedRight = uintType;
+            return true;
+        }
+
+        promotedLeft = intType;
+        promotedRight = intType;
+        return true;
     }
 
     private static bool IsNumericPromotionOperator(SyntaxKind kind)
@@ -566,6 +603,113 @@ internal partial class BoundBinaryOperator
             SyntaxKind.GreaterThanOrEqualsToken => true,
             SyntaxKind.LessThanOrEqualsToken => true,
 
+            _ => false,
+        };
+    }
+
+    private static bool TryPromoteShiftLeftOperand(Compilation compilation, ITypeSymbol type, out ITypeSymbol promotedType)
+    {
+        type = type.UnwrapLiteralType() ?? type;
+        switch (type.SpecialType)
+        {
+            case SpecialType.System_SByte:
+            case SpecialType.System_Byte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_Char:
+                promotedType = compilation.GetSpecialType(SpecialType.System_Int32);
+                return true;
+
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+                promotedType = type;
+                return true;
+
+            default:
+                promotedType = default!;
+                return false;
+        }
+    }
+
+    private static bool TryPromoteShiftRightOperand(Compilation compilation, ITypeSymbol type, out ITypeSymbol promotedType)
+    {
+        type = type.UnwrapLiteralType() ?? type;
+        switch (type.SpecialType)
+        {
+            case SpecialType.System_SByte:
+            case SpecialType.System_Byte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_Char:
+                promotedType = compilation.GetSpecialType(SpecialType.System_Int32);
+                return true;
+
+            default:
+                promotedType = default!;
+                return false;
+        }
+    }
+
+    private static bool IsSupportedPredefinedNumericType(SpecialType specialType)
+    {
+        return specialType switch
+        {
+            SpecialType.System_SByte => true,
+            SpecialType.System_Byte => true,
+            SpecialType.System_Int16 => true,
+            SpecialType.System_UInt16 => true,
+            SpecialType.System_Int32 => true,
+            SpecialType.System_UInt32 => true,
+            SpecialType.System_Int64 => true,
+            SpecialType.System_UInt64 => true,
+            SpecialType.System_Char => true,
+            SpecialType.System_Single => true,
+            SpecialType.System_Double => true,
+            SpecialType.System_Decimal => true,
+            _ => false,
+        };
+    }
+
+    private static bool IsSignedIntegralType(SpecialType specialType)
+    {
+        return specialType switch
+        {
+            SpecialType.System_SByte => true,
+            SpecialType.System_Int16 => true,
+            SpecialType.System_Int32 => true,
+            SpecialType.System_Int64 => true,
+            _ => false,
+        };
+    }
+
+    private static bool IsArithmeticNumericType(SpecialType specialType)
+    {
+        return IsBitwiseIntegralType(specialType) ||
+               specialType is SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal;
+    }
+
+    private static bool IsOrderedNumericType(SpecialType specialType)
+    {
+        return IsArithmeticNumericType(specialType);
+    }
+
+    private static bool IsEqualityComparablePredefinedType(SpecialType specialType)
+    {
+        return specialType == SpecialType.System_Boolean ||
+               IsArithmeticNumericType(specialType);
+    }
+
+    private static bool IsBitwiseIntegralType(SpecialType specialType)
+    {
+        return specialType switch
+        {
+            SpecialType.System_Int32 => true,
+            SpecialType.System_UInt32 => true,
+            SpecialType.System_Int64 => true,
+            SpecialType.System_UInt64 => true,
             _ => false,
         };
     }
