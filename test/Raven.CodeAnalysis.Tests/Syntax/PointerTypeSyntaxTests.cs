@@ -133,11 +133,9 @@ func test() {
 """;
 
         var tree = SyntaxTree.ParseText(code);
-        var block = tree.GetRoot().DescendantNodes().OfType<BlockStatementSyntax>()
-            .First(b => b.Statements.Count == 2 && b.Statements[0] is UseDeclarationStatementSyntax);
-
-        var useDeclaration = Assert.IsType<UseDeclarationStatementSyntax>(block.Statements[0]);
+        var useDeclaration = tree.GetRoot().DescendantNodes().OfType<UseDeclarationStatementSyntax>().Single();
         var expression = Assert.IsType<InvocationExpressionSyntax>(useDeclaration.Declaration.Declarators[0].Initializer!.Value);
+        Assert.NotNull(useDeclaration.InBlockClause);
         Assert.NotNull(expression.Initializer);
     }
 

@@ -13,6 +13,7 @@ internal class Lexer : ILexer
     private readonly SeekableTextSource _textSource;
     private readonly StringBuilder _stringBuilder = new StringBuilder();
     private readonly List<Token> _lookaheadTokens = new List<Token>();
+    private int _lookaheadStart;
     private int _currentPosition = 0;
     private int _tokenStartPosition = 0;
     public Action<DiagnosticInfo>? DiagnosticSink { get; set; }
@@ -26,7 +27,7 @@ internal class Lexer : ILexer
 
     public void ResetToPosition(int position)
     {
-        _lookaheadTokens.Clear();
+        ClearLookahead();
         _currentPosition = position;
         _tokenStartPosition = position;
         _textSource.ResetPosition(position);
@@ -58,7 +59,7 @@ internal class Lexer : ILexer
     public void RewindToCheckpoint()
     {
         var position = _textSource.PopAndRestorePosition();
-        _lookaheadTokens.Clear();
+        ClearLookahead();
         _currentPosition = position;
         _tokenStartPosition = position;
 
@@ -85,17 +86,13 @@ internal class Lexer : ILexer
     {
         Token token;
 
-        if (_lookaheadTokens.Count > 0)
+        if (TryConsumeLookaheadToken(out token))
         {
-            // Remove the token from the lookahead list
-            token = _lookaheadTokens[0]; // Using index from end for clarity
-            _lookaheadTokens.RemoveAt(0);
+            PrintDebug($"Lexer read token: {token.Kind} {token.Text}{(token.Value is not null ? $" ({token.Value})" : "")}, at position {_tokenStartPosition} (Width: {token.Length})");
+            return token;
         }
-        else
-        {
-            // Fallback to reading a new token
-            token = ReadTokenCore();
-        }
+
+        token = ReadTokenCore();
 
         PrintDebug($"Lexer read token: {token.Kind} {token.Text}{(token.Value is not null ? $" ({token.Value})" : "")}, at position {_tokenStartPosition} (Width: {token.Length})");
 
@@ -123,12 +120,49 @@ internal class Lexer : ILexer
     public Token PeekToken(int index = 0)
     {
         // Ensure the lookahead tokens list is populated up to the requested index
-        while (_lookaheadTokens.Count <= index)
+        while ((_lookaheadTokens.Count - _lookaheadStart) <= index)
         {
             var token = ReadTokenCore();
             _lookaheadTokens.Add(token);
         }
-        return _lookaheadTokens[index];
+        return _lookaheadTokens[_lookaheadStart + index];
+    }
+
+    private bool TryConsumeLookaheadToken(out Token token)
+    {
+        if (_lookaheadStart >= _lookaheadTokens.Count)
+        {
+            token = default;
+            return false;
+        }
+
+        token = _lookaheadTokens[_lookaheadStart++];
+        CompactLookaheadIfNeeded();
+        return true;
+    }
+
+    private void ClearLookahead()
+    {
+        _lookaheadTokens.Clear();
+        _lookaheadStart = 0;
+    }
+
+    private void CompactLookaheadIfNeeded()
+    {
+        if (_lookaheadStart == 0)
+            return;
+
+        if (_lookaheadStart >= _lookaheadTokens.Count)
+        {
+            ClearLookahead();
+            return;
+        }
+
+        if (_lookaheadStart < 32 || _lookaheadStart * 2 < _lookaheadTokens.Count)
+            return;
+
+        _lookaheadTokens.RemoveRange(0, _lookaheadStart);
+        _lookaheadStart = 0;
     }
 
     private Token ReadTokenCore()

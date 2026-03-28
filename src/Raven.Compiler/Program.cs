@@ -996,9 +996,12 @@ if (allowConsoleOutputPreBinding && (printSyntaxTree || printSyntaxTreeInternal)
 
 var compilation = workspace.GetCompilation(projectId);
 
-var diagnostics = workspace.GetDiagnostics(projectId);
 var projectDocumentationOptions = project.DocumentationOptions;
 var automaticDocumentationOutputs = new List<(DocumentationFormat Format, string OutputPath)>();
+var requiresWorkspaceDiagnostics = noEmit || project.AnalyzerReferences.Any();
+ImmutableArray<Diagnostic> diagnostics = requiresWorkspaceDiagnostics
+    ? workspace.GetDiagnostics(projectId)
+    : ImmutableArray<Diagnostic>.Empty;
 
 EmitResult? result = null;
 if (!noEmit)
@@ -1011,7 +1014,9 @@ if (!noEmit)
         result = compilation.Emit(stream, pdbStream);
     }
 
-    diagnostics = diagnostics.Concat(result!.Diagnostics).Distinct().ToImmutableArray();
+    diagnostics = requiresWorkspaceDiagnostics
+        ? diagnostics.Concat(result!.Diagnostics).Distinct().ToImmutableArray()
+        : result!.Diagnostics;
 }
 
 if (!emitDocs &&

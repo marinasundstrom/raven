@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal sealed class SeekableTextSource
 {
-    private readonly LinkedList<char> _buffer = new();
+    private readonly List<char> _buffer = new();
     private readonly TextReader _reader;
     private int _position;
     private int _absoluteStart; // The absolute index of the first character in the buffer
@@ -122,25 +122,21 @@ internal sealed class SeekableTextSource
             if (next == -1)
                 break;
 
-            _buffer.AddLast((char)next);
+            _buffer.Add((char)next);
 
             // Trim buffer if it exceeds max size
             if (_buffer.Count > _maxBufferSize)
             {
                 _absoluteStart++;
-                _buffer.RemoveFirst();
+                _buffer.RemoveAt(0);
             }
         }
     }
 
     private int GetFromBuffer(int position)
     {
-        var node = _buffer.First;
         int offset = position - _absoluteStart;
-        for (int i = 0; i < offset && node != null; i++)
-            node = node.Next;
-
-        return node?.Value ?? -1;
+        return (uint)offset < (uint)_buffer.Count ? _buffer[offset] : -1;
     }
 
     private bool InBufferRange(int position) =>
