@@ -375,7 +375,7 @@ For records, positional parameters are promoted by default.
 
 Raven members are public by default. Use access modifiers (`private`, `internal`, `protected`) when you intentionally narrow visibility.
 
-For type-like declarations, Raven also supports `filescope` when a helper should only be visible inside the current source file. File-scoped declarations keep their source name for same-file lookup, but the compiler mangles the emitted type name.
+For type-like declarations, Raven also supports `fileprivate` when a helper should only be visible inside the current source file. File-scoped declarations keep their source name for same-file lookup, but the compiler mangles the emitted type name.
 
 ```raven
 class Counter(private var count: int = 0) {
@@ -388,7 +388,7 @@ class Counter(private var count: int = 0) {
 ```
 
 ```raven
-filescope class CounterState {
+fileprivate class CounterState {
     var value: int = 0
 }
 ```

@@ -142,7 +142,7 @@ one keyword produces the expected CLR combinations:
 | `internal`                 | Visible only within the current assembly. |
 | `protected`                | Visible to the declaring type and to derived types. |
 | `private`                  | Visible only inside the declaring type. |
-| `filescope`                | Visible only from the current source file. |
+| `fileprivate`             | Visible only from the current source file. |
 | `protected internal`       | Visible to derived types or any code in the same assembly. |
 | `private protected`        | Visible to derived types declared in the same assembly. |
 
@@ -161,7 +161,7 @@ Default accessibility depends on the declaration context:
 
 Constructors and lifecycle declarations follow these rules as well.
 
-`filescope` is a source-level restriction for type-like declarations. The compiler enforces same-file visibility during binding, and mangles the emitted metadata name for the generated type so file-local helpers do not publish a stable CLR-facing type name.
+`fileprivate` is a source-level restriction for type-like declarations. The compiler enforces same-file visibility during binding, and mangles the emitted metadata name for the generated type so file-local helpers do not publish a stable CLR-facing type name.
 
 ### Initialization model
 
@@ -575,7 +575,7 @@ multiple declarations in the same assembly. All declarations must use the `parti
 produces a diagnostic and prevents the declarations from merging. When two declarations with the same name and containing scope
 appear without `partial`, the compiler reports a duplicate-type diagnostic.
 
-Partial type declarations combine their members and share a single type identity. Accessibility, `filescope` usage, and type parameters must match
+Partial type declarations combine their members and share a single type identity. Accessibility, `fileprivate` usage, and type parameters must match
 across all parts. Class/struct/record parts also share the same nominal identity, so later parts should agree with the base type
 shape established by the earlier declarations. File-scoped partial types must keep all parts in the same file. Interface bases contributed by different parts are merged.
 

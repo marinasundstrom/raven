@@ -314,7 +314,7 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0618" Identifier="PartialTypeDeclarationFileScopeMismatch"
     Title="Partial type file-scope mismatch"
-    Message="All partial declarations of type '{name}' must either all include or all omit the 'filescope' modifier"
+    Message="All partial declarations of type '{name}' must either all include or all omit the 'fileprivate' modifier"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0619" Identifier="FileScopedPartialTypeMustRemainInSingleFile"
     Title="File-scoped partial type must stay in one file"

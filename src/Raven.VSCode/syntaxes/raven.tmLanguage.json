@@ -427,7 +427,7 @@
                 },
                 {
                     "name": "storage.modifier.access.raven",
-                    "match": "\\b(public|internal|protected|private|filescope)\\b"
+                    "match": "\\b(public|internal|protected|private|fileprivate)\\b"
                 },
                 {
                     "name": "storage.modifier.raven",

@@ -168,7 +168,7 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.PrivateKeyword or
             SyntaxKind.InternalKeyword or
             SyntaxKind.ProtectedKeyword or
-            SyntaxKind.FilescopeKeyword or
+            SyntaxKind.FileprivateKeyword or
             SyntaxKind.StaticKeyword or
             SyntaxKind.ReadonlyKeyword or
             SyntaxKind.AbstractKeyword or

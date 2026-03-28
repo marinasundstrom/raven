@@ -74,7 +74,7 @@ partial class Box<U, V> { }
     public void FileScopedType_IsAccessibleOnlyWithinDeclaringFile()
     {
         var treeA = SyntaxTree.ParseText("""
-filescope class Helper { }
+fileprivate class Helper { }
 
 class SameFileUser {
     func Use(value: Helper) { }
@@ -98,7 +98,7 @@ class OtherFileUser {
     public void FileScopedType_UsesMangledMetadataName()
     {
         var tree = SyntaxTree.ParseText("""
-filescope class Helper { }
+fileprivate class Helper { }
 """, path: "file.rav");
 
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
@@ -117,7 +117,7 @@ filescope class Helper { }
     public void FileScopedType_DoesNotBreakFunctionTypeSignaturesInGenericMembers()
     {
         var tree = SyntaxTree.ParseText("""
-filescope class Helpers<T> {
+fileprivate class Helpers<T> {
     func Tap(action: T -> ()) -> () {
     }
 }
@@ -132,8 +132,8 @@ filescope class Helpers<T> {
     [Fact]
     public void FileScopedPartialType_AcrossFiles_ReportsDiagnostic()
     {
-        var treeA = SyntaxTree.ParseText("filescope partial class Helper { }", path: "a.rav");
-        var treeB = SyntaxTree.ParseText("filescope partial class Helper { }", path: "b.rav");
+        var treeA = SyntaxTree.ParseText("fileprivate partial class Helper { }", path: "a.rav");
+        var treeB = SyntaxTree.ParseText("fileprivate partial class Helper { }", path: "b.rav");
 
         var compilation = CreateCompilation(new[] { treeA, treeB }, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
         var diagnostics = compilation.GetDiagnostics();

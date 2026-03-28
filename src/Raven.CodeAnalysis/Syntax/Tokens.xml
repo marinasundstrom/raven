@@ -87,7 +87,7 @@
   <TokenKind Name="PrivateKeyword" Text="private" IsReservedWord="false" />
   <TokenKind Name="InternalKeyword" Text="internal" IsReservedWord="false" />
   <TokenKind Name="ProtectedKeyword" Text="protected" IsReservedWord="false" />
-  <TokenKind Name="FilescopeKeyword" Text="filescope" IsReservedWord="false" />
+  <TokenKind Name="FileprivateKeyword" Text="fileprivate" IsReservedWord="false" />
   <TokenKind Name="StaticKeyword" Text="static" IsReservedWord="false" />
   <TokenKind Name="ReadonlyKeyword" Text="readonly" IsReservedWord="false" />
   <TokenKind Name="AbstractKeyword" Text="abstract" IsReservedWord="false" />

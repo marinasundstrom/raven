@@ -73,7 +73,7 @@ internal static class AccessibilityUtilities
     }
 
     public static bool HasFileScopeModifier(IEnumerable<SyntaxToken> modifiers)
-        => modifiers.Any(static modifier => modifier.Kind == SyntaxKind.FilescopeKeyword);
+        => modifiers.Any(static modifier => modifier.Kind == SyntaxKind.FileprivateKeyword);
 
     public static Accessibility GetDefaultTypeAccessibility(ISymbol? containingSymbol)
     {

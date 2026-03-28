@@ -139,7 +139,7 @@ extension IntExtensions for int {
     public void FileScopedExtensionDeclaration_UsesMangledMetadataName()
     {
         const string source = """
-filescope extension StringHelpers for string {
+fileprivate extension StringHelpers for string {
     func TrimTwice() -> string => self.Trim().Trim()
 }
 

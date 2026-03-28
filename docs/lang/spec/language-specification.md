@@ -1442,7 +1442,7 @@ into scope for lookup.
 An extension or trait declaration may omit its identifier, in which case the
 compiler synthesizes a private, mangled container name. Public extensions or
 traits must declare an explicit identifier so the container can be referenced
-and imported by name. Applying `filescope` keeps the declaration file-local and
+and imported by name. Applying `fileprivate` keeps the declaration file-local and
 mangles the emitted metadata name even when the source uses an explicit
 identifier.
 
