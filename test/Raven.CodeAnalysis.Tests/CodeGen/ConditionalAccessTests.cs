@@ -127,6 +127,102 @@ class Runner {
         Assert.Equal("Foo", value);
     }
 
+    [Fact]
+    public void ConditionalAccess_Assignment_NonNullReceiver_AssignsMember()
+    {
+        var code = """
+class Person {
+    public var Name: string = ""
+}
+
+class Runner {
+    public func Run() -> string {
+        var person: Person? = Person()
+        person?.Name = "Ada"
+        return person!.Name
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Runner", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = (string)method.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal("Ada", value);
+    }
+
+    [Fact]
+    public void ConditionalAccess_Assignment_NullReceiver_SkipsMemberWrite()
+    {
+        var code = """
+class Person {
+    public var Name: string = "before"
+}
+
+class Runner {
+    public func Run() -> string {
+        var person: Person? = null
+        person?.Name = "after"
+        return "ok"
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Runner", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = (string)method.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal("ok", value);
+    }
+
+    [Fact]
+    public void ConditionalAccess_CompoundAssignment_NonNullReceiver_UpdatesMember()
+    {
+        var code = """
+class Counter {
+    public var Value: int = 10
+}
+
+class Runner {
+    public func Run() -> int {
+        var counter: Counter? = Counter()
+        counter?.Value += 5
+        return counter!.Value
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Runner", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = (int)method.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal(15, value);
+    }
+
     [Fact(Skip = "Conditional element access (values?[index]) is not supported by current binder/codegen.")]
     public void ConditionalElementAccess_NullArray_ReturnsNull()
     {

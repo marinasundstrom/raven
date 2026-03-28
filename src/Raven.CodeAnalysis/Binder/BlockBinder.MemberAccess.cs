@@ -2537,6 +2537,12 @@ partial class BlockBinder
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
+        if (left is BoundConditionalAccessExpression conditionalAccess &&
+            leftSyntax is ConditionalAccessExpressionSyntax conditionalSyntax)
+        {
+            return BindConditionalAccessAssignment(conditionalSyntax, conditionalAccess, rightSyntax, node, operatorTokenKind);
+        }
+
         if (left is BoundDereferenceExpression dereference)
         {
             var right2 = BindExpressionWithTargetType(rightSyntax, dereference.ElementType);

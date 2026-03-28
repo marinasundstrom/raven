@@ -5565,6 +5565,12 @@ partial class BlockBinder : Binder
             return new BoundConditionalAccessExpression(conditionalAccess.Receiver, invocation, resultType);
         }
 
+        if (left is BoundConditionalAccessExpression conditionalAssignmentAccess &&
+            leftSyntax is ConditionalAccessExpressionSyntax conditionalSyntax)
+        {
+            return BindConditionalAccessAssignment(conditionalSyntax, conditionalAssignmentAccess, rightSyntax, node, operatorTokenKind);
+        }
+
         if (left is BoundLocalAccess localAccess)
         {
             var localSymbol = localAccess.Local;
@@ -5684,6 +5690,334 @@ partial class BlockBinder : Binder
             return BoundFactory.CreatePropertyAssignmentExpression(receiver, propertySymbol, result);
         }
 
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindConditionalAccessAssignment(
+        ConditionalAccessExpressionSyntax syntax,
+        BoundConditionalAccessExpression conditionalAccess,
+        ExpressionSyntax rightSyntax,
+        SyntaxNode node,
+        SyntaxKind operatorTokenKind)
+    {
+        var receiver = conditionalAccess.Receiver;
+        var receiverType = receiver.Type ?? Compilation.ErrorTypeSymbol;
+
+        if (receiverType is NullableTypeSymbol { UnderlyingType.IsValueType: true })
+        {
+            _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var receiverLocal = CreateTempLocal("conditionalReceiver", receiverType, syntax.Expression);
+        var receiverAccess = new BoundLocalAccess(receiverLocal);
+        var lookupType = GetConditionalAccessLookupType(receiverType);
+        var whenNotNullReceiver = GetConditionalAccessWhenNotNullReceiver(receiverAccess, lookupType);
+
+        BoundExpression target = syntax.WhenNotNull switch
+        {
+            MemberBindingExpressionSyntax memberBinding => BindMemberAccessOnReceiver(
+                whenNotNullReceiver,
+                memberBinding.Name,
+                preferMethods: false,
+                allowEventAccess: true,
+                suppressNullWarning: true,
+                receiverTypeForLookup: lookupType,
+                forceExtensionReceiver: true),
+            ElementBindingExpressionSyntax elementBinding => BindElementAccessExpression(
+                whenNotNullReceiver,
+                elementBinding.ArgumentList,
+                elementBinding,
+                suppressNullWarning: true),
+            _ => ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation)
+        };
+
+        if (IsErrorExpression(target))
+            return AsErrorExpression(target);
+
+        var assignment = operatorTokenKind == SyntaxKind.EqualsToken
+            ? BindSimpleAssignmentToBoundTarget(target, rightSyntax, node, syntax)
+            : BindCompoundAssignmentToBoundTarget(target, rightSyntax, node, syntax, operatorTokenKind);
+
+        if (IsErrorExpression(assignment))
+            return AsErrorExpression(assignment);
+
+        var condition = CreateNullableHasValueCondition(receiverAccess);
+        if (condition is BoundErrorExpression conditionError)
+            return conditionError;
+
+        return new BoundBlockExpression(
+        [
+            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(receiverLocal, receiver)]),
+            new BoundIfStatement(condition, new BoundExpressionStatement(assignment))
+        ],
+        Compilation.GetSpecialType(SpecialType.System_Unit));
+    }
+
+    private BoundExpression BindSimpleAssignmentToBoundTarget(
+        BoundExpression left,
+        ExpressionSyntax rightSyntax,
+        SyntaxNode node,
+        SyntaxNode leftSyntax)
+    {
+        if (left is BoundArrayAccessExpression arrayAccess)
+        {
+            var arrayType = arrayAccess.Type;
+            var arrayRightExpression = BindExpressionWithTargetType(rightSyntax, arrayType);
+
+            if (IsErrorExpression(arrayRightExpression))
+                return AsErrorExpression(arrayRightExpression);
+
+            if (arrayType.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(arrayRightExpression))
+            {
+                var right = BindLambdaToDelegateIfNeeded(arrayRightExpression, arrayType);
+                if (!IsAssignable(arrayType, right.Type, out var conversion))
+                {
+                    ReportCannotAssignFromTypeToType(right.Type, arrayType, rightSyntax.GetLocation());
+                    return new BoundErrorExpression(arrayType, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                arrayRightExpression = ApplyConversion(right, arrayType, conversion, rightSyntax);
+            }
+
+            return BoundFactory.CreateArrayAssignmentExpression(arrayAccess, arrayRightExpression);
+        }
+
+        if (left is BoundIndexerAccessExpression indexerAccess)
+        {
+            var indexer = indexerAccess.Indexer;
+            if (!indexer.IsMutable)
+            {
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.NotFound);
+            }
+
+            var indexerRightExpression = BindExpressionWithTargetType(rightSyntax, indexer.Type);
+
+            if (IsErrorExpression(indexerRightExpression))
+                return AsErrorExpression(indexerRightExpression);
+
+            if (indexer.Type.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(indexerRightExpression))
+            {
+                var right = BindLambdaToDelegateIfNeeded(indexerRightExpression, indexer.Type);
+                if (!IsAssignable(indexer.Type, right.Type, out var conversion))
+                {
+                    ReportCannotAssignFromTypeToType(right.Type, indexer.Type, rightSyntax.GetLocation());
+                    return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                indexerRightExpression = ApplyConversion(right, indexer.Type, conversion, rightSyntax);
+            }
+
+            return BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, indexerRightExpression);
+        }
+
+        if (left.Symbol is IFieldSymbol fieldSymbol)
+        {
+            if (fieldSymbol.IsConst)
+            {
+                _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
+                return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);
+            }
+
+            var receiver = GetReceiver(left);
+            var right = BindExpressionWithTargetType(rightSyntax, fieldSymbol.Type);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
+            if (!CanAssignToField(fieldSymbol, receiver, leftSyntax))
+                return new BoundErrorExpression(fieldSymbol.Type, fieldSymbol, BoundExpressionReason.NotFound);
+
+            if (right is BoundEmptyCollectionExpression)
+                return CreateFieldAssignmentExpression(receiver, fieldSymbol, BoundFactory.CreateEmptyCollectionExpression(fieldSymbol.Type));
+
+            if (fieldSymbol.Type.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(right))
+            {
+                right = BindLambdaToDelegateIfNeeded(right, fieldSymbol.Type);
+                if (!IsAssignable(fieldSymbol.Type, right.Type!, out var conversion))
+                {
+                    ReportCannotAssignFromTypeToType(right.Type!, fieldSymbol.Type, rightSyntax.GetLocation());
+                    return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                right = ApplyConversion(right, fieldSymbol.Type, conversion, rightSyntax);
+            }
+
+            return CreateFieldAssignmentExpression(receiver, fieldSymbol, right);
+        }
+
+        if (left.Symbol is IPropertySymbol propertySymbol)
+        {
+            SourceFieldSymbol? backingField = null;
+            var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
+            var receiver = GetReceiver(left);
+
+            if (IsInitOnly(propertySymbol) && !IsInInitOnlyAssignmentContext)
+            {
+                _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, leftSyntax.GetLocation());
+                return new BoundErrorExpression(propertySymbol.Type ?? Compilation.ErrorTypeSymbol, propertySymbol, BoundExpressionReason.UnsupportedOperation);
+            }
+
+            if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
+            {
+                if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
+                {
+                    _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, leftSyntax.GetLocation());
+                    return ErrorExpression(reason: BoundExpressionReason.NotFound);
+                }
+            }
+
+            var right = BindExpressionWithTargetType(rightSyntax, propertySymbol.Type);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
+            if (right is BoundEmptyCollectionExpression)
+            {
+                var empty = new BoundEmptyCollectionExpression(propertySymbol.Type);
+
+                if (backingField is not null)
+                {
+                    if (!CanAssignToField(backingField, receiver, leftSyntax))
+                        return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
+
+                    return CreateFieldAssignmentExpression(receiver, backingField, empty);
+                }
+
+                return BoundFactory.CreatePropertyAssignmentExpression(receiver, propertySymbol, empty);
+            }
+
+            if (propertySymbol.Type.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(right))
+            {
+                right = BindLambdaToDelegateIfNeeded(right, propertySymbol.Type);
+                if (!IsAssignable(propertySymbol.Type, right.Type!, out var conversion))
+                {
+                    ReportCannotAssignFromTypeToType(right.Type!, propertySymbol.Type, rightSyntax.GetLocation());
+                    return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                right = ApplyConversion(right, propertySymbol.Type, conversion, rightSyntax);
+            }
+
+            if (backingField is not null)
+            {
+                if (!CanAssignToField(backingField, receiver, leftSyntax))
+                    return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
+
+                return CreateFieldAssignmentExpression(receiver, backingField, right);
+            }
+
+            return BoundFactory.CreatePropertyAssignmentExpression(receiver, propertySymbol, right);
+        }
+
+        _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindCompoundAssignmentToBoundTarget(
+        BoundExpression left,
+        ExpressionSyntax rightSyntax,
+        SyntaxNode node,
+        SyntaxNode leftSyntax,
+        SyntaxKind operatorTokenKind)
+    {
+        var binaryOperator = GetBinaryOperatorFromAssignment(operatorTokenKind);
+        if (binaryOperator is null)
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+
+        if (left is BoundArrayAccessExpression arrayAccess)
+        {
+            var arrayType = arrayAccess.Type;
+            var right = BindExpressionWithTargetType(rightSyntax, arrayType);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
+            var arrayRight = BindCompoundAssignmentValue(arrayAccess, right, arrayType, binaryOperator.Value, rightSyntax);
+            return BoundFactory.CreateArrayAssignmentExpression(arrayAccess, arrayRight);
+        }
+
+        if (left is BoundIndexerAccessExpression indexerAccess)
+        {
+            var indexer = indexerAccess.Indexer;
+            if (!indexer.IsMutable)
+            {
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.NotFound);
+            }
+
+            var right = BindExpressionWithTargetType(rightSyntax, indexer.Type);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
+            var indexerRight = BindCompoundAssignmentValue(indexerAccess, right, indexer.Type, binaryOperator.Value, rightSyntax);
+            return BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, indexerRight);
+        }
+
+        if (left.Symbol is IFieldSymbol fieldSymbol)
+        {
+            if (fieldSymbol.IsConst)
+            {
+                _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
+                return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);
+            }
+
+            var receiver = GetReceiver(left);
+            var right = BindExpressionWithTargetType(rightSyntax, fieldSymbol.Type);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
+            if (!CanAssignToField(fieldSymbol, receiver, leftSyntax))
+                return new BoundErrorExpression(fieldSymbol.Type, fieldSymbol, BoundExpressionReason.NotFound);
+
+            var access = new BoundFieldAccess(receiver, fieldSymbol);
+            var fieldRight = BindCompoundAssignmentValue(access, right, fieldSymbol.Type, binaryOperator.Value, rightSyntax);
+            return CreateFieldAssignmentExpression(receiver, fieldSymbol, fieldRight);
+        }
+
+        if (left.Symbol is IPropertySymbol propertySymbol)
+        {
+            SourceFieldSymbol? backingField = null;
+            var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
+            var receiver = GetReceiver(left);
+
+            if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
+            {
+                if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
+                {
+                    _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, leftSyntax.GetLocation());
+                    return ErrorExpression(reason: BoundExpressionReason.NotFound);
+                }
+            }
+
+            var right = BindExpressionWithTargetType(rightSyntax, propertySymbol.Type);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
+            if (backingField is not null)
+            {
+                var backingAccess = new BoundFieldAccess(receiver, backingField);
+                if (!CanAssignToField(backingField, receiver, leftSyntax))
+                    return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
+
+                var backingRight = BindCompoundAssignmentValue(backingAccess, right, propertySymbol.Type, binaryOperator.Value, rightSyntax);
+                return CreateFieldAssignmentExpression(receiver, backingField, backingRight);
+            }
+
+            var propertyAccess = new BoundMemberAccessExpression(receiver, propertySymbol);
+            var result = BindCompoundAssignmentValue(propertyAccess, right, propertySymbol.Type, binaryOperator.Value, rightSyntax);
+            return BoundFactory.CreatePropertyAssignmentExpression(receiver, propertySymbol, result);
+        }
+
+        _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 

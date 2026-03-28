@@ -674,6 +674,17 @@ func selectedItemName() -> Result<string, LookupError> {
 * If indexing or invocation is required, unwrap first with `?`, pattern
   matching, or an explicit helper API.
 
+For nullable/reference receivers, Raven also supports null-conditional member
+assignment in statement position:
+
+```raven
+person?.Name = "Ada"
+counter?.Value += 1
+```
+
+These forms evaluate the receiver once, execute the assignment only when the
+receiver is non-null, and otherwise do nothing.
+
 #### End-to-end example
 
 The following example shows `try`, propagation, and carrier conditional access

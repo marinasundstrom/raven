@@ -124,6 +124,9 @@ expression statements.
 
 * The left-hand side may be an assignable expression or a pattern.
 * `_ = expr` is a discard assignment; the right-hand side still executes.
+* Nullable conditional member assignment is also valid in statement position:
+  `receiver?.Member = value` and compound forms like `receiver?.Member += delta`
+  evaluate the receiver once and skip the write when the receiver is `null`.
 
 ## Expression statements
 
