@@ -264,9 +264,24 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         {
             Visit(node.Expression);
 
-            var symbolInfo = _semanticModel.GetSymbolInfo(node);
-            var method = symbolInfo.Symbol as IMethodSymbol
-                ?? symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+            var needsParameterResolution = false;
+            for (var i = 0; i < node.ArgumentList.Arguments.Count; i++)
+            {
+                var argumentRefKind = node.ArgumentList.Arguments[i].RefKindKeyword.Kind;
+                if (argumentRefKind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+                {
+                    needsParameterResolution = true;
+                    break;
+                }
+            }
+
+            IMethodSymbol? method = null;
+            if (needsParameterResolution)
+            {
+                var symbolInfo = _semanticModel.GetSymbolInfo(node);
+                method = symbolInfo.Symbol as IMethodSymbol
+                    ?? symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+            }
 
             for (var i = 0; i < node.ArgumentList.Arguments.Count; i++)
             {
