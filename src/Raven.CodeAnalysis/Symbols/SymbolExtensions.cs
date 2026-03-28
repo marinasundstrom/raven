@@ -210,10 +210,17 @@ public static partial class SymbolExtensions
                             symbol is INamedTypeSymbol namedTypeSymbol &&
                             !isNamedDelegateDeclarationDisplay)
             {
+                var modifierPrefix = GetTypeDeclarationModifierPrefix(namedTypeSymbol);
                 var keyword = GetTypeKeyword(namedTypeSymbol);
                 if (!string.IsNullOrEmpty(keyword))
                 {
-                    text = keyword + " " + text;
+                    text = string.IsNullOrEmpty(modifierPrefix)
+                        ? keyword + " " + text
+                        : modifierPrefix + " " + keyword + " " + text;
+                }
+                else if (!string.IsNullOrEmpty(modifierPrefix))
+                {
+                    text = modifierPrefix + " " + text;
                 }
             }
 
@@ -1509,6 +1516,14 @@ public static partial class SymbolExtensions
         }
 
         return string.Join(" ", parts);
+    }
+
+    private static string? GetTypeDeclarationModifierPrefix(INamedTypeSymbol typeSymbol)
+    {
+        if (typeSymbol.IsSealedHierarchy)
+            return "sealed";
+
+        return null;
     }
 
     public static IMethodSymbol? GetDelegateInvokeMethod(this INamedTypeSymbol typeSymbol)

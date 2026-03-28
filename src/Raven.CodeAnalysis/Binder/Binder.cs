@@ -1411,6 +1411,9 @@ internal abstract partial class Binder
     private INamespaceOrTypeSymbol? ResolveQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
     {
         var left = ResolveQualifiedLeft(qualified.Left);
+        if (left is ITypeSymbol { TypeKind: TypeKind.Error })
+            return left;
+
         INamespaceOrTypeSymbol? resolved = null;
 
         if (left is INamespaceSymbol ns)
@@ -1421,7 +1424,7 @@ internal abstract partial class Binder
                     ?? SelectByArity(ns.GetMembers(id.Identifier.ValueText).OfType<INamedTypeSymbol>(), 0)
                     ?? ns.LookupType(id.Identifier.ValueText);
 
-                if (resolved is INamedTypeSymbol named && NormalizeDefinition(named).Arity > 0)
+                if (resolved is INamedTypeSymbol named && RequiresExplicitTypeArguments(NormalizeDefinition(named)))
                 {
                     _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, id.Identifier.GetLocation());
                     return Compilation.ErrorTypeSymbol;
@@ -1567,7 +1570,7 @@ internal abstract partial class Binder
             if (type is INamedTypeSymbol named)
             {
                 var definition = NormalizeDefinition(named);
-                if (definition.Arity > 0)
+                if (RequiresExplicitTypeArguments(definition))
                 {
                     var zeroArity = FindAccessibleNamedType(id.Identifier.ValueText, 0);
                     if (zeroArity is null)
@@ -1614,6 +1617,28 @@ internal abstract partial class Binder
         }
 
         return null;
+    }
+
+    protected static bool RequiresExplicitTypeArguments(INamedTypeSymbol named)
+        => named.Arity > 0 &&
+           ReferenceEquals(named, NormalizeDefinition(named)) &&
+           HasImplicitDefinitionTypeArguments(named);
+
+    private static bool HasImplicitDefinitionTypeArguments(INamedTypeSymbol named)
+    {
+        if (named.TypeArguments.IsDefaultOrEmpty)
+            return true;
+
+        if (named.TypeArguments.Length != named.TypeParameters.Length)
+            return false;
+
+        for (var i = 0; i < named.TypeParameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(named.TypeArguments[i], named.TypeParameters[i]))
+                return false;
+        }
+
+        return true;
     }
 
 

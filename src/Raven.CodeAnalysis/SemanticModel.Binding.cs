@@ -1794,13 +1794,20 @@ public partial class SemanticModel
 
     private static bool IsDirectSealedHierarchySubtype(INamedTypeSymbol root, INamedTypeSymbol candidate)
     {
+        var rootDefinition = root.OriginalDefinition as INamedTypeSymbol ?? root;
+
         if (candidate.BaseType is not null &&
-            SymbolEqualityComparer.Default.Equals(candidate.BaseType, root))
+            SymbolEqualityComparer.Default.Equals(
+                candidate.BaseType.OriginalDefinition as INamedTypeSymbol ?? candidate.BaseType,
+                rootDefinition))
         {
             return true;
         }
 
-        return candidate.Interfaces.Any(interfaceType => SymbolEqualityComparer.Default.Equals(interfaceType, root));
+        return candidate.Interfaces.Any(interfaceType =>
+            SymbolEqualityComparer.Default.Equals(
+                interfaceType.OriginalDefinition as INamedTypeSymbol ?? interfaceType,
+                rootDefinition));
     }
 
     private static IEnumerable<(TypeDeclarationSyntax Syntax, Binder Binder)> GetSealedHierarchyBinders(

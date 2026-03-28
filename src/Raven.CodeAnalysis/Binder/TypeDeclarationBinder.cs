@@ -40,6 +40,9 @@ internal abstract class TypeDeclarationBinder : Binder
         if (typeParameter is not null)
             return typeParameter;
 
+        if (BlocksContainingTypeParameters())
+            return null;
+
         return base.LookupType(name);
     }
 
@@ -255,4 +258,29 @@ internal abstract class TypeDeclarationBinder : Binder
 
         return builder.ToImmutable();
     }
+
+    private bool BlocksContainingTypeParameters()
+    {
+        if (ContainingSymbol.ContainingType is not INamedTypeSymbol containingType ||
+            !containingType.IsSealedHierarchy ||
+            !containingType.IsGenericType)
+        {
+            return false;
+        }
+
+        if (ContainingSymbol.BaseType is INamedTypeSymbol baseType &&
+            SymbolEqualityComparer.Default.Equals(GetDefinition(baseType), containingType))
+        {
+            return true;
+        }
+
+        return ContainingSymbol.Interfaces.Any(interfaceType =>
+            SymbolEqualityComparer.Default.Equals(GetDefinition(interfaceType), containingType));
+    }
+
+    private static INamedTypeSymbol GetDefinition(INamedTypeSymbol type)
+        => type.ConstructedFrom is INamedTypeSymbol definition &&
+           !SymbolEqualityComparer.Default.Equals(type, definition)
+            ? definition
+            : type;
 }

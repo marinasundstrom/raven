@@ -186,7 +186,7 @@ internal abstract partial class Binder
         if (lookup.Definition is null)
             return Fail(id, TypeResolutionFailureKind.TypeNotFound);
 
-        if (lookup.Definition.Arity > 0 && lookup.Definition.IsUnboundGenericType)
+        if (RequiresExplicitTypeArguments(lookup.Definition))
         {
             return new ResolveTypeResult
             {
@@ -226,7 +226,7 @@ internal abstract partial class Binder
             }
 
             var normalized = NormalizeDefinition(named);
-            if (normalized.Arity > 0 && normalized.IsUnboundGenericType)
+            if (RequiresExplicitTypeArguments(normalized))
             {
                 var zeroArity = FindAccessibleNamedType(id.Identifier.ValueText, 0);
                 if (zeroArity is not null)
@@ -400,6 +400,12 @@ internal abstract partial class Binder
                     // If not found as nested type, fall back to namespace-qualified lookup below.
                 }
             }
+            else if (leftAsType.Failed &&
+                     leftAsType.FailureKinds.Contains(TypeResolutionFailureKind.ArityMismatch) &&
+                     !CanUseLogicalSealedHierarchyQualifier(q, importedScopes))
+            {
+                return leftAsType;
+            }
         }
 
         if (q.Right is GenericNameSyntax g)
@@ -447,6 +453,47 @@ internal abstract partial class Binder
             ResolvedNamedDefinition = lookup2.Definition
         };
     }
+
+    private bool CanUseLogicalSealedHierarchyQualifier(
+        QualifiedNameSyntax syntax,
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+    {
+        var leftLookup = LookupNamedTypeByParts(Flatten(syntax.Left), importedScopes);
+        if (leftLookup.Definition is not INamedTypeSymbol leftDefinition ||
+            !leftDefinition.IsSealedHierarchy)
+        {
+            return false;
+        }
+
+        var rightName = syntax.Right switch
+        {
+            IdentifierNameSyntax id => id.Identifier.ValueText,
+            GenericNameSyntax generic => generic.Identifier.ValueText,
+            _ => null
+        };
+
+        if (rightName is null)
+            return false;
+
+        return leftDefinition.GetTypeMembers(rightName)
+            .OfType<INamedTypeSymbol>()
+            .Any(member => IsLogicalSealedHierarchyCase(leftDefinition, member));
+    }
+
+    private static bool IsLogicalSealedHierarchyCase(INamedTypeSymbol root, INamedTypeSymbol member)
+    {
+        if (member.BaseType is INamedTypeSymbol baseType &&
+            SymbolEqualityComparer.Default.Equals(GetDefinition(baseType), root))
+        {
+            return true;
+        }
+
+        return member.Interfaces.Any(interfaceType =>
+            SymbolEqualityComparer.Default.Equals(GetDefinition(interfaceType), root));
+    }
+
+    private static INamedTypeSymbol GetDefinition(INamedTypeSymbol type)
+        => type.ConstructedFrom as INamedTypeSymbol ?? type;
 
     // -----------------------------
     // Predefined

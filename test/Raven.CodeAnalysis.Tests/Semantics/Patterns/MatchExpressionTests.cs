@@ -76,7 +76,7 @@ val result = value match {
             run.Compilation.GetDiagnostics(),
             d => d.Descriptor == CompilerDiagnostics.TypeRequiresTypeArguments);
 
-        var tree = run.Compilation.SyntaxTrees.Single();
+        var tree = run.Compilation.SyntaxTrees.First(tree => tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Any());
         var model = run.Compilation.GetSemanticModel(tree);
         var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
@@ -125,7 +125,7 @@ val result = values match {
         Assert.Empty(run.UnexpectedDiagnostics);
         Assert.Empty(run.MissingDiagnostics);
 
-        var tree = run.Compilation.SyntaxTrees.Single();
+        var tree = run.Compilation.SyntaxTrees.First(tree => tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Any());
         var model = run.Compilation.GetSemanticModel(tree);
         var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
@@ -350,6 +350,49 @@ val result = character match {
         var verifier = CreateVerifier(code);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithTargetTypedSealedHierarchyCasePatterns_ResolvesAgainstInputType()
+    {
+        const string code = """
+sealed interface Expr<T> {
+    record NumericalExpr(Value: float) : Expr<float>
+    record AddExpr(Left: Expr<float>, Right: Expr<float>) : Expr<float>
+}
+
+func Main() {
+}
+
+func Evaluate(expr: Expr<float>) -> int {
+    match expr {
+        .NumericalExpr(val value) => 1
+        .AddExpr(val left, val right) => 2
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "sealed_hierarchy_target_typed_member_pattern",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        Assert.Equal(2, match.Arms.Count);
+
+        var model = compilation.GetSemanticModel(tree);
+        var valueDesignation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(designation => designation.Identifier.ValueText == "value");
+        var valueLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(valueDesignation));
+
+        Assert.Equal(SpecialType.System_Single, valueLocal.Type.SpecialType);
     }
 
     [Fact]

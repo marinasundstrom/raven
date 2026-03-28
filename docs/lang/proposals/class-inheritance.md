@@ -36,7 +36,18 @@ compile time. A sealed class is implicitly abstract and cannot be instantiated d
 the permitted subtypes are all types in the same source file that directly inherit from, extend, or implement the sealed type. An optional `permits`
 clause names the exact set of allowed direct subtypes. This differs from the C# meaning of `sealed` (which Raven already
 provides by default). A sealed type remains extensible only by its known children, allowing tooling to reason about the entire
-closed family. Nested declarations are part of this model, so sealed interfaces can host their case-like implementing types directly in the interface body.
+closed family.
+
+Sealed-hierarchy direct cases are ordinary named types first. They can be declared beside the sealed root or nested inside it.
+Nesting is optional source organization, not the definition of the feature.
+
+When direct cases are nested under a generic sealed root, Raven treats them as hierarchy cases rather than ordinary capturing
+nested CLR generic types: they do not implicitly inherit the outer type parameters and must explicitly state which
+instantiation of the sealed root they belong to.
+
+The sealed root itself still follows normal generic rules in type positions. `Expr<T>` is valid; bare `Expr` is not.
+Nested cases may then use the root as a logical qualifier for construction (`Expr.NumericalExpr(...)`) and target-typed
+case patterns (`.NumericalExpr(...)`) when the surrounding context already determines the sealed root.
 
 ### Constructors
 

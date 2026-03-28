@@ -621,6 +621,32 @@ val value: Outer<int>.Inner<string> = null
     }
 
     [Fact]
+    public void BindTypeSyntax_RejectsNestedGenericTypeFromOpenContainingType()
+    {
+        const string source = """
+class Outer<T> {
+    public class Inner<U> { }
+}
+
+val value: Outer.Inner<string> = null
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Last();
+        var typeSyntax = declarator.TypeAnnotation!.Type;
+        var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
+
+        var result = binder.BindTypeSyntax(typeSyntax);
+
+        Assert.False(result.Success);
+        Assert.Contains(Binder.TypeResolutionFailureKind.ArityMismatch, result.FailureKinds);
+    }
+
+    [Fact]
     public void BindTypeSyntax_BindsArrayOfQualifiedGenericType()
     {
         const string source = "val values: System.Collections.Generic.List<int>[] = []";

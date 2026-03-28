@@ -173,6 +173,35 @@ extension WidgetExtensions for Widget {
     }
 
     [Fact]
+    public void SealedHierarchyTypeHover_Signature_ShowsSealedModifier()
+    {
+        const string code = """
+sealed interface HttpResponse {}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var declaration = root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
+        var symbol = semanticModel.GetDeclaredSymbol(declaration).ShouldBeAssignableTo<INamedTypeSymbol>();
+
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignature.Invoke(null, [symbol, declaration, semanticModel])!;
+
+        signature.ShouldBe("sealed interface HttpResponse");
+    }
+
+    [Fact]
     public void QualifiedUnionCaseInvocation_HoverPrefersUnionCaseOverImportedMember()
     {
         const string code = """

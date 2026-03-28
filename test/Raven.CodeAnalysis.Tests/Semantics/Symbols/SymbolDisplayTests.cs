@@ -199,4 +199,29 @@ func Test() {
         either.ToDisplayString(declarationFormat).ShouldBe("union class Either<T1, T2>(T1, T2)");
         value.Type.ToDisplayString(declarationFormat).ShouldBe("union class Either<int, string>(int, string)");
     }
+
+    [Fact]
+    public void SealedHierarchyTypes_ToDisplayString_UsesSealedModifierForClassAndInterface()
+    {
+        const string source = """
+sealed class Expr {}
+sealed interface HttpResponse {}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var classSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
+        var interfaceSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single()));
+
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithKindOptions(
+            SymbolDisplayFormat.MinimallyQualifiedFormat.KindOptions |
+            SymbolDisplayKindOptions.IncludeTypeKeyword);
+
+        classSymbol.ToDisplayString(format).ShouldBe("sealed class Expr");
+        interfaceSymbol.ToDisplayString(format).ShouldBe("sealed interface HttpResponse");
+    }
 }

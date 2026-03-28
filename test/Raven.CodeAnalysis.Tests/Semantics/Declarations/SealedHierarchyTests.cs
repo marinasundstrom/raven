@@ -852,6 +852,32 @@ record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
         Assert.Contains("BinaryExpr", info.MissingCases);
     }
 
+    [Fact]
+    public void SealedInterface_GenericNestedCases_AreIncludedInMatchExhaustiveness()
+    {
+        var source = """
+import System.*
+
+func Evaluate<T>(expr: Expr<T>) {
+    match expr {
+    }
+}
+
+sealed interface Expr<T> {
+    record NumericalExpr(Value: float) : Expr<float>
+    record StringExpr(Value: string) : Expr<string>
+    record AddExpr(Left: Expr<float>, Right: Expr<float>) : Expr<float>
+}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2100" && d.GetMessage().Contains("NumericalExpr", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2100" && d.GetMessage().Contains("StringExpr", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2100" && d.GetMessage().Contains("AddExpr", StringComparison.Ordinal));
+    }
+
     // ── Record inheritance with primary constructor forwarding ──
 
     [Fact]

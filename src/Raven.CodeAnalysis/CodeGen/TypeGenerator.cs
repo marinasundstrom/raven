@@ -52,6 +52,7 @@ internal class TypeGenerator
     public void DefineTypeBuilder()
     {
         TypeAttributes typeAttributes = TypeAttributes.Public;
+        var hoistNestedSealedHierarchyCase = ShouldHoistNestedSealedHierarchyCase();
 
         if (TypeSymbol is INamedTypeSymbol named)
         {
@@ -140,7 +141,8 @@ internal class TypeGenerator
         }
 
         TypeBuilder? containingTypeBuilder = null;
-        if (TypeSymbol is INamedTypeSymbol { ContainingType: INamedTypeSymbol containingType })
+        if (!hoistNestedSealedHierarchyCase &&
+            TypeSymbol is INamedTypeSymbol { ContainingType: INamedTypeSymbol containingType })
         {
             var containingGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
             if (containingGenerator.TypeBuilder is null)
@@ -163,9 +165,14 @@ internal class TypeGenerator
                 }
                 else
                 {
+                    var interfaceName = hoistNestedSealedHierarchyCase
+                        ? GetHoistedNestedTypeMetadataName(nt)
+                        : TypeSymbol.MetadataName;
                     TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                        TypeSymbol.MetadataName,
-                        typeAttributes);
+                        interfaceName,
+                        hoistNestedSealedHierarchyCase
+                            ? GetHoistedTopLevelAccessibilityAttributes(nt) | TypeAttributes.Interface | TypeAttributes.Abstract
+                            : typeAttributes);
                 }
 
                 DefineTypeGenericParameters(nt);
@@ -203,16 +210,26 @@ internal class TypeGenerator
                     namedForDefinition.TypeKind == TypeKind.Struct &&
                     TypeSymbol.BaseType is not null)
                 {
+                    var structName = hoistNestedSealedHierarchyCase
+                        ? GetHoistedNestedTypeMetadataName(namedForDefinition)
+                        : TypeSymbol.MetadataName;
                     TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                        TypeSymbol.MetadataName,
-                        typeAttributes,
+                        structName,
+                        hoistNestedSealedHierarchyCase
+                            ? GetHoistedTopLevelAccessibilityAttributes(namedForDefinition) | (typeAttributes & ~TypeAttributes.VisibilityMask)
+                            : typeAttributes,
                         ResolveClrType(TypeSymbol.BaseType));
                 }
                 else
                 {
+                    var typeName = hoistNestedSealedHierarchyCase && TypeSymbol is INamedTypeSymbol hoistedNamed
+                        ? GetHoistedNestedTypeMetadataName(hoistedNamed)
+                        : TypeSymbol.MetadataName;
                     TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                        TypeSymbol.MetadataName,
-                        typeAttributes);
+                        typeName,
+                        hoistNestedSealedHierarchyCase && TypeSymbol is INamedTypeSymbol hoistedAccessibilityNamed
+                            ? GetHoistedTopLevelAccessibilityAttributes(hoistedAccessibilityNamed) | (typeAttributes & ~TypeAttributes.VisibilityMask)
+                            : typeAttributes);
                 }
             }
 
@@ -460,7 +477,11 @@ internal class TypeGenerator
         // Some source containers (notably generic extension containers) are lowered to
         // non-generic runtime types. For nested synthesized types under those containers,
         // inherited source type parameters must be dropped to keep emitted signatures valid.
-        if (namedType.ContainingType is not null &&
+        if (ShouldHoistNestedSealedHierarchyCase(namedType))
+        {
+            inScopeParameters = namedType.TypeParameters;
+        }
+        else if (namedType.ContainingType is not null &&
             TypeBuilder.DeclaringType is { IsGenericTypeDefinition: false, ContainsGenericParameters: false })
         {
             inScopeParameters = namedType.TypeParameters;
@@ -500,6 +521,53 @@ internal class TypeGenerator
 
         return builder.ToImmutable();
     }
+
+    private bool ShouldHoistNestedSealedHierarchyCase()
+        => TypeSymbol is INamedTypeSymbol namedType && ShouldHoistNestedSealedHierarchyCase(namedType);
+
+    private static bool ShouldHoistNestedSealedHierarchyCase(INamedTypeSymbol namedType)
+    {
+        if (namedType.ContainingType is not INamedTypeSymbol containingType ||
+            !containingType.IsSealedHierarchy ||
+            !containingType.IsGenericType)
+        {
+            return false;
+        }
+
+        if (namedType.BaseType is INamedTypeSymbol baseType &&
+            SymbolEqualityComparer.Default.Equals(GetDefinition(baseType), containingType))
+        {
+            return true;
+        }
+
+        return namedType.Interfaces.Any(interfaceType =>
+            SymbolEqualityComparer.Default.Equals(GetDefinition(interfaceType), containingType));
+    }
+
+    private static INamedTypeSymbol GetDefinition(INamedTypeSymbol type)
+        => type.ConstructedFrom is INamedTypeSymbol definition &&
+           !SymbolEqualityComparer.Default.Equals(type, definition)
+            ? definition
+            : type;
+
+    private static string GetHoistedNestedTypeMetadataName(INamedTypeSymbol type)
+    {
+        var namespacePrefix = type.ContainingNamespace is { IsGlobalNamespace: false } ns
+            ? ns.MetadataName + "."
+            : string.Empty;
+        var containingName = type.ContainingType?.MetadataName
+            .Replace('+', '_')
+            .Replace('`', '_') ?? "Nested";
+        var ownName = type.MetadataName.Split('+').Last().Replace('`', '_');
+        return $"{namespacePrefix}{containingName}__{ownName}";
+    }
+
+    private static TypeAttributes GetHoistedTopLevelAccessibilityAttributes(INamedTypeSymbol typeSymbol)
+        => typeSymbol.DeclaredAccessibility switch
+        {
+            Accessibility.Public => TypeAttributes.Public,
+            _ => TypeAttributes.NotPublic
+        };
 
     private static TypeAttributes GetTypeAccessibilityAttributes(INamedTypeSymbol typeSymbol)
     {

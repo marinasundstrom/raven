@@ -7,11 +7,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 ### Changed
 - Sealed hierarchies now include interfaces: Raven accepts `sealed interface` declarations, allows optional `permits` clauses on interfaces, and enforces the closed set across direct implementors and subinterfaces.
 - Nested type declarations inside interfaces now participate in sealed-hierarchy modeling, so interface-scoped case-like records/classes can be used as direct sealed-interface members.
+- Nested direct cases inside generic sealed hierarchies no longer capture outer type parameters at runtime. They now behave like algebraic-data-type cases, which fixes invalid CLR generic nesting and runtime failures such as `BadImageFormatException` when constructing generic sealed-interface cases.
+- Sealed hierarchy signatures and hover now print `sealed` for sealed classes and interfaces, bare generic sealed roots are diagnosed consistently in storage-type positions, and target-typed `.Case(...)` patterns now bind for nested sealed-hierarchy direct cases when the scrutinee already determines the sealed root.
 - The file-local type modifier is now spelled `fileprivate` instead of `filescope`, aligning the surface syntax with its accessibility semantics and Swift-style precedent.
 
 Impact:
 - Raven can model Java/Kotlin-style sealed interface families directly, including patterns where the direct cases live inside the interface declaration.
 - Exhaustiveness and hierarchy validation now treat sealed interfaces consistently with sealed classes and record classes.
+- Generic sealed hierarchies can now use nested case declarations without forcing CLR-style outer generic qualification such as `Expr<float>.Case`, which better supports ADT and future GADT-style modeling.
+- Sealed-hierarchy direct cases are now documented and implemented as full named types whose nesting is optional source organization, while the nested form still supports `Expr.Case(...)` construction and target-typed `.Case(...)` patterns.
 - Source code, tests, specs, and editor grammar should now use `fileprivate` for file-local type-like declarations and extensions.
 
 ## 2026-03-26

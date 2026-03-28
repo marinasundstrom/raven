@@ -168,4 +168,18 @@ class Success : HttpResponse {}
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV0339");
     }
+
+    [Fact]
+    public void SealedInterface_NestedCase_CannotCaptureOuterTypeParameter()
+    {
+        var source = """
+sealed interface Expr<T> {
+    record Box(Value: T) : Expr<T> {}
+}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id);
+    }
 }

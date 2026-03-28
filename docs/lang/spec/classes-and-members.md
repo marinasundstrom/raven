@@ -509,7 +509,17 @@ record class Success(status: int, body: string) : HttpResponse {}
 record class NotFound(message: string) : HttpResponse {}
 ```
 
-Nested declarations are also allowed, so a sealed interface can host its direct cases inside the interface body:
+Direct cases in a sealed hierarchy are still ordinary named types. They may be declared next to the sealed root:
+
+```raven
+sealed interface HttpResponse
+
+record class Success(status: int, body: string) : HttpResponse {}
+record class NotFound(message: string) : HttpResponse {}
+```
+
+Nested declarations are also allowed, so a sealed interface can host its direct cases inside the interface body when the
+developer wants that organization:
 
 ```raven
 sealed interface HttpResponse {
@@ -517,6 +527,47 @@ sealed interface HttpResponse {
     record class NotFound(message: string) : HttpResponse {}
 }
 ```
+
+For generic sealed hierarchies, nested direct cases are treated as hierarchy cases rather than ordinary CLR-style nested
+generic types. They do **not** implicitly capture the outer type parameters. Instead, each case must explicitly choose the
+instantiation of the sealed root that it implements or inherits from:
+
+```raven
+sealed interface Expr<T> {
+    record NumericalExpr(value: float) : Expr<float>
+    record StringExpr(value: string) : Expr<string>
+    record AddExpr(left: Expr<float>, right: Expr<float>) : Expr<float>
+}
+```
+
+Outer type parameters are therefore not in scope inside such direct cases unless the case declares its own type parameters.
+
+This affects only the nested case declaration form. The sealed root itself still follows the normal generic rules everywhere
+it is used as a type:
+
+```raven
+func Evaluate<T>(expr: Expr<T>) -> T { ... }   // OK
+func Broken(expr: Expr) { ... }                // Error: missing type arguments
+```
+
+When nested cases are used, the containing sealed root acts as a logical qualifier for construction:
+
+```raven
+val value = Expr.NumericalExpr(40)
+```
+
+In pattern position, the same nested cases can be referenced through target-typed case patterns when the scrutinee already
+determines the sealed root:
+
+```raven
+match expr {
+    .NumericalExpr(val value) => value
+    .AddExpr(val left, val right) => Evaluate(left) + Evaluate(right)
+}
+```
+
+This target-typed `.Case(...)` form is ergonomic sugar for nested sealed cases. It is not required when the case types are
+declared outside the sealed root.
 
 When a `permits` clause is present, any attempt to derive from the sealed type outside the permitted list produces
 `RAV0335`. If a type in the permits list does not actually inherit from the sealed base, the compiler reports `RAV0338`.

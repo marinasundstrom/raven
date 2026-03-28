@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -1561,6 +1562,20 @@ internal partial class BlockBinder
             return pattern;
         }
 
+        if (TryBindSealedHierarchyCasePattern(
+                caseName: syntax.Path.Identifier.ValueText,
+                qualifierType: qualifierType,
+                inputType: inputType,
+                arguments: syntax.ArgumentList is null ? SeparatedSyntaxList<PatternSyntax>.Empty : syntax.ArgumentList.Arguments,
+                designation: syntax.Designation,
+                caseNameLocation: syntax.Path.Identifier.GetLocation(),
+                argumentListLocation: syntax.ArgumentList?.GetLocation() ?? syntax.Path.GetLocation(),
+                reportMissingCase: true,
+                out pattern))
+        {
+            return pattern;
+        }
+
         return BindCasePatternAsConstant(syntax, qualifierType, inputType);
     }
 
@@ -1876,7 +1891,115 @@ internal partial class BlockBinder
             designation: syntax.Designation,
             caseNameLocation: caseNameLocation,
             argumentListLocation: syntax.ArgumentList.GetLocation(),
-            out pattern);
+            out pattern)
+            || TryBindSealedHierarchyCasePattern(
+                caseName: caseName!,
+                qualifierType: qualifierType,
+                inputType: inputType,
+                arguments: syntax.ArgumentList.Arguments,
+                designation: syntax.Designation,
+                caseNameLocation: caseNameLocation,
+                argumentListLocation: syntax.ArgumentList.GetLocation(),
+                reportMissingCase: false,
+                out pattern);
+    }
+
+    private bool TryBindSealedHierarchyCasePattern(
+        string caseName,
+        ITypeSymbol? qualifierType,
+        ITypeSymbol? inputType,
+        SeparatedSyntaxList<PatternSyntax> arguments,
+        VariableDesignationSyntax? designation,
+        Location caseNameLocation,
+        Location argumentListLocation,
+        bool reportMissingCase,
+        out BoundPattern? pattern)
+    {
+        pattern = null;
+
+        var lookupType = qualifierType ?? inputType;
+        if (lookupType is null)
+            return false;
+
+        if (!TryGetSealedHierarchyCaseType(lookupType, inputType, caseName, out var sealedRoot, out var caseType))
+            return false;
+
+        if (caseType is null)
+        {
+            if (!reportMissingCase)
+                return false;
+
+            _diagnostics.ReportCasePatternCaseNotFound(
+                caseName,
+                sealedRoot.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                caseNameLocation);
+            pattern = new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+            return true;
+        }
+
+        var accessibleCaseType = EnsureTypeAccessible(caseType, caseNameLocation);
+        var effectiveInputType = inputType ?? lookupType;
+        var designator = BindWholePatternDesignation(designation, accessibleCaseType);
+
+        if (arguments.Count == 0)
+        {
+            pattern = new BoundPropertyPattern(
+                inputType: effectiveInputType,
+                receiverType: accessibleCaseType,
+                narrowedType: accessibleCaseType,
+                designator: designator,
+                properties: ImmutableArray<BoundPropertySubpattern>.Empty);
+            return true;
+        }
+
+        var deconstructMethod = FindDeconstructMethod(accessibleCaseType, arguments.Count);
+        if (deconstructMethod is null)
+        {
+            _diagnostics.ReportNominalDeconstructionPatternRequiresDeconstructableType(
+                accessibleCaseType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                argumentListLocation);
+            pattern = new BoundPropertyPattern(
+                inputType: effectiveInputType,
+                receiverType: accessibleCaseType,
+                narrowedType: accessibleCaseType,
+                designator: designator,
+                properties: ImmutableArray<BoundPropertySubpattern>.Empty,
+                reason: BoundExpressionReason.NotFound);
+            return true;
+        }
+
+        pattern = BindDeconstructPattern(
+            arguments,
+            deconstructMethod,
+            effectiveInputType,
+            narrowedType: accessibleCaseType,
+            designation: designation);
+        return true;
+    }
+
+    private static bool TryGetSealedHierarchyCaseType(
+        ITypeSymbol lookupType,
+        ITypeSymbol? inputType,
+        string caseName,
+        out INamedTypeSymbol sealedRoot,
+        out ITypeSymbol? caseType)
+    {
+        sealedRoot = null!;
+        caseType = null;
+
+        if (!TypeCoverageHelper.TryGetSealedHierarchy(lookupType, out sealedRoot) &&
+            !(inputType is not null && TypeCoverageHelper.TryGetSealedHierarchy(inputType, out sealedRoot)))
+        {
+            return false;
+        }
+
+        var caseDefinition = sealedRoot.PermittedDirectSubtypes
+            .FirstOrDefault(candidate => string.Equals(candidate.Name, caseName, StringComparison.Ordinal));
+        if (caseDefinition is null)
+            return true;
+
+        caseType = caseDefinition;
+        return true;
     }
 
     private bool TryBindDiscriminatedUnionCasePattern(

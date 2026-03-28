@@ -635,7 +635,7 @@ internal sealed class HoverHandler : IHoverHandler
             }
 
             var typeFormat = declarationTypeFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
-            var text = FormatType(typeSymbol, typeFormat);
+            var text = typeSymbol.ToDisplayString(typeFormat);
 
             // Append base class / base interface list (e.g. "class Foo: Bar")
             if (typeSymbol is INamedTypeSymbol namedType)
