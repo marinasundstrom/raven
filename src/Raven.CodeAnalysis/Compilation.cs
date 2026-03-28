@@ -31,8 +31,13 @@ public partial class Compilation
     private readonly ConcurrentDictionary<SyntaxTree, SourceDiagnosticSuppressionMap> _sourceDiagnosticSuppressionMaps = new();
     private readonly ConcurrentDictionary<SyntaxTree, ImmutableArray<GlobalStatementSyntax>> _bindableGlobalStatementsCache = new();
     private readonly ConcurrentDictionary<SyntaxTree, bool> _hasNonGlobalMembersCache = new();
+    private readonly ConcurrentDictionary<string, object> _namespaceSymbolCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, object> _metadataTypeCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, object> _preferredMetadataTypeCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, object> _scopedMetadataTypeCache = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, string> s_globalAssemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, Assembly> s_globalRuntimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly object s_missingMetadataType = new();
     private static int s_trustedPlatformAssembliesInitialized;
     private bool _trustedPlatformAssembliesCached;
     private MetadataLoadContext _metadataLoadContext;
@@ -390,7 +395,7 @@ public partial class Compilation
                 continue;
 
             var bindableGlobals = GetBindableGlobalStatements(compilationUnit);
-            if (bindableGlobals.Count == 0)
+            if (!bindableGlobals.Any())
                 continue;
 
             if (SyntaxTreeWithFileScopedCode is null)
@@ -421,7 +426,7 @@ public partial class Compilation
                 continue;
 
             var bindableGlobals = GetBindableGlobalStatements(compilationUnit);
-            if (bindableGlobals.Count != 0 || HasNonGlobalMembers(compilationUnit))
+            if (bindableGlobals.Any() || HasNonGlobalMembers(compilationUnit))
                 continue;
 
             SyntaxTreeWithFileScopedCode ??= tree;
@@ -1797,11 +1802,93 @@ public partial class Compilation
         return Type.GetType(metadataName, throwOnError: false);
     }
 
+    internal INamespaceSymbol? GetNamespaceSymbolCached(string? ns)
+    {
+        EnsureSetup();
+
+        if (ns is null)
+            return GlobalNamespace;
+
+        var cacheKey = ns;
+        if (_namespaceSymbolCache.TryGetValue(cacheKey, out var cached))
+            return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamespaceSymbol)cached;
+
+        var resolved = GetNamespaceSymbolUncached(ns);
+        _namespaceSymbolCache.TryAdd(cacheKey, resolved ?? s_missingMetadataType);
+        return resolved;
+    }
+
+    private INamespaceSymbol? GetNamespaceSymbolUncached(string? ns)
+    {
+        if (ns is null)
+            return GlobalNamespace;
+
+        var namespaceParts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (namespaceParts.Length == 0)
+            return GlobalNamespace;
+
+        var fromSource = TryResolve(GlobalNamespace, namespaceParts);
+        if (fromSource is not null)
+            return fromSource;
+
+        foreach (var referencedAssembly in ReferencedAssemblySymbols)
+        {
+            var candidate = TryResolve(referencedAssembly.GlobalNamespace, namespaceParts);
+            if (candidate is not null)
+                return candidate;
+        }
+
+        return null;
+
+        static INamespaceSymbol? TryResolve(INamespaceSymbol root, string[] parts)
+        {
+            var current = root;
+            foreach (var part in parts)
+            {
+                current = current.LookupNamespace(part)
+                    ?? current.GetMembers(part)
+                        .OfType<INamespaceSymbol>()
+                        .FirstOrDefault();
+
+                if (current is null)
+                    return null;
+            }
+
+            return current;
+        }
+    }
+
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
         EnsureSetup();
         EnsureSourceTypesInitialized();
 
+        if (_metadataTypeCache.TryGetValue(metadataName, out var cached))
+            return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
+
+        var resolved = GetTypeByMetadataNameUncached(metadataName);
+        _metadataTypeCache.TryAdd(metadataName, resolved ?? s_missingMetadataType);
+        return resolved;
+    }
+
+    internal INamedTypeSymbol? GetTypeByMetadataName(INamespaceSymbol currentNamespace, string metadataName)
+    {
+        EnsureSetup();
+        EnsureSourceTypesInitialized();
+
+        var namespaceName = currentNamespace.ToMetadataName() ?? string.Empty;
+        var cacheKey = namespaceName + "\0" + metadataName;
+        if (_scopedMetadataTypeCache.TryGetValue(cacheKey, out var cached))
+            return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
+
+        var qualifiedMetadataName = currentNamespace.QualifyName(metadataName);
+        var resolved = GetTypeByMetadataName(qualifiedMetadataName) ?? GetTypeByMetadataName(metadataName);
+        _scopedMetadataTypeCache.TryAdd(cacheKey, resolved ?? s_missingMetadataType);
+        return resolved;
+    }
+
+    private INamedTypeSymbol? GetTypeByMetadataNameUncached(string metadataName)
+    {
         if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceType)
             return sourceType;
 
@@ -1858,6 +1945,14 @@ public partial class Compilation
 
     private INamedTypeSymbol? GetTypeByMetadataName(string metadataName, string preferredAssembly)
     {
+        EnsureSetup();
+
+        var cacheKey = preferredAssembly + "\0" + metadataName;
+        if (_preferredMetadataTypeCache.TryGetValue(cacheKey, out var cached))
+            return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
+
+        INamedTypeSymbol? resolved = null;
+
         foreach (var assembly in _metadataReferenceSymbols.Values)
         {
             if (!string.Equals(assembly.Name, preferredAssembly, StringComparison.OrdinalIgnoreCase))
@@ -1865,10 +1960,14 @@ public partial class Compilation
 
             var type = assembly.GetTypeByMetadataName(metadataName);
             if (type is not null)
-                return type;
+            {
+                resolved = type;
+                break;
+            }
         }
 
-        return null;
+        _preferredMetadataTypeCache.TryAdd(cacheKey, resolved ?? s_missingMetadataType);
+        return resolved;
     }
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)

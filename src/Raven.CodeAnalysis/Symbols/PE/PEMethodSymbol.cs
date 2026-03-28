@@ -18,8 +18,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private Accessibility? _accessibility;
     private ImmutableArray<IMethodSymbol>? _explicitInterfaceImplementations;
 
-    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
-        : base(containingType, containingType, containingType.ContainingNamespace, locations)
+    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null, bool addAsMember = true)
+        : base(containingType, containingType, containingType.ContainingNamespace, locations, addAsMember: addAsMember)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
         _methodInfo = methodInfo;
@@ -71,8 +71,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         AssociatedSymbol = associatedSymbol;
     }
 
-    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodBaseInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
-    : base(containingSymbol, containingType, containingType.ContainingNamespace, locations)
+    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodBaseInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null, bool addAsMember = true)
+    : base(containingSymbol, containingType, containingType.ContainingNamespace, locations, addAsMember: addAsMember)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
         _methodInfo = methodBaseInfo;

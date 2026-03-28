@@ -1916,6 +1916,9 @@ internal partial class TypeMemberBinder : Binder
 
     private bool TypeDeclaresPrimaryConstructor()
     {
+        if (_containingType is SourceNamedTypeSymbol sourceType)
+            return sourceType.HasPrimaryConstructorSyntax;
+
         return _containingType.DeclaringSyntaxReferences
             .Select(static r => r.GetSyntax())
             .OfType<TypeDeclarationSyntax>()

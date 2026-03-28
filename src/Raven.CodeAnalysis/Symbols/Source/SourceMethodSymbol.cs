@@ -24,6 +24,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _declaredInExtension;
     private ImmutableArray<AttributeData> _lazyReturnTypeAttributes;
     private bool? _lazyIsExtensionMethod;
+    private bool? _lazyIsPrimaryConstructorSymbol;
+    private TypeDeclarationSyntax? _lazyDeclaringTypeSyntax;
+    private bool _lazyDeclaringTypeSyntaxComputed;
     private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
     private IteratorMethodKind _iteratorKind;
     private ITypeSymbol? _iteratorElementType;
@@ -140,6 +143,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public bool IsDefinition { get; }
 
     public bool IsExtensionMethod => _lazyIsExtensionMethod ??= ComputeIsExtensionMethod();
+    internal bool IsPrimaryConstructorSymbol => _lazyIsPrimaryConstructorSymbol ??= ComputeIsPrimaryConstructorSymbol();
 
     public bool IsExtern { get; }
 
@@ -249,6 +253,29 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     {
         _declaredInExtension = true;
         _lazyIsExtensionMethod = true;
+    }
+
+    internal TypeDeclarationSyntax? GetDeclaringTypeSyntax()
+    {
+        if (_lazyDeclaringTypeSyntaxComputed)
+            return _lazyDeclaringTypeSyntax;
+
+        _lazyDeclaringTypeSyntaxComputed = true;
+
+        foreach (var syntaxReference in DeclaringSyntaxReferences)
+        {
+            switch (syntaxReference.GetSyntax())
+            {
+                case TypeDeclarationSyntax typeDeclaration:
+                    _lazyDeclaringTypeSyntax = typeDeclaration;
+                    return _lazyDeclaringTypeSyntax;
+                case MemberDeclarationSyntax memberDeclaration when memberDeclaration.Parent is TypeDeclarationSyntax parentType:
+                    _lazyDeclaringTypeSyntax = parentType;
+                    return _lazyDeclaringTypeSyntax;
+            }
+        }
+
+        return null;
     }
 
     internal void MarkAsPartialDefinition()
@@ -581,6 +608,14 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         }
 
         return false;
+    }
+
+    private bool ComputeIsPrimaryConstructorSymbol()
+    {
+        if (MethodKind != MethodKind.Constructor || IsStatic)
+            return false;
+
+        return GetDeclaringTypeSyntax()?.ParameterList is not null;
     }
 
     private static bool IsExtensionAttributeName(TypeSyntax name)

@@ -977,7 +977,7 @@ public partial class Compilation
         _extensionConversionOperatorsInitialized = true;
 
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
-        var members = GlobalNamespace.GetAllMembersRecursive().OfType<INamedTypeSymbol>();
+        var members = GlobalNamespace.GetAllTypesRecursive();
 
         foreach (var type in members)
         {

@@ -1132,8 +1132,7 @@ public partial class SemanticModel
 
         ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
         {
-            var full = Combine(current, name);
-            return Compilation.GetTypeByMetadataName(full) ?? Compilation.GetTypeByMetadataName(name);
+            return Compilation.GetTypeByMetadataName(current, name);
         }
 
         IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)
@@ -1193,9 +1192,7 @@ public partial class SemanticModel
             if (name is GenericNameSyntax g)
             {
                 var baseName = $"{g.Identifier.ValueText}`{g.TypeArgumentList.Arguments.Count}";
-                var full = Combine(current, baseName);
-                var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
-                    ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
+                var unconstructed = Compilation.GetTypeByMetadataName(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -1209,9 +1206,7 @@ public partial class SemanticModel
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
                 var baseName = $"{leftName}.{gen.Identifier.ValueText}`{gen.TypeArgumentList.Arguments.Count}";
-                var full = Combine(current, baseName);
-                var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
-                    ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
+                var unconstructed = Compilation.GetTypeByMetadataName(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -1229,9 +1224,7 @@ public partial class SemanticModel
             if (name is GenericNameSyntax g)
             {
                 var baseName = $"{g.Identifier.ValueText}`{g.TypeArgumentList.Arguments.SeparatorCount + 1}";
-                var full = Combine(current, baseName);
-                var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
-                    ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
+                var unconstructed = Compilation.GetTypeByMetadataName(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -1245,9 +1238,7 @@ public partial class SemanticModel
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
                 var baseName = $"{leftName}.{gen.Identifier.ValueText}`{gen.TypeArgumentList.Arguments.SeparatorCount + 1}";
-                var full = Combine(current, baseName);
-                var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
-                    ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
+                var unconstructed = Compilation.GetTypeByMetadataName(current, baseName);
                 if (unconstructed is not null)
                     return unconstructed;
             }
@@ -1312,7 +1303,6 @@ public partial class SemanticModel
     private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, INamespaceSymbol namespaceSymbol, Binder parentBinder)
     {
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
-
         var bindableGlobals = Compilation.GetBindableGlobalStatements(cu);
         var hasNonGlobalMembers = Compilation.HasNonGlobalMembers(cu);
         var hadDisabledGlobalStatements = false;

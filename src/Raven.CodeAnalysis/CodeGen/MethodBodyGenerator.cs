@@ -1383,6 +1383,9 @@ internal class MethodBodyGenerator
         if (MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
             return null;
 
+        if (MethodSymbol is SourceMethodSymbol sourceMethod)
+            return sourceMethod.GetDeclaringTypeSyntax();
+
         return MethodSymbol.DeclaringSyntaxReferences
             .Select(r => r.GetSyntax())
             .OfType<TypeDeclarationSyntax>()
@@ -1397,6 +1400,9 @@ internal class MethodBodyGenerator
 
     private static bool IsPrimaryConstructorSymbol(IMethodSymbol methodSymbol)
     {
+        if (methodSymbol is SourceMethodSymbol sourceMethod)
+            return sourceMethod.IsPrimaryConstructorSymbol;
+
         if (methodSymbol.MethodKind != MethodKind.Constructor || methodSymbol.IsStatic)
             return false;
 

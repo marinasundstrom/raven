@@ -24,6 +24,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     private bool _hasExplicitPermits;
     private ImmutableArray<INamedTypeSymbol> _permittedDirectSubtypes = ImmutableArray<INamedTypeSymbol>.Empty;
     private string? _sealedHierarchySourceFile;
+    private bool? _lazyHasPrimaryConstructorSyntax;
 
     public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = false, Accessibility declaredAccessibility = Accessibility.NotApplicable, string? metadataName = null)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
@@ -116,6 +117,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public bool HasExplicitPermits => _hasExplicitPermits;
     public ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes => _permittedDirectSubtypes;
     internal string? SealedHierarchySourceFile => _sealedHierarchySourceFile;
+    internal bool HasPrimaryConstructorSyntax => _lazyHasPrimaryConstructorSyntax ??= ComputeHasPrimaryConstructorSyntax();
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
@@ -261,6 +263,17 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         if (!properties.IsDefault)
             _deconstructProperties = properties;
+    }
+
+    private bool ComputeHasPrimaryConstructorSyntax()
+    {
+        foreach (var syntaxReference in DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is TypeDeclarationSyntax { ParameterList: not null })
+                return true;
+        }
+
+        return false;
     }
 
     internal void MarkAsExtensionContainer()

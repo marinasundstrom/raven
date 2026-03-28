@@ -94,6 +94,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private ITypeSymbol? _extensionReceiverType;
     private bool _extensionMarkerMembersComputed;
     private bool _hasExtensionMarkerMembers;
+    private ImmutableArray<INamedTypeSymbol>? _nestedTypes;
 
     internal static PENamedTypeSymbol Create(
         ReflectionTypeLoader reflectionTypeLoader,
@@ -308,21 +309,31 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         _extensionReceiverTypeComputed = true;
 
-        foreach (var method in GetMembers().OfType<IMethodSymbol>())
+        foreach (var methodInfo in GetDeclaredMethodsSafe())
         {
-            if (!method.IsStatic || !method.IsExtensionMethod)
+            if (!methodInfo.IsStatic || !HasExtensionAttribute(GetCustomAttributesSafe(methodInfo)))
                 continue;
 
-            if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
+            var methodSymbol = new PEMethodSymbol(
+                _reflectionTypeLoader,
+                methodInfo,
+                this,
+                [new MetadataLocation(ContainingModule!)],
+                addAsMember: false);
+
+            if (methodSymbol.Parameters.IsDefaultOrEmpty || methodSymbol.Parameters.Length == 0)
                 continue;
 
-            _extensionReceiverType = method.Parameters[0].Type;
+            _extensionReceiverType = methodSymbol.Parameters[0].Type;
             break;
         }
 
         if (_extensionReceiverType is null)
         {
-            foreach (var nestedType in GetMembers().OfType<PENamedTypeSymbol>())
+            if (!HasExtensionMarkerMembers())
+                return null;
+
+            foreach (var nestedType in GetNestedTypeMembers().OfType<PENamedTypeSymbol>())
             {
                 foreach (var member in nestedType.GetMembers())
                 {
@@ -354,15 +365,18 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         _extensionMarkerMembersComputed = true;
 
-        foreach (var member in GetMembers())
+        foreach (var methodInfo in GetDeclaredMethodsSafe())
         {
-            if (member is PEMethodSymbol peMethod && peMethod.TryGetExtensionMarkerName(out _))
+            if (HasExtensionMarkerName(GetCustomAttributesSafe(methodInfo)))
             {
                 _hasExtensionMarkerMembers = true;
                 return true;
             }
+        }
 
-            if (member is PEPropertySymbol peProperty && peProperty.TryGetExtensionMarkerName(out _))
+        foreach (var propertyInfo in GetDeclaredPropertiesSafe())
+        {
+            if (HasExtensionMarkerName(GetCustomAttributesSafe(propertyInfo)))
             {
                 _hasExtensionMarkerMembers = true;
                 return true;
@@ -371,6 +385,23 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         _hasExtensionMarkerMembers = false;
         return false;
+    }
+
+    internal IEnumerable<INamedTypeSymbol> GetNestedTypeMembers()
+    {
+        if (_nestedTypes is { } nestedTypes)
+            return nestedTypes;
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+
+        foreach (var nestedType in GetDeclaredNestedTypesSafe())
+        {
+            if (_reflectionTypeLoader.ResolveType((Type)nestedType) is INamedTypeSymbol nestedTypeSymbol)
+                builder.Add(nestedTypeSymbol);
+        }
+
+        _nestedTypes = builder.ToImmutable();
+        return _nestedTypes.Value;
     }
 
     internal ITypeSymbol? GetExtensionMarkerReceiverType(ISymbol member)
@@ -830,6 +861,94 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 _ = module.GetType(nestedTypeInfo.AsType());
             }
         }
+    }
+
+    private IEnumerable<MethodInfo> GetDeclaredMethodsSafe()
+    {
+        try
+        {
+            return _typeInfo.DeclaredMethods;
+        }
+        catch (ArgumentException)
+        {
+            return [];
+        }
+    }
+
+    private IEnumerable<PropertyInfo> GetDeclaredPropertiesSafe()
+    {
+        try
+        {
+            return _typeInfo.DeclaredProperties;
+        }
+        catch (ArgumentException)
+        {
+            return [];
+        }
+    }
+
+    private IEnumerable<System.Reflection.TypeInfo> GetDeclaredNestedTypesSafe()
+    {
+        try
+        {
+            return _typeInfo.DeclaredNestedTypes;
+        }
+        catch (ArgumentException)
+        {
+            return [];
+        }
+    }
+
+    private static IEnumerable<CustomAttributeData> GetCustomAttributesSafe(MethodInfo methodInfo)
+    {
+        IList<CustomAttributeData> attributes;
+        try
+        {
+            attributes = methodInfo.GetCustomAttributesData();
+        }
+        catch (ArgumentException)
+        {
+            return [];
+        }
+
+        return attributes;
+    }
+
+    private static IEnumerable<CustomAttributeData> GetCustomAttributesSafe(PropertyInfo propertyInfo)
+    {
+        IList<CustomAttributeData> attributes;
+        try
+        {
+            attributes = propertyInfo.GetCustomAttributesData();
+        }
+        catch (ArgumentException)
+        {
+            return [];
+        }
+
+        return attributes;
+    }
+
+    private static bool HasExtensionAttribute(IEnumerable<CustomAttributeData> attributes)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (GetAttributeTypeName(attribute) == typeof(System.Runtime.CompilerServices.ExtensionAttribute).FullName)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasExtensionMarkerName(IEnumerable<CustomAttributeData> attributes)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (GetAttributeTypeName(attribute) == "System.Runtime.CompilerServices.ExtensionMarkerNameAttribute")
+                return true;
+        }
+
+        return false;
     }
 
     private List<ISymbol> GetMembersSnapshot()

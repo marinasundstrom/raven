@@ -33,7 +33,7 @@ Filters:
 
 Environment overrides:
   DOTNET_VERSION, BUILD_CONFIG, OUTPUT_DIR, RAVEN_CORE, RAVEN_CODE_ANALYSIS,
-  EXCLUSIONS_FILE
+  EXCLUSIONS_FILE, CLEAN_OUTPUT, FORCE_REBUILD
 EOF
 }
 
@@ -77,10 +77,52 @@ OUTPUT_DIR="${OUTPUT_DIR:-output/$DOTNET_VERSION}"
 if [[ "$OUTPUT_DIR" != /* ]]; then
   OUTPUT_DIR="$SCRIPT_DIR/$OUTPUT_DIR"
 fi
-if [[ -d "$OUTPUT_DIR" ]]; then
+CLEAN_OUTPUT="${CLEAN_OUTPUT:-0}"
+FORCE_REBUILD="${FORCE_REBUILD:-0}"
+if [[ "$CLEAN_OUTPUT" == "1" && -d "$OUTPUT_DIR" ]]; then
   rm -rf "$OUTPUT_DIR"
 fi
 mkdir -p "$OUTPUT_DIR"
+
+tracked_source_file() {
+  case "$1" in
+    *.cs|*.csproj|*.props|*.targets|*.xml|*.rav|*.rvn|*.rvnproj|Directory.Build.*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+needs_rebuild() {
+  local target="$1"
+  shift
+
+  if [[ "$FORCE_REBUILD" == "1" || ! -f "$target" ]]; then
+    return 0
+  fi
+
+  local input
+  for input in "$@"; do
+    [[ -e "$input" ]] || continue
+
+    if [[ -f "$input" ]]; then
+      if [[ "$input" -nt "$target" ]]; then
+        return 0
+      fi
+      continue
+    fi
+
+    while IFS= read -r candidate; do
+      if tracked_source_file "$candidate" && [[ "$candidate" -nt "$target" ]]; then
+        return 0
+      fi
+    done < <(find "$input" -type f)
+  done
+
+  return 1
+}
 
 EXCLUSIONS_FILE="${EXCLUSIONS_FILE:-$SCRIPT_DIR/exclusions.txt}"
 EXCLUDE_PATTERNS=()
@@ -138,9 +180,45 @@ matches_filter() {
 load_exclusions "build"
 
 rav_files=()
-while IFS= read -r file; do
-  rav_files+=("${file#./}")
-done < <(find . -type f -name "*.rav" ! -path "./output/*" ! -path "./projects/*" | sort)
+
+collect_filtered_rav_files() {
+  local filter resolved stripped matched=()
+
+  for filter in "${FILTERS[@]}"; do
+    if [[ "$filter" == *[\*\?\[]* ]]; then
+      return 1
+    fi
+
+    if [[ "$filter" = /* ]]; then
+      resolved="$filter"
+    else
+      resolved="$SCRIPT_DIR/$filter"
+    fi
+
+    if [[ ! -f "$resolved" || "$resolved" != *.rav ]]; then
+      return 1
+    fi
+
+    stripped="${resolved#$SCRIPT_DIR/}"
+    if [[ "$stripped" == "$resolved" || "$stripped" == output/* || "$stripped" == projects/* ]]; then
+      return 1
+    fi
+
+    matched+=("$stripped")
+  done
+
+  printf '%s\n' "${matched[@]}" | sort -u
+}
+
+if (( ${#FILTERS[@]} > 0 )); then
+  while IFS= read -r file; do
+    [[ -n "$file" ]] && rav_files+=("$file")
+  done < <(collect_filtered_rav_files || find . -type f -name "*.rav" ! -path "./output/*" ! -path "./projects/*" | sort | sed 's#^\./##')
+else
+  while IFS= read -r file; do
+    rav_files+=("${file#./}")
+  done < <(find . -type f -name "*.rav" ! -path "./output/*" ! -path "./projects/*" | sort)
+fi
 
 if (( ${#rav_files[@]} == 0 )); then
   echo "No .rav files found under samples/."
@@ -148,11 +226,21 @@ if (( ${#rav_files[@]} == 0 )); then
 fi
 
 if [[ -z "${RAVEN_CORE:-}" ]]; then
-  rm -f "$REPO_ROOT/src/Raven.Core/bin/$BUILD_CONFIG/$DOTNET_VERSION/Raven.Core.dll"
-  dotnet build "$REPO_ROOT/src/Raven.Core" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+  DIRECT_RAVEN_CORE="$REPO_ROOT/src/Raven.Core/bin/$BUILD_CONFIG/$DOTNET_VERSION/Raven.Core.dll"
+  if needs_rebuild \
+    "$DIRECT_RAVEN_CORE" \
+    "$REPO_ROOT/src/Raven.Core" \
+    "$REPO_ROOT/src/Raven.Compiler" \
+    "$REPO_ROOT/src/Raven.CodeAnalysis" \
+    "$REPO_ROOT/src/Raven.CodeAnalysis.Console" \
+    "$REPO_ROOT/src/RavenDoc"
+  then
+    rm -f "$DIRECT_RAVEN_CORE"
+    dotnet build "$REPO_ROOT/src/Raven.Core" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+  fi
 
   for candidate in \
-    "$REPO_ROOT/src/Raven.Core/bin/$BUILD_CONFIG/$DOTNET_VERSION/Raven.Core.dll" \
+    "$DIRECT_RAVEN_CORE" \
     "$REPO_ROOT/src/Raven.Core/bin/$BUILD_CONFIG/$DOTNET_VERSION/$DOTNET_VERSION/Raven.Core.dll"
   do
     if [[ -f "$candidate" ]]; then
@@ -162,14 +250,36 @@ if [[ -z "${RAVEN_CORE:-}" ]]; then
   done
 fi
 
-#
-# Make sure the compiler host is rebuilt after its compiler-core dependency.
-dotnet build "$REPO_ROOT/src/Raven.CodeAnalysis" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
-dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION" -p:UseRavenCoreReference=false
-# TestDep is currently net10.0-only, so build it with its declared framework.
-dotnet build "$REPO_ROOT/src/TestDep" -c "$BUILD_CONFIG"
-
 COMPILER_BIN="$PROJECT_DIR/bin/$BUILD_CONFIG/$DOTNET_VERSION/$COMPILER_EXC"
+RAVEN_CODE_ANALYSIS_BIN="$REPO_ROOT/src/Raven.CodeAnalysis/bin/$BUILD_CONFIG/$DOTNET_VERSION/Raven.CodeAnalysis.dll"
+TEST_DEP_BIN="$REPO_ROOT/src/TestDep/bin/$BUILD_CONFIG/$DOTNET_VERSION/TestDep.dll"
+
+#
+# Rebuild only when outputs are missing or older than their inputs.
+if needs_rebuild \
+  "$RAVEN_CODE_ANALYSIS_BIN" \
+  "$REPO_ROOT/src/Raven.CodeAnalysis" \
+  "$REPO_ROOT/tools/NodeGenerator" \
+  "$REPO_ROOT/tools/BoundNodeGenerator" \
+  "$REPO_ROOT/tools/DiagnosticsGenerator"
+then
+  dotnet build "$REPO_ROOT/src/Raven.CodeAnalysis" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION"
+fi
+
+if needs_rebuild \
+  "$COMPILER_BIN" \
+  "$PROJECT_DIR" \
+  "$REPO_ROOT/src/Raven.CodeAnalysis" \
+  "$REPO_ROOT/src/Raven.CodeAnalysis.Console" \
+  "$REPO_ROOT/src/RavenDoc"
+then
+  dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION" -p:UseRavenCoreReference=false
+fi
+
+# TestDep is currently net10.0-only, so build it with its declared framework.
+if needs_rebuild "$TEST_DEP_BIN" "$REPO_ROOT/src/TestDep"; then
+  dotnet build "$REPO_ROOT/src/TestDep" -c "$BUILD_CONFIG"
+fi
 
 if [[ -z "${RAVEN_CORE:-}" || ! -f "$RAVEN_CORE" ]]; then
   DIRECT_RAVEN_CORE="$REPO_ROOT/src/Raven.Core/bin/$BUILD_CONFIG/$DOTNET_VERSION/Raven.Core.dll"
@@ -251,7 +361,7 @@ done
 # Copy dependency (this should not stop script if missing)
 TEST_DEP_DLL=""
 for candidate in \
-  "$REPO_ROOT/src/TestDep/bin/$BUILD_CONFIG/$DOTNET_VERSION/TestDep.dll" \
+  "$TEST_DEP_BIN" \
   "$REPO_ROOT/src/TestDep/bin/$BUILD_CONFIG/net10.0/TestDep.dll"
 do
   if [[ -f "$candidate" ]]; then
