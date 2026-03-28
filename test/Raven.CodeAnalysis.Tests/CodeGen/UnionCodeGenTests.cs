@@ -1089,22 +1089,100 @@ class Container {
         var getErrorMethod = containerType.GetMethod("GetError", BindingFlags.Public | BindingFlags.Instance)!;
 
         var okUnionValue = getOkMethod.Invoke(container, Array.Empty<object?>());
-        var okArgs = new object?[] { Activator.CreateInstance(okCaseType)! };
+        var okArgs = new object?[] { null };
         var okResult = (bool)okTryGetMethod.Invoke(okUnionValue, okArgs)!;
         Assert.True(okResult);
         var okValueProperty = okCaseType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
         Assert.Equal(7, (int)okValueProperty.GetValue(okArgs[0])!);
 
         var errorUnionValue = getErrorMethod.Invoke(container, Array.Empty<object?>());
-        var errorArgs = new object?[] { Activator.CreateInstance(errorCaseType)! };
+        var errorArgs = new object?[] { null };
         var errorResult = (bool)errorTryGetMethod.Invoke(errorUnionValue, errorArgs)!;
         Assert.True(errorResult);
         var errorMessageProperty = errorCaseType.GetProperty("Message", BindingFlags.Public | BindingFlags.Instance)!;
         Assert.Equal("boom", (string)errorMessageProperty.GetValue(errorArgs[0])!);
 
-        var mismatchArgs = new object?[] { Activator.CreateInstance(errorCaseType)! };
+        var mismatchArgs = new object?[] { null };
         var mismatchResult = (bool)errorTryGetMethod.Invoke(okUnionValue, mismatchArgs)!;
         Assert.False(mismatchResult);
+    }
+
+    [Fact]
+    public void DiscriminatedUnionCase_EmitsSynthesizedDeconstruct()
+    {
+        var code = """
+union Result {
+    Ok(value: int)
+    Error(message: string)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var okCaseType = runtimeAssembly.GetType("Result_Ok", throwOnError: true)!;
+        var deconstructMethod = okCaseType.GetMethod(
+            "Deconstruct",
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            types: [typeof(int).MakeByRefType()],
+            modifiers: null)!;
+
+        var okValue = Activator.CreateInstance(okCaseType, [7])!;
+        var args = new object?[] { 0 };
+        deconstructMethod.Invoke(okValue, args);
+
+        Assert.Equal(7, (int)args[0]!);
+    }
+
+    [Fact]
+    public void DiscriminatedUnionCase_EmitsSynthesizedPropertyGetter()
+    {
+        var code = """
+union Result {
+    Ok(value: int)
+    Error(message: string)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var okCaseType = runtimeAssembly.GetType("Result_Ok", throwOnError: true)!;
+        var okValue = Activator.CreateInstance(okCaseType, [7])!;
+        var valueProperty = okCaseType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
+
+        Assert.Equal(7, (int)valueProperty.GetValue(okValue)!);
     }
 
     [Fact]

@@ -70,6 +70,256 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void RecordDeconstruct_HasSynthesizedBody()
+    {
+        const string source = """
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var deconstruct = person.GetMembers("Deconstruct").OfType<IMethodSymbol>()
+            .Single(method => method.Parameters.Length == 2);
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(deconstruct, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+
+        Assert.Collection(
+            body!.Statements,
+            statement =>
+            {
+                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
+                var byRefAssignment = Assert.IsType<BoundByRefAssignmentExpression>(assignment.Expression);
+                var parameterAccess = Assert.IsType<BoundParameterAccess>(byRefAssignment.Reference);
+                Assert.Equal("Name", parameterAccess.Parameter.Name);
+            },
+            statement =>
+            {
+                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
+                var byRefAssignment = Assert.IsType<BoundByRefAssignmentExpression>(assignment.Expression);
+                var parameterAccess = Assert.IsType<BoundParameterAccess>(byRefAssignment.Reference);
+                Assert.Equal("Age", parameterAccess.Parameter.Name);
+            },
+            statement => Assert.IsType<BoundReturnStatement>(statement));
+    }
+
+    [Fact]
+    public void RecordToString_HasSynthesizedBody()
+    {
+        const string source = """
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var toString = person.GetMembers(nameof(object.ToString)).OfType<IMethodSymbol>()
+            .Single(method => method.Parameters.Length == 0);
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(toString, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+
+        var returnStatement = Assert.IsType<BoundReturnStatement>(Assert.Single(body!.Statements));
+        Assert.NotNull(returnStatement.Expression);
+    }
+
+    [Fact]
+    public void GenericRecordToString_HasSynthesizedBody()
+    {
+        const string source = """
+            record class Box<T>(Value: T);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var box = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var toString = box.GetMembers(nameof(object.ToString)).OfType<IMethodSymbol>()
+            .Single(method => method.Parameters.Length == 0);
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(toString, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+        Assert.Contains(body!.Statements, static statement => statement is BoundLocalDeclarationStatement);
+    }
+
+    [Fact]
+    public void RecordCopyConstructor_HasSynthesizedBody()
+    {
+        const string source = """
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var copyConstructor = person.GetMembers(".ctor").OfType<IMethodSymbol>()
+            .Single(method => method.Parameters.Length == 1 &&
+                              SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, person));
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(copyConstructor, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+
+        Assert.Collection(
+            body!.Statements,
+            statement =>
+            {
+                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
+                var fieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(assignment.Expression);
+                Assert.Equal("<Name>k__BackingField", fieldAssignment.Field.Name);
+            },
+            statement =>
+            {
+                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
+                var fieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(assignment.Expression);
+                Assert.Equal("<Age>k__BackingField", fieldAssignment.Field.Name);
+            },
+            statement => Assert.IsType<BoundReturnStatement>(statement));
+    }
+
+    [Fact]
+    public void DerivedRecordCopyConstructor_HasSynthesizedBody()
+    {
+        const string source = """
+            abstract record class Person(Name: string);
+            record class Employee(Name: string, Id: int) : Person(Name);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Last();
+        var employee = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var copyConstructor = employee.GetMembers(".ctor").OfType<IMethodSymbol>()
+            .Single(method => method.Parameters.Length == 1 &&
+                              SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, employee));
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(copyConstructor, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+
+        Assert.Collection(
+            body!.Statements,
+            statement =>
+            {
+                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
+                var fieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(assignment.Expression);
+                Assert.Equal("<Id>k__BackingField", fieldAssignment.Field.Name);
+            },
+            statement => Assert.IsType<BoundReturnStatement>(statement));
+    }
+
+    [Fact]
+    public void RecordGetHashCode_HasSynthesizedBody()
+    {
+        const string source = """
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var getHashCode = person.GetMembers(nameof(object.GetHashCode)).OfType<IMethodSymbol>()
+            .Single(method => method.Parameters.Length == 0);
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(getHashCode, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+        Assert.Contains(body!.Statements, static statement => statement is BoundLocalDeclarationStatement);
+        Assert.IsType<BoundReturnStatement>(body.Statements.Last());
+    }
+
+    [Fact]
+    public void RecordObjectEquals_HasSynthesizedBody()
+    {
+        const string source = """
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var objectEquals = person.GetMembers(nameof(object.Equals)).OfType<IMethodSymbol>()
+            .Single(method => method.Parameters.Length == 1 &&
+                              method.Parameters[0].Type.SpecialType == SpecialType.System_Object);
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(objectEquals, BoundTreeView.Original, out var objectBody));
+        Assert.NotNull(objectBody);
+        Assert.Contains(objectBody!.Statements, static statement => statement is BoundLocalDeclarationStatement);
+        Assert.Contains(objectBody.Statements, static statement => statement is BoundIfStatement);
+    }
+
+    [Fact]
+    public void RecordTypedEquals_HasSynthesizedBody()
+    {
+        const string source = """
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var typedEquals = person.GetMembers(nameof(object.Equals)).OfType<IMethodSymbol>()
+            .Single(method => method.Parameters.Length == 1 &&
+                              SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, person));
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(typedEquals, BoundTreeView.Original, out var typedBody));
+        Assert.NotNull(typedBody);
+        Assert.Contains(typedBody!.Statements, static statement => statement is BoundIfStatement);
+    }
+
+    [Fact]
+    public void RecordEqualityOperator_HasSynthesizedBody()
+    {
+        const string source = """
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var equalityOperator = person.GetMembers("op_Equality").OfType<IMethodSymbol>().Single();
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(equalityOperator, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+        Assert.Contains(body!.Statements, static statement => statement is BoundIfStatement);
+        Assert.IsType<BoundReturnStatement>(body.Statements.Last());
+    }
+
+    [Fact]
+    public void RecordInequalityOperator_HasSynthesizedBody()
+    {
+        const string source = """
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var inequalityOperator = person.GetMembers("op_Inequality").OfType<IMethodSymbol>().Single();
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(inequalityOperator, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+        Assert.Contains(body!.Statements, static statement => statement is BoundIfStatement);
+        Assert.IsType<BoundReturnStatement>(body.Statements.Last());
+    }
+
+    [Fact]
     public void NominalDeconstructionPattern_BindsPrimaryConstructorProperties()
     {
         var source = """

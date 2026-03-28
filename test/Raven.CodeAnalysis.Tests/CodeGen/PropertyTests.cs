@@ -28,7 +28,7 @@ class Sample {
                 .Select(path => MetadataReference.CreateFromFile(path))
         ];
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -77,7 +77,7 @@ class Counter {
                 .Select(path => MetadataReference.CreateFromFile(path))
         ];
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -777,4 +777,150 @@ record class Person(Name: string, private var Secret: int)
         var copy = copyCtor!.Invoke([left]);
         Assert.True(copy.Equals(left));
     }
+
+    [Fact]
+    public void RecordInequalityOperator_InvertsValueEquality()
+    {
+        var code = """
+record class Person(Name: string, Age: int)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var personType = loaded.Assembly.GetType("Person", throwOnError: true)!;
+        var constructor = personType
+            .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Single(c =>
+            {
+                var parameters = c.GetParameters();
+                return parameters.Length == 2 &&
+                       parameters[0].ParameterType == typeof(string) &&
+                       parameters[1].ParameterType == typeof(int);
+            });
+
+        var left = constructor.Invoke(["Ada", 1]);
+        var same = constructor.Invoke(["Ada", 1]);
+        var different = constructor.Invoke(["Ada", 2]);
+
+        var opInequality = personType.GetMethod(
+            "op_Inequality",
+            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            [personType, personType],
+            modifiers: null);
+        Assert.NotNull(opInequality);
+        Assert.False((bool)opInequality!.Invoke(null, [left, same])!);
+        Assert.True((bool)opInequality.Invoke(null, [left, different])!);
+    }
+
+    [Fact]
+    public void DerivedRecordCopyConstructor_CopiesBaseAndDerivedState()
+    {
+        var code = """
+abstract record class Person(Name: string)
+record class Employee(Name: string, Id: int) : Person(Name)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var employeeType = loaded.Assembly.GetType("Employee", throwOnError: true)!;
+        var constructors = employeeType.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        var primaryCtor = constructors.Single(c =>
+        {
+            var parameters = c.GetParameters();
+            return parameters.Length == 2 &&
+                   parameters[0].ParameterType == typeof(string) &&
+                   parameters[1].ParameterType == typeof(int);
+        });
+        var copyCtor = constructors.Single(c =>
+        {
+            var parameters = c.GetParameters();
+            return parameters.Length == 1 &&
+                   parameters[0].ParameterType == employeeType;
+        });
+
+        var original = primaryCtor.Invoke(["Ada", 42]);
+        var copy = copyCtor.Invoke([original]);
+
+        Assert.True(copy.Equals(original));
+        Assert.Equal("Ada", employeeType.GetProperty("Name")!.GetValue(copy));
+        Assert.Equal(42, employeeType.GetProperty("Id")!.GetValue(copy));
+    }
+
+    [Fact]
+    public void RecordDeconstruct_AssignsOutParameters()
+    {
+        var code = """
+record class Person(Name: string, Age: int)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var personType = loaded.Assembly.GetType("Person", throwOnError: true)!;
+        var constructor = personType
+            .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Single(c =>
+            {
+                var parameters = c.GetParameters();
+                return parameters.Length == 2 &&
+                       parameters[0].ParameterType == typeof(string) &&
+                       parameters[1].ParameterType == typeof(int);
+            });
+
+        var person = constructor.Invoke(["Ada", 42]);
+        var deconstruct = personType.GetMethod("Deconstruct", BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(deconstruct);
+
+        object?[] args = [null, null];
+        deconstruct!.Invoke(person, args);
+
+        Assert.Equal("Ada", args[0]);
+        Assert.Equal(42, args[1]);
+    }
+
 }

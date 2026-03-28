@@ -29,6 +29,17 @@ internal static class SynthesizedMethodBodyFactory
             }
         }
 
+        if (method.Name == SynthesizedUnionMethodNames.FriendlyTypeNameHelper &&
+            method.IsStatic &&
+            method.Parameters.Length == 1 &&
+            method.Parameters[0].Type.SpecialType == SpecialType.System_Type &&
+            method.ReturnType.SpecialType == SpecialType.System_String &&
+            method.ContainingType is SourceDiscriminatedUnionSymbol)
+        {
+            body = CreateFriendlyTypeNameHelperBody(compilation, method);
+            return true;
+        }
+
         if (method.Name == SynthesizedUnionMethodNames.FormatValueHelper &&
             method.IsStatic &&
             method.Parameters.Length == 2 &&
@@ -40,12 +51,90 @@ internal static class SynthesizedMethodBodyFactory
             return true;
         }
 
+        if (method.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly &&
+            method.ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true, BackingField: SourceFieldSymbol } autoProperty)
+        {
+            body = CreateAutoPropertyAccessorBody(compilation, method, autoProperty);
+            return true;
+        }
+
+        if (method.Name == "TryGetValue" &&
+            method.Parameters.Length == 1 &&
+            method.Parameters[0].RefKind == RefKind.Out &&
+            method.ReturnType.SpecialType == SpecialType.System_Boolean &&
+            method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            TryGetSourceDiscriminatedUnionDefinition(method.ContainingType) is { } tryGetUnion)
+        {
+            body = CreateUnionTryGetValueBody(compilation, method, tryGetUnion, method.Parameters[0]);
+            return true;
+        }
+
+        if (method.MethodKind == MethodKind.Constructor &&
+            method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            TryGetSourceDiscriminatedUnionDefinition(method.ContainingType) is { } constructorUnion)
+        {
+            body = CreateUnionCarrierConstructorBody(compilation, method, constructorUnion);
+            return true;
+        }
+
+        if (method.MethodKind == MethodKind.Constructor &&
+            method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true } recordNominalType &&
+            method.Parameters.Length == 1 &&
+            SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, method.ContainingType))
+        {
+            body = CreateRecordCopyConstructorBody(compilation, method, recordNominalType);
+            return true;
+        }
+
+        if (method.MethodKind == MethodKind.Constructor &&
+            TryGetUnionCaseType(method.ContainingType) is { } caseType)
+        {
+            body = CreateUnionCaseConstructorBody(compilation, method, caseType);
+            return true;
+        }
+
+        if (method.MethodKind == MethodKind.PropertyGet &&
+            TryGetSynthesizableUnionCaseProperty(method) is { } unionCaseProperty)
+        {
+            body = CreateUnionCasePropertyGetterBody(method, unionCaseProperty);
+            return true;
+        }
+
+        if (method.Name == "Deconstruct" &&
+            method.MethodKind == MethodKind.Ordinary &&
+            method.ReturnType.SpecialType == SpecialType.System_Unit &&
+            method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            TryGetUnionCaseType(method.ContainingType) is { } deconstructCase)
+        {
+            body = CreateUnionCaseDeconstructBody(compilation, method, deconstructCase);
+            return true;
+        }
+
+        if (method.Name == "Deconstruct" &&
+            method.MethodKind == MethodKind.Ordinary &&
+            method.ReturnType.SpecialType == SpecialType.System_Unit &&
+            method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            TryGetSourceNamedTypeDefinition(method.ContainingType) is { } nominalType)
+        {
+            var deconstructProperties = GetNominalDeconstructProperties(nominalType);
+            if (!deconstructProperties.IsDefaultOrEmpty)
+            {
+                body = CreateNominalDeconstructBody(compilation, method, deconstructProperties);
+                return true;
+            }
+        }
+
         if (method.Name == nameof(object.ToString) &&
             method.Parameters.Length == 0 &&
             method.ReturnType.SpecialType == SpecialType.System_String)
         {
             switch (method.ContainingType)
             {
+                case SourceNamedTypeSymbol { IsRecord: true } recordType:
+                    body = CreateRecordToStringBody(compilation, method, recordType);
+                    return true;
+
                 case SourceDiscriminatedUnionSymbol unionSymbol:
                     body = CreateUnionToStringBody(compilation, method, unionSymbol);
                     return true;
@@ -53,6 +142,56 @@ internal static class SynthesizedMethodBodyFactory
                 case SourceDiscriminatedUnionCaseTypeSymbol caseSymbol:
                     body = CreateUnionCaseToStringBody(compilation, method, caseSymbol);
                     return true;
+            }
+        }
+
+        if (method.Name == nameof(object.GetHashCode) &&
+            method.Parameters.Length == 0 &&
+            method.ReturnType.SpecialType == SpecialType.System_Int32 &&
+            method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true } hashRecordType)
+        {
+            body = CreateRecordGetHashCodeBody(compilation, method, hashRecordType);
+            return true;
+        }
+
+        if (method.Name == nameof(object.Equals) &&
+            method.Parameters.Length == 1 &&
+            method.ReturnType.SpecialType == SpecialType.System_Boolean &&
+            method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true, IsValueType: false } equalsRecordType)
+        {
+            if (method.Parameters[0].Type.SpecialType == SpecialType.System_Object)
+            {
+                body = CreateRecordObjectEqualsBody(compilation, method, equalsRecordType);
+                return true;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, method.ContainingType))
+            {
+                body = CreateRecordTypedEqualsBody(compilation, method, equalsRecordType);
+                return true;
+            }
+        }
+
+        if (method.MethodKind == MethodKind.UserDefinedOperator &&
+            method.Parameters.Length == 2 &&
+            method.ReturnType.SpecialType == SpecialType.System_Boolean &&
+            method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true } operatorRecordType &&
+            SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, method.ContainingType) &&
+            SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type, method.ContainingType))
+        {
+            if (string.Equals(method.Name, "op_Equality", StringComparison.Ordinal))
+            {
+                body = CreateRecordEqualityOperatorBody(compilation, method, operatorRecordType);
+                return true;
+            }
+
+            if (string.Equals(method.Name, "op_Inequality", StringComparison.Ordinal))
+            {
+                body = CreateRecordInequalityOperatorBody(compilation, method, operatorRecordType);
+                return true;
             }
         }
 
@@ -186,28 +325,204 @@ internal static class SynthesizedMethodBodyFactory
         if (parameterInfos.Count > 0)
         {
             parts.Add(CreateStringLiteral(compilation, "("));
-
-            var includeParameterNames = parameterInfos.Count > 1;
-            for (var index = 0; index < parameterInfos.Count; index++)
-            {
-                var (name, field) = parameterInfos[index];
-                if (index > 0)
-                    parts.Add(CreateStringLiteral(compilation, ", "));
-
-                if (includeParameterNames)
-                {
-                    parts.Add(CreateStringLiteral(compilation, name));
-                    parts.Add(CreateStringLiteral(compilation, "="));
-                }
-
-                var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), field);
-                parts.Add(FormatUnionValue(compilation, method, payloadAccess));
-            }
-
+            AppendFormattedMemberList(
+                compilation,
+                parts,
+                CreateUnionCaseDisplayMembers(compilation, method, parameterInfos));
             parts.Add(CreateStringLiteral(compilation, ")"));
         }
 
         statements.Add(new BoundReturnStatement(ConcatSequence(compilation, parts)));
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundBlockStatement CreateRecordToStringBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceNamedTypeSymbol recordType)
+    {
+        var statements = new List<BoundStatement>();
+        var parts = new List<BoundExpression>();
+
+        if (recordType.Arity > 0)
+            parts.Add(CreateInlineUnionDisplayName(compilation, method, recordType.Name, statements));
+        else
+            parts.Add(CreateStringLiteral(compilation, recordType.Name));
+
+        parts.Add(CreateStringLiteral(compilation, " { "));
+        AppendFormattedMemberList(
+            compilation,
+            parts,
+            CreateNominalDisplayMembers(compilation, method, recordType));
+        parts.Add(CreateStringLiteral(compilation, " }"));
+        statements.Add(new BoundReturnStatement(ConcatSequence(compilation, parts)));
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundBlockStatement CreateRecordGetHashCodeBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceNamedTypeSymbol recordType)
+    {
+        var hashCodeType = compilation.GetTypeByMetadataName("System.HashCode")
+            ?? throw new InvalidOperationException("Failed to resolve System.HashCode.");
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32)
+            ?? throw new InvalidOperationException("Failed to resolve System.Int32.");
+
+        var addMethod = hashCodeType.GetMembers(nameof(HashCode.Add))
+            .OfType<IMethodSymbol>()
+            .First(methodSymbol => methodSymbol.IsGenericMethod && methodSymbol.Parameters.Length == 1);
+        var toHashCodeMethod = hashCodeType.GetMembers(nameof(HashCode.ToHashCode))
+            .OfType<IMethodSymbol>()
+            .First(methodSymbol => methodSymbol.Parameters.Length == 0 &&
+                                   methodSymbol.ReturnType.SpecialType == SpecialType.System_Int32);
+
+        var statements = new List<BoundStatement>();
+        var hashLocal = CreateSynthesizedLocal(method, hashCodeType, "hash");
+
+        statements.Add(new BoundLocalDeclarationStatement([
+            new BoundVariableDeclarator(hashLocal, new BoundDefaultValueExpression(hashCodeType))
+        ]));
+
+        foreach (var (property, _, propertyValue) in CreateSelfNominalValueAccesses(method, recordType))
+        {
+            statements.Add(CreateExpressionStatement(
+                new BoundInvocationExpression(
+                    addMethod.Construct(property.Type),
+                    [propertyValue],
+                    new BoundLocalAccess(hashLocal),
+                    requiresReceiverAddress: true)));
+        }
+
+        statements.Add(new BoundReturnStatement(
+            new BoundInvocationExpression(
+                toHashCodeMethod,
+                Array.Empty<BoundExpression>(),
+                new BoundLocalAccess(hashLocal),
+                requiresReceiverAddress: true)));
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundBlockStatement CreateRecordTypedEqualsBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceNamedTypeSymbol recordType)
+    {
+        var otherAccess = new BoundParameterAccess(method.Parameters[0]);
+        var selfAccess = new BoundSelfExpression(method.ContainingType!);
+        var statements = CreateRecordReferenceEqualityPrelude(compilation, selfAccess, otherAccess, whenReferenceEqual: true);
+        statements.Add(new BoundReturnStatement(CreateNominalValueEqualityExpression(compilation, method, recordType, selfAccess, otherAccess)));
+
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundBlockStatement CreateRecordObjectEqualsBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceNamedTypeSymbol recordType)
+    {
+        var factory = new BoundNodeFactory(compilation);
+        var otherLocal = CreateSynthesizedLocal(method, method.ContainingType!, "other");
+        var objectParameter = new BoundParameterAccess(method.Parameters[0]);
+        var selfAccess = new BoundSelfExpression(method.ContainingType!);
+        var asConversion = compilation.ClassifyConversion(method.Parameters[0].Type, method.ContainingType!, includeUserDefined: false);
+        var otherAccess = new BoundLocalAccess(otherLocal);
+
+        var statements = new List<BoundStatement>
+        {
+            new BoundLocalDeclarationStatement([
+                new BoundVariableDeclarator(otherLocal, factory.CreateAsExpression(objectParameter, method.ContainingType!, asConversion))
+            ])
+        };
+        statements.AddRange(CreateRecordReferenceEqualityPrelude(compilation, selfAccess, otherAccess, whenReferenceEqual: true));
+        statements.Add(new BoundReturnStatement(CreateNominalValueEqualityExpression(compilation, method, recordType, selfAccess, otherAccess)));
+
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundBlockStatement CreateRecordEqualityOperatorBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceNamedTypeSymbol recordType)
+    {
+        var left = new BoundParameterAccess(method.Parameters[0]);
+        var right = new BoundParameterAccess(method.Parameters[1]);
+        var statements = new List<BoundStatement>();
+
+        if (!recordType.IsValueType)
+            statements.AddRange(CreateRecordReferenceEqualityPrelude(compilation, left, right, whenReferenceEqual: true));
+
+        statements.Add(new BoundReturnStatement(CreateNominalValueEqualityExpression(compilation, method, recordType, left, right)));
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundBlockStatement CreateRecordInequalityOperatorBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceNamedTypeSymbol recordType)
+    {
+        var left = new BoundParameterAccess(method.Parameters[0]);
+        var right = new BoundParameterAccess(method.Parameters[1]);
+        var equality = CreateNominalValueEqualityExpression(compilation, method, recordType, left, right);
+        var statements = new List<BoundStatement>();
+
+        if (!recordType.IsValueType)
+            statements.AddRange(CreateRecordReferenceEqualityPrelude(compilation, left, right, whenReferenceEqual: false, whenNull: true));
+
+        statements.Add(new BoundReturnStatement(CreateLogicalNotExpression(compilation, equality)));
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundBlockStatement CreateFriendlyTypeNameHelperBody(
+        Compilation compilation,
+        IMethodSymbol method)
+    {
+        var typeType = compilation.GetSpecialType(SpecialType.System_Type)
+            ?? throw new InvalidOperationException("Failed to resolve System.Type.");
+        var stringType = compilation.GetSpecialType(SpecialType.System_String)
+            ?? throw new InvalidOperationException("Failed to resolve System.String.");
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32)
+            ?? throw new InvalidOperationException("Failed to resolve System.Int32.");
+        var arrayType = compilation.GetTypeByMetadataName("System.Array")
+            ?? throw new InvalidOperationException("Failed to resolve System.Array.");
+        var memberInfoType = compilation.GetTypeByMetadataName("System.Reflection.MemberInfo")
+            ?? throw new InvalidOperationException("Failed to resolve System.Reflection.MemberInfo.");
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit)
+            ?? throw new InvalidOperationException("Failed to resolve System.Unit.");
+        var statements = new List<BoundStatement>();
+        var displayNameLocal = CreateSynthesizedLocal(method, stringType, "displayName");
+        var currentNameLocal = CreateSynthesizedLocal(method, stringType, "currentName");
+        var tickIndexLocal = CreateSynthesizedLocal(method, intType, "tickIndex");
+
+        var typeNameGetter = ResolvePropertyGetter(memberInfoType, nameof(MemberInfo.Name));
+        var typeGenericArgsGetter = ResolveMethod(typeType, nameof(Type.GetGenericArguments), []);
+        var arrayLengthGetter = ResolvePropertyGetter(arrayType, nameof(Array.Length));
+        var stringIndexOf = ResolveMethod(stringType, nameof(string.IndexOf), [stringType]);
+        var stringSubstring = ResolveMethod(stringType, nameof(string.Substring), [intType, intType]);
+
+        statements.Add(new BoundLocalDeclarationStatement([
+            new BoundVariableDeclarator(displayNameLocal, CreateStringLiteral(compilation, string.Empty))
+        ]));
+
+        AppendFriendlyTypeNameStatements(
+            compilation,
+            method,
+            new BoundParameterAccess(method.Parameters[0]),
+            displayNameLocal,
+            currentNameLocal,
+            tickIndexLocal,
+            typeNameGetter,
+            typeGenericArgsGetter,
+            arrayLengthGetter,
+            stringIndexOf,
+            stringSubstring,
+            unitType,
+            intType,
+            typeType,
+            statements,
+            remainingDepth: 4);
+
+        statements.Add(new BoundReturnStatement(new BoundLocalAccess(displayNameLocal)));
         return new BoundBlockStatement(statements);
     }
 
@@ -547,6 +862,220 @@ internal static class SynthesizedMethodBodyFactory
     private static BoundExpression FormatUnionValue(Compilation compilation, IMethodSymbol method, BoundExpression value)
         => InvokeUnionFormatValueHelper(compilation, method, value);
 
+    private static BoundExpression FormatNonGenericNominalValue(Compilation compilation, BoundExpression value)
+    {
+        var valueType = value.Type.GetPlainType();
+
+        if (valueType.SpecialType == SpecialType.System_String)
+            return CreateQuotedStringValue(compilation, value, quote: "\"");
+
+        if (valueType.SpecialType == SpecialType.System_Char)
+            return CreateQuotedStringValue(compilation, CreateObjectToStringInvocation(compilation, value), quote: "'");
+
+        return CreateObjectToStringInvocation(compilation, value);
+    }
+
+    private static void AppendFormattedMemberList(
+        Compilation compilation,
+        List<BoundExpression> parts,
+        IReadOnlyList<(string? Name, BoundExpression Value)> members)
+    {
+        for (var index = 0; index < members.Count; index++)
+        {
+            if (index > 0)
+                parts.Add(CreateStringLiteral(compilation, ", "));
+
+            var (name, value) = members[index];
+            if (!string.IsNullOrEmpty(name))
+            {
+                parts.Add(CreateStringLiteral(compilation, name!));
+                parts.Add(CreateStringLiteral(compilation, " = "));
+            }
+
+            parts.Add(value);
+        }
+    }
+
+    private static List<(string? Name, BoundExpression Value)> CreateUnionCaseDisplayMembers(
+        Compilation compilation,
+        IMethodSymbol method,
+        IReadOnlyList<(string Name, SourceFieldSymbol Field)> parameterInfos)
+    {
+        var includeParameterNames = parameterInfos.Count > 1;
+        var members = new List<(string? Name, BoundExpression Value)>(parameterInfos.Count);
+        var self = new BoundSelfExpression(method.ContainingType!);
+
+        foreach (var (name, field) in parameterInfos)
+        {
+            var payloadAccess = new BoundFieldAccess(self, field);
+            members.Add((includeParameterNames ? name : null, FormatUnionValue(compilation, method, payloadAccess)));
+        }
+
+        return members;
+    }
+
+    private static List<(string? Name, BoundExpression Value)> CreateNominalDisplayMembers(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceNamedTypeSymbol recordType)
+    {
+        var members = new List<(string? Name, BoundExpression Value)>();
+        foreach (var (_, property, propertyValue) in CreateSelfNominalValueAccesses(method, recordType))
+            members.Add((property.Name, FormatNonGenericNominalValue(compilation, propertyValue)));
+
+        return members;
+    }
+
+    private static BoundExpression CreateNominalValueEqualityExpression(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceNamedTypeSymbol recordType,
+        BoundExpression leftReceiver,
+        BoundExpression rightReceiver)
+    {
+        BoundExpression? current = null;
+
+        foreach (var (property, left, right) in CreateResolvedNominalEqualityOperands(method.ContainingType, recordType, leftReceiver, rightReceiver))
+        {
+            var equals = CreateEqualityComparerEqualsInvocation(compilation, property.Type, left, right);
+
+            current = current is null
+                ? equals
+                : CreateBinaryExpression(compilation, SyntaxKind.AmpersandAmpersandToken, current, equals);
+        }
+
+        return current ?? CreateBoolLiteral(compilation, true);
+    }
+
+    private static List<(SourcePropertySymbol Source, IPropertySymbol Resolved, BoundExpression Value)> CreateResolvedNominalValueAccesses(
+        INamedTypeSymbol? containingType,
+        SourceNamedTypeSymbol recordType,
+        BoundExpression receiver)
+    {
+        return CreateResolvedNominalValueProjection(
+            containingType,
+            recordType,
+            (source, resolved) => (source, resolved, CreatePropertyGetterAccess(receiver, resolved)));
+    }
+
+    private static List<(SourcePropertySymbol Source, IPropertySymbol Resolved, BoundExpression Value)> CreateSelfNominalValueAccesses(
+        IMethodSymbol method,
+        SourceNamedTypeSymbol recordType)
+    {
+        return CreateResolvedNominalValueAccesses(
+            method.ContainingType,
+            recordType,
+            new BoundSelfExpression(method.ContainingType!));
+    }
+
+    private static List<(SourcePropertySymbol Source, BoundExpression Left, BoundExpression Right)> CreateResolvedNominalEqualityOperands(
+        INamedTypeSymbol? containingType,
+        SourceNamedTypeSymbol recordType,
+        BoundExpression leftReceiver,
+        BoundExpression rightReceiver)
+    {
+        return CreateResolvedNominalValueProjection(
+            containingType,
+            recordType,
+            (source, resolved) => (
+                source,
+                CreatePropertyGetterAccess(leftReceiver, resolved),
+                CreatePropertyGetterAccess(rightReceiver, resolved)));
+    }
+
+    private static List<(SourcePropertySymbol Source, IPropertySymbol Resolved)> GetResolvedNominalValueProperties(
+        INamedTypeSymbol? containingType,
+        SourceNamedTypeSymbol recordType)
+    {
+        return CreateResolvedNominalValueProjection(
+            containingType,
+            recordType,
+            static (source, resolved) => (source, resolved));
+    }
+
+    private static List<TResult> CreateResolvedNominalValueProjection<TResult>(
+        INamedTypeSymbol? containingType,
+        SourceNamedTypeSymbol recordType,
+        Func<SourcePropertySymbol, IPropertySymbol, TResult> projection)
+    {
+        var results = new List<TResult>();
+
+        foreach (var property in GetNominalValueProperties(recordType))
+        {
+            var resolvedProperty = ResolveNominalDeconstructProperty(containingType, property);
+            if (resolvedProperty?.GetMethod is null)
+                continue;
+
+            results.Add(projection(property, resolvedProperty));
+        }
+
+        return results;
+    }
+
+    private static BoundExpression CreateEqualityComparerEqualsInvocation(
+        Compilation compilation,
+        ITypeSymbol valueType,
+        BoundExpression left,
+        BoundExpression right)
+    {
+        var comparerDefinition = compilation.GetTypeByMetadataName("System.Collections.Generic.EqualityComparer`1")
+            ?? throw new InvalidOperationException("Failed to resolve EqualityComparer<T>.");
+        var comparerType = (INamedTypeSymbol)comparerDefinition.Construct(valueType);
+        var defaultGetter = ResolvePropertyGetter(comparerType, "Default");
+        var equalsMethod = ResolveMethod(comparerType, nameof(Equals), [valueType, valueType]);
+        var comparerInstance = new BoundInvocationExpression(defaultGetter, Array.Empty<BoundExpression>());
+        return new BoundInvocationExpression(equalsMethod, [left, right], comparerInstance);
+    }
+
+    private static BoundExpression CreateReferenceEqualsInvocation(
+        Compilation compilation,
+        BoundExpression left,
+        BoundExpression right)
+    {
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object)
+            ?? throw new InvalidOperationException("Failed to resolve System.Object.");
+        var referenceEquals = objectType.GetMembers(nameof(object.ReferenceEquals)).OfType<IMethodSymbol>()
+            .SingleOrDefault(method => method.IsStatic && method.Parameters.Length == 2)
+            ?? throw new InvalidOperationException("Failed to resolve System.Object.ReferenceEquals(object, object).");
+        return new BoundInvocationExpression(referenceEquals, [left, right]);
+    }
+
+    private static BoundIfStatement CreateNullGuardReturn(
+        Compilation compilation,
+        BoundExpression value,
+        bool whenNull)
+    {
+        return new BoundIfStatement(
+            CreateBinaryExpression(compilation, SyntaxKind.EqualsEqualsToken, value, CreateNullLiteral(compilation)),
+            new BoundReturnStatement(CreateBoolLiteral(compilation, whenNull)));
+    }
+
+    private static BoundIfStatement CreateReferenceEqualsGuardReturn(
+        Compilation compilation,
+        BoundExpression left,
+        BoundExpression right,
+        bool whenEqual)
+    {
+        return new BoundIfStatement(
+            CreateReferenceEqualsInvocation(compilation, left, right),
+            new BoundReturnStatement(CreateBoolLiteral(compilation, whenEqual)));
+    }
+
+    private static List<BoundStatement> CreateRecordReferenceEqualityPrelude(
+        Compilation compilation,
+        BoundExpression left,
+        BoundExpression right,
+        bool whenReferenceEqual,
+        bool whenNull = false)
+    {
+        return
+        [
+            CreateReferenceEqualsGuardReturn(compilation, left, right, whenReferenceEqual),
+            CreateNullGuardReturn(compilation, left, whenNull),
+            CreateNullGuardReturn(compilation, right, whenNull)
+        ];
+    }
+
     private static BoundBlockStatement CreateUnionFormatValueHelperBody(Compilation compilation, IMethodSymbol method)
     {
         var statements = new List<BoundStatement>();
@@ -593,6 +1122,269 @@ internal static class SynthesizedMethodBodyFactory
         return new BoundBlockStatement(statements);
     }
 
+    private static BoundBlockStatement CreateUnionTryGetValueBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceDiscriminatedUnionSymbol unionSymbol,
+        IParameterSymbol targetParameter)
+    {
+        var statements = new List<BoundStatement>();
+        if (!TryGetUnionPayloadSlot(unionSymbol, targetParameter.Type, out var ordinal, out var payloadFieldSymbol))
+        {
+            statements.Add(new BoundReturnStatement(CreateBoolLiteral(compilation, false)));
+            return new BoundBlockStatement(statements);
+        }
+
+        var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadFieldSymbol);
+        var parameterAccess = new BoundParameterAccess(targetParameter);
+        var targetType = targetParameter.GetByRefElementType();
+        var convertedPayload = CreateConversion(compilation, payloadAccess, targetType);
+        var factory = new BoundNodeFactory(compilation);
+
+        statements.Add(new BoundIfStatement(
+            CreateUnionTagEquality(compilation, method, unionSymbol, ordinal),
+            new BoundBlockStatement(
+            [
+                new BoundAssignmentStatement(
+                    factory.CreateByRefAssignmentExpression(parameterAccess, targetType, convertedPayload)),
+                new BoundReturnStatement(CreateBoolLiteral(compilation, true))
+            ])));
+
+        statements.Add(new BoundReturnStatement(CreateBoolLiteral(compilation, false)));
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundBlockStatement CreateUnionCarrierConstructorBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceDiscriminatedUnionSymbol unionSymbol)
+    {
+        var statements = new List<BoundStatement>();
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit)
+            ?? throw new InvalidOperationException("Failed to resolve System.Unit.");
+
+        if (method.Parameters.Length == 1 &&
+            TryGetUnionPayloadSlot(unionSymbol, method.Parameters[0].Type, out var ordinal, out var payloadField))
+        {
+            var self = new BoundSelfExpression(method.ContainingType!);
+            var tagAssignment = new BoundFieldAssignmentExpression(
+                self,
+                unionSymbol.DiscriminatorField,
+                CreateByteLiteral(compilation, (byte)ordinal),
+                unitType);
+            statements.Add(new BoundAssignmentStatement(tagAssignment));
+
+            var payloadAssignment = new BoundFieldAssignmentExpression(
+                self,
+                payloadField,
+                CreateConversion(compilation, new BoundParameterAccess(method.Parameters[0]), payloadField.Type),
+                unitType);
+            statements.Add(new BoundAssignmentStatement(payloadAssignment));
+        }
+
+        return WithImplicitUnitReturn(statements);
+    }
+
+    private static BoundBlockStatement CreateRecordCopyConstructorBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceNamedTypeSymbol recordType)
+    {
+        var statements = new List<BoundStatement>();
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit)
+            ?? throw new InvalidOperationException("Failed to resolve System.Unit.");
+        var source = new BoundParameterAccess(method.Parameters[0]);
+
+        foreach (var (property, resolvedProperty) in GetResolvedNominalValueProperties(method.ContainingType, recordType)
+                     .Where(entry => SymbolEqualityComparer.Default.Equals(entry.Source.ContainingType, recordType)))
+        {
+            if (property.BackingField is not SourceFieldSymbol backingField)
+                continue;
+
+            var assignment = new BoundFieldAssignmentExpression(
+                new BoundSelfExpression(method.ContainingType!),
+                backingField,
+                CreatePropertyGetterAccess(source, resolvedProperty),
+                unitType);
+            statements.Add(new BoundAssignmentStatement(assignment));
+        }
+
+        return WithImplicitUnitReturn(statements);
+    }
+
+    private static BoundBlockStatement CreateUnionCaseConstructorBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        IUnionCaseTypeSymbol caseType)
+    {
+        var statements = new List<BoundStatement>();
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit)
+            ?? throw new InvalidOperationException("Failed to resolve System.Unit.");
+
+        foreach (var parameter in method.Parameters)
+        {
+            if (parameter.RefKind != RefKind.None)
+                continue;
+
+            var backingFieldName = $"<{parameter.Name}>k__BackingField";
+            var backingField = method.ContainingType?
+                .GetMembers(backingFieldName)
+                .OfType<IFieldSymbol>()
+                .FirstOrDefault();
+
+            if (backingField is null)
+                continue;
+
+            var assignment = new BoundFieldAssignmentExpression(
+                new BoundSelfExpression(method.ContainingType!),
+                backingField,
+                CreateConversion(compilation, new BoundParameterAccess(parameter), backingField.Type),
+                unitType);
+            statements.Add(new BoundAssignmentStatement(assignment));
+        }
+
+        return WithImplicitUnitReturn(statements);
+    }
+
+    private static BoundBlockStatement CreateAutoPropertyAccessorBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourcePropertySymbol property)
+    {
+        if (property.BackingField is not SourceFieldSymbol backingField)
+            return CreateImplicitUnitReturnBody();
+
+        var receiver = property.IsStatic ? null : new BoundSelfExpression(method.ContainingType!);
+        if (method.MethodKind == MethodKind.PropertyGet)
+            return new BoundBlockStatement([new BoundReturnStatement(new BoundFieldAccess(receiver, backingField))]);
+
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit)
+            ?? throw new InvalidOperationException("Failed to resolve System.Unit.");
+        var valueParameter = method.Parameters.FirstOrDefault();
+        if (valueParameter is null)
+            return CreateImplicitUnitReturnBody();
+
+        var assignment = new BoundFieldAssignmentExpression(
+            receiver,
+            backingField,
+            CreateConversion(compilation, new BoundParameterAccess(valueParameter), backingField.Type),
+            unitType);
+        return new BoundBlockStatement([
+            new BoundAssignmentStatement(assignment),
+            CreateImplicitUnitReturn()
+        ]);
+    }
+
+    private static BoundBlockStatement CreateUnionCaseDeconstructBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        IUnionCaseTypeSymbol caseType)
+    {
+        var deconstructParameters = caseType.ConstructorParameters;
+        var parameterCount = Math.Min(deconstructParameters.Length, method.Parameters.Length);
+        var sourceValues = new List<BoundExpression>(parameterCount);
+
+        for (var index = 0; index < parameterCount; index++)
+        {
+            var sourceParameter = deconstructParameters[index];
+            if (sourceParameter.RefKind != RefKind.None)
+                continue;
+
+            var propertyName = GetUnionCasePropertyName(sourceParameter.Name);
+            var property = caseType.GetMembers(propertyName)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault();
+
+            if (property?.GetMethod is null)
+                continue;
+
+            sourceValues.Add(CreateSelfPropertyGetterAccess(method, property));
+        }
+
+        return CreateDeconstructBody(compilation, method, sourceValues);
+    }
+
+    private static BoundBlockStatement CreateNominalDeconstructBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        ImmutableArray<SourcePropertySymbol> deconstructProperties)
+    {
+        var parameterCount = Math.Min(deconstructProperties.Length, method.Parameters.Length);
+        var sourceValues = new List<BoundExpression>(parameterCount);
+
+        for (var index = 0; index < parameterCount; index++)
+        {
+            var property = ResolveNominalDeconstructProperty(method.ContainingType, deconstructProperties[index]);
+            if (property?.GetMethod is null)
+                continue;
+
+            sourceValues.Add(CreateSelfPropertyGetterAccess(method, property));
+        }
+
+        return CreateDeconstructBody(compilation, method, sourceValues);
+    }
+
+    private static BoundBlockStatement CreateDeconstructBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        IReadOnlyList<BoundExpression> sourceValues)
+    {
+        var statements = new List<BoundStatement>();
+        var factory = new BoundNodeFactory(compilation);
+        var parameterCount = Math.Min(sourceValues.Count, method.Parameters.Length);
+
+        for (var index = 0; index < parameterCount; index++)
+        {
+            var targetParameter = method.Parameters[index];
+            var targetType = targetParameter.GetByRefElementType();
+            var convertedValue = CreateConversion(compilation, sourceValues[index], targetType);
+
+            statements.Add(new BoundAssignmentStatement(
+                factory.CreateByRefAssignmentExpression(
+                    new BoundParameterAccess(targetParameter),
+                    targetType,
+                    convertedValue)));
+        }
+
+        return WithImplicitUnitReturn(statements);
+    }
+
+    private static BoundBlockStatement CreateUnionCasePropertyGetterBody(
+        IMethodSymbol method,
+        IPropertySymbol property)
+    {
+        var backingField = ResolveUnionCaseBackingField(method.ContainingType, property);
+        if (backingField is null)
+            return CreateImplicitUnitReturnBody();
+
+        var receiver = property.IsStatic ? null : new BoundSelfExpression(method.ContainingType!);
+        var fieldAccess = new BoundFieldAccess(receiver, backingField);
+        return new BoundBlockStatement([new BoundReturnStatement(fieldAccess)]);
+    }
+
+    private static BoundExpression CreateSelfPropertyGetterAccess(
+        IMethodSymbol method,
+        IPropertySymbol property)
+    {
+        return CreatePropertyGetterAccess(new BoundSelfExpression(method.ContainingType!), property);
+    }
+
+    private static BoundBlockStatement CreateImplicitUnitReturnBody()
+    {
+        return new BoundBlockStatement([CreateImplicitUnitReturn()]);
+    }
+
+    private static BoundBlockStatement WithImplicitUnitReturn(List<BoundStatement> statements)
+    {
+        statements.Add(CreateImplicitUnitReturn());
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundReturnStatement CreateImplicitUnitReturn()
+    {
+        return new BoundReturnStatement(null);
+    }
+
     private static BoundExpression InvokeUnionFormatValueHelper(Compilation compilation, IMethodSymbol method, BoundExpression value)
     {
         var containingType = GetInvocationContainingType(method);
@@ -622,6 +1414,14 @@ internal static class SynthesizedMethodBodyFactory
             .First(m => m.Parameters.Length == 0);
 
         return new BoundInvocationExpression(objectToString, Array.Empty<BoundExpression>(), receiver);
+    }
+
+    private static BoundExpression CreatePropertyGetterAccess(BoundExpression receiver, IPropertySymbol property)
+    {
+        if (property.GetMethod is null)
+            throw new InvalidOperationException($"Property '{property.Name}' does not have a getter.");
+
+        return new BoundInvocationExpression(property.GetMethod, Array.Empty<BoundExpression>(), receiver);
     }
 
     private static BoundExpression CreateQuotedStringValue(
@@ -745,8 +1545,25 @@ internal static class SynthesizedMethodBodyFactory
         return new BoundBinaryExpression(left, op, right);
     }
 
+    private static BoundExpression CreateLogicalNotExpression(Compilation compilation, BoundExpression operand)
+    {
+        if (!BoundUnaryOperator.TryLookup(compilation, SyntaxKind.ExclamationToken, operand.Type, out var op))
+            throw new InvalidOperationException("Failed to bind synthesized unary operator '!'.");
+
+        return new BoundUnaryExpression(op, operand);
+    }
+
     private static BoundLiteralExpression CreateIntLiteral(Compilation compilation, int value)
         => new(BoundLiteralExpressionKind.NumericLiteral, value, compilation.GetSpecialType(SpecialType.System_Int32)!);
+
+    private static BoundLiteralExpression CreateBoolLiteral(Compilation compilation, bool value)
+        => new(
+            value ? BoundLiteralExpressionKind.TrueLiteral : BoundLiteralExpressionKind.FalseLiteral,
+            value,
+            compilation.GetSpecialType(SpecialType.System_Boolean)!);
+
+    private static BoundLiteralExpression CreateByteLiteral(Compilation compilation, byte value)
+        => new(BoundLiteralExpressionKind.NumericLiteral, value, compilation.GetSpecialType(SpecialType.System_Byte)!);
 
     private static BoundExpression ConcatSequence(Compilation compilation, IEnumerable<BoundExpression> expressions)
     {
@@ -826,5 +1643,137 @@ internal static class SynthesizedMethodBodyFactory
             return containingType;
 
         return (INamedTypeSymbol)containingType.Construct(containingType.TypeParameters.Cast<ITypeSymbol>().ToArray());
+    }
+
+    private static SourceDiscriminatedUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(INamedTypeSymbol? typeSymbol)
+    {
+        return typeSymbol switch
+        {
+            SourceDiscriminatedUnionSymbol sourceUnion => sourceUnion,
+            ConstructedNamedTypeSymbol { OriginalDefinition: SourceDiscriminatedUnionSymbol sourceUnion } => sourceUnion,
+            _ => null
+        };
+    }
+
+    private static SourceNamedTypeSymbol? TryGetSourceNamedTypeDefinition(INamedTypeSymbol? typeSymbol)
+    {
+        return typeSymbol switch
+        {
+            SourceNamedTypeSymbol sourceType => sourceType,
+            ConstructedNamedTypeSymbol { OriginalDefinition: SourceNamedTypeSymbol sourceType } => sourceType,
+            _ => null
+        };
+    }
+
+    private static IUnionCaseTypeSymbol? TryGetUnionCaseType(INamedTypeSymbol? typeSymbol)
+    {
+        return typeSymbol switch
+        {
+            SourceDiscriminatedUnionCaseTypeSymbol sourceCase => sourceCase,
+            ConstructedNamedTypeSymbol { OriginalDefinition: SourceDiscriminatedUnionCaseTypeSymbol } constructedCase => constructedCase,
+            _ => null
+        };
+    }
+
+    private static IPropertySymbol? TryGetSynthesizableUnionCaseProperty(IMethodSymbol method)
+    {
+        if (method.ContainingType?.TryGetUnionCase() is null)
+            return null;
+
+        if (method.ContainingSymbol is not IPropertySymbol property)
+            return null;
+
+        if (property.OriginalDefinition is IPropertySymbol originalProperty)
+            property = originalProperty;
+
+        return property is SourcePropertySymbol { BackingField: SourceFieldSymbol } sourceProperty
+            ? sourceProperty
+            : null;
+    }
+
+    private static IFieldSymbol? ResolveUnionCaseBackingField(INamedTypeSymbol? containingType, IPropertySymbol property)
+    {
+        if (property is not SourcePropertySymbol { BackingField: SourceFieldSymbol sourceBackingField })
+            return null;
+
+        if (containingType is null)
+            return sourceBackingField;
+
+        return containingType.GetMembers(sourceBackingField.Name).OfType<IFieldSymbol>().FirstOrDefault()
+            ?? sourceBackingField;
+    }
+
+    private static IPropertySymbol? ResolveNominalDeconstructProperty(INamedTypeSymbol? containingType, SourcePropertySymbol property)
+    {
+        if (containingType is null)
+            return property;
+
+        return containingType.GetMembers(property.Name)
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(candidate =>
+                SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition ?? candidate, property))
+            ?? property;
+    }
+
+    private static string GetUnionCasePropertyName(string parameterName)
+    {
+        if (string.IsNullOrEmpty(parameterName) || char.IsUpper(parameterName[0]))
+            return parameterName;
+
+        Span<char> buffer = stackalloc char[parameterName.Length];
+        parameterName.AsSpan().CopyTo(buffer);
+        buffer[0] = char.ToUpperInvariant(buffer[0]);
+        return new string(buffer);
+    }
+
+    private static bool TryGetUnionPayloadSlot(
+        SourceDiscriminatedUnionSymbol unionSymbol,
+        ITypeSymbol memberType,
+        out int ordinal,
+        out SourceFieldSymbol payloadFieldSymbol)
+    {
+        if (memberType.TryGetUnionCase() is { } caseSymbol)
+        {
+            ordinal = caseSymbol.Ordinal;
+            payloadFieldSymbol = (SourceFieldSymbol)UnionFieldUtilities.GetRequiredPayloadField(unionSymbol, caseSymbol);
+            return true;
+        }
+
+        var payloadFields = unionSymbol.PayloadFields.OfType<SourceFieldSymbol>().ToArray();
+        for (var index = 0; index < payloadFields.Length; index++)
+        {
+            var payloadField = payloadFields[index];
+            if (!SymbolEqualityComparer.Default.Equals(payloadField.Type, memberType))
+                continue;
+
+            ordinal = index;
+            payloadFieldSymbol = payloadField;
+            return true;
+        }
+
+        ordinal = -1;
+        payloadFieldSymbol = null!;
+        return false;
+    }
+
+    private static ImmutableArray<SourcePropertySymbol> GetNominalDeconstructProperties(SourceNamedTypeSymbol typeSymbol)
+    {
+        if (!typeSymbol.DeconstructProperties.IsDefaultOrEmpty)
+            return typeSymbol.DeconstructProperties;
+
+        if (!typeSymbol.IsRecord)
+            return ImmutableArray<SourcePropertySymbol>.Empty;
+
+        return GetNominalValueProperties(typeSymbol).ToImmutableArray();
+    }
+
+    private static SourcePropertySymbol[] GetNominalValueProperties(SourceNamedTypeSymbol typeSymbol)
+    {
+        if (!typeSymbol.IsRecord)
+            return [];
+
+        return typeSymbol.RecordProperties
+            .Where(static property => property.DeclaredAccessibility == Accessibility.Public)
+            .ToArray();
     }
 }

@@ -744,6 +744,206 @@ union Result<T, E> {
     }
 
     [Fact]
+    public void PrintBoundTree_IncludesSynthesizedUnionTryGetValueBody()
+    {
+        const string source = """
+union Result {
+    Ok(value: int)
+    Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+            model.PrintBoundTree(colorize: false, includeBinderInfo: false, includeBinderChainOnRoots: false, includeErrorNodes: true);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString();
+        Assert.Contains("SynthesizedMethod=Result.TryGetValue(out value: Ok) -> bool", output);
+        Assert.Contains("ByRefAssignmentExpression [Type=(), ElementType=Ok, UnitType=()]", output);
+        Assert.Contains("ParameterAccess [Type=Ok, Symbol=out value: Ok, Parameter=out value: Ok]", output);
+        Assert.Contains("FieldAccess [Type=Ok, Symbol=Result.<OkPayload>: Ok, Field=Result.<OkPayload>: Ok]", output);
+    }
+
+    [Fact]
+    public void PrintBoundTree_IncludesSynthesizedUnionCaseDeconstructBody()
+    {
+        const string source = """
+union Result {
+    Ok(value: int)
+    Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+            model.PrintBoundTree(colorize: false, includeBinderInfo: false, includeBinderChainOnRoots: false, includeErrorNodes: true);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString();
+        Assert.Contains("SynthesizedMethod=Ok.Deconstruct(out Value: int) -> ()", output);
+        Assert.Contains("ByRefAssignmentExpression [Type=(), ElementType=int, UnitType=()]", output);
+        Assert.Contains("Symbol=Ok.get_Value() -> int", output);
+    }
+
+    [Fact]
+    public void UnionCasePropertyGetter_HasSynthesizedBody()
+    {
+        const string source = """
+union Result {
+    Ok(value: int)
+    Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var resultType = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var okType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultType.CaseTypes.Single(c => c.Name == "Ok"));
+        var valueProperty = okType.GetMembers("Value").OfType<IPropertySymbol>().Single();
+        var getter = Assert.IsAssignableFrom<IMethodSymbol>(valueProperty.GetMethod);
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(getter, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+
+        var returnStatement = Assert.IsType<BoundReturnStatement>(Assert.Single(body!.Statements));
+        var fieldAccess = Assert.IsType<BoundFieldAccess>(returnStatement.Expression);
+        Assert.Equal("<value>k__BackingField", fieldAccess.Field.Name);
+    }
+
+    [Fact]
+    public void UnionCarrierConstructor_HasSynthesizedBody()
+    {
+        const string source = """
+union Option {
+    None
+    Some(value: int)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var someCase = unionSymbol.CaseTypes.Single(c => c.Name == "Some");
+        var constructor = unionSymbol
+            .GetMembers(".ctor")
+            .OfType<IMethodSymbol>()
+            .Single(m => m.Parameters.Length == 1 &&
+                         SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, someCase));
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(constructor, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+
+        Assert.Collection(
+            body!.Statements,
+            statement =>
+            {
+                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
+                var fieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(assignment.Expression);
+                Assert.Equal("<Tag>", fieldAssignment.Field.Name);
+            },
+            statement =>
+            {
+                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
+                var fieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(assignment.Expression);
+                Assert.Equal("<SomePayload>", fieldAssignment.Field.Name);
+            },
+            statement => Assert.IsType<BoundReturnStatement>(statement));
+    }
+
+    [Fact]
+    public void UnionCaseConstructor_HasSynthesizedBody()
+    {
+        const string source = """
+union Option {
+    Some(value: int, label: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var someCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single(c => c.Name == "Some"));
+        var constructor = someCase.GetMembers(".ctor").OfType<IMethodSymbol>().Single();
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(constructor, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+
+        Assert.Collection(
+            body!.Statements,
+            statement =>
+            {
+                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
+                var fieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(assignment.Expression);
+                Assert.Equal("<value>k__BackingField", fieldAssignment.Field.Name);
+            },
+            statement =>
+            {
+                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
+                var fieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(assignment.Expression);
+                Assert.Equal("<label>k__BackingField", fieldAssignment.Field.Name);
+            },
+            statement => Assert.IsType<BoundReturnStatement>(statement));
+    }
+
+    [Fact]
+    public void FriendlyTypeNameHelper_HasSynthesizedBody()
+    {
+        const string source = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var helper = unionSymbol
+            .GetMembers(SynthesizedUnionMethodNames.FriendlyTypeNameHelper)
+            .OfType<IMethodSymbol>()
+            .Single();
+
+        Assert.True(compilation.TryGetSynthesizedMethodBody(helper, BoundTreeView.Original, out var body));
+        Assert.NotNull(body);
+        Assert.Contains(body!.Statements, static statement => statement is BoundIfStatement);
+        var @return = Assert.IsType<BoundReturnStatement>(body.Statements.Last());
+        Assert.IsType<BoundLocalAccess>(@return.Expression);
+    }
+
+    [Fact]
     public void UnqualifiedCaseInvocation_BindsWhenUniqueInScope()
     {
         const string source = """

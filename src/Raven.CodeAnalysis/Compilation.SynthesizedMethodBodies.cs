@@ -16,7 +16,7 @@ public partial class Compilation
     {
         body = null;
 
-        if (method is null || !method.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+        if (method is null)
             return false;
 
         var cache = view == BoundTreeView.Lowered

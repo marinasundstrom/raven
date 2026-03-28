@@ -27,10 +27,7 @@ internal sealed partial class Lowerer
 
         if (node.Conversion.IsUnion)
         {
-            if (ReferenceEquals(rewrittenExpression, node.Expression))
-                return node;
-
-            return new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion);
+            return LowerDiscriminatedUnionConversion(node, rewrittenExpression);
         }
 
         if (ReferenceEquals(rewrittenExpression, node.Expression))
@@ -56,6 +53,7 @@ internal sealed partial class Lowerer
             : caseDefinition;
 
         var projectedCaseType = (INamedTypeSymbol)projectedCase;
+
         var unionCtor = node.Conversion.ConstructorSymbol;
         if (unionCtor is null &&
             !unionType.TryGetUnionCarrierConstructor(projectedCaseType, out unionCtor))
