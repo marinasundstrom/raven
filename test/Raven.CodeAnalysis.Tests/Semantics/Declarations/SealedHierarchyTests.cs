@@ -193,6 +193,67 @@ record class Add : Expr {}
         Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "Add");
     }
 
+    [Fact]
+    public void SealedInterface_SameFileImplementors_AreDiscovered()
+    {
+        var source = """
+sealed interface HttpResponse {}
+class Success : HttpResponse {}
+class NotFound : HttpResponse {}
+sealed interface Nested : HttpResponse {}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var interfaceDecl = Assert.IsType<InterfaceDeclarationSyntax>(root.Members[0]);
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(interfaceDecl));
+
+        Assert.True(symbol.IsSealedHierarchy);
+        Assert.Equal(3, symbol.PermittedDirectSubtypes.Length);
+        Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "Success");
+        Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "NotFound");
+        Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "Nested");
+    }
+
+    [Fact]
+    public void SealedInterface_Permits_AllowsListedTypes()
+    {
+        var source = """
+sealed interface HttpResponse permits Success, Nested {}
+class Success : HttpResponse {}
+interface Nested : HttpResponse {}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void SealedInterface_NestedTypes_AreDiscovered()
+    {
+        var source = """
+sealed interface HttpResponse {
+    record class Success(status: int) : HttpResponse {}
+    record class NotFound(message: string) : HttpResponse {}
+}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var interfaceDecl = Assert.IsType<InterfaceDeclarationSyntax>(root.Members[0]);
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(interfaceDecl));
+
+        Assert.Equal(2, symbol.PermittedDirectSubtypes.Length);
+        Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "Success");
+        Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "NotFound");
+    }
+
     // ── Body-less (marker) type declarations ──
 
     [Fact]

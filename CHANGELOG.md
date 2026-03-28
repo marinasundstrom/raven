@@ -2,6 +2,16 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 
+## 2026-03-28
+
+### Changed
+- Sealed hierarchies now include interfaces: Raven accepts `sealed interface` declarations, allows optional `permits` clauses on interfaces, and enforces the closed set across direct implementors and subinterfaces.
+- Nested type declarations inside interfaces now participate in sealed-hierarchy modeling, so interface-scoped case-like records/classes can be used as direct sealed-interface members.
+
+Impact:
+- Raven can model Java/Kotlin-style sealed interface families directly, including patterns where the direct cases live inside the interface declaration.
+- Exhaustiveness and hierarchy validation now treat sealed interfaces consistently with sealed classes and record classes.
+
 ## 2026-03-26
 
 ### Changed

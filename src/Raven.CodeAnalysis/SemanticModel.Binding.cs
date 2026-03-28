@@ -197,8 +197,7 @@ public partial class SemanticModel
         var isSealedHierarchy = hasSealedModifier && !isStatic;
         var isSealed = isStatic || (!isSealedHierarchy && !classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
         var isPartial = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
-        var hasPermitsClause = (classDecl is ClassDeclarationSyntax classDeclaration2 && classDeclaration2.PermitsClause is not null)
-            || (classDecl is RecordDeclarationSyntax recordDeclaration2 && recordDeclaration2.PermitsClause is not null);
+        var hasPermitsClause = GetPermitsClause(classDecl) is not null;
 
         if (hasPermitsClause && !hasSealedModifier)
         {
@@ -457,11 +456,14 @@ public partial class SemanticModel
                             ? TypeKind.Struct
                             : TypeKind.Class;
                         var nestedBaseType = nestedTypeKind == TypeKind.Struct ? valueType : objectType;
+                        var nestedHasSealedModifier = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
                         var nestedStatic = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
-                        var nestedAbstract = nestedStatic || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
-                        var nestedSealed = nestedStatic || (!nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract);
+                        var nestedAbstract = nestedStatic || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword) || nestedHasSealedModifier;
+                        var nestedIsSealedHierarchy = nestedHasSealedModifier && !nestedStatic;
+                        var nestedSealed = nestedStatic || (!nestedIsSealedHierarchy && !nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract);
                         var nestedPartial = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
                         var nestedRecord = nestedClass is RecordDeclarationSyntax || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
+                        var nestedHasPermitsClause = GetPermitsClause(nestedClass) is not null;
                         var nestedFileScoped = HasFileScopeModifier(nestedClass.Modifiers);
                         var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             nestedClass.Modifiers,
@@ -505,6 +507,13 @@ public partial class SemanticModel
 
                             if (nestedFileScoped)
                                 existingNested.MarkFileScoped(nestedClass.SyntaxTree.FilePath);
+                            if (nestedHasPermitsClause && !nestedHasSealedModifier)
+                            {
+                                _declarationDiagnostics.ReportPermitsClauseRequiresSealed(
+                                    nestedClass.Identifier.GetLocation());
+                            }
+                            if (nestedIsSealedHierarchy)
+                                existingNested.MarkAsSealedHierarchy(nestedClass.SyntaxTree.FilePath, nestedHasPermitsClause);
 
                             nestedSymbol = existingNested;
                             isNewNestedSymbol = false;
@@ -532,6 +541,13 @@ public partial class SemanticModel
 
                             if (nestedFileScoped)
                                 nestedSymbol.MarkFileScoped(nestedClass.SyntaxTree.FilePath);
+                            if (nestedHasPermitsClause && !nestedHasSealedModifier)
+                            {
+                                _declarationDiagnostics.ReportPermitsClauseRequiresSealed(
+                                    nestedClass.Identifier.GetLocation());
+                            }
+                            if (nestedIsSealedHierarchy)
+                                nestedSymbol.MarkAsSealedHierarchy(nestedClass.SyntaxTree.FilePath, nestedHasPermitsClause);
                         }
 
                         if (isNewNestedSymbol)
@@ -545,6 +561,14 @@ public partial class SemanticModel
                 case InterfaceDeclarationSyntax nestedInterface:
                     {
                         ReportInvalidTypeModifiers(nestedInterface, isNestedType: true, _declarationDiagnostics);
+
+                        var nestedHasSealedModifier = nestedInterface.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+                        var nestedHasPermitsClause = nestedInterface.PermitsClause is not null;
+                        if (nestedHasPermitsClause && !nestedHasSealedModifier)
+                        {
+                            _declarationDiagnostics.ReportPermitsClauseRequiresSealed(
+                                nestedInterface.Identifier.GetLocation());
+                        }
 
                         var nestedPartial = nestedInterface.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
                         var nestedFileScoped = HasFileScopeModifier(nestedInterface.Modifiers);
@@ -582,6 +606,8 @@ public partial class SemanticModel
 
                             if (nestedFileScoped)
                                 existingNested.MarkFileScoped(nestedInterface.SyntaxTree.FilePath);
+                            if (nestedHasSealedModifier)
+                                existingNested.MarkAsSealedHierarchy(nestedInterface.SyntaxTree.FilePath, nestedHasPermitsClause);
                             nestedInterfaceSymbol = existingNested;
                         }
                         else
@@ -605,6 +631,8 @@ public partial class SemanticModel
 
                             if (nestedFileScoped)
                                 nestedInterfaceSymbol.MarkFileScoped(nestedInterface.SyntaxTree.FilePath);
+                            if (nestedHasSealedModifier)
+                                nestedInterfaceSymbol.MarkAsSealedHierarchy(nestedInterface.SyntaxTree.FilePath, nestedHasPermitsClause);
                             InitializeTypeParameters(nestedInterfaceSymbol, nestedInterface.TypeParameterList, nestedInterface.ConstraintClauses);
                         }
 
@@ -743,6 +771,14 @@ public partial class SemanticModel
     {
         ReportInvalidTypeModifiers(interfaceDecl, isNestedType: false, _declarationDiagnostics);
 
+        var hasSealedModifier = interfaceDecl.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var hasPermitsClause = interfaceDecl.PermitsClause is not null;
+        if (hasPermitsClause && !hasSealedModifier)
+        {
+            _declarationDiagnostics.ReportPermitsClauseRequiresSealed(
+                interfaceDecl.Identifier.GetLocation());
+        }
+
         ReportExternalTypeRedeclaration(
             parentNamespace,
             interfaceDecl.Identifier,
@@ -785,7 +821,10 @@ public partial class SemanticModel
 
             if (isFileScoped)
                 existingType.MarkFileScoped(interfaceDecl.SyntaxTree.FilePath);
+            if (hasSealedModifier)
+                existingType.MarkAsSealedHierarchy(interfaceDecl.SyntaxTree.FilePath, hasPermitsClause);
             RegisterDeclaredTypeSymbol(interfaceDecl, existingType);
+            DeclareClassMemberTypes(interfaceDecl, existingType);
             return;
         }
 
@@ -807,8 +846,11 @@ public partial class SemanticModel
 
         if (isFileScoped)
             interfaceSymbol.MarkFileScoped(interfaceDecl.SyntaxTree.FilePath);
+        if (hasSealedModifier)
+            interfaceSymbol.MarkAsSealedHierarchy(interfaceDecl.SyntaxTree.FilePath, hasPermitsClause);
         InitializeTypeParameters(interfaceSymbol, interfaceDecl.TypeParameterList, interfaceDecl.ConstraintClauses);
         RegisterDeclaredTypeSymbol(interfaceDecl, interfaceSymbol);
+        DeclareClassMemberTypes(interfaceDecl, interfaceSymbol);
     }
 
     private void DeclareExtensionSymbol(ExtensionDeclarationSyntax extensionDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
@@ -1514,22 +1556,7 @@ public partial class SemanticModel
                 case InterfaceDeclarationSyntax interfaceDecl:
                     {
                         var interfaceSymbol = GetDeclaredTypeSymbol(interfaceDecl);
-                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
-
-                        if (interfaceDecl.BaseList is not null)
-                        {
-                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                            foreach (var t in interfaceDecl.BaseList.Types)
-                            {
-                                if (parentBinder.TryBindNamedTypeFromTypeSyntax(t.Type, out var resolved, reportDiagnostics: true) &&
-                                    resolved is not null &&
-                                    resolved.TypeKind == TypeKind.Interface)
-                                    builder.Add(resolved);
-                            }
-
-                            if (builder.Count > 0)
-                                interfaceList = builder.ToImmutable();
-                        }
+                        var interfaceList = ResolveInterfaceBaseTypes(interfaceDecl, parentBinder);
 
                         if (!interfaceList.IsDefaultOrEmpty)
                             interfaceSymbol.SetInterfaces(MergeInterfaceSets(interfaceSymbol.Interfaces, interfaceList));
@@ -1537,6 +1564,8 @@ public partial class SemanticModel
                         var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
                         interfaceBinder.EnsureTypeParameterConstraintTypesResolved(interfaceSymbol.TypeParameters);
                         CacheBinder(interfaceDecl, interfaceBinder);
+                        if (interfaceSymbol.IsSealedHierarchy)
+                            ResolveSealedHierarchyPermits(interfaceDecl, interfaceSymbol, interfaceBinder);
                         interfaceBinders.Add((interfaceDecl, interfaceBinder));
                         break;
                     }
@@ -1581,8 +1610,8 @@ public partial class SemanticModel
             }
         }
 
-        DiscoverSameFileSealedHierarchySubtypes(classBinders);
-        ValidatePermitsListEntries(classBinders);
+        DiscoverSameFileSealedHierarchySubtypes(classBinders, interfaceBinders);
+        ValidatePermitsListEntries(classBinders, interfaceBinders);
 
         foreach (var (unionDecl, unionBinder, unionSymbol) in unionBinders)
             RegisterUnionCases(unionDecl, unionBinder, unionSymbol);
@@ -1652,20 +1681,16 @@ public partial class SemanticModel
         => declaration is ClassDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax;
 
     private void ValidatePermitsListEntries(
-        List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders)
+        List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders,
+        List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)> interfaceBinders)
     {
-        foreach (var (classDecl, classBinder) in classBinders)
+        foreach (var (declaration, binder) in GetSealedHierarchyBinders(classBinders, interfaceBinders))
         {
-            var typeSymbol = (SourceNamedTypeSymbol)classBinder.ContainingSymbol;
+            var typeSymbol = (SourceNamedTypeSymbol)binder.ContainingSymbol;
             if (!typeSymbol.IsSealedHierarchy || !typeSymbol.HasExplicitPermits)
                 continue;
 
-            PermitsClauseSyntax? permitsClause = classDecl switch
-            {
-                ClassDeclarationSyntax classDeclarationSyntax => classDeclarationSyntax.PermitsClause,
-                RecordDeclarationSyntax recordDeclarationSyntax => recordDeclarationSyntax.PermitsClause,
-                _ => null,
-            };
+            var permitsClause = GetPermitsClause(declaration);
 
             if (permitsClause is null)
                 continue;
@@ -1679,8 +1704,7 @@ public partial class SemanticModel
                 var permitted = typeSymbol.PermittedDirectSubtypes[typeIndex];
                 typeIndex++;
 
-                if (permitted.BaseType is null ||
-                    !SymbolEqualityComparer.Default.Equals(permitted.BaseType, typeSymbol))
+                if (!IsDirectSealedHierarchySubtype(typeSymbol, permitted))
                 {
                     _declarationDiagnostics.ReportPermitsTypeNotDirectSubtype(
                         permitted.Name,
@@ -1692,31 +1716,30 @@ public partial class SemanticModel
     }
 
     private void DiscoverSameFileSealedHierarchySubtypes(
-        List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders)
+        List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders,
+        List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)> interfaceBinders)
     {
-        foreach (var (classDecl, classBinder) in classBinders)
+        var candidates = GetSealedHierarchyCandidates(classBinders, interfaceBinders).ToArray();
+
+        foreach (var (declaration, binder) in GetSealedHierarchyBinders(classBinders, interfaceBinders))
         {
-            var typeSymbol = (SourceNamedTypeSymbol)classBinder.ContainingSymbol;
+            var typeSymbol = (SourceNamedTypeSymbol)binder.ContainingSymbol;
             if (!typeSymbol.IsSealedHierarchy || typeSymbol.HasExplicitPermits)
                 continue;
 
             var sealedFile = typeSymbol.SealedHierarchySourceFile;
             var directSubtypes = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
 
-            foreach (var (otherDecl, otherBinder) in classBinders)
+            foreach (var (otherDecl, otherSymbol) in candidates)
             {
-                var otherSymbol = (SourceNamedTypeSymbol)otherBinder.ContainingSymbol;
                 if (ReferenceEquals(otherSymbol, typeSymbol))
                     continue;
 
-                if (otherSymbol.BaseType is null)
-                    continue;
-
-                if (!SymbolEqualityComparer.Default.Equals(otherSymbol.BaseType, typeSymbol))
-                    continue;
-
-                if (string.Equals(otherDecl.SyntaxTree?.FilePath, sealedFile, StringComparison.Ordinal))
+                if (string.Equals(otherDecl.SyntaxTree?.FilePath, sealedFile, StringComparison.Ordinal) &&
+                    IsDirectSealedHierarchySubtype(typeSymbol, otherSymbol))
+                {
                     directSubtypes.Add(otherSymbol);
+                }
             }
 
             typeSymbol.SetPermittedDirectSubtypes(directSubtypes.ToImmutable());
@@ -1728,12 +1751,7 @@ public partial class SemanticModel
         SourceNamedTypeSymbol typeSymbol,
         Binder declarationBinder)
     {
-        PermitsClauseSyntax? permitsClause = declaration switch
-        {
-            ClassDeclarationSyntax classDecl => classDecl.PermitsClause,
-            RecordDeclarationSyntax recordDecl => recordDecl.PermitsClause,
-            _ => null,
-        };
+        var permitsClause = GetPermitsClause(declaration);
 
         if (permitsClause is null)
             return;
@@ -1763,6 +1781,83 @@ public partial class SemanticModel
         }
 
         typeSymbol.SetPermittedDirectSubtypes(permitted.ToImmutable());
+    }
+
+    private static PermitsClauseSyntax? GetPermitsClause(TypeDeclarationSyntax declaration)
+        => declaration switch
+        {
+            ClassDeclarationSyntax classDecl => classDecl.PermitsClause,
+            RecordDeclarationSyntax recordDecl => recordDecl.PermitsClause,
+            InterfaceDeclarationSyntax interfaceDecl => interfaceDecl.PermitsClause,
+            _ => null,
+        };
+
+    private static bool IsDirectSealedHierarchySubtype(INamedTypeSymbol root, INamedTypeSymbol candidate)
+    {
+        if (candidate.BaseType is not null &&
+            SymbolEqualityComparer.Default.Equals(candidate.BaseType, root))
+        {
+            return true;
+        }
+
+        return candidate.Interfaces.Any(interfaceType => SymbolEqualityComparer.Default.Equals(interfaceType, root));
+    }
+
+    private static IEnumerable<(TypeDeclarationSyntax Syntax, Binder Binder)> GetSealedHierarchyBinders(
+        List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders,
+        List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)> interfaceBinders)
+    {
+        foreach (var (syntax, binder) in classBinders)
+            yield return (syntax, binder);
+
+        foreach (var (syntax, binder) in interfaceBinders)
+            yield return (syntax, binder);
+    }
+
+    private static IEnumerable<(TypeDeclarationSyntax Syntax, SourceNamedTypeSymbol Symbol)> GetSealedHierarchyCandidates(
+        List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders,
+        List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)> interfaceBinders)
+    {
+        foreach (var (syntax, binder) in classBinders)
+            yield return (syntax, (SourceNamedTypeSymbol)binder.ContainingSymbol);
+
+        foreach (var (syntax, binder) in interfaceBinders)
+            yield return (syntax, (SourceNamedTypeSymbol)binder.ContainingSymbol);
+    }
+
+    private void MergeSameFileSealedHierarchySubtypes(
+        SourceNamedTypeSymbol root,
+        IEnumerable<(TypeDeclarationSyntax Syntax, SourceNamedTypeSymbol Symbol)> candidates)
+    {
+        if (!root.IsSealedHierarchy || root.HasExplicitPermits)
+            return;
+
+        var sealedFile = root.SealedHierarchySourceFile;
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var existing in root.PermittedDirectSubtypes)
+        {
+            if (seen.Add(existing))
+                builder.Add(existing);
+        }
+
+        foreach (var (syntax, symbol) in candidates)
+        {
+            if (ReferenceEquals(symbol, root))
+                continue;
+
+            if (!string.Equals(syntax.SyntaxTree?.FilePath, sealedFile, StringComparison.Ordinal))
+                continue;
+
+            if (!IsDirectSealedHierarchySubtype(root, symbol))
+                continue;
+
+            if (seen.Add(symbol))
+                builder.Add(symbol);
+        }
+
+        root.SetPermittedDirectSubtypes(builder.ToImmutable());
     }
 
     private static void ReportRedundantTypeModifiers(
@@ -1861,6 +1956,7 @@ public partial class SemanticModel
                     SyntaxKind.InternalKeyword,
                     SyntaxKind.ProtectedKeyword,
                     SyntaxKind.FilescopeKeyword,
+                    SyntaxKind.SealedKeyword,
                     SyntaxKind.PartialKeyword,
                 }),
             EnumDeclarationSyntax enumDecl => (
@@ -2921,6 +3017,7 @@ public partial class SemanticModel
             RegisterPrimaryConstructor(classDecl, classBinder);
 
         var nestedClassBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
+        var nestedInterfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
@@ -3070,6 +3167,8 @@ public partial class SemanticModel
                     if (originalSyntax is not null)
                         CacheBinder(originalSyntax, nestedBinder);
                     RegisterClassSymbol(nestedClass, nestedSymbol);
+                    if (nestedSymbol.IsSealedHierarchy)
+                        ResolveSealedHierarchyPermits(nestedClass, nestedSymbol, nestedBinder);
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
                     nestedClassBinders.Add((nestedClass, nestedBinder));
@@ -3115,7 +3214,10 @@ public partial class SemanticModel
                     CacheBinder(nestedInterface, nestedInterfaceBinder);
                     if (originalSyntax is not null)
                         CacheBinder(originalSyntax, nestedInterfaceBinder);
+                    if (nestedInterfaceSymbol.IsSealedHierarchy)
+                        ResolveSealedHierarchyPermits(nestedInterface, nestedInterfaceSymbol, nestedInterfaceBinder);
                     RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
+                    nestedInterfaceBinders.Add((nestedInterface, nestedInterfaceBinder));
                     break;
 
                 case EnumDeclarationSyntax enumDecl:
@@ -3135,6 +3237,12 @@ public partial class SemanticModel
                     }
             }
         }
+
+        MergeSameFileSealedHierarchySubtypes(
+            (SourceNamedTypeSymbol)classBinder.ContainingSymbol,
+            GetSealedHierarchyCandidates(nestedClassBinders, nestedInterfaceBinders));
+        DiscoverSameFileSealedHierarchySubtypes(nestedClassBinders, nestedInterfaceBinders);
+        ValidatePermitsListEntries(nestedClassBinders, nestedInterfaceBinders);
 
         var checkedNestedClasses = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var (nestedSyntax, nestedBinder) in nestedClassBinders)
@@ -3506,6 +3614,11 @@ public partial class SemanticModel
 
     private void RegisterInterfaceMembers(InterfaceDeclarationSyntax interfaceDecl, InterfaceDeclarationBinder interfaceBinder)
     {
+        var nestedClassBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
+        var nestedInterfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
+        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
+
         foreach (var member in interfaceDecl.Members)
         {
             switch (member)
@@ -3558,51 +3671,84 @@ public partial class SemanticModel
                             CacheBinder(kv.Key, kv.Value);
                         break;
                     }
-                case InterfaceDeclarationSyntax nestedInterface:
+                case TypeDeclarationSyntax nestedType when nestedType is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
                     {
-                        var parentInterface = (INamedTypeSymbol)interfaceBinder.ContainingSymbol;
-                        ImmutableArray<INamedTypeSymbol> parentInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
-                        if (nestedInterface.BaseList is not null)
-                        {
-                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                            foreach (var t in nestedInterface.BaseList.Types)
-                            {
-                                if (interfaceBinder.TryBindNamedTypeFromTypeSyntax(t.Type, out var resolved, reportDiagnostics: true) &&
-                                    resolved is not null &&
-                                    resolved.TypeKind == TypeKind.Interface)
-                                    builder.Add(resolved);
-                            }
+                        var nestedSymbol = GetDeclaredTypeSymbol(nestedType);
+                        var nestedBinder = new ClassDeclarationBinder(interfaceBinder, nestedSymbol, nestedType);
+                        nestedBinder.EnsureTypeParameterConstraintTypesResolved(nestedSymbol.TypeParameters);
+                        var defaultNestedBaseType = GetDefaultBaseTypeForNominalDeclaration(nestedType, objectType, valueType);
+                        var nestedDefaultInterfaces = GetDefaultNominalInterfaces(nestedSymbol);
+                        var shape = nestedBinder.BindNominalTypeShape(nestedType, defaultNestedBaseType, nestedDefaultInterfaces);
+                        var nestedBaseType = shape.BaseType;
+                        var nestedInterfaces = shape.Interfaces;
 
-                            if (builder.Count > 0)
-                                parentInterfaces = builder.ToImmutable();
+                        if (nestedBaseType is not null &&
+                            !SymbolEqualityComparer.Default.Equals(nestedSymbol.BaseType, nestedBaseType) &&
+                            SymbolEqualityComparer.Default.Equals(nestedSymbol.BaseType, defaultNestedBaseType))
+                        {
+                            nestedSymbol.SetBaseType(nestedBaseType);
                         }
 
-                        var nestedInterfaceSymbol = new SourceNamedTypeSymbol(
-                            nestedInterface.Identifier.ValueText,
-                            Compilation.GetTypeByMetadataName("System.Object")!,
-                            TypeKind.Interface,
-                            parentInterface,
-                            parentInterface,
-                            interfaceBinder.CurrentNamespace!.AsSourceNamespace(),
-                            [nestedInterface.GetLocation()],
-                            [nestedInterface.GetReference()],
-                            true,
-                            isAbstract: true,
-                            declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
-                                nestedInterface.Modifiers,
-                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentInterface)));
+                        if (!nestedInterfaces.IsDefaultOrEmpty)
+                            nestedSymbol.SetInterfaces(MergeInterfaceSets(nestedSymbol.Interfaces, nestedInterfaces));
+
+                        CacheBinder(nestedType, nestedBinder);
+                        RegisterClassSymbol(nestedType, nestedSymbol);
+                        if (nestedSymbol.IsSealedHierarchy)
+                            ResolveSealedHierarchyPermits(nestedType, nestedSymbol, nestedBinder);
+                        RegisterClassMembers(nestedType, nestedBinder);
+                        nestedBinder.EnsureDefaultConstructor();
+                        nestedClassBinders.Add((nestedType, nestedBinder));
+                        break;
+                    }
+                case InterfaceDeclarationSyntax nestedInterface:
+                    {
+                        var parentInterfaces = ResolveInterfaceBaseTypes(nestedInterface, interfaceBinder);
+                        var nestedInterfaceSymbol = GetDeclaredTypeSymbol(nestedInterface);
 
                         if (!parentInterfaces.IsDefaultOrEmpty)
-                            nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
+                            nestedInterfaceSymbol.SetInterfaces(MergeInterfaceSets(nestedInterfaceSymbol.Interfaces, parentInterfaces));
 
                         var nestedInterfaceBinder = new InterfaceDeclarationBinder(interfaceBinder, nestedInterfaceSymbol, nestedInterface);
                         nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
                         CacheBinder(nestedInterface, nestedInterfaceBinder);
+                        if (nestedInterfaceSymbol.IsSealedHierarchy)
+                            ResolveSealedHierarchyPermits(nestedInterface, nestedInterfaceSymbol, nestedInterfaceBinder);
                         RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
+                        nestedInterfaceBinders.Add((nestedInterface, nestedInterfaceBinder));
                         break;
                     }
             }
         }
+
+        MergeSameFileSealedHierarchySubtypes(
+            (SourceNamedTypeSymbol)interfaceBinder.ContainingSymbol,
+            GetSealedHierarchyCandidates(nestedClassBinders, nestedInterfaceBinders));
+        DiscoverSameFileSealedHierarchySubtypes(nestedClassBinders, nestedInterfaceBinders);
+        ValidatePermitsListEntries(nestedClassBinders, nestedInterfaceBinders);
+    }
+
+    private ImmutableArray<INamedTypeSymbol> ResolveInterfaceBaseTypes(InterfaceDeclarationSyntax interfaceDecl, Binder binder)
+    {
+        if (interfaceDecl.BaseList is null)
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        foreach (var t in interfaceDecl.BaseList.Types)
+        {
+            if (binder.TryBindNamedTypeFromTypeSyntax(t.Type, out var resolved, reportDiagnostics: true) &&
+                resolved is not null &&
+                resolved.TypeKind == TypeKind.Interface)
+            {
+                if (binder is TypeDeclarationBinder typeDeclarationBinder)
+                    typeDeclarationBinder.ReportInvalidInheritedInterfaceType(interfaceDecl, t, resolved);
+                builder.Add(resolved);
+            }
+        }
+
+        return builder.Count > 0
+            ? builder.ToImmutable()
+            : ImmutableArray<INamedTypeSymbol>.Empty;
     }
 
     private void RegisterExtensionMembers(ExtensionDeclarationSyntax extensionDecl, ExtensionDeclarationBinder extensionBinder)

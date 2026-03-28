@@ -474,8 +474,9 @@ Only single inheritance is supported.
 
 #### Sealed hierarchies and `permits`
 
-A class or record class declared with the `sealed` modifier creates a **sealed hierarchy**. The `sealed` modifier implies
-`abstract`: a sealed type cannot be instantiated directly. Its set of direct subtypes is fixed at compile time and is
+A class, record class, or interface declared with the `sealed` modifier creates a **sealed hierarchy**. For classes and
+record classes, the `sealed` modifier implies `abstract`: a sealed type cannot be instantiated directly. Its set of direct
+subtypes is fixed at compile time and is
 determined in one of two ways:
 
 **Same-file closure (default).** When no `permits` clause is given, any type in the same source file that directly
@@ -489,13 +490,32 @@ class Square : Shape {}   // OK — same file
 ```
 
 **Explicit permits.** An optional `permits` clause names the exact set of allowed direct subtypes. Only those types may
-inherit from the sealed type, regardless of file location:
+directly inherit from or implement the sealed type, regardless of file location:
 
 ```raven
 sealed class Expr permits Lit, Add {}
 
 class Lit : Expr {}
 class Add : Expr {}
+```
+
+Sealed interfaces follow the same closure rules, but their direct subtypes are any classes, records, structs, or interfaces
+that list the sealed interface directly in their base list:
+
+```raven
+sealed interface HttpResponse permits Success, NotFound {}
+
+record class Success(status: int, body: string) : HttpResponse {}
+record class NotFound(message: string) : HttpResponse {}
+```
+
+Nested declarations are also allowed, so a sealed interface can host its direct cases inside the interface body:
+
+```raven
+sealed interface HttpResponse {
+    record class Success(status: int, body: string) : HttpResponse {}
+    record class NotFound(message: string) : HttpResponse {}
+}
 ```
 
 When a `permits` clause is present, any attempt to derive from the sealed type outside the permitted list produces

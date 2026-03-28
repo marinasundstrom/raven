@@ -118,4 +118,54 @@ record class Other {}
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV0338");
     }
+
+    [Fact]
+    public void SealedInterface_Permits_RejectsUnlistedImplementor()
+    {
+        var source = """
+sealed interface HttpResponse permits Success {}
+class Success : HttpResponse {}
+class NotListed : HttpResponse {}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == CompilerDiagnostics.SealedHierarchyInheritanceDeniedNotPermitted.Id);
+    }
+
+    [Fact]
+    public void SealedInterface_DifferentFile_ProducesRAV0334()
+    {
+        var tree1 = SyntaxTree.ParseText("sealed interface HttpResponse {}", path: "file1.rvn");
+        var tree2 = SyntaxTree.ParseText("class Success : HttpResponse {}", path: "file2.rvn");
+        var compilation = CreateCompilation([tree1, tree2], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == CompilerDiagnostics.SealedHierarchyInheritanceDeniedSameFile.Id);
+    }
+
+    [Fact]
+    public void SealedInterface_Permits_TypeNotDirectSubtype_ProducesRAV0338()
+    {
+        var source = """
+sealed interface HttpResponse permits Other {}
+class Other {}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV0338");
+    }
+
+    [Fact]
+    public void InterfacePermits_WithoutSealed_ProducesRAV0339()
+    {
+        var source = """
+interface HttpResponse permits Success {}
+class Success : HttpResponse {}
+""";
+        var tree = SyntaxTree.ParseText(source, path: "file.rvn");
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV0339");
+    }
 }

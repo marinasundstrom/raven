@@ -224,7 +224,7 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0339" Identifier="PermitsClauseRequiresSealed"
     Title="Permits clause requires sealed modifier"
-    Message="The 'permits' clause is only valid on sealed classes"
+    Message="The 'permits' clause is only valid on sealed classes, record classes, or interfaces"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0341"
     Identifier="NonPublicRecordPrimaryConstructorPropertyExcludedFromValueSemantics"

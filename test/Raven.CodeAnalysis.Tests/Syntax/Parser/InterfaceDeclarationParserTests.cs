@@ -62,4 +62,19 @@ public class InterfaceDeclarationParserTests
         Assert.Equal("Service", name.Identifier.Text);
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void InterfaceDeclaration_WithPermitsClause_ParsesSuccessfully()
+    {
+        var source = "sealed interface IHttpResponse permits Success, NotFound {}";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<InterfaceDeclarationSyntax>(Assert.Single(root.Members));
+
+        Assert.Equal("IHttpResponse", declaration.Identifier.Text);
+        Assert.NotNull(declaration.PermitsClause);
+        Assert.Equal(2, declaration.PermitsClause!.Types.Count);
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }

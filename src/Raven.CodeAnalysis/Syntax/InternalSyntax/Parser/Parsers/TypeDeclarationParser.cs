@@ -142,7 +142,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (typeKeyword.IsKind(SyntaxKind.InterfaceKeyword))
         {
-            return InterfaceDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, null, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return InterfaceDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, null, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
         if (typeKeyword.IsKind(SyntaxKind.StructKeyword))
@@ -442,7 +442,7 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             var typeKeywordKind = PeekTypeKeyword(this);
 
-            if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.StructKeyword or SyntaxKind.InterfaceKeyword)
+            if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.StructKeyword or SyntaxKind.InterfaceKeyword or SyntaxKind.RecordKeyword)
             {
                 memberDeclarationCheckpoint.Rewind();
                 return new TypeDeclarationParser(this).Parse();
@@ -469,6 +469,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.ClassKeyword) ||
             keywordOrIdentifier.IsKind(SyntaxKind.StructKeyword) ||
+            keywordOrIdentifier.IsKind(SyntaxKind.RecordKeyword) ||
             keywordOrIdentifier.IsKind(SyntaxKind.InterfaceKeyword) ||
             (hasRecordModifier && CanTokenBeIdentifier(keywordOrIdentifier)))
         {

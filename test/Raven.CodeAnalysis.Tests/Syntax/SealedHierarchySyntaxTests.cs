@@ -57,6 +57,19 @@ sealed record class Expr {}
     }
 
     [Fact]
+    public void Parse_SealedInterface_WithPermitsClause()
+    {
+        var source = """
+sealed interface HttpResponse permits Success, NotFound {}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interfaceDecl = Assert.IsType<InterfaceDeclarationSyntax>(root.Members[0]);
+        Assert.NotNull(interfaceDecl.PermitsClause);
+        Assert.Equal(2, interfaceDecl.PermitsClause!.Types.Count);
+    }
+
+    [Fact]
     public void BodylessClass_ParsesSuccessfully()
     {
         var source = """

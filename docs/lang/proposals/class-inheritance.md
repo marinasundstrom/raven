@@ -31,12 +31,12 @@ class Dog : Animal {}
 ### Sealed hierarchies
 
 To support algebraic-style modeling and exhaustive pattern matching, Raven follows the terminology used by Kotlin and modern
-Java. Applying the `sealed` modifier to a class or record class creates a closed hierarchy whose direct subtypes are fixed at
-compile time. A sealed class is implicitly abstract — it cannot be instantiated directly. Without an explicit `permits` clause,
-the permitted subtypes are all types in the same source file that directly inherit from the sealed type. An optional `permits`
+Java. Applying the `sealed` modifier to a class, record class, or interface creates a closed hierarchy whose direct subtypes are fixed at
+compile time. A sealed class is implicitly abstract and cannot be instantiated directly. Without an explicit `permits` clause,
+the permitted subtypes are all types in the same source file that directly inherit from, extend, or implement the sealed type. An optional `permits`
 clause names the exact set of allowed direct subtypes. This differs from the C# meaning of `sealed` (which Raven already
-provides by default). A sealed class remains inheritable by its known children, allowing tooling to reason about the entire
-closed family.
+provides by default). A sealed type remains extensible only by its known children, allowing tooling to reason about the entire
+closed family. Nested declarations are part of this model, so sealed interfaces can host their case-like implementing types directly in the interface body.
 
 ### Constructors
 
@@ -82,7 +82,7 @@ must use non-static types, while non-storage contexts such as `typeof(System.IO.
 - ✅ Default constructor chaining to the base default constructor
 - ✅ Access modifiers on classes and members
 - ✅ Explicit base constructor invocation
-- ✅ Sealed hierarchies (`sealed class`, `sealed record class`, `permits` clause)
+- ✅ Sealed hierarchies (`sealed class`, `sealed record class`, `sealed interface`, `permits` clause)
 - ✅ Same-file closure and explicit permits enforcement
 - ✅ Match exhaustiveness analysis for sealed hierarchies
 - ✅ `[ClosedHierarchy]` attribute emission on sealed hierarchy base types

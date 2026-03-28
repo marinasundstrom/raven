@@ -95,6 +95,7 @@ internal abstract class TypeDeclarationBinder : Binder
                 if (resolved.TypeKind == TypeKind.Interface)
                 {
                     resolvedInterfaces.Add(resolved);
+                    ReportInvalidInheritedInterfaceType(declaration, baseTypeSyntax, resolved);
                     continue;
                 }
 
@@ -183,6 +184,42 @@ internal abstract class TypeDeclarationBinder : Binder
             Diagnostics.ReportCannotInheritFromClosedType(
                 baseType.Name,
                 baseList.Types[0].GetLocation());
+        }
+    }
+
+    internal void ReportInvalidInheritedInterfaceType(
+        TypeDeclarationSyntax declaration,
+        BaseTypeSyntax baseTypeSyntax,
+        INamedTypeSymbol interfaceType)
+    {
+        if (interfaceType is not SourceNamedTypeSymbol sourceInterface || !sourceInterface.IsSealedHierarchy)
+            return;
+
+        if (sourceInterface.HasExplicitPermits)
+        {
+            var derivingName = declaration.Identifier.ValueText;
+            var isPermitted = sourceInterface.PermittedDirectSubtypes
+                .Any(permitted => string.Equals(permitted.Name, derivingName, StringComparison.Ordinal));
+
+            if (!isPermitted)
+            {
+                Diagnostics.ReportSealedHierarchyInheritanceDeniedNotPermitted(
+                    derivingName,
+                    interfaceType.Name,
+                    baseTypeSyntax.GetLocation());
+            }
+
+            return;
+        }
+
+        var derivingFile = declaration.SyntaxTree?.FilePath;
+        var baseFile = sourceInterface.SealedHierarchySourceFile;
+        if (!string.Equals(derivingFile, baseFile, StringComparison.Ordinal))
+        {
+            Diagnostics.ReportSealedHierarchyInheritanceDeniedSameFile(
+                declaration.Identifier.ValueText,
+                interfaceType.Name,
+                baseTypeSyntax.GetLocation());
         }
     }
 
