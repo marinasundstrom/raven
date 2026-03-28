@@ -7,8 +7,6 @@
     <AssemblyName>None</AssemblyName>
     <RavenCoreOutputDirectory>$(OutputPath)$(TargetFramework)/</RavenCoreOutputDirectory>
     <TargetPath>$(RavenCoreOutputDirectory)Raven.Core.dll</TargetPath>
-    <BuiltProjectOutputGroupDependsOn>$(BuiltProjectOutputGroupDependsOn);CollectRavenCoreOutput</BuiltProjectOutputGroupDependsOn>
-    <BuildDependsOn>CompileRavenCore;$(BuildDependsOn)</BuildDependsOn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +16,7 @@
   </ItemGroup>
 
   <Target Name="CompileRavenCore"
+    BeforeTargets="Build"
     Condition="'$(TargetFramework)' != ''">
     <MakeDir Directories="$(RavenCoreOutputDirectory)" />
     <Exec
@@ -29,7 +28,9 @@
     <RemoveDir Directories="$(RavenCoreOutputDirectory)" />
   </Target>
 
-  <Target Name="CollectRavenCoreOutput">
+  <Target Name="CollectRavenCoreOutput"
+    BeforeTargets="BuiltProjectOutputGroup"
+    DependsOnTargets="CompileRavenCore">
     <ItemGroup>
       <BuiltProjectOutputGroupOutput Include="$(RavenCoreOutputDirectory)Raven.Core.dll">
         <TargetPath>Raven.Core.dll</TargetPath>
