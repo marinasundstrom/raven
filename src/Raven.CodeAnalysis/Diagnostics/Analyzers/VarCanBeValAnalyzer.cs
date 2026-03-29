@@ -371,14 +371,14 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
         private void MarkWritten(ExpressionOrPatternSyntax left)
         {
-            foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, left))
-                _writtenAfterDeclaration.Add(local);
+            foreach (var assignedLocal in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, left))
+                _writtenAfterDeclaration.Add(assignedLocal);
         }
 
         private void MarkWrittenFromExpression(ExpressionSyntax expression)
         {
-            foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, expression))
-                _writtenAfterDeclaration.Add(local);
+            foreach (var assignedLocal in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, expression))
+                _writtenAfterDeclaration.Add(assignedLocal);
         }
 
         private static bool IsIncrementOrDecrement(SyntaxToken operatorToken)

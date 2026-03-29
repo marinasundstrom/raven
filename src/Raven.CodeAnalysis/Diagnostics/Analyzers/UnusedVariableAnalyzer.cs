@@ -216,6 +216,9 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
         public override void VisitIdentifierName(IdentifierNameSyntax node)
         {
+            if (!CanReferenceLocal(node))
+                return;
+
             TryMarkUsedLocal(node);
         }
 
@@ -256,6 +259,21 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             }
 
             return false;
+        }
+
+        private static bool CanReferenceLocal(IdentifierNameSyntax node)
+        {
+            return node.Parent switch
+            {
+                MemberAccessExpressionSyntax memberAccess when ReferenceEquals(memberAccess.Name, node) => false,
+                QualifiedNameSyntax => false,
+                TypeAnnotationClauseSyntax => false,
+                TypeArgumentSyntax => false,
+                ImportDirectiveSyntax => false,
+                AttributeSyntax => false,
+                NameColonSyntax => false,
+                _ => true,
+            };
         }
     }
 }
