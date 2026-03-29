@@ -26,6 +26,7 @@ func RunExistingPatternExamples() {
     PrintSection("Tuple and nominal deconstruction")
     Tuple()
     Person()
+    Person2()
 
     val arr = [3, 9, 10, 3, 2]
     val [first, second, ...rest] = arr
@@ -179,6 +180,18 @@ func Person() {
     WriteLine("Nominal deconstruction -> id = $id, name = $name")
 }
 
+func Person2() {
+    val people = [
+        Person2("Alice", 25, [ "Horse", "Saddle" ])
+        Person2("John", 18, [ "Keys", "Wallet" ])
+        Person2("Jane", 15, [ "Sunglasses", "Purse" ])
+    ]
+
+    for val (name, age when > 15, [ item1, item2 ]) in people {
+        WriteLine("Nested deconstruction -> $name ($age) has $item1 and $item2")
+    }
+}
+
 func PrintSection(title: string) {
     WriteLine("")
     WriteLine("== $title ==")
@@ -228,4 +241,10 @@ record Person(
     val Id: int,
     val Name: string,
     val Age: int
+)
+
+record Person2(
+    val Name: string
+    val Age: int
+    val Items: string[]
 )
