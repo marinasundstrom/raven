@@ -33,9 +33,9 @@ func Main() {
 }
 
 class User(
-    var Id: int, 
-    var Name: string, 
-    var Age: int, 
+    var Id: int,
+    var Name: string,
+    var Age: int,
     var IsActive: bool
 )
 
