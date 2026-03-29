@@ -736,10 +736,21 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        var operandClrType = Generator.InstantiateType(ResolveClrType(typeOfExpression.OperandType));
+        var operandClrType = ResolveClrType(typeOfExpression.OperandType);
+        if (!IsOpenGenericTypeOfOperand(typeOfExpression.OperandType, operandClrType))
+            operandClrType = Generator.InstantiateType(operandClrType);
 
         ILGenerator.Emit(OpCodes.Ldtoken, operandClrType);
         ILGenerator.Emit(OpCodes.Call, GetTypeFromHandleMethod);
+    }
+
+    private static bool IsOpenGenericTypeOfOperand(ITypeSymbol operandType, Type operandClrType)
+    {
+        if (operandType is not INamedTypeSymbol namedType)
+            return false;
+
+        return namedType.IsUnboundGenericType ||
+               operandClrType.IsGenericTypeDefinition;
     }
 
     private void EmitNameOfExpression(BoundNameOfExpression nameOfExpression)
