@@ -1,0 +1,43 @@
+import System.*
+import System.Console.*
+import System.Numerics.*
+
+func Main() {
+    val left = Expr.Literal<int>(40)
+    val right = Expr.Literal<int>(2)
+    val sum = Expr.Add<int>(left, right)
+    val product = Expr.Multiply<int>(sum, Expr.Literal<int>(3))
+
+    WriteLine(product)
+    WriteLine(product.Apply())
+    WriteLine(Evaluate(product))
+}
+
+func Evaluate<T>(expr: Expr<T>) -> T
+    where T: INumber<T> {
+    return expr match {
+        .Literal(val value) => value
+        .Add(val left, val right) => Evaluate(left) + Evaluate(right)
+        .Multiply(val left, val right) => Evaluate(left) * Evaluate(right)
+    }
+}
+
+sealed interface Expr<T>
+    where T: INumber<T> {
+    func Apply() -> T
+
+    record Literal<T>(Value: T) : Expr<T>
+        where T: INumber<T> {
+        func Apply() -> T => Value
+    }
+
+    record Add<T>(Left: Expr<T>, Right: Expr<T>) : Expr<T>
+        where T: INumber<T> {
+        func Apply() -> T => Left.Apply() + Right.Apply()
+    }
+
+    record Multiply<T>(Left: Expr<T>, Right: Expr<T>) : Expr<T>
+        where T: INumber<T> {
+        func Apply() -> T => Left.Apply() * Right.Apply()
+    }
+}

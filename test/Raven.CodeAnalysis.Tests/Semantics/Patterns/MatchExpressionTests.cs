@@ -396,6 +396,48 @@ func Evaluate(expr: Expr<float>) -> int {
     }
 
     [Fact]
+    public void MatchExpression_WithConstrainedGenericSealedHierarchyCases_BindsAgainstScrutineeTypeArguments()
+    {
+        const string code = """
+import System.Numerics.*
+
+sealed interface Expr<T>
+    where T: INumber<T> {
+    record Literal<T>(Value: T) : Expr<T>
+        where T: INumber<T>
+
+    record Add<T>(Left: Expr<T>, Right: Expr<T>) : Expr<T>
+        where T: INumber<T>
+}
+
+func Evaluate<T>(expr: Expr<T>) -> T
+    where T: INumber<T> {
+    return expr match {
+        .Literal(val value) => value
+        .Add(val left, val right) => Evaluate(left) + Evaluate(right)
+    }
+}
+
+func Main() {
+    val expr = Expr.Add<int>(Expr.Literal<int>(40), Expr.Literal<int>(2))
+    Evaluate(expr)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "sealed_hierarchy_constrained_generic_cases",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void MatchExpression_WithEnumArms_MissingCaseReportsDiagnostic()
     {
         const string code = """

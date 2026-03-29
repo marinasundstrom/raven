@@ -808,7 +808,7 @@ internal partial class TypeMemberBinder : Binder
             methodSymbol.MarkDeclaredInExtension();
 
         // Bind method-declared type parameters first (e.g. <B>)
-        InitializeMethodTypeParameters(methodSymbol, methodDecl.TypeParameterList);
+        InitializeMethodTypeParameters(methodSymbol, methodDecl.TypeParameterList, methodDecl.ConstraintClauses, methodDecl.SyntaxTree);
 
         // If we are inside an extension container, the lowering pipeline should already have
         // projected the extension container type parameters onto the method as method-owned
@@ -1155,7 +1155,11 @@ internal partial class TypeMemberBinder : Binder
             methodKind: MethodKind.UserDefinedOperator,
             declaredAccessibility: operatorAccessibility);
 
-        InitializeMethodTypeParameters(operatorSymbol, typeParameterList: null);
+        InitializeMethodTypeParameters(
+            operatorSymbol,
+            typeParameterList: null,
+            constraintClauses: SyntaxList<TypeParameterConstraintClauseSyntax>.Empty,
+            operatorDecl.SyntaxTree);
 
         var operatorBinder = new MethodBinder(operatorSymbol, this);
 
@@ -3922,7 +3926,9 @@ internal partial class TypeMemberBinder : Binder
 
     private void InitializeMethodTypeParameters(
         SourceMethodSymbol methodSymbol,
-        TypeParameterListSyntax? typeParameterList)
+        TypeParameterListSyntax? typeParameterList,
+        SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
+        SyntaxTree syntaxTree)
     {
         var hasDeclared = typeParameterList is { Parameters.Count: > 0 };
         var hasExtension = IsExtensionContainer && !_containingType.TypeParameters.IsDefaultOrEmpty;
@@ -3930,30 +3936,40 @@ internal partial class TypeMemberBinder : Binder
         if (!hasDeclared && !hasExtension)
             return;
 
+        if (hasDeclared)
+        {
+            TypeParameterInitializer.InitializeMethodTypeParameters(
+                methodSymbol,
+                _containingType,
+                typeParameterList,
+                constraintClauses,
+                syntaxTree);
+        }
+
         var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(
             (hasExtension ? _containingType.TypeParameters.Length : 0) +
-            (hasDeclared ? typeParameterList!.Parameters.Count : 0));
+            methodSymbol.TypeParameters.Length);
 
         var ordinal = AddExtensionContainerTypeParameters(methodSymbol, builder);
 
-        if (hasDeclared)
+        if (!methodSymbol.TypeParameters.IsDefaultOrEmpty)
         {
-            foreach (var tpSyntax in typeParameterList!.Parameters)
+            foreach (var typeParameter in methodSymbol.TypeParameters)
             {
-                var (constraintKind, constraintTypeRefs) = TypeParameterConstraintAnalyzer.AnalyzeInline(tpSyntax);
-                var variance = GetDeclaredVariance(tpSyntax);
-
-                builder.Add(new SourceTypeParameterSymbol(
-                    tpSyntax.Identifier.ValueText,
-                    methodSymbol,
-                    _containingType,
-                    CurrentNamespace!.AsSourceNamespace(),
-                    [tpSyntax.GetLocation()],
-                    [tpSyntax.GetReference()],
-                    ordinal++,
-                    constraintKind,
-                    constraintTypeRefs,
-                    variance));
+                if (typeParameter is SourceTypeParameterSymbol sourceTypeParameter)
+                {
+                    builder.Add(new SourceTypeParameterSymbol(
+                        sourceTypeParameter.Name,
+                        methodSymbol,
+                        _containingType,
+                        CurrentNamespace!.AsSourceNamespace(),
+                        sourceTypeParameter.Locations.ToArray(),
+                        sourceTypeParameter.DeclaringSyntaxReferences.ToArray(),
+                        ordinal++,
+                        sourceTypeParameter.ConstraintKind,
+                        sourceTypeParameter.ConstraintTypeReferences,
+                        sourceTypeParameter.Variance));
+                }
             }
         }
 

@@ -62,17 +62,17 @@ internal class TypeDeclarationParser : SyntaxParser
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
 
+        TypeParameterListSyntax? typeParameterList = null;
+        if (PeekToken().IsKind(SyntaxKind.LessThanToken))
+        {
+            typeParameterList = ParseTypeParameterList();
+        }
+
         ParameterListSyntax? parameterList = null;
         if ((typeKeyword.IsKind(SyntaxKind.ClassKeyword) || typeKeyword.IsKind(SyntaxKind.StructKeyword) || typeKeyword.IsKind(SyntaxKind.RecordKeyword)) &&
             PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
             parameterList = ParseParameterList(allowAccessModifiers: true);
-        }
-
-        TypeParameterListSyntax? typeParameterList = null;
-        if (PeekToken().IsKind(SyntaxKind.LessThanToken))
-        {
-            typeParameterList = ParseTypeParameterList();
         }
 
         BaseListSyntax? baseList = ParseBaseList();

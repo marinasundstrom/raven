@@ -550,6 +550,35 @@ func Evaluate<T>(expr: Expr<T>) -> T { ... }   // OK
 func Broken(expr: Expr) { ... }                // Error: missing type arguments
 ```
 
+Sealed-hierarchy constituents are still ordinary Raven types, so they use the same generic parameter and `where`
+constraint rules as any other type declaration. Member methods over sealed hierarchies likewise honor their own declared
+constraints during body binding. This allows constrained generic evaluators to stay fully native to Raven and .NET-style
+generic interfaces:
+
+```raven
+import System.Numerics.*
+
+sealed interface Expr<T>
+    where T: INumber<T> {
+    record Literal<T>(Value: T) : Expr<T>
+        where T: INumber<T>
+
+    record Add<T>(Left: Expr<T>, Right: Expr<T>) : Expr<T>
+        where T: INumber<T>
+}
+
+func Evaluate<T>(expr: Expr<T>) -> T
+    where T: INumber<T> {
+    return expr match {
+        .Literal(val value) => value
+        .Add(val left, val right) => Evaluate(left) + Evaluate(right)
+    }
+}
+```
+
+The sealed hierarchy contributes closed-family reasoning and nested-case lookup. Operator validity still comes from the
+ordinary generic constraint system rather than a sealed-hierarchy-specific rule.
+
 When nested cases are used, the containing sealed root acts as a logical qualifier for construction:
 
 ```raven

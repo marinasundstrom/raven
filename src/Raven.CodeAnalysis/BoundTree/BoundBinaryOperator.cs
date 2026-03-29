@@ -94,6 +94,12 @@ internal partial class BoundBinaryOperator
         if (TryLookupPredefinedOperator(compilation, kind, left, right, boolType, out op))
             return true;
 
+        if (TryLookupTypeParameterConstraintOperator(kind, left, right, boolType, out op))
+            return true;
+
+        if (TryLookupConstrainedInterfaceOperator(kind, left, right, out op))
+            return true;
+
         // Reference equality/inequality (C#-style: same reference type)
         if (left.IsReferenceType &&
             right.IsReferenceType &&
@@ -392,6 +398,316 @@ internal partial class BoundBinaryOperator
 
         op = default!;
         return false;
+    }
+
+    private static bool TryLookupConstrainedInterfaceOperator(
+        SyntaxKind kind,
+        ITypeSymbol left,
+        ITypeSymbol right,
+        out BoundBinaryOperator op)
+    {
+        foreach (var candidate in EnumerateOperatorInterfaceCandidates(left))
+        {
+            if (candidate.TypeArguments.IsDefaultOrEmpty || candidate.TypeArguments.Length != 3)
+                continue;
+
+            if (!MatchesConstrainedOperatorOperand(candidate.TypeArguments[0], left) ||
+                !MatchesConstrainedOperatorOperand(candidate.TypeArguments[1], right))
+            {
+                continue;
+            }
+
+            if (!TryMatchConstrainedOperator(kind, candidate, out var operatorKind))
+                continue;
+
+            op = new BoundBinaryOperator(
+                operatorKind,
+                left,
+                right,
+                GetConstrainedOperatorResultType(operatorKind, candidate.TypeArguments[2], left, right));
+            return true;
+        }
+
+        op = default!;
+        return false;
+    }
+
+    private static bool TryLookupTypeParameterConstraintOperator(
+        SyntaxKind kind,
+        ITypeSymbol left,
+        ITypeSymbol right,
+        ITypeSymbol boolType,
+        out BoundBinaryOperator op)
+    {
+        if (left is not ITypeParameterSymbol leftTypeParameter ||
+            right is not ITypeParameterSymbol rightTypeParameter ||
+            !AreEquivalentTypeParameterOperands(leftTypeParameter, rightTypeParameter))
+        {
+            op = default!;
+            return false;
+        }
+
+        if (!TryMatchTypeParameterConstraintOperator(kind, leftTypeParameter, out var operatorKind))
+        {
+            op = default!;
+            return false;
+        }
+
+        var resultType = operatorKind is BinaryOperatorKind.Equality or
+            BinaryOperatorKind.Inequality or
+            BinaryOperatorKind.GreaterThan or
+            BinaryOperatorKind.LessThan or
+            BinaryOperatorKind.GreaterThanOrEqual or
+            BinaryOperatorKind.LessThanOrEqual
+            ? boolType
+            : left;
+
+        op = new BoundBinaryOperator(operatorKind, left, right, resultType);
+        return true;
+    }
+
+    private static bool TryMatchTypeParameterConstraintOperator(
+        SyntaxKind kind,
+        ITypeParameterSymbol typeParameter,
+        out BinaryOperatorKind operatorKind)
+    {
+        operatorKind = BinaryOperatorKind.None;
+
+        return kind switch
+        {
+            SyntaxKind.PlusToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IAdditionOperators") => Set(BinaryOperatorKind.Addition, out operatorKind),
+            SyntaxKind.MinusToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "ISubtractionOperators") => Set(BinaryOperatorKind.Subtraction, out operatorKind),
+            SyntaxKind.StarToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IMultiplyOperators") => Set(BinaryOperatorKind.Multiplication, out operatorKind),
+            SyntaxKind.SlashToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IDivisionOperators") => Set(BinaryOperatorKind.Division, out operatorKind),
+            SyntaxKind.PercentToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IModulusOperators") => Set(BinaryOperatorKind.Modulo, out operatorKind),
+            SyntaxKind.EqualsEqualsToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IEqualityOperators") => Set(BinaryOperatorKind.Equality, out operatorKind),
+            SyntaxKind.NotEqualsToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IEqualityOperators") => Set(BinaryOperatorKind.Inequality, out operatorKind),
+            SyntaxKind.GreaterThanToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IComparisonOperators") => Set(BinaryOperatorKind.GreaterThan, out operatorKind),
+            SyntaxKind.LessThanToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IComparisonOperators") => Set(BinaryOperatorKind.LessThan, out operatorKind),
+            SyntaxKind.GreaterThanOrEqualsToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IComparisonOperators") => Set(BinaryOperatorKind.GreaterThanOrEqual, out operatorKind),
+            SyntaxKind.LessThanOrEqualsToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IComparisonOperators") => Set(BinaryOperatorKind.LessThanOrEqual, out operatorKind),
+            SyntaxKind.AmpersandToken when HasTypeParameterOperatorConstraint(typeParameter, "IBitwiseOperators") => Set(BinaryOperatorKind.BitwiseAnd, out operatorKind),
+            SyntaxKind.BarToken when HasTypeParameterOperatorConstraint(typeParameter, "IBitwiseOperators") => Set(BinaryOperatorKind.BitwiseOr, out operatorKind),
+            SyntaxKind.CaretToken when HasTypeParameterOperatorConstraint(typeParameter, "IBitwiseOperators") => Set(BinaryOperatorKind.BitwiseXor, out operatorKind),
+            SyntaxKind.LessThanLessThanToken when HasTypeParameterOperatorConstraint(typeParameter, "IShiftOperators") => Set(BinaryOperatorKind.ShiftLeft, out operatorKind),
+            SyntaxKind.GreaterThanGreaterThanToken when HasTypeParameterOperatorConstraint(typeParameter, "IShiftOperators") => Set(BinaryOperatorKind.ShiftRight, out operatorKind),
+            _ => false,
+        };
+
+        static bool Set(BinaryOperatorKind value, out BinaryOperatorKind destination)
+        {
+            destination = value;
+            return true;
+        }
+    }
+
+    private static bool HasTypeParameterOperatorConstraint(
+        ITypeParameterSymbol typeParameter,
+        params string[] interfaceNames)
+    {
+        foreach (var constraintType in typeParameter.ConstraintTypes)
+        {
+            if (constraintType is not INamedTypeSymbol namedConstraint)
+                continue;
+
+            if (IsMatchingSystemNumericsConstraint(namedConstraint, interfaceNames))
+                return true;
+
+            foreach (var interfaceType in namedConstraint.AllInterfaces)
+            {
+                if (IsMatchingSystemNumericsConstraint(interfaceType, interfaceNames))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool AreEquivalentTypeParameterOperands(
+        ITypeParameterSymbol left,
+        ITypeParameterSymbol right)
+    {
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        if (left.MetadataIdentityEquals(right))
+            return true;
+
+        return string.Equals(left.Name, right.Name, StringComparison.Ordinal) &&
+               left.OwnerKind == right.OwnerKind;
+    }
+
+    private static bool IsMatchingSystemNumericsConstraint(INamedTypeSymbol type, string[] interfaceNames)
+    {
+        var definition = (type.OriginalDefinition as INamedTypeSymbol) ?? type;
+        if (!IsNamespace(definition.ContainingNamespace, "System", "Numerics"))
+            return false;
+
+        foreach (var interfaceName in interfaceNames)
+        {
+            if (string.Equals(definition.Name, interfaceName, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryMatchConstrainedOperator(
+        SyntaxKind kind,
+        INamedTypeSymbol candidate,
+        out BinaryOperatorKind operatorKind)
+    {
+        operatorKind = BinaryOperatorKind.None;
+
+        switch (kind)
+        {
+            case SyntaxKind.PlusToken when IsSystemNumericsOperatorInterface(candidate, "IAdditionOperators", 3):
+                operatorKind = BinaryOperatorKind.Addition;
+                return true;
+
+            case SyntaxKind.MinusToken when IsSystemNumericsOperatorInterface(candidate, "ISubtractionOperators", 3):
+                operatorKind = BinaryOperatorKind.Subtraction;
+                return true;
+
+            case SyntaxKind.StarToken when IsSystemNumericsOperatorInterface(candidate, "IMultiplyOperators", 3):
+                operatorKind = BinaryOperatorKind.Multiplication;
+                return true;
+
+            case SyntaxKind.SlashToken when IsSystemNumericsOperatorInterface(candidate, "IDivisionOperators", 3):
+                operatorKind = BinaryOperatorKind.Division;
+                return true;
+
+            case SyntaxKind.PercentToken when IsSystemNumericsOperatorInterface(candidate, "IModulusOperators", 3):
+                operatorKind = BinaryOperatorKind.Modulo;
+                return true;
+
+            case SyntaxKind.EqualsEqualsToken when IsSystemNumericsOperatorInterface(candidate, "IEqualityOperators", 3):
+                operatorKind = BinaryOperatorKind.Equality;
+                return true;
+
+            case SyntaxKind.NotEqualsToken when IsSystemNumericsOperatorInterface(candidate, "IEqualityOperators", 3):
+                operatorKind = BinaryOperatorKind.Inequality;
+                return true;
+
+            case SyntaxKind.GreaterThanToken when IsSystemNumericsOperatorInterface(candidate, "IComparisonOperators", 3):
+                operatorKind = BinaryOperatorKind.GreaterThan;
+                return true;
+
+            case SyntaxKind.LessThanToken when IsSystemNumericsOperatorInterface(candidate, "IComparisonOperators", 3):
+                operatorKind = BinaryOperatorKind.LessThan;
+                return true;
+
+            case SyntaxKind.GreaterThanOrEqualsToken when IsSystemNumericsOperatorInterface(candidate, "IComparisonOperators", 3):
+                operatorKind = BinaryOperatorKind.GreaterThanOrEqual;
+                return true;
+
+            case SyntaxKind.LessThanOrEqualsToken when IsSystemNumericsOperatorInterface(candidate, "IComparisonOperators", 3):
+                operatorKind = BinaryOperatorKind.LessThanOrEqual;
+                return true;
+
+            case SyntaxKind.AmpersandToken when IsSystemNumericsOperatorInterface(candidate, "IBitwiseOperators", 3):
+                operatorKind = BinaryOperatorKind.BitwiseAnd;
+                return true;
+
+            case SyntaxKind.BarToken when IsSystemNumericsOperatorInterface(candidate, "IBitwiseOperators", 3):
+                operatorKind = BinaryOperatorKind.BitwiseOr;
+                return true;
+
+            case SyntaxKind.CaretToken when IsSystemNumericsOperatorInterface(candidate, "IBitwiseOperators", 3):
+                operatorKind = BinaryOperatorKind.BitwiseXor;
+                return true;
+
+            case SyntaxKind.LessThanLessThanToken when IsSystemNumericsOperatorInterface(candidate, "IShiftOperators", 3):
+                operatorKind = BinaryOperatorKind.ShiftLeft;
+                return true;
+
+            case SyntaxKind.GreaterThanGreaterThanToken when IsSystemNumericsOperatorInterface(candidate, "IShiftOperators", 3):
+                operatorKind = BinaryOperatorKind.ShiftRight;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsSystemNumericsOperatorInterface(INamedTypeSymbol type, string name, int arity)
+    {
+        var definition = (type.OriginalDefinition as INamedTypeSymbol) ?? type;
+        if (!string.Equals(definition.Name, name, StringComparison.Ordinal) || definition.Arity != arity)
+            return false;
+
+        return IsNamespace(definition.ContainingNamespace, "System", "Numerics");
+    }
+
+    private static bool IsNamespace(INamespaceSymbol? ns, params string[] segments)
+    {
+        if (ns is null)
+            return false;
+
+        for (int i = segments.Length - 1; i >= 0; i--)
+        {
+            if (ns.IsGlobalNamespace || !string.Equals(ns.Name, segments[i], StringComparison.Ordinal))
+                return false;
+
+            ns = ns.ContainingNamespace;
+        }
+
+        return ns is { IsGlobalNamespace: true };
+    }
+
+    private static bool MatchesConstrainedOperatorOperand(ITypeSymbol candidateOperand, ITypeSymbol actualOperand)
+    {
+        if (SymbolEqualityComparer.Default.Equals(candidateOperand, actualOperand))
+            return true;
+
+        if (candidateOperand.MetadataIdentityEquals(actualOperand))
+            return true;
+
+        return candidateOperand is ITypeParameterSymbol && actualOperand is ITypeParameterSymbol;
+    }
+
+    private static ITypeSymbol GetConstrainedOperatorResultType(
+        BinaryOperatorKind operatorKind,
+        ITypeSymbol candidateResult,
+        ITypeSymbol left,
+        ITypeSymbol right)
+    {
+        if (operatorKind is BinaryOperatorKind.Equality or
+            BinaryOperatorKind.Inequality or
+            BinaryOperatorKind.GreaterThan or
+            BinaryOperatorKind.LessThan or
+            BinaryOperatorKind.GreaterThanOrEqual or
+            BinaryOperatorKind.LessThanOrEqual)
+        {
+            return candidateResult;
+        }
+
+        if (MatchesConstrainedOperatorOperand(candidateResult, left))
+            return left;
+
+        if (MatchesConstrainedOperatorOperand(candidateResult, right))
+            return right;
+
+        return candidateResult;
+    }
+
+    private static System.Collections.Generic.IEnumerable<INamedTypeSymbol> EnumerateOperatorInterfaceCandidates(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol namedType)
+        {
+            yield return namedType;
+
+            foreach (var interfaceType in namedType.AllInterfaces)
+                yield return interfaceType;
+
+            yield break;
+        }
+
+        if (type is ITypeParameterSymbol typeParameter)
+        {
+            foreach (var interfaceType in typeParameter.AllInterfaces)
+                yield return interfaceType;
+        }
     }
 
     private static bool TryLookupShiftOperator(

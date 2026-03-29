@@ -1,3 +1,6 @@
+using System;
+using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -199,5 +202,70 @@ public class BoundBinaryOperatorTests : CompilationTestBase
 
         Assert.True(BoundBinaryOperator.TryLookup(compilation, SyntaxKind.GreaterThanGreaterThanToken, ulongType, intType, out var ulongShift));
         Assert.Equal(SpecialType.System_UInt64, ulongShift.ResultType.SpecialType);
+    }
+
+    [Fact]
+    public void Bind_GenericMathAddition_OnConstrainedTypeParameter_IsSupported()
+    {
+        const string code = """
+import System.Numerics.*
+
+class Calculator {
+    func Add<T>(left: T, right: T) -> T
+        where T: INumber<T> {
+        left + right
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void TryLookup_GenericMathAddition_OnDeclaredMethodTypeParameter_IsSupported()
+    {
+        const string code = """
+import System.Numerics.*
+
+class Calculator {
+    func Add<T>(left: T, right: T) -> T
+        where T: INumber<T> {
+        left + right
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var typeParameter = Assert.Single(method.TypeParameters);
+
+        Assert.True(BoundBinaryOperator.TryLookup(compilation, SyntaxKind.PlusToken, typeParameter, typeParameter, out var op));
+        Assert.Equal(BinaryOperatorKind.Addition, op.OperatorKind);
+        Assert.Same(typeParameter, op.ResultType);
+    }
+
+    [Fact]
+    public void Bind_GenericMathComparison_OnConstrainedTypeParameter_IsSupported()
+    {
+        const string code = """
+import System.Numerics.*
+
+class Calculator {
+    func LessThan<T>(left: T, right: T) -> bool
+        where T: INumber<T> {
+        left < right
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
     }
 }

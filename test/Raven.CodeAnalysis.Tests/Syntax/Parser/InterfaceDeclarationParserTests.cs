@@ -77,4 +77,42 @@ public class InterfaceDeclarationParserTests
         Assert.Equal(2, declaration.PermitsClause!.Types.Count);
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void InterfaceDeclaration_WithNestedConstrainedGenericRecords_ParsesSuccessfully()
+    {
+        var source = """
+            import System.Numerics.*
+
+            sealed interface Expr<T>
+                where T: INumber<T> {
+                record Literal<T>(Value: T) : Expr<T>
+                    where T: INumber<T>
+
+                record Add<T>(Left: Expr<T>, Right: Expr<T>) : Expr<T>
+                    where T: INumber<T>
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<InterfaceDeclarationSyntax>(root.Members.Last());
+        Assert.NotNull(declaration.TypeParameterList);
+        Assert.Single(declaration.TypeParameterList!.Parameters);
+        Assert.Single(declaration.ConstraintClauses);
+        Assert.Equal(2, declaration.Members.Count);
+
+        var literal = Assert.IsType<RecordDeclarationSyntax>(declaration.Members[0]);
+        Assert.NotNull(literal.TypeParameterList);
+        Assert.NotNull(literal.ParameterList);
+        Assert.Single(literal.ConstraintClauses);
+
+        var add = Assert.IsType<RecordDeclarationSyntax>(declaration.Members[1]);
+        Assert.NotNull(add.TypeParameterList);
+        Assert.NotNull(add.ParameterList);
+        Assert.Single(add.ConstraintClauses);
+
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }

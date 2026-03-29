@@ -1993,12 +1993,16 @@ internal partial class BlockBinder
             return false;
         }
 
+        var projectedHierarchy = inputType as INamedTypeSymbol
+            ?? lookupType as INamedTypeSymbol
+            ?? sealedRoot;
+
         var caseDefinition = sealedRoot.PermittedDirectSubtypes
             .FirstOrDefault(candidate => string.Equals(candidate.Name, caseName, StringComparison.Ordinal));
         if (caseDefinition is null)
             return true;
 
-        caseType = caseDefinition;
+        caseType = SealedHierarchyFacts.ProjectCaseTypeToHierarchyArguments(caseDefinition, projectedHierarchy);
         return true;
     }
 

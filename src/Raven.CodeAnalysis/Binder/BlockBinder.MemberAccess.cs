@@ -3242,6 +3242,9 @@ partial class BlockBinder
                 if (TryBindDiscriminatedUnionCase(typeExpr.Type, name, nameLocation) is BoundExpression unionCase)
                     return unionCase;
 
+                if (TryBindSealedHierarchyCase(typeExpr.Type, name, explicitTypeArguments, genericTypeSyntax, nameLocation) is BoundExpression sealedCase)
+                    return sealedCase;
+
                 var typeName = typeExpr.Symbol!.Name;
                 _diagnostics.ReportMemberDoesNotContainDefinition(typeName, simpleName.ToString(), nameLocation);
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -3840,6 +3843,53 @@ partial class BlockBinder
         // Pass the union carrier so the returned expression's Type is the union root, enabling
         // correct generic type inference when the case value is used as a generic argument.
         return BindDiscriminatedUnionCaseType(accessibleType, unionCarrier);
+    }
+
+    private BoundExpression? TryBindSealedHierarchyCase(
+        ITypeSymbol? receiverType,
+        string memberName,
+        ImmutableArray<ITypeSymbol>? explicitTypeArguments,
+        GenericNameSyntax? genericTypeSyntax,
+        Location location)
+    {
+        var targetType = receiverType?.UnwrapLiteralType() ?? receiverType;
+        targetType = UnwrapAlias(targetType);
+        if (targetType is not null)
+            targetType = UnwrapTaskLikeTargetType(targetType);
+
+        if (targetType is not INamedTypeSymbol namedType)
+            return null;
+
+        if (!SealedHierarchyFacts.TryGetCaseDefinition(namedType, memberName, out _, out var caseDefinition) ||
+            caseDefinition is null)
+        {
+            return null;
+        }
+
+        INamedTypeSymbol caseType = SealedHierarchyFacts.ProjectCaseTypeToHierarchyArguments(caseDefinition, namedType);
+
+        if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+        {
+            if (!ValidateTypeArgumentConstraints(
+                    caseDefinition,
+                    typeArgs,
+                    i => GetTypeArgumentLocation(genericTypeSyntax.TypeArgumentList.Arguments, genericTypeSyntax.GetLocation(), i),
+                    caseDefinition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+            {
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            }
+
+            if (TryConstructGeneric(caseDefinition, typeArgs, caseDefinition.Arity) is not INamedTypeSymbol constructedCaseType)
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+            caseType = constructedCaseType;
+        }
+
+        var accessibleType = EnsureTypeAccessible(caseType, location);
+        if (accessibleType.TypeKind == TypeKind.Error)
+            return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+        return new BoundTypeExpression(accessibleType);
     }
 
     private static ITypeSymbol ProjectCaseTypeToUnionArguments(INamedTypeSymbol caseType, INamedTypeSymbol unionType)

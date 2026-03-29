@@ -49,6 +49,11 @@ The sealed root itself still follows normal generic rules in type positions. `Ex
 Nested cases may then use the root as a logical qualifier for construction (`Expr.NumericalExpr(...)`) and target-typed
 case patterns (`.NumericalExpr(...)`) when the surrounding context already determines the sealed root.
 
+Sealed-hierarchy constituents remain ordinary types in the Raven/.NET type system. They therefore use the same generic
+parameter and `where` constraint syntax as any other type declaration, and member methods over such hierarchies honor
+their declared constraints during body binding. Generic-math examples such as `where T : INumber<T>` should work through
+the normal interface-constraint path rather than through any sealed-hierarchy-specific rule.
+
 ### Constructors
 
 If a derived class omits a constructor, the base class' default constructor is called automatically. A constructor that needs to forward arguments may declare an initializer clause between its parameter list and body:

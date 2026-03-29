@@ -50,6 +50,28 @@ public class RecordDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void RecordDeclaration_WithTypeParametersPrimaryConstructorAndConstraints_Parses()
+    {
+        var source = """
+            record Box<T>(Value: T)
+                where T: IDisposable {
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<RecordDeclarationSyntax>(Assert.Single(root.Members));
+
+        Assert.NotNull(declaration.TypeParameterList);
+        Assert.Single(declaration.TypeParameterList!.Parameters);
+        Assert.NotNull(declaration.ParameterList);
+        Assert.Single(declaration.ParameterList!.Parameters);
+        Assert.Single(declaration.ConstraintClauses);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void RecordClassDeclaration_WithMissingParameterTypeAfterColon_ReportsIdentifierExpected()
     {
         var source = """
