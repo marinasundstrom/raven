@@ -234,6 +234,18 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             base.VisitVariablePattern(node);
         }
 
+        public override void VisitInterpolatedStringExpression(InterpolatedStringExpressionSyntax node)
+        {
+            foreach (var content in node.Contents)
+                Visit(content);
+        }
+
+        public override void VisitInterpolation(InterpolationSyntax node)
+        {
+            TryMarkUsedLocal(node.Expression);
+            base.VisitInterpolation(node);
+        }
+
         private void TryMarkUsedLocal(SyntaxNode node)
         {
             if (IsWriteTarget(node))
@@ -243,6 +255,15 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
                 !string.IsNullOrEmpty(local.Name))
             {
                 _usedLocals.Add(local.UnderlyingSymbol);
+                return;
+            }
+
+            if (node is IdentifierNameSyntax identifier &&
+                CanReferenceLocal(identifier) &&
+                _semanticModel.GetBinder(identifier).LookupSymbol(identifier.Identifier.ValueText) is ILocalSymbol lookedUpLocal &&
+                !string.IsNullOrEmpty(lookedUpLocal.Name))
+            {
+                _usedLocals.Add(lookedUpLocal.UnderlyingSymbol);
             }
         }
 

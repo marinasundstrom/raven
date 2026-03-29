@@ -38,7 +38,7 @@ app.MapGet("/async", async func () => {
 })
 
 app.MapPost("/submit", async func (context: HttpContext) => {
-    use reader = StreamReader(context.Request.Body, Encoding.UTF8, true, 1024, false)
+    use reader = StreamReader(context.Request.Body, encoding: .UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false)
     val content = await reader.ReadToEndAsync()
     return "submitted: $content"
 })

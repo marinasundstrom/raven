@@ -114,4 +114,40 @@ class Program {
         var verifier = CreateVerifier(testCode);
         verifier.Verify();
     }
+
+    [Fact]
+    public void TargetTypedMemberBinding_BindsStaticProperty_ForReferenceTypeParameter()
+    {
+        string testCode = """
+import System.Text.*
+
+class Program {
+    static func Use(value: Encoding) -> unit {}
+
+    static func Run() -> unit {
+        Use(.UTF8)
+    }
+}
+""";
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void TargetTypedMemberBinding_BindsStaticProperty_ForNullableReferenceTypeParameter()
+    {
+        string testCode = """
+import System.Text.*
+
+class Program {
+    static func Use(value: Encoding?) -> unit {}
+
+    static func Run() -> unit {
+        Use(.UTF8)
+    }
+}
+""";
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
 }

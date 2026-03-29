@@ -221,6 +221,63 @@ class C {
         Assert.Empty(Analyze(code));
     }
 
+    [Fact]
+    public void InterpolatedStringShorthandReference_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M() -> string {
+        val content = "hello"
+        return "submitted: $content"
+    }
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
+    [Fact]
+    public void InterpolatedStringBracedReference_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M() -> string {
+        val content = "hello"
+        return "submitted: ${content}"
+    }
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
+    [Fact]
+    public void InterpolatedStringShorthandReference_InsideAsyncLambda_DoesNotReportDiagnostic()
+    {
+        const string code = """
+import System.*
+
+class RequestContext {
+    public func ReadAsync() -> Task<string> { throw NotImplementedException() }
+}
+
+class C {
+    public func M() -> unit {
+        val app = 0
+
+        MapPost(app, "/submit", async func (context: RequestContext) => {
+            val content = await context.ReadAsync()
+            return "submitted: $content"
+        })
+    }
+
+    private func MapPost(app: int, path: string, handler: func (RequestContext) -> Task<string>) -> unit { }
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
     private static Diagnostic[] Analyze(string code)
     {
         var tree = SyntaxTree.ParseText(code);
