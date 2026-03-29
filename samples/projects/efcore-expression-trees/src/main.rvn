@@ -24,9 +24,9 @@ func Main() {
         user => user.IsActive && user.Age >= minAge
 
     val query = db.Users
-        .Where(onlyActiveAdults)
-        .OrderBy(user => user.Name)
-        .Select(user => user.Name)
+        |> Where(onlyActiveAdults)
+        |> OrderBy(user => user.Name)
+        |> Select(user => user.Name)
 
     val names = query.ToList()
     Console.WriteLine("Matched users count: ${names.Count.ToString()}")
