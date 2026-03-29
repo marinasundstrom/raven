@@ -201,7 +201,6 @@ public partial class SemanticModel
             identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
             ReferenceEquals(memberAccess.Name, identifier))
         {
-            EnsureDiagnosticsCollected();
             var boundMemberAccess = (BoundExpression)GetBoundNode(memberAccess);
             info = boundMemberAccess.GetSymbolInfo();
         }
@@ -209,7 +208,6 @@ public partial class SemanticModel
                  receiverIdentifier.Parent is MemberAccessExpressionSyntax receiverMemberAccess &&
                  ReferenceEquals(receiverMemberAccess.Expression, receiverIdentifier))
         {
-            EnsureDiagnosticsCollected();
             var boundMemberAccess = (BoundExpression)GetBoundNode(receiverMemberAccess);
             var receiverInfo = boundMemberAccess switch
             {
@@ -249,24 +247,20 @@ public partial class SemanticModel
                  memberBindingIdentifier.Parent is MemberBindingExpressionSyntax memberBinding &&
                  ReferenceEquals(memberBinding.Name, memberBindingIdentifier))
         {
-            EnsureDiagnosticsCollected();
             var boundMemberBinding = (BoundExpression)GetBoundNode(memberBinding);
             info = boundMemberBinding.GetSymbolInfo();
         }
         else if (node is ExpressionSyntax expression)
         {
-            EnsureDiagnosticsCollected();
-
-            if (expression is IdentifierNameSyntax)
+            var boundExpression = GetBoundNode(expression);
+            var boundInfo = boundExpression.GetSymbolInfo();
+            if (boundInfo.Symbol is not null || !boundInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                var boundExpression = GetBoundNode(expression);
-                var boundInfo = boundExpression.GetSymbolInfo();
-                if (boundInfo.Symbol is not null || !boundInfo.CandidateSymbols.IsDefaultOrEmpty)
-                {
-                    info = boundInfo;
-                    goto Complete;
-                }
+                info = boundInfo;
+                goto Complete;
             }
+
+            EnsureDiagnosticsCollected();
 
             var operation = GetOperation(expression, cancellationToken);
             var operationSymbol = operation switch
@@ -288,7 +282,6 @@ public partial class SemanticModel
             }
             else
             {
-                var boundExpression = GetBoundNode(expression);
                 info = boundExpression.GetSymbolInfo();
             }
         }
