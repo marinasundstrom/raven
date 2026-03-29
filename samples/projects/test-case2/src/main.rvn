@@ -1,15 +1,18 @@
 import System.*
 import System.Console.*
-import System.Linq.*
 
-func Main() {
-    val result = [1, 2, 3] 
-        |> Where(x => x == 2)
+val people = [
+    Person("Alice", 25, [ "Horse", "Saddle" ])
+    Person("John", 18, [ "Keys", "Wallet" ])
+    Person("Jane", 15, [ "Sunglasses", "Purse" ])
+]
 
-    WriteLine(result.Count())
-
-    val result2 = "FooBAR"
-        |> func ([val a, ...val rest]) => char.ToLower(a) + rest
-
-    WriteLine(result2)
+for val (name, age when > 15, [ item1, item2 ]) in people {
+    WriteLine("$name ($age) has $item1 and $item2")
 }
+
+record Person(
+    val Name: string
+    val Age: int
+    val Items: string[]
+)
