@@ -257,7 +257,7 @@
         "raven.compilerProjectPath": {
           "type": "string",
           "default": "",
-          "description": "Full path to Raven.Compiler.csproj used by Raven debug launch. Leave empty to auto-discover '<workspace>/src/Raven.Compiler/Raven.Compiler.csproj'."
+          "description": "Optional fallback path to Raven.Compiler.csproj. The extension prefers a bundled or already-built compiler host (rvn.dll) and only uses this project path when no compiled host can be found."
         },
         "raven.targetFramework": {
           "type": "string",

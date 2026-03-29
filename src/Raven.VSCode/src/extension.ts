@@ -138,6 +138,78 @@ function resolveCompilerProjectPath(): string | undefined {
   return undefined;
 }
 
+type CompilerInvocation = {
+  executable: string;
+  args: string[];
+  description: string;
+};
+
+function resolveCompilerInvocation(targetFramework: string | undefined): CompilerInvocation | undefined {
+  const bundledRoots = extensionInstallPath.length > 0
+    ? [
+        path.join(extensionInstallPath, 'compiler'),
+        path.join(extensionInstallPath, 'server')
+      ]
+    : [];
+  const preferredTfms = targetFramework
+    ? [targetFramework, 'net10.0', 'net11.0']
+    : ['net10.0', 'net11.0'];
+
+  for (const root of bundledRoots) {
+    for (const tfm of preferredTfms) {
+      const tfmCandidate = path.join(root, tfm, 'rvn.dll');
+      if (fs.existsSync(tfmCandidate)) {
+        return {
+          executable: 'dotnet',
+          args: [tfmCandidate],
+          description: tfmCandidate
+        };
+      }
+    }
+
+    const flatCandidate = path.join(root, 'rvn.dll');
+    if (fs.existsSync(flatCandidate)) {
+      return {
+        executable: 'dotnet',
+        args: [flatCandidate],
+        description: flatCandidate
+      };
+    }
+  }
+
+  const compilerProjectPath = resolveCompilerProjectPath();
+  if (!compilerProjectPath) {
+    return undefined;
+  }
+
+  const compilerDirectory = path.dirname(compilerProjectPath);
+
+  for (const tfm of preferredTfms) {
+    const candidate = path.join(compilerDirectory, 'bin', 'Debug', tfm, 'rvn.dll');
+    if (fs.existsSync(candidate)) {
+      return {
+        executable: 'dotnet',
+        args: [candidate],
+        description: candidate
+      };
+    }
+  }
+
+  return {
+    executable: 'dotnet',
+    args: [
+      'run',
+      ...(targetFramework ? ['--framework', targetFramework] : []),
+      '--project',
+      compilerProjectPath,
+      '--property',
+      'WarningLevel=0',
+      '--'
+    ],
+    description: compilerProjectPath
+  };
+}
+
 function resolveTargetFramework(targetPath: string): string | undefined {
   const configuration = vscode.workspace.getConfiguration('raven');
   const configuredFramework = configuration.get<string>('targetFramework')?.trim();
@@ -366,27 +438,21 @@ function writeBuildManifest(layout: OutputLayout, mode: 'build' | 'debug'): void
 }
 
 async function compileForDebug(targetPath: string): Promise<{ outputDllPath: string; cwd: string }> {
-  const compilerProjectPath = resolveCompilerProjectPath();
-  if (!compilerProjectPath) {
+  const layout = resolveOutputLayout(targetPath, 'Debug');
+  const compilerInvocation = resolveCompilerInvocation(layout.targetFramework);
+  if (!compilerInvocation) {
     throw new Error(
       'Unable to locate Raven.Compiler.csproj. Set "raven.compilerProjectPath" to continue.'
     );
   }
 
-  const layout = resolveOutputLayout(targetPath, 'Debug');
   if (fs.existsSync(layout.outputDirectory)) {
     fs.rmSync(layout.outputDirectory, { recursive: true, force: true });
   }
   fs.mkdirSync(layout.outputDirectory, { recursive: true });
 
   const dotnetArgs = [
-    'run',
-    ...(layout.targetFramework ? ['--framework', layout.targetFramework] : []),
-    '--project',
-    compilerProjectPath,
-    '--property',
-    'WarningLevel=0',
-    '--',
+    ...compilerInvocation.args,
     layout.effectiveTargetPath,
     '--publish',
     '-o',
@@ -394,10 +460,10 @@ async function compileForDebug(targetPath: string): Promise<{ outputDllPath: str
     ...(layout.targetFramework ? ['--framework', layout.targetFramework] : [])
   ];
 
-  output.appendLine(`Compiling for debug: dotnet ${dotnetArgs.join(' ')}`);
+  output.appendLine(`Compiling for debug via ${compilerInvocation.description}: ${compilerInvocation.executable} ${dotnetArgs.join(' ')}`);
 
   try {
-    const { stdout, stderr } = await execFileAsync('dotnet', dotnetArgs, {
+    const { stdout, stderr } = await execFileAsync(compilerInvocation.executable, dotnetArgs, {
       cwd: layout.workspaceFolder,
       maxBuffer: 10 * 1024 * 1024
     });
@@ -424,35 +490,31 @@ async function compileForDebug(targetPath: string): Promise<{ outputDllPath: str
 }
 
 async function buildTarget(targetPath: string): Promise<{ outputPath: string; cwd: string }> {
-  const compilerProjectPath = resolveCompilerProjectPath();
-  if (!compilerProjectPath) {
+  const layout = resolveOutputLayout(targetPath, 'Debug');
+  const compilerInvocation = resolveCompilerInvocation(layout.targetFramework);
+  if (!compilerInvocation) {
     throw new Error(
       'Unable to locate Raven.Compiler.csproj. Set "raven.compilerProjectPath" to continue.'
     );
   }
 
-  const layout = resolveOutputLayout(targetPath, 'Debug');
   fs.mkdirSync(layout.outputDirectory, { recursive: true });
   const outputArg = layout.targetIsProject ? layout.outputDirectory : layout.outputDllPath;
+  const publishArgs = layout.targetIsProject ? ['--publish'] : [];
 
   const dotnetArgs = [
-    'run',
-    ...(layout.targetFramework ? ['--framework', layout.targetFramework] : []),
-    '--project',
-    compilerProjectPath,
-    '--property',
-    'WarningLevel=0',
-    '--',
+    ...compilerInvocation.args,
     layout.effectiveTargetPath,
+    ...publishArgs,
     '-o',
     outputArg,
     ...(layout.targetFramework ? ['--framework', layout.targetFramework] : [])
   ];
 
-  output.appendLine(`Building Raven target: dotnet ${dotnetArgs.join(' ')}`);
+  output.appendLine(`Building Raven target via ${compilerInvocation.description}: ${compilerInvocation.executable} ${dotnetArgs.join(' ')}`);
 
   try {
-    const { stdout, stderr } = await execFileAsync('dotnet', dotnetArgs, {
+    const { stdout, stderr } = await execFileAsync(compilerInvocation.executable, dotnetArgs, {
       cwd: layout.workspaceFolder,
       maxBuffer: 10 * 1024 * 1024
     });
