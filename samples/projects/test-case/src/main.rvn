@@ -66,6 +66,10 @@ func RunExistingPatternExamples() {
         WriteLine("Matched (5, > 0); whole designation p = ${DescribePoint(p)}")
     }
 
+    if val (x0 when == 5, y0 when > 0) = point {
+        WriteLine("Matched ${DescribePoint(point)} with (x when == 5, y when > 0); bound x = $x0 and y = $y0")
+    }
+
     val person = Person(1, "John Doe", 20)
     if val Person(1, name, _) = person {
         WriteLine("Matched ${DescribePerson(person)} with Person(1, name, _); bound name = $name")

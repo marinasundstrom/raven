@@ -53,11 +53,11 @@ app.MapPost("/submit-async", async func (content: string) => {
 app.MapPost("/person", async func (person: Person) -> Task<Result<string, CustomError>> {
     await Task.Delay(1)
 
-    if val (name, >= 18) = person {
+    if val (name, age when >= 18) = person {
         return Ok("Welcome, $name!")
     }
 
-    return Error(CustomError("You are too young"))
+    return Error(CustomError("You are too young (You said: $age)"))
 })
 
 app.Run()
