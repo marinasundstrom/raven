@@ -38,6 +38,7 @@ internal static class Program
                 return Task.CompletedTask;
             })
             .WithHandler<RavenTextDocumentSyncHandler>()
+            .WithHandler<DidChangeWatchedFilesHandler>()
             .WithHandler<CompletionHandler>()
             .WithHandler<SignatureHelpHandler>()
             .WithHandler<DefinitionHandler>()

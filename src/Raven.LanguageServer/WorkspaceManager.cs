@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -19,6 +20,8 @@ namespace Raven.LanguageServer;
 
 internal sealed class WorkspaceManager
 {
+    private static readonly string MacroShadowOutputRoot = Path.Combine(Path.GetTempPath(), "raven-ls-macros");
+
     private readonly RavenWorkspace _workspace;
     private readonly ILogger<WorkspaceManager> _logger;
     private readonly object _gate = new();
@@ -27,6 +30,7 @@ internal sealed class WorkspaceManager
     private readonly Dictionary<string, ProjectId> _projectsByRoot = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
     private readonly ConcurrentDictionary<ProjectId, CachedDiagnostics> _diagnosticsCache = new();
+    private ImmutableArray<string> _workspaceRoots = ImmutableArray<string>.Empty;
     private ProjectId? _fallbackProjectId;
 
     public WorkspaceManager(RavenWorkspace workspace, ILogger<WorkspaceManager> logger)
@@ -53,8 +57,16 @@ internal sealed class WorkspaceManager
     public void Initialize(InitializeParams request)
     {
         var roots = ResolveRoots(request);
+        _workspaceRoots = roots.ToImmutableArray();
+        InitializeCore(roots);
+        _logger.LogInformation("Workspace initialized with {RootCount} root(s).", roots.Count);
+    }
+
+    private void InitializeCore(IReadOnlyList<string> roots)
+    {
         lock (_gate)
         {
+            _workspace.OpenSolution(_workspace.CreateSolution());
             _projectsByRoot.Clear();
             _fallbackProjectId = null;
             _documents.Clear();
@@ -72,8 +84,55 @@ internal sealed class WorkspaceManager
             if (_projectsByRoot.Count == 0)
                 _fallbackProjectId = CreateFallbackProject();
         }
+    }
 
-        _logger.LogInformation("Workspace initialized with {RootCount} root(s).", roots.Count);
+    public void ReloadForWatchedFiles(IEnumerable<FileEvent> changes)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+
+        var changedPaths = changes
+            .Select(change => change.Uri?.GetFileSystemPath())
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => NormalizePath(path!))
+            .ToArray();
+
+        if (changedPaths.Length == 0 || _workspaceRoots.Length == 0)
+            return;
+
+        var shouldReload = changedPaths.Any(path =>
+        {
+            var extension = Path.GetExtension(path);
+            return string.Equals(extension, ".rvnproj", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(extension, ".csproj", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(extension, ".fsproj", StringComparison.OrdinalIgnoreCase) ||
+                   RavenFileExtensions.HasRavenExtension(path);
+        });
+
+        if (!shouldReload)
+            return;
+
+        lock (_gate)
+        {
+            var openDocuments = new List<ReloadDocumentState>();
+            foreach (var pair in _documents)
+            {
+                var document = _workspace.CurrentSolution.GetDocument(pair.Value.DocumentId);
+                if (document is null)
+                    continue;
+
+                openDocuments.Add(new ReloadDocumentState(
+                    pair.Key,
+                    document.Text.ToString(),
+                    pair.Value.IsProjectDocument));
+            }
+
+            InitializeCore(_workspaceRoots);
+
+            foreach (var openDocument in openDocuments)
+            {
+                _ = UpsertDocument(openDocument.Uri, openDocument.Text);
+            }
+        }
     }
 
     private bool TryOpenProjectsForRoot(string root, Dictionary<string, ProjectId> loadedProjects, out ProjectId projectId)
@@ -252,6 +311,7 @@ internal sealed class WorkspaceManager
                     solution = solution.WithDocumentText(existing.DocumentId, sourceText);
                     _workspace.TryApplyChanges(solution);
                     _diagnosticsCache.TryRemove(ownerProject, out _);
+                    RefreshMacroConsumersForProject(ownerProject);
                     return _workspace.CurrentSolution.GetDocument(existing.DocumentId)!;
                 }
 
@@ -274,6 +334,7 @@ internal sealed class WorkspaceManager
                 _diagnosticsCache.TryRemove(existingOwnerProject, out _);
                 if (staleOwnedDocument is { } staleOwner && staleOwner.ProjectId != existingOwnerProject)
                     _diagnosticsCache.TryRemove(staleOwner.ProjectId, out _);
+                RefreshMacroConsumersForProject(existingOwnerProject);
                 return _workspace.CurrentSolution.GetDocument(existingDocument.Id)!;
             }
 
@@ -466,6 +527,7 @@ internal sealed class WorkspaceManager
                     var solution = _workspace.CurrentSolution.WithDocumentText(ownedDocument.DocumentId, sourceText);
                     _workspace.TryApplyChanges(solution);
                     _diagnosticsCache.TryRemove(ownedDocument.ProjectId, out _);
+                    RefreshMacroConsumersForProject(ownedDocument.ProjectId);
                 }
             }
             else
@@ -477,6 +539,103 @@ internal sealed class WorkspaceManager
         }
 
         return true;
+    }
+
+    private void RefreshMacroConsumersForProject(ProjectId changedProjectId)
+    {
+        var changedProject = _workspace.CurrentSolution.GetProject(changedProjectId);
+        if (changedProject?.FilePath is null)
+            return;
+
+        var sourceProjectPath = NormalizePath(changedProject.FilePath);
+        var consumers = _workspace.CurrentSolution.Projects
+            .Where(project => project.MacroReferences.Any(reference =>
+                !string.IsNullOrWhiteSpace(reference.SourceProjectFilePath) &&
+                string.Equals(NormalizePath(reference.SourceProjectFilePath), sourceProjectPath, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+
+        if (consumers.Length == 0)
+            return;
+
+        try
+        {
+            var outputPath = EmitMacroProjectOutput(changedProject);
+            var solution = _workspace.CurrentSolution;
+
+            foreach (var consumer in consumers)
+            {
+                var updatedReferences = consumer.MacroReferences
+                    .Select(reference =>
+                        !string.IsNullOrWhiteSpace(reference.SourceProjectFilePath) &&
+                        string.Equals(NormalizePath(reference.SourceProjectFilePath), sourceProjectPath, StringComparison.OrdinalIgnoreCase)
+                            ? MacroReference.CreateFromFile(outputPath, changedProject.FilePath)
+                            : reference)
+                    .ToArray();
+
+                solution = solution.WithMacroReferences(consumer.Id, updatedReferences);
+                _diagnosticsCache.TryRemove(consumer.Id, out _);
+            }
+
+            _workspace.TryApplyChanges(solution);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to refresh macro consumers for source project '{ProjectFilePath}'.",
+                changedProject.FilePath);
+        }
+    }
+
+    private string EmitMacroProjectOutput(Project macroProject)
+    {
+        if (string.IsNullOrWhiteSpace(macroProject.FilePath))
+            throw new InvalidOperationException("Macro project file path is required.");
+
+        var evaluation = MsBuildProjectEvaluator.Evaluate(macroProject.FilePath, RavenProjectConventions.Default, macroProject.TargetFramework);
+        var outputPath = GetShadowMacroOutputPath(macroProject, evaluation.AssemblyName);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+
+        try
+        {
+            using var peStream = File.Create(outputPath);
+            using var pdbStream = File.Create(Path.ChangeExtension(outputPath, ".pdb"));
+            var emitResult = _workspace.GetCompilation(macroProject.Id).Emit(peStream, pdbStream);
+            if (!emitResult.Success)
+                throw new InvalidOperationException(string.Join(Environment.NewLine, emitResult.Diagnostics.Select(static diagnostic => diagnostic.ToString())));
+        }
+        catch
+        {
+            TryDeleteFile(outputPath);
+            TryDeleteFile(Path.ChangeExtension(outputPath, ".pdb"));
+            throw;
+        }
+
+        return outputPath;
+    }
+
+    private static string GetShadowMacroOutputPath(Project macroProject, string assemblyName)
+    {
+        var projectIdentity = Path.GetFileNameWithoutExtension(macroProject.FilePath)
+            ?? macroProject.Id.ToString();
+        var versionSegment = macroProject.Version.ToString().Replace(Path.DirectorySeparatorChar, '_')
+            .Replace(Path.AltDirectorySeparatorChar, '_')
+            .Replace(':', '_');
+        var directory = Path.Combine(MacroShadowOutputRoot, projectIdentity, versionSegment);
+        return Path.Combine(directory, $"{assemblyName}.dll");
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+        }
     }
 
     private bool TryResolveOwnedDocument(DocumentUri uri, out OwnedDocument ownedDocument)
@@ -744,5 +903,6 @@ internal sealed class WorkspaceManager
     }
 
     private readonly record struct OwnedDocument(DocumentId DocumentId, ProjectId ProjectId, bool IsProjectDocument);
+    private readonly record struct ReloadDocumentState(DocumentUri Uri, string Text, bool IsProjectDocument);
     private readonly record struct CachedDiagnostics(VersionStamp Version, ImmutableArray<CodeDiagnostic> Diagnostics);
 }

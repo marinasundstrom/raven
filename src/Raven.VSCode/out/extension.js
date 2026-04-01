@@ -585,7 +585,7 @@ function activate(context) {
         documentSelector: [{ scheme: 'file', language: 'raven' }],
         synchronize: {
             configurationSection: 'raven',
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav}')
+            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav,rvnproj,csproj,fsproj}')
         },
         outputChannel: output
     };

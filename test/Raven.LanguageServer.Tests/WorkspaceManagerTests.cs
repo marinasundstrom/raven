@@ -236,6 +236,80 @@ class MacroPlugin { }
     }
 
     [Fact]
+    public async Task UpdatingMacroProjectDocument_RefreshesConsumingProjectMacroExpansionAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        WriteFreestandingMacroExpansionLayout(_tempRoot, "1");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var appPath = Path.Combine(_tempRoot, "app", "src", "main.rvn");
+        var macroPath = Path.Combine(_tempRoot, "macros", "main.rvn");
+        var appUri = DocumentUri.FromFileSystemPath(appPath);
+        var macroUri = DocumentUri.FromFileSystemPath(macroPath);
+
+        _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
+        _ = manager.UpsertDocument(macroUri, File.ReadAllText(macroPath));
+
+        var initialExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
+        initialExpansion.ShouldBe("1");
+
+        var updatedMacroSource = CreateFreestandingMacroExpansionSource("2");
+        _ = manager.UpsertDocument(macroUri, updatedMacroSource);
+
+        var refreshedExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
+        refreshedExpansion.ShouldBe("2");
+    }
+
+    [Fact]
+    public async Task WatchedMacroProjectDocumentChange_RefreshesConsumingProjectMacroExpansionAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        WriteFreestandingMacroExpansionLayout(_tempRoot, "1");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var appPath = Path.Combine(_tempRoot, "app", "src", "main.rvn");
+        var macroPath = Path.Combine(_tempRoot, "macros", "main.rvn");
+        var appUri = DocumentUri.FromFileSystemPath(appPath);
+
+        _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
+
+        var initialExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
+        initialExpansion.ShouldBe("1");
+
+        File.WriteAllText(macroPath, CreateFreestandingMacroExpansionSource("2"));
+        manager.ReloadForWatchedFiles([
+            new FileEvent
+            {
+                Uri = DocumentUri.FromFileSystemPath(macroPath),
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        var refreshedExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
+        refreshedExpansion.ShouldBe("2");
+    }
+
+    [Fact]
     public void TryGetRefactorings_ReturnsContextActionsForOpenDocument()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -546,6 +620,90 @@ class AnswerMacro: IFreestandingExpressionMacro {
     }
 }
 """);
+    }
+
+    private static void WriteFreestandingMacroExpansionLayout(string root, string expansionText)
+    {
+        var ravenCodeAnalysisPath = typeof(RavenWorkspace).Assembly.Location;
+
+        _ = WriteProject(Path.Combine(root, "app"), "MacroFreestanding", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>MacroFreestanding</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+    <RavenMacro Include="../macros/FreestandingMacros.rvnproj" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(root, "app", "src", "main.rvn"), """
+func Main() -> int => #answer()
+""");
+
+        _ = WriteProject(Path.Combine(root, "macros"), "FreestandingMacros", $$"""
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>FreestandingMacros</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="main.rvn" />
+    <Reference Include="Raven.CodeAnalysis">
+      <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(root, "macros", "main.rvn"), CreateFreestandingMacroExpansionSource(expansionText));
+    }
+
+    private static string CreateFreestandingMacroExpansionSource(string expansionText)
+    {
+        return $$"""
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+class FreestandingMacroPlugin: IRavenMacroPlugin {
+    val Name: string => "SampleMacros.Answer"
+
+    func GetMacros() -> ImmutableArray<IMacroDefinition> {
+        [AnswerMacro()]
+    }
+}
+
+class AnswerMacro: IFreestandingExpressionMacro {
+    val Name: string => "answer"
+    val Kind: MacroKind => MacroKind.FreestandingExpression
+    val Targets: MacroTarget => MacroTarget.None
+
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult {
+            Expression = ParseExpression("{{expansionText}}")
+        }
+    }
+}
+""";
+    }
+
+    private static async Task<string?> GetFreestandingMacroExpansionTextAsync(WorkspaceManager manager, DocumentUri appUri)
+    {
+        manager.TryGetDocumentContext(appUri, out var document, out var compilation).ShouldBeTrue();
+        document.ShouldNotBeNull();
+        compilation.ShouldNotBeNull();
+
+        var syntaxTree = await document.GetSyntaxTreeAsync();
+        syntaxTree.ShouldNotBeNull();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree!);
+        var expression = syntaxTree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expansion = semanticModel.GetMacroExpansion(expression);
+        return expansion?.Expression?.ToFullString().Trim();
     }
 
     private sealed class TestRefactoringProvider : CodeRefactoringProvider
