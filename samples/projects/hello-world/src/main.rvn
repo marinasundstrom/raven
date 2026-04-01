@@ -45,11 +45,11 @@ extension Int32Extensions for Int32 {
     static func parse(value: string, style: NumberStyles, provider: IFormatProvider? = null) -> Result<int, ParseIntError> { 
         try {
             return Ok(int.Parse(value, style, provider))
-        } catch (ArgumentNullException ex) {
+        } catch ArgumentNullException ex {
             return Error(ParseIntError(.Null, ex.Message))
-        } catch (FormatException ex) {
+        } catch FormatException ex {
             return Error(ParseIntError(.InvalidFormat, ex.Message))
-        } catch (OverflowException ex) {
+        } catch OverflowException ex {
             return Error(ParseIntError(.Overflow, ex.Message))
         }
     }

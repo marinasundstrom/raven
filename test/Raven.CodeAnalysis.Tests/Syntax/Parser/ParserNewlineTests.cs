@@ -724,7 +724,7 @@ public class ParserNewlineTests
     [Fact]
     public void TryStatement_WithCatchAndFinally_ParsesClauses()
     {
-        var source = "try { } catch (Exception ex) { } finally { }";
+        var source = "try { } catch Exception ex { } finally { }";
         var lexer = new Lexer(new StringReader(source));
         var context = new BaseParseContext(lexer);
         var parser = new StatementSyntaxParser(context);
@@ -735,9 +735,81 @@ public class ParserNewlineTests
         Assert.Single(statement.CatchClauses);
 
         var catchClause = statement.CatchClauses[0];
-        Assert.NotNull(catchClause.Declaration);
-        Assert.Equal("ex", catchClause.Declaration!.Identifier.Text);
+        Assert.NotNull(catchClause.Pattern);
+        var pattern = Assert.IsType<DeclarationPatternSyntax>(catchClause.Pattern);
+        Assert.Equal("ex", ((SingleVariableDesignationSyntax)pattern.Designation!).Identifier.Text);
         Assert.NotNull(statement.FinallyClause);
+    }
+
+    [Fact]
+    public void TryStatement_WithUnparenthesizedCatchPattern_ParsesClause()
+    {
+        var source = "try { } catch FormatException ex { }";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (TryStatementSyntax)parser.ParseStatement().CreateRed();
+
+        var catchClause = Assert.Single(statement.CatchClauses);
+        Assert.Equal(SyntaxKind.None, catchClause.OpenParenToken.Kind);
+        Assert.Equal(SyntaxKind.None, catchClause.CloseParenToken.Kind);
+
+        var declaration = Assert.IsType<DeclarationPatternSyntax>(catchClause.Pattern);
+        Assert.IsType<IdentifierNameSyntax>(declaration.Type);
+        Assert.Equal("FormatException", ((IdentifierNameSyntax)declaration.Type).Identifier.Text);
+        Assert.Equal("ex", ((SingleVariableDesignationSyntax)declaration.Designation!).Identifier.Text);
+    }
+
+    [Fact]
+    public void TryStatement_WithParenthesizedGuardedCatchPattern_ParsesClause()
+    {
+        var source = "try { } catch (Exception ex) when ex.StatusCode == 2 { }";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (TryStatementSyntax)parser.ParseStatement().CreateRed();
+
+        var catchClause = Assert.Single(statement.CatchClauses);
+        Assert.Equal(SyntaxKind.OpenParenToken, catchClause.OpenParenToken.Kind);
+        Assert.Equal(SyntaxKind.CloseParenToken, catchClause.CloseParenToken.Kind);
+        var declaration = Assert.IsType<DeclarationPatternSyntax>(catchClause.Pattern);
+        Assert.Equal("ex", ((SingleVariableDesignationSyntax)declaration.Designation!).Identifier.Text);
+        Assert.NotNull(catchClause.WhenClause);
+    }
+
+    [Fact]
+    public void TryStatement_WithUnparenthesizedGuardedCatchPattern_ParsesClause()
+    {
+        var source = "try { } catch Exception ex when ex.StatusCode == 2 { }";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (TryStatementSyntax)parser.ParseStatement().CreateRed();
+
+        var catchClause = Assert.Single(statement.CatchClauses);
+        Assert.Equal(SyntaxKind.None, catchClause.OpenParenToken.Kind);
+        Assert.Equal(SyntaxKind.None, catchClause.CloseParenToken.Kind);
+        Assert.IsType<DeclarationPatternSyntax>(catchClause.Pattern);
+        Assert.NotNull(catchClause.WhenClause);
+    }
+
+    [Fact]
+    public void TryStatement_WithParenthesizedTypeOnlyCatch_ParsesAsDeclarationPattern()
+    {
+        var source = "try { } catch (TaskCanceledException) { }";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (TryStatementSyntax)parser.ParseStatement().CreateRed();
+
+        var catchClause = Assert.Single(statement.CatchClauses);
+        var declaration = Assert.IsType<DeclarationPatternSyntax>(catchClause.Pattern);
+        Assert.IsType<IdentifierNameSyntax>(declaration.Type);
+        Assert.Null(declaration.Designation);
     }
 
     [Fact]

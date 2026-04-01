@@ -905,7 +905,7 @@ internal static class AsyncLowerer
         statements.Add(new BoundReturnStatement(null));
 
         var catchBlock = new BoundBlockStatement(statements);
-        return new BoundCatchClause(exceptionType, exceptionLocal, catchBlock);
+        return new BoundCatchClause(exceptionType, exceptionLocal, pattern: null, guard: null, catchBlock);
     }
 
     private static IEnumerable<BoundStatement> CreateStateDispatchStatements(
@@ -2157,7 +2157,7 @@ internal static class AsyncLowerer
 
             var block = (BoundBlockStatement)VisitBlockStatement(clause.Block)!;
             if (!ReferenceEquals(block, clause.Block))
-                return new BoundCatchClause(clause.ExceptionType, clause.Local, block);
+                return new BoundCatchClause(clause.ExceptionType, clause.Local, clause.Pattern, clause.Guard, block);
 
             return clause;
         }
@@ -2427,7 +2427,7 @@ internal static class AsyncLowerer
                     new BoundExpressionStatement(catchAssignment)
                 });
 
-                var catchClause = new BoundCatchClause(node.ExceptionType, exceptionLocal, catchBlock);
+                var catchClause = new BoundCatchClause(node.ExceptionType, exceptionLocal, pattern: null, guard: null, catchBlock);
                 var tryStatement = new BoundTryStatement(
                     tryBlock,
                     ImmutableArray.Create(catchClause),

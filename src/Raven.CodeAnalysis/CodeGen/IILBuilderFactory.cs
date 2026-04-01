@@ -98,7 +98,9 @@ internal sealed class ReflectionEmitILBuilderFactory : IILBuilderFactory
 
         public void BeginExceptionBlock() => _inner.BeginExceptionBlock();
 
-        public void BeginCatchBlock(Type exceptionType) => _inner.BeginCatchBlock(exceptionType);
+        public void BeginExceptFilterBlock() => _inner.BeginExceptFilterBlock();
+
+        public void BeginCatchBlock(Type? exceptionType) => _inner.BeginCatchBlock(exceptionType);
 
         public void BeginFinallyBlock() => _inner.BeginFinallyBlock();
 

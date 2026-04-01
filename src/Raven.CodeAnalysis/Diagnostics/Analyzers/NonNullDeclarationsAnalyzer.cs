@@ -34,8 +34,8 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
             SyntaxKind.ArrowTypeClause);
 
         context.RegisterSyntaxNodeAction(
-            AnalyzeCatchDeclaration,
-            SyntaxKind.CatchDeclaration);
+            AnalyzeCatchClause,
+            SyntaxKind.CatchClause);
     }
 
     private static void AnalyzeTypeAnnotationClause(SyntaxNodeAnalysisContext context)
@@ -71,12 +71,29 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
         AnalyzeTypeSyntax(context, returnType.Type);
     }
 
-    private static void AnalyzeCatchDeclaration(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeCatchClause(SyntaxNodeAnalysisContext context)
     {
-        if (context.Node is not CatchDeclarationSyntax catchDeclaration)
+        if (context.Node is not CatchClauseSyntax catchClause ||
+            catchClause.Pattern is null)
+        {
             return;
+        }
 
-        AnalyzeTypeSyntax(context, catchDeclaration.Type);
+        AnalyzeCatchPattern(context, catchClause.Pattern);
+    }
+
+    private static void AnalyzeCatchPattern(SyntaxNodeAnalysisContext context, PatternSyntax pattern)
+    {
+        switch (pattern)
+        {
+            case GuardedPatternSyntax guarded:
+                AnalyzeCatchPattern(context, guarded.Pattern);
+                break;
+
+            case DeclarationPatternSyntax declaration:
+                AnalyzeTypeSyntax(context, declaration.Type);
+                break;
+        }
     }
 
     private static void AnalyzeVariableDeclarator(SyntaxNodeAnalysisContext context)

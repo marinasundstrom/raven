@@ -348,8 +348,8 @@ ForStepClause            ::= 'by' Expression ;
 
 TryStatement             ::= 'try' Block (CatchClauseList [FinallyClause] | FinallyClause) ;
 CatchClauseList          ::= CatchClause {CatchClause} ;
-CatchClause              ::= 'catch' CatchDeclaration? Block ;
-CatchDeclaration         ::= '(' Type [Identifier] ')' ;
+CatchClause              ::= 'catch' CatchPattern? [WhenClause] Block ;
+CatchPattern             ::= Pattern | '(' Pattern ')' ;
 FinallyClause            ::= 'finally' Block ;
 
 (* Keep statement assignments consistent with expression assignments:

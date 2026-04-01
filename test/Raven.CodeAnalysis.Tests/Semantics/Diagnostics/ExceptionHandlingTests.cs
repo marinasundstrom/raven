@@ -31,13 +31,101 @@ public class ExceptionHandlingTests : DiagnosticTestBase
         var code = """
 try {
 }
-catch (int ex) {
+catch int ex {
 }
 """;
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
                 new DiagnosticResult("RAV1016").WithSpan(3, 8, 3, 11).WithArguments("int")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void CatchClause_WithTypePattern_WithoutParentheses_Binds()
+    {
+        var code = """
+import System.*
+
+try {
+}
+catch FormatException ex {
+    val message = ex.Message
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void CatchClause_WithLegacyParenthesizedTypeOnlyForm_Binds()
+    {
+        var code = """
+import System.Threading.Tasks.*
+
+try {
+}
+catch (TaskCanceledException) {
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void CatchClause_WithTypeOnlyForm_WithoutParentheses_Binds()
+    {
+        var code = """
+import System.Threading.Tasks.*
+
+try {
+}
+catch TaskCanceledException {
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void CatchClause_WithGuardedPattern_Binds()
+    {
+        var code = """
+import System.Net.*
+
+try {
+}
+catch HttpRequestException ex when ex.StatusCode == HttpStatusCode.NotFound {
+    val status = ex.StatusCode
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void CatchClause_WithNonTypePattern_ReportsDiagnostic()
+    {
+        var code = """
+try {
+}
+catch > 0 {
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics: [
+                new DiagnosticResult("RAV1024").WithAnySpan().WithArguments(nameof(SyntaxKind.GreaterThanPattern))
             ]);
 
         verifier.Verify();

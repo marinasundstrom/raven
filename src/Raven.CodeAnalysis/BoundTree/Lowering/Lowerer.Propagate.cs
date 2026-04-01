@@ -155,6 +155,8 @@ internal sealed partial class Lowerer
                         new BoundCatchClause(
                             exceptionBaseType,
                             exceptionLocal,
+                            pattern: null,
+                            guard: null,
                             new BoundBlockStatement(new BoundStatement[]
                             {
                                 new BoundReturnStatement(caughtErrorExpression)

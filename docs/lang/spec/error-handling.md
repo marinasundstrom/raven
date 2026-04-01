@@ -26,7 +26,7 @@ func parseInt(text: string) -> Result<int, ParseError> {
 
     try {
         return .Ok(int.Parse(text))
-    } catch (System.FormatException ex) {
+    } catch System.FormatException ex {
         return .Error(ParseError.Invalid(ex.Message))
     }
 }
@@ -69,21 +69,38 @@ a `finally` clause.
 ```raven
 try {
     operation()
-} catch (FormatException ex) {
+} catch FormatException ex {
     Console.WriteLine($"Bad input: {ex.Message}")
 } finally {
     cleanup()
 }
 ```
 
+Parenthesized forms reuse the same pattern surface, and `when` guards may follow the pattern:
+
+```raven
+try {
+    operation()
+} catch (Exception ex) when ex.StatusCode == 2 {
+    Console.WriteLine($"Retriable failure: {ex.Message}")
+}
+```
+
 ### Rules
 
 * Omitting both `catch` and `finally` produces `RAV1015`.
-* Each `catch` may declare an exception type and optional identifier with
-  `catch (Type name)`.
+* Each `catch` may provide an exception pattern. The supported runtime form today
+  is an exception type pattern such as `catch FormatException ex`.
+* Parenthesized catch patterns are also accepted for grouping and future
+  compatibility, for example `catch (FormatException ex)`.
+* `catch` guards follow the catch pattern, for example
+  `catch Exception ex when ex.StatusCode == 2` or
+  `catch (Exception ex) when ex.StatusCode == 2`.
 * The declared catch type must be `System.Exception` or a derived type;
   otherwise the compiler reports `RAV1016`.
 * A bare `catch` is equivalent to `catch (System.Exception)`.
+* `catch` reuses Raven pattern syntax, but richer non-type primary catch
+  patterns are still diagnosed until full catch-pattern semantics are expanded.
 * Catch clauses run in source order.
 * `finally` executes whether the `try` block, a `catch` clause, or an early
   control transfer completes the statement.

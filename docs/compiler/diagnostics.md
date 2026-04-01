@@ -174,6 +174,7 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV1021` | Error | Top-level statements not allowed with top-level Main | Top-level statements are not allowed when 'Main' is declared as a top-level function | — |
 | `RAV1022` | Error | Invalid entry point signature | Entry point 'Main' must be static and return 'void', 'int', 'Unit', 'Task', 'Task<int>', 'Result<int, E>', 'Result<(), E>', 'Task<Result<int, E>>', or 'Task<Result<(), E>>' with zero parameters or a single 'string[]' parameter | — |
 | `RAV1023` | Error | Expected newline between declarations | Expected newline between declarations. | — |
+| `RAV1024` | Error | Catch pattern must be an exception type pattern | Catch pattern '{patternKind}' is not supported here. Use an exception type pattern such as 'Exception ex'. | — |
 | `RAV1050` | Error | Public extension requires an identifier | Public extension declarations must have an explicit identifier | `samples/extensions/extension-methods-basic.rav`, `samples/extensions/static-extensions.rav` |
 | `RAV1051` | Warning | Prefer newline between declarations | Prefer newline between declarations. | — |
 | `RAV1501` | Error | No overload for method taking argument | No overload for {type} '{name}' takes {count} arguments | — |

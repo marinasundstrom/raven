@@ -479,14 +479,11 @@
   </Node>
   <Node Name="CatchClause" Inherits="Node">
     <Slot Name="CatchKeyword" Type="Token" DefaultToken="CatchKeyword" />
-    <Slot Name="Declaration" Type="CatchDeclaration" IsNullable="true" />
+    <Slot Name="OpenParenToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
+    <Slot Name="Pattern" Type="Pattern" IsNullable="true" />
+    <Slot Name="CloseParenToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
+    <Slot Name="WhenClause" Type="WhenClause" IsNullable="true" />
     <Slot Name="Block" Type="BlockStatement" />
-  </Node>
-  <Node Name="CatchDeclaration" Inherits="Node">
-    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
-    <Slot Name="Type" Type="Type" />
-    <Slot Name="Identifier" Type="Token" IsOptionalToken="true" />
-    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
   <Node Name="FinallyClause" Inherits="Node">
     <Slot Name="FinallyKeyword" Type="Token" DefaultToken="FinallyKeyword" />

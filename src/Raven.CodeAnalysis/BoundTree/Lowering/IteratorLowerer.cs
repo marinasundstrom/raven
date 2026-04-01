@@ -749,7 +749,7 @@ internal static class IteratorLowerer
                 foreach (var catchClause in node.CatchClauses)
                 {
                     var catchBlock = (BoundBlockStatement)VisitBlockStatement(catchClause.Block);
-                    catchBuilder.Add(new BoundCatchClause(catchClause.ExceptionType, catchClause.Local, catchBlock));
+                    catchBuilder.Add(new BoundCatchClause(catchClause.ExceptionType, catchClause.Local, catchClause.Pattern, catchClause.Guard, catchBlock));
                 }
 
                 BoundBlockStatement? finallyBlock = null;

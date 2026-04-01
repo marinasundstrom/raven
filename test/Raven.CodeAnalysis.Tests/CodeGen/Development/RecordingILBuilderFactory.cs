@@ -16,7 +16,8 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
     private List<RecordedInstruction>? _capturedInstructions;
     private IMethodSymbol? _capturedMethod;
 
-    public RecordingILBuilderFactory(IILBuilderFactory inner, Func<MethodGenerator, bool> predicate) {
+    public RecordingILBuilderFactory(IILBuilderFactory inner, Func<MethodGenerator, bool> predicate)
+    {
         _inner = inner;
         _predicate = predicate;
     }
@@ -48,7 +49,8 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
         private int _nextLabelId;
         private int _nextLocalId;
 
-        public RecordingILBuilder(IILBuilder inner, List<RecordedInstruction> instructions) {
+        public RecordingILBuilder(IILBuilder inner, List<RecordedInstruction> instructions)
+        {
             _inner = inner;
             _instructions = instructions;
         }
@@ -179,7 +181,8 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
         public void EndScope() => _inner.EndScope();
 
         public void BeginExceptionBlock() => _inner.BeginExceptionBlock();
-        public void BeginCatchBlock(Type exceptionType) => _inner.BeginCatchBlock(exceptionType);
+        public void BeginExceptFilterBlock() => _inner.BeginExceptFilterBlock();
+        public void BeginCatchBlock(Type? exceptionType) => _inner.BeginCatchBlock(exceptionType);
         public void BeginFinallyBlock() => _inner.BeginFinallyBlock();
         public void EndExceptionBlock() => _inner.EndExceptionBlock();
 

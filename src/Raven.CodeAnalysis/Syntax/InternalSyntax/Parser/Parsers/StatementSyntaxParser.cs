@@ -443,28 +443,30 @@ internal class StatementSyntaxParser : SyntaxParser
     private CatchClauseSyntax ParseCatchClauseSyntax()
     {
         var catchKeyword = ReadToken();
+        ConsumeTokenOrNone(SyntaxKind.OpenParenToken, out var openParenToken);
+        PatternSyntax? pattern = null;
+        var closeParenToken = Token(SyntaxKind.None);
+        WhenClauseSyntax? whenClause = null;
 
-        CatchDeclarationSyntax? declaration = null;
-
-        if (ConsumeToken(SyntaxKind.OpenParenToken, out var openParenToken))
+        if (!openParenToken.IsKind(SyntaxKind.None))
         {
-            var type = new NameSyntaxParser(this).ParseTypeName();
+            pattern = new PatternSyntaxParser(this, allowTypeSyntaxConstantPatterns: false).ParsePatternWithoutTopLevelGuard();
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out closeParenToken);
+        }
+        else if (PeekToken().Kind != SyntaxKind.OpenBraceToken)
+        {
+            pattern = new PatternSyntaxParser(this, allowTypeSyntaxConstantPatterns: false).ParsePatternWithoutTopLevelGuard();
+        }
 
-            var identifier = Token(SyntaxKind.None);
-
-            if (CanTokenBeIdentifier(PeekToken()))
-            {
-                identifier = ReadIdentifierToken();
-            }
-
-            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
-
-            declaration = CatchDeclaration(openParenToken, type!, identifier, closeParenToken);
+        if (ConsumeToken(SyntaxKind.WhenKeyword, out var whenKeyword))
+        {
+            var guard = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
+            whenClause = WhenClause(whenKeyword, guard);
         }
 
         var block = ParseBlockStatementSyntax();
 
-        return CatchClause(catchKeyword, declaration, block);
+        return CatchClause(catchKeyword, openParenToken, pattern, closeParenToken, whenClause, block);
     }
 
     private FinallyClauseSyntax ParseFinallyClauseSyntax()

@@ -32,7 +32,8 @@ internal interface IILBuilder
     void EndScope();
 
     void BeginExceptionBlock();
-    void BeginCatchBlock(Type exceptionType);
+    void BeginExceptFilterBlock();
+    void BeginCatchBlock(Type? exceptionType);
     void BeginFinallyBlock();
     void EndExceptionBlock();
 }

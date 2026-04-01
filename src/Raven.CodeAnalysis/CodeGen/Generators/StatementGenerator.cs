@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
@@ -970,11 +971,30 @@ internal class StatementGenerator : Generator
                 ? requestedCatchType
                 : exceptionBaseType;
 
-            ILGenerator.BeginCatchBlock(ResolveClrType(emittedCatchType));
-
             var catchScope = new Scope(this);
             catchScope.SetExceptionExitLabel(exitLabel);
             catchScope.MarkAsInsideExceptionHandler();
+            IILocal? catchLocalBuilder = null;
+
+            if (catchClause.Local is { } localSymbol)
+            {
+                var localType = localSymbol.Type;
+                if (localType.TypeKind == TypeKind.Error)
+                    localType = exceptionBaseType;
+
+                catchLocalBuilder = ILGenerator.DeclareLocal(ResolveClrType(localType));
+                catchScope.AddLocal(localSymbol, catchLocalBuilder);
+            }
+
+            if (catchClause.Guard is not null)
+            {
+                EmitCatchFilter(catchClause, catchScope, exceptionBaseType);
+                ILGenerator.BeginCatchBlock(null);
+            }
+            else
+            {
+                ILGenerator.BeginCatchBlock(ResolveClrType(emittedCatchType));
+            }
 
             if (!IsExceptionLike(requestedCatchType, exceptionBaseType))
             {
@@ -983,9 +1003,13 @@ internal class StatementGenerator : Generator
                 continue;
             }
 
-            if (catchClause.Local is { } localSymbol)
+            if (catchClause.Guard is not null)
             {
-                var localType = localSymbol.Type;
+                ILGenerator.Emit(OpCodes.Pop);
+            }
+            else if (catchClause.Local is { } catchLocalSymbol)
+            {
+                var localType = catchLocalSymbol.Type;
                 if (localType.TypeKind == TypeKind.Error)
                     localType = exceptionBaseType;
 
@@ -1003,9 +1027,8 @@ internal class StatementGenerator : Generator
                         EmitConversion(emittedCatchType, localType, conversion);
                 }
 
-                var localBuilder = ILGenerator.DeclareLocal(ResolveClrType(localType));
-                catchScope.AddLocal(localSymbol, localBuilder);
-                ILGenerator.Emit(OpCodes.Stloc, localBuilder);
+                Debug.Assert(catchLocalBuilder is not null);
+                ILGenerator.Emit(OpCodes.Stloc, catchLocalBuilder!);
             }
             else
             {
@@ -1025,6 +1048,66 @@ internal class StatementGenerator : Generator
         }
 
         ILGenerator.EndExceptionBlock();
+    }
+
+    private void EmitCatchFilter(
+        BoundCatchClause catchClause,
+        Scope catchScope,
+        ITypeSymbol exceptionBaseType)
+    {
+        ILGenerator.BeginExceptFilterBlock();
+
+        var rawExceptionLocal = ILGenerator.DeclareLocal(ResolveClrType(exceptionBaseType));
+        ILGenerator.Emit(OpCodes.Stloc, rawExceptionLocal);
+
+        var filterScope = new Scope(this);
+        filterScope.SetExceptionExitLabel(MethodBodyGenerator.GetOrCreateReturnLabel());
+        filterScope.MarkAsInsideExceptionHandler();
+
+        var rawExceptionSymbol = CreateSynthesizedFilterLocal("<>filterEx", exceptionBaseType);
+        filterScope.AddLocal(rawExceptionSymbol, rawExceptionLocal);
+
+        if (catchClause.Local is { } localSymbol && catchScope.GetLocal(localSymbol) is { } catchLocalBuilder)
+            filterScope.AddLocal(localSymbol, catchLocalBuilder);
+
+        var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+
+        if (catchClause.Pattern is { } pattern)
+        {
+            var patternTest = new BoundIsPatternExpression(new BoundLocalAccess(rawExceptionSymbol), pattern, boolType);
+
+            if (catchClause.Guard is null)
+            {
+                new ExpressionGenerator(filterScope, patternTest, preserveResult: true).Emit2();
+                return;
+            }
+
+            var guardFalseLabel = ILGenerator.DefineLabel();
+            new ExpressionGenerator(filterScope, patternTest).EmitBranchOpForCondition(patternTest, guardFalseLabel);
+            new ExpressionGenerator(filterScope, catchClause.Guard, preserveResult: true).Emit2();
+            var filterEndLabel = ILGenerator.DefineLabel();
+            ILGenerator.Emit(OpCodes.Br, filterEndLabel);
+            ILGenerator.MarkLabel(guardFalseLabel);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.MarkLabel(filterEndLabel);
+            return;
+        }
+
+        Debug.Assert(catchClause.Guard is not null);
+        new ExpressionGenerator(filterScope, catchClause.Guard, preserveResult: true).Emit2();
+    }
+
+    private SourceLocalSymbol CreateSynthesizedFilterLocal(string name, ITypeSymbol type)
+    {
+        return new SourceLocalSymbol(
+            name,
+            type,
+            isMutable: true,
+            MethodSymbol,
+            MethodSymbol.ContainingType,
+            MethodSymbol.ContainingNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>());
     }
 
     private void EmitBlockStatement(BoundBlockStatement blockStatement)

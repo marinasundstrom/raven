@@ -542,7 +542,11 @@ internal partial class BlockBinder
             var valueExpr = BindExpression(identifierType);
 
             // If it resolved to a value symbol, reinterpret as a value/constant pattern.
-            if (valueExpr.Symbol is not null && valueExpr.Type is not null && valueExpr.Type.TypeKind != TypeKind.Error)
+            // Type expressions must stay declaration patterns.
+            if (valueExpr is not BoundTypeExpression &&
+                valueExpr.Symbol is not null &&
+                valueExpr.Type is not null &&
+                valueExpr.Type.TypeKind != TypeKind.Error)
             {
                 var expected = inputType ?? Compilation.GetSpecialType(SpecialType.System_Object);
 

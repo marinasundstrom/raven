@@ -12,22 +12,30 @@ internal class PatternSyntaxParser : SyntaxParser
     private readonly bool _allowImplicitDeconstructionElementBindings;
     private readonly bool _allowWholePatternDesignation;
     private readonly bool _allowPatternGuards;
+    private readonly bool _allowTypeSyntaxConstantPatterns;
 
     public PatternSyntaxParser(
         ParseContext parent,
         bool allowImplicitDeconstructionElementBindings = false,
         bool allowWholePatternDesignation = true,
-        bool allowPatternGuards = true) : base(parent)
+        bool allowPatternGuards = true,
+        bool allowTypeSyntaxConstantPatterns = true) : base(parent)
     {
         _allowImplicitDeconstructionElementBindings = allowImplicitDeconstructionElementBindings;
         _allowWholePatternDesignation = allowWholePatternDesignation;
         _allowPatternGuards = allowPatternGuards;
+        _allowTypeSyntaxConstantPatterns = allowTypeSyntaxConstantPatterns;
     }
 
     public PatternSyntax ParsePattern()
     {
         var pattern = ParseOrPattern();
         return ParseOptionalGuardedPattern(pattern);
+    }
+
+    public PatternSyntax ParsePatternWithoutTopLevelGuard()
+    {
+        return ParseOrPattern();
     }
 
     private PatternSyntax ParseOrPattern()
@@ -904,6 +912,12 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         if (!IsValidConstantPatternExpression(expr))
+        {
+            checkpoint.Rewind();
+            return false;
+        }
+
+        if (!_allowTypeSyntaxConstantPatterns && expr is TypeSyntax)
         {
             checkpoint.Rewind();
             return false;

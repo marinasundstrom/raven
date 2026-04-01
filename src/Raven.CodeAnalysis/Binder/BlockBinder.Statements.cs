@@ -1604,63 +1604,111 @@ partial class BlockBinder
     private BoundCatchClause BindCatchClause(CatchClauseSyntax catchClause)
     {
         ITypeSymbol exceptionBase = Compilation.GetSpecialType(SpecialType.System_Exception);
+        var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         var exceptionType = exceptionBase;
-
         SourceLocalSymbol? localSymbol = null;
+        BoundPattern? pattern = null;
+        BoundExpression? guard = null;
+        ImmutableArray<ILocalSymbol> patternLocals = ImmutableArray<ILocalSymbol>.Empty;
+        Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? shadowedLocals = null;
 
-        if (catchClause.Declaration is { } declaration)
+        if (catchClause.Pattern is { } patternSyntax)
         {
-            var declaredType = ResolveTypeSyntaxOrError(declaration.Type);
-            exceptionType = declaredType;
+            shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+            CapturePatternLocalShadows(patternSyntax, shadowedLocals);
 
-            if (exceptionBase.TypeKind != TypeKind.Error &&
-                declaredType.TypeKind != TypeKind.Error &&
-                !IsAssignable(exceptionBase, declaredType, out _))
+            var previousBindingKeyword = _ambientPatternDeclarationBindingKeyword;
+            _ambientPatternDeclarationBindingKeyword = SyntaxKind.None;
+
+            BoundPattern boundPattern;
+            try
             {
-                _diagnostics.ReportCatchTypeMustDeriveFromSystemException(
-                    declaredType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    declaration.Type.GetLocation());
+                boundPattern = BindPattern(patternSyntax, exceptionBase);
+            }
+            finally
+            {
+                _ambientPatternDeclarationBindingKeyword = previousBindingKeyword;
             }
 
-            if (declaration.Identifier is { } identifier &&
-                !identifier.IsMissing &&
-                identifier.Kind == SyntaxKind.IdentifierToken)
-            {
-                var name = identifier.Text;
-                var isShadowingExistingInScope = false;
+            patternLocals = CollectPatternDesignatorLocals(boundPattern);
 
-                if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)
-                {
-                    var isSameDeclarator = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
-                        reference.SyntaxTree == declaration.SyntaxTree &&
-                        reference.Span == declaration.Span);
+            foreach (var patternLocal in patternLocals)
+                _locals[patternLocal.Name] = (patternLocal, _scopeDepth + 1);
 
-                    if (isSameDeclarator)
-                    {
-                        localSymbol = existing.Symbol as SourceLocalSymbol;
-                    }
-                    else
-                    {
-                        isShadowingExistingInScope = true;
-                    }
-                }
+            pattern = boundPattern;
+            ExtractCatchPatternBinding(catchClause, patternSyntax, boundPattern, exceptionBase, ref exceptionType, ref localSymbol);
+        }
 
-                if (!isShadowingExistingInScope && LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
-                    isShadowingExistingInScope = true;
-
-                if (isShadowingExistingInScope)
-                    _diagnostics.ReportVariableShadowsPreviousDeclaration(name, identifier.GetLocation());
-
-                localSymbol ??= CreateLocalSymbol(declaration, name, isMutable: false, declaredType);
-            }
+        if (catchClause.WhenClause?.Guard is ExpressionSyntax guardSyntax)
+        {
+            guard = BindExpressionWithTargetType(guardSyntax, boolType);
         }
 
         var block = BindBlockStatement(catchClause.Block);
 
-        if (localSymbol is not null)
-            _locals.Remove(localSymbol.Name);
+        RestorePatternLocalShadows(patternLocals, shadowedLocals);
 
-        return new BoundCatchClause(exceptionType, localSymbol, block);
+        return new BoundCatchClause(exceptionType, localSymbol, pattern, guard, block);
+    }
+
+    private void ExtractCatchPatternBinding(
+        CatchClauseSyntax catchClause,
+        PatternSyntax patternSyntax,
+        BoundPattern pattern,
+        ITypeSymbol exceptionBase,
+        ref ITypeSymbol exceptionType,
+        ref SourceLocalSymbol? localSymbol)
+    {
+        switch (patternSyntax, pattern)
+        {
+            case (DeclarationPatternSyntax declarationSyntax, BoundDeclarationPattern declarationPattern):
+                exceptionType = declarationPattern.DeclaredType;
+
+                if (exceptionBase.TypeKind != TypeKind.Error &&
+                    exceptionType.TypeKind != TypeKind.Error &&
+                    !IsAssignable(exceptionBase, exceptionType, out _))
+                {
+                    _diagnostics.ReportCatchTypeMustDeriveFromSystemException(
+                        exceptionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        declarationSyntax.Type.GetLocation());
+                }
+
+                localSymbol = declarationPattern.Designator switch
+                {
+                    BoundSingleVariableDesignator { Local: SourceLocalSymbol sourceLocal } => sourceLocal,
+                    _ => null
+                };
+                return;
+
+            case (_, BoundDiscardPattern):
+                exceptionType = exceptionBase;
+                localSymbol = null;
+                return;
+
+            default:
+                _diagnostics.ReportCatchPatternMustBeTypePattern(patternSyntax.Kind.ToString(), catchClause.GetLocation());
+                exceptionType = exceptionBase;
+                localSymbol = null;
+                return;
+        }
+    }
+
+    private void RestorePatternLocalShadows(
+        ImmutableArray<ILocalSymbol> patternLocals,
+        Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? shadowedLocals)
+    {
+        foreach (var patternLocal in patternLocals)
+        {
+            if (shadowedLocals is not null &&
+                shadowedLocals.TryGetValue(patternLocal.Name, out var shadowed) &&
+                shadowed is not null)
+            {
+                _locals[patternLocal.Name] = shadowed.Value;
+                continue;
+            }
+
+            _locals.Remove(patternLocal.Name);
+        }
     }
 
     private BoundStatement ExpressionToStatement(BoundExpression expression)

@@ -581,6 +581,10 @@
     Title="Thrown expression must be an exception type"
     Message="Expression of type '{typeName}' cannot be thrown because it does not derive from System.Exception"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1024" Identifier="CatchPatternMustBeTypePattern"
+    Title="Catch pattern must be an exception type pattern"
+    Message="Catch pattern '{patternKind}' is not supported here. Use an exception type pattern such as 'Exception ex'."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1018" Identifier="FileScopedNamespaceOutOfOrder"
     Title="File-scoped namespace out of order"
     Message="File-scoped namespace declarations must appear before any other members"

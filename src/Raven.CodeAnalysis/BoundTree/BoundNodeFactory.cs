@@ -76,7 +76,7 @@ internal sealed partial class BoundNodeFactory
         => new(expression, type, conversion);
 
     public BoundCatchClause CreateCatchClause(ITypeSymbol exceptionType, ILocalSymbol? local, BoundBlockStatement block)
-        => new(exceptionType, local, block);
+        => new(exceptionType, local, pattern: null, guard: null, block);
 
     public BoundCollectionExpression CreateCollectionExpression(
         ITypeSymbol type,
