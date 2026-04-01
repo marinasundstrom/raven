@@ -3221,6 +3221,14 @@ partial class BlockBinder : Binder
         {
             case BoundDiscardPattern:
                 return;
+            case BoundGuardedPattern guardedPattern:
+                {
+                    var innerSyntax = patternSyntax is GuardedPatternSyntax guardedSyntax
+                        ? guardedSyntax.Pattern
+                        : patternSyntax;
+                    EnsureMatchArmPatternValid(scrutineeType, innerSyntax, guardedPattern.Pattern);
+                    return;
+                }
             case BoundDeclarationPattern declaration:
                 {
                     var patternType = UnwrapAlias(declaration.DeclaredType);
@@ -3316,6 +3324,11 @@ partial class BlockBinder : Binder
                     // Defensive fallback: should never happen
                     return;
                 }
+            case BoundUnionMemberPattern unionMemberPattern:
+                {
+                    EnsureMatchArmPatternValid(unionMemberPattern.MemberType, patternSyntax, unionMemberPattern.Pattern);
+                    return;
+                }
             case BoundCasePattern casePattern:
                 {
                     var scrutineeUnion = scrutineeType.TryGetUnion()
@@ -3345,6 +3358,49 @@ partial class BlockBinder : Binder
                                 parameterTypes[i].Type,
                                 argumentList.Arguments[i],
                                 casePattern.Arguments[i]);
+                        }
+                    }
+
+                    return;
+                }
+            case BoundDeconstructPattern deconstructPattern:
+                {
+                    var narrowedType = UnwrapAlias(deconstructPattern.NarrowedType ?? deconstructPattern.ReceiverType);
+                    if (ReportRecursivePatternTypeInvalid(scrutineeType, patternSyntax, narrowedType))
+                        return;
+
+                    if (patternSyntax is NominalDeconstructionPatternSyntax nominalSyntax)
+                    {
+                        var parameterTypes = deconstructPattern.DeconstructMethod.Parameters;
+                        var elementCount = Math.Min(parameterTypes.Length, deconstructPattern.Arguments.Length);
+                        var argumentCount = Math.Min(nominalSyntax.ArgumentList.Arguments.Count, elementCount);
+
+                        for (var i = 0; i < argumentCount; i++)
+                        {
+                            EnsureMatchArmPatternValid(
+                                parameterTypes[i].Type,
+                                nominalSyntax.ArgumentList.Arguments[i],
+                                deconstructPattern.Arguments[i]);
+                        }
+                    }
+
+                    return;
+                }
+            case BoundPropertyPattern propertyPattern:
+                {
+                    var narrowedType = UnwrapAlias(propertyPattern.NarrowedType ?? propertyPattern.ReceiverType);
+                    if (ReportRecursivePatternTypeInvalid(scrutineeType, patternSyntax, narrowedType))
+                        return;
+
+                    if (patternSyntax is PropertyPatternSyntax propertySyntax)
+                    {
+                        var propertyCount = Math.Min(propertyPattern.Properties.Length, propertySyntax.PropertyPatternClause.Properties.Count);
+                        for (var i = 0; i < propertyCount; i++)
+                        {
+                            EnsureMatchArmPatternValid(
+                                propertyPattern.Properties[i].Type,
+                                propertySyntax.PropertyPatternClause.Properties[i].Pattern,
+                                propertyPattern.Properties[i].Pattern);
                         }
                     }
 
@@ -3438,6 +3494,64 @@ partial class BlockBinder : Binder
 
                     return;
                 }
+        }
+    }
+
+    private bool ReportRecursivePatternTypeInvalid(
+        ITypeSymbol scrutineeType,
+        PatternSyntax patternSyntax,
+        ITypeSymbol patternType)
+    {
+        patternType = UnwrapAlias(patternType);
+
+        if (patternType.TypeKind == TypeKind.Error)
+        {
+            if (!TryGetRecursivePatternDisplay(patternSyntax, out var fallbackDisplay, out var fallbackLocation))
+                return false;
+
+            _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                fallbackDisplay,
+                scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                fallbackLocation);
+            return true;
+        }
+
+        if (PatternCanMatch(scrutineeType, patternType))
+            return false;
+
+        var location = patternSyntax switch
+        {
+            NominalDeconstructionPatternSyntax nominalSyntax => nominalSyntax.Type.GetLocation(),
+            PropertyPatternSyntax propertySyntax when propertySyntax.Type is not null => propertySyntax.Type.GetLocation(),
+            _ => patternSyntax.GetLocation(),
+        };
+
+        _diagnostics.ReportMatchExpressionArmPatternInvalid(
+            GetMatchPatternDisplay(patternType),
+            scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            location);
+        return true;
+    }
+
+    private static bool TryGetRecursivePatternDisplay(
+        PatternSyntax patternSyntax,
+        out string patternDisplay,
+        out Location location)
+    {
+        switch (patternSyntax)
+        {
+            case NominalDeconstructionPatternSyntax nominalSyntax:
+                patternDisplay = $"for type '{nominalSyntax.Type}'";
+                location = nominalSyntax.Type.GetLocation();
+                return true;
+            case PropertyPatternSyntax propertySyntax when propertySyntax.Type is not null:
+                patternDisplay = $"for type '{propertySyntax.Type}'";
+                location = propertySyntax.Type.GetLocation();
+                return true;
+            default:
+                patternDisplay = string.Empty;
+                location = patternSyntax.GetLocation();
+                return false;
         }
     }
 

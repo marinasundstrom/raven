@@ -213,6 +213,77 @@ val result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithUndefinedNestedNominalDeconstructionPattern_ReportsInvalidArmPattern()
+    {
+        const string code = """
+union UserOrError {
+    Ok(value: int)
+    Error(error: string)
+}
+
+func GetUser() -> UserOrError {
+    return .Ok(1)
+}
+
+val result = GetUser() match {
+    .Ok(User(val name, val isActive)) => 1
+    .Error(val error) => 0
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id)
+                    .WithAnySpan()
+                    .WithArguments("User"),
+                new DiagnosticResult(CompilerDiagnostics.MatchExpressionArmPatternInvalid.Id)
+                    .WithAnySpan()
+                    .WithArguments("for type 'User'", "int"),
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithMismatchedNestedNominalDeconstructionPattern_ReportsTypeMismatch()
+    {
+        const string code = """
+union UserOrError {
+    Ok(value: int)
+    Error(error: string)
+}
+
+func GetUser() -> UserOrError {
+    return .Ok(1)
+}
+
+val result = GetUser() match {
+    .Ok(User(val name, val isActive)) => 1
+    .Error(val error) => 0
+}
+
+record class User(Name: string, IsActive: bool);
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult(CompilerDiagnostics.MatchExpressionNotExhaustive.Id)
+                    .WithAnySpan()
+                    .WithArguments("Ok"),
+                new DiagnosticResult(CompilerDiagnostics.MatchExpressionArmPatternInvalid.Id)
+                    .WithAnySpan()
+                    .WithArguments("for type 'User'", "int"),
+                new DiagnosticResult(CompilerDiagnostics.NominalDeconstructionPatternTypeMismatch.Id)
+                    .WithAnySpan()
+                    .WithArguments("int", "User"),
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithBooleanLiteralArms_IsExhaustive()
     {
         const string code = """
