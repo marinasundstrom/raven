@@ -13,34 +13,44 @@ enum IntErrorKind {
     Overflow
 }
 
-record ParseIntError(val Kind: IntErrorKind, val Message: string) : IParseError {
-    override func ToString() -> string => Message
+record ParseIntError(
+    val Kind: IntErrorKind,
+    val Input: string?,
+    val Style: NumberStyles
+) : IParseError {
+    override func ToString() -> string =>
+        Kind match {
+            .Null => "Value cannot be null."
+            .Empty => "Value cannot be empty."
+            .InvalidFormat => "Input was not in a valid integer format."
+            .Overflow => "Input was outside the range of Int32."
+        }
 }
 
 extension Int32Extensions for Int32 {
 
-    static func parse(value: string) -> Result<int, ParseIntError> {
-        return parse(value, NumberStyles.Integer)
+    static func parse(input: string) -> Result<int, ParseIntError> {
+        return parse(input, NumberStyles.Integer)
     }
 
     static func parse(
-        value: string,
+        input: string,
         style: NumberStyles,
         provider: IFormatProvider? = null) -> Result<int, ParseIntError> {
-        if value is null {
-            return Error(ParseIntError(.Null, "Value cannot be null."))
+        if input is null {
+            return Error(ParseIntError(.Null, input, style))
         }
 
-        if value.Length == 0 {
-            return Error(ParseIntError(.Empty, "Value cannot be empty."))
+        if input.Length == 0 {
+            return Error(ParseIntError(.Empty, input, style))
         }
 
         try {
-            return Ok(int.Parse(value, style, provider))
-        } catch (FormatException ex) {
-            return Error(ParseIntError(.InvalidFormat, ex.Message))
-        } catch (OverflowException ex) {
-            return Error(ParseIntError(.Overflow, ex.Message))
+            return Ok(int.Parse(input, style, provider))
+        } catch FormatException {
+            return Error(ParseIntError(.InvalidFormat, input, style))
+        } catch OverflowException {
+            return Error(ParseIntError(.Overflow, input, style))
         }
     }
 }

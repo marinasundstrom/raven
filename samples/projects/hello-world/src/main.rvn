@@ -4,15 +4,14 @@ import System.Globalization.*
 
 func Main() -> Result<(), IParseError> {
     // Custom extension
-    val test = int.parse("foo")?
+    val test = int.parse("foo")
     
-    /*
     match test {
         Ok(val v) => WriteLine(v)
-        Error(ParseIntError(val kind, _)) => {
+        Error(ParseIntError(val kind, _, _)) => {
             WriteLine(kind)
         }
-    }*/
+    }
 
     WriteLine("Value: $test")
 
