@@ -158,7 +158,7 @@ internal abstract class Generator
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
-        return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetType(typeSymbol);
+        return MethodBodyGenerator.ResolveClrType(typeSymbol);
     }
 
     public MemberInfo? GetMemberBuilder(SourceSymbol sourceSymbol) => MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceSymbol);
@@ -979,12 +979,25 @@ internal abstract class Generator
 
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
     {
+        methodSymbol = SubstituteAsyncStateMachineMethodTypeParameters(methodSymbol);
         return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetMethodInfo(methodSymbol);
     }
 
     public ConstructorInfo GetConstructorInfo(IMethodSymbol constructorSymbol)
     {
+        constructorSymbol = SubstituteAsyncStateMachineMethodTypeParameters(constructorSymbol);
         return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetConstructorInfo(constructorSymbol);
+    }
+
+    private IMethodSymbol SubstituteAsyncStateMachineMethodTypeParameters(IMethodSymbol methodSymbol)
+    {
+        if (MethodGenerator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+            return asyncStateMachine.SubstituteAsyncMethodTypeParameters(methodSymbol);
+
+        if (MethodGenerator.MethodSymbol.ContainingType is ConstructedNamedTypeSymbol { ConstructedFrom: SynthesizedAsyncStateMachineTypeSymbol constructedAsyncStateMachine })
+            return constructedAsyncStateMachine.SubstituteAsyncMethodTypeParameters(methodSymbol);
+
+        return methodSymbol;
     }
 
     private static bool IsDynamicBuilderType(Type type)

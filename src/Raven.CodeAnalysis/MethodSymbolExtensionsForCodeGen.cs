@@ -126,13 +126,16 @@ internal static class MethodSymbolCodeGenResolver
         IMethodSymbol underlying,
         CodeGenerator codeGen)
     {
-        var resolvedUnderlying = GetClrMethodInfo(underlying, codeGen);
-
         var containingType = wrapper.ContainingType;
+        var resolvedUnderlying = GetClrMethodInfo(underlying, codeGen);
         if (containingType is null)
             return resolvedUnderlying;
 
         var containingClrType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(containingType, codeGen);
+        var directFromWrapper = TryResolveMethodBySymbolSignature(wrapper, containingClrType, codeGen);
+        if (directFromWrapper is not null)
+            return directFromWrapper;
+
         if (CodeGenFlags.PrintDebug && containingType.IsGenericType)
         {
             var args = string.Join(
@@ -388,6 +391,32 @@ internal static class MethodSymbolCodeGenResolver
         if (resolved.DeclaringType == constructedDeclaringType)
             return resolved;
 
+        if (constructedDeclaringType.IsGenericType)
+        {
+            try
+            {
+                var definitionMethod = resolved;
+                if (definitionMethod.DeclaringType is not null &&
+                    definitionMethod.DeclaringType.IsGenericType &&
+                    !definitionMethod.DeclaringType.IsGenericTypeDefinition)
+                {
+                    var definitionType = definitionMethod.DeclaringType.GetGenericTypeDefinition();
+                    definitionMethod = definitionType
+                        .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+                        .FirstOrDefault(candidate => MethodShapeEquals(candidate, resolved))
+                        ?? definitionMethod;
+                }
+
+                var mapped = TypeBuilder.GetMethod(constructedDeclaringType, definitionMethod);
+                if (mapped is not null)
+                    return mapped;
+            }
+            catch
+            {
+                // Fall through to the existing mapping strategies.
+            }
+        }
+
         // The problematic cases are typically TypeBuilderInstantiation (constructed generic types
         // in a dynamic module). Prefer mapping the method from the generic type definition onto
         // the constructed runtime type.
@@ -625,7 +654,7 @@ internal static class MethodSymbolCodeGenResolver
         var resolved = constructorSymbol switch
         {
             IMethodSymbol wrapper when wrapper.UnderlyingSymbol is IMethodSymbol underlying && !ReferenceEquals(underlying, wrapper)
-                => codeGen.CacheRuntimeConstructor(constructorSymbol, GetClrConstructorInfo(underlying, codeGen)),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, ResolveWrappedConstructorInfo(wrapper, underlying, codeGen)),
             IAliasSymbol aliasSymbol when aliasSymbol.UnderlyingSymbol is IMethodSymbol underlying
                 => codeGen.CacheRuntimeConstructor(constructorSymbol, GetClrConstructorInfo(underlying, codeGen)),
             SourceMethodSymbol sourceConstructor
@@ -639,7 +668,173 @@ internal static class MethodSymbolCodeGenResolver
         };
 
         resolved = EnsureClosedConstructedConstructorInfo(constructorSymbol, resolved, codeGen);
+        if (CodeGenFlags.PrintDebug)
+        {
+            PrintDebug(
+                $"[CodeGen:Ctor] Resolved {constructorSymbol} -> {resolved.DeclaringType?.FullName}::.ctor " +
+                $"(containsGenericParameters={resolved.ContainsGenericParameters})");
+
+            if (resolved.DeclaringType is { IsGenericType: true } declaringType)
+            {
+                var genericOwnerInfo = string.Join(
+                    ", ",
+                    declaringType.GetGenericArguments().Select(argument =>
+                    {
+                        if (!argument.IsGenericParameter)
+                            return $"{argument} [owner=n/a]";
+
+                        var owner = argument.DeclaringMethod is null ? "type" : "method";
+                        return $"{argument} [owner={owner}, pos={argument.GenericParameterPosition}]";
+                    }));
+
+                PrintDebug(
+                    $"[CodeGen:Ctor] DeclaringTypeArgs {resolved.DeclaringType.FullName}::.ctor => {genericOwnerInfo}");
+            }
+        }
         return codeGen.CacheRuntimeConstructor(constructorSymbol, resolved);
+    }
+
+    private static ConstructorInfo ResolveWrappedConstructorInfo(
+        IMethodSymbol wrapper,
+        IMethodSymbol underlying,
+        CodeGenerator codeGen)
+    {
+        if (wrapper.ContainingType is not null)
+        {
+            var containingClrType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(
+                wrapper.ContainingType,
+                codeGen);
+
+            if (wrapper.OriginalDefinition is SourceMethodSymbol sourceConstructor &&
+                codeGen.GetMemberBuilder(sourceConstructor) is ConstructorInfo definitionConstructor)
+            {
+                try
+                {
+                    var projected = TypeBuilder.GetConstructor(containingClrType, definitionConstructor);
+                    if (projected is not null)
+                    {
+                        if (CodeGenFlags.PrintDebug)
+                            PrintDebug($"[CodeGen:Ctor] Wrapper source projection {wrapper} -> {projected.DeclaringType?.FullName}::.ctor");
+                        return projected;
+                    }
+                }
+                catch
+                {
+                    // Fall through to other wrapper resolution strategies.
+                }
+            }
+
+            var directFromWrapper = TryResolveConstructorBySymbolSignature(wrapper, containingClrType, codeGen);
+            if (directFromWrapper is not null)
+            {
+                if (CodeGenFlags.PrintDebug)
+                    PrintDebug($"[CodeGen:Ctor] Wrapper signature match {wrapper} -> {directFromWrapper.DeclaringType?.FullName}::.ctor");
+                return directFromWrapper;
+            }
+        }
+
+        var resolvedUnderlying = GetClrConstructorInfo(underlying, codeGen);
+        return EnsureClosedConstructedConstructorInfo(wrapper, resolvedUnderlying, codeGen);
+    }
+
+    private static MethodInfo? TryResolveMethodBySymbolSignature(
+        IMethodSymbol methodSymbol,
+        Type constructedDeclaringType,
+        CodeGenerator codeGen)
+    {
+        var flags = BindingFlags.Public | BindingFlags.NonPublic |
+                    (methodSymbol.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
+        var searchType = constructedDeclaringType;
+        var projectFromDefinition = false;
+
+        if (constructedDeclaringType.IsGenericType && !constructedDeclaringType.IsGenericTypeDefinition)
+        {
+            try
+            {
+                searchType = constructedDeclaringType.GetGenericTypeDefinition();
+                projectFromDefinition = true;
+            }
+            catch
+            {
+                searchType = constructedDeclaringType;
+            }
+        }
+
+        try
+        {
+            foreach (var candidate in searchType.GetMethods(flags))
+            {
+                if (!RuntimeMethodMatchesSymbol(candidate, methodSymbol, codeGen))
+                    continue;
+
+                if (!projectFromDefinition)
+                    return candidate;
+
+                try
+                {
+                    return TypeBuilder.GetMethod(constructedDeclaringType, candidate);
+                }
+                catch
+                {
+                    return candidate;
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private static ConstructorInfo? TryResolveConstructorBySymbolSignature(
+        IMethodSymbol constructorSymbol,
+        Type constructedDeclaringType,
+        CodeGenerator codeGen)
+    {
+        var flags = BindingFlags.Public | BindingFlags.NonPublic |
+                    (constructorSymbol.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
+        var searchType = constructedDeclaringType;
+        var projectFromDefinition = false;
+
+        if (constructedDeclaringType.IsGenericType && !constructedDeclaringType.IsGenericTypeDefinition)
+        {
+            try
+            {
+                searchType = constructedDeclaringType.GetGenericTypeDefinition();
+                projectFromDefinition = true;
+            }
+            catch
+            {
+                searchType = constructedDeclaringType;
+            }
+        }
+
+        try
+        {
+            foreach (var candidate in searchType.GetConstructors(flags))
+            {
+                if (!RuntimeConstructorMatchesSymbol(candidate, constructorSymbol, codeGen))
+                    continue;
+
+                if (!projectFromDefinition)
+                    return candidate;
+
+                try
+                {
+                    return TypeBuilder.GetConstructor(constructedDeclaringType, candidate);
+                }
+                catch
+                {
+                    return candidate;
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 
     private static ConstructorInfo EnsureClosedConstructedConstructorInfo(
@@ -680,6 +875,13 @@ internal static class MethodSymbolCodeGenResolver
 
         try
         {
+            if (targetDeclaringType.IsGenericType)
+            {
+                var projected = TypeBuilder.GetConstructor(targetDeclaringType, definitionConstructor);
+                if (projected is not null)
+                    return projected;
+            }
+
             if (targetDeclaringType.GetType().FullName == "System.Reflection.Emit.TypeBuilderInstantiation" ||
                 (targetDeclaringType.IsGenericType && targetDeclaringType.ContainsGenericParameters))
             {
@@ -911,6 +1113,32 @@ internal static class MethodSymbolCodeGenResolver
         return ReturnTypesMatch(candidate.ReturnType, methodSymbol.ReturnType, codeGen);
     }
 
+    private static bool RuntimeMethodMatchesSymbol(MethodInfo candidate, IMethodSymbol methodSymbol, CodeGenerator codeGen)
+    {
+        if (methodSymbol is PEMethodSymbol peMethodSymbol)
+            return RuntimeMethodMatchesSymbol(candidate, peMethodSymbol, codeGen);
+
+        if (!string.Equals(candidate.Name, methodSymbol.MetadataName, StringComparison.Ordinal))
+            return false;
+
+        if (!RuntimeTypeMatches(candidate.DeclaringType, methodSymbol.ContainingType, codeGen))
+            return false;
+
+        if (candidate.IsStatic != methodSymbol.IsStatic)
+            return false;
+
+        if (candidate.IsGenericMethod != methodSymbol.IsGenericMethod)
+            return false;
+
+        if (candidate.IsGenericMethod && candidate.GetGenericArguments().Length != methodSymbol.TypeParameters.Length)
+            return false;
+
+        if (!ParametersMatch(candidate.GetParameters(), methodSymbol.Parameters, codeGen))
+            return false;
+
+        return ReturnTypesMatch(candidate.ReturnType, methodSymbol.ReturnType, codeGen);
+    }
+
     private static bool RuntimeMethodMatchesMetadataSignature(MethodInfo runtimeMethod, MethodInfo metadataMethod)
     {
         if (!string.Equals(runtimeMethod.Name, metadataMethod.Name, StringComparison.Ordinal))
@@ -1039,6 +1267,29 @@ internal static class MethodSymbolCodeGenResolver
 
         return ParametersMatch(candidate.GetParameters(), constructorSymbol.Parameters, codeGen);
     }
+
+    private static bool RuntimeConstructorMatchesSymbol(ConstructorInfo candidate, IMethodSymbol constructorSymbol, CodeGenerator codeGen)
+    {
+        if (constructorSymbol is PEMethodSymbol peMethodSymbol)
+            return RuntimeConstructorMatchesSymbol(candidate, peMethodSymbol, codeGen);
+
+        if (!string.Equals(candidate.Name, constructorSymbol.MetadataName, StringComparison.Ordinal))
+            return false;
+
+        if (!RuntimeTypeMatches(candidate.DeclaringType, constructorSymbol.ContainingType, codeGen))
+            return false;
+
+        if (candidate.IsStatic != constructorSymbol.IsStatic)
+            return false;
+
+        return ParametersMatch(candidate.GetParameters(), constructorSymbol.Parameters, codeGen);
+    }
+
+    internal static ConstructorInfo? TryResolveConstructorBySymbolSignatureForType(
+        IMethodSymbol constructorSymbol,
+        Type constructedDeclaringType,
+        CodeGenerator codeGen)
+        => TryResolveConstructorBySymbolSignature(constructorSymbol, constructedDeclaringType, codeGen);
 
     private static bool RuntimeTypeMatches(Type? runtimeType, ITypeSymbol? symbolType, CodeGenerator codeGen)
     {

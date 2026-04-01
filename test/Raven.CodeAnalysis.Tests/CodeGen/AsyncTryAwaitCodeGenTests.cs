@@ -363,6 +363,42 @@ class Program {
         Assert.Equal(new[] { "Option.Some(42)", "Option.None" }, output);
     }
 
+    [Fact]
+    public void GenericAsyncMethod_ReturningGenericUnionAfterAwait_EmitsAndRuns()
+    {
+        const string code = """
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+union TaskState<T> {
+    Success(value: T)
+    Fault(exception: Exception?)
+    Canceled
+}
+
+class Program {
+    static async func AwaitState<T>(task: Task<T>) -> Task<TaskState<T>> {
+        await task
+        return task.Status match {
+            .RanToCompletion => .Success(task.Result)
+            .Faulted => .Fault(task.Exception)
+            .Canceled => .Canceled
+            _ => .Canceled
+        }
+    }
+
+    static async func Main() -> Task {
+        val state = await Program.AwaitState(Task.FromResult(42))
+        _ = state
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Empty(output);
+    }
+
     private static string[] CompileAndRun(string code)
     {
         var syntaxTree = SyntaxTree.ParseText(code);

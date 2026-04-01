@@ -1153,6 +1153,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         if (typeArgument is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter &&
             methodTypeParameter.DeclaringMethodParameterOwner is IMethodSymbol methodSymbol)
         {
+            if (codeGen.TryResolveRuntimeTypeParameter(methodTypeParameter, RuntimeTypeUsage.MethodBody, out var methodBodyResolved))
+                return methodBodyResolved;
+
             if (TryGetMethodGenericParameter(methodSymbol, methodTypeParameter.Ordinal, codeGen, out var methodParameter))
                 return methodParameter;
 
@@ -1187,6 +1190,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
         if (typeArgument is ITypeParameterSymbol typeParameter)
         {
+            if (codeGen.TryResolveRuntimeTypeParameter(typeParameter, RuntimeTypeUsage.MethodBody, out var methodBodyResolved))
+                return methodBodyResolved;
+
             if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameter, out var runtimeType))
                 return runtimeType;
 
@@ -1631,6 +1637,28 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             }
 
             return baseCtor;
+        }
+
+        if (_original is SubstitutedMethodSymbol substitutedMethod)
+            return substitutedMethod.GetConstructorInfo(codeGen);
+
+        if (_original is ConstructedMethodSymbol constructedMethod)
+            return MethodSymbolCodeGenResolver.GetClrConstructorInfo(constructedMethod, codeGen);
+
+        var unwrapped = _original;
+        while (unwrapped.UnderlyingSymbol is IMethodSymbol underlying &&
+               !ReferenceEquals(underlying, unwrapped))
+        {
+            unwrapped = underlying;
+        }
+
+        if (!ReferenceEquals(unwrapped, _original))
+        {
+            var rebound = unwrapped is SubstitutedMethodSymbol or ConstructedMethodSymbol
+                ? unwrapped
+                : new SubstitutedMethodSymbol(unwrapped, _constructed);
+
+            return MethodSymbolCodeGenResolver.GetClrConstructorInfo(rebound, codeGen);
         }
 
         if (_original is SourceMethodSymbol sourceMethod)

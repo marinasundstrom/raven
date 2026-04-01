@@ -4619,6 +4619,12 @@ internal partial class ExpressionGenerator : Generator
 
         var constructorInfo = GetConstructorInfo(constructorSymbol);
         constructorInfo = CloseConstructorForObjectCreation(constructorInfo, constructorSymbol, objectCreationExpression.Type);
+        if (CodeGenFlags.PrintDebug)
+        {
+            PrintDebug(
+                $"[CodeGen:CtorEmit] {constructorSymbol} target={objectCreationExpression.Type} -> " +
+                $"{constructorInfo.DeclaringType?.FullName}::.ctor");
+        }
 
         if (objectCreationExpression.Receiver is not null)
         {
@@ -4643,6 +4649,21 @@ internal partial class ExpressionGenerator : Generator
         if (declaringType is null)
             return constructorInfo;
 
+        if (constructorSymbol.OriginalDefinition is SourceMethodSymbol sourceConstructor &&
+            GetMemberBuilder(sourceConstructor) is ConstructorInfo definitionConstructor)
+        {
+            try
+            {
+                var projected = TypeBuilder.GetConstructor(targetRuntimeType, definitionConstructor);
+                if (projected is not null)
+                    return projected;
+            }
+            catch
+            {
+                // Fall through to other projection strategies.
+            }
+        }
+
         if (ReferenceEquals(targetRuntimeType, declaringType))
             return constructorInfo;
 
@@ -4653,6 +4674,13 @@ internal partial class ExpressionGenerator : Generator
             if (mapped is not null)
                 return mapped;
         }
+
+        var reboundBySignature = MethodSymbolCodeGenResolver.TryResolveConstructorBySymbolSignatureForType(
+            constructorSymbol,
+            targetRuntimeType,
+            MethodGenerator.TypeGenerator.CodeGen);
+        if (reboundBySignature is not null)
+            return reboundBySignature;
 
         var parameterTypes = constructorSymbol.Parameters
             .Select(parameter => ResolveClrType(parameter.Type))
@@ -7141,13 +7169,16 @@ internal partial class ExpressionGenerator : Generator
             {
                 var clrType = Generator.InstantiateType(ResolveClrType(effectiveReceiverType));
                 var methodDeclaringType = target.ContainingType;
+                var canUseReceiverAddress =
+                    SymbolEqualityComparer.Default.Equals(effectiveReceiverType, methodDeclaringType) ||
+                    HaveEquivalentValueTypeReceiverShape(effectiveReceiverType, methodDeclaringType);
 
                 if (methodDeclaringType.SpecialType == SpecialType.System_Object ||
                     methodDeclaringType.TypeKind == TypeKind.Interface)
                 {
                     ILGenerator.Emit(OpCodes.Box, clrType);
                 }
-                else if (!SymbolEqualityComparer.Default.Equals(effectiveReceiverType, methodDeclaringType))
+                else if (!canUseReceiverAddress)
                 {
                     ILGenerator.Emit(OpCodes.Box, clrType);
                 }
@@ -7355,6 +7386,17 @@ internal partial class ExpressionGenerator : Generator
             }
         }
 
+    }
+
+    private static bool HaveEquivalentValueTypeReceiverShape(ITypeSymbol receiverType, ITypeSymbol methodDeclaringType)
+    {
+        if (receiverType is INamedTypeSymbol receiverNamed &&
+            methodDeclaringType is INamedTypeSymbol declaringNamed)
+        {
+            return SymbolEqualityComparer.Default.Equals(receiverNamed.OriginalDefinition, declaringNamed.OriginalDefinition);
+        }
+
+        return false;
     }
 
     private bool TryGetVarParamsElementType(ITypeSymbol paramsType, out ITypeSymbol elementType)

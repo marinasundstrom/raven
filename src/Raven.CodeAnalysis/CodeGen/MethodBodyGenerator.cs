@@ -941,6 +941,11 @@ internal class MethodBodyGenerator
             {
                 EmitRecordCopyConstructorPrelude(recordType);
             }
+            else if (MethodSymbol.MethodKind == MethodKind.Constructor &&
+                TryGetSourceUnionCaseTypeDefinition(MethodSymbol.ContainingType) is { } unionCaseType)
+            {
+                EmitSynthesizedConstructorPrelude(unionCaseType);
+            }
 
             DeclareLocals(synthesizedBody);
             EmitMethodBlock(synthesizedBody);
@@ -2029,6 +2034,16 @@ internal class MethodBodyGenerator
         };
     }
 
+    private static SourceNamedTypeSymbol? TryGetSourceUnionCaseTypeDefinition(INamedTypeSymbol? typeSymbol)
+    {
+        return typeSymbol switch
+        {
+            SourceDiscriminatedUnionCaseTypeSymbol sourceCase => sourceCase,
+            ConstructedNamedTypeSymbol { OriginalDefinition: SourceDiscriminatedUnionCaseTypeSymbol sourceCase } => sourceCase,
+            _ => null,
+        };
+    }
+
     private void EmitDiscriminatedUnionCarrierConstructorPrelude(SourceDiscriminatedUnionSymbol unionSymbol)
     {
         var unionClrType = Generator.InstantiateType(
@@ -2070,6 +2085,22 @@ internal class MethodBodyGenerator
 
         var baseCtor = GetBaseConstructor();
         ILGenerator.Emit(OpCodes.Call, baseCtor);
+    }
+
+    private void EmitSynthesizedConstructorPrelude(SourceNamedTypeSymbol containingType)
+    {
+        if (containingType.TypeKind == TypeKind.Struct)
+        {
+            var clrType = Generator.InstantiateType(
+                MethodGenerator.TypeGenerator.TypeBuilder
+                    ?? ResolveClrType(MethodSymbol.ContainingType!));
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Initobj, clrType);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Call, GetBaseConstructor());
     }
 
     private static SourceDiscriminatedUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(INamedTypeSymbol? typeSymbol)
@@ -2783,26 +2814,110 @@ internal class MethodBodyGenerator
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
-        if (typeSymbol is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter &&
-            MethodSymbol.ContainingType is INamedTypeSymbol containingType &&
-            (containingType is SynthesizedAsyncStateMachineTypeSymbol
-             || containingType is SynthesizedIteratorTypeSymbol
-             || (containingType is ConstructedNamedTypeSymbol constructedContaining &&
-                 (constructedContaining.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol
-                  || constructedContaining.ConstructedFrom is SynthesizedIteratorTypeSymbol))))
+        if (MethodSymbol.ContainingType is INamedTypeSymbol containingType)
         {
-            if (containingType is ConstructedNamedTypeSymbol constructed &&
-                (uint)methodTypeParameter.Ordinal < (uint)constructed.TypeArguments.Length)
+            if (containingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
             {
-                typeSymbol = constructed.TypeArguments[methodTypeParameter.Ordinal];
+                typeSymbol = RemapMethodTypeParametersToContainingType(typeSymbol, asyncStateMachine);
             }
-            else if ((uint)methodTypeParameter.Ordinal < (uint)containingType.TypeParameters.Length)
+            else if (containingType is ConstructedNamedTypeSymbol { ConstructedFrom: SynthesizedAsyncStateMachineTypeSymbol constructedAsyncStateMachine })
             {
-                typeSymbol = containingType.TypeParameters[methodTypeParameter.Ordinal];
+                typeSymbol = RemapMethodTypeParametersToContainingType(typeSymbol, containingType);
+            }
+            else if (typeSymbol is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter &&
+                     (containingType is SynthesizedIteratorTypeSymbol
+                      || (containingType is ConstructedNamedTypeSymbol constructedContaining &&
+                          constructedContaining.ConstructedFrom is SynthesizedIteratorTypeSymbol)))
+            {
+                if (containingType is ConstructedNamedTypeSymbol constructed &&
+                    (uint)methodTypeParameter.Ordinal < (uint)constructed.TypeArguments.Length)
+                {
+                    typeSymbol = constructed.TypeArguments[methodTypeParameter.Ordinal];
+                }
+                else if ((uint)methodTypeParameter.Ordinal < (uint)containingType.TypeParameters.Length)
+                {
+                    typeSymbol = containingType.TypeParameters[methodTypeParameter.Ordinal];
+                }
             }
         }
 
         return TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, MethodGenerator.TypeGenerator.CodeGen);
+    }
+
+    private ITypeSymbol RemapMethodTypeParametersToContainingType(ITypeSymbol typeSymbol, INamedTypeSymbol containingType)
+    {
+        return Rewrite(typeSymbol);
+
+        ITypeSymbol Rewrite(ITypeSymbol symbol)
+        {
+            if (symbol is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter)
+            {
+                if (containingType is ConstructedNamedTypeSymbol constructedContaining &&
+                    (uint)methodTypeParameter.Ordinal < (uint)constructedContaining.TypeArguments.Length)
+                {
+                    return constructedContaining.TypeArguments[methodTypeParameter.Ordinal];
+                }
+
+                if ((uint)methodTypeParameter.Ordinal < (uint)containingType.TypeParameters.Length)
+                    return containingType.TypeParameters[methodTypeParameter.Ordinal];
+
+                return symbol;
+            }
+
+            if (symbol is RefTypeSymbol refType)
+            {
+                var elementType = Rewrite(refType.ElementType);
+                return SymbolEqualityComparer.Default.Equals(elementType, refType.ElementType)
+                    ? symbol
+                    : new RefTypeSymbol(elementType);
+            }
+
+            if (symbol is IAddressTypeSymbol addressType)
+            {
+                var referencedType = Rewrite(addressType.ReferencedType);
+                return SymbolEqualityComparer.Default.Equals(referencedType, addressType.ReferencedType)
+                    ? symbol
+                    : new AddressTypeSymbol(referencedType);
+            }
+
+            if (symbol is IArrayTypeSymbol arrayType)
+            {
+                var elementType = Rewrite(arrayType.ElementType);
+                return SymbolEqualityComparer.Default.Equals(elementType, arrayType.ElementType)
+                    ? symbol
+                    : Compilation.CreateArrayTypeSymbol(elementType, arrayType.Rank, arrayType.FixedLength);
+            }
+
+            if (symbol is IPointerTypeSymbol pointerType)
+            {
+                var pointedAtType = Rewrite(pointerType.PointedAtType);
+                return SymbolEqualityComparer.Default.Equals(pointedAtType, pointerType.PointedAtType)
+                    ? symbol
+                    : Compilation.CreatePointerTypeSymbol(pointedAtType);
+            }
+
+            if (symbol is INamedTypeSymbol namedType && namedType.IsGenericType && !namedType.IsUnboundGenericType)
+            {
+                var typeArguments = namedType.TypeArguments;
+                var rewrittenArguments = new ITypeSymbol[typeArguments.Length];
+                var changed = false;
+
+                for (var i = 0; i < typeArguments.Length; i++)
+                {
+                    rewrittenArguments[i] = Rewrite(typeArguments[i]);
+                    if (!SymbolEqualityComparer.Default.Equals(rewrittenArguments[i], typeArguments[i]))
+                        changed = true;
+                }
+
+                if (!changed)
+                    return symbol;
+
+                var definition = namedType.ConstructedFrom as INamedTypeSymbol ?? namedType;
+                return definition.Construct(rewrittenArguments);
+            }
+
+            return symbol;
+        }
     }
 
     private static IEnumerable<StatementSyntax> GetTopLevelStatements(CompilationUnitSyntax compilationUnit)
