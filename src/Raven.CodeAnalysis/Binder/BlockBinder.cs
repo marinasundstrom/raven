@@ -1965,6 +1965,8 @@ partial class BlockBinder : Binder
         if (refKind.IsByRef())
             boundExpression = BindByRefInvocationArgument(boundExpression, refKind, syntax.Expression);
 
+        boundExpression = UnwrapNullableIfFlowKnownNonNull(boundExpression);
+
         return boundExpression;
     }
 
@@ -9253,6 +9255,14 @@ partial class BlockBinder : Binder
         return expr;
     }
 
+    private BoundExpression UnwrapNullableIfFlowKnownNonNull(BoundExpression expr)
+    {
+        expr = UnwrapFlowExpression(expr);
+        return TryGetFlowSymbol(expr, out var symbol)
+            ? UnwrapNullableIfKnownNonNull(expr, symbol)
+            : expr;
+    }
+
     private void ClearNonNullSymbolsAtDepth(int depth)
     {
         foreach (var local in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Value.Symbol))
@@ -10893,6 +10903,8 @@ partial class BlockBinder : Binder
                 continue;
             }
 
+            expression = UnwrapNullableIfFlowKnownNonNull(expression);
+
             if (!IsAssignable(parameter.Type, expression.Type, out var conversion))
             {
                 var location = syntaxNode?.GetLocation() ?? parameter.Locations.FirstOrDefault();
@@ -11131,6 +11143,8 @@ partial class BlockBinder : Binder
         {
             return argument;
         }
+
+        argument = UnwrapNullableIfFlowKnownNonNull(argument);
 
         if (!IsAssignable(parameter.Type, argument.Type, out var conversion))
         {

@@ -361,6 +361,61 @@ class Foo {
     }
 
     [Fact]
+    public void NullableArgument_AfterIsNullGuard_ConvertsToNonNullableParameter()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    func Accept(value: string) -> unit {
+    }
+
+    func Run(candidate: string?) -> unit {
+        if candidate is null {
+            return
+        }
+
+        Accept(candidate)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+    }
+
+    [Fact]
+    public void AsCastArgument_AfterIsNullGuard_ConvertsToNonNullableParameter()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    func Accept(value: string) -> unit {
+    }
+
+    func Run(input: object) -> unit {
+        val candidate = input as string
+        if candidate is null {
+            return
+        }
+
+        Accept(candidate)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+    }
+
+    [Fact]
     public void NullableDelegateInvocation_AfterNotEqualsNullGuard_AllowsAccess()
     {
         var source = """
