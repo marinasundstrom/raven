@@ -1,38 +1,61 @@
 import System.*
 import System.Console.*
+import System.Globalization.*
 
-func Main() -> Result<(), Err> {
-    val userOrError = GetUser()
+func Main() -> Result<(), IParseError> {
+    // Custom extension
+    val test = int.parse("foo")?
     
-    match userOrError {
-        Ok(val user) => {
-            user.Foo += func (s, args) => WriteLine(args.Arg)
-            user.RaiseEvent("Test")
+    /*
+    match test {
+        Ok(val v) => WriteLine(v)
+        Error(ParseIntError(val kind, _)) => {
+            WriteLine(kind)
         }
-        Error(val error) => WriteLine(error)
-    }
+    }*/
+
+    WriteLine("Value: $test")
 
     return Ok
 }
 
-func GetUser() -> Result<User, Err> {
-    Ok(User("Foo", IsActive: true))
-    //return Error(Err.MissingUser)
+record ParseIntError(val Kind : IntErrorKind, val Message: string): IParseError {
+    override func ToString() -> string => Message
 }
 
-record class User(Name: string, IsActive: bool) {
-    event Foo: EventHandler<CustomEventArgs>?
-
-    func RaiseEvent(arg: string) -> () 
-        => Foo?(self, CustomEventArgs(arg))
-
-    override func ToString() -> string => Name
+enum IntErrorKind {
+    Empty,
+    Null,
+    InvalidFormat,
+    Overflow,
+    Zero
 }
 
-class CustomEventArgs(val Arg: string) : EventArgs
+extension Int32Extensions for Int32 {
+    /// Parses a span of UTF-8 characters into a value.
+    /// ## Returns
+    /// The result of parsing `utf8Text`.
+    static func parse(value: string) -> Result<int, ParseIntError> { 
+        return parse(value, NumberStyles.Integer)
+    }
 
-union Err {
-    MissingUser
-    MissingName
-    InactiveUser
+    /// Parses a span of UTF-8 characters into a value.
+    /// ## Returns
+    /// The result of parsing `utf8Text`.
+    static func parse(value: string, style: NumberStyles, provider: IFormatProvider? = null) -> Result<int, ParseIntError> { 
+        try {
+            return Ok(int.Parse(value, style, provider))
+        } catch (ArgumentNullException ex) {
+            return Error(ParseIntError(.Null, ex.Message))
+        } catch (FormatException ex) {
+            return Error(ParseIntError(.InvalidFormat, ex.Message))
+        } catch (OverflowException ex) {
+            return Error(ParseIntError(.Overflow, ex.Message))
+        }
+    }
 }
+
+interface IParseError {
+
+}
+
