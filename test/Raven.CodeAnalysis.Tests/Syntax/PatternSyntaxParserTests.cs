@@ -156,6 +156,25 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void NominalDeconstructionPattern_WithNestedTypedRecursivePattern_Parses()
+    {
+        var (pattern, tree) = ParsePattern("Error(ParseIntError(kind, _))");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var outerPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(pattern);
+        Assert.Equal("Error(ParseIntError(kind, _))", sourceText.ToString(outerPattern.Span));
+        Assert.Equal("Error", Assert.IsType<IdentifierNameSyntax>(outerPattern.Type).Identifier.ValueText);
+
+        var innerPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(Assert.Single(outerPattern.ArgumentList.Arguments));
+        Assert.Equal("ParseIntError", Assert.IsType<IdentifierNameSyntax>(innerPattern.Type).Identifier.ValueText);
+        Assert.Equal(2, innerPattern.ArgumentList.Arguments.Count);
+        Assert.IsType<VariablePatternSyntax>(innerPattern.ArgumentList.Arguments[0]);
+        Assert.IsType<DiscardPatternSyntax>(innerPattern.ArgumentList.Arguments[1]);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void SequencePattern_WithBracketSyntax_Parses()
     {
         var (pattern, tree) = ParsePattern("[let first, _]");

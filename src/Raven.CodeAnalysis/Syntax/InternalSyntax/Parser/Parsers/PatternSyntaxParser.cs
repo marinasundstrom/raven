@@ -665,7 +665,10 @@ internal class PatternSyntaxParser : SyntaxParser
     private PatternSyntax ParseDeconstructionElementPattern()
     {
         if (_allowImplicitDeconstructionElementBindings &&
-            CanTokenBeIdentifier(PeekToken()))
+            CanTokenBeIdentifier(PeekToken()) &&
+            PeekToken(1).Kind is not SyntaxKind.OpenParenToken &&
+            PeekToken(1).Kind is not SyntaxKind.OpenBraceToken &&
+            PeekToken(1).Kind is not SyntaxKind.DotToken)
         {
             var identifier = ReadIdentifierToken();
             var pattern = VariablePattern(

@@ -109,6 +109,28 @@ if val Person(1, name, _) = person {
     }
 
     [Fact]
+    public void IfPatternStatement_WithNestedTypedRecursivePattern_ParsesNestedNominalDeconstruction()
+    {
+        const string testCode = """
+if val Error(ParseIntError(kind, _)) = value {
+}
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var ifBinding = Assert.IsType<IfPatternStatementSyntax>(statement);
+        var outerPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(ifBinding.Pattern);
+        var innerPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(Assert.Single(outerPattern.ArgumentList!.Arguments));
+        var innerArguments = innerPattern.ArgumentList!.Arguments;
+
+        outerPattern.Type.ToString().ShouldBe("Error");
+        innerPattern.Type.ToString().ShouldBe("ParseIntError");
+        innerArguments.Count.ShouldBe(2);
+        innerArguments[0].ShouldBeOfType<VariablePatternSyntax>();
+        innerArguments[1].ShouldBeOfType<DiscardPatternSyntax>();
+    }
+
+    [Fact]
     public void IfPatternStatement_WithTypedImplicitBinding_ParsesVariablePattern()
     {
         const string testCode = """
