@@ -333,25 +333,19 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (!HasExtensionMarkerMembers())
                 return null;
 
-            foreach (var nestedType in GetNestedTypeMembers().OfType<PENamedTypeSymbol>())
+            foreach (var member in GetMembers())
             {
-                foreach (var member in nestedType.GetMembers())
+                if (member is PEMethodSymbol peMethod && peMethod.TryGetExtensionMarkerName(out _))
                 {
-                    if (member is PEMethodSymbol peMethod && peMethod.TryGetExtensionMarkerName(out _))
-                    {
-                        _extensionReceiverType = nestedType.GetExtensionMarkerReceiverType(peMethod);
-                        break;
-                    }
-
-                    if (member is PEPropertySymbol peProperty && peProperty.TryGetExtensionMarkerName(out _))
-                    {
-                        _extensionReceiverType = nestedType.GetExtensionMarkerReceiverType(peProperty);
-                        break;
-                    }
+                    _extensionReceiverType = GetExtensionMarkerReceiverType(peMethod);
+                    break;
                 }
 
-                if (_extensionReceiverType is not null)
+                if (member is PEPropertySymbol peProperty && peProperty.TryGetExtensionMarkerName(out _))
+                {
+                    _extensionReceiverType = GetExtensionMarkerReceiverType(peProperty);
                     break;
+                }
             }
         }
 
@@ -415,18 +409,72 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         if (string.IsNullOrWhiteSpace(markerName))
             return null;
 
-        var markerType = GetMembers(markerName).OfType<INamedTypeSymbol>().FirstOrDefault();
+        var markerType = FindNestedMarkerType(markerName);
         if (markerType is null)
             return null;
 
         var markerMethod = markerType.GetMembers("<Extension>$").OfType<IMethodSymbol>().FirstOrDefault()
             ?? markerType.GetMembers().OfType<IMethodSymbol>().FirstOrDefault(m => m.Name == "<Extension>$");
 
-        if (markerMethod is null || markerMethod.Parameters.IsDefaultOrEmpty)
+        if (markerMethod is not null && !markerMethod.Parameters.IsDefaultOrEmpty)
+            return markerMethod.Parameters[0].Type;
+
+        if (markerType is not PENamedTypeSymbol peMarkerType)
             return null;
 
-        var receiverType = markerMethod.Parameters[0].Type;
-        return receiverType;
+        try
+        {
+            foreach (var methodInfo in peMarkerType.GetTypeInfo().DeclaredMethods)
+            {
+                if (methodInfo.Name != "<Extension>$")
+                    continue;
+
+                var parameters = methodInfo.GetParameters();
+                if (parameters.Length == 0)
+                    return null;
+
+                return PEContainingModule.GetType(parameters[0].ParameterType);
+            }
+        }
+        catch (BadImageFormatException)
+        {
+            return null;
+        }
+
+        return null;
+    }
+
+    private INamedTypeSymbol? FindNestedMarkerType(string markerName)
+    {
+        foreach (var member in GetMembers().OfType<INamedTypeSymbol>())
+        {
+            if (member.Name == markerName)
+                return member;
+
+            if (member is PENamedTypeSymbol nested &&
+                nested.FindNestedMarkerType(markerName) is { } nestedMatch)
+            {
+                return nestedMatch;
+            }
+        }
+
+        foreach (var nestedTypeInfo in GetDeclaredNestedTypesSafe())
+        {
+            var nested = PEContainingModule.GetType(nestedTypeInfo.AsType()) as INamedTypeSymbol;
+            if (nested is null)
+                continue;
+
+            if (nested.Name == markerName)
+                return nested;
+
+            if (nested is PENamedTypeSymbol peNested &&
+                peNested.FindNestedMarkerType(markerName) is { } nestedMatch)
+            {
+                return nestedMatch;
+            }
+        }
+
+        return null;
     }
 
     private static bool TryGetExtensionMarkerName(ISymbol member, out string markerName)
@@ -717,7 +765,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var methodInfo in _typeInfo.DeclaredMethods)
             {
-                if (methodInfo.IsSpecialName)
+                if (methodInfo.IsSpecialName && methodInfo.Name != "<Extension>$")
                     continue;
 
                 var name = methodInfo.Name;

@@ -294,6 +294,9 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         if (_methodInfo is null || !_methodInfo.IsStatic)
             return false;
 
+        if (TryGetExtensionMarkerName(out _))
+            return false;
+
         if (_hasUnreadableSignature)
             return false;
 

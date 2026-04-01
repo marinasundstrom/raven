@@ -1,0 +1,46 @@
+namespace System
+
+import System.*
+import System.Globalization.*
+
+interface IParseError {
+}
+
+enum IntErrorKind {
+    Empty,
+    Null,
+    InvalidFormat,
+    Overflow
+}
+
+record ParseIntError(val Kind: IntErrorKind, val Message: string) : IParseError {
+    override func ToString() -> string => Message
+}
+
+extension Int32Extensions for Int32 {
+
+    static func parse(value: string) -> Result<int, ParseIntError> {
+        return parse(value, NumberStyles.Integer)
+    }
+
+    static func parse(
+        value: string,
+        style: NumberStyles,
+        provider: IFormatProvider? = null) -> Result<int, ParseIntError> {
+        if value is null {
+            return Error(ParseIntError(.Null, "Value cannot be null."))
+        }
+
+        if value.Length == 0 {
+            return Error(ParseIntError(.Empty, "Value cannot be empty."))
+        }
+
+        try {
+            return Ok(int.Parse(value, style, provider))
+        } catch (FormatException ex) {
+            return Error(ParseIntError(.InvalidFormat, ex.Message))
+        } catch (OverflowException ex) {
+            return Error(ParseIntError(.Overflow, ex.Message))
+        }
+    }
+}

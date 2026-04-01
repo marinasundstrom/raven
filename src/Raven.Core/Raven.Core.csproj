@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <RavenSource Include="Option.rav" />
+    <RavenSource Include="Parse.rav" />
     <RavenSource Include="Result.rav" />
     <RavenSource Include="LinqExtensions.rav" />
   </ItemGroup>
