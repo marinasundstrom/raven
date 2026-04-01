@@ -46,6 +46,41 @@ string.
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_OnType_IncludesStaticExtensionMethodsAndProperties()
+    {
+        var code = """
+class Counter { }
+
+extension CounterExtensions for Counter {
+    static func Build() -> Counter {
+        return Counter()
+    }
+
+    static val Name: string {
+        get { return "counter"; }
+    }
+}
+
+Counter.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Build" && i.InsertionText == "Build()");
+        Assert.Contains(items, i => i.DisplayText == "Name" && i.InsertionText == "Name");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnQualifiedNamespaceInTypeAnnotation_ReturnsNestedTypes()
     {
         var code = """
@@ -129,6 +164,42 @@ text.
 
         Assert.Contains(items, i => i.DisplayText == "Length");
         Assert.DoesNotContain(items, i => i.DisplayText == "IsNullOrEmpty");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnVariable_IncludesExtensionProperties()
+    {
+        var code = """
+class Counter { }
+
+extension CounterExtensions for Counter {
+    func Increment() -> int {
+        return 1
+    }
+
+    val Total: int {
+        get { return 42; }
+    }
+}
+
+val counter = Counter()
+counter.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Increment" && i.InsertionText == "Increment()");
+        Assert.Contains(items, i => i.DisplayText == "Total" && i.InsertionText == "Total");
     }
 
     [Fact]

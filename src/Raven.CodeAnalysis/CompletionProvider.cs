@@ -647,6 +647,88 @@ public static class CompletionProvider
             return members;
         }
 
+        void AddCompletionItem(ISymbol symbol, TextSpan replacementSpan)
+        {
+            if (symbol is IMethodSymbol method && IsSuppressedCompletionMethod(method))
+                return;
+
+            var (displayText, insertText, dedupKey) = CreateCompletionParts(symbol);
+            var cursorOffset = GetDefaultCursorOffset(symbol, insertText);
+
+            if (!seen.Add(dedupKey))
+                return;
+
+            completions.Add(new CompletionItem(
+                DisplayText: displayText,
+                InsertionText: insertText,
+                ReplacementSpan: replacementSpan,
+                CursorOffset: cursorOffset,
+                Description: SafeToDisplayString(symbol),
+                Symbol: symbol
+            ));
+        }
+
+        void AddExtensionMemberCompletions(
+            ITypeSymbol receiverType,
+            string prefix,
+            TextSpan replacementSpan,
+            ExtensionMemberKinds kinds)
+        {
+            var extensionMembers = ExtensionMemberLookup.Lookup(
+                binder,
+                receiverType,
+                includePartialMatches: false,
+                kinds: kinds);
+
+            if (kinds.HasFlag(ExtensionMemberKinds.InstanceMethods))
+            {
+                foreach (var method in extensionMembers.InstanceMethods)
+                {
+                    if (!IsAccessible(method) ||
+                        !ShouldIncludeExtensionMethod(method, prefix) ||
+                        !NameMatchesPrefix(method.Name, prefix))
+                    {
+                        continue;
+                    }
+
+                    AddCompletionItem(method, replacementSpan);
+                }
+            }
+
+            if (kinds.HasFlag(ExtensionMemberKinds.InstanceProperties))
+            {
+                foreach (var property in extensionMembers.InstanceProperties)
+                {
+                    if (!IsAccessible(property) || !NameMatchesPrefix(property.Name, prefix))
+                        continue;
+
+                    AddCompletionItem(property, replacementSpan);
+                }
+            }
+
+            if (kinds.HasFlag(ExtensionMemberKinds.StaticMethods))
+            {
+                foreach (var method in extensionMembers.StaticMethods)
+                {
+                    if (!IsAccessible(method) || !NameMatchesPrefix(method.Name, prefix))
+                        continue;
+
+                    AddCompletionItem(method, replacementSpan);
+                }
+            }
+
+            if (kinds.HasFlag(ExtensionMemberKinds.StaticProperties))
+            {
+                foreach (var property in extensionMembers.StaticProperties)
+                {
+                    if (!IsAccessible(property) || !NameMatchesPrefix(property.Name, prefix))
+                        continue;
+
+                    AddCompletionItem(property, replacementSpan);
+                }
+            }
+        }
+
         ITypeSymbol? TryGetExplicitlyAnnotatedType(ISymbol? symbol)
         {
             if (symbol is null)
@@ -1314,61 +1396,13 @@ public static class CompletionProvider
                         : new TextSpan(position, 0);
 
                     foreach (var member in members.Where(m => NameMatchesPrefix(m.Name, prefix)))
-                    {
-                        if (member is IMethodSymbol method && IsSuppressedCompletionMethod(method))
-                            continue;
+                        AddCompletionItem(member, nameSpan);
 
-                        var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
-                        var cursorOffset = GetDefaultCursorOffset(member, insertText);
-
-                        if (seen.Add(dedupKey))
-                        {
-                            completions.Add(new CompletionItem(
-                                DisplayText: displayText,
-                                InsertionText: insertText,
-                                ReplacementSpan: nameSpan,
-                                CursorOffset: cursorOffset,
-                                Description: SafeToDisplayString(member),
-                                Symbol: member
-                            ));
-                        }
-                    }
+                    if (TryGetTypeAccessSymbol(symbol, type) is { } staticExtensionReceiver)
+                        AddExtensionMemberCompletions(staticExtensionReceiver, prefix, nameSpan, ExtensionMemberKinds.StaticMethods | ExtensionMemberKinds.StaticProperties);
 
                     if (instanceTypeForExtensions is not null)
-                    {
-                        var extensionMembers = ExtensionMemberLookup.Lookup(
-                            binder,
-                            instanceTypeForExtensions,
-                            includePartialMatches: false,
-                            kinds: ExtensionMemberKinds.InstanceMethods);
-
-                        foreach (var method in extensionMembers.InstanceMethods)
-                        {
-                            if (!IsAccessible(method) ||
-                                IsSuppressedCompletionMethod(method) ||
-                                !ShouldIncludeExtensionMethod(method, prefix))
-                                continue;
-
-                            if (!NameMatchesPrefix(method.Name, prefix))
-                                continue;
-
-                            var (displayText, insertText, dedupKey) = CreateCompletionParts(method);
-                            var cursorOffset = GetDefaultCursorOffset(method, insertText);
-
-                            if (seen.Add(dedupKey))
-                            {
-                                completions.Add(new CompletionItem(
-                                    DisplayText: displayText,
-                                    InsertionText: insertText,
-                                    ReplacementSpan: nameSpan,
-                                    CursorOffset: cursorOffset,
-                                    Description: SafeToDisplayString(method),
-                                    Symbol: method
-                                ));
-                            }
-                        }
-
-                    }
+                        AddExtensionMemberCompletions(instanceTypeForExtensions, prefix, nameSpan, ExtensionMemberKinds.InstanceMethods | ExtensionMemberKinds.InstanceProperties);
 
                     return completions;
                 }
@@ -1452,61 +1486,13 @@ public static class CompletionProvider
                         : new TextSpan(position, 0);
 
                     foreach (var member in members.Where(m => NameMatchesPrefix(m.Name, prefix)))
-                    {
-                        if (member is IMethodSymbol method && IsSuppressedCompletionMethod(method))
-                            continue;
+                        AddCompletionItem(member, nameSpan);
 
-                        var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
-                        var cursorOffset = GetDefaultCursorOffset(member, insertText);
-
-                        if (seen.Add(dedupKey))
-                        {
-                            completions.Add(new CompletionItem(
-                                DisplayText: displayText,
-                                InsertionText: insertText,
-                                ReplacementSpan: nameSpan,
-                                CursorOffset: cursorOffset,
-                                Description: SafeToDisplayString(member),
-                                Symbol: member
-                            ));
-                        }
-                    }
+                    if (TryGetTypeAccessSymbol(symbol, type) is { } staticExtensionReceiver)
+                        AddExtensionMemberCompletions(staticExtensionReceiver, prefix, nameSpan, ExtensionMemberKinds.StaticMethods | ExtensionMemberKinds.StaticProperties);
 
                     if (instanceTypeForExtensions is not null)
-                    {
-                        var extensionMembers = ExtensionMemberLookup.Lookup(
-                            binder,
-                            instanceTypeForExtensions,
-                            includePartialMatches: false,
-                            kinds: ExtensionMemberKinds.InstanceMethods);
-
-                        foreach (var method in extensionMembers.InstanceMethods)
-                        {
-                            if (!IsAccessible(method) ||
-                                IsSuppressedCompletionMethod(method) ||
-                                !ShouldIncludeExtensionMethod(method, prefix))
-                                continue;
-
-                            if (!NameMatchesPrefix(method.Name, prefix))
-                                continue;
-
-                            var (displayText, insertText, dedupKey) = CreateCompletionParts(method);
-                            var cursorOffset = GetDefaultCursorOffset(method, insertText);
-
-                            if (seen.Add(dedupKey))
-                            {
-                                completions.Add(new CompletionItem(
-                                    DisplayText: displayText,
-                                    InsertionText: insertText,
-                                    ReplacementSpan: nameSpan,
-                                    CursorOffset: cursorOffset,
-                                    Description: SafeToDisplayString(method),
-                                    Symbol: method
-                                ));
-                            }
-                        }
-
-                    }
+                        AddExtensionMemberCompletions(instanceTypeForExtensions, prefix, nameSpan, ExtensionMemberKinds.InstanceMethods | ExtensionMemberKinds.InstanceProperties);
 
                     return completions;
                 }
