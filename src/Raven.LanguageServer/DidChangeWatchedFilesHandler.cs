@@ -40,7 +40,7 @@ internal sealed class DidChangeWatchedFilesHandler : DidChangeWatchedFilesHandle
             Watchers = new Container<OmniSharp.Extensions.LanguageServer.Protocol.Models.FileSystemWatcher>(
                 new OmniSharp.Extensions.LanguageServer.Protocol.Models.FileSystemWatcher
                 {
-                    GlobPattern = "**/*.{rvn,rav,rvnproj,csproj,fsproj}",
+                    GlobPattern = new GlobPattern("**/*.{rvn,rav,rvnproj,csproj,fsproj}"),
                     Kind = WatchKind.Create | WatchKind.Change | WatchKind.Delete
                 })
         };
