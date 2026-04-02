@@ -79,7 +79,24 @@ import System.Globalization.*
 func Wrap() -> string {
     val error = ParseIntError(.InvalidFormat, "foo", NumberStyles.Integer)
     val wrapped = error.WithMessage("wrapped")
-    return wrapped.InnerError.Kind.ToString()
+    return if wrapped.Cause.Kind == .InvalidFormat { "ok" } else { "bad" }
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
+    public void ContextError_ExplicitInterfaceCause_CoexistsWithTypedCause()
+    {
+        const string code = """
+import System.*
+import System.Globalization.*
+
+func Wrap() -> string {
+    val wrapped = ParseIntError(.InvalidFormat, "foo", NumberStyles.Integer).WithMessage("wrapped")
+    val erased: IError = wrapped
+    return "$wrapped.Cause.Kind|$erased.Cause?.Message"
 }
 """;
 

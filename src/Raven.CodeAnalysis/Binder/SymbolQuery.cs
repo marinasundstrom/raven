@@ -87,6 +87,9 @@ internal readonly record struct SymbolQuery(
         {
             foreach (var m in t.GetMembers(name))
             {
+                if (IsExplicitInterfaceImplementation(m))
+                    continue;
+
                 // Ignore return type for the purpose of de-duplication; this matches .NET interface hiding patterns.
                 var key = GetSignatureKey(m);
                 if (seenKeys.Add(key))
@@ -154,6 +157,17 @@ internal readonly record struct SymbolQuery(
         {
             IMethodSymbol method => method.IsAbstract,
             IPropertySymbol property => property.GetMethod?.IsAbstract == true || property.SetMethod?.IsAbstract == true,
+            _ => false
+        };
+    }
+
+    private static bool IsExplicitInterfaceImplementation(ISymbol member)
+    {
+        return member switch
+        {
+            IMethodSymbol method => !method.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
+            IPropertySymbol property => !property.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
+            IEventSymbol @event => !@event.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
             _ => false
         };
     }

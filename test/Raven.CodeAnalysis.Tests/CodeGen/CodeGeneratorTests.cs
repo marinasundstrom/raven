@@ -727,9 +727,24 @@ class QuietLogger : ILogger {
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
 
-        Assert.False(result.Success);
-        Assert.Contains(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ExplicitInterfaceMemberNotFound);
-        Assert.DoesNotContain(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ExplicitInterfaceSpecifierMustBeInterface);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+
+        var interfaceType = assembly.GetType("ILogger", throwOnError: true)!;
+        var loggerType = assembly.GetType("QuietLogger", throwOnError: true)!;
+        var interfaceMethod = interfaceType.GetMethod("Log", BindingFlags.Public | BindingFlags.Instance)!;
+        var interfaceMap = loggerType.GetInterfaceMap(interfaceType);
+        var targetMethod = interfaceMap.TargetMethods[Array.IndexOf(interfaceMap.InterfaceMethods, interfaceMethod)];
+
+        Assert.True(targetMethod.IsPrivate);
+        Assert.Equal("ILogger.Log", targetMethod.Name);
+
+        var instance = Activator.CreateInstance(loggerType)!;
+        var value = (string)interfaceMethod.Invoke(instance, ["ignored"])!;
+
+        Assert.Equal("[quiet]", value);
     }
 
     [Fact]
@@ -768,9 +783,31 @@ class QuietLogger : ILogger {
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
 
-        Assert.False(result.Success);
-        Assert.Contains(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ExplicitInterfaceMemberNotFound);
-        Assert.DoesNotContain(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ExplicitInterfaceSpecifierMustBeInterface);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+
+        var interfaceType = assembly.GetType("ILogger", throwOnError: true)!;
+        var loggerType = assembly.GetType("QuietLogger", throwOnError: true)!;
+        var interfaceProperty = interfaceType.GetProperty("Message", BindingFlags.Public | BindingFlags.Instance)!;
+        var interfaceMap = loggerType.GetInterfaceMap(interfaceType);
+        var instance = Activator.CreateInstance(loggerType)!;
+
+        var getter = interfaceProperty.GetMethod!;
+        var setter = interfaceProperty.SetMethod!;
+        var targetGetter = interfaceMap.TargetMethods[Array.IndexOf(interfaceMap.InterfaceMethods, getter)];
+        var targetSetter = interfaceMap.TargetMethods[Array.IndexOf(interfaceMap.InterfaceMethods, setter)];
+
+        Assert.True(targetGetter.IsPrivate);
+        Assert.True(targetSetter.IsPrivate);
+        Assert.Equal("ILogger.get_Message", targetGetter.Name);
+        Assert.Equal("ILogger.set_Message", targetSetter.Name);
+
+        setter.Invoke(instance, ["updated"]);
+        var value = (string)getter.Invoke(instance, Array.Empty<object>())!;
+
+        Assert.Equal("updated", value);
     }
 
     [Fact]

@@ -267,6 +267,9 @@ internal partial class TypeMemberBinder : Binder
         if (isRequired && sourcePropertySymbol is not null)
             sourcePropertySymbol.MarkAsRequired();
 
+        if (explicitInterfaceProperty is not null && sourcePropertySymbol is not null)
+            sourcePropertySymbol.SetExplicitInterfaceImplementations(ImmutableArray.Create(explicitInterfaceProperty));
+
         // Bind property initializer (if any) with the property's declared type as target type.
         if (propertyDecl.Initializer is not null)
         {

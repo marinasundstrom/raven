@@ -21,6 +21,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
     private bool _isPartialDefinition;
     private bool _isPartialImplementation;
+    private ImmutableArray<IPropertySymbol> _explicitInterfaceImplementations = ImmutableArray<IPropertySymbol>.Empty;
 
     public SourcePropertySymbol(
         string name,
@@ -60,6 +61,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     internal bool IsPartialMember => _isPartialDefinition || _isPartialImplementation;
     internal bool HasPartialDefinition => _isPartialDefinition;
     internal bool HasPartialImplementation => _isPartialImplementation;
+    public ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations => _explicitInterfaceImplementations;
 
     public SourceFieldSymbol? BackingField => _backingField;
     internal bool EmitAsFieldOnly => _implementationKind == PropertyImplementationKind.FieldOnly;
@@ -104,6 +106,11 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 
     internal void AddDeclaration(Location location, SyntaxReference reference, bool preferAsPrimary = false)
         => base.AddDeclaration(location, reference, preferAsPrimary);
+
+    internal void SetExplicitInterfaceImplementations(ImmutableArray<IPropertySymbol> implementations)
+    {
+        _explicitInterfaceImplementations = implementations;
+    }
 
     internal void MarkAsPartialDefinition()
     {

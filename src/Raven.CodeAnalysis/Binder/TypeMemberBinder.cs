@@ -1442,20 +1442,30 @@ internal partial class TypeMemberBinder : Binder
         ITypeSymbol returnType,
         (ITypeSymbol type, RefKind refKind)[] parameters)
     {
-        var fallbackCandidates = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var shapeCandidates = ImmutableArray.CreateBuilder<IMethodSymbol>();
 
         foreach (var member in interfaceType.GetMembers(methodName).OfType<IMethodSymbol>())
         {
             if (member.IsStatic)
                 continue;
 
-            if (!ReturnTypesMatch(returnType, member.ReturnType))
+            if (!MethodShapeMatchesForExplicitImplementation(member, parameters))
                 continue;
+
+            shapeCandidates.Add(member);
+
+            if (!ReturnTypesMatch(returnType, member.ReturnType))
+            {
+                if (IsPotentiallyUnboundSourceMethodSignature(member, parameters.Length))
+                    continue;
+
+                continue;
+            }
 
             if (!ExplicitImplementationSignaturesMatch(member, parameters))
             {
                 if (IsPotentiallyUnboundSourceMethodSignature(member, parameters.Length))
-                    fallbackCandidates.Add(member);
+                    continue;
 
                 continue;
             }
@@ -1463,10 +1473,9 @@ internal partial class TypeMemberBinder : Binder
             return member;
         }
 
-        if (fallbackCandidates.Count == 1)
-            return fallbackCandidates[0];
-
-        return null;
+        return shapeCandidates.Count == 1
+            ? shapeCandidates[0]
+            : null;
     }
 
     private IPropertySymbol? FindExplicitInterfacePropertyImplementation(
@@ -1483,21 +1492,56 @@ internal partial class TypeMemberBinder : Binder
             if (property.IsIndexer != isIndexer)
                 continue;
 
+            if (!PropertyShapeMatchesForExplicitImplementation(property, parameters))
+                continue;
+
             shapeCandidates.Add(property);
 
             if (!TypesMatchForExplicitImplementation(property.Type, propertyType))
+            {
+                if (IsPotentiallyUnboundSourcePropertySignature(property, parameters.Length))
+                    continue;
+
                 continue;
+            }
 
             if (isIndexer && !IndexerParametersMatch(property, parameters))
+            {
+                if (IsPotentiallyUnboundSourcePropertySignature(property, parameters.Length))
+                    continue;
+
                 continue;
+            }
 
             return property;
         }
 
-        if (shapeCandidates.Count == 1)
-            return shapeCandidates[0];
+        return shapeCandidates.Count == 1
+            ? shapeCandidates[0]
+            : null;
+    }
 
-        return null;
+    private static bool MethodShapeMatchesForExplicitImplementation(
+        IMethodSymbol method,
+        (ITypeSymbol type, RefKind refKind)[] parameters)
+    {
+        if (method.Parameters.Length == parameters.Length)
+            return true;
+
+        return IsPotentiallyUnboundSourceMethodSignature(method, parameters.Length);
+    }
+
+    private static bool PropertyShapeMatchesForExplicitImplementation(
+        IPropertySymbol property,
+        (ITypeSymbol type, RefKind refKind)[] parameters)
+    {
+        if (!property.IsIndexer)
+            return parameters.Length == 0;
+
+        if (property.Parameters.Length == parameters.Length)
+            return true;
+
+        return IsPotentiallyUnboundSourcePropertySignature(property, parameters.Length);
     }
 
     private IEventSymbol? FindExplicitInterfaceEventImplementation(
@@ -1594,6 +1638,28 @@ internal partial class TypeMemberBinder : Binder
 
         if (syntax.ReturnType is not null && method.ReturnType.SpecialType == SpecialType.System_Unit)
             return true;
+
+        return false;
+    }
+
+    private static bool IsPotentiallyUnboundSourcePropertySignature(IPropertySymbol property, int expectedParameterCount)
+    {
+        if (property is not SourcePropertySymbol)
+            return false;
+
+        var syntaxReference = property.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference?.GetSyntax() is PropertyDeclarationSyntax propertySyntax)
+        {
+            return property.Type.TypeKind == TypeKind.Error;
+        }
+
+        if (syntaxReference?.GetSyntax() is IndexerDeclarationSyntax indexerSyntax)
+        {
+            if (indexerSyntax.ParameterList.Parameters.Count != expectedParameterCount)
+                return true;
+
+            return property.Type.TypeKind == TypeKind.Error;
+        }
 
         return false;
     }

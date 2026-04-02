@@ -1807,6 +1807,9 @@ public partial class SemanticModel
         foreach (var (unionDecl, unionBinder, unionSymbol) in unionBinders)
             RegisterUnionCases(unionDecl, unionBinder, unionSymbol);
 
+        foreach (var (interfaceDecl, interfaceBinder) in interfaceBinders)
+            RegisterInterfaceMembers(interfaceDecl, interfaceBinder);
+
         foreach (var (classDecl, classBinder) in classBinders)
         {
             RegisterClassMembers(classDecl, classBinder);
@@ -1823,9 +1826,6 @@ public partial class SemanticModel
             ReportMissingAbstractBaseMembers(classSymbol, classDecl, classBinder.Diagnostics);
             ReportIncompletePartialMembers(classSymbol, classBinder.Diagnostics);
         }
-
-        foreach (var (interfaceDecl, interfaceBinder) in interfaceBinders)
-            RegisterInterfaceMembers(interfaceDecl, interfaceBinder);
 
         foreach (var (extensionDecl, extensionBinder) in extensionBinders)
             RegisterExtensionMembers(extensionDecl, extensionBinder);
@@ -3219,8 +3219,49 @@ public partial class SemanticModel
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
+        var effectiveMembers = GetEffectiveTypeMembers(classDecl).ToArray();
 
-        foreach (var effectiveMember in GetEffectiveTypeMembers(classDecl))
+        foreach (var effectiveMember in effectiveMembers)
+        {
+            var member = effectiveMember.EffectiveSyntax;
+            var originalSyntax = effectiveMember.OriginalSyntax;
+            if (member is not InterfaceDeclarationSyntax nestedInterface)
+                continue;
+
+            ImmutableArray<INamedTypeSymbol> parentInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
+            if (nestedInterface.BaseList is not null)
+            {
+                var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                foreach (var t in nestedInterface.BaseList.Types)
+                {
+                    if (classBinder.TryBindNamedTypeFromTypeSyntax(t.Type, out var resolved, reportDiagnostics: true) &&
+                        resolved is not null &&
+                        resolved.TypeKind == TypeKind.Interface)
+                    {
+                        builder.Add(resolved);
+                    }
+                }
+
+                if (builder.Count > 0)
+                    parentInterfaces = builder.ToImmutable();
+            }
+
+            var nestedInterfaceSymbol = GetDeclaredTypeSymbol(nestedInterface);
+            if (!parentInterfaces.IsDefaultOrEmpty)
+                nestedInterfaceSymbol.SetInterfaces(MergeInterfaceSets(nestedInterfaceSymbol.Interfaces, parentInterfaces));
+
+            var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
+            nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
+            CacheBinder(nestedInterface, nestedInterfaceBinder);
+            if (originalSyntax is not null)
+                CacheBinder(originalSyntax, nestedInterfaceBinder);
+            if (nestedInterfaceSymbol.IsSealedHierarchy)
+                ResolveSealedHierarchyPermits(nestedInterface, nestedInterfaceSymbol, nestedInterfaceBinder);
+            RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
+            nestedInterfaceBinders.Add((nestedInterface, nestedInterfaceBinder));
+        }
+
+        foreach (var effectiveMember in effectiveMembers)
         {
             var member = effectiveMember.EffectiveSyntax;
             var originalSyntax = effectiveMember.OriginalSyntax;
@@ -3387,35 +3428,7 @@ public partial class SemanticModel
                         break;
                     }
 
-                case InterfaceDeclarationSyntax nestedInterface:
-                    ImmutableArray<INamedTypeSymbol> parentInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
-                    if (nestedInterface.BaseList is not null)
-                    {
-                        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                        foreach (var t in nestedInterface.BaseList.Types)
-                        {
-                            if (classBinder.TryBindNamedTypeFromTypeSyntax(t.Type, out var resolved, reportDiagnostics: true) &&
-                                resolved is not null &&
-                                resolved.TypeKind == TypeKind.Interface)
-                                builder.Add(resolved);
-                        }
-                        if (builder.Count > 0)
-                            parentInterfaces = builder.ToImmutable();
-                    }
-
-                    if (!parentInterfaces.IsDefaultOrEmpty)
-                        GetDeclaredTypeSymbol(nestedInterface).SetInterfaces(
-                            MergeInterfaceSets(GetDeclaredTypeSymbol(nestedInterface).Interfaces, parentInterfaces));
-                    var nestedInterfaceSymbol = GetDeclaredTypeSymbol(nestedInterface);
-                    var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
-                    nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
-                    CacheBinder(nestedInterface, nestedInterfaceBinder);
-                    if (originalSyntax is not null)
-                        CacheBinder(originalSyntax, nestedInterfaceBinder);
-                    if (nestedInterfaceSymbol.IsSealedHierarchy)
-                        ResolveSealedHierarchyPermits(nestedInterface, nestedInterfaceSymbol, nestedInterfaceBinder);
-                    RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
-                    nestedInterfaceBinders.Add((nestedInterface, nestedInterfaceBinder));
+                case InterfaceDeclarationSyntax:
                     break;
 
                 case EnumDeclarationSyntax enumDecl:
@@ -3816,8 +3829,29 @@ public partial class SemanticModel
         var nestedInterfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
+        var members = interfaceDecl.Members.ToArray();
 
-        foreach (var member in interfaceDecl.Members)
+        foreach (var member in members)
+        {
+            if (member is not InterfaceDeclarationSyntax nestedInterface)
+                continue;
+
+            var parentInterfaces = ResolveInterfaceBaseTypes(nestedInterface, interfaceBinder);
+            var nestedInterfaceSymbol = GetDeclaredTypeSymbol(nestedInterface);
+
+            if (!parentInterfaces.IsDefaultOrEmpty)
+                nestedInterfaceSymbol.SetInterfaces(MergeInterfaceSets(nestedInterfaceSymbol.Interfaces, parentInterfaces));
+
+            var nestedInterfaceBinder = new InterfaceDeclarationBinder(interfaceBinder, nestedInterfaceSymbol, nestedInterface);
+            nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
+            CacheBinder(nestedInterface, nestedInterfaceBinder);
+            if (nestedInterfaceSymbol.IsSealedHierarchy)
+                ResolveSealedHierarchyPermits(nestedInterface, nestedInterfaceSymbol, nestedInterfaceBinder);
+            RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
+            nestedInterfaceBinders.Add((nestedInterface, nestedInterfaceBinder));
+        }
+
+        foreach (var member in members)
         {
             switch (member)
             {
@@ -3899,23 +3933,8 @@ public partial class SemanticModel
                         nestedClassBinders.Add((nestedType, nestedBinder));
                         break;
                     }
-                case InterfaceDeclarationSyntax nestedInterface:
-                    {
-                        var parentInterfaces = ResolveInterfaceBaseTypes(nestedInterface, interfaceBinder);
-                        var nestedInterfaceSymbol = GetDeclaredTypeSymbol(nestedInterface);
-
-                        if (!parentInterfaces.IsDefaultOrEmpty)
-                            nestedInterfaceSymbol.SetInterfaces(MergeInterfaceSets(nestedInterfaceSymbol.Interfaces, parentInterfaces));
-
-                        var nestedInterfaceBinder = new InterfaceDeclarationBinder(interfaceBinder, nestedInterfaceSymbol, nestedInterface);
-                        nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
-                        CacheBinder(nestedInterface, nestedInterfaceBinder);
-                        if (nestedInterfaceSymbol.IsSealedHierarchy)
-                            ResolveSealedHierarchyPermits(nestedInterface, nestedInterfaceSymbol, nestedInterfaceBinder);
-                        RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
-                        nestedInterfaceBinders.Add((nestedInterface, nestedInterfaceBinder));
-                        break;
-                    }
+                case InterfaceDeclarationSyntax:
+                    break;
             }
         }
 

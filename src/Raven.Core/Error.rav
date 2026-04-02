@@ -11,7 +11,8 @@ record ContextError<TError: IError>(
     val Message: string,
     val InnerError: TError
 ) : IError {
-    val Cause: IError? => InnerError
+    val IError.Cause: IError? => InnerError
+    val Cause: TError => InnerError
 
     override func ToString() -> string => Message
 }

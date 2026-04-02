@@ -12,15 +12,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 - `Raven.Core` now exposes generic `ContextError<TError>` and a typed `WithMessage(...)` wrapper, so Raven code can retain the concrete wrapped error type while still surfacing the shared `IError` contract. When callers only have `IError`, the erased wrapper shape is `ContextError<IError>`.
 - `Result<T, E>` now also supports `WithMessage(...)` when `E : IError`, projecting only the error channel to `ContextError<E>` instead of wrapping the entire result carrier.
 - Imported metadata types now compute `AllInterfaces` transitively from declared interfaces and base types instead of relying on reflection’s flattened view. This restores generic constraint checks like `E : IError` for metadata-backed types such as `ParseIntError` implementing `IParseError : IError`.
+- Source explicit interface implementations now bind correctly for methods and properties because source interface members are registered before classes that implement them, including nested interface declarations. This also unlocks explicit interface property implementations such as `val IError.Cause`.
 
 Impact:
 - Raven now matches C#’s overload-priority behavior for APIs that intentionally hide more specific overloads behind `OverloadResolutionPriorityAttribute`, which improves interop with modern .NET libraries and C#-authored metadata.
 - Helper types can now live next to the code that uses them without being promoted to outer type scope, while keeping runtime metadata isolated behind compiler-generated nesting names.
 - Mixed extension containers in referenced assemblies now interoperate more like .NET/C#: `int.parse(...)` binds again as a static extension member, while classic generic extension methods like `OptionExtensions.UnwrapOr<T>` continue to import as extension methods instead of degrading to unreadable metadata signatures.
 - Parse-oriented Raven APIs now expose a more coherent error surface to both Raven code and .NET consumers: every `IError` has a meaningful message, wrapping keeps provenance through `Cause`, and `Parse.rav` no longer relies on an invalid constructor call during core emission.
-- Error-wrapping code no longer has to choose between provenance and static type information: callers can use `ContextError<TError>.InnerError` when they want the concrete wrapped error, or treat the wrapper as plain `IError` through `Cause`.
+- Error-wrapping code no longer has to choose between provenance and static type information: callers can use `ContextError<TError>.Cause` when they want the concrete wrapped error, or treat the wrapper as plain `IError` through the explicit interface `Cause`.
 - Result pipelines can now add context at the right abstraction level: `int.parse(text).WithMessage("...")` keeps the carrier as `Result<T, ...>` and only enriches the error payload.
 - Metadata-backed generic constraints now see transitive interface implementations consistently, so extension members like `Result<T, E>.WithMessage(...) where E : IError` bind correctly from `Raven.Core.dll` and other referenced assemblies.
+- Raven can now express .NET-style explicit interface members in source without spurious `RAV0315` failures, which makes contracts like `IError.Cause` compose cleanly with typed overload properties on the same type.
 
 ## 2026-04-01
 
