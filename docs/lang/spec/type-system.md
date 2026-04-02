@@ -421,6 +421,13 @@ over numeric widening, which outrank reference or boxing conversions.
 User-defined conversions are considered last. If no candidate is strictly better,
 the call is reported as ambiguous.
 
+If multiple applicable candidates come from the same overload set and one or
+more are annotated with
+`System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute`, Raven
+first keeps the candidates with the highest declared priority and only then
+applies the normal conversion/specificity comparison. This applies to both
+source-declared methods and methods imported from referenced .NET assemblies.
+
 ```raven
 val parsed = int.Parse("42") // string literal selects the overload taking string
 ```

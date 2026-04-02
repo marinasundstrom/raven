@@ -29,6 +29,7 @@ internal sealed class OverloadResolver
         ImmutableArray<IMethodSymbol>.Builder? ambiguous = null;
         bool bestIsExtension = false;
         TypeArgumentConstraintFailure? constraintFailure = null;
+        var applicableCandidates = new List<ApplicableOverloadCandidate>();
 
         foreach (var candidate in methods)
         {
@@ -74,6 +75,34 @@ internal sealed class OverloadResolver
 
             candidateScore = score;
             RecordCandidate(candidate, constructed, candidateStatus, candidateScore, treatAsExtension, candidateComparisons);
+            applicableCandidates.Add(new ApplicableOverloadCandidate(method, score, treatAsExtension));
+        }
+
+        foreach (var applicableCandidate in PruneApplicableCandidatesByPriority(applicableCandidates))
+        {
+            var method = applicableCandidate.Method;
+            var score = applicableCandidate.Score;
+            var treatAsExtension = applicableCandidate.IsExtension;
+
+            if (bestMatch is not null &&
+                bestIsExtension == treatAsExtension &&
+                GetOverloadPriorityGroup(method, treatAsExtension) == GetOverloadPriorityGroup(bestMatch, bestIsExtension))
+            {
+                var candidatePriority = GetOverloadResolutionPriority(method);
+                var bestPriority = GetOverloadResolutionPriority(bestMatch);
+
+                if (candidatePriority > bestPriority)
+                {
+                    bestMatch = method;
+                    bestScore = score;
+                    ambiguous = null;
+                    bestIsExtension = treatAsExtension;
+                    continue;
+                }
+
+                if (candidatePriority < bestPriority)
+                    continue;
+            }
 
             if (score < bestScore)
             {
@@ -161,6 +190,205 @@ internal sealed class OverloadResolver
                     ? ImmutableArray<OverloadArgumentComparisonLog>.Empty
                     : comparisons.ToImmutableArray()));
         }
+    }
+
+    private static IReadOnlyList<ApplicableOverloadCandidate> PruneApplicableCandidatesByPriority(
+        IReadOnlyList<ApplicableOverloadCandidate> candidates)
+    {
+        if (candidates.Count <= 1)
+            return candidates;
+
+        var maxPriorityByGroup = new Dictionary<OverloadPriorityGroupKey, int>();
+
+        foreach (var candidate in candidates)
+        {
+            var group = GetOverloadPriorityGroup(candidate.Method, candidate.IsExtension);
+            var priority = GetOverloadResolutionPriority(candidate.Method);
+
+            if (!maxPriorityByGroup.TryGetValue(group, out var current) || priority > current)
+                maxPriorityByGroup[group] = priority;
+        }
+
+        var pruned = new List<ApplicableOverloadCandidate>(candidates.Count);
+
+        foreach (var candidate in candidates)
+        {
+            var group = GetOverloadPriorityGroup(candidate.Method, candidate.IsExtension);
+            var priority = GetOverloadResolutionPriority(candidate.Method);
+
+            if (maxPriorityByGroup.TryGetValue(group, out var maxPriority) && priority == maxPriority)
+                pruned.Add(candidate);
+        }
+
+        return pruned;
+    }
+
+    private static OverloadPriorityGroupKey GetOverloadPriorityGroup(IMethodSymbol method, bool isExtension)
+    {
+        if (isExtension)
+            return new OverloadPriorityGroupKey(IsExtension: true, DeclaringType: null);
+
+        var definition = method.OriginalDefinition ?? method;
+        return new OverloadPriorityGroupKey(
+            IsExtension: false,
+            DeclaringType: GetDeclaringTypeIdentity(definition.ContainingType));
+    }
+
+    private static int GetOverloadResolutionPriority(IMethodSymbol method)
+    {
+        method = GetLeastDerivedPriorityMethod(method);
+
+        if (TryGetSourceDeclaredOverloadResolutionPriority(method, out var sourcePriority))
+            return sourcePriority;
+
+        foreach (var attribute in method.GetAttributes())
+        {
+            var attributeClass = attribute.AttributeClass;
+            if (attributeClass is null)
+                continue;
+
+            var attributeNamespace = attributeClass.ContainingNamespace?.ToDisplayString();
+            var attributeName = attributeClass.Name;
+
+            if (!(string.Equals(attributeNamespace, "System.Runtime.CompilerServices", StringComparison.Ordinal) ||
+                  string.Equals(attributeNamespace, "CompilerServices", StringComparison.Ordinal) ||
+                  (attributeNamespace?.EndsWith(".CompilerServices", StringComparison.Ordinal) ?? false)) ||
+                !string.Equals(attributeName, "OverloadResolutionPriorityAttribute", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 1 &&
+                attribute.ConstructorArguments[0].Value is int priority)
+            {
+                return priority;
+            }
+        }
+
+        if (method is PEMethodSymbol peMethod &&
+            TryGetOverloadResolutionPriority(peMethod.ReflectionMethodBase, out var metadataPriority))
+        {
+            return metadataPriority;
+        }
+
+        if (!ReferenceEquals(method.OriginalDefinition, method) &&
+            method.OriginalDefinition is PEMethodSymbol peDefinition &&
+            TryGetOverloadResolutionPriority(peDefinition.ReflectionMethodBase, out metadataPriority))
+        {
+            return metadataPriority;
+        }
+
+        return 0;
+
+        static bool TryGetOverloadResolutionPriority(System.Reflection.MethodBase methodBase, out int priority)
+        {
+            priority = 0;
+
+            try
+            {
+                if (methodBase is System.Reflection.MethodInfo methodInfo)
+                    methodBase = methodInfo.GetBaseDefinition();
+
+                foreach (var attribute in methodBase.GetCustomAttributesData())
+                {
+                    if (!string.Equals(attribute.AttributeType.FullName,
+                            "System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute",
+                            StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (attribute.ConstructorArguments.Count == 1 &&
+                        attribute.ConstructorArguments[0].Value is int constructorPriority)
+                    {
+                        priority = constructorPriority;
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return false;
+        }
+    }
+
+    private static bool TryGetSourceDeclaredOverloadResolutionPriority(IMethodSymbol method, out int priority)
+    {
+        priority = 0;
+
+        var syntax = method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+        if (syntax is null)
+            return false;
+
+        var attributes = syntax switch
+        {
+            MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists.SelectMany(static list => list.Attributes),
+            OperatorDeclarationSyntax operatorDeclaration => operatorDeclaration.AttributeLists.SelectMany(static list => list.Attributes),
+            ConversionOperatorDeclarationSyntax conversionDeclaration => conversionDeclaration.AttributeLists.SelectMany(static list => list.Attributes),
+            _ => Enumerable.Empty<AttributeSyntax>()
+        };
+
+        foreach (var attribute in attributes)
+        {
+            var name = attribute.Name.ToString();
+            var simpleName = name.Split('.').LastOrDefault() ?? name;
+
+            if (!string.Equals(simpleName, "OverloadResolutionPriority", StringComparison.Ordinal) &&
+                !string.Equals(simpleName, "OverloadResolutionPriorityAttribute", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (attribute.ArgumentList?.Arguments.Count != 1)
+                return false;
+
+            var argumentText = attribute.ArgumentList.Arguments[0].Expression.ToString();
+            return int.TryParse(argumentText, out priority);
+        }
+
+        return false;
+    }
+
+    private static IMethodSymbol GetLeastDerivedPriorityMethod(IMethodSymbol method)
+    {
+        method = method.OriginalDefinition ?? method;
+
+        while (true)
+        {
+            switch (method)
+            {
+                case SourceMethodSymbol { OverriddenMethod: { } overriddenMethod }:
+                    method = overriddenMethod.OriginalDefinition ?? overriddenMethod;
+                    continue;
+
+                case PEMethodSymbol { ReflectionMethodBase: System.Reflection.MethodInfo methodInfo }:
+                    return method;
+
+                default:
+                    return method;
+            }
+        }
+    }
+
+    private readonly record struct ApplicableOverloadCandidate(
+        IMethodSymbol Method,
+        int Score,
+        bool IsExtension);
+
+    private readonly record struct OverloadPriorityGroupKey(
+        bool IsExtension,
+        string? DeclaringType);
+
+    private static string? GetDeclaringTypeIdentity(INamedTypeSymbol? containingType)
+    {
+        if (containingType is null)
+            return null;
+
+        var assemblyName = containingType.ContainingAssembly?.Name ?? string.Empty;
+        var metadataName = containingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return $"{assemblyName}|{metadataName}";
     }
 
     private static ImmutableArray<ITypeSymbol> GetExplicitTypeArguments(SyntaxNode? callSyntax, Compilation compilation)

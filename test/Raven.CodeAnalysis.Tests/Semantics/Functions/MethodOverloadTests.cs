@@ -3,6 +3,7 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
 using Xunit;
 
@@ -105,6 +106,77 @@ public class MethodOverloadTests : CompilationTestBase
         var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
         Assert.Equal(SpecialType.System_Delegate, symbol.Parameters[0].Type.SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
+    }
+
+    [Fact]
+    public void OverloadResolutionPriority_PrefersHigherPrioritySourceMethod()
+    {
+        var source = """
+        import System.Runtime.CompilerServices.*
+
+        class C {
+            [OverloadResolutionPriority(1)]
+            static func pick(value: object) -> int { 1 }
+
+            static func pick(value: string) -> int { 2 }
+
+            func run() -> int {
+                return pick("ok")
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Equal(SpecialType.System_Object, symbol.Parameters[0].Type.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void OverloadResolutionPriority_PrefersHigherPriorityMetadataMethod()
+    {
+        var metadataReference = TestMetadataFactory.CreateFileReferenceFromSource(
+            """
+            import System.Runtime.CompilerServices.*
+
+            class Library {
+                [OverloadResolutionPriority(1)]
+                public static func Pick(value: object) -> int { 1 }
+
+                public static func Pick(value: string) -> int { 2 }
+            }
+            """,
+            "OverloadResolutionPriorityFixture");
+
+        var source = """
+        class C {
+            func run() -> int {
+                return Library.Pick("ok")
+            }
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source, references: [.. TestMetadataReferences.Default, metadataReference]);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.Equal(SpecialType.System_Object, boundInvocation.Method.Parameters[0].Type.SpecialType);
     }
 
     [Fact]

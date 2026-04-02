@@ -3243,6 +3243,13 @@ the same constant-conversion rules as source defaults. If only
 parameter type’s CLR default value when materializing an omitted argument,
 emitting `default(T)` for value types that lack a literal representation.
 
+Method overloads may also be influenced by
+`System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute`. When two
+or more applicable candidates belong to the same overload set, Raven keeps the
+highest-priority candidates before applying its normal overload-comparison
+rules. This matches the intended .NET/C# interop behavior for both Raven source
+methods and imported metadata methods.
+
 ### Generic functions and methods
 
 ### Type parameters and constraints
