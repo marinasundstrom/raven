@@ -3084,6 +3084,14 @@ declarations, the compiler skips synthesizing the implicit `Program.Main`
 bridge; entry-point discovery falls back to user-defined candidates such as a
 top-level `func Main` alongside other global declarations.
 
+Function and block bodies may also declare local helper `class`, `struct`,
+`record`, and `enum` types. These declarations are scoped to the containing
+body and exist to encapsulate types that are only used locally. Within a given
+body, local type declarations are hoisted for binding like local functions, so
+their source order does not affect name lookup inside that body. The compiler
+emits them as compiler-mangled nested types under the enclosing containing
+type, so they do not publish a stable source-facing outer type name.
+
 Defining a top-level `func Main` suppresses additional file-scope statements.
 Any other file-scope statement (including variable declarations or
 expressions) in the same compilation unit causes the compiler to emit
@@ -3405,6 +3413,12 @@ func outer() {
     val point = inner((x: 1, y: 2))
 }
 ```
+
+Bodies may likewise declare local helper `class`, `struct`, `record`, and
+`enum` types when the type should remain encapsulated to that body. Local type
+declarations participate in body-local name lookup for the entire containing
+body, but the declared type is not exposed as a surrounding namespace or outer
+type member in Raven source.
 
 ### Async functions
 

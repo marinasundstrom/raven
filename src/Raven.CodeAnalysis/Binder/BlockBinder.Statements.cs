@@ -445,6 +445,27 @@ partial class BlockBinder
 
         foreach (var stmt in block.Statements)
         {
+            if (stmt is not TypeDeclarationStatementSyntax typeDeclarationStatement)
+                continue;
+
+            var symbol = SemanticModel.EnsureLocalTypeDeclarationBound(typeDeclarationStatement.Declaration, this);
+            if (_localTypes.TryGetValue(symbol.Name, out var existing) && existing.Depth == depth)
+            {
+                var isSameDeclaration = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
+                    reference.SyntaxTree == typeDeclarationStatement.SyntaxTree &&
+                    reference.Span == typeDeclarationStatement.Declaration.Span);
+
+                if (!isSameDeclaration)
+                    _diagnostics.ReportTypeAlreadyDefined(symbol.Name, typeDeclarationStatement.Declaration.Identifier.GetLocation());
+            }
+            else
+            {
+                _localTypes[symbol.Name] = (symbol, depth);
+            }
+        }
+
+        foreach (var stmt in block.Statements)
+        {
             if (stmt is FunctionStatementSyntax func)
             {
                 var functionBinder = SemanticModel.GetBinder(func, this);
@@ -484,6 +505,9 @@ partial class BlockBinder
         foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
             _locals.Remove(name);
 
+        foreach (var name in _localTypes.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+            _localTypes.Remove(name);
+
         _scopeDepth--;
         return blockStmt;
     }
@@ -500,6 +524,27 @@ partial class BlockBinder
             _expressionContextDepth++;
 
         EnsureLabelsDeclared(block);
+
+        foreach (var stmt in block.Statements)
+        {
+            if (stmt is not TypeDeclarationStatementSyntax typeDeclarationStatement)
+                continue;
+
+            var symbol = SemanticModel.EnsureLocalTypeDeclarationBound(typeDeclarationStatement.Declaration, this);
+            if (_localTypes.TryGetValue(symbol.Name, out var existing) && existing.Depth == depth)
+            {
+                var isSameDeclaration = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
+                    reference.SyntaxTree == typeDeclarationStatement.SyntaxTree &&
+                    reference.Span == typeDeclarationStatement.Declaration.Span);
+
+                if (!isSameDeclaration)
+                    _diagnostics.ReportTypeAlreadyDefined(symbol.Name, typeDeclarationStatement.Declaration.Identifier.GetLocation());
+            }
+            else
+            {
+                _localTypes[symbol.Name] = (symbol, depth);
+            }
+        }
 
         foreach (var stmt in block.Statements)
         {
@@ -564,6 +609,9 @@ partial class BlockBinder
 
         foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
             _locals.Remove(name);
+
+        foreach (var name in _localTypes.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+            _localTypes.Remove(name);
 
         _scopeDepth--;
         if (!allowReturn)

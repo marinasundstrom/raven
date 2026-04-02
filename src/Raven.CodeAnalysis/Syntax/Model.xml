@@ -1100,6 +1100,9 @@
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
   </Node>
+  <Node Name="TypeDeclarationStatement" Inherits="Statement">
+    <Slot Name="Declaration" Type="BaseTypeDeclaration" />
+  </Node>
   <Node Name="ObjectInitializerExpression" Inherits="Expression">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
     <Slot Name="Entries" Type="List" ElementType="ObjectInitializerEntry" />

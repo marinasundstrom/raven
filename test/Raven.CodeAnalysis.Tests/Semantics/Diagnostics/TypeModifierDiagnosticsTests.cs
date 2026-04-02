@@ -76,4 +76,36 @@ class Outer {
         var verifier = CreateVerifier(source);
         verifier.Verify();
     }
+
+    [Fact]
+    public void PublicLocalClass_ReportsDiagnostic()
+    {
+        const string source = """
+func outer() {
+    public class Helper {}
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0332").WithAnySpan().WithArguments("public", "local class", "Helper")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PartialLocalStruct_ReportsDiagnostic()
+    {
+        const string source = """
+func outer() {
+    partial struct Helper {}
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0332").WithAnySpan().WithArguments("partial", "local struct", "Helper")]);
+
+        verifier.Verify();
+    }
 }

@@ -484,6 +484,42 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void TypeDeclarationStatement_WrapsLocalStructDeclaration()
+    {
+        var source = "struct Local { }";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (TypeDeclarationStatementSyntax)parser.ParseStatement().CreateRed();
+        var declaration = Assert.IsType<StructDeclarationSyntax>(statement.Declaration);
+
+        Assert.Equal("Local", declaration.Identifier.Text);
+    }
+
+    [Fact]
+    public void TypeDeclarationStatement_WrapsLocalInterfaceDeclaration()
+    {
+        const string source = """
+class Test {
+    func M() {
+        interface Helper {}
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var typeDeclarationStatement = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<TypeDeclarationStatementSyntax>()
+            .Single();
+
+        var declaration = Assert.IsType<InterfaceDeclarationSyntax>(typeDeclarationStatement.Declaration);
+
+        Assert.Equal("Helper", declaration.Identifier.Text);
+    }
+
+    [Fact]
     public void VariableDeclaration_MissingIdentifier_ProducesMissingToken()
     {
         var source = "let = 1";

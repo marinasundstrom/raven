@@ -16,6 +16,7 @@ partial class BlockBinder : Binder
 {
     private readonly ISymbol _containingSymbol;
     protected readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals = new();
+    private readonly Dictionary<string, (SourceNamedTypeSymbol Symbol, int Depth)> _localTypes = new();
     private readonly List<(ILocalSymbol Local, int Depth)> _localsToDispose = new();
     private readonly Dictionary<string, ILabelSymbol> _labelsByName = new(StringComparer.Ordinal);
     private readonly Dictionary<LabeledStatementSyntax, ILabelSymbol> _labelsBySyntax = new();
@@ -74,6 +75,8 @@ partial class BlockBinder : Binder
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
             SingleVariableDesignationSyntax singleVariableDesignation => BindDeclaredPatternLocal(singleVariableDesignation),
             FunctionStatementSyntax functionStatement => BindFunction(functionStatement).Method,
+            BaseTypeDeclarationSyntax typeDeclaration when typeDeclaration.Parent is TypeDeclarationStatementSyntax
+                => SemanticModel.EnsureLocalTypeDeclarationBound(typeDeclaration, this),
             LabeledStatementSyntax labeledStatement => DeclareLabelSymbol(labeledStatement),
             _ => base.BindDeclaredSymbol(node)
         };
@@ -165,6 +168,39 @@ partial class BlockBinder : Binder
         // binder, causing namespace or type aliases to be ignored and resulting in missing
         // completions for alias-qualified names.
         return LookupSymbols(name).FirstOrDefault();
+    }
+
+    public override ITypeSymbol? LookupType(string name)
+    {
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            if (current is BlockBinder block && block._localTypes.TryGetValue(name, out var localType))
+                return localType.Symbol;
+
+            if (current is FunctionExpressionBinder functionExpressionBinder &&
+                functionExpressionBinder.ContainingSymbol is IMethodSymbol lambdaMethod)
+            {
+                var methodTypeParameter = lambdaMethod.TypeParameters.FirstOrDefault(tp => tp.Name == name);
+                if (methodTypeParameter is not null)
+                    return methodTypeParameter;
+            }
+
+            if (current is MethodBinder methodBinder)
+            {
+                var methodTypeParameter = methodBinder.GetMethodSymbol().TypeParameters.FirstOrDefault(tp => tp.Name == name);
+                if (methodTypeParameter is not null)
+                    return methodTypeParameter;
+            }
+
+            if (current is TypeDeclarationBinder typeDeclarationBinder)
+            {
+                var typeParameter = typeDeclarationBinder.ContainingSymbol.TypeParameters.FirstOrDefault(tp => tp.Name == name);
+                if (typeParameter is not null)
+                    return typeParameter;
+            }
+        }
+
+        return base.LookupType(name);
     }
 
     private SymbolInfo BindCompilationUnit(CompilationUnitSyntax compilationUnit)
@@ -685,6 +721,7 @@ partial class BlockBinder : Binder
             WhileStatementSyntax whileStmt => BindWhileStatement(whileStmt),
             TryStatementSyntax tryStmt => BindTryStatement(tryStmt),
             FunctionStatementSyntax function => BindFunction(function),
+            TypeDeclarationStatementSyntax typeDeclarationStatement => BindTypeDeclarationStatement(typeDeclarationStatement),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
             ThrowStatementSyntax throwStatement => BindThrowStatement(throwStatement),
             BlockStatementSyntax blockStmt => BindBlockStatement(blockStmt),
@@ -704,6 +741,12 @@ partial class BlockBinder : Binder
         CacheBoundNode(statement, boundNode);
 
         return boundNode;
+    }
+
+    private BoundStatement BindTypeDeclarationStatement(TypeDeclarationStatementSyntax typeDeclarationStatement)
+    {
+        _ = SemanticModel.EnsureLocalTypeDeclarationBound(typeDeclarationStatement.Declaration, this);
+        return new BoundExpressionStatement(BoundFactory.UnitExpression());
     }
 
     private BoundStatement BindIncompleteStatement(IncompleteStatementSyntax incompleteStatement)
@@ -13703,6 +13746,9 @@ partial class BlockBinder : Binder
                     if (block._locals.TryGetValue(name, out var local) && seen.Add(local.Symbol))
                         yield return local.Symbol;
 
+                    if (block._localTypes.TryGetValue(name, out var localType) && seen.Add(localType.Symbol))
+                        yield return localType.Symbol;
+
                     if (block._functions.TryGetValue(name, out var func) && seen.Add(func))
                         yield return func;
 
@@ -13786,6 +13832,12 @@ partial class BlockBinder : Binder
                 {
                     if (seen.Add(local.Symbol.Name))
                         yield return local.Symbol;
+                }
+
+                foreach (var localType in block._localTypes.Values)
+                {
+                    if (seen.Add(localType.Symbol.Name))
+                        yield return localType.Symbol;
                 }
 
                 foreach (var label in block._labelsByName.Values)

@@ -38,6 +38,10 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             statement = ParseFunctionSyntax(SyntaxList.Empty, SyntaxList.Empty);
         }
+        else if (IsLocalTypeDeclarationStart())
+        {
+            statement = ParseTypeDeclarationStatementSyntax();
+        }
         else
         {
             switch (token.Kind)
@@ -154,6 +158,29 @@ internal class StatementSyntaxParser : SyntaxParser
 
         functionStatement = ParseFunctionSyntax(attributeLists, modifiers);
         return true;
+    }
+
+    private bool IsLocalTypeDeclarationStart()
+    {
+        return TypeDeclarationParser.PeekTypeKeyword(this) is
+            SyntaxKind.ClassKeyword or
+            SyntaxKind.StructKeyword or
+            SyntaxKind.RecordKeyword or
+            SyntaxKind.EnumKeyword or
+            SyntaxKind.InterfaceKeyword or
+            SyntaxKind.UnionKeyword;
+    }
+
+    private TypeDeclarationStatementSyntax ParseTypeDeclarationStatementSyntax()
+    {
+        BaseTypeDeclarationSyntax declaration = TypeDeclarationParser.PeekTypeKeyword(this) switch
+        {
+            SyntaxKind.EnumKeyword => new EnumDeclarationParser(this).Parse(),
+            SyntaxKind.UnionKeyword => new UnionDeclarationParser(this).Parse(),
+            _ => new TypeDeclarationParser(this).Parse()
+        };
+
+        return TypeDeclarationStatement(declaration);
     }
 
     private bool IsPossibleLabeledStatementStart(SyntaxToken token)

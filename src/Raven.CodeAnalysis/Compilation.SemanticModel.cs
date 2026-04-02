@@ -155,6 +155,7 @@ public partial class Compilation
 
             var typeDeclarations = root.DescendantNodes()
                 .OfType<TypeDeclarationSyntax>()
+                .Where(typeDecl => typeDecl.Parent is not TypeDeclarationStatementSyntax)
                 .Where(typeDecl => typeDecl is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax);
 
             foreach (var classDecl in typeDeclarations)

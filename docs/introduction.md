@@ -25,6 +25,10 @@ WriteLine("Hello, World!")
 
 Top-level statements are supported. Top-level type declarations are hoisted for binding, so scripts can place helper types near the file-scope code that uses them.
 
+Function and block bodies may also declare local helper `class`, `struct`,
+`record`, and `enum` types. These declarations are scoped to the containing
+body and are intended for types that are only used locally.
+
 ---
 
 ## A quick taste

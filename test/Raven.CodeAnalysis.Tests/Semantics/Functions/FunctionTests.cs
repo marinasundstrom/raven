@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -101,6 +103,41 @@ func outer() {
         Assert.Equal(SpecialType.System_Int32, tupleReturn.TupleElements[0].Type.SpecialType);
         Assert.Equal("right", tupleReturn.TupleElements[1].Name);
         Assert.Equal(SpecialType.System_String, tupleReturn.TupleElements[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void Function_LocalStructDeclaration_IsVisibleToAdjacentLocalFunction_AndEmits()
+    {
+        const string source = """
+func outer() -> int {
+    func makeBox() -> CounterBox {
+        return CounterBox(42)
+    }
+
+    struct CounterBox(value: int) { }
+
+    val box = makeBox()
+    return box.value
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var localStruct = tree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(localStruct));
+        Assert.Equal(TypeKind.Struct, symbol.TypeKind);
+
+        using var peStream = new MemoryStream();
+        using var pdbStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream, pdbStream);
+
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics.Select(d => d.ToString())));
     }
 
     [Fact]

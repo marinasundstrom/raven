@@ -35,6 +35,15 @@ public partial class SemanticModel
         "compiler",
         DiagnosticSeverity.Error,
         true);
+    private static readonly DiagnosticDescriptor s_invalidLocalTypeDeclaration = DiagnosticDescriptor.Create(
+        "RAV7002",
+        "Invalid local type declaration",
+        "",
+        "",
+        "Only class, struct, record, and enum declarations are valid local type declarations",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
 
     internal AttributeData? BindAttribute(AttributeSyntax attribute)
     {
@@ -1447,6 +1456,9 @@ public partial class SemanticModel
         };
 
     private static string CreateMangledTypeName(string prefix, MemberDeclarationSyntax declaration, string logicalName)
+        => CreateMangledTypeName(prefix, (SyntaxNode)declaration, logicalName);
+
+    private static string CreateMangledTypeName(string prefix, SyntaxNode declaration, string logicalName)
     {
         var loc = declaration.GetLocation();
         var span = loc.SourceSpan;
@@ -1470,6 +1482,195 @@ public partial class SemanticModel
             hash *= 16777619;
 
             return $"{prefix}{hash:x8}_{span.Start}_{span.Length}_{sanitizedLogicalName}";
+        }
+    }
+
+    internal SourceNamedTypeSymbol EnsureLocalTypeDeclarationBound(BaseTypeDeclarationSyntax declaration, BlockBinder parentBinder)
+    {
+        if (_declaredTypeSymbols.TryGetValue(GetSyntaxNodeMapKey(declaration), out var existing))
+            return existing;
+
+        var declaringSymbol = parentBinder.ContainingSymbol;
+        var containingType = declaringSymbol switch
+        {
+            INamedTypeSymbol type => type,
+            IMethodSymbol method => method.ContainingType,
+            _ => declaringSymbol.ContainingType
+        };
+
+        if (containingType is null)
+            throw new InvalidOperationException("Local type declarations require an enclosing containing type.");
+
+        var namespaceSymbol = containingType.ContainingNamespace?.AsSourceNamespace()
+            ?? declaringSymbol.ContainingNamespace?.AsSourceNamespace();
+        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
+        var metadataName = CreateMangledTypeName("__local$", declaration, declaration.Identifier.ValueText);
+
+        ReportInvalidLocalTypeDeclaration(declaration, _declarationDiagnostics);
+
+        switch (declaration)
+        {
+            case TypeDeclarationSyntax typeDeclaration when typeDeclaration is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
+                {
+                    ReportInvalidTypeModifiers(typeDeclaration, isNestedType: true, _declarationDiagnostics);
+                    ReportRedundantTypeModifiers(typeDeclaration, _declarationDiagnostics);
+
+                    var declaredTypeKind = IsStructLikeNominalType(typeDeclaration)
+                        ? TypeKind.Struct
+                        : TypeKind.Class;
+                    var defaultBaseType = GetDefaultBaseTypeForNominalDeclaration(typeDeclaration, objectType, valueType);
+                    var isStatic = typeDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+                    var hasSealedModifier = typeDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+                    var isAbstract = isStatic || typeDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword) || hasSealedModifier;
+                    var isSealedHierarchy = hasSealedModifier && !isStatic;
+                    var isSealed = isStatic || (!isSealedHierarchy && !typeDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
+                    var accessibility = AccessibilityUtilities.DetermineAccessibility(
+                        typeDeclaration.Modifiers,
+                        AccessibilityUtilities.GetDefaultTypeAccessibility(containingType));
+
+                    var typeSymbol = new SourceNamedTypeSymbol(
+                        typeDeclaration.Identifier.ValueText,
+                        defaultBaseType!,
+                        declaredTypeKind,
+                        declaringSymbol,
+                        containingType,
+                        namespaceSymbol,
+                        [typeDeclaration.GetLocation()],
+                        [typeDeclaration.GetReference()],
+                        isSealed,
+                        isAbstract,
+                        isStatic,
+                        declaredAccessibility: accessibility,
+                        metadataName: metadataName);
+
+                    typeSymbol.RegisterPartialModifier(typeDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword));
+                    typeSymbol.RegisterRecordModifier(typeDeclaration is RecordDeclarationSyntax || typeDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword));
+                    InitializeTypeParameters(typeSymbol, GetTypeParameterList(typeDeclaration), GetConstraintClauses(typeDeclaration));
+                    RegisterDeclaredTypeSymbol(typeDeclaration, typeSymbol);
+
+                    var classBinder = new ClassDeclarationBinder(parentBinder, typeSymbol, typeDeclaration);
+                    classBinder.EnsureTypeParameterConstraintTypesResolved(typeSymbol.TypeParameters);
+                    var defaultInterfaces = GetDefaultNominalInterfaces(typeSymbol);
+                    var shape = classBinder.BindNominalTypeShape(typeDeclaration, defaultBaseType, defaultInterfaces);
+                    if (shape.BaseType is not null &&
+                        !SymbolEqualityComparer.Default.Equals(typeSymbol.BaseType, shape.BaseType) &&
+                        SymbolEqualityComparer.Default.Equals(typeSymbol.BaseType, defaultBaseType))
+                    {
+                        typeSymbol.SetBaseType(shape.BaseType);
+                    }
+
+                    if (!shape.Interfaces.IsDefaultOrEmpty)
+                        typeSymbol.SetInterfaces(MergeInterfaceSets(typeSymbol.Interfaces, shape.Interfaces));
+
+                    CacheBinder(typeDeclaration, classBinder);
+                    RegisterClassSymbol(typeDeclaration, typeSymbol);
+                    if (typeSymbol.IsSealedHierarchy)
+                        ResolveSealedHierarchyPermits(typeDeclaration, typeSymbol, classBinder);
+                    RegisterClassMembers(typeDeclaration, classBinder);
+                    classBinder.EnsureDefaultConstructor();
+                    return typeSymbol;
+                }
+
+            case EnumDeclarationSyntax enumDeclaration:
+                {
+                    ReportInvalidTypeModifiers(enumDeclaration, isNestedType: true, _declarationDiagnostics);
+
+                    var enumSymbol = new SourceNamedTypeSymbol(
+                        enumDeclaration.Identifier.ValueText,
+                        Compilation.GetTypeByMetadataName("System.Enum"),
+                        TypeKind.Enum,
+                        declaringSymbol,
+                        containingType,
+                        namespaceSymbol,
+                        [enumDeclaration.GetLocation()],
+                        [enumDeclaration.GetReference()],
+                        isSealed: true,
+                        declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
+                            enumDeclaration.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(containingType)),
+                        metadataName: metadataName);
+
+                    RegisterDeclaredTypeSymbol(enumDeclaration, enumSymbol);
+
+                    var enumBinder = new EnumDeclarationBinder(parentBinder, enumSymbol, enumDeclaration);
+                    CacheBinder(enumDeclaration, enumBinder);
+                    enumSymbol.SetEnumUnderlyingType(ResolveEnumUnderlyingType(enumDeclaration, parentBinder));
+                    RegisterEnumMembers(enumDeclaration, enumBinder, enumSymbol, namespaceSymbol);
+                    return enumSymbol;
+                }
+        }
+
+        _declarationDiagnostics.Report(Diagnostic.Create(s_invalidLocalTypeDeclaration, declaration.GetLocation()));
+
+        var placeholderSymbol = new SourceNamedTypeSymbol(
+            declaration.Identifier.ValueText,
+            objectType!,
+            TypeKind.Class,
+            declaringSymbol,
+            containingType,
+            namespaceSymbol,
+            [declaration.GetLocation()],
+            [declaration.GetReference()],
+            isSealed: true,
+            declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
+                declaration.Modifiers,
+                AccessibilityUtilities.GetDefaultTypeAccessibility(containingType)),
+            metadataName: metadataName);
+
+        RegisterDeclaredTypeSymbol(declaration, placeholderSymbol);
+        return placeholderSymbol;
+    }
+
+    private static void ReportInvalidLocalTypeDeclaration(
+        BaseTypeDeclarationSyntax declaration,
+        DiagnosticBag diagnostics)
+    {
+        var (typeKind, modifiers, allowed) = declaration switch
+        {
+            ClassDeclarationSyntax classDecl => (
+                "local class",
+                classDecl.Modifiers,
+                new HashSet<SyntaxKind>
+                {
+                    SyntaxKind.StaticKeyword,
+                    SyntaxKind.AbstractKeyword,
+                    SyntaxKind.SealedKeyword,
+                    SyntaxKind.OpenKeyword,
+                }),
+            RecordDeclarationSyntax recordDecl => (
+                "local record",
+                recordDecl.Modifiers,
+                new HashSet<SyntaxKind>
+                {
+                    SyntaxKind.StaticKeyword,
+                    SyntaxKind.AbstractKeyword,
+                    SyntaxKind.SealedKeyword,
+                    SyntaxKind.OpenKeyword,
+                    SyntaxKind.RecordKeyword,
+                }),
+            StructDeclarationSyntax structDecl => (
+                "local struct",
+                structDecl.Modifiers,
+                new HashSet<SyntaxKind>()),
+            EnumDeclarationSyntax enumDecl => (
+                "local enum",
+                enumDecl.Modifiers,
+                new HashSet<SyntaxKind>()),
+            _ => (null, default, null),
+        };
+
+        if (typeKind is null || allowed is null)
+            return;
+
+        foreach (var modifier in modifiers)
+        {
+            if (!allowed.Contains(modifier.Kind))
+                diagnostics.ReportModifierNotValidOnMember(
+                    modifier.Text,
+                    typeKind,
+                    declaration.Identifier.ValueText,
+                    modifier.GetLocation());
         }
     }
 
@@ -5020,6 +5221,14 @@ public partial class SemanticModel
         EnsureDeclarations();
         if (_declaredTypeSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol))
             return symbol;
+
+        if (node is BaseTypeDeclarationSyntax localTypeDeclaration &&
+            localTypeDeclaration.Parent is TypeDeclarationStatementSyntax &&
+            localTypeDeclaration.Ancestors().OfType<BlockStatementSyntax>().FirstOrDefault() is { } enclosingBlock &&
+            GetBinder(enclosingBlock) is BlockBinder blockBinder)
+        {
+            return EnsureLocalTypeDeclarationBound(localTypeDeclaration, blockBinder);
+        }
 
         throw new InvalidOperationException($"Type symbol not declared for syntax node '{node}'.");
     }
