@@ -333,13 +333,28 @@ public static partial class SymbolExtensions
         };
     }
 
+    private static bool IsInstanceExtensionMemberCore(IMethodSymbol method)
+    {
+        if (method.IsExtensionMethod)
+            return true;
+
+        if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
+            return false;
+
+        var receiverType = method.GetExtensionReceiverType();
+        if (receiverType is null)
+            return false;
+
+        return SymbolEqualityComparer.Default.Equals(receiverType, method.Parameters[0].Type);
+    }
+
     extension(IMethodSymbol method)
     {
         public ExtensionMemberKind ExtensionMemberKind
         {
             get
             {
-                if (method.IsExtensionMethod)
+                if (IsInstanceExtensionMemberCore(method))
                     return Raven.CodeAnalysis.ExtensionMemberKind.Instance;
 
                 return method.GetExtensionReceiverType() is not null
@@ -349,7 +364,7 @@ public static partial class SymbolExtensions
         }
 
         public bool IsInstanceExtensionMember
-            => method.ExtensionMemberKind == Raven.CodeAnalysis.ExtensionMemberKind.Instance;
+            => IsInstanceExtensionMemberCore(method);
 
         public bool IsStaticExtensionMember
             => method.ExtensionMemberKind == Raven.CodeAnalysis.ExtensionMemberKind.Static;
@@ -365,7 +380,7 @@ public static partial class SymbolExtensions
                     return Raven.CodeAnalysis.ExtensionMemberKind.Instance;
 
                 var accessor = property.GetMethod ?? property.SetMethod;
-                if (accessor?.IsExtensionMethod == true)
+                if (accessor?.IsInstanceExtensionMember == true)
                     return Raven.CodeAnalysis.ExtensionMemberKind.Instance;
 
                 return property.GetExtensionReceiverType() is not null

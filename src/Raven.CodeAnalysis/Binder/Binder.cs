@@ -452,7 +452,7 @@ internal abstract partial class Binder
 
     private IMethodSymbol AdjustExtensionForReceiver(IMethodSymbol method, ITypeSymbol receiverType)
     {
-        if (!method.IsExtensionMethod || receiverType is null || receiverType.TypeKind == TypeKind.Error)
+        if (!method.IsInstanceExtensionMember || receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return method;
 
         if (!TryCreateConstructedExtension(method, receiverType, out var constructed))
@@ -559,6 +559,9 @@ internal abstract partial class Binder
         if (!TryUnifyExtensionReceiver(receiverParameterType, receiverType, substitutions))
             return false;
 
+        if (!SatisfiesInferredTypeParameterConstraints(methodDefinition, substitutions))
+            return false;
+
         if (!methodDefinition.TypeParameters.IsDefaultOrEmpty && methodDefinition.TypeParameters.Length > 0)
         {
             var methodTypeArguments = new ITypeSymbol[methodDefinition.TypeParameters.Length];
@@ -634,6 +637,9 @@ internal abstract partial class Binder
         if (!TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions))
             return false;
 
+        if (!SatisfiesInferredTypeParameterConstraints(methodDefinition, substitutions))
+            return false;
+
         if (!methodDefinition.TypeParameters.IsDefaultOrEmpty && methodDefinition.TypeParameters.Length > 0)
         {
             var methodTypeArguments = new ITypeSymbol[methodDefinition.TypeParameters.Length];
@@ -691,7 +697,7 @@ internal abstract partial class Binder
         bool includePartialMatches)
     {
         var accessor = property.GetMethod ?? property.SetMethod;
-        if (accessor is null || !accessor.IsExtensionMethod)
+        if (accessor is null || !accessor.IsInstanceExtensionMember)
             return false;
 
         if (includePartialMatches)
@@ -710,7 +716,8 @@ internal abstract partial class Binder
         if (ContainsTypeParameters(parameterType))
         {
             var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
-            return TryUnifyExtensionReceiver(parameterType, receiverType, substitutions);
+            return TryUnifyExtensionReceiver(parameterType, receiverType, substitutions) &&
+                   SatisfiesInferredTypeParameterConstraints(accessor, substitutions);
         }
 
         if (SymbolEqualityComparer.Default.Equals(parameterType, receiverType))
@@ -741,7 +748,15 @@ internal abstract partial class Binder
         if (ContainsTypeParameters(extensionReceiverType))
         {
             var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
-            return TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions);
+            if (!TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions))
+                return false;
+
+            return member switch
+            {
+                IMethodSymbol method => SatisfiesInferredTypeParameterConstraints(method, substitutions),
+                IPropertySymbol property => SatisfiesInferredTypeParameterConstraints(property.GetMethod ?? property.SetMethod, substitutions),
+                _ => false
+            };
         }
 
         if (SymbolEqualityComparer.Default.Equals(extensionReceiverType, receiverType))
@@ -1146,7 +1161,8 @@ internal abstract partial class Binder
         if (ContainsTypeParameters(parameterType))
         {
             var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
-            return TryUnifyExtensionReceiver(parameterType, receiverType, substitutions);
+            return TryUnifyExtensionReceiver(parameterType, receiverType, substitutions) &&
+                   SatisfiesInferredTypeParameterConstraints(method, substitutions);
         }
 
         if (SymbolEqualityComparer.Default.Equals(parameterType, receiverType))
@@ -1154,6 +1170,96 @@ internal abstract partial class Binder
 
         var conversion = Compilation.ClassifyConversion(receiverType, parameterType);
         return conversion.Exists && conversion.IsImplicit;
+    }
+
+    private bool SatisfiesInferredTypeParameterConstraints(
+        IMethodSymbol? method,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        if (method is null || substitutions.Count == 0)
+            return true;
+
+        var methodDefinition = method.OriginalDefinition ?? method;
+
+        if (methodDefinition.ContainingType is INamedTypeSymbol containingType &&
+            !SatisfiesInferredTypeParameterConstraints(containingType.TypeParameters, substitutions))
+        {
+            return false;
+        }
+
+        return SatisfiesInferredTypeParameterConstraints(methodDefinition.TypeParameters, substitutions);
+    }
+
+    private bool SatisfiesInferredTypeParameterConstraints(
+        ImmutableArray<ITypeParameterSymbol> typeParameters,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        if (typeParameters.IsDefaultOrEmpty || substitutions.Count == 0)
+            return true;
+
+        EnsureTypeParameterConstraintTypesResolved(typeParameters);
+
+        foreach (var typeParameter in typeParameters)
+        {
+            if (!substitutions.TryGetValue(typeParameter, out var typeArgument))
+                continue;
+
+            var constraintKind = typeParameter.ConstraintKind;
+
+            if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
+                !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
+            {
+                return false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.ValueType) != 0 &&
+                !SemanticFacts.SatisfiesValueTypeConstraint(typeArgument))
+            {
+                return false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.NotNull) != 0 &&
+                !SemanticFacts.SatisfiesNotNullConstraint(typeArgument))
+            {
+                return false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.Constructor) != 0 &&
+                !SemanticFacts.SatisfiesConstructorConstraint(typeArgument))
+            {
+                return false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) == 0)
+                continue;
+
+            foreach (var constraintType in typeParameter.ConstraintTypes)
+            {
+                var substitutedConstraint = SubstituteConstraintType(constraintType, substitutions);
+
+                if (substitutedConstraint is ITypeParameterSymbol unsubstituted &&
+                    !substitutions.ContainsKey(unsubstituted))
+                {
+                    continue;
+                }
+
+                if (substitutedConstraint is IErrorTypeSymbol)
+                    continue;
+
+                if (substitutedConstraint is INamedTypeSymbol namedConstraint)
+                {
+                    if (!SemanticFacts.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
+                        return false;
+
+                    continue;
+                }
+
+                if (!SemanticFacts.SatisfiesTypeConstraint(typeArgument, substitutedConstraint))
+                    return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool ContainsTypeParameters(ITypeSymbol type)

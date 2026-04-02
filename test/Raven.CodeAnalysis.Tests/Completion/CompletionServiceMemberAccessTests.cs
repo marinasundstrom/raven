@@ -203,6 +203,37 @@ counter.
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_ExcludesExtensionsWhoseReceiverConstraintsDoNotMatch()
+    {
+        var code = """
+interface ITagged { }
+
+class Sample { }
+
+extension TaggedExtensions<T: ITagged> for T {
+    func Mark() -> int => 1
+}
+
+val sample = Sample()
+sample.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.DoesNotContain(items, i => i.DisplayText == "Mark");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_WithPriorDeconstruction_DoesNotThrow()
     {
         var code = """

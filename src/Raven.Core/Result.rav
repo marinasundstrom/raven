@@ -248,3 +248,10 @@ extension ResultExtensions<T, E> for Result<T, E> {
         throw InvalidOperationException("Result is not Error")
     }
 }
+
+extension ResultErrorContextExtensions<T, E: IError> for Result<T, E> {
+    /// Wraps the error channel with additional context while preserving the original error type.
+    func WithMessage(message: string) -> Result<T, ContextError<E>> {
+        self.MapError(error => ContextError<E>(message, error))
+    }
+}

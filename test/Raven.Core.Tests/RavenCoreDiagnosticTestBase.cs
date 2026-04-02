@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.IO;
+using System.Reflection;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Testing;
@@ -36,20 +37,23 @@ public abstract class RavenCoreDiagnosticTestBase
         };
     }
 
-    private static string ResolveRavenCorePath()
+    protected static Assembly LoadRavenCoreAssembly()
+        => Assembly.LoadFrom(ResolveRavenCorePath());
+
+    protected static string ResolveRavenCorePath()
     {
         var outputPath = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");
-        if (File.Exists(outputPath))
-        {
-            return outputPath;
-        }
-
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         var fallbackPath = Path.Combine(repoRoot, "src", "Raven.Core", "bin", "Debug", "net10.0", "Raven.Core.dll");
-        if (File.Exists(fallbackPath))
-        {
-            return fallbackPath;
-        }
+
+        var candidates = new[] { outputPath, fallbackPath }
+            .Where(File.Exists)
+            .Select(path => new FileInfo(path))
+            .OrderByDescending(static file => file.LastWriteTimeUtc)
+            .ToArray();
+
+        if (candidates.Length > 0)
+            return candidates[0].FullName;
 
         throw new FileNotFoundException("Could not locate Raven.Core.dll for tests.", outputPath);
     }

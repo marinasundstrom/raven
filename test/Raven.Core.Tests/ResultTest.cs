@@ -134,12 +134,6 @@ extension TestExt<T> for IEnumerable<T> {
         Assert.DoesNotContain(".Ok(Foo)", carrierText!, StringComparison.Ordinal);
     }
 
-    private static Assembly LoadRavenCoreAssembly()
-    {
-        var path = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");
-        return Assembly.LoadFrom(path);
-    }
-
     private static Type GetConstructedType(Assembly assembly, string metadataName, params Type[] typeArgs)
     {
         var definition = assembly.GetType(metadataName, throwOnError: true)!;

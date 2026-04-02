@@ -69,10 +69,35 @@ func ParseMain(text: string) -> Result<int, IParseError> {
         Assert.Equal("InvalidFormat", kind!.ToString());
     }
 
-    private static Assembly LoadRavenCoreAssembly()
+    [Fact]
+    public void WithMessage_OnTypedError_PreservesInnerErrorType()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");
-        return Assembly.LoadFrom(path);
+        const string code = """
+import System.*
+import System.Globalization.*
+
+func Wrap() -> string {
+    val error = ParseIntError(.InvalidFormat, "foo", NumberStyles.Integer)
+    val wrapped = error.WithMessage("wrapped")
+    return wrapped.InnerError.Kind.ToString()
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
+    public void WithMessage_OnResult_ProjectsErrorChannelToContextError()
+    {
+        const string code = """
+import System.*
+
+func Wrap(text: string) -> Result<int, ContextError<ParseIntError>> {
+    return int.parse(text).WithMessage("wrapped")
+}
+""";
+
+        CreateVerifier(code).Verify();
     }
 
     private static MethodInfo GetTryGetValueMethod(Type resultType, Type caseType)

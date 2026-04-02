@@ -610,24 +610,63 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     {
         get
         {
-            if (_interfaces is null)
-            {
-                var all = AllInterfaces;
-                _interfaces = all
-                    .Where(i => (BaseType is null || !BaseType.AllInterfaces.Contains(i, SymbolEqualityComparer.Default)) &&
-                                !all.Any(other => !SymbolEqualityComparer.Default.Equals(i, other) &&
-                                                 other.AllInterfaces.Contains(i, SymbolEqualityComparer.Default)))
-                    .ToImmutableArray();
-            }
-
-            return _interfaces.Value;
+            return _interfaces ??= ComputeDirectInterfaces();
         }
     }
 
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
-        _allInterfaces ??= _typeInfo.GetInterfaces()
-            .Select(i => (INamedTypeSymbol)_reflectionTypeLoader.ResolveType(i)!)
+        _allInterfaces ??= ComputeAllInterfaces();
+
+    private ImmutableArray<INamedTypeSymbol> ComputeDirectInterfaces()
+    {
+        var declared = _typeInfo.ImplementedInterfaces
+            .Select(i => _reflectionTypeLoader.ResolveType(i))
+            .OfType<INamedTypeSymbol>()
             .ToImmutableArray();
+
+        if (declared.IsDefaultOrEmpty)
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        return declared;
+    }
+
+    private ImmutableArray<INamedTypeSymbol> ComputeAllInterfaces()
+    {
+        var directInterfaces = Interfaces;
+        var baseInterfaces = BaseType?.AllInterfaces ?? ImmutableArray<INamedTypeSymbol>.Empty;
+
+        if (directInterfaces.IsDefaultOrEmpty && baseInterfaces.IsDefaultOrEmpty)
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default)
+        {
+            this
+        };
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+
+        foreach (var interfaceType in directInterfaces)
+            AddInterface(interfaceType);
+
+        foreach (var inherited in baseInterfaces)
+        {
+            if (seen.Add(inherited))
+                builder.Add(inherited);
+        }
+
+        return builder.ToImmutable();
+
+        void AddInterface(INamedTypeSymbol interfaceType)
+        {
+            if (!seen.Add(interfaceType))
+                return;
+
+            builder.Add(interfaceType);
+
+            foreach (var inherited in interfaceType.Interfaces)
+                AddInterface(inherited);
+        }
+    }
 
     private static bool IsDelegateType(System.Reflection.TypeInfo typeInfo)
     {

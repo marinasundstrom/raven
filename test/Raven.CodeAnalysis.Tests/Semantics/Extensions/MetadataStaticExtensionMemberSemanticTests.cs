@@ -116,6 +116,59 @@ val parsed = int.parse("42")
     }
 
     [Fact]
+    public void RavenInstanceExtensionMethod_FromMetadata_BindsToResultReceiver()
+    {
+        const string source = """
+import System.*
+
+val wrapped = int.parse("42").WithMessage("wrapped")
+""";
+
+        var references = TestMetadataReferences.Default
+            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
+            .ToArray();
+
+        var (compilation, tree) = CreateCompilation(source, references: references);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(i => i.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "WithMessage" });
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.Equal("ResultErrorContextExtensions", boundInvocation.Method.ContainingType?.Name);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.Equal("union struct Result<int, ContextError<ParseIntError>>", boundInvocation.Type.ToDisplayString());
+    }
+
+    [Fact]
+    public void MetadataType_AllInterfaces_IncludeTransitiveInterfaces()
+    {
+        var references = TestMetadataReferences.Default
+            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
+            .ToArray();
+
+        var compilation = CreateCompilation(references: references);
+        compilation.EnsureSetup();
+
+        var systemNamespace = compilation.GetNamespaceSymbol("System");
+        Assert.NotNull(systemNamespace);
+
+        var parseIntError = systemNamespace!.LookupType("ParseIntError") as INamedTypeSymbol;
+        Assert.NotNull(parseIntError);
+
+        var allInterfaces = parseIntError!.AllInterfaces
+            .Select(i => i.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .ToArray();
+
+        Assert.Contains("IParseError", allInterfaces);
+        Assert.Contains("IError", allInterfaces);
+    }
+
+    [Fact]
     public void RavenStaticExtensionConversionOperator_FromMetadata_IsImported()
     {
         var references = TestMetadataReferences.Default

@@ -3,7 +3,7 @@ namespace System
 import System.*
 import System.Globalization.*
 
-interface IParseError {
+interface IParseError: IError {
 }
 
 enum IntErrorKind {
@@ -18,13 +18,18 @@ record ParseIntError(
     val Input: string?,
     val Style: NumberStyles
 ) : IParseError {
-    override func ToString() -> string =>
+
+    val Cause: IError? => null
+
+    val Message: string =>
         Kind match {
             .Null => "Value cannot be null."
             .Empty => "Value cannot be empty."
             .InvalidFormat => "Input was not in a valid integer format."
             .Overflow => "Input was outside the range of Int32."
         }
+
+    override func ToString() -> string => Message
 }
 
 extension Int32Extensions for Int32 {

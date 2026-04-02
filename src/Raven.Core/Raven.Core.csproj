@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <RavenSource Include="Error.rav" />
     <RavenSource Include="Option.rav" />
     <RavenSource Include="Parse.rav" />
     <RavenSource Include="Result.rav" />

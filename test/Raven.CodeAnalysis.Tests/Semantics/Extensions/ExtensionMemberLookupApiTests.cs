@@ -112,4 +112,32 @@ val doubled = value.Double()
         Assert.Equal("Double", extensionMethod.Name);
         Assert.Equal("NumberExtensions", extensionMethod.ContainingType?.Name);
     }
+
+    [Fact]
+    public void LookupApplicableExtensionMembers_ExcludesCandidatesWhoseReceiverConstraintsDoNotMatch()
+    {
+        const string source = """
+interface ITagged { }
+
+class Sample { }
+
+extension TaggedExtensions<T: ITagged> for T {
+    func Mark() -> int => 1
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var sampleDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(d => d.Identifier.ValueText == "Sample");
+        var sampleType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(sampleDeclaration));
+
+        var result = model.LookupApplicableExtensionMembers(sampleType, name: "Mark");
+
+        Assert.DoesNotContain(result.InstanceMethods, m => m.Name == "Mark");
+    }
 }

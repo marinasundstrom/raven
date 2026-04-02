@@ -1116,7 +1116,7 @@ static class NumberExtensions {
     }
 
     [Fact]
-    public void ExtensionInvocation_WithUnsatisfiedGenericConstraint_ReportsDiagnostic()
+    public void ExtensionInvocation_WithUnsatisfiedGenericConstraint_ExcludesCandidateFromLookup()
     {
         const string source = """
 import System.Runtime.CompilerServices.*
@@ -1142,7 +1142,9 @@ class Query {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Empty(diagnostics);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("RAV0117", diagnostic.Id);
+        Assert.Contains("RequiresComparison", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]

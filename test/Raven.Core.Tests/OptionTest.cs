@@ -92,12 +92,6 @@ val _ = input.Map((v: string) => v)
         verifier.Verify();
     }
 
-    private static Assembly LoadRavenCoreAssembly()
-    {
-        var path = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");
-        return Assembly.LoadFrom(path);
-    }
-
     private static Type GetConstructedType(Assembly assembly, string metadataName, params Type[] typeArgs)
     {
         var definition = assembly.GetType(metadataName, throwOnError: true)!;

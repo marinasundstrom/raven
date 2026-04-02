@@ -3,13 +3,16 @@ import System.Console.*
 import System.Globalization.*
 
 func Main() -> Result<(), IParseError> {
-    // Custom extension
-    val test = int.parse("foo")
-    
+    val test = int.parse("foo").WithMessage("test")
+
     match test {
         Ok(val v) => WriteLine(v)
-        Error(ParseIntError(val kind, _, _)) => {
-            WriteLine(kind)
+        Error(val e) => {
+            match e.Cause {
+                ParseIntError(.InvalidFormat, _, _) => WriteLine("Ouch! Invalid format")
+                ParseIntError(val kind, _, _) => WriteLine("Error kind $kind")
+                _ => WriteLine(e.Message)
+            }
         }
     }
 

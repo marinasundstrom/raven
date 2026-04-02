@@ -1,0 +1,27 @@
+namespace System
+
+import System.*
+
+interface IError {
+    val Message: string
+    val Cause: IError? => null
+}
+
+record ContextError<TError: IError>(
+    val Message: string,
+    val InnerError: TError
+) : IError {
+    val Cause: IError? => InnerError
+
+    override func ToString() -> string => Message
+}
+
+extension ErrorExtensions<TError: IError> for TError {
+    func WithMessage(message: string) -> ContextError<TError>
+        => ContextError<TError>(message, self)
+}
+
+extension ErrorObjectExtensions for IError {
+    func Box(message: string) -> ContextError<IError>
+        => ContextError<IError>(message, self)
+}

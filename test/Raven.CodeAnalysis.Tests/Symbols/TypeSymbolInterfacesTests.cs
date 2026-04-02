@@ -65,7 +65,7 @@ public class TypeSymbolInterfacesTests
                     && SymbolEqualityComparer.Default.Equals(typeArguments[0], intType);
             });
         Assert.Contains(array.AllInterfaces, i => i.SpecialType == SpecialType.System_Collections_IEnumerable);
-        Assert.DoesNotContain(array.Interfaces, i => i.SpecialType == SpecialType.System_Collections_IEnumerable);
+        Assert.Contains(array.Interfaces, i => i.SpecialType == SpecialType.System_Collections_IEnumerable);
     }
 
     [Fact]
