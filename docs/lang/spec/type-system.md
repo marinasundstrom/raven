@@ -11,6 +11,9 @@ representation.
 * `T?` is the canonical nullable form.
 * `unit` (`()`) means "no meaningful result"; it is not a nullable-absence
   construct.
+* Extension-member classification is per member, not per container. A mixed
+  extension container may therefore contain classic instance extension members
+  and static extension members side by side.
 
 ## Primitive types
 

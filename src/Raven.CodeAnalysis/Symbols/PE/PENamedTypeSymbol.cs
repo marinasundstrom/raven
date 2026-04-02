@@ -818,7 +818,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 }
             }
 
-            if (this.HasStaticExtensionMembers())
+            if (this.HasStaticExtensionMembers)
             {
                 var props = ExtensionPropertyReflection.GroupByAccessorConvention(_typeInfo);
 

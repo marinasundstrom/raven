@@ -207,7 +207,7 @@ partial class BlockBinder
             ITypeSymbol parameterType;
             if (typeSyntax is not null)
             {
-                var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+                var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
                     ? byRefType.ElementType
                     : typeSyntax;
                 parameterType = lambdaBinder.ResolveTypeSyntaxOrError(boundTypeSyntax);

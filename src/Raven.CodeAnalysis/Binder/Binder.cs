@@ -463,7 +463,7 @@ internal abstract partial class Binder
 
     private IPropertySymbol AdjustExtensionPropertyForReceiver(IPropertySymbol property, ITypeSymbol receiverType)
     {
-        if (!property.IsExtensionProperty() || receiverType is null || receiverType.TypeKind == TypeKind.Error)
+        if (!property.IsExtensionProperty || receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return property;
 
         var getMethod = property.GetMethod;
@@ -971,7 +971,7 @@ internal abstract partial class Binder
 
         foreach (var member in members)
         {
-            if (!member.IsExtensionMethod)
+            if (!member.IsInstanceExtensionMember)
                 continue;
 
             if (!includePartialMatches && name is not null && member.Name != name)
@@ -1015,10 +1015,7 @@ internal abstract partial class Binder
 
         foreach (var member in members)
         {
-            if (member.IsExtensionMethod || !member.IsStatic)
-                continue;
-
-            if (member.GetExtensionReceiverType() is null)
+            if (!member.IsStatic || !member.IsStaticExtensionMember)
                 continue;
 
             if (!includePartialMatches && name is not null && member.Name != name)
@@ -1062,7 +1059,7 @@ internal abstract partial class Binder
 
         foreach (var property in members)
         {
-            if (!property.IsExtensionProperty())
+            if (!property.IsExtensionProperty)
                 continue;
 
             if (!includePartialMatches && name is not null && property.Name != name)
@@ -1106,7 +1103,7 @@ internal abstract partial class Binder
 
         foreach (var property in members)
         {
-            if (property.IsExtensionProperty() || !property.IsStatic)
+            if (property.IsExtensionProperty || !property.IsStatic)
                 continue;
 
             if (property.GetExtensionReceiverType() is null)

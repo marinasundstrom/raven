@@ -4934,7 +4934,7 @@ internal partial class ExpressionGenerator : Generator
                     var propertySymbol = (IPropertySymbol)propertyAssignmentExpression.Property;
                     var right = propertyAssignmentExpression.Right;
                     var receiver = propertyAssignmentExpression.Receiver;
-                    var isExtensionProperty = propertySymbol.IsExtensionProperty();
+                    var isExtensionProperty = propertySymbol.IsExtensionProperty;
 
                     // Load receiver (unless static)
                     if (isExtensionProperty)
@@ -6394,7 +6394,7 @@ internal partial class ExpressionGenerator : Generator
         switch (symbol)
         {
             case IPropertySymbol propertySymbol:
-                if (propertySymbol.IsExtensionProperty())
+                if (propertySymbol.IsExtensionProperty)
                 {
                     EmitExtensionPropertyAccess(propertySymbol, receiver, receiverAlreadyLoaded);
                     break;
@@ -7546,7 +7546,7 @@ internal partial class ExpressionGenerator : Generator
             position -= 1;
 
         // If the parameter itself is by-ref, loading it already yields managed pointer.
-        if (parameter.IsByRefParameter())
+        if (parameter.IsByRefParameter)
             ILGenerator.Emit(OpCodes.Ldarg, position);
         else
             ILGenerator.Emit(OpCodes.Ldarga, position);
@@ -8035,7 +8035,7 @@ internal partial class ExpressionGenerator : Generator
     {
         var propertySymbol = propertyAccess.Property;
 
-        if (propertySymbol.IsExtensionProperty())
+        if (propertySymbol.IsExtensionProperty)
             throw new InvalidOperationException($"Extension property '{propertySymbol.Name}' requires an explicit receiver.");
 
         if (propertySymbol.ContainingType!.Name == "Array") //.SpecialType is SpecialType.System_Array)

@@ -55,7 +55,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     private ITypeSymbol ResolveParameterType()
     {
         var resolved = _reflectionTypeLoader.ResolveType(_parameterInfo);
-        if (RefKind.IsByRef() && resolved is RefTypeSymbol refType)
+        if (RefKind.IsByRef && resolved is RefTypeSymbol refType)
             return refType.ElementType;
 
         return resolved;

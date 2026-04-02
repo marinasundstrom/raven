@@ -186,7 +186,7 @@ internal static class CompletionItemMapper
                 Detail = " (extension)",
                 Description = containerDescription
             },
-            IPropertySymbol property when property.IsExtensionProperty() => new CompletionItemLabelDetails
+            IPropertySymbol property when property.IsExtensionProperty => new CompletionItemLabelDetails
             {
                 Detail = " (extension)",
                 Description = containerDescription

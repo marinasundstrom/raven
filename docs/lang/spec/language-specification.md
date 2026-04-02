@@ -1589,6 +1589,15 @@ in referenced assemblies, such as `System.Linq.Enumerable`, and Raven-authored
 extensions are surfaced uniformly by binding, so source and metadata callers see
 the same candidates.【F:src/Raven.CodeAnalysis/Binder/NamespaceBinder.cs†L33-L61】
 
+Extension classification is determined per member rather than per container.
+This matters for mixed extension containers and imported metadata. A single
+extension container may therefore contribute both:
+
+* classic instance extension members, which participate in instance-style
+  extension lookup and behave like ordinary extension methods/properties, and
+* static extension members, which participate only in static member lookup on
+  the receiver type.
+
 Invoking an extension uses method-style member access. When `expr.Member(...)`
 fails to resolve to an instance member, Raven gathers the in-scope extension
 methods whose receiver parameter is compatible with `expr`. Eligible extensions
@@ -1638,7 +1647,11 @@ containers whose receiver type is compatible with the target type. Receiver
 compatibility follows the same implicit conversion and nullability rules used
 for extension methods, so constructed and nested types participate normally.
 Static extension members do not synthesize `self` and are emitted as ordinary
-static members on the extension container.
+static members on the extension container. Binding classifies them separately
+from classic extension methods even when they live in the same extension
+container. As a result, a mixed container may expose `value.Member(...)`-style
+instance extensions and `Type.Member(...)`-style static extensions at the same
+time without forcing one model onto the other.
 
 #### Pipe operator
 

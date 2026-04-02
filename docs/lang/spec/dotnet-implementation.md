@@ -20,23 +20,25 @@ against declaration position:
   attribute-target diagnostic.
 
 ## Extension members
-Raven both declares and consumes extension members using the CLR's
-`ExtensionAttribute`. Source extensions arise from two forms:
+Raven both declares and consumes extension members using CLR extension metadata,
+but it classifies extension semantics per emitted member rather than treating an
+entire container as one kind of extension surface. Source extensions arise from
+two forms:
 
 * An `extension` declaration emits a `static` class named after the container.
-  Each member inside the declaration becomes a `static` method whose first
-  parameter represents the `self` receiver. The compiler synthesizes that
-  parameter, applies the `ExtensionAttribute`, and copies any explicit
-  parameters written in source onto the emitted method signature.
+  Instance extension members become `static` methods whose first parameter
+  represents the `self` receiver. The compiler synthesizes that parameter,
+  applies the `ExtensionAttribute`, and copies any explicit parameters written
+  in source onto the emitted method signature.
 * Existing static methods annotated with `[Extension]` continue to be recognised
   as extensions.
 
-Computed properties declared inside an `extension` body lower to accessor
-methods that follow the same pattern. The compiler synthesizes `get_` and
-`set_` methods, inserts the receiver as the leading parameter, and marks each
-accessor with `ExtensionAttribute`. Property metadata is emitted alongside the
-accessors so reflection reports a property with the expected accessor pair even
-though the backing logic is implemented by static methods.
+Computed instance extension properties declared inside an `extension` body lower
+to accessor methods that follow the same pattern. The compiler synthesizes
+`get_` and `set_` methods, inserts the receiver as the leading parameter, and
+marks each accessor with `ExtensionAttribute`. Property metadata is emitted
+alongside the accessors so reflection reports a property with the expected
+accessor pair even though the backing logic is implemented by static methods.
 
 To interoperate with C# extension blocks (C# 14), Raven also emits an extension
 marker nested type for each `extension` declaration. The marker type is named
@@ -47,7 +49,14 @@ properties, including static extension members) is annotated with
 marker type name, enabling C# to recover the extension receiver signature when
 consuming Raven-compiled assemblies.
 
-In both cases the attribute ensures the metadata matches C#'s expectations.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】 When binding a
+When importing metadata, Raven distinguishes classic extension methods from
+static extension members per member. Method-level `ExtensionAttribute`
+continues to identify classic extension methods, while receiver-marker metadata
+identifies static extension members that participate in `Type.Member` lookup
+without being treated as classic extension methods. This keeps mixed extension
+containers compatible with .NET/C# lookup expectations.
+
+In both cases the emitted metadata matches C#'s expectations.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】 When binding a
 member-style invocation, Raven merges instance methods with any imported
 extensions that can accept the receiver, then rewrites the call to pass the
 receiver as the leading static argument during lowering and IL emission.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】 The same rewrite applies to extension-property access: getters become static calls that receive the target as their first argument, and setters pass both the target and assigned value to the synthesized method.

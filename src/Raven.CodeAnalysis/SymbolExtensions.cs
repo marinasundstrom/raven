@@ -5,14 +5,15 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
+public enum ExtensionMemberKind
+{
+    None,
+    Instance,
+    Static
+}
+
 public static partial class SymbolExtensions
 {
-    public static bool IsByRef(this RefKind refKind)
-        => refKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter;
-
-    public static bool IsByRefParameter(this IParameterSymbol parameter)
-        => parameter.RefKind.IsByRef();
-
     public static ITypeSymbol GetByRefElementType(this IParameterSymbol parameter)
         => parameter.Type is RefTypeSymbol refType ? refType.ElementType : parameter.Type;
 
@@ -84,17 +85,6 @@ public static partial class SymbolExtensions
     public static ITypeSymbol? UnwrapLiteralType(this ITypeSymbol? type)
         => type is LiteralTypeSymbol literal ? literal.UnderlyingType : type;
 
-    public static bool IsExtensionProperty(this IPropertySymbol property)
-    {
-        return property switch
-        {
-            SourcePropertySymbol sourceProperty => sourceProperty.IsDeclaredInExtension,
-            _ when property.GetMethod?.IsExtensionMethod == true => true,
-            _ when property.SetMethod?.IsExtensionMethod == true => true,
-            _ => false
-        };
-    }
-
     public static ITypeSymbol? GetExtensionReceiverType(this IPropertySymbol property)
     {
         if (property.GetMethod?.GetExtensionReceiverType() is { } getterReceiver)
@@ -126,6 +116,9 @@ public static partial class SymbolExtensions
             return method.Parameters[0].Type;
         }
 
+        if (method.IsExtensionMethod && !method.Parameters.IsDefaultOrEmpty)
+            return method.Parameters[0].Type;
+
         if (method.OriginalDefinition is PEMethodSymbol peOriginal &&
             method.ContainingType is ConstructedNamedTypeSymbol constructed)
         {
@@ -154,10 +147,6 @@ public static partial class SymbolExtensions
                 return markerReceiver;
             }
         }
-
-        if (method.IsExtensionMethod && !method.Parameters.IsDefaultOrEmpty)
-            return method.Parameters[0].Type;
-
         if (method.ContainingType is PENamedTypeSymbol peType &&
             peType.GetExtensionReceiverType() is { } peReceiverType)
         {
@@ -194,20 +183,6 @@ public static partial class SymbolExtensions
         }
 
         return method.ContainingType?.GetExtensionReceiverType();
-    }
-
-    public static bool HasStaticExtensionMembers(this INamedTypeSymbol type)
-    {
-        if (type.GetExtensionReceiverType() is not null)
-            return true;
-
-        return type switch
-        {
-            PENamedTypeSymbol peType => peType.HasExtensionMarkerMembers(),
-            ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is PENamedTypeSymbol peType
-                => peType.HasExtensionMarkerMembers(),
-            _ => false
-        };
     }
 
     public static ITypeSymbol? GetExtensionReceiverType(this INamedTypeSymbol type)
@@ -356,5 +331,88 @@ public static partial class SymbolExtensions
             INamedTypeSymbol type => type.GetExtensionReceiverType(),
             _ => null
         };
+    }
+
+    extension(IMethodSymbol method)
+    {
+        public ExtensionMemberKind ExtensionMemberKind
+        {
+            get
+            {
+                if (method.IsExtensionMethod)
+                    return Raven.CodeAnalysis.ExtensionMemberKind.Instance;
+
+                return method.GetExtensionReceiverType() is not null
+                    ? Raven.CodeAnalysis.ExtensionMemberKind.Static
+                    : Raven.CodeAnalysis.ExtensionMemberKind.None;
+            }
+        }
+
+        public bool IsInstanceExtensionMember
+            => method.ExtensionMemberKind == Raven.CodeAnalysis.ExtensionMemberKind.Instance;
+
+        public bool IsStaticExtensionMember
+            => method.ExtensionMemberKind == Raven.CodeAnalysis.ExtensionMemberKind.Static;
+    }
+
+    extension(IPropertySymbol property)
+    {
+        public ExtensionMemberKind ExtensionMemberKind
+        {
+            get
+            {
+                if (property is SourcePropertySymbol sourceProperty && sourceProperty.IsDeclaredInExtension)
+                    return Raven.CodeAnalysis.ExtensionMemberKind.Instance;
+
+                var accessor = property.GetMethod ?? property.SetMethod;
+                if (accessor?.IsExtensionMethod == true)
+                    return Raven.CodeAnalysis.ExtensionMemberKind.Instance;
+
+                return property.GetExtensionReceiverType() is not null
+                    ? Raven.CodeAnalysis.ExtensionMemberKind.Static
+                    : Raven.CodeAnalysis.ExtensionMemberKind.None;
+            }
+        }
+
+        public bool IsExtensionProperty
+            => property.ExtensionMemberKind == Raven.CodeAnalysis.ExtensionMemberKind.Instance;
+
+        public bool IsInstanceExtensionMember
+            => property.ExtensionMemberKind == Raven.CodeAnalysis.ExtensionMemberKind.Instance;
+
+        public bool IsStaticExtensionMember
+            => property.ExtensionMemberKind == Raven.CodeAnalysis.ExtensionMemberKind.Static;
+    }
+
+    extension(INamedTypeSymbol type)
+    {
+        public bool HasStaticExtensionMembers
+        {
+            get
+            {
+                if (type.GetExtensionReceiverType() is not null)
+                    return true;
+
+                return type switch
+                {
+                    PENamedTypeSymbol peType => peType.HasExtensionMarkerMembers(),
+                    ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is PENamedTypeSymbol peType
+                        => peType.HasExtensionMarkerMembers(),
+                    _ => false
+                };
+            }
+        }
+    }
+
+    extension(RefKind refKind)
+    {
+        public bool IsByRef
+            => refKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter;
+    }
+
+    extension(IParameterSymbol parameter)
+    {
+        public bool IsByRefParameter
+            => parameter.RefKind.IsByRef;
     }
 }

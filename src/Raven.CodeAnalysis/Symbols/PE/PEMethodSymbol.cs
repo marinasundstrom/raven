@@ -330,6 +330,11 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         try
         {
             var hasExtensionAttribute = HasExtensionAttribute(_methodInfo.GetCustomAttributesData());
+            if (hasExtensionAttribute)
+                return true;
+
+            if (TryGetExtensionMarkerName(out _))
+                return false;
 
             var declaringType = _methodInfo.DeclaringType;
             if (!hasExtensionAttribute && declaringType is not null)

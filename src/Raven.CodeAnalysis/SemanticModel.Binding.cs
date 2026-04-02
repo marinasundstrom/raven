@@ -2309,7 +2309,7 @@ public partial class SemanticModel
 
         ITypeSymbol ResolveParameterTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKind)
         {
-            var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+            var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
                 ? byRefType.ElementType
                 : typeSyntax;
             return ResolveTypeSyntaxForSignature(boundTypeSyntax, RefKind.None);
@@ -2696,7 +2696,7 @@ public partial class SemanticModel
                     }
                     else
                     {
-                        var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+                        var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
                             ? byRefType.ElementType
                             : typeSyntax;
                         parameterType = unionBinder.BindTypeSyntaxAndReport(boundTypeSyntax);
@@ -4158,7 +4158,7 @@ public partial class SemanticModel
             }
             else
             {
-                var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+                var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
                     ? byRefType.ElementType
                     : typeSyntax;
                 parameterType = classBinder.BindTypeSyntaxAndReport(boundTypeSyntax);

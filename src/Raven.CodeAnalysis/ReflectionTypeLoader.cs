@@ -201,22 +201,22 @@ internal class ReflectionTypeLoader(Compilation compilation)
             return constructed;
         }
 
-        if (type.IsGenericTypeParameter || type.IsGenericMethodParameter)
+        if (type.IsGenericMethodParameter)
+        {
+            var method = methodContext ?? type.DeclaringMethod;
+            if (method is null)
+                throw new InvalidOperationException($"Unable to resolve declaring method for type parameter: {type}");
+
+            if (!_methodSymbols.TryGetValue(MethodIdentity.Create(method), out var methodSymbol))
+                throw new InvalidOperationException($"Method symbol not registered for {method}.");
+
+            return ResolveMethodTypeParameter(type, methodSymbol);
+        }
+
+        if (type.IsGenericTypeParameter)
         {
             if (ResolveType(type.DeclaringType!) is not INamedTypeSymbol declaringNamedType)
                 throw new InvalidOperationException($"Could not resolve declaring type for type parameter: {type}");
-
-            if (type.IsGenericMethodParameter)
-            {
-                var method = methodContext ?? type.DeclaringMethod;
-                if (method is null)
-                    throw new InvalidOperationException($"Unable to resolve declaring method for type parameter: {type}");
-
-                if (!_methodSymbols.TryGetValue(MethodIdentity.Create(method), out var methodSymbol))
-                    throw new InvalidOperationException($"Method symbol not registered for {method}.");
-
-                return ResolveMethodTypeParameter(type, methodSymbol);
-            }
 
             return new PETypeParameterSymbol(type, declaringNamedType, declaringNamedType, declaringNamedType.ContainingNamespace, [], this).AddAsMember2();
         }

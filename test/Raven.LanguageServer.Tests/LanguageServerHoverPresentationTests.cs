@@ -173,6 +173,112 @@ extension WidgetExtensions for Widget {
     }
 
     [Fact]
+    public void StaticExtensionMethodHover_UsesExtensionPresentation()
+    {
+        const string code = """
+namespace Demo.Tools
+
+class Widget
+
+class Runner {
+    func Test() -> Widget {
+        Widget.Build()
+    }
+}
+
+extension WidgetExtensions for Widget {
+    static func Build() -> Widget => Widget()
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var access = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(node => node.Name.Identifier.ValueText == "Build");
+        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+
+        var buildKindDisplay = typeof(HoverHandler)
+            .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildContainingDisplay = typeof(HoverHandler)
+            .GetMethod("BuildContainingDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildDisplaySignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var kind = (string)buildKindDisplay.Invoke(null, [symbol])!;
+        var containing = (string?)buildContainingDisplay.Invoke(null, [symbol, semanticModel]);
+        var signature = (string)buildDisplaySignatureForHover.Invoke(null, [symbol, access.Name, semanticModel, root, access.Name.Span.Start])!;
+
+        kind.ShouldBe("Extension method");
+        containing.ShouldBe("Demo.Tools.WidgetExtensions");
+        signature.ShouldStartWith("(extension) ");
+        signature.ShouldContain("func Build()");
+    }
+
+    [Fact]
+    public void StaticExtensionPropertyHover_UsesExtensionPresentation()
+    {
+        const string code = """
+namespace Demo.Tools
+
+class Counter
+
+class Runner {
+    func Test() -> int {
+        Counter.Total
+    }
+}
+
+extension CounterExtensions for Counter {
+    static val Total: int {
+        get { return 42; }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var access = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(node => node.Name.Identifier.ValueText == "Total");
+        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+
+        var buildKindDisplay = typeof(HoverHandler)
+            .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildContainingDisplay = typeof(HoverHandler)
+            .GetMethod("BuildContainingDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildDisplaySignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var kind = (string)buildKindDisplay.Invoke(null, [symbol])!;
+        var containing = (string?)buildContainingDisplay.Invoke(null, [symbol, semanticModel]);
+        var signature = (string)buildDisplaySignatureForHover.Invoke(null, [symbol, access.Name, semanticModel, root, access.Name.Span.Start])!;
+
+        kind.ShouldBe("Extension property");
+        containing.ShouldBe("Demo.Tools.CounterExtensions");
+        signature.ShouldStartWith("(extension) ");
+        signature.ShouldContain("val Total:");
+    }
+
+    [Fact]
     public void SealedHierarchyTypeHover_Signature_ShowsSealedModifier()
     {
         const string code = """

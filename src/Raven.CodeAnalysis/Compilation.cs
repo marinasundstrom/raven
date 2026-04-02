@@ -1041,7 +1041,7 @@ public partial class Compilation
                         _ => RefKind.None,
                     };
 
-                var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+                var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
                     ? byRefType.ElementType
                     : typeSyntax;
                 var pType = ResolveTypeSyntax(boundTypeSyntax, symbol);

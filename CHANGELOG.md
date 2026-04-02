@@ -7,10 +7,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 ### Changed
 - Overload resolution now respects `System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute` on applicable methods, including methods imported from referenced assemblies. Higher-priority candidates are kept before Raven runs its usual specificity comparison.
 - Function and block bodies can now declare local `class`, `struct`, `record`, and `enum` helper types. These declarations are block-scoped in source and emitted as compiler-mangled nested types under the enclosing containing type.
+- Imported extension members are now classified per member instead of per container. Classic extension methods continue to use `IsExtensionMethod`, while Raven/C#-style static extension members bind through extension-receiver metadata even when they live in mixed extension containers. Generic metadata extension methods now recover method type parameters correctly during PE import.
 
 Impact:
 - Raven now matches C#’s overload-priority behavior for APIs that intentionally hide more specific overloads behind `OverloadResolutionPriorityAttribute`, which improves interop with modern .NET libraries and C#-authored metadata.
 - Helper types can now live next to the code that uses them without being promoted to outer type scope, while keeping runtime metadata isolated behind compiler-generated nesting names.
+- Mixed extension containers in referenced assemblies now interoperate more like .NET/C#: `int.parse(...)` binds again as a static extension member, while classic generic extension methods like `OptionExtensions.UnwrapOr<T>` continue to import as extension methods instead of degrading to unreadable metadata signatures.
 
 ## 2026-04-01
 

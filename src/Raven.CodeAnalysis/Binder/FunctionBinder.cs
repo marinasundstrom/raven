@@ -142,7 +142,7 @@ class FunctionBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+            var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
                 ? byRefType.ElementType
                 : typeSyntax;
             var type = methodBinder.BindTypeSyntaxAndReport(boundTypeSyntax);

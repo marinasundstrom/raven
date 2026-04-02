@@ -1962,7 +1962,7 @@ partial class BlockBinder : Binder
 
     protected BoundExpression BindByRefInvocationArgument(BoundExpression operand, RefKind refKind, SyntaxNode syntax)
     {
-        if (!refKind.IsByRef())
+        if (!refKind.IsByRef)
             return operand;
 
         if (operand is BoundErrorExpression)
@@ -1997,7 +1997,7 @@ partial class BlockBinder : Binder
         if (syntax.BindingKeyword.Kind != SyntaxKind.None)
             return BindDeclaredOutArgument(syntax, targetType, refKind);
 
-        var expressionTargetType = refKind.IsByRef() && targetType is RefTypeSymbol byRefTargetType
+        var expressionTargetType = refKind.IsByRef && targetType is RefTypeSymbol byRefTargetType
             ? byRefTargetType.ElementType
             : targetType;
 
@@ -2005,7 +2005,7 @@ partial class BlockBinder : Binder
             ? BindExpression(syntax.Expression)
             : BindExpressionWithTargetType(syntax.Expression, expressionTargetType);
 
-        if (refKind.IsByRef())
+        if (refKind.IsByRef)
             boundExpression = BindByRefInvocationArgument(boundExpression, refKind, syntax.Expression);
 
         boundExpression = UnwrapNullableIfFlowKnownNonNull(boundExpression);
@@ -8265,7 +8265,7 @@ partial class BlockBinder : Binder
                 if (method.MethodKind != MethodKind.UserDefinedOperator)
                     continue;
 
-                if (!method.IsStatic || method.IsExtensionMethod)
+                if (!method.IsStatic || method.ExtensionMemberKind != ExtensionMemberKind.None)
                     continue;
 
                 if (seen.Add(method))
@@ -8277,7 +8277,7 @@ partial class BlockBinder : Binder
                 if (method.MethodKind != MethodKind.UserDefinedOperator)
                     continue;
 
-                if (!method.IsStatic || method.IsExtensionMethod)
+                if (!method.IsStatic || !method.IsStaticExtensionMember)
                     continue;
 
                 if (seen.Add(method))

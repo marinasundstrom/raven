@@ -177,7 +177,7 @@ extension CounterExtensions for Counter {
 
         var boundAccess = Assert.IsType<BoundMemberAccessExpression>(model.GetBoundNode(memberAccess));
         var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(boundAccess.Member);
-        Assert.False(propertySymbol.IsExtensionProperty());
+        Assert.False(propertySymbol.IsExtensionProperty);
         Assert.Equal("CounterExtensions", propertySymbol.ContainingType?.Name);
     }
 }

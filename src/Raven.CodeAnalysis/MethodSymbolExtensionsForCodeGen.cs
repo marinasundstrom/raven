@@ -991,7 +991,7 @@ internal static class MethodSymbolCodeGenResolver
             return resolved;
         }
 
-        if (parameter.IsByRefParameter())
+        if (parameter.IsByRefParameter)
         {
             var byRefElementType = parameter.GetByRefElementType();
             if (byRefElementType is ITypeParameterSymbol byRefTypeParameter &&
@@ -1338,7 +1338,7 @@ internal static class MethodSymbolCodeGenResolver
         var runtimeParameterType = runtimeParameter.ParameterType;
         var symbolParameterType = symbolParameter.Type;
 
-        if (symbolParameter.IsByRefParameter())
+        if (symbolParameter.IsByRefParameter)
         {
             if (!runtimeParameterType.IsByRef)
                 return false;

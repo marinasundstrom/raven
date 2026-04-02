@@ -1324,7 +1324,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 if (debug)
                 {
                     var normalized = SubstituteRuntimeType(runtimeParameters[i].ParameterType, methodRuntimeArguments, typeRuntimeArguments);
-                    var symbolType = parameterSymbols[i].IsByRefParameter()
+                    var symbolType = parameterSymbols[i].IsByRefParameter
                         ? parameterSymbols[i].GetByRefElementType()
                         : parameterSymbols[i].Type;
                     Type expected;
@@ -1365,7 +1365,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var runtimeParameterType = runtimeParameter.ParameterType;
         var symbolParameterType = symbolParameter.Type;
 
-        if (symbolParameter.IsByRefParameter())
+        if (symbolParameter.IsByRefParameter)
         {
             if (!runtimeParameterType.IsByRef)
                 return false;

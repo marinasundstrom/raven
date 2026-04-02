@@ -82,8 +82,9 @@ val parsed = int.parse("42")
 
         var parseMethod = extensionType!.GetMembers("parse").OfType<IMethodSymbol>().FirstOrDefault(method => method.Parameters.Length == 1);
         Assert.NotNull(parseMethod);
+        Assert.Equal(ExtensionMemberKind.Static, parseMethod!.ExtensionMemberKind);
 
-        var receiverType = parseMethod!.GetExtensionReceiverType();
+        var receiverType = parseMethod.GetExtensionReceiverType();
         Assert.NotNull(receiverType);
         Assert.Equal("int", receiverType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
@@ -107,6 +108,7 @@ val parsed = int.parse("42")
         var unwrapOrMethod = extensionType!.GetMembers("UnwrapOr").OfType<IMethodSymbol>().FirstOrDefault();
         Assert.NotNull(unwrapOrMethod);
         Assert.True(unwrapOrMethod!.IsExtensionMethod);
+        Assert.Equal(ExtensionMemberKind.Instance, unwrapOrMethod.ExtensionMemberKind);
 
         var receiverType = unwrapOrMethod.GetExtensionReceiverType();
         Assert.NotNull(receiverType);

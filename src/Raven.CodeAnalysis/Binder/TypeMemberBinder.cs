@@ -125,7 +125,7 @@ internal partial class TypeMemberBinder : Binder
         RefKind refKind,
         Binder.TypeResolutionOptions? options = null)
     {
-        var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+        var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
             ? byRefType.ElementType
             : typeSyntax;
 

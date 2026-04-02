@@ -756,12 +756,9 @@ internal sealed class HoverHandler : IHoverHandler
     {
         var signature = BuildSignatureForHover(symbol, contextNode, semanticModel, root, offset);
 
-        return symbol switch
-        {
-            IMethodSymbol { IsExtensionMethod: true } => $"(extension) {signature}",
-            IPropertySymbol property when property.IsExtensionProperty() => $"(extension) {signature}",
-            _ => signature
-        };
+        return IsExtensionHoverSymbol(symbol)
+            ? $"(extension) {signature}"
+            : signature;
     }
 
     private static bool TryBuildDeclaredTypeHoverSignatureOverride(
@@ -1506,10 +1503,10 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static string BuildKindDisplay(ISymbol symbol)
     {
-        if (symbol is IMethodSymbol { IsExtensionMethod: true })
+        if (symbol is IMethodSymbol method && method.ExtensionMemberKind != ExtensionMemberKind.None)
             return "Extension method";
 
-        if (symbol is IPropertySymbol property && property.IsExtensionProperty())
+        if (symbol is IPropertySymbol property && property.ExtensionMemberKind != ExtensionMemberKind.None)
             return "Extension property";
 
         if (symbol is IParameterSymbol parameterSymbol &&
@@ -1518,7 +1515,7 @@ internal sealed class HoverHandler : IHoverHandler
             return "Property";
         }
 
-        if (symbol is IMethodSymbol method && IsFunctionStatementSymbol(method))
+        if (symbol is IMethodSymbol functionMethod && IsFunctionStatementSymbol(functionMethod))
             return "Function";
 
         if (symbol is IMethodSymbol { MethodKind: MethodKind.LambdaMethod })
@@ -1536,8 +1533,8 @@ internal sealed class HoverHandler : IHoverHandler
 
         var containingType = symbol switch
         {
-            IMethodSymbol { IsExtensionMethod: true } method => method.ContainingType,
-            IPropertySymbol property when property.IsExtensionProperty() => property.ContainingType,
+            IMethodSymbol method when method.ExtensionMemberKind != ExtensionMemberKind.None => method.ContainingType,
+            IPropertySymbol property when property.ExtensionMemberKind != ExtensionMemberKind.None => property.ContainingType,
             _ => null
         };
 
@@ -1549,6 +1546,16 @@ internal sealed class HoverHandler : IHoverHandler
                 .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
                 .WithKindOptions(SymbolDisplayKindOptions.None));
         return true;
+    }
+
+    private static bool IsExtensionHoverSymbol(ISymbol symbol)
+    {
+        return symbol switch
+        {
+            IMethodSymbol method => method.ExtensionMemberKind != ExtensionMemberKind.None,
+            IPropertySymbol property => property.ExtensionMemberKind != ExtensionMemberKind.None,
+            _ => false
+        };
     }
 
     private static bool IsPromotedPrimaryConstructorParameter(IParameterSymbol parameter)
