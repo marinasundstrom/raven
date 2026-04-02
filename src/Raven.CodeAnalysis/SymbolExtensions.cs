@@ -120,6 +120,12 @@ public static partial class SymbolExtensions
 
     public static ITypeSymbol? GetExtensionReceiverType(this IMethodSymbol method)
     {
+        if (method.MethodKind is MethodKind.Conversion or MethodKind.UserDefinedOperator &&
+            !method.Parameters.IsDefaultOrEmpty)
+        {
+            return method.Parameters[0].Type;
+        }
+
         if (method.OriginalDefinition is PEMethodSymbol peOriginal &&
             method.ContainingType is ConstructedNamedTypeSymbol constructed)
         {
@@ -147,12 +153,6 @@ public static partial class SymbolExtensions
 
                 return markerReceiver;
             }
-        }
-
-        if (method.MethodKind is MethodKind.Conversion or MethodKind.UserDefinedOperator &&
-            !method.Parameters.IsDefaultOrEmpty)
-        {
-            return method.Parameters[0].Type;
         }
 
         if (method.IsExtensionMethod && !method.Parameters.IsDefaultOrEmpty)

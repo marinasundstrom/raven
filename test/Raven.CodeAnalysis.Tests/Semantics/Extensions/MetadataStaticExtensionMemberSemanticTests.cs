@@ -88,6 +88,64 @@ val parsed = int.parse("42")
         Assert.Equal("int", receiverType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
+    [Fact]
+    public void RavenInstanceExtensionMethod_MetadataSymbol_IsRecognizedAsExtensionMethod()
+    {
+        var references = TestMetadataReferences.Default
+            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
+            .ToArray();
+
+        var compilation = CreateCompilation(references: references);
+        compilation.EnsureSetup();
+
+        var systemNamespace = compilation.GetNamespaceSymbol("System");
+        Assert.NotNull(systemNamespace);
+
+        var extensionType = systemNamespace!.LookupType("OptionExtensions") as INamedTypeSymbol;
+        Assert.NotNull(extensionType);
+
+        var unwrapOrMethod = extensionType!.GetMembers("UnwrapOr").OfType<IMethodSymbol>().FirstOrDefault();
+        Assert.NotNull(unwrapOrMethod);
+        Assert.True(unwrapOrMethod!.IsExtensionMethod);
+
+        var receiverType = unwrapOrMethod.GetExtensionReceiverType();
+        Assert.NotNull(receiverType);
+        Assert.Contains("Option", receiverType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RavenStaticExtensionConversionOperator_FromMetadata_IsImported()
+    {
+        var references = TestMetadataReferences.Default
+            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
+            .ToArray();
+
+        var (compilation, tree) = CreateCompilation(
+            """
+import System.*
+
+val value = Option<int>.Some(42)
+val result: int? = value
+""",
+            references: references);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+        var valueSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "value")));
+        var resultSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "result")));
+        var conversion = compilation.ClassifyConversion(valueSymbol.Type, resultSymbol.Type, includeUserDefined: true);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsUserDefined);
+        Assert.Equal("op_Implicit", conversion.MethodSymbol?.Name);
+        Assert.Equal("OptionExtensions2", conversion.MethodSymbol?.ContainingType?.Name);
+    }
+
     private static string GetRavenCorePath()
     {
         var outputPath = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");

@@ -345,7 +345,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
                     builder.Add(compilerGenerated);
             }
 
-            if (_declaredInExtension && !IsStatic)
+            if (_declaredInExtension && IsExtensionMethod)
             {
                 var extensionAttribute = CreateExtensionAttributeData();
                 if (extensionAttribute is not null)

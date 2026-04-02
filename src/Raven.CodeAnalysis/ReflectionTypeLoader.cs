@@ -15,7 +15,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
     private readonly ConcurrentDictionary<string, ITypeSymbol> _metadataCache = new(StringComparer.Ordinal);
     private readonly NullabilityInfoContext _nullabilityContext = new();
     private readonly object _nullabilityContextGate = new();
-    private readonly ConcurrentDictionary<MethodBase, PEMethodSymbol> _methodSymbols = new();
+    private readonly ConcurrentDictionary<MethodIdentity, PEMethodSymbol> _methodSymbols = new();
     private readonly ConcurrentDictionary<(PEMethodSymbol method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
 
     internal Compilation Compilation => compilation;
@@ -123,7 +123,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
     public void RegisterMethodSymbol(MethodBase method, PEMethodSymbol symbol)
     {
-        _methodSymbols[method] = symbol;
+        _methodSymbols[MethodIdentity.Create(method)] = symbol;
     }
 
     public ITypeSymbol? ResolveType(Type type)
@@ -212,7 +212,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
                 if (method is null)
                     throw new InvalidOperationException($"Unable to resolve declaring method for type parameter: {type}");
 
-                if (!_methodSymbols.TryGetValue(method, out var methodSymbol))
+                if (!_methodSymbols.TryGetValue(MethodIdentity.Create(method), out var methodSymbol))
                     throw new InvalidOperationException($"Method symbol not registered for {method}.");
 
                 return ResolveMethodTypeParameter(type, methodSymbol);
@@ -583,6 +583,56 @@ internal class ReflectionTypeLoader(Compilation compilation)
             .OfType<IEventSymbol>()
             // TODO: Better condition for filtering
             .FirstOrDefault(x => x.Name == ifaceEvent.Name);
+    }
+}
+
+internal readonly record struct MethodIdentity(
+    string? ModuleName,
+    Guid ModuleVersionId,
+    int MetadataToken,
+    string? DeclaringTypeName,
+    string Name,
+    int GenericArity)
+{
+    public static MethodIdentity Create(MethodBase methodBase)
+    {
+        if (methodBase is MethodInfo methodInfo && methodInfo.IsGenericMethod && !methodInfo.IsGenericMethodDefinition)
+            methodBase = methodInfo.GetGenericMethodDefinition();
+
+        var module = methodBase.Module;
+        var moduleName = module.ScopeName;
+
+        Guid moduleVersionId;
+        try
+        {
+            moduleVersionId = module.ModuleVersionId;
+        }
+        catch
+        {
+            moduleVersionId = Guid.Empty;
+        }
+
+        int metadataToken;
+        try
+        {
+            metadataToken = methodBase.MetadataToken;
+        }
+        catch
+        {
+            metadataToken = 0;
+        }
+
+        var genericArity = methodBase is MethodInfo genericMethod
+            ? genericMethod.GetGenericArguments().Length
+            : 0;
+
+        return new MethodIdentity(
+            moduleName,
+            moduleVersionId,
+            metadataToken,
+            methodBase.DeclaringType?.FullName ?? methodBase.DeclaringType?.Name,
+            methodBase.Name,
+            genericArity);
     }
 }
 

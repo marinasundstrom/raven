@@ -294,9 +294,6 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         if (_methodInfo is null || !_methodInfo.IsStatic)
             return false;
 
-        if (TryGetExtensionMarkerName(out _))
-            return false;
-
         if (_hasUnreadableSignature)
             return false;
 
@@ -305,14 +302,13 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
         try
         {
-            if (HasExtensionAttribute(_methodInfo.GetCustomAttributesData()))
-                return true;
+            var hasExtensionAttribute = HasExtensionAttribute(_methodInfo.GetCustomAttributesData());
 
             var declaringType = _methodInfo.DeclaringType;
-            if (declaringType is null)
-                return false;
+            if (!hasExtensionAttribute && declaringType is not null)
+                hasExtensionAttribute = HasExtensionAttribute(declaringType.GetCustomAttributesData());
 
-            return HasExtensionAttribute(declaringType.GetCustomAttributesData());
+            return hasExtensionAttribute;
         }
         catch (Exception)
         {

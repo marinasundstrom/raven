@@ -765,8 +765,12 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var methodInfo in _typeInfo.DeclaredMethods)
             {
-                if (methodInfo.IsSpecialName && methodInfo.Name != "<Extension>$")
+                if (methodInfo.IsSpecialName &&
+                    methodInfo.Name != "<Extension>$" &&
+                    methodInfo.Name is not "op_Implicit" and not "op_Explicit")
+                {
                     continue;
+                }
 
                 var name = methodInfo.Name;
 

@@ -981,9 +981,6 @@ public partial class Compilation
 
         foreach (var type in members)
         {
-            if (!type.HasStaticExtensionMembers())
-                continue;
-
             foreach (var member in type.GetMembers("op_Implicit").Concat(type.GetMembers("op_Explicit")))
             {
                 if (member is not IMethodSymbol method)
