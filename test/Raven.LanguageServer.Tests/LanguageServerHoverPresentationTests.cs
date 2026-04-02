@@ -1580,4 +1580,38 @@ class C {
         resolution.ShouldNotBeNull();
         resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("name");
     }
+
+    [Fact]
+    public void SymbolResolver_ObjectInitializerHover_DoesNotThrow()
+    {
+        const string code = """
+class Person {
+    var Name: string = ""
+}
+
+class C {
+    func Run() -> unit {
+        val person = Person {
+            Name = ""
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var token = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "Name" &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is ObjectInitializerAssignmentEntrySyntax) == true);
+
+        Should.NotThrow(() => SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1));
+    }
 }

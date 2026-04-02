@@ -113,14 +113,14 @@ class FunctionBinder : Binder
         var seenOptionalParameter = false;
         foreach (var p in _syntax.ParameterList.Parameters)
         {
-            var typeSyntax = p.TypeAnnotation.Type;
+            var typeSyntax = p.TypeAnnotation?.Type;
             if (typeSyntax is ByRefTypeSyntax &&
                 p.RefKindKeyword.Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
             {
                 _diagnostics.ReportParameterModifierCannotBeCombinedWithByRefType(
                     p.Identifier.ValueText,
                     p.RefKindKeyword.Text,
-                    p.TypeAnnotation.Type.GetLocation());
+                    typeSyntax.GetLocation());
             }
 
             var refKindTokenKind = p.RefKindKeyword.Kind;
@@ -142,11 +142,22 @@ class FunctionBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
-                ? byRefType.ElementType
-                : typeSyntax;
-            var type = methodBinder.BindTypeSyntaxAndReport(boundTypeSyntax);
-            type = methodBinder.EnsureTypeValidForStorageLocation(type, boundTypeSyntax.GetLocation());
+            ITypeSymbol type;
+            if (typeSyntax is null)
+            {
+                _diagnostics.ReportParameterTypeAnnotationRequired(
+                    p.Identifier.ValueText,
+                    p.Identifier.GetLocation());
+                type = Compilation.ErrorTypeSymbol;
+            }
+            else
+            {
+                var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
+                    ? byRefType.ElementType
+                    : typeSyntax;
+                type = methodBinder.BindTypeSyntaxAndReport(boundTypeSyntax);
+                type = methodBinder.EnsureTypeValidForStorageLocation(type, boundTypeSyntax.GetLocation());
+            }
 
             if (p.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
             {

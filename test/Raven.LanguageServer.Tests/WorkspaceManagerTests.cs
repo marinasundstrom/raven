@@ -1,5 +1,6 @@
-using Microsoft.Extensions.Logging.Abstractions;
 using System.Reflection;
+
+using Microsoft.Extensions.Logging.Abstractions;
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -479,6 +480,65 @@ record Data(val Value: int)
         topLevelCode.Children.ShouldNotBeNull();
         topLevelCode.Children.Any(symbol => symbol.Name == "Parse").ShouldBeTrue();
         symbols.Single(symbol => symbol.Name == "Data").Kind.ShouldBe(OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolKind.Struct);
+    }
+
+    [Fact]
+    public void TryGetCodeFixes_StaleOwnedDocument_RebindsInsteadOfThrowing()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var filePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(filePath, """
+func Main() -> unit {
+    val text: string? = null
+}
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        _ = manager.UpsertDocument(uri, File.ReadAllText(filePath));
+
+        var documentsField = typeof(WorkspaceManager).GetField("_documents", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var documents = documentsField.GetValue(manager)!;
+        var tryGetValue = documents.GetType().GetMethod("TryGetValue")!;
+        var tryGetArgs = new object?[] { uri, null };
+        ((bool)tryGetValue.Invoke(documents, tryGetArgs)!).ShouldBeTrue();
+        var staleOwnedDocument = tryGetArgs[1];
+
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        documents = documentsField.GetValue(manager)!;
+        var itemProperty = documents.GetType().GetProperty("Item")!;
+        itemProperty.SetValue(documents, staleOwnedDocument, [uri]);
+
+        Should.NotThrow(() => manager.TryGetCodeFixes(uri, out _));
     }
 
     public void Dispose()

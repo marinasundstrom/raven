@@ -481,7 +481,7 @@ internal sealed class WorkspaceManager
         CompilationWithAnalyzersOptions? analyzerOptions = null,
         CancellationToken cancellationToken = default)
     {
-        if (_documents.TryGetValue(uri, out var ownedDocument))
+        if (TryResolveOwnedDocument(uri, out var ownedDocument))
         {
             codeFixes = _workspace
                 .GetCodeFixes(ownedDocument.ProjectId, _builtInCodeFixProviders, analyzerOptions, cancellationToken)

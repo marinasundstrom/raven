@@ -369,8 +369,8 @@ internal static class SymbolResolver
         if (TryResolveMemberReceiverSymbol(semanticModel, node, token, out var receiverSymbol))
             return receiverSymbol;
 
-        var symbolInfo = semanticModel.GetSymbolInfo(node);
-        if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+        if (TryGetSymbolInfo(semanticModel, node, out var symbolInfo) &&
+            (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty))
         {
             var chosen = ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, node);
             if (chosen is null)
@@ -385,7 +385,7 @@ internal static class SymbolResolver
         if (TryResolveFromEnclosingBlockLocals(semanticModel, node, token, out var blockLocalSymbol))
             return blockLocalSymbol;
 
-        var operation = semanticModel.GetOperation(node);
+        var operation = TryGetOperation(semanticModel, node);
         var tokenReferencedSymbol = FindReferencedSymbolAtToken(operation, token.Span);
         if (tokenReferencedSymbol is not null)
             return ProjectSymbolForDisplay(tokenReferencedSymbol);
@@ -398,7 +398,7 @@ internal static class SymbolResolver
         var containingStatement = node.AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault();
         if (containingStatement is not null)
         {
-            var statementOperation = semanticModel.GetOperation(containingStatement);
+            var statementOperation = TryGetOperation(semanticModel, containingStatement);
             var statementSymbol = FindReferencedSymbolAtToken(statementOperation, token.Span);
             if (statementSymbol is not null)
                 return ProjectSymbolForDisplay(statementSymbol);
@@ -542,8 +542,8 @@ internal static class SymbolResolver
             }
         }
 
-        var directInfo = semanticModel.GetSymbolInfo(targetNode);
-        if (directInfo.Symbol is not null || !directInfo.CandidateSymbols.IsDefaultOrEmpty)
+        if (TryGetSymbolInfo(semanticModel, targetNode, out var directInfo) &&
+            (directInfo.Symbol is not null || !directInfo.CandidateSymbols.IsDefaultOrEmpty))
         {
             symbol = ChoosePreferredSymbol(directInfo.Symbol, directInfo.CandidateSymbols, targetNode);
             symbol = ProjectSymbolForDisplay(symbol);
@@ -555,7 +555,7 @@ internal static class SymbolResolver
             if (!conditionalAccess.WhenNotNull.Span.Contains(token.Span))
                 continue;
 
-            var operation = semanticModel.GetOperation(conditionalAccess);
+            var operation = TryGetOperation(semanticModel, conditionalAccess);
             var referenced = FindReferencedSymbolAtToken(operation, token.Span);
             if (referenced is not null)
             {
@@ -564,7 +564,7 @@ internal static class SymbolResolver
             }
         }
 
-        var fallbackOperation = semanticModel.GetOperation(targetNode);
+        var fallbackOperation = TryGetOperation(semanticModel, targetNode);
         var fallbackSymbol = FindReferencedSymbolAtToken(fallbackOperation, token.Span);
         if (fallbackSymbol is not null)
         {
@@ -577,7 +577,7 @@ internal static class SymbolResolver
         var containingStatement = targetNode.AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault();
         if (containingStatement is not null)
         {
-            var statementOperation = semanticModel.GetOperation(containingStatement);
+            var statementOperation = TryGetOperation(semanticModel, containingStatement);
             var statementSymbol = FindReferencedSymbolAtToken(statementOperation, token.Span);
             if (statementSymbol is not null)
             {
@@ -1444,7 +1444,7 @@ internal static class SymbolResolver
         if (containingStatement is null)
             return false;
 
-        var statementOperation = semanticModel.GetOperation(containingStatement);
+        var statementOperation = TryGetOperation(semanticModel, containingStatement);
         if (statementOperation is null)
             return false;
 
@@ -1486,7 +1486,7 @@ internal static class SymbolResolver
         if (patternSyntax is null)
             return false;
 
-        var operation = semanticModel.GetOperation(patternSyntax);
+        var operation = TryGetOperation(semanticModel, patternSyntax);
         if (operation is null)
             return false;
 
@@ -1695,6 +1695,32 @@ internal static class SymbolResolver
         }
 
         return false;
+    }
+
+    private static bool TryGetSymbolInfo(SemanticModel semanticModel, SyntaxNode node, out SymbolInfo symbolInfo)
+    {
+        try
+        {
+            symbolInfo = semanticModel.GetSymbolInfo(node);
+            return true;
+        }
+        catch
+        {
+            symbolInfo = default;
+            return false;
+        }
+    }
+
+    private static IOperation? TryGetOperation(SemanticModel semanticModel, SyntaxNode node)
+    {
+        try
+        {
+            return semanticModel.GetOperation(node);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static TextSpan? GetDeclarationIdentifierSpan(SyntaxReference reference)
