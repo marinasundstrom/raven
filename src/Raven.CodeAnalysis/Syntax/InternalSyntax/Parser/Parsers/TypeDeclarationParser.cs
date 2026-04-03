@@ -1282,46 +1282,8 @@ internal class TypeDeclarationParser : SyntaxParser
         if (IsNextToken(SyntaxKind.EqualsToken, out _))
             initializer = new EqualsValueClauseSyntaxParser(this).Parse();
 
-        // Stored property shorthand: synthesize accessor list when no explicit body/accessors are provided.
-        accessorList ??= expressionBody is null
-            ? CreateImplicitAccessorList(isMutable: bindingKeyword.IsKind(SyntaxKind.VarKeyword))
-            : null;
-
         var terminatorToken = ConsumeMemberTerminator();
         return PropertyDeclaration(attributeLists, modifiers, bindingKeyword, explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, expressionBody, initializer, terminatorToken);
-    }
-
-    private static AccessorListSyntax CreateImplicitAccessorList(bool isMutable)
-    {
-        var accessors = new List<GreenNode>
-        {
-            AccessorDeclaration(
-                SyntaxKind.GetAccessorDeclaration,
-                SyntaxList.Empty,
-                SyntaxList.Empty,
-                MissingToken(SyntaxKind.GetKeyword),
-                null,
-                null,
-                Token(SyntaxKind.None))
-        };
-
-        if (isMutable)
-        {
-            accessors.Add(
-                AccessorDeclaration(
-                    SyntaxKind.SetAccessorDeclaration,
-                    SyntaxList.Empty,
-                    SyntaxList.Empty,
-                    MissingToken(SyntaxKind.SetKeyword),
-                    null,
-                    null,
-                    Token(SyntaxKind.None)));
-        }
-
-        return AccessorList(
-            MissingToken(SyntaxKind.OpenBraceToken),
-            List(accessors),
-            MissingToken(SyntaxKind.CloseBraceToken));
     }
 
     public DelegateDeclarationSyntax ParseDelegateDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
