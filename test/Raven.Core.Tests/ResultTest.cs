@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 
 using Raven.CodeAnalysis.Testing;
@@ -156,10 +157,26 @@ extension TestExt<T> for IEnumerable<T> {
         var caseText = errorCase.ToString();
         Assert.NotNull(caseText);
         Assert.Contains("Result<ContextError<ParseIntError>>.Error(", caseText!, StringComparison.Ordinal);
-        Assert.Contains("ContextError<ParseIntError>", caseText!, StringComparison.Ordinal);
+        Assert.Contains("ContextError<ParseIntError> { Message = \"test\"", caseText!, StringComparison.Ordinal);
+        Assert.Contains("Cause = ParseIntError { Kind = InvalidFormat, Input = \"foo\", Style = Integer }", caseText!, StringComparison.Ordinal);
         Assert.DoesNotContain("Result<E>", caseText!, StringComparison.Ordinal);
         Assert.DoesNotContain("ContextError<TError>", caseText!, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Error(<ContextError<ParseIntError>>)", caseText!, StringComparison.Ordinal);
 
+    }
+
+    [Fact]
+    public void ToString_UsesTypePlaceholder_ForNonVettedPayloadTypes()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(StringBuilder));
+        var errorType = GetCaseTypeFromTryGetValue(resultType, "Error");
+        var errorCase = Activator.CreateInstance(errorType, new StringBuilder("secret"))!;
+
+        var caseText = errorCase.ToString();
+        Assert.NotNull(caseText);
+        Assert.Contains("Result<StringBuilder>.Error(<StringBuilder>)", caseText!, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret", caseText!, StringComparison.Ordinal);
     }
 
     private static Type GetConstructedType(Assembly assembly, string metadataName, params Type[] typeArgs)

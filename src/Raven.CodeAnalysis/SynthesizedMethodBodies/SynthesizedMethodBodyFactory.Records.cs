@@ -144,19 +144,6 @@ internal static partial class SynthesizedMethodBodyFactory
         return new BoundBlockStatement(statements);
     }
 
-    private static BoundExpression FormatNonGenericNominalValue(Compilation compilation, BoundExpression value)
-    {
-        var valueType = value.Type.GetPlainType();
-
-        if (valueType.SpecialType == SpecialType.System_String)
-            return CreateQuotedStringValue(compilation, value, quote: "\"");
-
-        if (valueType.SpecialType == SpecialType.System_Char)
-            return CreateQuotedStringValue(compilation, CreateObjectToStringInvocation(compilation, value), quote: "'");
-
-        return CreateObjectToStringInvocation(compilation, value);
-    }
-
     private static List<(string? Name, BoundExpression Value)> CreateNominalDisplayMembers(
         Compilation compilation,
         IMethodSymbol method,
@@ -164,7 +151,7 @@ internal static partial class SynthesizedMethodBodyFactory
     {
         var members = new List<(string? Name, BoundExpression Value)>();
         foreach (var (_, property, propertyValue) in CreateSelfNominalValueAccesses(method, recordType))
-            members.Add((property.Name, FormatNonGenericNominalValue(compilation, propertyValue)));
+            members.Add((property.Name, InvokeUnionFormatValueHelper(compilation, method, propertyValue, property.Type)));
 
         return members;
     }

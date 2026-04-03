@@ -38,7 +38,7 @@ public abstract class RavenCoreDiagnosticTestBase
     }
 
     protected static Assembly LoadRavenCoreAssembly()
-        => Assembly.LoadFrom(ResolveRavenCorePath());
+        => Assembly.Load(File.ReadAllBytes(ResolveRavenCorePath()));
 
     protected static string ResolveRavenCorePath()
     {
@@ -46,14 +46,11 @@ public abstract class RavenCoreDiagnosticTestBase
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         var fallbackPath = Path.Combine(repoRoot, "src", "Raven.Core", "bin", "Debug", "net10.0", "Raven.Core.dll");
 
-        var candidates = new[] { outputPath, fallbackPath }
-            .Where(File.Exists)
-            .Select(path => new FileInfo(path))
-            .OrderByDescending(static file => file.LastWriteTimeUtc)
-            .ToArray();
+        if (File.Exists(fallbackPath))
+            return fallbackPath;
 
-        if (candidates.Length > 0)
-            return candidates[0].FullName;
+        if (File.Exists(outputPath))
+            return outputPath;
 
         throw new FileNotFoundException("Could not locate Raven.Core.dll for tests.", outputPath);
     }

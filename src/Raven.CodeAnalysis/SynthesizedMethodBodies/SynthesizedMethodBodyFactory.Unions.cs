@@ -132,7 +132,7 @@ internal static partial class SynthesizedMethodBodyFactory
             CreateStringLiteral(compilation, caseSymbol.Name)
         };
 
-        var parameterInfos = CollectUnionCaseParameters(caseSymbol);
+        var parameterInfos = CollectUnionCaseParameters(method.ContainingType, caseSymbol);
         if (parameterInfos.Count > 0)
         {
             parts.Add(CreateStringLiteral(compilation, "("));
@@ -559,22 +559,40 @@ internal static partial class SynthesizedMethodBodyFactory
             [new BoundTypeOfExpression(typeSymbol, compilation.GetSpecialType(SpecialType.System_Type)!)]);
     }
 
-    private static BoundExpression FormatUnionValue(Compilation compilation, IMethodSymbol method, BoundExpression value)
-        => InvokeUnionFormatValueHelper(compilation, method, value);
+    private static BoundExpression InvokeFriendlyTypeNameHelper(IMethodSymbol method, BoundExpression typeExpression)
+    {
+        var containingType = GetInvocationContainingType(method);
+        var helper = containingType
+            .GetMembers(SynthesizedUnionMethodNames.FriendlyTypeNameHelper)
+            .OfType<IMethodSymbol>()
+            .First(m => m.IsStatic &&
+                        m.Parameters.Length == 1 &&
+                        m.Parameters[0].Type.SpecialType == SpecialType.System_Type &&
+                        m.ReturnType.SpecialType == SpecialType.System_String);
+
+        return new BoundInvocationExpression(helper, [typeExpression]);
+    }
+
+    private static BoundExpression FormatUnionValue(Compilation compilation, IMethodSymbol method, BoundExpression value, ITypeSymbol? declaredType = null)
+        => InvokeUnionFormatValueHelper(compilation, method, value, declaredType);
 
     private static List<(string? Name, BoundExpression Value)> CreateUnionCaseDisplayMembers(
         Compilation compilation,
         IMethodSymbol method,
-        IReadOnlyList<(string Name, SourceFieldSymbol Field)> parameterInfos)
+        IReadOnlyList<(string Name, SourcePropertySymbol Property, ITypeSymbol DeclaredType)> parameterInfos)
     {
         var includeParameterNames = parameterInfos.Count > 1;
         var members = new List<(string? Name, BoundExpression Value)>(parameterInfos.Count);
         var self = new BoundSelfExpression(method.ContainingType!);
 
-        foreach (var (name, field) in parameterInfos)
+        foreach (var (name, property, declaredType) in parameterInfos)
         {
+            var field = ResolveUnionCaseBackingField(method.ContainingType, property);
+            if (field is null)
+                continue;
+
             var payloadAccess = new BoundFieldAccess(self, field);
-            members.Add((includeParameterNames ? name : null, FormatUnionValue(compilation, method, payloadAccess)));
+            members.Add((includeParameterNames ? name : null, FormatUnionValue(compilation, method, payloadAccess, declaredType)));
         }
 
         return members;
@@ -585,12 +603,66 @@ internal static partial class SynthesizedMethodBodyFactory
         var statements = new List<BoundStatement>();
         var stringType = compilation.GetSpecialType(SpecialType.System_String)!;
         var charType = compilation.GetSpecialType(SpecialType.System_Char)!;
+        var decimalType = compilation.GetSpecialType(SpecialType.System_Decimal)!;
         var typeType = compilation.GetSpecialType(SpecialType.System_Type)!;
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit)!;
+        var bindingFlagsType = compilation.GetTypeByMetadataName("System.Reflection.BindingFlags")
+            ?? throw new InvalidOperationException("Failed to resolve System.Reflection.BindingFlags.");
+        var typeIsEnumGetter = ResolvePropertyGetter(typeType, nameof(Type.IsEnum));
+        var typeIsPrimitiveGetter = ResolvePropertyGetter(typeType, nameof(Type.IsPrimitive));
+        var typeGetMethod = ResolveMethod(typeType, nameof(Type.GetMethod), [stringType, bindingFlagsType]);
+        var helperLookupFlags = new BoundLiteralExpression(
+            BoundLiteralExpressionKind.NumericLiteral,
+            (int)(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static),
+            bindingFlagsType);
 
         var valueParameter = method.Parameters[0];
         var valueTypeParameter = method.Parameters[1];
+        var renderStructuredParameter = method.Parameters[2];
         var valueAccess = new BoundParameterAccess(valueParameter);
         var valueTypeAccess = new BoundParameterAccess(valueTypeParameter);
+        var renderStructuredAccess = new BoundParameterAccess(renderStructuredParameter);
+        var runtimeStructuredAccess = CreateBinaryExpression(
+            compilation,
+            SyntaxKind.BarBarToken,
+            new BoundInvocationExpression(
+                typeIsEnumGetter,
+                Array.Empty<BoundExpression>(),
+                valueTypeAccess),
+            CreateBinaryExpression(
+                compilation,
+                SyntaxKind.BarBarToken,
+                new BoundInvocationExpression(
+                    typeIsPrimitiveGetter,
+                    Array.Empty<BoundExpression>(),
+                    valueTypeAccess),
+                CreateBinaryExpression(
+                    compilation,
+                    SyntaxKind.BarBarToken,
+                    CreateBinaryExpression(
+                        compilation,
+                        SyntaxKind.EqualsEqualsToken,
+                        valueTypeAccess,
+                        new BoundTypeOfExpression(decimalType, typeType)),
+                    CreateBinaryExpression(
+                        compilation,
+                        SyntaxKind.BarBarToken,
+                        CreateBinaryExpression(
+                            compilation,
+                            SyntaxKind.EqualsEqualsToken,
+                            valueTypeAccess,
+                            new BoundTypeOfExpression(unitType, typeType)),
+                        CreateBinaryExpression(
+                            compilation,
+                            SyntaxKind.NotEqualsToken,
+                            new BoundInvocationExpression(
+                                typeGetMethod,
+                                [
+                                    CreateStringLiteral(compilation, SynthesizedUnionMethodNames.FriendlyTypeNameHelper),
+                                    helperLookupFlags
+                                ],
+                                valueTypeAccess),
+                            CreateNullLiteral(compilation))))));
 
         statements.Add(new BoundIfStatement(
             CreateBinaryExpression(
@@ -622,8 +694,70 @@ internal static partial class SynthesizedMethodBodyFactory
                 CreateObjectToStringInvocation(compilation, valueAccess),
                 quote: "'"))));
 
-        statements.Add(new BoundReturnStatement(CreateObjectToStringInvocation(compilation, valueAccess)));
+        statements.Add(new BoundIfStatement(
+            new BoundInvocationExpression(
+                typeIsEnumGetter,
+                Array.Empty<BoundExpression>(),
+                valueTypeAccess),
+            new BoundReturnStatement(ConcatSequence(
+                compilation,
+                [
+                    InvokeFriendlyTypeNameHelper(method, valueTypeAccess),
+                    CreateStringLiteral(compilation, "."),
+                    CreateObjectToStringInvocation(compilation, valueAccess)
+                ]))));
+
+        statements.Add(new BoundIfStatement(
+            CreateBinaryExpression(
+                compilation,
+                SyntaxKind.BarBarToken,
+                renderStructuredAccess,
+                runtimeStructuredAccess),
+            new BoundReturnStatement(CreateObjectToStringInvocation(compilation, valueAccess))));
+
+        statements.Add(new BoundReturnStatement(ConcatSequence(
+            compilation,
+            [
+                CreateStringLiteral(compilation, "<"),
+                InvokeFriendlyTypeNameHelper(method, valueTypeAccess),
+                CreateStringLiteral(compilation, ">")
+            ])));
         return new BoundBlockStatement(statements);
+    }
+
+    private static bool CanRenderStructuredDisplay(ITypeSymbol type)
+    {
+        var plainType = type.GetPlainType();
+
+        if (plainType.TypeKind == TypeKind.Enum ||
+            plainType.IsUnion ||
+            plainType.IsUnionCase)
+        {
+            return true;
+        }
+
+        if (TryGetSourceNamedTypeDefinition(plainType as INamedTypeSymbol) is { IsRecord: true })
+            return true;
+
+        return plainType.SpecialType switch
+        {
+            SpecialType.System_Boolean => true,
+            SpecialType.System_SByte => true,
+            SpecialType.System_Byte => true,
+            SpecialType.System_Int16 => true,
+            SpecialType.System_UInt16 => true,
+            SpecialType.System_Int32 => true,
+            SpecialType.System_UInt32 => true,
+            SpecialType.System_Int64 => true,
+            SpecialType.System_UInt64 => true,
+            SpecialType.System_Decimal => true,
+            SpecialType.System_Single => true,
+            SpecialType.System_Double => true,
+            SpecialType.System_IntPtr => true,
+            SpecialType.System_UIntPtr => true,
+            SpecialType.System_Unit => true,
+            _ => false
+        };
     }
 
     private static BoundBlockStatement CreateUnionTryGetValueBody(
@@ -765,23 +899,28 @@ internal static partial class SynthesizedMethodBodyFactory
         return new BoundBlockStatement([new BoundReturnStatement(fieldAccess)]);
     }
 
-    private static List<(string Name, SourceFieldSymbol Field)> CollectUnionCaseParameters(SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
+    private static List<(string Name, SourcePropertySymbol Property, ITypeSymbol DeclaredType)> CollectUnionCaseParameters(
+        INamedTypeSymbol? containingType,
+        SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
     {
-        var parameters = new List<(string Name, SourceFieldSymbol Field)>();
+        var parameters = new List<(string Name, SourcePropertySymbol Property, ITypeSymbol DeclaredType)>();
+        var constructorParameters = containingType is IUnionCaseTypeSymbol constructedCaseType &&
+                                    !constructedCaseType.ConstructorParameters.IsDefaultOrEmpty
+            ? constructedCaseType.ConstructorParameters
+            : caseSymbol.ConstructorParameters.Cast<IParameterSymbol>();
 
-        foreach (var parameter in caseSymbol.ConstructorParameters)
+        foreach (var parameter in constructorParameters)
         {
             if (parameter.RefKind != RefKind.None || parameter.Type is null)
                 continue;
 
             var propertyName = UnionFacts.GetCasePropertyName(parameter.Name);
-            if (caseSymbol.GetMembers(propertyName).OfType<IPropertySymbol>().FirstOrDefault() is not SourcePropertySymbol property ||
-                property.BackingField is not SourceFieldSymbol backingField)
+            if (caseSymbol.GetMembers(propertyName).OfType<IPropertySymbol>().FirstOrDefault() is not SourcePropertySymbol property)
             {
                 continue;
             }
 
-            parameters.Add((property.Name, backingField));
+            parameters.Add((property.Name, property, parameter.Type));
         }
 
         return parameters;

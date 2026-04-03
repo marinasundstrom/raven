@@ -107,24 +107,29 @@ internal static partial class SynthesizedMethodBodyFactory
         return new BoundReturnStatement(null);
     }
 
-    private static BoundExpression InvokeUnionFormatValueHelper(Compilation compilation, IMethodSymbol method, BoundExpression value)
+    private static BoundExpression InvokeUnionFormatValueHelper(Compilation compilation, IMethodSymbol method, BoundExpression value, ITypeSymbol? declaredType = null)
     {
         var containingType = GetInvocationContainingType(method);
         var helper = containingType
             .GetMembers(SynthesizedUnionMethodNames.FormatValueHelper)
             .OfType<IMethodSymbol>()
             .First(m => m.IsStatic &&
-                        m.Parameters.Length == 2 &&
+                        m.Parameters.Length == 3 &&
                         m.Parameters[0].Type.SpecialType == SpecialType.System_Object &&
                         m.Parameters[1].Type.SpecialType == SpecialType.System_Type &&
+                        m.Parameters[2].Type.SpecialType == SpecialType.System_Boolean &&
                         m.ReturnType.SpecialType == SpecialType.System_String);
         var objectType = compilation.GetSpecialType(SpecialType.System_Object)!;
+        var displayType = (declaredType ?? value.Type).GetPlainType();
+        var plainType = displayType;
+        var shouldRenderStructured = CanRenderStructuredDisplay(plainType);
 
         return new BoundInvocationExpression(
             helper,
             [
                 CreateConversion(compilation, value, objectType),
-                new BoundTypeOfExpression(value.Type, compilation.GetSpecialType(SpecialType.System_Type)!)
+                new BoundTypeOfExpression(displayType, compilation.GetSpecialType(SpecialType.System_Type)!),
+                CreateBoolLiteral(compilation, shouldRenderStructured)
             ]);
     }
 
