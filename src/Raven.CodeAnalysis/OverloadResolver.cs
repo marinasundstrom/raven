@@ -1634,6 +1634,22 @@ internal sealed class OverloadResolver
                 return false;
             }
 
+            // The implicit receiver behaves like a first argument. If one receiver parameter type
+            // implicitly converts to the other (but not vice versa), prefer the more specific one.
+            // This is the rule that should distinguish IQueryable<T> from IEnumerable<T> for
+            // extension methods such as Queryable.Select vs Enumerable.Select.
+            var candToCurrent = IsImplicitConversion(compilation, candParamType, currentParamType);
+            var currentToCand = IsImplicitConversion(compilation, currentParamType, candParamType);
+
+            if (candToCurrent && !currentToCand)
+            {
+                better = true;
+            }
+            else if (!candToCurrent && currentToCand)
+            {
+                return false;
+            }
+
             var candDist = GetInheritanceDistance(GetUnderlying(receiverType), GetUnderlying(candParamType));
             var currDist = GetInheritanceDistance(GetUnderlying(receiverType), GetUnderlying(currentParamType));
 

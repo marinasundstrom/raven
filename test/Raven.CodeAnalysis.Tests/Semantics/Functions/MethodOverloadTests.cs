@@ -276,6 +276,30 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void PipelineSelect_OnOrderedQueryable_PrefersQueryableOverEnumerable()
+    {
+        var source = """
+        import System.*
+        import System.Linq.*
+        import System.Collections.Generic.*
+        import System.Linq.Expressions.*
+
+        class C {
+            func Project(source: IOrderedQueryable<int>) -> IQueryable<string> {
+                return source |> Select(x => x.ToString())
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
     public void LambdaArgument_OverloadsWithOptionalTail_DoNotPolluteInference()
     {
         var source = """
