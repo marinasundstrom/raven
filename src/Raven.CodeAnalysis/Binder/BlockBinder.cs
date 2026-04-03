@@ -9318,6 +9318,15 @@ partial class BlockBinder : Binder
         if (expr.Type is NullableTypeSymbol n && n.UnderlyingType.IsValueType)
             return new BoundNullableValueExpression(expr, n.UnderlyingType);
 
+        if (expr.Type?.StripNullable() is { } underlyingType &&
+            !SymbolEqualityComparer.Default.Equals(expr.Type, underlyingType))
+        {
+            return new BoundConversionExpression(
+                expr,
+                underlyingType,
+                new Conversion(isImplicit: true, isReference: true));
+        }
+
         return expr;
     }
 
