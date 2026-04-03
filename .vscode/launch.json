@@ -107,7 +107,6 @@
         {
             "name": "Raven: LSP + Extension",
             "configurations": [
-                "Raven.LanguageServer (stdio)",
                 "Raven VS Code Extension Host"
             ]
         }
