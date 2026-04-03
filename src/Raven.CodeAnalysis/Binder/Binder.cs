@@ -1924,6 +1924,10 @@ internal abstract partial class Binder
 
         bool allSatisfied = true;
         var displayName = genericDisplayName ?? definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        for (int i = 0; i < typeParameters.Length; i++)
+            substitutions[typeParameters[i]] = typeArguments[i];
 
         EnsureTypeParameterConstraintTypesResolved(typeParameters);
 
@@ -1966,10 +1970,18 @@ internal abstract partial class Binder
 
                 foreach (var constraintType in constraintTypes)
                 {
-                    if (constraintType is IErrorTypeSymbol)
+                    var substitutedConstraint = SubstituteConstraintType(constraintType, substitutions);
+
+                    if (substitutedConstraint is ITypeParameterSymbol unsubstituted &&
+                        !substitutions.ContainsKey(unsubstituted))
+                    {
+                        continue;
+                    }
+
+                    if (substitutedConstraint is IErrorTypeSymbol)
                         continue;
 
-                    if (constraintType is INamedTypeSymbol namedConstraint)
+                    if (substitutedConstraint is INamedTypeSymbol namedConstraint)
                     {
                         if (SemanticFacts.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
                             continue;
@@ -1980,10 +1992,10 @@ internal abstract partial class Binder
                         continue;
                     }
 
-                    if (SemanticFacts.SatisfiesTypeConstraint(typeArgument, constraintType))
+                    if (SemanticFacts.SatisfiesTypeConstraint(typeArgument, substitutedConstraint))
                         continue;
 
-                    var display = constraintType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    var display = substitutedConstraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
                     ReportConstraintViolation(typeArgument, display, typeParameter, displayName, getArgumentLocation(i));
                     allSatisfied = false;
                 }

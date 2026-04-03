@@ -48,9 +48,160 @@ public static partial class SymbolExtensions
         if (left is null || right is null)
             return false;
 
-        var leftIdentity = left.ToDisplayString(SymbolDisplayFormat.RavenSymbolKeyFormat);
-        var rightIdentity = right.ToDisplayString(SymbolDisplayFormat.RavenSymbolKeyFormat);
+        if (HaveEquivalentMetadataIdentity(left, right))
+            return true;
+
+        var leftIdentity = GetStableMetadataIdentity(left);
+        var rightIdentity = GetStableMetadataIdentity(right);
         return string.Equals(leftIdentity, rightIdentity, StringComparison.Ordinal);
+    }
+
+    private static bool HaveEquivalentMetadataIdentity(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (left.TypeKind != right.TypeKind)
+            return false;
+
+        switch (left)
+        {
+            case ITypeParameterSymbol leftTypeParameter when right is ITypeParameterSymbol rightTypeParameter:
+                return HaveEquivalentTypeParameterIdentity(leftTypeParameter, rightTypeParameter);
+
+            case INamedTypeSymbol leftNamed when right is INamedTypeSymbol rightNamed:
+                return HaveEquivalentNamedTypeIdentity(leftNamed, rightNamed);
+
+            case IArrayTypeSymbol leftArray when right is IArrayTypeSymbol rightArray:
+                return leftArray.Rank == rightArray.Rank &&
+                       leftArray.IsFixedArray == rightArray.IsFixedArray &&
+                       leftArray.FixedLength == rightArray.FixedLength &&
+                       HaveEquivalentMetadataIdentity(leftArray.ElementType, rightArray.ElementType);
+
+            case IPointerTypeSymbol leftPointer when right is IPointerTypeSymbol rightPointer:
+                return HaveEquivalentMetadataIdentity(leftPointer.PointedAtType, rightPointer.PointedAtType);
+
+            case IAddressTypeSymbol leftAddress when right is IAddressTypeSymbol rightAddress:
+                return HaveEquivalentMetadataIdentity(leftAddress.ReferencedType, rightAddress.ReferencedType);
+
+            case NullableTypeSymbol leftNullable when right is NullableTypeSymbol rightNullable:
+                return HaveEquivalentMetadataIdentity(leftNullable.UnderlyingType, rightNullable.UnderlyingType);
+
+            case LiteralTypeSymbol leftLiteral when right is LiteralTypeSymbol rightLiteral:
+                return HaveEquivalentMetadataIdentity(leftLiteral.UnderlyingType, rightLiteral.UnderlyingType);
+
+            case ITypeUnionSymbol leftUnion when right is ITypeUnionSymbol rightUnion:
+                if (leftUnion.Types.Length != rightUnion.Types.Length)
+                    return false;
+
+                for (var i = 0; i < leftUnion.Types.Length; i++)
+                {
+                    if (!HaveEquivalentMetadataIdentity(leftUnion.Types[i], rightUnion.Types[i]))
+                        return false;
+                }
+
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool HaveEquivalentTypeParameterIdentity(ITypeParameterSymbol left, ITypeParameterSymbol right)
+    {
+        var leftDefinition = (ITypeParameterSymbol)(left.OriginalDefinition ?? left);
+        var rightDefinition = (ITypeParameterSymbol)(right.OriginalDefinition ?? right);
+
+        if (ReferenceEquals(leftDefinition, rightDefinition))
+            return true;
+
+        if (leftDefinition.OwnerKind != rightDefinition.OwnerKind ||
+            leftDefinition.Ordinal != rightDefinition.Ordinal ||
+            !string.Equals(leftDefinition.Name, rightDefinition.Name, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (leftDefinition.OwnerKind == TypeParameterOwnerKind.Method)
+        {
+            var leftOwner = (IMethodSymbol?)(leftDefinition.DeclaringMethodParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringMethodParameterOwner);
+            var rightOwner = (IMethodSymbol?)(rightDefinition.DeclaringMethodParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringMethodParameterOwner);
+            return SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner);
+        }
+
+        var leftTypeOwner = (INamedTypeSymbol?)(leftDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringTypeParameterOwner);
+        var rightTypeOwner = (INamedTypeSymbol?)(rightDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringTypeParameterOwner);
+        return SymbolEqualityComparer.Default.Equals(leftTypeOwner, rightTypeOwner);
+    }
+
+    private static bool HaveEquivalentNamedTypeIdentity(INamedTypeSymbol left, INamedTypeSymbol right)
+    {
+        var leftDefinition = (INamedTypeSymbol)(left.OriginalDefinition ?? left);
+        var rightDefinition = (INamedTypeSymbol)(right.OriginalDefinition ?? right);
+
+        if (!string.Equals(leftDefinition.ToFullyQualifiedMetadataName(), rightDefinition.ToFullyQualifiedMetadataName(), StringComparison.Ordinal))
+            return false;
+
+        if (left.TypeArguments.Length != right.TypeArguments.Length)
+            return false;
+
+        for (var i = 0; i < left.TypeArguments.Length; i++)
+        {
+            if (!HaveEquivalentMetadataIdentity(left.TypeArguments[i], right.TypeArguments[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static string GetStableMetadataIdentity(ITypeSymbol typeSymbol)
+    {
+        switch (typeSymbol)
+        {
+            case ITypeParameterSymbol typeParameter:
+                var definition = (ITypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter);
+                var ownerIdentity = definition.OwnerKind switch
+                {
+                    TypeParameterOwnerKind.Type => (definition.DeclaringTypeParameterOwner?.OriginalDefinition as INamedTypeSymbol
+                                                    ?? definition.DeclaringTypeParameterOwner)
+                                                    ?.ToFullyQualifiedMetadataName()
+                                                    ?? "<type>",
+                    TypeParameterOwnerKind.Method => (definition.DeclaringMethodParameterOwner?.OriginalDefinition as IMethodSymbol
+                                                      ?? definition.DeclaringMethodParameterOwner) is { } method
+                        ? $"{(method.ContainingType?.OriginalDefinition as INamedTypeSymbol ?? method.ContainingType)?.ToFullyQualifiedMetadataName() ?? "<global>"}::{method.MetadataName}"
+                        : "<method>",
+                    _ => "<unknown>"
+                };
+                return $"!{definition.OwnerKind}:{ownerIdentity}:{definition.Ordinal}:{definition.Name}";
+
+            case IArrayTypeSymbol arrayType:
+                return $"[{arrayType.Rank},{arrayType.IsFixedArray},{arrayType.FixedLength?.ToString() ?? string.Empty}]{GetStableMetadataIdentity(arrayType.ElementType)}";
+
+            case IPointerTypeSymbol pointerType:
+                return $"*{GetStableMetadataIdentity(pointerType.PointedAtType)}";
+
+            case IAddressTypeSymbol addressType:
+                return $"&{GetStableMetadataIdentity(addressType.ReferencedType)}";
+
+            case NullableTypeSymbol nullableType:
+                return $"?{GetStableMetadataIdentity(nullableType.UnderlyingType)}";
+
+            case LiteralTypeSymbol literalType:
+                return $"literal({GetStableMetadataIdentity(literalType.UnderlyingType)})";
+
+            case ITypeUnionSymbol unionType:
+                return $"union[{string.Join("|", unionType.Types.Select(GetStableMetadataIdentity))}]";
+
+            case INamedTypeSymbol namedType:
+                var definitionIdentity = namedType.OriginalDefinition is INamedTypeSymbol originalDefinition
+                    ? originalDefinition.ToFullyQualifiedMetadataName()
+                    : namedType.ToFullyQualifiedMetadataName();
+
+                if (namedType.TypeArguments.IsDefaultOrEmpty || namedType.TypeArguments.Length == 0)
+                    return definitionIdentity;
+
+                return $"{definitionIdentity}<{string.Join(",", namedType.TypeArguments.Select(GetStableMetadataIdentity))}>";
+
+            default:
+                return typeSymbol.MetadataName ?? typeSymbol.Name ?? string.Empty;
+        }
     }
 
     /// <summary>

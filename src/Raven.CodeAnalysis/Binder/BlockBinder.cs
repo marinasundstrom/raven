@@ -15084,7 +15084,8 @@ partial class BlockBinder : Binder
         SourceNamedTypeSymbol sealedType,
         int catchAllIndex)
     {
-        var coverageTypes = TypeCoverageHelper.GetSealedHierarchyCoverageTypes(sealedType);
+        var projectedHierarchy = scrutineeType as INamedTypeSymbol ?? sealedType;
+        var coverageTypes = TypeCoverageHelper.GetSealedHierarchyCoverageTypes(sealedType, projectedHierarchy);
         if (coverageTypes.IsDefaultOrEmpty)
             return;
 

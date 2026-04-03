@@ -1467,6 +1467,47 @@ internal partial class TypeMemberBinder : Binder
         return _containingType.AllInterfaces.Contains(interfaceType, SymbolEqualityComparer.Default);
     }
 
+    private static ImmutableArray<ISymbol> GetExplicitInterfaceMembers(INamedTypeSymbol interfaceType, string memberName)
+    {
+        var members = interfaceType.GetMembers(memberName);
+        if (!members.IsDefaultOrEmpty)
+            return members;
+
+        if (!TryEnsureSourceInterfaceMembersAvailable(interfaceType))
+            return members;
+
+        return interfaceType.GetMembers(memberName);
+    }
+
+    private static bool TryEnsureSourceInterfaceMembersAvailable(INamedTypeSymbol interfaceType)
+    {
+        var sourceInterface = interfaceType as SourceNamedTypeSymbol
+            ?? interfaceType.OriginalDefinition as SourceNamedTypeSymbol;
+
+        if (sourceInterface is null)
+            return false;
+
+        if (sourceInterface.ContainingAssembly is not SourceAssemblySymbol sourceAssembly)
+            return false;
+
+        var compilation = sourceAssembly.Compilation;
+        var ensured = false;
+
+        foreach (var syntaxReference in sourceInterface.DeclaringSyntaxReferences)
+        {
+            var syntaxTree = syntaxReference.SyntaxTree;
+            if (syntaxTree is null)
+                continue;
+
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            semanticModel.EnsureDeclarations();
+            semanticModel.EnsureRootBinderCreated();
+            ensured = true;
+        }
+
+        return ensured;
+    }
+
     private IMethodSymbol? FindExplicitInterfaceImplementation(
         INamedTypeSymbol interfaceType,
         string methodName,
@@ -1475,7 +1516,7 @@ internal partial class TypeMemberBinder : Binder
     {
         var shapeCandidates = ImmutableArray.CreateBuilder<IMethodSymbol>();
 
-        foreach (var member in interfaceType.GetMembers(methodName).OfType<IMethodSymbol>())
+        foreach (var member in GetExplicitInterfaceMembers(interfaceType, methodName).OfType<IMethodSymbol>())
         {
             if (member.IsStatic)
                 continue;
@@ -1518,7 +1559,7 @@ internal partial class TypeMemberBinder : Binder
     {
         var shapeCandidates = ImmutableArray.CreateBuilder<IPropertySymbol>();
 
-        foreach (var property in interfaceType.GetMembers(propertyName).OfType<IPropertySymbol>())
+        foreach (var property in GetExplicitInterfaceMembers(interfaceType, propertyName).OfType<IPropertySymbol>())
         {
             if (property.IsIndexer != isIndexer)
                 continue;
@@ -1582,7 +1623,7 @@ internal partial class TypeMemberBinder : Binder
     {
         var shapeCandidates = ImmutableArray.CreateBuilder<IEventSymbol>();
 
-        foreach (var @event in interfaceType.GetMembers(eventName).OfType<IEventSymbol>())
+        foreach (var @event in GetExplicitInterfaceMembers(interfaceType, eventName).OfType<IEventSymbol>())
         {
             shapeCandidates.Add(@event);
 

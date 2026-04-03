@@ -33,7 +33,9 @@ internal static class TypeCoverageHelper
     /// Returns the set of types that must be covered to achieve exhaustiveness for a sealed hierarchy.
     /// Closed branches contribute concrete leaf types. Open intermediate branches contribute the branch type itself.
     /// </summary>
-    public static ImmutableArray<INamedTypeSymbol> GetSealedHierarchyCoverageTypes(INamedTypeSymbol sealedRoot)
+    public static ImmutableArray<INamedTypeSymbol> GetSealedHierarchyCoverageTypes(
+        INamedTypeSymbol sealedRoot,
+        INamedTypeSymbol? projectedHierarchy = null)
     {
         var results = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
         CollectCoverageSubtypes(sealedRoot, results);
@@ -42,7 +44,14 @@ internal static class TypeCoverageHelper
         if (!sealedRoot.IsAbstract)
             results.Add(sealedRoot);
 
-        return results.ToImmutableArray();
+        if (projectedHierarchy is null)
+            return results.ToImmutableArray();
+
+        var projectedResults = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var result in results)
+            projectedResults.Add(SealedHierarchyFacts.ProjectCaseTypeToHierarchyArguments(result, projectedHierarchy));
+
+        return projectedResults.ToImmutableArray();
     }
 
     /// <summary>
