@@ -120,11 +120,15 @@ internal static class MsBuildProjectEvaluator
             XmlDocumentationFile: GetOptionalProperty(project, "DocumentationFile"),
             MarkdownDocumentationOutputPath: GetOptionalProperty(project, "MarkdownDocumentationOutputPath"));
 
+        var outputPath = GetProjectOutputPath(projectDirectory, project, targetFramework, configuration, assemblyName);
+
         return new MsBuildProjectEvaluationResult(
             name,
             assemblyName,
             targetFramework,
             configuration,
+            Path.GetDirectoryName(outputPath) ?? projectDirectory,
+            outputPath,
             compilationOptions,
             documents,
             metadataReferencePaths,
@@ -197,6 +201,42 @@ internal static class MsBuildProjectEvaluator
             : Path.GetFullPath(Path.Combine(projectDirectory, intermediateOutputPath));
 
         return Path.Combine(fullIntermediateOutputPath, "raven", "generated");
+    }
+
+    private static string GetProjectOutputPath(
+        string projectDirectory,
+        MSBuildProject project,
+        string? targetFramework,
+        string configuration,
+        string assemblyName)
+    {
+        var targetPath = GetOptionalProperty(project, "TargetPath");
+        if (!string.IsNullOrWhiteSpace(targetPath))
+        {
+            return Path.IsPathRooted(targetPath)
+                ? Path.GetFullPath(targetPath)
+                : Path.GetFullPath(Path.Combine(projectDirectory, targetPath));
+        }
+
+        var outputDirectory = GetOptionalProperty(project, "OutputPath")
+            ?? GetOptionalProperty(project, "OutDir");
+
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            outputDirectory = Path.Combine(projectDirectory, "bin", configuration);
+            if (!string.IsNullOrWhiteSpace(targetFramework))
+                outputDirectory = Path.Combine(outputDirectory, targetFramework);
+        }
+        else if (!Path.IsPathRooted(outputDirectory))
+        {
+            outputDirectory = Path.GetFullPath(Path.Combine(projectDirectory, outputDirectory));
+        }
+        else
+        {
+            outputDirectory = Path.GetFullPath(outputDirectory);
+        }
+
+        return Path.Combine(outputDirectory, $"{assemblyName}.dll");
     }
 
     private static string GetEffectiveTargetFramework(MSBuildProject project)
@@ -275,6 +315,8 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     string AssemblyName,
     string? TargetFramework,
     string Configuration,
+    string OutputDirectory,
+    string OutputPath,
     CompilationOptions CompilationOptions,
     ImmutableArray<DocumentInfo> Documents,
     ImmutableArray<string> MetadataReferencePaths,

@@ -468,7 +468,7 @@ static string? TryReadProjectTargetFramework(string projectFilePath)
     try
     {
         var xdoc = XDocument.Load(projectFilePath);
-        return (string?)xdoc.Root?.Attribute("TargetFramework");
+        return GetProjectPropertyValue(xdoc, "TargetFramework");
     }
     catch
     {
@@ -481,13 +481,21 @@ static string TryReadProjectConfiguration(string projectFilePath)
     try
     {
         var xdoc = XDocument.Load(projectFilePath);
-        var configuration = (string?)xdoc.Root?.Attribute("Configuration");
+        var configuration = GetProjectPropertyValue(xdoc, "Configuration");
         return RavenProjectConventions.Default.NormalizeConfiguration(configuration);
     }
     catch
     {
         return RavenProjectConventions.Default.DefaultConfiguration;
     }
+}
+
+static string? GetProjectPropertyValue(XDocument document, string propertyName)
+{
+    return document.Root?
+        .Descendants()
+        .FirstOrDefault(element => string.Equals(element.Name.LocalName, propertyName, StringComparison.OrdinalIgnoreCase))
+        ?.Value;
 }
 
 for (int i = 0; i < sourceFiles.Count; i++)
@@ -631,14 +639,25 @@ if (projectFileInput is not null)
         }
     }
 
-    var projectDirectory = Path.GetDirectoryName(projectFileInput)!;
-    outputDirectory = explicitOutputPath
-        ? Path.GetFullPath(outputPath!)
-        : publish
-            ? Path.Combine(projectDirectory, "bin", projectConfiguration, "publish")
-            : Path.Combine(projectDirectory, "bin", projectConfiguration);
-    assemblyName = defaultAssemblyBaseName;
-    outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
+    if (explicitOutputPath)
+    {
+        outputDirectory = Path.GetFullPath(outputPath!);
+        assemblyName = defaultAssemblyBaseName;
+        outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
+    }
+    else
+    {
+        outputFilePath = MsBuildProjectOutputResolver.ResolveProjectOutputPath(projectFileInput, targetFramework);
+        outputDirectory = Path.GetDirectoryName(outputFilePath)!;
+        assemblyName = Path.GetFileNameWithoutExtension(outputFilePath);
+
+        if (publish)
+        {
+            var projectDirectory = Path.GetDirectoryName(projectFileInput)!;
+            outputDirectory = Path.Combine(projectDirectory, "bin", projectConfiguration, "publish");
+            outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
+        }
+    }
 }
 else
 {

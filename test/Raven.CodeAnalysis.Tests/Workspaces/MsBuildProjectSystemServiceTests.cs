@@ -775,6 +775,36 @@ val value = WidgetFactory.CreateDefault()
         }
     }
 
+    [Fact]
+    public void NeedsRebuild_ZeroLengthMacroOutput_ReturnsTrue()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var projectPath = Path.Combine(root, "ReactiveMacros.rvnproj");
+            var sourcePath = Path.Combine(root, "main.rvn");
+            var outputDirectory = Path.Combine(root, "bin", "Debug", "net10.0");
+            var outputPath = Path.Combine(outputDirectory, "ReactiveMacros.dll");
+
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+            File.WriteAllText(sourcePath, "class ReactiveMacroPlugin {}");
+            Directory.CreateDirectory(outputDirectory);
+            File.WriteAllBytes(outputPath, []);
+
+            Assert.True(MsBuildProjectSystemService.NeedsRebuild(projectPath, outputPath, [sourcePath]));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
     private static string CreateTempDirectory()
     {
         var directory = Path.Combine(Path.GetTempPath(), "raven-msbuild-project-system-tests", Guid.NewGuid().ToString("N"));

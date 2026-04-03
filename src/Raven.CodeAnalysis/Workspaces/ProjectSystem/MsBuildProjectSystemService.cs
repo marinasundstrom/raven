@@ -309,15 +309,30 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
             var macroProjectId = macroWorkspace.OpenProject(projectFilePath);
             var macroCompilation = macroWorkspace.GetCompilation(macroProjectId);
+            var pdbPath = Path.ChangeExtension(outputPath, ".pdb");
+            var tempPePath = outputPath + ".tmp";
+            var tempPdbPath = pdbPath + ".tmp";
 
-            using var peStream = File.Create(outputPath);
-            using var pdbStream = File.Create(Path.ChangeExtension(outputPath, ".pdb"));
-            var emitResult = macroCompilation.Emit(peStream, pdbStream);
+            TryDeleteFile(tempPePath);
+            TryDeleteFile(tempPdbPath);
+
+            EmitResult emitResult;
+            using (var peStream = File.Create(tempPePath))
+            using (var pdbStream = File.Create(tempPdbPath))
+            {
+                emitResult = macroCompilation.Emit(peStream, pdbStream);
+            }
+
             if (!emitResult.Success)
             {
+                TryDeleteFile(tempPePath);
+                TryDeleteFile(tempPdbPath);
                 var diagnosticText = string.Join(Environment.NewLine, emitResult.Diagnostics.Select(static diagnostic => diagnostic.ToString()));
                 throw new InvalidOperationException($"Failed to build macro project '{projectFilePath}'.{Environment.NewLine}{diagnosticText}");
             }
+
+            ReplaceFile(tempPePath, outputPath);
+            ReplaceFile(tempPdbPath, pdbPath);
         }
 
         return outputPath;
@@ -329,15 +344,12 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         string? targetFramework,
         string assemblyName)
     {
-        var outputDirectory = Path.Combine(
-            Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory,
-            "bin",
-            configuration);
+        var resolvedOutputPath = MsBuildProjectOutputResolver.ResolveProjectOutputPath(
+            projectFilePath,
+            targetFramework,
+            RavenProjectConventions.Default);
 
-        if (!string.IsNullOrWhiteSpace(targetFramework))
-            outputDirectory = Path.Combine(outputDirectory, targetFramework);
-
-        return Path.Combine(outputDirectory, $"{assemblyName}.dll");
+        return resolvedOutputPath;
     }
 
     internal static IEnumerable<string> GetRavenMacroRebuildInputs(MsBuildProjectEvaluationResult evaluation)
@@ -398,7 +410,11 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         if (!File.Exists(outputPath))
             return true;
 
-        var outputWriteTime = File.GetLastWriteTimeUtc(outputPath);
+        var outputInfo = new FileInfo(outputPath);
+        if (!outputInfo.Exists || outputInfo.Length == 0)
+            return true;
+
+        var outputWriteTime = outputInfo.LastWriteTimeUtc;
         if (File.GetLastWriteTimeUtc(projectFilePath) > outputWriteTime)
             return true;
 
@@ -412,6 +428,20 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         }
 
         return false;
+    }
+
+    private static void ReplaceFile(string sourcePath, string destinationPath)
+    {
+        if (File.Exists(destinationPath))
+            File.Delete(destinationPath);
+
+        File.Move(sourcePath, destinationPath);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        if (File.Exists(path))
+            File.Delete(path);
     }
 
     private static bool IsProjectFileExtension(string extension)
