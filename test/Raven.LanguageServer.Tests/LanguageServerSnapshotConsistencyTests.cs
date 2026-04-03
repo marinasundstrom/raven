@@ -29,6 +29,50 @@ public sealed class LanguageServerSnapshotConsistencyTests : IDisposable
     }
 
     [Fact]
+    public async Task HoverHandler_UpdatedDocument_DoesNotReuseCachedHoverFromPreviousVersionAsync()
+    {
+        var (store, _, uri) = CreateWorkspace("""
+import System.Console.*
+
+func Main() -> unit {
+    val number = 42
+    WriteLine(number)
+}
+""");
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        var firstHover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(4, 14)
+        }, CancellationToken.None);
+
+        firstHover.ShouldNotBeNull();
+        firstHover.Contents.ShouldNotBeNull();
+
+        store.UpsertDocument(uri, """
+import System.Console.*
+
+func Main() -> unit {
+    val value = 42
+    WriteLine(value)
+}
+""");
+
+        var secondHover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(4, 14)
+        }, CancellationToken.None);
+
+        secondHover.ShouldNotBeNull();
+        secondHover.Contents.ShouldNotBeNull();
+        secondHover.Range.ShouldNotBeNull();
+        secondHover.Range.Start.Character.ShouldBe(14);
+        secondHover.Range.End.Character.ShouldBe(19);
+    }
+
+    [Fact]
     public async Task CompletionHandler_ClearedDocument_ReturnsWithoutOutOfBoundsFailureAsync()
     {
         var (store, _, uri) = CreateWorkspace("val number = 42");

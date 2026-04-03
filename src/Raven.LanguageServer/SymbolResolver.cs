@@ -160,18 +160,19 @@ internal static class SymbolResolver
                 return true;
             }
 
-            var operationSymbol = FindReferencedSymbolAtToken(semanticModel.GetOperation(identifier), token.Span);
-            var projectedOperationSymbol = ProjectSymbolForDisplay(operationSymbol);
-            if (projectedOperationSymbol is not null)
+            var symbol = TryGetSymbolInfo(semanticModel, identifier, out var symbolInfo)
+                ? ProjectSymbolForDisplay(ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, identifier))
+                : null;
+            if (symbol is null)
             {
+                var operationSymbol = FindReferencedSymbolAtToken(TryGetOperation(semanticModel, identifier), token.Span);
+                var projectedOperationSymbol = ProjectSymbolForDisplay(operationSymbol);
+                if (projectedOperationSymbol is null)
+                    continue;
+
                 resolution = new SymbolResolutionResult(projectedOperationSymbol.UnderlyingSymbol, identifier);
                 return true;
             }
-
-            var symbolInfo = semanticModel.GetSymbolInfo(identifier);
-            var symbol = ProjectSymbolForDisplay(ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, identifier));
-            if (symbol is null)
-                continue;
 
             resolution = new SymbolResolutionResult(symbol.UnderlyingSymbol, identifier);
             return true;
@@ -354,12 +355,6 @@ internal static class SymbolResolver
         if (TryResolvePatternDeclaredSymbol(semanticModel, node, token, out var patternSymbol))
             return patternSymbol;
 
-        if (TryResolvePatternOperationDeclaredLocal(semanticModel, node, token, out var patternOperationSymbol))
-            return patternOperationSymbol;
-
-        if (TryResolveContainingStatementDesignatorSymbol(semanticModel, node, token, out var statementDesignatorSymbol))
-            return statementDesignatorSymbol;
-
         if (TryResolveTypePositionSymbol(semanticModel, node, token, out var typePositionSymbol))
             return typePositionSymbol;
 
@@ -381,6 +376,12 @@ internal static class SymbolResolver
 
             return chosen;
         }
+
+        if (TryResolvePatternOperationDeclaredLocal(semanticModel, node, token, out var patternOperationSymbol))
+            return patternOperationSymbol;
+
+        if (TryResolveContainingStatementDesignatorSymbol(semanticModel, node, token, out var statementDesignatorSymbol))
+            return statementDesignatorSymbol;
 
         if (TryResolveFromEnclosingBlockLocals(semanticModel, node, token, out var blockLocalSymbol))
             return blockLocalSymbol;

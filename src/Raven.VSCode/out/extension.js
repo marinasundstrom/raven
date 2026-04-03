@@ -43,9 +43,63 @@ const util_1 = require("util");
 const vscode = __importStar(require("vscode"));
 const node_1 = require("vscode-languageclient/node");
 let client;
+let clientStopPromise;
 const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
+function appendLifecycleLog(message) {
+    output.appendLine(`[lifecycle ${new Date().toISOString()}] ${message}`);
+}
+function formatClientState(state) {
+    switch (state) {
+        case node_1.State.Starting:
+            return 'Starting';
+        case node_1.State.Running:
+            return 'Running';
+        case node_1.State.Stopped:
+            return 'Stopped';
+        default:
+            return `Unknown(${state})`;
+    }
+}
+function logStateChange(event) {
+    appendLifecycleLog(`Language client state changed: ${formatClientState(event.oldState)} -> ${formatClientState(event.newState)}`);
+}
+function formatRequestType(type) {
+    if (typeof type === 'string') {
+        return type;
+    }
+    if (type && typeof type === 'object' && typeof type.method === 'string') {
+        return type.method;
+    }
+    return '<unknown>';
+}
+async function stopClient(reason) {
+    const activeClient = client;
+    if (!activeClient) {
+        appendLifecycleLog(`stopClient(${reason}) skipped: no active client.`);
+        return;
+    }
+    if (clientStopPromise) {
+        appendLifecycleLog(`stopClient(${reason}) joined existing stop operation.`);
+        return clientStopPromise;
+    }
+    const startedAt = Date.now();
+    appendLifecycleLog(`stopClient(${reason}) started.`);
+    clientStopPromise = activeClient.stop().then(() => {
+        appendLifecycleLog(`stopClient(${reason}) completed in ${Date.now() - startedAt}ms.`);
+    }, error => {
+        const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+        appendLifecycleLog(`stopClient(${reason}) failed after ${Date.now() - startedAt}ms: ${message}`);
+        throw error;
+    }).finally(() => {
+        if (client === activeClient) {
+            client = undefined;
+        }
+        clientStopPromise = undefined;
+    });
+    return clientStopPromise;
+}
 class RavenDocumentationContentProvider {
     provideTextDocumentContent(uri) {
         const params = new URLSearchParams(uri.query);
@@ -558,6 +612,7 @@ class RavenDebugConfigurationProvider {
 function activate(context) {
     extensionInstallPath = context.extensionPath;
     output.appendLine('Activating Raven VS Code extension...');
+    appendLifecycleLog(`Extension activate() called. extensionPath=${context.extensionPath}`);
     let serverPath;
     try {
         serverPath = resolveServerPath(context, output);
@@ -587,17 +642,74 @@ function activate(context) {
             configurationSection: 'raven',
             fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav,rvnproj,csproj,fsproj}')
         },
-        outputChannel: output
+        outputChannel: output,
+        traceOutputChannel: output,
+        errorHandler: {
+            error(error, message, count) {
+                const errorMessage = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+                const messageSummary = message ? JSON.stringify(message) : '<none>';
+                appendLifecycleLog(`Language client transport error: error=${errorMessage} message=${messageSummary} count=${count ?? '<none>'}`);
+                return { action: node_1.ErrorAction.Continue };
+            },
+            closed() {
+                appendLifecycleLog('Language client transport closed.');
+                return { action: node_1.CloseAction.DoNotRestart };
+            }
+        },
+        middleware: {
+            async sendRequest(type, param, token, next) {
+                const method = formatRequestType(type);
+                const interesting = method === 'textDocument/hover' ||
+                    method === 'textDocument/semanticTokens/full' ||
+                    method === 'textDocument/semanticTokens/range' ||
+                    method === 'textDocument/documentSymbol' ||
+                    method === 'textDocument/documentDiagnostic' ||
+                    method === 'workspace/diagnostic';
+                const startedAt = Date.now();
+                if (interesting) {
+                    appendLifecycleLog(`Request started: ${method}`);
+                }
+                try {
+                    const result = await next(type, param, token);
+                    if (interesting) {
+                        appendLifecycleLog(`Request completed: ${method} in ${Date.now() - startedAt}ms.`);
+                    }
+                    return result;
+                }
+                catch (error) {
+                    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+                    if (interesting) {
+                        appendLifecycleLog(`Request failed: ${method} after ${Date.now() - startedAt}ms: ${message}`);
+                    }
+                    throw error;
+                }
+            },
+            async sendNotification(type, next, params) {
+                const method = formatRequestType(type);
+                const interesting = method === 'textDocument/didOpen' ||
+                    method === 'textDocument/didChange' ||
+                    method === 'textDocument/didSave' ||
+                    method === 'textDocument/didClose';
+                if (interesting) {
+                    appendLifecycleLog(`Notification sent: ${method}`);
+                }
+                return next(type, params);
+            }
+        }
     };
     client = new node_1.LanguageClient('ravenLanguageServer', 'Raven Language Server', serverOptions, clientOptions);
+    client.onDidChangeState(logStateChange);
+    client.setTrace(node_1.Trace.Verbose);
+    appendLifecycleLog('Language client trace level set to Verbose.');
     // Ensure VS Code disposes the client on shutdown.
     context.subscriptions.push({
         dispose: () => {
-            // stop() is async; VS Code accepts a Thenable from dispose().
-            return client?.stop();
+            appendLifecycleLog('Extension subscription dispose() called.');
+            return stopClient('subscription dispose');
         }
     });
     // Start the language client.
+    appendLifecycleLog('Starting language client.');
     void client.start();
     const debugConfigurationProvider = new RavenDebugConfigurationProvider();
     context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('raven', debugConfigurationProvider, vscode.DebugConfigurationProviderTriggerKind.Dynamic));
@@ -717,5 +829,6 @@ function activate(context) {
     }));
 }
 function deactivate() {
-    return client?.stop();
+    appendLifecycleLog('Extension deactivate() called.');
+    return stopClient('deactivate');
 }

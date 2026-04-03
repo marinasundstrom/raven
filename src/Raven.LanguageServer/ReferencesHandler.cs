@@ -41,7 +41,7 @@ internal sealed class ReferencesHandler : IReferencesHandler
     {
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "references", request.TextDocument.Uri).ConfigureAwait(false);
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return new LocationContainer();

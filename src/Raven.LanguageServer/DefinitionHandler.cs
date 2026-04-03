@@ -39,7 +39,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
     {
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "definition", request.TextDocument.Uri).ConfigureAwait(false);
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return new LocationOrLocationLinks();

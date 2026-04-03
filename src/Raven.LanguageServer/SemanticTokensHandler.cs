@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Diagnostics;
 
 using Microsoft.Extensions.Logging;
 
@@ -18,6 +19,8 @@ namespace Raven.LanguageServer;
 
 internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 {
+    private const int MaxCachedSemanticTokenEntries = 256;
+    private const double SemanticTokensLogThresholdMs = 150;
     internal static readonly SemanticTokensLegend Legend = new()
     {
         TokenTypes = new Container<SemanticTokenType>(
@@ -49,6 +52,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
     private readonly DocumentStore _documents;
     private readonly ILogger<SemanticTokensHandler> _logger;
     private readonly ConcurrentDictionary<string, SemanticTokensDocument> _tokenDocuments = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<SemanticTokensCacheKey, SemanticTokenEntry[]> _tokenEntryCache = new();
 
     public SemanticTokensHandler(DocumentStore documents, ILogger<SemanticTokensHandler> logger)
     {
@@ -61,7 +65,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         {
             DocumentSelector = TextDocumentSelector.ForLanguage("raven"),
             Legend = Legend,
-            Full = true,
+            Full = false,
             Range = true
         };
 
@@ -75,20 +79,53 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
     protected override async Task Tokenize(SemanticTokensBuilder builder, ITextDocumentIdentifierParams identifier, CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
+        double gateWaitMs = 0;
+        double contextMs = 0;
+        double rootMs = 0;
+        double semanticModelMs = 0;
+        double classifyMs = 0;
+        double materializeMs = 0;
+        double pushMs = 0;
+
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "semanticTokens", identifier.TextDocument.Uri).ConfigureAwait(false);
+            gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
+
+            var stageStopwatch = Stopwatch.StartNew();
             var context = await _documents.GetAnalysisContextAsync(identifier.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            contextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return;
 
             var compilation = context.Value.Compilation;
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
-            var root = syntaxTree.GetRoot(cancellationToken);
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
-            var classification = SemanticClassifier.Classify(root, semanticModel);
+            var cacheKey = new SemanticTokensCacheKey(identifier.TextDocument.Uri.ToString(), context.Value.Document.Version);
 
+            if (_tokenEntryCache.TryGetValue(cacheKey, out var cachedEntries))
+            {
+                foreach (var entry in cachedEntries)
+                    PushSpan(builder, sourceText, entry.Span, entry.TokenType!.Value, entry.Modifiers);
+
+                pushMs = stopwatch.Elapsed.TotalMilliseconds - gateWaitMs - contextMs;
+                return;
+            }
+
+            stageStopwatch.Restart();
+            var root = syntaxTree.GetRoot(cancellationToken);
+            rootMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            stageStopwatch.Restart();
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            stageStopwatch.Restart();
+            var classification = SemanticClassifier.Classify(root, semanticModel);
+            classifyMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            stageStopwatch.Restart();
             var tokenEntries = classification.Tokens
                 .Select(pair => CreateEntry(pair.Key.Span, pair.Value, pair.Key, semanticModel))
                 .Where(static entry => entry!.TokenType is not null)
@@ -106,17 +143,54 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                 .OrderBy(static entry => entry.Span.Start)
                 .ThenBy(static entry => entry.Span.Length)
                 .ToArray();
+            materializeMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            CacheTokenEntries(cacheKey, entries);
 
+            stageStopwatch.Restart();
             foreach (var entry in entries)
                 PushSpan(builder, sourceText, entry.Span, entry.TokenType!.Value, entry.Modifiers);
+            pushMs = stageStopwatch.Elapsed.TotalMilliseconds;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            if (stopwatch.Elapsed.TotalMilliseconds >= SemanticTokensLogThresholdMs)
+            {
+                _logger.LogInformation(
+                    "Semantic token request canceled for {Uri} after {ElapsedMs:F1}ms.",
+                    identifier.TextDocument.Uri,
+                    stopwatch.Elapsed.TotalMilliseconds);
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Semantic token request failed for {Uri}.", identifier.TextDocument.Uri);
         }
+        finally
+        {
+            stopwatch.Stop();
+            if (stopwatch.Elapsed.TotalMilliseconds >= SemanticTokensLogThresholdMs)
+            {
+                _logger.LogInformation(
+                    "Semantic token request completed for {Uri} in {ElapsedMs:F1}ms: gateWait={GateWaitMs:F1}ms context={ContextMs:F1}ms root={RootMs:F1}ms semanticModel={SemanticModelMs:F1}ms classify={ClassifyMs:F1}ms materialize={MaterializeMs:F1}ms push={PushMs:F1}ms.",
+                    identifier.TextDocument.Uri,
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    gateWaitMs,
+                    contextMs,
+                    rootMs,
+                    semanticModelMs,
+                    classifyMs,
+                    materializeMs,
+                    pushMs);
+            }
+        }
+    }
+
+    private void CacheTokenEntries(SemanticTokensCacheKey cacheKey, SemanticTokenEntry[] entries)
+    {
+        if (_tokenEntryCache.Count >= MaxCachedSemanticTokenEntries)
+            _tokenEntryCache.Clear();
+
+        _tokenEntryCache[cacheKey] = entries;
     }
 
     private static SemanticTokenEntry? CreateEntry(
@@ -166,98 +240,11 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         SyntaxToken token,
         SemanticModel semanticModel)
     {
-        if (classification == SemanticClassification.Type)
-            return MapTypeTokenType(token, semanticModel);
-
         return MapTokenType(classification);
     }
 
-    private static SemanticTokenType MapTypeTokenType(SyntaxToken token, SemanticModel semanticModel)
-    {
-        var bindNode = GetSemanticTokenBindableNode(token);
-        if (bindNode is not null)
-        {
-            var info = semanticModel.GetSymbolInfo(bindNode);
-            var symbol = info.Symbol
-                ?? info.CandidateSymbols.FirstOrDefault()
-                ?? semanticModel.GetDeclaredSymbol(bindNode);
-
-            if (symbol is ITypeSymbol typeSymbol)
-                return typeSymbol.TypeKind switch
-                {
-                    TypeKind.Class => SemanticTokenType.Class,
-                    TypeKind.Struct => SemanticTokenType.Struct,
-                    TypeKind.Interface => SemanticTokenType.Interface,
-                    TypeKind.Enum => SemanticTokenType.Enum,
-                    _ => SemanticTokenType.Type
-                };
-        }
-
-        return SemanticTokenType.Type;
-    }
-
     private static ImmutableArray<SemanticTokenModifier> GetModifiers(SyntaxToken token, SemanticModel semanticModel)
-    {
-        var bindNode = GetSemanticTokenBindableNode(token);
-        if (bindNode is null)
-            return ImmutableArray<SemanticTokenModifier>.Empty;
-
-        var info = semanticModel.GetSymbolInfo(bindNode);
-        var symbol = info.Symbol
-            ?? info.CandidateSymbols.FirstOrDefault()
-            ?? semanticModel.GetDeclaredSymbol(bindNode);
-
-        if (symbol is null)
-            return ImmutableArray<SemanticTokenModifier>.Empty;
-
-        var builder = ImmutableArray.CreateBuilder<SemanticTokenModifier>(4);
-
-        if (semanticModel.GetDeclaredSymbol(bindNode) is not null)
-            builder.Add(SemanticTokenModifier.Declaration);
-
-        if (symbol.IsStatic)
-            builder.Add(SemanticTokenModifier.Static);
-
-        if (symbol is IMethodSymbol { IsAbstract: true } ||
-            symbol is INamedTypeSymbol { IsAbstract: true })
-        {
-            builder.Add(SemanticTokenModifier.Abstract);
-        }
-
-        if (symbol is IMethodSymbol { IsAsync: true })
-            builder.Add(SemanticTokenModifier.Async);
-
-        if (symbol is IFieldSymbol { IsReadOnly: true } ||
-            symbol is IMethodSymbol { IsReadOnly: true } ||
-            symbol is IPropertySymbol { IsMutable: false })
-        {
-            builder.Add(SemanticTokenModifier.Readonly);
-        }
-
-        return builder.ToImmutable();
-    }
-
-    private static SyntaxNode? GetSemanticTokenBindableNode(SyntaxToken token)
-    {
-        var node = token.Parent;
-
-        if (node is IdentifierNameSyntax && node.Parent is NamespaceDeclarationSyntax ns && ns.Name == node)
-            return ns;
-
-        while (node is not null)
-        {
-            if (node.Parent is MemberAccessExpressionSyntax memberAccess && memberAccess.Name == node)
-                node = memberAccess;
-            else if (node.Parent is MemberBindingExpressionSyntax memberBinding && memberBinding.Name == node)
-                node = memberBinding;
-            else if (node.Parent is InvocationExpressionSyntax invocation && invocation.Expression == node)
-                node = invocation;
-            else
-                break;
-        }
-
-        return node;
-    }
+        => ImmutableArray<SemanticTokenModifier>.Empty;
 
     private static void PushSpan(
         SemanticTokensBuilder builder,
@@ -300,4 +287,6 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         TextSpan Span,
         SemanticTokenType? TokenType,
         ImmutableArray<SemanticTokenModifier> Modifiers);
+
+    private readonly record struct SemanticTokensCacheKey(string Uri, VersionStamp Version);
 }

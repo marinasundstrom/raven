@@ -41,7 +41,7 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
     {
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "prepareRename", request.TextDocument.Uri).ConfigureAwait(false);
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return null;
@@ -87,7 +87,7 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
     {
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "rename", request.TextDocument.Uri).ConfigureAwait(false);
             if (!RenameService.IsValidIdentifier(request.NewName))
                 return null;
 

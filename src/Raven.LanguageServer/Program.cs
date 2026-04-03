@@ -15,6 +15,9 @@ internal static class Program
     static async Task Main(string[] args)
     {
         var logPath = ResolveLogPath();
+        var fileLoggerProvider = new RavenFileLoggerProvider(logPath);
+        WriteStartupMarker(fileLoggerProvider, logPath, args);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => WriteProcessExitMarker(fileLoggerProvider, "AppDomain.ProcessExit");
 
         var server = await OmniLanguageServer.From(options =>
         {
@@ -52,12 +55,41 @@ internal static class Program
             .ConfigureLogging(logging =>
             {
                 logging.AddLanguageProtocolLogging()
-                    .AddProvider(new RavenFileLoggerProvider(logPath))
+                    .AddProvider(fileLoggerProvider)
                     .SetMinimumLevel(LogLevel.Debug);
             });
         }).ConfigureAwait(false);
 
-        await server.WaitForExit.ConfigureAwait(false);
+        try
+        {
+            await server.WaitForExit.ConfigureAwait(false);
+        }
+        finally
+        {
+            WriteProcessExitMarker(fileLoggerProvider, "Main.Finally");
+        }
+    }
+
+    private static void WriteStartupMarker(RavenFileLoggerProvider loggerProvider, string logPath, string[] args)
+    {
+        var process = Environment.ProcessId;
+        var cwd = Directory.GetCurrentDirectory();
+        var baseDirectory = AppContext.BaseDirectory;
+        var assemblyPath = Environment.ProcessPath ?? "<unknown>";
+        var commandLine = Environment.CommandLine;
+        var formattedArgs = args.Length == 0 ? "<none>" : string.Join(" ", args);
+
+        loggerProvider.WriteLine(
+            $"{DateTimeOffset.UtcNow:O} [Information] Raven.LanguageServer.Startup: " +
+            $"Starting Raven language server. pid={process} cwd={cwd} baseDirectory={baseDirectory} " +
+            $"processPath={assemblyPath} logPath={logPath} args={formattedArgs} commandLine={commandLine}");
+    }
+
+    private static void WriteProcessExitMarker(RavenFileLoggerProvider loggerProvider, string source)
+    {
+        loggerProvider.WriteLine(
+            $"{DateTimeOffset.UtcNow:O} [Information] Raven.LanguageServer.Shutdown: " +
+            $"Raven language server exiting. pid={Environment.ProcessId} source={source}");
     }
 
     private static string ResolveLogPath()
@@ -100,6 +132,7 @@ internal static class Program
 internal sealed class RavenFileLoggerProvider : ILoggerProvider
 {
     private readonly StreamWriter _writer;
+    private readonly TextWriter _errorWriter;
     private readonly object _sync = new();
     private bool _disposed;
 
@@ -107,6 +140,7 @@ internal sealed class RavenFileLoggerProvider : ILoggerProvider
     {
         var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
         _writer = new StreamWriter(stream) { AutoFlush = true };
+        _errorWriter = Console.Error;
     }
 
     public ILogger CreateLogger(string categoryName)
@@ -120,6 +154,16 @@ internal sealed class RavenFileLoggerProvider : ILoggerProvider
                 return;
 
             _writer.WriteLine(line);
+
+            try
+            {
+                _errorWriter.WriteLine(line);
+                _errorWriter.Flush();
+            }
+            catch
+            {
+                // Best-effort mirroring for VS Code output; file logging remains authoritative.
+            }
         }
     }
 

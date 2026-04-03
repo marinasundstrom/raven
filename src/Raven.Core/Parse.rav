@@ -19,7 +19,7 @@ record ParseIntError(
     val Style: NumberStyles
 ) : IParseError {
 
-    val Cause: IError? => null
+    val IParseError.Cause: IError? => null
 
     val Message: string =>
         Kind match {

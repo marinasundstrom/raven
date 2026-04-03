@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Collections.Concurrent;
+
 using Microsoft.Extensions.Logging;
 
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -6,6 +9,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
+using VersionStamp = Raven.CodeAnalysis.VersionStamp;
 
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
 
@@ -13,8 +17,12 @@ namespace Raven.LanguageServer;
 
 internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 {
+    private const int MaxCachedDocumentSymbolEntries = 256;
+    private const double SlowDocumentSymbolsThresholdMs = 100;
+
     private readonly DocumentStore _documents;
     private readonly ILogger<DocumentSymbolHandler> _logger;
+    private readonly ConcurrentDictionary<DocumentSymbolCacheKey, SymbolInformationOrDocumentSymbol[]> _cache = new();
 
     public DocumentSymbolHandler(DocumentStore documents, ILogger<DocumentSymbolHandler> logger)
     {
@@ -34,21 +42,53 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
     public async Task<SymbolInformationOrDocumentSymbolContainer?> Handle(DocumentSymbolParams request, CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
+        double documentLookupMs = 0;
+        double syntaxTreeMs = 0;
+        double sourceTextMs = 0;
+        double rootMs = 0;
+        double symbolBuildMs = 0;
+
         try
         {
             if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
                 return new SymbolInformationOrDocumentSymbolContainer();
+            documentLookupMs = stopwatch.Elapsed.TotalMilliseconds;
+
+            var cacheKey = new DocumentSymbolCacheKey(request.TextDocument.Uri.ToString(), document.Version);
+            if (_cache.TryGetValue(cacheKey, out var cachedSymbols))
+                return new SymbolInformationOrDocumentSymbolContainer(cachedSymbols);
 
             var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
             if (syntaxTree is null)
                 return new SymbolInformationOrDocumentSymbolContainer();
+            syntaxTreeMs = stopwatch.Elapsed.TotalMilliseconds - documentLookupMs;
 
             var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            sourceTextMs = stopwatch.Elapsed.TotalMilliseconds - documentLookupMs - syntaxTreeMs;
             var root = syntaxTree.GetRoot(cancellationToken);
+            rootMs = stopwatch.Elapsed.TotalMilliseconds - documentLookupMs - syntaxTreeMs - sourceTextMs;
 
             var symbols = BuildMemberSymbols(root.Members, text)
                 .Select(symbol => (SymbolInformationOrDocumentSymbol)symbol)
                 .ToArray();
+            symbolBuildMs = stopwatch.Elapsed.TotalMilliseconds - documentLookupMs - syntaxTreeMs - sourceTextMs - rootMs;
+            CacheSymbols(cacheKey, symbols);
+
+            stopwatch.Stop();
+            if (stopwatch.Elapsed.TotalMilliseconds >= SlowDocumentSymbolsThresholdMs)
+            {
+                _logger.LogInformation(
+                    "Slow document symbols for {Uri}: total={TotalMs:F1}ms lookup={LookupMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms sourceText={SourceTextMs:F1}ms root={RootMs:F1}ms build={BuildMs:F1}ms count={Count}.",
+                    request.TextDocument.Uri,
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    documentLookupMs,
+                    syntaxTreeMs,
+                    sourceTextMs,
+                    rootMs,
+                    symbolBuildMs,
+                    symbols.Length);
+            }
 
             return new SymbolInformationOrDocumentSymbolContainer(symbols);
         }
@@ -61,6 +101,14 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             _logger.LogError(ex, "Document symbols request failed for {Uri}.", request.TextDocument.Uri);
             return new SymbolInformationOrDocumentSymbolContainer();
         }
+    }
+
+    private void CacheSymbols(DocumentSymbolCacheKey cacheKey, SymbolInformationOrDocumentSymbol[] symbols)
+    {
+        if (_cache.Count >= MaxCachedDocumentSymbolEntries)
+            _cache.Clear();
+
+        _cache[cacheKey] = symbols;
     }
 
     private static IEnumerable<DocumentSymbol> BuildMemberSymbols(SyntaxList<MemberDeclarationSyntax> members, SourceText text)
@@ -257,6 +305,8 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             declaration.Identifier.Span,
             text,
             BuildNestedFunctionSymbols(GetCallableBodyRoots(declaration), text).ToArray());
+
+    private readonly record struct DocumentSymbolCacheKey(string Uri, VersionStamp Version);
 
     private static DocumentSymbol CreateTypeSymbol(TypeDeclarationSyntax declaration, SymbolKind kind, SourceText text)
     {

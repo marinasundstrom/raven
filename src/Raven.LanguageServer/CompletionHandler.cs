@@ -40,7 +40,7 @@ internal sealed class CompletionHandler : ICompletionHandler
     {
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
+            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "completion", request.TextDocument.Uri).ConfigureAwait(false);
             _logger.LogDebug(
                 "Completion request for {Uri} at {Line}:{Character}. Trigger={TriggerKind}/{TriggerCharacter}",
                 request.TextDocument.Uri,

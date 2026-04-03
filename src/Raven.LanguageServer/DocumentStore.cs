@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Diagnostics;
 
 using Microsoft.Extensions.Logging;
 
@@ -20,6 +21,11 @@ namespace Raven.LanguageServer;
 
 internal sealed class DocumentStore
 {
+    private const double SlowCompilerGateThresholdMs = 100;
+    private const double SlowAnalysisContextThresholdMs = 100;
+    private const double SlowDiagnosticsThresholdMs = 150;
+    private const double SlowWarmAnalysisThresholdMs = 250;
+
     internal readonly record struct DocumentAnalysisContext(
         Document Document,
         Compilation Compilation,
@@ -56,18 +62,26 @@ internal sealed class DocumentStore
 
     public async Task<DocumentAnalysisContext?> GetAnalysisContextAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
+        double compilationLookupMs = 0;
+        double syntaxTreeMs = 0;
+        double sourceTextMs = 0;
+
         if (!TryGetDocumentContext(uri, out var document, out var compilation) ||
             document is null ||
             compilation is null)
         {
             return null;
         }
+        compilationLookupMs = stopwatch.Elapsed.TotalMilliseconds;
 
         var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
         if (syntaxTree is null)
             return null;
+        syntaxTreeMs = stopwatch.Elapsed.TotalMilliseconds - compilationLookupMs;
 
         var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        sourceTextMs = stopwatch.Elapsed.TotalMilliseconds - compilationLookupMs - syntaxTreeMs;
         if (!compilation.SyntaxTrees.Contains(syntaxTree))
         {
             syntaxTree = FindMatchingCompilationSyntaxTree(compilation, syntaxTree, document.FilePath);
@@ -75,6 +89,18 @@ internal sealed class DocumentStore
                 return null;
 
             sourceText = syntaxTree.GetText() ?? sourceText;
+        }
+
+        stopwatch.Stop();
+        if (stopwatch.Elapsed.TotalMilliseconds >= SlowAnalysisContextThresholdMs)
+        {
+            _logger.LogInformation(
+                "Slow analysis context for {Uri}: total={TotalMs:F1}ms compilationLookup={CompilationLookupMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms sourceText={SourceTextMs:F1}ms.",
+                uri,
+                stopwatch.Elapsed.TotalMilliseconds,
+                compilationLookupMs,
+                syntaxTreeMs,
+                sourceTextMs);
         }
 
         return new DocumentAnalysisContext(document, compilation, syntaxTree, sourceText);
@@ -86,31 +112,67 @@ internal sealed class DocumentStore
     public bool RemoveDocument(DocumentUri uri)
         => _workspaceManager.RemoveDocument(uri);
 
-    public async ValueTask<IDisposable> EnterCompilerAccessAsync(CancellationToken cancellationToken)
+    public async ValueTask<IDisposable> EnterCompilerAccessAsync(
+        CancellationToken cancellationToken,
+        string? purpose = null,
+        DocumentUri? uri = null)
     {
+        var stopwatch = Stopwatch.StartNew();
         await _compilerAccessGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        stopwatch.Stop();
+
+        if (stopwatch.Elapsed.TotalMilliseconds >= SlowCompilerGateThresholdMs)
+        {
+            _logger.LogInformation(
+                "Slow compiler gate wait for {Purpose} {Uri}: wait={WaitMs:F1}ms.",
+                purpose ?? "unknown",
+                uri?.ToString() ?? "<none>",
+                stopwatch.Elapsed.TotalMilliseconds);
+        }
+
         return new CompilerAccessLease(_compilerAccessGate);
     }
 
     public async Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
+        double gateWaitMs = 0;
+        double syntaxTreeMs = 0;
+        double diagnosticsFetchMs = 0;
+
         try
         {
-            using var _ = await EnterCompilerAccessAsync(cancellationToken).ConfigureAwait(false);
+            using var _ = await EnterCompilerAccessAsync(cancellationToken, "diagnostics", uri).ConfigureAwait(false);
+            gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
             if (!TryGetDocument(uri, out var document))
                 return Array.Empty<LspDiagnostic>();
 
             var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
             if (syntaxTree is null)
                 return Array.Empty<LspDiagnostic>();
+            syntaxTreeMs = stopwatch.Elapsed.TotalMilliseconds - gateWaitMs;
 
             if (!_workspaceManager.TryGetDiagnostics(uri, out var diagnosticsForProject, cancellationToken: cancellationToken))
                 return Array.Empty<LspDiagnostic>();
+            diagnosticsFetchMs = stopwatch.Elapsed.TotalMilliseconds - gateWaitMs - syntaxTreeMs;
 
             var diagnostics = diagnosticsForProject
                 .Where(d => ShouldReport(d, syntaxTree))
                 .Select(MapDiagnostic)
                 .ToArray();
+
+            stopwatch.Stop();
+            if (stopwatch.Elapsed.TotalMilliseconds >= SlowDiagnosticsThresholdMs)
+            {
+                _logger.LogInformation(
+                    "Slow diagnostics for {Uri}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms diagnosticsFetch={DiagnosticsFetchMs:F1}ms count={Count}.",
+                    uri,
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    gateWaitMs,
+                    syntaxTreeMs,
+                    diagnosticsFetchMs,
+                    diagnostics.Length);
+            }
 
             return diagnostics;
         }
@@ -122,6 +184,53 @@ internal sealed class DocumentStore
         {
             _logger.LogError(ex, "Diagnostic computation failed for {Uri}.", uri);
             return Array.Empty<LspDiagnostic>();
+        }
+    }
+
+    public async Task WarmAnalysisAsync(DocumentUri uri, CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        double gateWaitMs = 0;
+        double analysisContextMs = 0;
+        double semanticModelMs = 0;
+
+        try
+        {
+            using var lease = await EnterCompilerAccessAsync(cancellationToken, "warmAnalysis", uri).ConfigureAwait(false);
+            gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
+
+            var stageStopwatch = Stopwatch.StartNew();
+            var context = await GetAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+            analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (context is null)
+                return;
+
+            var compilation = context.Value.Compilation;
+            var syntaxTree = context.Value.SyntaxTree;
+            stageStopwatch.Restart();
+            _ = compilation.GetSemanticModel(syntaxTree);
+            semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Background analysis warmup failed for {Uri}.", uri);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            if (stopwatch.Elapsed.TotalMilliseconds >= SlowWarmAnalysisThresholdMs)
+            {
+                _logger.LogInformation(
+                    "Slow analysis warmup for {Uri}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms context={ContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms.",
+                    uri,
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    gateWaitMs,
+                    analysisContextMs,
+                    semanticModelMs);
+            }
         }
     }
 
