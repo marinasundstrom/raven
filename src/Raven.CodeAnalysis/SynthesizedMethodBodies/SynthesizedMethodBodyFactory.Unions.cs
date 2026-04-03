@@ -223,6 +223,7 @@ internal static partial class SynthesizedMethodBodyFactory
         var typeArrayType = compilation.CreateArrayTypeSymbol(typeType);
 
         var objectGetType = ResolveMethod(objectType, nameof(object.GetType), []);
+        var typeDeclaringTypeGetter = ResolvePropertyGetter(typeType, nameof(Type.DeclaringType));
         var typeNameGetter = ResolvePropertyGetter(memberInfoType, nameof(MemberInfo.Name));
         var typeGenericArgsGetter = ResolveMethod(typeType, nameof(Type.GetGenericArguments), []);
         var arrayLengthGetter = ResolvePropertyGetter(arrayType, nameof(Array.Length));
@@ -230,6 +231,7 @@ internal static partial class SynthesizedMethodBodyFactory
         var stringSubstring = ResolveMethod(stringType, nameof(string.Substring), [intType, intType]);
 
         var runtimeTypeLocal = CreateSynthesizedLocal(method, typeType, "runtimeType");
+        var declaringTypeLocal = CreateSynthesizedLocal(method, typeType, "declaringType");
         var typeArgsLocal = CreateSynthesizedLocal(method, typeArrayType, "typeArgs");
         var typeArgsLengthLocal = CreateSynthesizedLocal(method, intType, "typeArgsLength");
         var indexLocal = CreateSynthesizedLocal(method, intType, "typeArgIndex");
@@ -243,8 +245,32 @@ internal static partial class SynthesizedMethodBodyFactory
         statements.Add(new BoundLocalDeclarationStatement([
             new BoundVariableDeclarator(
                 runtimeTypeLocal,
-                new BoundTypeOfExpression(method.ContainingType!, typeType))
+                new BoundInvocationExpression(
+                    objectGetType,
+                    Array.Empty<BoundExpression>(),
+                    new BoundSelfExpression(method.ContainingType!)))
         ]));
+
+        statements.Add(new BoundLocalDeclarationStatement([
+            new BoundVariableDeclarator(
+                declaringTypeLocal,
+                new BoundInvocationExpression(
+                    typeDeclaringTypeGetter,
+                    Array.Empty<BoundExpression>(),
+                    new BoundLocalAccess(runtimeTypeLocal)))
+        ]));
+
+        statements.Add(new BoundIfStatement(
+            CreateBinaryExpression(
+                compilation,
+                SyntaxKind.NotEqualsToken,
+                new BoundLocalAccess(declaringTypeLocal),
+                CreateNullLiteral(compilation)),
+            CreateAssignmentStatement(
+                compilation,
+                runtimeTypeLocal,
+                new BoundLocalAccess(declaringTypeLocal),
+                unitType)));
 
         statements.Add(new BoundLocalDeclarationStatement([
             new BoundVariableDeclarator(
