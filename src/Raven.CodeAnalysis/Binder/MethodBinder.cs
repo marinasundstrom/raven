@@ -22,6 +22,8 @@ class MethodBinder : TypeMemberBinder
         // Parameters are retrieved from _methodSymbol; no additional storage needed
     }
 
+    public override ISymbol ContainingSymbol => _methodSymbol;
+
     public override ITypeSymbol? LookupType(string name)
     {
         var methodTypeParameter = _methodSymbol.TypeParameters.FirstOrDefault(tp => tp.Name == name);
@@ -79,10 +81,11 @@ class MethodBinder : TypeMemberBinder
                 map.TryAdd(tp.Name, tp);
         }
 
-        if (ContainingSymbol.TypeParameters.IsDefaultOrEmpty)
+        var containingType = _methodSymbol.ContainingType;
+        if (containingType is null || containingType.TypeParameters.IsDefaultOrEmpty)
             return map;
 
-        foreach (var tp in ContainingSymbol.TypeParameters)
+        foreach (var tp in containingType.TypeParameters)
             map.TryAdd(tp.Name, tp);
 
         return map;

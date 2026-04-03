@@ -150,6 +150,31 @@ internal class CodeGenerator
         }
     }
 
+    internal void RegisterGenericParameterAliases(ImmutableArray<ITypeParameterSymbol> parameters, Type[] runtimeTypes)
+    {
+        if (parameters.IsDefaultOrEmpty || runtimeTypes.Length == 0)
+            return;
+
+        var count = Math.Min(parameters.Length, runtimeTypes.Length);
+        for (var i = 0; i < count; i++)
+        {
+            var parameter = parameters[i];
+            var runtimeType = runtimeTypes[i];
+            var stack = GetOrCreateGenericParameterStack(parameter);
+            if (stack.Count == 0 || !ReferenceEquals(stack.Peek(), runtimeType))
+                stack.Push(runtimeType);
+
+            if (CodeGenFlags.PrintDebug)
+            {
+                var owner = runtimeType.IsGenericParameter
+                    ? (runtimeType.DeclaringMethod is null ? "type" : "method")
+                    : "n/a";
+                PrintDebug(
+                    $"[CodeGen:TypeParam] Register alias {parameter.Name} (ordinal={parameter.Ordinal}, symbolOwner={parameter.OwnerKind}) => {runtimeType} (owner={owner}, isMethodParam={runtimeType.IsGenericMethodParameter}, isTypeParam={runtimeType.IsGenericTypeParameter})");
+            }
+        }
+    }
+
     internal void UnregisterGenericParameters(ImmutableArray<ITypeParameterSymbol> parameters)
     {
         if (parameters.IsDefaultOrEmpty)
@@ -1787,47 +1812,37 @@ internal class CodeGenerator
 
         if (TryGetGenericParameterStack(symbol, out var stack) && stack.Count > 0)
         {
-            if (symbol.OwnerKind == TypeParameterOwnerKind.Method && usage == RuntimeTypeUsage.MethodBody)
-            {
-                foreach (var candidate in stack)
-                {
-                    if (!candidate.IsGenericParameter || !candidate.IsGenericMethodParameter || candidate.IsGenericTypeParameter)
-                        continue;
-
-                    if (IsSignaturePlaceholderType(candidate))
-                        continue;
-
-                    if (CodeGenFlags.PrintDebug)
-                    {
-                        PrintDebug(
-                            $"[CodeGen:TypeParam] Lookup preferred runtime method parameter {symbol.Name} -> {candidate} (depth={stack.Count})");
-                    }
-
-                    type = candidate;
-                    return true;
-                }
-            }
-
             var top = stack.Peek();
-            if (usage == RuntimeTypeUsage.MethodBody &&
-                symbol.OwnerKind == TypeParameterOwnerKind.Method &&
-                IsSignaturePlaceholderType(top))
-            {
-                if (CodeGenFlags.PrintDebug)
-                {
-                    PrintDebug(
-                        $"[CodeGen:TypeParam] Skip signature placeholder top-of-stack for method-body lookup {symbol.Name} -> {top}");
-                }
-            }
-            else
+            if (!(usage == RuntimeTypeUsage.MethodBody &&
+                  symbol.OwnerKind == TypeParameterOwnerKind.Method &&
+                  IsSignaturePlaceholderType(top)))
             {
                 if (CodeGenFlags.PrintDebug)
                 {
                     PrintDebug(
                         $"[CodeGen:TypeParam] Lookup hit {symbol.Name} -> {top} (isMethodParam={top.IsGenericMethodParameter}, isTypeParam={top.IsGenericTypeParameter}, depth={stack.Count})");
                 }
+
                 type = top;
                 return true;
+            }
+
+            if (symbol.OwnerKind == TypeParameterOwnerKind.Method && usage == RuntimeTypeUsage.MethodBody)
+            {
+                foreach (var candidate in stack)
+                {
+                    if (!candidate.IsGenericParameter || IsSignaturePlaceholderType(candidate))
+                        continue;
+
+                    if (CodeGenFlags.PrintDebug)
+                    {
+                        PrintDebug(
+                            $"[CodeGen:TypeParam] Lookup fallback runtime parameter {symbol.Name} -> {candidate} (isMethodParam={candidate.IsGenericMethodParameter}, isTypeParam={candidate.IsGenericTypeParameter}, depth={stack.Count})");
+                    }
+
+                    type = candidate;
+                    return true;
+                }
             }
         }
 

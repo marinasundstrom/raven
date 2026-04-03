@@ -16,6 +16,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     private bool _containsAwait;
     private bool _isExpressionTreeLambda;
     private SynthesizedAsyncStateMachineTypeSymbol? _asyncStateMachine;
+    private SourceNamedTypeSymbol? _closureFrameType;
 
     public SourceLambdaSymbol(
         IReadOnlyList<IParameterSymbol> parameters,
@@ -119,6 +120,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public bool HasCaptures => !_capturedVariables.IsDefaultOrEmpty && _capturedVariables.Length > 0;
 
     public bool SetsRequiredMembers => false;
+    internal SourceNamedTypeSymbol? ClosureFrameType => _closureFrameType;
 
     public void SetDelegateType(ITypeSymbol delegateType)
     {
@@ -128,6 +130,11 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public void SetCapturedVariables(IEnumerable<ISymbol> capturedVariables)
     {
         _capturedVariables = capturedVariables.ToImmutableArray();
+    }
+
+    internal void SetClosureFrameType(SourceNamedTypeSymbol? closureFrameType)
+    {
+        _closureFrameType = closureFrameType;
     }
 
     public void SetContainsAwait(bool containsAwait)

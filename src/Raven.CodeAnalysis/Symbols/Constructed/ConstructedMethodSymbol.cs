@@ -425,6 +425,10 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     private ITypeParameterSymbol CanonicalizeTypeParameter(ITypeParameterSymbol typeParameter)
     {
         if (typeParameter.OwnerKind == TypeParameterOwnerKind.Method &&
+            typeParameter.ContainingSymbol is IMethodSymbol containingMethod &&
+            SymbolEqualityComparer.Default.Equals(
+                containingMethod.OriginalDefinition ?? containingMethod,
+                _definition.OriginalDefinition ?? _definition) &&
             typeParameter.Ordinal >= 0 &&
             typeParameter.Ordinal < _definition.TypeParameters.Length)
         {
@@ -589,8 +593,20 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         for (var i = 0; i < TypeArguments.Length && i < runtimeTypeArguments.Length; i++)
         {
-            if (TypeArguments[i] is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter &&
-                methodTypeParameter.DeclaringMethodParameterOwner is IMethodSymbol methodSymbol &&
+            if (TypeArguments[i] is not ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter)
+                continue;
+
+            // Prefer the active runtime mapping first. This lets closure/state-machine
+            // lowering remap outer method type parameters onto carrier type parameters
+            // without this path forcefully rewriting them back to the original method's
+            // generic slots (which produces invalid IL like `!!` inside a display class).
+            if (codeGen.TryResolveRuntimeTypeParameter(methodTypeParameter, CodeGen.RuntimeTypeUsage.MethodBody, out var resolvedRuntimeType))
+            {
+                runtimeTypeArguments[i] = resolvedRuntimeType;
+                continue;
+            }
+
+            if (methodTypeParameter.DeclaringMethodParameterOwner is IMethodSymbol methodSymbol &&
                 runtimeTypeArguments[i] is Type runtimeArgument &&
                 runtimeArgument.IsGenericParameter &&
                 runtimeArgument.DeclaringMethod is null &&
@@ -1641,15 +1657,15 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                         return GetProjectedRuntimeType(substitution, codeGen, treatUnitAsVoid, isTopLevel, visiting);
                 }
 
+                if (codeGen.TryResolveRuntimeTypeParameter(typeParameter, CodeGen.RuntimeTypeUsage.MethodBody, out var runtimeType))
+                    return runtimeType;
+
                 if (typeParameter.OwnerKind == TypeParameterOwnerKind.Method &&
                     typeParameter.DeclaringMethodParameterOwner is IMethodSymbol declaringMethod &&
                     TryGetMethodGenericParameter(declaringMethod, typeParameter.Ordinal, codeGen, out var methodGenericParameter))
                 {
                     return methodGenericParameter;
                 }
-
-                if (codeGen.TryResolveRuntimeTypeParameter(typeParameter, CodeGen.RuntimeTypeUsage.MethodBody, out var runtimeType))
-                    return runtimeType;
 
                 throw new InvalidOperationException($"Unable to resolve runtime type for type parameter '{typeParameter.Name}'.");
             }

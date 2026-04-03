@@ -1810,6 +1810,9 @@ public partial class SemanticModel
         foreach (var (interfaceDecl, interfaceBinder) in interfaceBinders)
             RegisterInterfaceMembers(interfaceDecl, interfaceBinder);
 
+        foreach (var (extensionDecl, extensionBinder) in extensionBinders)
+            RegisterExtensionMembers(extensionDecl, extensionBinder);
+
         foreach (var (classDecl, classBinder) in classBinders)
         {
             RegisterClassMembers(classDecl, classBinder);
@@ -1826,9 +1829,6 @@ public partial class SemanticModel
             ReportMissingAbstractBaseMembers(classSymbol, classDecl, classBinder.Diagnostics);
             ReportIncompletePartialMembers(classSymbol, classBinder.Diagnostics);
         }
-
-        foreach (var (extensionDecl, extensionBinder) in extensionBinders)
-            RegisterExtensionMembers(extensionDecl, extensionBinder);
 
     }
 
@@ -2558,9 +2558,12 @@ public partial class SemanticModel
                     : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
             }
 
-            if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+            if (type is INamedTypeSymbol namedType)
             {
-                var typeArguments = namedType.TypeArguments;
+                var typeArguments = TypeSubstitution.GetShallowTypeArguments(namedType);
+                if (typeArguments.IsDefaultOrEmpty)
+                    return type;
+
                 var substituted = new ITypeSymbol[typeArguments.Length];
                 var changed = false;
 
@@ -2571,7 +2574,10 @@ public partial class SemanticModel
                 }
 
                 if (changed)
-                    return namedType.Construct(substituted);
+                {
+                    var definition = TypeSubstitution.GetDefinitionForSubstitution(namedType);
+                    return definition.Construct(substituted);
+                }
             }
 
             return type;

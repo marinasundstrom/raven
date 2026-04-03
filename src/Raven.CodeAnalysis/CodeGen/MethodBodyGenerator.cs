@@ -2262,7 +2262,7 @@ internal class MethodBodyGenerator
                 _outerMethodClosure = MethodGenerator.TypeGenerator.EnsureSharedMethodClosure(
                     MethodSymbol, allCaptured, hoistCollector.LambdaSymbols, hoistCollector.LocalFunctionSymbols);
 
-                var runtimeClosureType = Generator.InstantiateType(_outerMethodClosure.TypeBuilder);
+                var runtimeClosureType = _outerMethodClosure.GetRuntimeType(MethodGenerator.TypeGenerator.CodeGen);
                 var runtimeClosureCtor = runtimeClosureType == _outerMethodClosure.TypeBuilder
                     ? _outerMethodClosure.Constructor
                     : TypeBuilder.GetConstructor(runtimeClosureType, _outerMethodClosure.Constructor);

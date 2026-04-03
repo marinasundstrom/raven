@@ -120,6 +120,152 @@ namespace Sample.Extensions {
     }
 
     [Fact]
+    public void MemberAccess_WithCurrentNamespaceImport_DoesNotDuplicateGenericExtensionCandidates()
+    {
+        var helperTree = SyntaxTree.ParseText("""
+namespace System
+import System.*
+
+interface IError {
+    val Message: string
+}
+
+record ContextError<TError: IError>(
+    val Message: string,
+    val InnerError: TError
+) : IError
+
+extension ErrorExtensions<TError: IError> for TError {
+    func WithMessage(message: string) -> ContextError<TError> {
+        return ContextError<TError>(message, self)
+    }
+}
+""");
+
+        var consumerTree = SyntaxTree.ParseText("""
+namespace System
+import System.*
+
+record MyError(val Message: string) : IError
+
+class Helpers {
+    static func Wrap<E: IError>(error: E, message: string) -> ContextError<E> {
+        return error.WithMessage(message)
+    }
+}
+""");
+
+        var compilation = CreateCompilation(
+            [helperTree, consumerTree],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(consumerTree);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "WithMessage");
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var systemNamespace = compilation.GetNamespaceSymbol("System");
+        var extensionTypes = systemNamespace?.GetMembers("ErrorExtensions").OfType<INamedTypeSymbol>().ToArray() ?? [];
+        var candidateDump = string.Join(
+            Environment.NewLine,
+            symbolInfo.CandidateSymbols
+                .OfType<IMethodSymbol>()
+                .Select(candidate =>
+                    $"{candidate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} | {candidate.GetType().Name} | {candidate.GetLookupIdentityKey()}"));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.IsEmpty,
+            string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())) +
+            Environment.NewLine +
+            $"ExtensionTypes={extensionTypes.Length}" +
+            Environment.NewLine +
+            $"CandidateReason={symbolInfo.CandidateReason}" +
+            Environment.NewLine +
+            candidateDump);
+
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.Equal("WithMessage", selected.Name);
+        Assert.Equal(CandidateReason.None, symbolInfo.CandidateReason);
+        Assert.Single(symbolInfo.CandidateSymbols.OfType<IMethodSymbol>(), candidate =>
+            string.Equals(candidate.Name, "WithMessage", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void MemberAccess_InsideLambda_TargetTypedFromGenericReceiver_BindsExtensionInvocation()
+    {
+        const string source = """
+namespace System
+import System.*
+
+interface IError {
+    val Message: string
+}
+
+record ContextError<TError: IError>(
+    val Message: string,
+    val InnerError: TError
+) : IError
+
+record SampleError(val Message: string) : IError
+
+class ResultLike<T, E> {
+    func MapError<E2>(mapper: E -> E2) -> ResultLike<T, E2> {
+        throw InvalidOperationException()
+    }
+}
+
+extension ErrorExtensions<TError: IError> for TError {
+    func WithMessage(message: string) -> ContextError<TError> {
+        return ContextError<TError>(message, self)
+    }
+}
+
+class Helpers {
+    static func Wrap<T, E: IError>(result: ResultLike<T, E>, message: string) -> ResultLike<T, ContextError<E>> {
+        return result.MapError(error => error.WithMessage(message))
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var withMessageInvocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "WithMessage");
+        var errorIdentifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(node => node.Identifier.ValueText == "error");
+        var errorType = model.GetTypeInfo(errorIdentifier).Type;
+        var errorSymbol = model.GetSymbolInfo(errorIdentifier).Symbol;
+        var withMessageInfo = model.GetSymbolInfo(withMessageInvocation);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.IsEmpty,
+            string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())) +
+            Environment.NewLine +
+            $"errorType={errorType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "<null>"}" +
+            Environment.NewLine +
+            $"errorSymbol={errorSymbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "<null>"}" +
+            Environment.NewLine +
+            $"withMessageReason={withMessageInfo.CandidateReason}" +
+            Environment.NewLine +
+            string.Join(Environment.NewLine, withMessageInfo.CandidateSymbols.Select(c => c.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))));
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(withMessageInfo.Symbol);
+        Assert.Equal("WithMessage", symbol.Name);
+    }
+
+    [Fact]
     public void MemberAccess_WithTypeImport_BindsExtensionInvocation()
     {
         const string mainSource = """

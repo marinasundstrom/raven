@@ -179,4 +179,80 @@ class Program {
         var value = (int)run.Invoke(null, Array.Empty<object>())!;
         Assert.True(value > 0);
     }
+
+    [Fact]
+    public void ResultWithMessage_GenericMapErrorLambda_ExecutesWithoutBadImageFormat()
+    {
+        const string code = """
+interface IError {
+    val Message: string
+}
+
+record ParseError(val Message: string) : IError
+
+record ContextError<TError: IError>(
+    val Message: string,
+    val InnerError: TError
+) : IError {
+    val Cause: TError => InnerError
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(value: E)
+}
+
+extension ErrorExtensions<TError: IError> for TError {
+    func WithMessage(message: string) -> ContextError<TError> {
+        return ContextError<TError>(message, self)
+    }
+}
+
+extension ResultExtensions<T, E> for Result<T, E> {
+    func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
+        self match {
+            Ok(val value) => Ok(value)
+            Error(val error) => Error(mapper(error))
+        }
+    }
+}
+
+extension ResultErrorContextExtensions<T, E: IError> for Result<T, E> {
+    func WithMessage(message: string) -> Result<T, ContextError<E>> {
+        self.MapError(error => error.WithMessage(message))
+    }
+}
+
+class Program {
+    public static func Run() -> string {
+        val result: Result<int, ParseError> = Error(ParseError("invalid"))
+        val wrapped = result.WithMessage("context")
+
+        return wrapped match {
+            Ok(val value) => value.ToString()
+            Error(val error) => error.Message + ":" + error.Cause.Message
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Program", throwOnError: true)!;
+        var run = type.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+
+        var value = (string)run.Invoke(null, Array.Empty<object>())!;
+        Assert.Equal("context:invalid", value);
+    }
 }

@@ -145,7 +145,7 @@ partial class BlockBinder
 
         if (selected is not null)
         {
-            var inferred = OverloadResolver.ApplyTypeArgumentInference(selected, extensionReceiver, boundArguments, Compilation, explicitTypeArguments);
+            var inferred = OverloadResolver.ApplyTypeArgumentInference(selected, extensionReceiver, boundArguments, Compilation, this, explicitTypeArguments);
             if (inferred is not null)
             {
                 // If we still have unbound type parameters, skip the fast-path and fall back to full overload resolution.
@@ -171,8 +171,9 @@ partial class BlockBinder
             methodGroup.Methods,
             boundArguments,
             Compilation,
-            extensionReceiver,
-            EnsureLambdaCompatible,
+            binder: this,
+            receiver: extensionReceiver,
+            canBindLambda: EnsureLambdaCompatible,
             callSyntax: syntax,
             explicitTypeArguments: explicitTypeArguments);
 
@@ -384,6 +385,9 @@ partial class BlockBinder
                     targetType = null;
             }
 
+            if (targetType is null)
+                RecordLambdaTargetsForArgument(i, arg.Expression);
+
             var syntaxRefKind = arg.RefKindKeyword.Kind switch
             {
                 SyntaxKind.RefKeyword => RefKind.Ref,
@@ -417,6 +421,35 @@ partial class BlockBinder
         }
 
         return boundArguments;
+
+        void RecordLambdaTargetsForArgument(int argumentIndex, ExpressionSyntax expression)
+        {
+            if (expression is not FunctionExpressionSyntax)
+                return;
+
+            var receiverTypeForLambda = pipeReceiverType ?? receiver?.Type;
+            var extensionReceiverImplicit = receiver is not null && methods.All(static method => method.IsExtensionMethod);
+            var pipeReceiverImplicit = pipeReceiverType is not null && methods.All(static method => !method.IsExtensionMethod);
+            var callSiteArgumentCount = pipeReceiverImplicit ? arguments.Count + 1 : arguments.Count;
+
+            var lambdaMethods = FilterMethodsForLambda(
+                methods,
+                argumentIndex,
+                expression,
+                extensionReceiverImplicit,
+                callSiteArgumentCount);
+
+            if (lambdaMethods.IsDefaultOrEmpty)
+                return;
+
+            RecordLambdaTargets(
+                expression,
+                lambdaMethods,
+                argumentIndex,
+                extensionReceiverImplicit,
+                receiverTypeForLambda,
+                pipeReceiverImplicit);
+        }
 
         static ImmutableArray<ITypeParameterSymbol> CollectDistinctMethodTypeParameters(ImmutableArray<IMethodSymbol> candidates)
         {
@@ -621,6 +654,19 @@ partial class BlockBinder
                 return SubstituteTypeParameters(parameterType, substitutions);
         }
 
+        // For ordinary instance methods on generic receivers, partially bind the method's
+        // containing type from the concrete receiver so higher-order arguments like
+        // `Result<T, E>.MapError(error => ...)` can see `E` as the lambda input type.
+        if (receiver?.Type is not null &&
+            !method.IsExtensionMethod &&
+            method.ContainingType is INamedTypeSymbol containingType &&
+            !TypeSubstitution.GetShallowTypeArguments(containingType).IsDefaultOrEmpty)
+        {
+            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            if (TryUnifyExtensionReceiverType(containingType, receiver.Type, substitutions))
+                return SubstituteTypeParameters(parameterType, substitutions);
+        }
+
         return parameterType;
     }
 
@@ -710,14 +756,14 @@ partial class BlockBinder
             INamedTypeSymbol argumentNamed,
             Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
         {
-            var parameterDefinition = parameterNamed.OriginalDefinition ?? parameterNamed;
-            var argumentDefinition = argumentNamed.OriginalDefinition ?? argumentNamed;
+            var parameterDefinition = TypeSubstitution.GetDefinitionForSubstitution(parameterNamed);
+            var argumentDefinition = TypeSubstitution.GetDefinitionForSubstitution(argumentNamed);
 
             if (!SymbolEqualityComparer.Default.Equals(parameterDefinition, argumentDefinition))
                 return false;
 
-            var parameterArguments = parameterNamed.TypeArguments;
-            var argumentArguments = argumentNamed.TypeArguments;
+            var parameterArguments = TypeSubstitution.GetShallowTypeArguments(parameterNamed);
+            var argumentArguments = TypeSubstitution.GetShallowTypeArguments(argumentNamed);
 
             if (parameterArguments.IsDefault || argumentArguments.IsDefault || parameterArguments.Length != argumentArguments.Length)
                 return false;
@@ -802,6 +848,12 @@ partial class BlockBinder
             return replacement;
         }
 
+        if (type is ITypeParameterSymbol unmatchedParameter &&
+            TryGetEquivalentTypeParameterSubstitution(unmatchedParameter, substitutions, out var equivalentReplacement))
+        {
+            return equivalentReplacement;
+        }
+
         if (type is NullableTypeSymbol nullableType)
         {
             var substituted = SubstituteTypeParameters(nullableType.UnderlyingType, substitutions);
@@ -834,9 +886,12 @@ partial class BlockBinder
                 : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
         }
 
-        if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+        if (type is INamedTypeSymbol namedType)
         {
-            var typeArguments = namedType.TypeArguments;
+            var typeArguments = TypeSubstitution.GetShallowTypeArguments(namedType);
+            if (typeArguments.IsDefaultOrEmpty)
+                return type;
+
             var substituted = new ITypeSymbol[typeArguments.Length];
             var changed = false;
 
@@ -847,10 +902,76 @@ partial class BlockBinder
             }
 
             if (changed)
-                return namedType.Construct(substituted);
+            {
+                var definition = TypeSubstitution.GetDefinitionForSubstitution(namedType);
+                return definition.Construct(substituted);
+            }
         }
 
         return type;
+    }
+
+    private static bool TryGetEquivalentTypeParameterSubstitution(
+        ITypeParameterSymbol parameter,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        out ITypeSymbol replacement)
+    {
+        foreach (var entry in substitutions)
+        {
+            if (!AreEquivalentTypeParameters(parameter, entry.Key))
+                continue;
+
+            replacement = entry.Value;
+            return true;
+        }
+
+        replacement = null!;
+        return false;
+    }
+
+    private static bool AreEquivalentTypeParameters(
+        ITypeParameterSymbol left,
+        ITypeParameterSymbol right)
+    {
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        if (left.OwnerKind != right.OwnerKind ||
+            left.Ordinal != right.Ordinal)
+        {
+            return false;
+        }
+
+        return HaveEquivalentTypeParameterOwners(left.ContainingSymbol, right.ContainingSymbol);
+    }
+
+    private static bool HaveEquivalentTypeParameterOwners(
+        ISymbol? leftOwner,
+        ISymbol? rightOwner)
+    {
+        if (leftOwner is null || rightOwner is null)
+            return false;
+
+        if (SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner))
+            return true;
+
+        if (leftOwner is INamedTypeSymbol leftType &&
+            rightOwner is INamedTypeSymbol rightType)
+        {
+            return SymbolEqualityComparer.Default.Equals(
+                TypeSubstitution.GetDefinitionForSubstitution(leftType),
+                TypeSubstitution.GetDefinitionForSubstitution(rightType));
+        }
+
+        if (leftOwner is IMethodSymbol leftMethod &&
+            rightOwner is IMethodSymbol rightMethod)
+        {
+            return SymbolEqualityComparer.Default.Equals(
+                leftMethod.OriginalDefinition ?? leftMethod,
+                rightMethod.OriginalDefinition ?? rightMethod);
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1154,7 +1275,7 @@ partial class BlockBinder
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
         }
 
-        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
+        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, binder: this, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
         if (resolution.Success)
         {
             var constructor = resolution.Method!;
@@ -3551,6 +3672,7 @@ partial class BlockBinder
             extensionReceiver,
             boundArguments,
             Compilation,
+            this,
             explicitTypeArguments: ImmutableArray<ITypeSymbol>.Empty);
 
         var chosen = inferred ?? getter;

@@ -38,6 +38,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _requiresAsyncReturnTypeInference;
     private bool _asyncReturnTypeInferenceComplete;
     private bool _setsRequiredMembers;
+    private SourceNamedTypeSymbol? _closureFrameType;
     private bool? _lazyIsUnsafe;
     private bool _isPartialDefinition;
     private bool _isPartialImplementation;
@@ -170,6 +171,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
 
     public ImmutableArray<ISymbol> CapturedVariables => _capturedVariables;
+    internal SourceNamedTypeSymbol? ClosureFrameType => _closureFrameType;
 
     public bool HasCaptures => !_capturedVariables.IsDefaultOrEmpty && _capturedVariables.Length > 0;
 
@@ -219,6 +221,11 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     internal void SetCapturedVariables(IEnumerable<ISymbol> capturedVariables)
     {
         _capturedVariables = capturedVariables.ToImmutableArray();
+    }
+
+    internal void SetClosureFrameType(SourceNamedTypeSymbol? closureFrameType)
+    {
+        _closureFrameType = closureFrameType;
     }
 
     internal void SetReturnType(ITypeSymbol returnType) => _returnType = returnType;
@@ -589,13 +596,14 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         if (!IsStatic)
             return false;
 
-        if (Parameters.IsDefaultOrEmpty || Parameters.Length == 0)
-            return false;
+        var hasReceiverParameter = !Parameters.IsDefaultOrEmpty && Parameters.Length > 0;
 
         foreach (var syntaxReference in DeclaringSyntaxReferences)
         {
             if (syntaxReference.GetSyntax() is not MethodDeclarationSyntax method)
                 continue;
+
+            hasReceiverParameter |= method.ParameterList.Parameters.Count > 0;
 
             foreach (var attribute in method.AttributeLists.SelectMany(static list => list.Attributes))
             {
@@ -603,7 +611,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
                     continue;
 
                 if (IsExtensionAttributeName(attribute.Name))
-                    return true;
+                    return hasReceiverParameter;
             }
         }
 

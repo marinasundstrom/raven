@@ -9,16 +9,15 @@ interface IError {
 
 record ContextError<TError: IError>(
     val Message: string,
-    val InnerError: TError
+    val Cause: TError
 ) : IError {
-    val IError.Cause: IError? => InnerError
-    val Cause: TError => InnerError
+    val IError.Cause: IError? => Cause
 
     override func ToString() -> string => Message
 }
 
 extension ErrorExtensions<TError: IError> for TError {
-    func WithMessage(message: string) -> ContextError<TError>
+    func WithContext(message: string) -> ContextError<TError>
         => ContextError<TError>(message, self)
 }
 

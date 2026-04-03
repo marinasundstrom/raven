@@ -200,14 +200,13 @@ class ImportBinder : Binder
 
     private ImmutableArray<IMethodSymbol> LookupExtensionMethodsCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
     {
-        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
-
         foreach (var scope in _namespaceOrTypeScopeImports)
         {
             foreach (var method in GetExtensionMethodsFromScope(scope, name, receiverType, includePartialMatches))
             {
-                if (seen.Add(method))
+                if (seen.Add(GetExtensionMethodDedupKey(method)))
                     builder.Add(method);
             }
         }
@@ -216,14 +215,14 @@ class ImportBinder : Binder
         {
             foreach (var method in GetExtensionMethodsFromScope(type, name, receiverType, includePartialMatches))
             {
-                if (seen.Add(method))
+                if (seen.Add(GetExtensionMethodDedupKey(method)))
                     builder.Add(method);
             }
         }
 
         foreach (var method in base.LookupExtensionMethods(name, receiverType, includePartialMatches))
         {
-            if (seen.Add(method))
+            if (seen.Add(GetExtensionMethodDedupKey(method)))
                 builder.Add(method);
         }
 
@@ -232,14 +231,13 @@ class ImportBinder : Binder
 
     private ImmutableArray<IPropertySymbol> LookupExtensionPropertiesCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
     {
-        var seen = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
-
         foreach (var scope in _namespaceOrTypeScopeImports)
         {
             foreach (var property in GetExtensionPropertiesFromScope(scope, name, receiverType, includePartialMatches))
             {
-                if (seen.Add(property))
+                if (seen.Add(GetExtensionPropertyDedupKey(property)))
                     builder.Add(property);
             }
         }
@@ -248,14 +246,14 @@ class ImportBinder : Binder
         {
             foreach (var property in GetExtensionPropertiesFromScope(type, name, receiverType, includePartialMatches))
             {
-                if (seen.Add(property))
+                if (seen.Add(GetExtensionPropertyDedupKey(property)))
                     builder.Add(property);
             }
         }
 
         foreach (var property in base.LookupExtensionProperties(name, receiverType, includePartialMatches))
         {
-            if (seen.Add(property))
+            if (seen.Add(GetExtensionPropertyDedupKey(property)))
                 builder.Add(property);
         }
 
@@ -264,14 +262,13 @@ class ImportBinder : Binder
 
     private ImmutableArray<IMethodSymbol> LookupExtensionStaticMethodsCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
     {
-        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
-
         foreach (var scope in _namespaceOrTypeScopeImports)
         {
             foreach (var method in GetExtensionStaticMethodsFromScope(scope, name, receiverType, includePartialMatches))
             {
-                if (seen.Add(method))
+                if (seen.Add(GetExtensionMethodDedupKey(method)))
                     builder.Add(method);
             }
         }
@@ -280,14 +277,14 @@ class ImportBinder : Binder
         {
             foreach (var method in GetExtensionStaticMethodsFromScope(type, name, receiverType, includePartialMatches))
             {
-                if (seen.Add(method))
+                if (seen.Add(GetExtensionMethodDedupKey(method)))
                     builder.Add(method);
             }
         }
 
         foreach (var method in base.LookupExtensionStaticMethods(name, receiverType, includePartialMatches))
         {
-            if (seen.Add(method))
+            if (seen.Add(GetExtensionMethodDedupKey(method)))
                 builder.Add(method);
         }
 
@@ -296,14 +293,13 @@ class ImportBinder : Binder
 
     private ImmutableArray<IPropertySymbol> LookupExtensionStaticPropertiesCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
     {
-        var seen = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
-
         foreach (var scope in _namespaceOrTypeScopeImports)
         {
             foreach (var property in GetExtensionStaticPropertiesFromScope(scope, name, receiverType, includePartialMatches))
             {
-                if (seen.Add(property))
+                if (seen.Add(GetExtensionPropertyDedupKey(property)))
                     builder.Add(property);
             }
         }
@@ -312,18 +308,39 @@ class ImportBinder : Binder
         {
             foreach (var property in GetExtensionStaticPropertiesFromScope(type, name, receiverType, includePartialMatches))
             {
-                if (seen.Add(property))
+                if (seen.Add(GetExtensionPropertyDedupKey(property)))
                     builder.Add(property);
             }
         }
 
         foreach (var property in base.LookupExtensionStaticProperties(name, receiverType, includePartialMatches))
         {
-            if (seen.Add(property))
+            if (seen.Add(GetExtensionPropertyDedupKey(property)))
                 builder.Add(property);
         }
 
         return builder.ToImmutable();
+    }
+
+    private static string GetExtensionMethodDedupKey(IMethodSymbol method)
+    {
+        var original = method.OriginalDefinition ?? method;
+        var containingType = original.ContainingType?.MetadataName ?? string.Empty;
+        var typeArguments = method.TypeArguments.IsDefaultOrEmpty
+            ? string.Empty
+            : string.Join(",", method.TypeArguments.Select(static t => t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
+        var parameters = string.Join(",", method.Parameters.Select(static p => $"{p.RefKind}:{p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}"));
+        var returnType = method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return $"{containingType}|{original.MetadataName}|{typeArguments}|{parameters}|{returnType}";
+    }
+
+    private static string GetExtensionPropertyDedupKey(IPropertySymbol property)
+    {
+        var original = property.OriginalDefinition ?? property;
+        var containingType = original.ContainingType?.MetadataName ?? string.Empty;
+        var propertyType = property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var parameters = string.Join(",", property.Parameters.Select(static p => $"{p.RefKind}:{p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}"));
+        return $"{containingType}|{original.MetadataName}|{propertyType}|{parameters}";
     }
 
     protected override IReadOnlyList<INamespaceOrTypeSymbol> GetImportedScopesForTypeResolution()

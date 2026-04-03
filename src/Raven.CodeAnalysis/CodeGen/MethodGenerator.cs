@@ -55,111 +55,118 @@ internal class MethodGenerator
     {
         var targetTypeBuilder = _lambdaClosure?.TypeBuilder ?? TypeGenerator.TypeBuilder
             ?? throw new InvalidOperationException("Type builder must be defined before creating method builders.");
+        var closureAliasParameters = GetClosureAliasTypeParameters();
+        var closureAliasTypes = GetClosureAliasRuntimeTypes();
 
-        var isExplicitInterfaceImplementation = MethodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation
-            || !MethodSymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty;
+        if (!closureAliasParameters.IsDefaultOrEmpty && closureAliasTypes is not null)
+            TypeGenerator.CodeGen.RegisterGenericParameterAliases(closureAliasParameters, closureAliasTypes);
 
-        MethodAttributes attributes = MethodAttributes.HideBySig | GetMethodAccessibilityAttributes(MethodSymbol);
-
-        if (_lambdaClosure is not null)
-            attributes = (attributes & ~MethodAttributes.MemberAccessMask) | MethodAttributes.Public;
-
-        if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove)
-            attributes |= MethodAttributes.SpecialName;
-
-        var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
-        var hasInterfaceBody = isInterfaceMethod && !MethodSymbol.IsStatic && HasInterfaceMethodBody(MethodSymbol);
-
-        if (isExplicitInterfaceImplementation)
+        try
         {
-            attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
-        }
-        else if (isInterfaceMethod && !MethodSymbol.IsStatic)
-        {
-            attributes |= MethodAttributes.Virtual | MethodAttributes.NewSlot;
+            var isExplicitInterfaceImplementation = MethodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation
+                || !MethodSymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty;
 
-            if (!hasInterfaceBody)
-                attributes |= MethodAttributes.Abstract;
-        }
-        else
-        {
-            if (TypeGenerator.ImplementsInterfaceMethod(MethodSymbol))
+            MethodAttributes attributes = MethodAttributes.HideBySig | GetMethodAccessibilityAttributes(MethodSymbol);
+
+            if (_lambdaClosure is not null)
+                attributes = (attributes & ~MethodAttributes.MemberAccessMask) | MethodAttributes.Public;
+
+            if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove)
+                attributes |= MethodAttributes.SpecialName;
+
+            var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
+            var hasInterfaceBody = isInterfaceMethod && !MethodSymbol.IsStatic && HasInterfaceMethodBody(MethodSymbol);
+
+            if (isExplicitInterfaceImplementation)
             {
                 attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
             }
-            else
+            else if (isInterfaceMethod && !MethodSymbol.IsStatic)
             {
-                if (MethodSymbol.IsAbstract)
-                {
-                    attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot;
-                }
-                else if (MethodSymbol.IsVirtual)
-                {
-                    attributes |= MethodAttributes.Virtual;
+                attributes |= MethodAttributes.Virtual | MethodAttributes.NewSlot;
 
-                    if (!MethodSymbol.IsOverride)
-                        attributes |= MethodAttributes.NewSlot;
-                }
-
-                if (MethodSymbol.IsOverride && MethodSymbol.IsFinal)
-                    attributes |= MethodAttributes.Final;
+                if (!hasInterfaceBody)
+                    attributes |= MethodAttributes.Abstract;
             }
-        }
-
-        if (MethodSymbol.IsStatic)
-            attributes |= MethodAttributes.Static;
-
-        var parameterTypes = Array.Empty<Type>();
-
-        if (MethodSymbol.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
-        {
-            parameterTypes = BuildParameterTypes();
-
-            if (MethodSymbol.MethodKind == MethodKind.StaticConstructor)
-                MethodBase = targetTypeBuilder.DefineTypeInitializer();
             else
-                MethodBase = targetTypeBuilder
-                    .DefineConstructor(attributes, CallingConventions.Standard, parameterTypes);
-        }
-        else
-        {
-            var methodAttributes = MethodSymbol.GetAttributes();
-            var dllImportData = default(DllImportData);
-            var hasPInvokeSignature = MethodSymbol.IsExtern
-                && !MethodSymbol.IsGenericMethod
-                && TryGetDllImportData(methodAttributes, out dllImportData);
-            var emittedMethodName = GetEmittedMethodName(MethodSymbol);
-
-            MethodBuilder methodBuilder;
-            if (hasPInvokeSignature)
             {
-                var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
-                    ? TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Void), TypeGenerator.CodeGen)
-                    : ResolveClrType(MethodSymbol.ReturnType);
+                if (TypeGenerator.ImplementsInterfaceMethod(MethodSymbol))
+                {
+                    attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
+                }
+                else
+                {
+                    if (MethodSymbol.IsAbstract)
+                    {
+                        attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot;
+                    }
+                    else if (MethodSymbol.IsVirtual)
+                    {
+                        attributes |= MethodAttributes.Virtual;
 
+                        if (!MethodSymbol.IsOverride)
+                            attributes |= MethodAttributes.NewSlot;
+                    }
+
+                    if (MethodSymbol.IsOverride && MethodSymbol.IsFinal)
+                        attributes |= MethodAttributes.Final;
+                }
+            }
+
+            if (MethodSymbol.IsStatic)
+                attributes |= MethodAttributes.Static;
+
+            var parameterTypes = Array.Empty<Type>();
+
+            if (MethodSymbol.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
+            {
                 parameterTypes = BuildParameterTypes();
 
-                methodBuilder = targetTypeBuilder.DefinePInvokeMethod(
-                    emittedMethodName,
-                    dllImportData.LibraryName,
-                    dllImportData.EntryPoint,
-                    attributes,
-                    CallingConventions.Standard,
-                    returnType,
-                    parameterTypes,
-                    dllImportData.CallingConvention,
-                    dllImportData.CharSet);
-
-                MethodBase = methodBuilder;
+                if (MethodSymbol.MethodKind == MethodKind.StaticConstructor)
+                    MethodBase = targetTypeBuilder.DefineTypeInitializer();
+                else
+                    MethodBase = targetTypeBuilder
+                        .DefineConstructor(attributes, CallingConventions.Standard, parameterTypes);
             }
             else
             {
-                methodBuilder = targetTypeBuilder
-                    .DefineMethod(emittedMethodName,
-                        attributes, CallingConventions.Standard);
+                var methodAttributes = MethodSymbol.GetAttributes();
+                var dllImportData = default(DllImportData);
+                var hasPInvokeSignature = MethodSymbol.IsExtern
+                    && !MethodSymbol.IsGenericMethod
+                    && TryGetDllImportData(methodAttributes, out dllImportData);
+                var emittedMethodName = GetEmittedMethodName(MethodSymbol);
 
-                MethodBase = methodBuilder;
-            }
+                MethodBuilder methodBuilder;
+                if (hasPInvokeSignature)
+                {
+                    var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
+                        ? TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Void), TypeGenerator.CodeGen)
+                        : ResolveClrType(MethodSymbol.ReturnType);
+
+                    parameterTypes = BuildParameterTypes();
+
+                    methodBuilder = targetTypeBuilder.DefinePInvokeMethod(
+                        emittedMethodName,
+                        dllImportData.LibraryName,
+                        dllImportData.EntryPoint,
+                        attributes,
+                        CallingConventions.Standard,
+                        returnType,
+                        parameterTypes,
+                        dllImportData.CallingConvention,
+                        dllImportData.CharSet);
+
+                    MethodBase = methodBuilder;
+                }
+                else
+                {
+                    methodBuilder = targetTypeBuilder
+                        .DefineMethod(emittedMethodName,
+                            attributes, CallingConventions.Standard);
+
+                    MethodBase = methodBuilder;
+                }
 
             var liftedTypeParameters = TypeGenerator.GetExtensionTypeParameters();
             var methodTypeParameters = MethodSymbol.TypeParameters;
@@ -239,25 +246,31 @@ internal class MethodGenerator
                 if (!_methodTypeParameters.IsDefaultOrEmpty)
                     TypeGenerator.CodeGen.UnregisterGenericParameters(_methodTypeParameters);
             }
+            }
+
+            ParameterBuilder? returnParamBuilder = MethodBase is MethodBuilder methodBuilderInstance
+                ? methodBuilderInstance.DefineParameter(0, ParameterAttributes.Retval, null)
+                : ((ConstructorBuilder)MethodBase).DefineParameter(0, ParameterAttributes.Retval, null);
+
+            var nullableReturnAttr = TypeGenerator.CodeGen.CreateNullableAttribute(MethodSymbol.ReturnType);
+            if (nullableReturnAttr is not null)
+                returnParamBuilder.SetCustomAttribute(nullableReturnAttr);
+
+            var tupleReturnAttr = TypeGenerator.CodeGen.CreateTupleElementNamesAttribute(MethodSymbol.ReturnType);
+            if (tupleReturnAttr is not null)
+                returnParamBuilder.SetCustomAttribute(tupleReturnAttr);
+
+            var fixedReturnArrayAttr = TypeGenerator.CodeGen.CreateFixedLengthArrayAttribute(MethodSymbol.ReturnType);
+            if (fixedReturnArrayAttr is not null)
+                returnParamBuilder.SetCustomAttribute(fixedReturnArrayAttr);
+
+            TypeGenerator.CodeGen.ApplyCustomAttributes(MethodSymbol.GetReturnTypeAttributes(), attribute => returnParamBuilder.SetCustomAttribute(attribute));
         }
-
-        ParameterBuilder? returnParamBuilder = MethodBase is MethodBuilder methodBuilderInstance
-            ? methodBuilderInstance.DefineParameter(0, ParameterAttributes.Retval, null)
-            : ((ConstructorBuilder)MethodBase).DefineParameter(0, ParameterAttributes.Retval, null);
-
-        var nullableReturnAttr = TypeGenerator.CodeGen.CreateNullableAttribute(MethodSymbol.ReturnType);
-        if (nullableReturnAttr is not null)
-            returnParamBuilder.SetCustomAttribute(nullableReturnAttr);
-
-        var tupleReturnAttr = TypeGenerator.CodeGen.CreateTupleElementNamesAttribute(MethodSymbol.ReturnType);
-        if (tupleReturnAttr is not null)
-            returnParamBuilder.SetCustomAttribute(tupleReturnAttr);
-
-        var fixedReturnArrayAttr = TypeGenerator.CodeGen.CreateFixedLengthArrayAttribute(MethodSymbol.ReturnType);
-        if (fixedReturnArrayAttr is not null)
-            returnParamBuilder.SetCustomAttribute(fixedReturnArrayAttr);
-
-        TypeGenerator.CodeGen.ApplyCustomAttributes(MethodSymbol.GetReturnTypeAttributes(), attribute => returnParamBuilder.SetCustomAttribute(attribute));
+        finally
+        {
+            if (!closureAliasParameters.IsDefaultOrEmpty)
+                TypeGenerator.CodeGen.UnregisterGenericParameters(closureAliasParameters);
+        }
 
         int i = 1;
 
@@ -663,6 +676,10 @@ internal class MethodGenerator
             TypeGenerator.CodeGen.RegisterGenericParameters(_liftedExtensionParameters, _liftedExtensionBuilders);
         if (!_methodTypeParameters.IsDefaultOrEmpty && _methodTypeBuilders is not null)
             TypeGenerator.CodeGen.RegisterGenericParameters(_methodTypeParameters, _methodTypeBuilders);
+        var closureAliasParameters = GetClosureAliasTypeParameters();
+        var closureAliasTypes = GetClosureAliasRuntimeTypes();
+        if (!closureAliasParameters.IsDefaultOrEmpty && closureAliasTypes is not null)
+            TypeGenerator.CodeGen.RegisterGenericParameterAliases(closureAliasParameters, closureAliasTypes);
 
         try
         {
@@ -671,6 +688,8 @@ internal class MethodGenerator
         }
         finally
         {
+            if (!closureAliasParameters.IsDefaultOrEmpty)
+                TypeGenerator.CodeGen.UnregisterGenericParameters(closureAliasParameters);
             if (!_liftedExtensionParameters.IsDefaultOrEmpty)
                 TypeGenerator.CodeGen.UnregisterGenericParameters(_liftedExtensionParameters);
             if (!_methodTypeParameters.IsDefaultOrEmpty)
@@ -688,6 +707,10 @@ internal class MethodGenerator
             TypeGenerator.CodeGen.RegisterGenericParameters(_liftedExtensionParameters, _liftedExtensionBuilders);
         if (!_methodTypeParameters.IsDefaultOrEmpty && _methodTypeBuilders is not null)
             TypeGenerator.CodeGen.RegisterGenericParameters(_methodTypeParameters, _methodTypeBuilders);
+        var closureAliasParameters = closure?.AliasTypeParameters ?? ImmutableArray<ITypeParameterSymbol>.Empty;
+        var closureAliasTypes = GetClosureAliasRuntimeTypes(closure);
+        if (!closureAliasParameters.IsDefaultOrEmpty && closureAliasTypes is not null)
+            TypeGenerator.CodeGen.RegisterGenericParameterAliases(closureAliasParameters, closureAliasTypes);
 
         var bodyGenerator = new MethodBodyGenerator(this);
 
@@ -738,11 +761,27 @@ internal class MethodGenerator
         }
         finally
         {
+            if (!closureAliasParameters.IsDefaultOrEmpty)
+                TypeGenerator.CodeGen.UnregisterGenericParameters(closureAliasParameters);
             if (!_liftedExtensionParameters.IsDefaultOrEmpty)
                 TypeGenerator.CodeGen.UnregisterGenericParameters(_liftedExtensionParameters);
             if (!_methodTypeParameters.IsDefaultOrEmpty)
                 TypeGenerator.CodeGen.UnregisterGenericParameters(_methodTypeParameters);
         }
+    }
+
+    private ImmutableArray<ITypeParameterSymbol> GetClosureAliasTypeParameters()
+        => _lambdaClosure?.AliasTypeParameters ?? ImmutableArray<ITypeParameterSymbol>.Empty;
+
+    private Type[]? GetClosureAliasRuntimeTypes(TypeGenerator.LambdaClosure? closure = null)
+    {
+        var targetClosure = closure ?? _lambdaClosure;
+        if (targetClosure is null || targetClosure.AliasTypeParameters.IsDefaultOrEmpty)
+            return null;
+
+        return targetClosure.TypeBuilder
+            .GetGenericArguments()
+            .ToArray();
     }
 
     private static BoundBlockStatement ConvertToBlockStatement(SourceLambdaSymbol lambda, BoundExpression body)

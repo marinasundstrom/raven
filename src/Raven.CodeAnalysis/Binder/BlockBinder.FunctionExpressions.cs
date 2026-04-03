@@ -215,6 +215,8 @@ partial class BlockBinder
             else if (targetParam is not null)
             {
                 parameterType = targetParam.Type;
+                if (parameterType is ITypeParameterSymbol targetTypeParameter)
+                    lambdaBinder.EnsureTypeParameterConstraintTypesResolved(ImmutableArray.Create(targetTypeParameter));
                 if (refKind == RefKind.None)
                     refKind = targetParam.RefKind;
             }
@@ -695,7 +697,11 @@ partial class BlockBinder
         }
 
         if (lambdaSymbol is SourceLambdaSymbol sourceLambdaSymbol)
+        {
             sourceLambdaSymbol.SetCapturedVariables(capturedVariables);
+            if (capturedVariables.Count != 0 && sourceLambdaSymbol.ClosureFrameType is null)
+                sourceLambdaSymbol.SetClosureFrameType(ClosureFrameSymbolFactory.Create(sourceLambdaSymbol));
+        }
 
         var lambdaHasBodyErrors = HasExpressionErrors(bodyExpr);
 
@@ -980,6 +986,19 @@ partial class BlockBinder
                         delegateToAdd = substitutedNamed;
                 }
             }
+            else if (delegateToAdd is not null && receiverType is not null &&
+                !method.IsExtensionMethod &&
+                method.ContainingType is INamedTypeSymbol containingType &&
+                !TypeSubstitution.GetShallowTypeArguments(containingType).IsDefaultOrEmpty)
+            {
+                var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+                if (TryUnifyExtensionReceiverType(containingType, receiverType, substitutions))
+                {
+                    var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
+                    if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                        delegateToAdd = substitutedNamed;
+                }
+            }
 
             if (delegateToAdd is not null &&
                 !builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, delegateToAdd)))
@@ -1052,6 +1071,19 @@ partial class BlockBinder
                         delegateToAdd = substitutedNamed;
                 }
             }
+            else if (delegateToAdd is not null && receiverType is not null &&
+                !method.IsExtensionMethod &&
+                method.ContainingType is INamedTypeSymbol containingType &&
+                !TypeSubstitution.GetShallowTypeArguments(containingType).IsDefaultOrEmpty)
+            {
+                var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+                if (TryUnifyExtensionReceiverType(containingType, receiverType, substitutions))
+                {
+                    var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
+                    if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                        delegateToAdd = substitutedNamed;
+                }
+            }
             // For generic non-extension methods in pipe expressions, infer type parameters from
             // the pipe source (which occupies parameter 0 implicitly).
             else if (delegateToAdd is not null && receiverType is not null &&
@@ -1115,12 +1147,6 @@ partial class BlockBinder
                 return null;
         }
 
-        // Do not bind lambda bodies against open generic placeholders (for example `TSource` from
-        // `Enumerable.Select<TSource, TResult>`). Let overload resolution/replay shape the lambda
-        // with a constructed delegate once concrete type arguments are known.
-        if (inferredType is ITypeParameterSymbol)
-            return null;
-
         return inferredType;
     }
 
@@ -1174,29 +1200,33 @@ partial class BlockBinder
 
         if (parameterType is ITypeParameterSymbol typeParam)
         {
-            // Only infer type parameters that belong to this method
-            if (typeParam.ContainingSymbol is IMethodSymbol &&
-                typeParam.Ordinal >= 0 &&
-                typeParam.Ordinal < method.TypeParameters.Length)
+            if (TryGetCanonicalMethodTypeParameter(typeParam, method, out var canonical))
             {
-                var canonical = method.TypeParameters[typeParam.Ordinal];
                 if (!substitutions.ContainsKey(canonical))
                     substitutions[canonical] = argumentType;
             }
             return;
         }
 
-        if (parameterType is INamedTypeSymbol paramNamed && !paramNamed.TypeArguments.IsDefaultOrEmpty)
+        if (parameterType is INamedTypeSymbol paramNamed)
         {
+            var parameterDefinition = TypeSubstitution.GetDefinitionForSubstitution(paramNamed);
+            var parameterArguments = TypeSubstitution.GetShallowTypeArguments(paramNamed);
+            if (parameterArguments.IsDefaultOrEmpty)
+                return;
+
             // Try direct match (same OriginalDefinition)
             if (argumentType is INamedTypeSymbol argNamed &&
-                SymbolEqualityComparer.Default.Equals(paramNamed.OriginalDefinition, argNamed.OriginalDefinition) &&
-                !argNamed.TypeArguments.IsDefaultOrEmpty &&
-                paramNamed.TypeArguments.Length == argNamed.TypeArguments.Length)
+                SymbolEqualityComparer.Default.Equals(parameterDefinition, TypeSubstitution.GetDefinitionForSubstitution(argNamed)))
             {
-                for (int i = 0; i < paramNamed.TypeArguments.Length; i++)
-                    InferTypeParametersFromMatch(paramNamed.TypeArguments[i], argNamed.TypeArguments[i], substitutions, method);
-                return;
+                var argumentArguments = TypeSubstitution.GetShallowTypeArguments(argNamed);
+                if (!argumentArguments.IsDefaultOrEmpty &&
+                    parameterArguments.Length == argumentArguments.Length)
+                {
+                    for (int i = 0; i < parameterArguments.Length; i++)
+                        InferTypeParametersFromMatch(parameterArguments[i], argumentArguments[i], substitutions, method);
+                    return;
+                }
             }
 
             // Try interfaces (e.g., DbSet<User> implements IQueryable<User>)
@@ -1204,12 +1234,13 @@ partial class BlockBinder
             {
                 foreach (var iface in argNamed2.AllInterfaces)
                 {
-                    if (SymbolEqualityComparer.Default.Equals(paramNamed.OriginalDefinition, iface.OriginalDefinition) &&
-                        !iface.TypeArguments.IsDefaultOrEmpty &&
-                        paramNamed.TypeArguments.Length == iface.TypeArguments.Length)
+                    var interfaceArguments = TypeSubstitution.GetShallowTypeArguments(iface);
+                    if (SymbolEqualityComparer.Default.Equals(parameterDefinition, TypeSubstitution.GetDefinitionForSubstitution(iface)) &&
+                        !interfaceArguments.IsDefaultOrEmpty &&
+                        parameterArguments.Length == interfaceArguments.Length)
                     {
-                        for (int i = 0; i < paramNamed.TypeArguments.Length; i++)
-                            InferTypeParametersFromMatch(paramNamed.TypeArguments[i], iface.TypeArguments[i], substitutions, method);
+                        for (int i = 0; i < parameterArguments.Length; i++)
+                            InferTypeParametersFromMatch(parameterArguments[i], interfaceArguments[i], substitutions, method);
                         return;
                     }
                 }
@@ -1217,12 +1248,13 @@ partial class BlockBinder
                 // Try base types
                 for (var baseType = argNamed2.BaseType; baseType is not null; baseType = baseType.BaseType)
                 {
-                    if (SymbolEqualityComparer.Default.Equals(paramNamed.OriginalDefinition, baseType.OriginalDefinition) &&
-                        !baseType.TypeArguments.IsDefaultOrEmpty &&
-                        paramNamed.TypeArguments.Length == baseType.TypeArguments.Length)
+                    var baseArguments = TypeSubstitution.GetShallowTypeArguments(baseType);
+                    if (SymbolEqualityComparer.Default.Equals(parameterDefinition, TypeSubstitution.GetDefinitionForSubstitution(baseType)) &&
+                        !baseArguments.IsDefaultOrEmpty &&
+                        parameterArguments.Length == baseArguments.Length)
                     {
-                        for (int i = 0; i < paramNamed.TypeArguments.Length; i++)
-                            InferTypeParametersFromMatch(paramNamed.TypeArguments[i], baseType.TypeArguments[i], substitutions, method);
+                        for (int i = 0; i < parameterArguments.Length; i++)
+                            InferTypeParametersFromMatch(parameterArguments[i], baseArguments[i], substitutions, method);
                         return;
                     }
                 }
@@ -1232,6 +1264,27 @@ partial class BlockBinder
         if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
         {
             InferTypeParametersFromMatch(paramArray.ElementType, argArray.ElementType, substitutions, method);
+        }
+
+        static bool TryGetCanonicalMethodTypeParameter(
+            ITypeParameterSymbol typeParameter,
+            IMethodSymbol method,
+            out ITypeParameterSymbol canonical)
+        {
+            if (typeParameter.Ordinal >= 0 &&
+                typeParameter.Ordinal < method.TypeParameters.Length)
+            {
+                var candidate = method.TypeParameters[typeParameter.Ordinal];
+                if (string.Equals(candidate.Name, typeParameter.Name, StringComparison.Ordinal) ||
+                    SymbolEqualityComparer.Default.Equals(candidate, typeParameter))
+                {
+                    canonical = candidate;
+                    return true;
+                }
+            }
+
+            canonical = null!;
+            return false;
         }
     }
 
@@ -1800,6 +1853,8 @@ partial class BlockBinder
         var capturedVariables = capturedSet.ToImmutableArray();
 
         lambdaSymbol.SetCapturedVariables(capturedVariables);
+        if (capturedVariables.Length != 0 && lambdaSymbol.ClosureFrameType is null)
+            lambdaSymbol.SetClosureFrameType(ClosureFrameSymbolFactory.Create(lambdaSymbol));
         lambdaSymbol.SetReturnType(returnType);
         lambdaSymbol.SetDelegateType(delegateType);
 

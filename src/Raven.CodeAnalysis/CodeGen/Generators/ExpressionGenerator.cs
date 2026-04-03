@@ -1063,7 +1063,7 @@ internal partial class ExpressionGenerator : Generator
         Type delegateType)
     {
         var delegateCtor = GetDelegateConstructor(delegateTypeSymbol, delegateType);
-        var runtimeClosureType = Generator.InstantiateType(closure.TypeBuilder);
+        var runtimeClosureType = closure.GetRuntimeType(MethodGenerator.TypeGenerator.CodeGen);
         var runtimeClosureCtor = runtimeClosureType == closure.TypeBuilder
             ? closure.Constructor
             : TypeBuilder.GetConstructor(runtimeClosureType, closure.Constructor);
@@ -7447,7 +7447,7 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        var runtimeClosureType = Generator.InstantiateType(closure.TypeBuilder);
+        var runtimeClosureType = closure.GetRuntimeType(MethodGenerator.TypeGenerator.CodeGen);
         var runtimeClosureCtor = runtimeClosureType == closure.TypeBuilder
             ? closure.Constructor
             : TypeBuilder.GetConstructor(runtimeClosureType, closure.Constructor);

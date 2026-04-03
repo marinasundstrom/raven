@@ -1648,6 +1648,9 @@ internal class TypeGenerator
 
     internal LambdaClosure EnsureLambdaClosure(SourceLambdaSymbol lambdaSymbol)
     {
+        if (lambdaSymbol.ClosureFrameType is null)
+            lambdaSymbol.SetClosureFrameType(ClosureFrameSymbolFactory.Create(lambdaSymbol));
+
         if (TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
             asyncStateMachine.AsyncMethod.ContainingType is { } containingType &&
             !SymbolEqualityComparer.Default.Equals(containingType, TypeSymbol))
@@ -1716,6 +1719,9 @@ internal class TypeGenerator
 
     internal LambdaClosure EnsureMethodClosure(SourceMethodSymbol methodSymbol, ImmutableArray<ISymbol>? capturedVariables2 = null)
     {
+        if (methodSymbol.ClosureFrameType is null)
+            methodSymbol.SetClosureFrameType(ClosureFrameSymbolFactory.Create(methodSymbol));
+
         var capturedVariables = capturedVariables2 ?? methodSymbol.CapturedVariables;
         var owner = GetCaptureOwnerSymbol(capturedVariables);
 
@@ -1870,19 +1876,45 @@ internal class TypeGenerator
         if (TypeBuilder is null)
             throw new InvalidOperationException("Type builder must be defined before creating a lambda closure.");
 
-        var closureName = $"<>c__DisplayClass{_lambdaClosureOrdinal++}";
-        var baseType = Compilation.GetSpecialType(SpecialType.System_Object);
-        var closureSymbol = new SourceNamedTypeSymbol(
-            closureName,
-            baseType,
-            TypeKind.Class,
-            owner.ContainingSymbol,
-            containingType: TypeSymbol as INamedTypeSymbol,
-            containingNamespace: TypeSymbol.ContainingNamespace,
-            locations: owner.Locations.ToArray(),
-            declaringSyntaxReferences: owner.DeclaringSyntaxReferences.ToArray(),
-            isSealed: true,
-            declaredAccessibility: Accessibility.Private);
+        var closureSymbol = owner switch
+        {
+            SourceLambdaSymbol { ClosureFrameType: { } lambdaClosureFrame } => lambdaClosureFrame,
+            SourceMethodSymbol { ClosureFrameType: { } methodClosureFrame } => methodClosureFrame,
+            _ => null
+        };
+
+        var createdSymbol = false;
+        if (closureSymbol is null)
+        {
+            var closureName = $"<>c__DisplayClass{_lambdaClosureOrdinal++}";
+            var baseType = Compilation.GetSpecialType(SpecialType.System_Object);
+            closureSymbol = new SourceNamedTypeSymbol(
+                closureName,
+                baseType,
+                TypeKind.Class,
+                owner.ContainingSymbol,
+                containingType: TypeSymbol as INamedTypeSymbol,
+                containingNamespace: TypeSymbol.ContainingNamespace,
+                locations: owner.Locations.ToArray(),
+                declaringSyntaxReferences: owner.DeclaringSyntaxReferences.ToArray(),
+                isSealed: true,
+                declaredAccessibility: Accessibility.Private);
+            createdSymbol = true;
+        }
+
+        var aliasTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+        if (createdSymbol && !owner.TypeParameters.IsDefaultOrEmpty)
+        {
+            // The closure type must own its own type parameters. Reusing the outer
+            // method's symbols preserves the wrong owner identity and can leak
+            // method-scoped generic slots (`!!`) into display-class methods.
+            aliasTypeParameters = owner.TypeParameters;
+            closureSymbol.SetTypeParameters(CloneClosureTypeParameters(owner, closureSymbol));
+        }
+        else if (!owner.TypeParameters.IsDefaultOrEmpty)
+        {
+            aliasTypeParameters = owner.TypeParameters;
+        }
 
         var closureGenerator = CodeGen.GetOrCreateTypeGenerator(closureSymbol);
         if (closureGenerator.TypeBuilder is null)
@@ -1909,7 +1941,40 @@ internal class TypeGenerator
             fields[captured] = fieldBuilder;
         }
 
-        return new LambdaClosure(closureSymbol, this, closureBuilder, ctor, fields, capturedSymbols);
+        return new LambdaClosure(closureSymbol, this, closureBuilder, ctor, fields, capturedSymbols, aliasTypeParameters);
+    }
+
+    private static ImmutableArray<ITypeParameterSymbol> CloneClosureTypeParameters(
+        IMethodSymbol owner,
+        SourceNamedTypeSymbol closureSymbol)
+    {
+        if (owner.TypeParameters.IsDefaultOrEmpty)
+            return ImmutableArray<ITypeParameterSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(owner.TypeParameters.Length);
+        foreach (var typeParameter in owner.TypeParameters)
+        {
+            var clone = new SourceTypeParameterSymbol(
+                typeParameter.Name,
+                closureSymbol,
+                closureSymbol,
+                closureSymbol.ContainingNamespace,
+                typeParameter.Locations.ToArray(),
+                typeParameter.DeclaringSyntaxReferences.ToArray(),
+                typeParameter.Ordinal,
+                typeParameter.ConstraintKind,
+                typeParameter is SourceTypeParameterSymbol sourceTypeParameter
+                    ? sourceTypeParameter.ConstraintTypeReferences
+                    : ImmutableArray<SyntaxReference>.Empty,
+                typeParameter.Variance);
+
+            if (!typeParameter.ConstraintTypes.IsDefaultOrEmpty)
+                clone.SetConstraintTypes(typeParameter.ConstraintTypes);
+
+            builder.Add(clone);
+        }
+
+        return builder.ToImmutable();
     }
 
     internal sealed class LambdaClosure
@@ -1926,7 +1991,8 @@ internal class TypeGenerator
             TypeBuilder typeBuilder,
             ConstructorBuilder constructor,
             Dictionary<ISymbol, FieldBuilder> fields,
-            ImmutableArray<ISymbol> capturedSymbols)
+            ImmutableArray<ISymbol> capturedSymbols,
+            ImmutableArray<ITypeParameterSymbol> aliasTypeParameters)
         {
             Symbol = symbol ?? throw new ArgumentNullException(nameof(symbol));
             _typeGenerator = typeGenerator;
@@ -1936,10 +2002,20 @@ internal class TypeGenerator
             _capturedSymbols = capturedSymbols.IsDefault
                 ? ImmutableArray<ISymbol>.Empty
                 : capturedSymbols;
+            AliasTypeParameters = aliasTypeParameters.IsDefault
+                ? ImmutableArray<ITypeParameterSymbol>.Empty
+                : aliasTypeParameters;
+            RuntimeTypeSymbol = AliasTypeParameters.IsDefaultOrEmpty
+                ? symbol
+                : new ConstructedNamedTypeSymbol(
+                    symbol,
+                    AliasTypeParameters.Select(static parameter => (ITypeSymbol)parameter).ToImmutableArray());
             _nextFieldOrdinal = _fields.Count;
         }
 
         public SourceNamedTypeSymbol Symbol { get; }
+        public ImmutableArray<ITypeParameterSymbol> AliasTypeParameters { get; }
+        public INamedTypeSymbol RuntimeTypeSymbol { get; }
         public TypeBuilder TypeBuilder { get; }
 
         public ConstructorBuilder Constructor { get; }
@@ -1949,6 +2025,17 @@ internal class TypeGenerator
         public bool TryGetField(ISymbol symbol, out FieldBuilder fieldBuilder) => _fields.TryGetValue(symbol, out fieldBuilder);
 
         public FieldBuilder GetField(ISymbol symbol) => _fields[symbol];
+
+        public Type GetRuntimeType(CodeGenerator codeGen)
+        {
+            if (codeGen is null)
+                throw new ArgumentNullException(nameof(codeGen));
+
+            if (RuntimeTypeSymbol is ConstructedNamedTypeSymbol constructedRuntimeType)
+                return constructedRuntimeType.GetTypeInfo(codeGen).AsType();
+
+            return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(RuntimeTypeSymbol, codeGen);
+        }
 
         public void EnsureFields(ImmutableArray<ISymbol> capturedVariables)
         {

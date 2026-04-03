@@ -2,15 +2,15 @@ import System.*
 import System.Console.*
 import System.Globalization.*
 
-func Main() -> Result<(), IParseError> {
-    val test = int.parse("foo").WithMessage("test")
+func Main() -> Result<(), IError> {
+    val test = int.parse("foo").WithContext("test")
 
     match test {
         Ok(val v) => WriteLine(v)
         Error(val e) => {
             match e.Cause {
-                ParseIntError(.InvalidFormat, _, _) => WriteLine("Ouch! Invalid format")
-                ParseIntError(val kind, _, _) => WriteLine("Error kind $kind")
+                //(.InvalidFormat, _, _) => WriteLine("Ouch! Invalid format")
+                //(val kind, _, _) => WriteLine("Error kind $kind")
                 _ => WriteLine(e.Message)
             }
         }

@@ -140,4 +140,63 @@ extension TaggedExtensions<T: ITagged> for T {
 
         Assert.DoesNotContain(result.InstanceMethods, m => m.Name == "Mark");
     }
+
+    [Fact]
+    public void LookupApplicableExtensionMembers_DeduplicatesCurrentNamespaceImportExtensionsForTypeParameters()
+    {
+        var helperTree = SyntaxTree.ParseText("""
+namespace System
+import System.*
+
+interface IError {
+    val Message: string
+}
+
+record ContextError<TError: IError>(
+    val Message: string,
+    val InnerError: TError
+) : IError
+
+extension ErrorExtensions<TError: IError> for TError {
+    func WithMessage(message: string) -> ContextError<TError> {
+        return ContextError<TError>(message, self)
+    }
+}
+""");
+
+        var consumerTree = SyntaxTree.ParseText("""
+namespace System
+import System.*
+
+record MyError(val Message: string) : IError
+
+class Helpers {
+    static func Wrap<E: IError>(error: E, message: string) -> ContextError<E> {
+        return error.WithMessage(message)
+    }
+}
+""");
+
+        var compilation = CreateCompilation(
+            [helperTree, consumerTree],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(consumerTree);
+        var wrapDeclaration = consumerTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var wrapMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(wrapDeclaration));
+        var invocation = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+
+        var result = model.LookupApplicableExtensionMembers(
+            wrapMethod.TypeParameters.Single(),
+            invocation,
+            name: "WithMessage",
+            kinds: ExtensionMemberKinds.InstanceMethods);
+
+        var method = Assert.Single(result.InstanceMethods);
+        Assert.Equal("WithMessage", method.Name);
+    }
 }

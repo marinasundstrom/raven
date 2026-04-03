@@ -14,6 +14,46 @@ public enum ExtensionMemberKind
 
 public static partial class SymbolExtensions
 {
+    internal static string GetLookupIdentityKey(this ISymbol symbol)
+    {
+        var underlying = symbol.UnderlyingSymbol;
+
+        return underlying switch
+        {
+            IMethodSymbol method => GetMethodLookupIdentityKey(method),
+            IPropertySymbol property => GetPropertyLookupIdentityKey(property),
+            ITypeSymbol type => GetTypeLookupIdentityKey(type),
+            _ => $"{underlying.Kind}:{underlying.MetadataName}"
+        };
+    }
+
+    private static string GetMethodLookupIdentityKey(IMethodSymbol method)
+    {
+        var definition = method.OriginalDefinition ?? method;
+        var containingType = definition.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? string.Empty;
+        var parameters = string.Join(",", method.Parameters.Select(static p => $"{p.RefKind}:{p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}"));
+        var typeArguments = method.TypeArguments.IsDefaultOrEmpty
+            ? string.Empty
+            : string.Join(",", method.TypeArguments.Select(static t => t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
+        var returnType = method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return $"M:{containingType}|{definition.MetadataName}|{method.Arity}|{typeArguments}|{parameters}|{returnType}";
+    }
+
+    private static string GetPropertyLookupIdentityKey(IPropertySymbol property)
+    {
+        var definition = property.OriginalDefinition ?? property;
+        var containingType = definition.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? string.Empty;
+        var parameters = string.Join(",", property.Parameters.Select(static p => $"{p.RefKind}:{p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}"));
+        var propertyType = property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return $"P:{containingType}|{definition.MetadataName}|{parameters}|{propertyType}";
+    }
+
+    private static string GetTypeLookupIdentityKey(ITypeSymbol type)
+    {
+        var definition = type.OriginalDefinition ?? type;
+        return $"T:{definition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}";
+    }
+
     public static ITypeSymbol GetByRefElementType(this IParameterSymbol parameter)
         => parameter.Type is RefTypeSymbol refType ? refType.ElementType : parameter.Type;
 
@@ -261,15 +301,16 @@ public static partial class SymbolExtensions
 
         if (type is INamedTypeSymbol namedType)
         {
-            if (namedType.TypeArguments.IsDefaultOrEmpty)
+            var typeArguments = TypeSubstitution.GetShallowTypeArguments(namedType);
+            if (typeArguments.IsDefaultOrEmpty)
                 return type;
 
-            var substitutedArguments = new ITypeSymbol[namedType.TypeArguments.Length];
+            var substitutedArguments = new ITypeSymbol[typeArguments.Length];
             var changed = false;
 
             for (int i = 0; i < substitutedArguments.Length; i++)
             {
-                var original = namedType.TypeArguments[i];
+                var original = typeArguments[i];
                 var substituted = SubstituteTypeParameters(original, map);
                 substitutedArguments[i] = substituted;
                 changed |= !SymbolEqualityComparer.Default.Equals(original, substituted);
@@ -278,7 +319,7 @@ public static partial class SymbolExtensions
             if (!changed)
                 return type;
 
-            return namedType.Construct(substitutedArguments);
+            return TypeSubstitution.GetDefinitionForSubstitution(namedType).Construct(substitutedArguments);
         }
 
         return type;

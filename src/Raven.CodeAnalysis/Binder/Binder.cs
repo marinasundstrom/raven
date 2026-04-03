@@ -1142,7 +1142,7 @@ internal abstract partial class Binder
         ITypeSymbol receiverType,
         bool includePartialMatches)
     {
-        if (!method.IsExtensionMethod)
+        if (!method.IsInstanceExtensionMember)
             return false;
 
         if (includePartialMatches)

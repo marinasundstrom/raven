@@ -28,7 +28,8 @@ internal partial class TypeMemberBinder : Binder
         _extensionReceiverTypeSyntax = extensionReceiverTypeSyntax;
     }
 
-    public override INamedTypeSymbol ContainingSymbol => _containingType;
+    public override ISymbol ContainingSymbol => _containingType;
+    internal INamedTypeSymbol ContainingTypeSymbol => _containingType;
 
     public override ISymbol? LookupSymbol(string name)
     {
@@ -41,6 +42,9 @@ internal partial class TypeMemberBinder : Binder
 
     public override ITypeSymbol? LookupType(string name)
     {
+        if (string.Equals(_containingType.Name, name, StringComparison.Ordinal))
+            return _containingType;
+
         var typeParameter = _containingType.TypeParameters.FirstOrDefault(tp => tp.Name == name);
         if (typeParameter is not null)
             return typeParameter;
@@ -80,19 +84,7 @@ internal partial class TypeMemberBinder : Binder
         var ordinal = 0;
 
         foreach (var typeParameter in _containingType.TypeParameters.OfType<SourceTypeParameterSymbol>())
-        {
-            builder.Add(new SourceTypeParameterSymbol(
-                typeParameter.Name,
-                methodSymbol,
-                _containingType,
-                receiverNamespace,
-                typeParameter.Locations.ToArray(),
-                typeParameter.DeclaringSyntaxReferences.ToArray(),
-                ordinal++,
-                typeParameter.ConstraintKind,
-                typeParameter.ConstraintTypeReferences,
-                typeParameter.Variance));
-        }
+            builder.Add(CloneTypeParameter(typeParameter, methodSymbol, receiverNamespace, ordinal++));
 
         return builder.ToImmutable();
     }
@@ -131,6 +123,47 @@ internal partial class TypeMemberBinder : Binder
 
         var resolvedType = ResolveTypeSyntaxForSignature(binder, boundTypeSyntax, RefKind.None, options);
         return binder.EnsureTypeValidForStorageLocation(resolvedType, boundTypeSyntax.GetLocation());
+    }
+
+    private Binder.TypeResolutionOptions? CreateMemberSignatureTypeResolutionOptions(
+        ImmutableArray<ITypeParameterSymbol> memberTypeParameters,
+        IReadOnlyDictionary<string, ITypeSymbol>? additionalSubstitutions = null)
+    {
+        Dictionary<string, ITypeSymbol>? map = null;
+
+        void Add(string name, ITypeSymbol type, bool overwrite)
+        {
+            map ??= new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+            if (overwrite || !map.ContainsKey(name))
+                map[name] = type;
+        }
+
+        if (!_containingType.TypeParameters.IsDefaultOrEmpty)
+        {
+            foreach (var typeParameter in _containingType.TypeParameters)
+                Add(typeParameter.Name, typeParameter, overwrite: false);
+        }
+
+        if (!memberTypeParameters.IsDefaultOrEmpty)
+        {
+            foreach (var typeParameter in memberTypeParameters)
+                Add(typeParameter.Name, typeParameter, overwrite: true);
+        }
+
+        if (additionalSubstitutions is not null)
+        {
+            foreach (var (name, type) in additionalSubstitutions)
+                Add(name, type, overwrite: true);
+        }
+
+        if (map is null || map.Count == 0)
+            return null;
+
+        return new Binder.TypeResolutionOptions
+        {
+            TypeParameterSubstitutions = map,
+            SubstitutionPrecedence = Binder.SubstitutionPrecedence.OptionsWin
+        };
     }
 
     private void ReportParameterModifierByRefTypeConflictIfNeeded(ParameterSyntax parameterSyntax)
@@ -219,9 +252,9 @@ internal partial class TypeMemberBinder : Binder
                 : new ArrayTypeSymbol(arrayType.BaseType, elementType, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
         }
 
-        if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+        if (type is INamedTypeSymbol namedType)
         {
-            var typeArguments = namedType.TypeArguments;
+            var typeArguments = TypeSubstitution.GetShallowTypeArguments(namedType);
             if (typeArguments.IsDefaultOrEmpty)
                 return type;
 
@@ -243,7 +276,7 @@ internal partial class TypeMemberBinder : Binder
 
             return substituted is null
                 ? type
-                : namedType.Construct(substituted);
+                : TypeSubstitution.GetDefinitionForSubstitution(namedType).Construct(substituted);
         }
 
         return type;
@@ -860,9 +893,13 @@ internal partial class TypeMemberBinder : Binder
         var methodBinder = new MethodBinder(methodSymbol, this);
         methodBinder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
 
+        var signatureTypeResolutionOptions = CreateMemberSignatureTypeResolutionOptions(
+            methodSymbol.TypeParameters,
+            extensionTypeParameterSubstitutions);
+
         var returnType = methodDecl.ReturnType is null
             ? defaultReturnType
-            : ResolveTypeSyntaxForSignature(methodBinder, methodDecl.ReturnType.Type, RefKind.None);
+            : ResolveTypeSyntaxForSignature(methodBinder, methodDecl.ReturnType.Type, RefKind.None, signatureTypeResolutionOptions);
 
         if (isAsync && methodDecl.ReturnType is { } annotatedReturn && !IsValidAsyncReturnType(returnType))
         {
@@ -878,7 +915,7 @@ internal partial class TypeMemberBinder : Binder
         {
             var resolvedType = typeSyntax is null
                 ? Compilation.ErrorTypeSymbol
-                : ResolveParameterTypeSyntaxForSignature(methodBinder, typeSyntax, refKind);
+                : ResolveParameterTypeSyntaxForSignature(methodBinder, typeSyntax, refKind, signatureTypeResolutionOptions);
             resolvedType = NormalizeVarParamsParameterType(
                 Compilation,
                 syntax,
@@ -896,13 +933,7 @@ internal partial class TypeMemberBinder : Binder
                 methodBinder,
                 _extensionReceiverTypeSyntax,
                 RefKind.None,
-                extensionTypeParameterSubstitutions is null
-                    ? null
-                    : new Binder.TypeResolutionOptions
-                    {
-                        TypeParameterSubstitutions = extensionTypeParameterSubstitutions,
-                        SubstitutionPrecedence = Binder.SubstitutionPrecedence.OptionsWin
-                    });
+                signatureTypeResolutionOptions);
         }
 
         var signatureParameters = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToList();
@@ -3973,19 +4004,7 @@ internal partial class TypeMemberBinder : Binder
         var ordinal = 0;
 
         foreach (var tp in _containingType.TypeParameters.OfType<SourceTypeParameterSymbol>())
-        {
-            builder.Add(new SourceTypeParameterSymbol(
-                tp.Name,
-                methodSymbol,
-                _containingType,
-                receiverNamespace,
-                tp.Locations.ToArray(),
-                tp.DeclaringSyntaxReferences.ToArray(),
-                ordinal++,
-                tp.ConstraintKind,
-                tp.ConstraintTypeReferences,
-                tp.Variance));
-        }
+            builder.Add(CloneTypeParameter(tp, methodSymbol, receiverNamespace, ordinal++));
 
         return ordinal;
     }
@@ -4024,21 +4043,39 @@ internal partial class TypeMemberBinder : Binder
             {
                 if (typeParameter is SourceTypeParameterSymbol sourceTypeParameter)
                 {
-                    builder.Add(new SourceTypeParameterSymbol(
-                        sourceTypeParameter.Name,
+                    builder.Add(CloneTypeParameter(
+                        sourceTypeParameter,
                         methodSymbol,
-                        _containingType,
                         CurrentNamespace!.AsSourceNamespace(),
-                        sourceTypeParameter.Locations.ToArray(),
-                        sourceTypeParameter.DeclaringSyntaxReferences.ToArray(),
-                        ordinal++,
-                        sourceTypeParameter.ConstraintKind,
-                        sourceTypeParameter.ConstraintTypeReferences,
-                        sourceTypeParameter.Variance));
+                        ordinal++));
                 }
             }
         }
 
         methodSymbol.SetTypeParameters(builder);
+    }
+
+    private SourceTypeParameterSymbol CloneTypeParameter(
+        SourceTypeParameterSymbol sourceTypeParameter,
+        SourceMethodSymbol methodSymbol,
+        SourceNamespaceSymbol containingNamespace,
+        int ordinal)
+    {
+        var clone = new SourceTypeParameterSymbol(
+            sourceTypeParameter.Name,
+            methodSymbol,
+            _containingType,
+            containingNamespace,
+            sourceTypeParameter.Locations.ToArray(),
+            sourceTypeParameter.DeclaringSyntaxReferences.ToArray(),
+            ordinal,
+            sourceTypeParameter.ConstraintKind,
+            sourceTypeParameter.ConstraintTypeReferences,
+            sourceTypeParameter.Variance);
+
+        if (sourceTypeParameter.HasResolvedConstraintTypes)
+            clone.SetConstraintTypes(sourceTypeParameter.ConstraintTypes);
+
+        return clone;
     }
 }

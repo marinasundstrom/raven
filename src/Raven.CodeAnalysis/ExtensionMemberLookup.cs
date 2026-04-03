@@ -88,12 +88,12 @@ internal static class ExtensionMemberLookup
     private static ImmutableArray<TSymbol> DistinctSymbols<TSymbol>(IEnumerable<TSymbol> symbols)
         where TSymbol : class, ISymbol
     {
-        var seen = new HashSet<TSymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         var builder = ImmutableArray.CreateBuilder<TSymbol>();
 
         foreach (var symbol in symbols)
         {
-            if (!seen.Add(symbol))
+            if (!seen.Add(symbol.GetLookupIdentityKey()))
                 continue;
 
             builder.Add(symbol);

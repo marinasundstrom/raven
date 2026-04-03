@@ -559,7 +559,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods, Location location)
     {
-        var accessibleMethods = GetAccessibleMethods(methods, location);
+        var accessibleMethods = GetAccessibleMethods(DistinctMethodCandidates(methods), location);
 
         if (accessibleMethods.IsDefaultOrEmpty)
             return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
@@ -627,6 +627,25 @@ partial class BlockBinder : Binder
             {
                 // Ignore methods that cannot be constructed with the provided type arguments.
             }
+        }
+
+        return DistinctMethodCandidates(builder.ToImmutable());
+    }
+
+    private static ImmutableArray<IMethodSymbol> DistinctMethodCandidates(ImmutableArray<IMethodSymbol> methods)
+    {
+        if (methods.IsDefaultOrEmpty || methods.Length == 1)
+            return methods;
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>(methods.Length);
+
+        foreach (var method in methods)
+        {
+            if (!seen.Add(method.GetLookupIdentityKey()))
+                continue;
+
+            builder.Add(method);
         }
 
         return builder.ToImmutable();
@@ -2507,7 +2526,7 @@ partial class BlockBinder : Binder
             arguments[i] = new BoundArgument(expression, parameter.RefKind, name: null);
         }
 
-        return OverloadResolver.ResolveOverload(methods, arguments, Compilation, receiver: receiver);
+        return OverloadResolver.ResolveOverload(methods, arguments, Compilation, binder: this, receiver: receiver);
     }
 
     private bool IsCompatibleWithDelegate(IMethodSymbol method, IMethodSymbol invoke, bool hasReceiver)
@@ -7727,7 +7746,7 @@ partial class BlockBinder : Binder
 
         if (!extensionCandidates.IsDefaultOrEmpty && IsExtensionReceiver(pipelineValue))
         {
-            var resolution = OverloadResolver.ResolveOverload(extensionCandidates, boundArguments, Compilation, pipelineValue, EnsureLambdaCompatible, callSyntax);
+            var resolution = OverloadResolver.ResolveOverload(extensionCandidates, boundArguments, Compilation, binder: this, receiver: pipelineValue, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -7756,7 +7775,7 @@ partial class BlockBinder : Binder
             totalArguments[0] = new BoundArgument(pipelineValue, RefKind.None, name: null, pipelineSyntax);
             Array.Copy(boundArguments, 0, totalArguments, 1, boundArguments.Length);
 
-            var resolution = OverloadResolver.ResolveOverload(staticCandidates, totalArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
+            var resolution = OverloadResolver.ResolveOverload(staticCandidates, totalArguments, Compilation, binder: this, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -7947,6 +7966,7 @@ partial class BlockBinder : Binder
                 new BoundArgument(right, RefKind.None, null)
             },
             Compilation,
+            binder: this,
             canBindLambda: EnsureLambdaCompatible);
 
         if (resolution.Success && resolution.Method is not null)
@@ -8058,6 +8078,7 @@ partial class BlockBinder : Binder
             candidates,
             arguments,
             Compilation,
+            binder: this,
             canBindLambda: EnsureLambdaCompatible,
             callSyntax: callSyntax);
 
@@ -8132,6 +8153,7 @@ partial class BlockBinder : Binder
             candidates,
             liftedArguments,
             Compilation,
+            binder: this,
             canBindLambda: EnsureLambdaCompatible,
             callSyntax: callSyntax);
 
@@ -8217,6 +8239,7 @@ partial class BlockBinder : Binder
             candidates,
             arguments,
             Compilation,
+            binder: this,
             canBindLambda: EnsureLambdaCompatible,
             callSyntax: callSyntax);
 
@@ -8879,7 +8902,7 @@ partial class BlockBinder : Binder
                 if (accessibleCandidates.IsDefaultOrEmpty)
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
+                var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, binder: this, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
                 if (resolution.Success)
                 {
                     var method = resolution.Method!;
@@ -8968,14 +8991,14 @@ partial class BlockBinder : Binder
             var candidatesForArgBinding = !accessibleCandidates.IsDefaultOrEmpty ? accessibleCandidates : candidates;
             candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments);
 
-            var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors);
+            var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors, receiver);
             if (hasErrors)
                 return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
 
             if (accessibleCandidates.IsDefaultOrEmpty)
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
+            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, binder: this, receiver: receiver, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -9020,7 +9043,7 @@ partial class BlockBinder : Binder
             if (accessibleMethods.IsDefaultOrEmpty)
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-            var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
+            var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, binder: this, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -12107,6 +12130,7 @@ partial class BlockBinder : Binder
             accessibleCandidates,
             arguments,
             Compilation,
+            binder: this,
             canBindLambda: EnsureLambdaCompatible,
             callSyntax: syntax);
 
@@ -12148,6 +12172,7 @@ partial class BlockBinder : Binder
                 receiver: null,
                 arguments,
                 Compilation,
+                this,
                 explicitTypeArguments: ImmutableArray<ITypeSymbol>.Empty);
             if (method is null)
                 continue;
@@ -13781,7 +13806,7 @@ partial class BlockBinder : Binder
             // Members/imports remain visible even after the boundary.
             if (current is TypeMemberBinder typeMemberBinder)
             {
-                foreach (var member in EnumerateTypeAndBaseMembers(typeMemberBinder.ContainingSymbol, name))
+                foreach (var member in EnumerateTypeAndBaseMembers(typeMemberBinder.ContainingTypeSymbol, name))
                     if (seen.Add(member))
                         yield return member;
             }
@@ -14004,6 +14029,8 @@ partial class BlockBinder : Binder
         {
             var capturedVariables = AnalyzeFunctionCapturedVariables(functionBody, symbol);
             functionSourceMethod.SetCapturedVariables(capturedVariables);
+            if (capturedVariables.Length != 0 && functionSourceMethod.ClosureFrameType is null)
+                functionSourceMethod.SetClosureFrameType(ClosureFrameSymbolFactory.Create(functionSourceMethod));
         }
 
         return new BoundFunctionStatement(symbol); // Possibly include body here if needed
@@ -14492,7 +14519,7 @@ partial class BlockBinder : Binder
             }
 
             var args = new[] { new BoundArgument(assignment.Value, RefKind.None, name: null, syntax) };
-            var resolution = OverloadResolver.ResolveOverload(applicable, args, Compilation, receiver: receiver, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
+            var resolution = OverloadResolver.ResolveOverload(applicable, args, Compilation, binder: this, receiver: receiver, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
 
             if (resolution.IsAmbiguous)
             {

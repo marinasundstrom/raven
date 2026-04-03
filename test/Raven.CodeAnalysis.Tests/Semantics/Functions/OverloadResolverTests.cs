@@ -155,7 +155,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var extension = CreateExtensionMethod(compilation, "Format", intType, intType);
         var instance = CreateMethod(compilation, "Format", intType);
 
-        var result = OverloadResolver.ResolveOverload([extension, instance], CreateArguments(argument), compilation, receiver);
+        var result = OverloadResolver.ResolveOverload([extension, instance], CreateArguments(argument), compilation, receiver: receiver);
 
         Assert.True(result.Success);
         Assert.Same(instance, result.Method);

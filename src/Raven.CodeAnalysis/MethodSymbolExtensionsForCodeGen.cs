@@ -221,7 +221,16 @@ internal static class MethodSymbolCodeGenResolver
         if (wrapper.IsGenericMethod && wrapper.TypeArguments.Length > 0 && mapped.IsGenericMethodDefinition)
         {
             var methodArguments = wrapper.TypeArguments
-                .Select(arg => TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(arg, codeGen))
+                .Select(arg =>
+                {
+                    if (arg is ITypeParameterSymbol typeParameter &&
+                        codeGen.TryResolveRuntimeTypeParameter(typeParameter, RuntimeTypeUsage.MethodBody, out var resolvedType))
+                    {
+                        return resolvedType;
+                    }
+
+                    return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(arg, codeGen);
+                })
                 .ToArray();
 
             mapped = mapped.MakeGenericMethod(methodArguments);

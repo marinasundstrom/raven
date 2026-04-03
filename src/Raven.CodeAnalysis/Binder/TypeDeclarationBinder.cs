@@ -36,6 +36,9 @@ internal abstract class TypeDeclarationBinder : Binder
 
     public override ITypeSymbol? LookupType(string name)
     {
+        if (string.Equals(ContainingSymbol.Name, name, StringComparison.Ordinal))
+            return ContainingSymbol;
+
         var typeParameter = ContainingSymbol.TypeParameters.FirstOrDefault(tp => tp.Name == name);
         if (typeParameter is not null)
             return typeParameter;
