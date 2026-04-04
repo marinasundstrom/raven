@@ -64,8 +64,8 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         {
             DocumentSelector = TextDocumentSelector.ForLanguage("raven"),
             Legend = Legend,
-            Full = false,
-            Range = true
+            Full = true,
+            Range = false
         };
 
     protected override async Task<SemanticTokensDocument> GetSemanticTokensDocument(ITextDocumentIdentifierParams @params, CancellationToken cancellationToken)
@@ -262,6 +262,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             SemanticClassification.Interpolation => SemanticTokenType.Operator,
             SemanticClassification.Comment => SemanticTokenType.Comment,
             SemanticClassification.Namespace => SemanticTokenType.Namespace,
+            SemanticClassification.Type => SemanticTokenType.Type,
             SemanticClassification.Method => SemanticTokenType.Method,
             SemanticClassification.Parameter => SemanticTokenType.Parameter,
             SemanticClassification.Local => SemanticTokenType.Variable,
@@ -278,11 +279,124 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         SyntaxToken token,
         SemanticModel semanticModel)
     {
+        if (classification == SemanticClassification.Type)
+        {
+            var symbol = TryGetAssociatedSymbol(token, semanticModel);
+            if (symbol is ITypeSymbol typeSymbol)
+            {
+                return typeSymbol.TypeKind switch
+                {
+                    TypeKind.Class => SemanticTokenType.Class,
+                    TypeKind.Struct => SemanticTokenType.Struct,
+                    TypeKind.Interface => SemanticTokenType.Interface,
+                    TypeKind.Enum => SemanticTokenType.Enum,
+                    _ => SemanticTokenType.Type
+                };
+            }
+
+            return token.Parent switch
+            {
+                ClassDeclarationSyntax => SemanticTokenType.Class,
+                StructDeclarationSyntax or RecordDeclarationSyntax or UnionDeclarationSyntax => SemanticTokenType.Struct,
+                InterfaceDeclarationSyntax => SemanticTokenType.Interface,
+                EnumDeclarationSyntax => SemanticTokenType.Enum,
+                _ => SemanticTokenType.Type
+            };
+        }
+
         return MapTokenType(classification);
     }
 
     private static ImmutableArray<SemanticTokenModifier> GetModifiers(SyntaxToken token, SemanticModel semanticModel)
-        => ImmutableArray<SemanticTokenModifier>.Empty;
+    {
+        var symbol = TryGetAssociatedSymbol(token, semanticModel);
+        if (symbol is null)
+            return ImmutableArray<SemanticTokenModifier>.Empty;
+
+        var modifiers = ImmutableArray.CreateBuilder<SemanticTokenModifier>();
+        if (IsDeclarationToken(token))
+            modifiers.Add(SemanticTokenModifier.Declaration);
+
+        if (symbol.IsStatic)
+            modifiers.Add(SemanticTokenModifier.Static);
+
+        if (symbol is IMethodSymbol { IsReadOnly: true } or IFieldSymbol { IsReadOnly: true })
+            modifiers.Add(SemanticTokenModifier.Readonly);
+
+        if (symbol is IMethodSymbol { IsAsync: true })
+            modifiers.Add(SemanticTokenModifier.Async);
+
+        if (symbol is INamedTypeSymbol { IsAbstract: true } or IMethodSymbol { IsAbstract: true })
+            modifiers.Add(SemanticTokenModifier.Abstract);
+
+        return modifiers.ToImmutable();
+    }
+
+    private static ISymbol? TryGetAssociatedSymbol(SyntaxToken token, SemanticModel semanticModel)
+    {
+        if (token.Kind != SyntaxKind.IdentifierToken)
+            return null;
+
+        var bindNode = GetBindableParent(token);
+        if (bindNode is null)
+            return null;
+
+        var info = semanticModel.GetSymbolInfo(bindNode);
+        return semanticModel.GetDeclaredSymbol(bindNode)
+            ?? info.Symbol
+            ?? info.CandidateSymbols.FirstOrDefault();
+    }
+
+    private static bool IsDeclarationToken(SyntaxToken token)
+        => token.Parent switch
+        {
+            ClassDeclarationSyntax declaration => declaration.Identifier == token,
+            StructDeclarationSyntax declaration => declaration.Identifier == token,
+            RecordDeclarationSyntax declaration => declaration.Identifier == token,
+            InterfaceDeclarationSyntax declaration => declaration.Identifier == token,
+            EnumDeclarationSyntax declaration => declaration.Identifier == token,
+            UnionDeclarationSyntax declaration => declaration.Identifier == token,
+            DelegateDeclarationSyntax declaration => declaration.Identifier == token,
+            MethodDeclarationSyntax declaration => declaration.Identifier == token,
+            PropertyDeclarationSyntax declaration => declaration.Identifier == token,
+            EventDeclarationSyntax declaration => declaration.Identifier == token,
+            ParameterSyntax declaration => declaration.Identifier == token,
+            VariableDeclaratorSyntax declaration => declaration.Identifier == token,
+            _ => false
+        };
+
+    private static SyntaxNode? GetBindableParent(SyntaxToken token)
+    {
+        var node = token.Parent;
+
+        if (node is IdentifierNameSyntax && node.Parent is NamespaceDeclarationSyntax ns && ns.Name == node)
+            return ns;
+
+        while (node is not null)
+        {
+            if (node.Parent is MemberAccessExpressionSyntax memberAccess && memberAccess.Name == node)
+            {
+                node = memberAccess;
+                continue;
+            }
+
+            if (node.Parent is MemberBindingExpressionSyntax memberBinding && memberBinding.Name == node)
+            {
+                node = memberBinding;
+                continue;
+            }
+
+            if (node.Parent is InvocationExpressionSyntax invocation && invocation.Expression == node)
+            {
+                node = invocation;
+                continue;
+            }
+
+            break;
+        }
+
+        return node;
+    }
 
     private static void PushSpan(
         SemanticTokensBuilder builder,

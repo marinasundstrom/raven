@@ -52,7 +52,7 @@ func Main() -> () {
     }
 
     [Fact]
-    public async Task GetDiagnosticsAsync_IncludesCompilerInfoDiagnostics()
+    public async Task GetDiagnosticsAsync_IncludesCompilerInfoDiagnosticsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -90,7 +90,7 @@ func Main() -> () {
     }
 
     [Fact]
-    public async Task GetDiagnosticsAsync_TagsUnusedLocalAsUnnecessary()
+    public async Task GetDiagnosticsAsync_TagsUnusedLocalAsUnnecessaryAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -130,7 +130,7 @@ class C {
     }
 
     [Fact]
-    public async Task GetDiagnosticsAsync_TagsUnusedLocalFunctionAsUnnecessary()
+    public async Task GetDiagnosticsAsync_TagsUnusedLocalFunctionAsUnnecessaryAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -176,7 +176,7 @@ class C {
     }
 
     [Fact]
-    public async Task GetDiagnosticsAsync_TopLevelGenericWhereClauseSelfConstraint_DoesNotReportTypeParameterOutOfScope()
+    public async Task GetDiagnosticsAsync_TopLevelGenericWhereClauseSelfConstraint_DoesNotReportTypeParameterOutOfScopeAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         _ = WriteProject(_tempRoot, "App", """
@@ -227,7 +227,7 @@ func Parse<T>(str: string) -> T
     }
 
     [Fact]
-    public async Task GetDiagnosticsAsync_ProjectBackedDocument_DoesNotReportNamespaceSegmentOutOfScopeForImportedFrameworkNamespaces()
+    public async Task GetDiagnosticsAsync_ProjectBackedDocument_DoesNotReportNamespaceSegmentOutOfScopeForImportedFrameworkNamespacesAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         _ = WriteProject(_tempRoot, "App", """
@@ -283,6 +283,57 @@ union MyResult<T>(List<T>, int)
             .ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task GetDiagnosticsAsync_AspNetMinimalApiSample_DoesNotReportBogusOutOfScopeDiagnosticsAsync()
+    {
+        var sampleRoot = Path.Combine(
+            GetRepositoryRoot(),
+            "samples",
+            "projects",
+            "aspnet-minimal-api");
+        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+
+        Directory.Exists(sampleRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "aspnet-minimal-api",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        store.UpsertDocument(uri, await File.ReadAllTextAsync(documentPath));
+
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+
+        foreach (var name in new[]
+                 {
+                     "Generic",
+                     "AspNetCore",
+                     "Builder",
+                     "Http",
+                     "Mvc",
+                     "Tasks",
+                     "encoding",
+                     "detectEncodingFromByteOrderMarks",
+                     "bufferSize",
+                     "leaveOpen"
+                 })
+        {
+            diagnostics.Any(diagnostic =>
+                    string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+                    diagnostic.Message.Contains(name, StringComparison.Ordinal))
+                .ShouldBeFalse();
+        }
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))
@@ -296,4 +347,7 @@ union MyResult<T>(List<T>, int)
         File.WriteAllText(path, contents);
         return path;
     }
+
+    private static string GetRepositoryRoot()
+        => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 }

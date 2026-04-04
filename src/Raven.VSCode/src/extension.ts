@@ -705,6 +705,11 @@ function normalizePathSegment(value: string): string {
   return normalized.length > 0 ? normalized : 'unknown';
 }
 
+function getTfmPathSegment(targetFramework: string | undefined, fallback: string): string {
+  const tfm = targetFramework?.trim();
+  return tfm && tfm.length > 0 ? tfm : fallback;
+}
+
 function resolveOutputLayout(targetPath: string, configuration: 'Debug' | 'Release'): OutputLayout {
   const effectiveTargetPath = resolveEffectiveTargetPath(targetPath);
   const targetFramework = resolveTargetFramework(effectiveTargetPath);
@@ -713,7 +718,7 @@ function resolveOutputLayout(targetPath: string, configuration: 'Debug' | 'Relea
 
   if (targetIsProject) {
     const projectDirectory = path.dirname(effectiveTargetPath);
-    const tfmSegment = normalizePathSegment(targetFramework ?? 'unknown-tfm');
+    const tfmSegment = getTfmPathSegment(targetFramework, 'unknown-tfm');
     const outputDirectory = path.join(projectDirectory, 'bin', configuration, tfmSegment);
     return {
       effectiveTargetPath,
@@ -727,7 +732,7 @@ function resolveOutputLayout(targetPath: string, configuration: 'Debug' | 'Relea
   }
 
   const fileBaseName = path.basename(effectiveTargetPath, path.extname(effectiveTargetPath));
-  const tfmSegment = normalizePathSegment(targetFramework ?? 'no-tfm');
+  const tfmSegment = getTfmPathSegment(targetFramework, 'no-tfm');
   const deterministicDirectory = `${fileBaseName}-${hashPathForOutput(effectiveTargetPath)}`;
   const outputDirectory = path.join(workspaceFolder, '.raven-build', configuration, tfmSegment, deterministicDirectory);
   return {
