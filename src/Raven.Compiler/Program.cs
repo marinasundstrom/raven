@@ -1032,19 +1032,60 @@ if (!noEmit)
     else
     {
         var pdbFilePath = Path.ChangeExtension(outputFilePath, ".pdb");
+        var tempOutputFilePath = outputFilePath + ".tmp";
+        var tempPdbFilePath = pdbFilePath + ".tmp";
 
-        using (var stream = File.Open(outputFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
-        using (var pdbStream = File.Open(pdbFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        TryDeleteFile(tempOutputFilePath);
+        TryDeleteFile(tempPdbFilePath);
+
+        using (var stream = File.Open(tempOutputFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        using (var pdbStream = File.Open(tempPdbFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             result = requiresWorkspaceDiagnostics
                 ? compilation.Emit(stream, pdbStream, diagnostics)
                 : compilation.Emit(stream, pdbStream);
+        }
+
+        if (result.Success)
+        {
+            ReplaceFile(tempOutputFilePath, outputFilePath);
+            ReplaceFile(tempPdbFilePath, pdbFilePath);
+        }
+        else
+        {
+            TryDeleteFile(tempOutputFilePath);
+            TryDeleteFile(tempPdbFilePath);
         }
     }
 
     diagnostics = requiresWorkspaceDiagnostics
         ? result!.Diagnostics
         : result!.Diagnostics;
+}
+
+static void ReplaceFile(string sourcePath, string destinationPath)
+{
+    try
+    {
+        File.Move(sourcePath, destinationPath, overwrite: true);
+    }
+    catch (IOException) when (File.Exists(destinationPath))
+    {
+        File.Delete(destinationPath);
+        File.Move(sourcePath, destinationPath);
+    }
+}
+
+static void TryDeleteFile(string path)
+{
+    try
+    {
+        if (File.Exists(path))
+            File.Delete(path);
+    }
+    catch
+    {
+    }
 }
 
 if (!emitDocs &&

@@ -1,13 +1,13 @@
 <Project>
   <PropertyGroup>
-    <RavenCompilerProject Condition="'$(RavenCompilerProject)' == ''">
-      $([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\Raven.Compiler.csproj'))</RavenCompilerProject>
+    <RavenCompilerProject Condition="'$(RavenCompilerProject)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\Raven.Compiler.csproj'))</RavenCompilerProject>
     <RavenCompilerFramework Condition="'$(RavenCompilerFramework)' == ''">net10.0</RavenCompilerFramework>
+    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\bin\Debug\$(RavenCompilerFramework)\rvn.dll'))</RavenCompilerHost>
     <RavenProjectFile Condition="'$(RavenProjectFile)' == ''">$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)',
       '$(MSBuildProjectName).ravenproj'))</RavenProjectFile>
     <RavenOutputDir Condition="'$(RavenOutputDir)' == ''">$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)',
       'obj', 'raven'))</RavenOutputDir>
-    <RavenBuildArgs Condition="'$(RavenBuildArgs)' == ''">--property WarningLevel=0</RavenBuildArgs>
+    <RavenBuildArgs Condition="'$(RavenBuildArgs)' == ''"></RavenBuildArgs>
     <RavenAssemblyName Condition="'$(RavenAssemblyName)' == ''">
       $([System.IO.Path]::GetFileNameWithoutExtension('$(RavenProjectFile)'))</RavenAssemblyName>
     <RavenAssemblyPath Condition="'$(RavenAssemblyPath)' == ''">$([System.IO.Path]::Combine('$(RavenOutputDir)',
@@ -25,9 +25,12 @@
     BeforeTargets="ResolveReferences"
     Condition="Exists('$(RavenProjectFile)')">
     <MakeDir Directories="$(RavenOutputDir)" />
+    <Error
+      Condition="!Exists('$(RavenCompilerHost)')"
+      Text="Built Raven compiler host not found at '$(RavenCompilerHost)'. Build Raven.Compiler first." />
 
     <Exec
-      Command="dotnet run --framework $(RavenCompilerFramework) --project &quot;$(RavenCompilerProject)&quot; $(RavenBuildArgs) -- &quot;$(RavenProjectFile)&quot; -o &quot;$(RavenOutputDir)&quot;" />
+      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(RavenProjectFile)&quot; -o &quot;$(RavenOutputDir)&quot; --framework &quot;$(RavenCompilerFramework)&quot; $(RavenBuildArgs)" />
 
   </Target>
 

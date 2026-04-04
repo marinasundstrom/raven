@@ -181,6 +181,24 @@ function resolveServerPath(context, output) {
         output.appendLine(`- ${p}`);
     throw new Error('Unable to locate Raven.LanguageServer.dll. Build the language server or set "raven.languageServerPath" to the compiled DLL.');
 }
+function createStableHash(input) {
+    return crypto.createHash('sha256').update(input).digest('hex').slice(0, 12);
+}
+function stageServerForIsolatedLaunch(context, sourceServerPath) {
+    const sourceDirectory = path.dirname(sourceServerPath);
+    const serverStat = fs.statSync(sourceServerPath);
+    const fingerprint = createStableHash(`${sourceServerPath}|${serverStat.mtimeMs}|${serverStat.size}`);
+    const stagingRoot = path.join(context.globalStorageUri.fsPath, 'language-server');
+    const targetDirectory = path.join(stagingRoot, fingerprint);
+    const targetServerPath = path.join(targetDirectory, path.basename(sourceServerPath));
+    fs.mkdirSync(stagingRoot, { recursive: true });
+    if (!fs.existsSync(targetServerPath)) {
+        fs.rmSync(targetDirectory, { recursive: true, force: true });
+        fs.mkdirSync(targetDirectory, { recursive: true });
+        fs.cpSync(sourceDirectory, targetDirectory, { recursive: true });
+    }
+    return targetServerPath;
+}
 function resolveCompilerProjectPath() {
     const configuration = vscode.workspace.getConfiguration('raven');
     const configuredPath = configuration.get('compilerProjectPath')?.trim();
@@ -253,19 +271,7 @@ function resolveCompilerInvocation(targetFramework) {
             };
         }
     }
-    return {
-        executable: 'dotnet',
-        args: [
-            'run',
-            ...(targetFramework ? ['--framework', targetFramework] : []),
-            '--project',
-            compilerProjectPath,
-            '--property',
-            'WarningLevel=0',
-            '--'
-        ],
-        description: compilerProjectPath
-    };
+    return undefined;
 }
 function resolveTargetFramework(targetPath) {
     const configuration = vscode.workspace.getConfiguration('raven');
@@ -454,7 +460,7 @@ async function compileForDebug(targetPath) {
     const layout = resolveOutputLayout(targetPath, 'Debug');
     const compilerInvocation = resolveCompilerInvocation(layout.targetFramework);
     if (!compilerInvocation) {
-        throw new Error('Unable to locate Raven.Compiler.csproj. Set "raven.compilerProjectPath" to continue.');
+        throw new Error('Unable to locate a built rvn.dll. Build Raven.Compiler first or point "raven.compilerProjectPath" at a workspace containing src/Raven.Compiler/bin/Debug/<tfm>/rvn.dll.');
     }
     if (fs.existsSync(layout.outputDirectory)) {
         fs.rmSync(layout.outputDirectory, { recursive: true, force: true });
@@ -499,7 +505,7 @@ async function buildTarget(targetPath) {
     const layout = resolveOutputLayout(targetPath, 'Debug');
     const compilerInvocation = resolveCompilerInvocation(layout.targetFramework);
     if (!compilerInvocation) {
-        throw new Error('Unable to locate Raven.Compiler.csproj. Set "raven.compilerProjectPath" to continue.');
+        throw new Error('Unable to locate a built rvn.dll. Build Raven.Compiler first or point "raven.compilerProjectPath" at a workspace containing src/Raven.Compiler/bin/Debug/<tfm>/rvn.dll.');
     }
     fs.mkdirSync(layout.outputDirectory, { recursive: true });
     const outputArg = layout.targetIsProject ? layout.outputDirectory : layout.outputDllPath;
@@ -624,12 +630,24 @@ function activate(context) {
         void vscode.window.showErrorMessage(`Raven: ${message}`);
         return;
     }
+    let isolatedServerPath;
+    try {
+        isolatedServerPath = stageServerForIsolatedLaunch(context, serverPath);
+    }
+    catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        output.appendLine(`Failed to stage isolated language server: ${message}`);
+        output.show(true);
+        void vscode.window.showErrorMessage(`Raven: Failed to stage isolated language server: ${message}`);
+        return;
+    }
     output.appendLine(`Using language server: ${serverPath}`);
+    output.appendLine(`Using isolated language server: ${isolatedServerPath}`);
     const runCommand = {
         command: 'dotnet',
-        args: [serverPath],
+        args: [isolatedServerPath],
         options: {
-            cwd: path.dirname(serverPath)
+            cwd: path.dirname(isolatedServerPath)
         }
     };
     const serverOptions = {

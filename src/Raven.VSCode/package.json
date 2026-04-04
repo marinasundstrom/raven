@@ -257,12 +257,12 @@
         "raven.compilerProjectPath": {
           "type": "string",
           "default": "",
-          "description": "Optional fallback path to Raven.Compiler.csproj. The extension prefers a bundled or already-built compiler host (rvn.dll) and only uses this project path when no compiled host can be found."
+          "description": "Optional path used to locate a built Raven compiler host (rvn.dll) under src/Raven.Compiler/bin/Debug/<tfm>. The extension does not launch Raven.Compiler.csproj via dotnet run."
         },
         "raven.targetFramework": {
           "type": "string",
           "default": "",
-          "description": "Target framework to pass to Raven debug compile (for both dotnet run and Raven.Compiler --framework), for example 'net10.0'. Leave empty to use defaults."
+          "description": "Target framework to pass to Raven debug compile through the built Raven compiler host, for example 'net10.0'. Leave empty to use defaults."
         },
         "raven.debugStopAtEntry": {
           "type": "boolean",

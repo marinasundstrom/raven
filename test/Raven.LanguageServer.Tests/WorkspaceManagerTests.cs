@@ -368,6 +368,132 @@ func Main() -> unit { }
     }
 
     [Fact]
+    public async Task Initialize_SampleMacroObservableRoot_ResolvesMacrosForAppDocumentAsync()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var sampleRoot = Path.Combine(repoRoot, "samples", "projects", "macro-observable");
+        var appPath = Path.Combine(sampleRoot, "app", "src", "main.rvn");
+        var appUri = DocumentUri.FromFileSystemPath(appPath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "macro-observable",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = store.UpsertDocument(appUri, File.ReadAllText(appPath));
+
+        var diagnostics = await store.GetDiagnosticsAsync(appUri, CancellationToken.None);
+        diagnostics.Any(diagnostic => diagnostic.Code?.String == "RAVM010").ShouldBeFalse();
+
+        store.TryGetDocumentContext(appUri, out var document, out var compilation).ShouldBeTrue();
+        document.ShouldNotBeNull();
+        compilation.ShouldNotBeNull();
+
+        var syntaxTree = await document.GetSyntaxTreeAsync();
+        syntaxTree.ShouldNotBeNull();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree!);
+        var attribute = syntaxTree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+        var expansion = semanticModel.GetMacroExpansion(attribute);
+
+        expansion.ShouldNotBeNull();
+        expansion!.ReplacementDeclaration.ShouldNotBeNull();
+        expansion.IntroducedMembers.Length.ShouldBeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task Initialize_SampleMacroReactiveRoot_ResolvesMacrosForAppDocumentAsync()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var sampleRoot = Path.Combine(repoRoot, "samples", "projects", "macro-reactive");
+        var appPath = Path.Combine(sampleRoot, "app", "src", "main.rvn");
+        var appUri = DocumentUri.FromFileSystemPath(appPath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "macro-reactive",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = store.UpsertDocument(appUri, File.ReadAllText(appPath));
+
+        var diagnostics = await store.GetDiagnosticsAsync(appUri, CancellationToken.None);
+        diagnostics.Any(diagnostic => diagnostic.Code?.String == "RAVM010").ShouldBeFalse();
+
+        store.TryGetDocumentContext(appUri, out var document, out var compilation).ShouldBeTrue();
+        document.ShouldNotBeNull();
+        compilation.ShouldNotBeNull();
+
+        var syntaxTree = await document.GetSyntaxTreeAsync();
+        syntaxTree.ShouldNotBeNull();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree!);
+        var root = syntaxTree.GetRoot();
+        var attribute = root.DescendantNodes()
+            .OfType<AttributeSyntax>()
+            .Single(candidate => candidate.Name.ToString() == "Observable");
+        var freestanding = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+
+        semanticModel.GetMacroExpansion(attribute).ShouldNotBeNull();
+        semanticModel.GetMacroExpansion(freestanding).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task Initialize_RepositoryRoot_ResolvesMacrosForMacroReactiveSampleAsync()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var appPath = Path.Combine(repoRoot, "samples", "projects", "macro-reactive", "app", "src", "main.rvn");
+        var appUri = DocumentUri.FromFileSystemPath(appPath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "Raven",
+                Uri = DocumentUri.FromFileSystemPath(repoRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = store.UpsertDocument(appUri, File.ReadAllText(appPath));
+
+        var diagnostics = await store.GetDiagnosticsAsync(appUri, CancellationToken.None);
+        diagnostics.Any(diagnostic => diagnostic.Code?.String == "RAVM010").ShouldBeFalse();
+
+        store.TryGetDocumentContext(appUri, out var document, out var compilation).ShouldBeTrue();
+        document.ShouldNotBeNull();
+        compilation.ShouldNotBeNull();
+
+        var syntaxTree = await document.GetSyntaxTreeAsync();
+        syntaxTree.ShouldNotBeNull();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree!);
+        var root = syntaxTree.GetRoot();
+        var attribute = root.DescendantNodes()
+            .OfType<AttributeSyntax>()
+            .Single(candidate => candidate.Name.ToString() == "Observable");
+        var freestanding = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+
+        semanticModel.GetMacroExpansion(attribute).ShouldNotBeNull();
+        semanticModel.GetMacroExpansion(freestanding).ShouldNotBeNull();
+    }
+
+    [Fact]
     public void TryGetRefactorings_ReturnsContextActionsForOpenDocument()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -617,6 +743,9 @@ func Main() -> unit {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, contents);
     }
+
+    private static string GetRepositoryRoot()
+        => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 
     private static void WriteMacroObservableLayout(string root)
     {
