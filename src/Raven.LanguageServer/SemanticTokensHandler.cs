@@ -100,10 +100,11 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
             var cacheKey = new SemanticTokensCacheKey(identifier.TextDocument.Uri.ToString(), context.Value.Document.Version);
+            var requestedRange = GetRequestedRangeSpan(identifier, sourceText);
 
             if (_tokenEntryCache.TryGetValue(cacheKey, out var cachedEntries))
             {
-                foreach (var entry in cachedEntries)
+                foreach (var entry in FilterEntriesForRange(cachedEntries, requestedRange))
                     PushSpan(builder, sourceText, entry.Span, entry.TokenType!.Value, entry.Modifiers);
 
                 pushMs = stopwatch.Elapsed.TotalMilliseconds - gateWaitMs - contextMs;
@@ -144,7 +145,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             CacheTokenEntries(cacheKey, entries);
 
             stageStopwatch.Restart();
-            foreach (var entry in entries)
+            foreach (var entry in FilterEntriesForRange(entries, requestedRange))
                 PushSpan(builder, sourceText, entry.Span, entry.TokenType!.Value, entry.Modifiers);
             pushMs = stageStopwatch.Elapsed.TotalMilliseconds;
         }
@@ -188,6 +189,46 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             _tokenEntryCache.Clear();
 
         _tokenEntryCache[cacheKey] = entries;
+    }
+
+    private static IEnumerable<SemanticTokenEntry> FilterEntriesForRange(
+        IEnumerable<SemanticTokenEntry> entries,
+        TextSpan? requestedRange)
+    {
+        if (requestedRange is not { } range)
+            return entries;
+
+        return entries
+            .Select(entry => TryClipEntryToRange(entry, range))
+            .Where(static entry => entry is not null)!
+            .Cast<SemanticTokenEntry>();
+    }
+
+    private static SemanticTokenEntry? TryClipEntryToRange(SemanticTokenEntry entry, TextSpan requestedRange)
+    {
+        var start = Math.Max(entry.Span.Start, requestedRange.Start);
+        var end = Math.Min(entry.Span.End, requestedRange.End);
+        if (end <= start)
+            return null;
+
+        var clippedSpan = start == entry.Span.Start && end == entry.Span.End
+            ? entry.Span
+            : TextSpan.FromBounds(start, end);
+
+        return entry with { Span = clippedSpan };
+    }
+
+    private static TextSpan? GetRequestedRangeSpan(ITextDocumentIdentifierParams identifier, SourceText sourceText)
+    {
+        if (identifier is not SemanticTokensRangeParams rangeParams)
+            return null;
+
+        var start = PositionHelper.ToOffset(sourceText, rangeParams.Range.Start);
+        var end = PositionHelper.ToOffset(sourceText, rangeParams.Range.End);
+        if (end < start)
+            (start, end) = (end, start);
+
+        return TextSpan.FromBounds(start, end);
     }
 
     private static SemanticTokenEntry? CreateEntry(

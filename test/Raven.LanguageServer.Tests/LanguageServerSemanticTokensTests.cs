@@ -283,6 +283,90 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
         }
     }
 
+    [Fact]
+    public async Task SemanticTokens_RangeRequest_ReturnsOnlyTokensInsideRequestedRangeAsync()
+    {
+        const string code = """
+func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
+    val dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
+
+    if dtoResult is Ok(val value) {
+        if value is not null {
+            return ValidateBatch(value)
+        }
+    }
+
+    if dtoResult is Error(Exception ex) {
+        return InvalidFeedResult("Feed JSON could not be parsed: ${ex.Message}")
+    }
+
+    return InvalidFeedResult("Feed JSON resolved to null")
+}
+
+func InvalidFeedResult(message: string) -> Result<InboundBatch, FulfillmentError> {
+    val problem: FulfillmentError = .InvalidFeed(message)
+    return Error(problem)
+}
+""";
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-semantic-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var projectPath = Path.Combine(tempRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+            var documentPath = Path.Combine(tempRoot, "src", "main.rvn");
+            Directory.CreateDirectory(Path.GetDirectoryName(documentPath)!);
+            File.WriteAllText(documentPath, code);
+
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "temp",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
+
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(documentPath);
+            store.UpsertDocument(uri, code);
+
+            var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+            var result = await handler.Handle(new SemanticTokensRangeParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(9, 0), new Position(14, 1))
+            }, CancellationToken.None);
+
+            result.ShouldNotBeNull();
+
+            var decoded = Decode(code, result.Data, SemanticTokensHandler.Legend);
+            decoded.Length.ShouldBeGreaterThan(0);
+            decoded.Any(token => token.Line == 15).ShouldBeFalse();
+            decoded.Any(token => token.Line == 16).ShouldBeFalse();
+            decoded.Any(token => token.Text == "}" && token.Line == 18).ShouldBeFalse();
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
     private static DecodedToken Find(ImmutableArray<DecodedToken> tokens, int line, string text)
     {
         var token = tokens.FirstOrDefault(token => token.Line == line && token.Text == text);
