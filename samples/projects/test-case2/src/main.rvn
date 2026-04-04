@@ -7,6 +7,8 @@ val people = [
     Person("Jane", 15, [ "Sunglasses", "Purse" ])
 ]
 
+people.Add([Person("Test", 30, [])])
+
 for val (name, age when > 15, [ item1, item2 ]) in people {
     WriteLine("$name ($age) has $item1 and $item2")
 }

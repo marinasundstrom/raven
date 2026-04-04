@@ -11586,63 +11586,60 @@ partial class BlockBinder : Binder
 
         if (targetType is INamedTypeSymbol namedType)
         {
-            // Look for an Add method to infer element type
             var addMethod = new SymbolQuery("Add", namedType, IsStatic: false)
                 .Lookup(this)
-                .FirstOrDefault() as IMethodSymbol;
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(static method => method.Parameters.Length == 1);
+            var constructor = namedType.Constructors
+                .FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
 
-            var elementType = addMethod?.Parameters.Length == 1
-                ? addMethod.Parameters[0].Type
-                : null;
-
-            if (elementType is null && namedType.TypeArguments.Length == 1)
-                elementType = namedType.TypeArguments[0];
-
-            elementType ??= Compilation.GetSpecialType(SpecialType.System_Object);
-
-            var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
-
-            for (var i = 0; i < elements.Count; i++)
+            if (addMethod is not null && constructor is not null)
             {
-                var element = elements[i];
-                var elementSyntax = elementNodes[i];
+                var elementType = addMethod.Parameters[0].Type;
+                var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
 
-                if (element is BoundSpreadElement spread)
+                for (var i = 0; i < elements.Count; i++)
                 {
-                    var sourceType = GetSpreadElementType(spread.Expression.Type!);
-                    if (!IsAssignable(elementType, sourceType, out _))
+                    var element = elements[i];
+                    var elementSyntax = elementNodes[i];
+
+                    if (element is BoundSpreadElement spread)
                     {
-                        ReportCannotConvertFromTypeToType(
-                            sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            syntax.GetLocation());
+                        var sourceType = GetSpreadElementType(spread.Expression.Type!);
+                        if (!IsAssignable(elementType, sourceType, out _))
+                        {
+                            ReportCannotConvertFromTypeToType(
+                                sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                syntax.GetLocation());
+                        }
+
+                        converted.Add(element);
+                        continue;
+                    }
+
+                    if (elementType.TypeKind != TypeKind.Error &&
+                        ShouldAttemptConversion(element))
+                    {
+                        if (!IsAssignable(elementType, element.Type!, out var conversion))
+                        {
+                            ReportCannotConvertFromTypeToType(
+                                element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                syntax.GetLocation());
+                        }
+                        else
+                        {
+                            converted.Add(ApplyConversion(element, elementType, conversion, elementSyntax));
+                            continue;
+                        }
                     }
 
                     converted.Add(element);
-                    continue;
                 }
 
-                if (elementType.TypeKind != TypeKind.Error &&
-                    ShouldAttemptConversion(element))
-                {
-                    if (!IsAssignable(elementType, element.Type!, out var conversion))
-                    {
-                        ReportCannotConvertFromTypeToType(
-                            element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            syntax.GetLocation());
-                    }
-                    else
-                    {
-                        converted.Add(ApplyConversion(element, elementType, conversion, elementSyntax));
-                        continue;
-                    }
-                }
-
-                converted.Add(element);
+                return new BoundCollectionExpression(namedType, converted.ToImmutable(), addMethod);
             }
-
-            return new BoundCollectionExpression(namedType, converted.ToImmutable(), addMethod);
         }
 
         // Fallback to array if target type couldn't be determined

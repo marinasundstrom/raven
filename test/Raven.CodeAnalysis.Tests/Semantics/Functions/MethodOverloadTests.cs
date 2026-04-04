@@ -109,6 +109,138 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void ConcreteReceiver_DoesNotResolveImplementedInterfaceMethodOverConcreteMethod()
+    {
+        var source = """
+        import System.Collections.Immutable.*
+
+        record Person(val Name: string)
+
+        func Test() -> ImmutableList<Person> {
+            val people = [Person("Alice")]
+            return people.Add(Person("Test"))
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static i => i.Expression is MemberAccessExpressionSyntax
+            {
+                Name.Identifier.Text: "Add"
+            });
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Equal("ImmutableList", symbol.ContainingType?.Name);
+        Assert.Equal("Person", symbol.Parameters[0].Type.Name);
+        Assert.Equal("ImmutableList", symbol.ReturnType.Name);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1014");
+    }
+
+    [Fact]
+    public void ConcreteReceiver_CollectionLiteralArgument_IsRejectedForScalarAddParameter()
+    {
+        var source = """
+        import System.Collections.Immutable.*
+
+        record Person(val Name: string)
+
+        func Test() -> ImmutableList<Person> {
+            val people = [Person("Alice")]
+            return people.Add([Person("Test")])
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static i => i.Expression is MemberAccessExpressionSyntax
+            {
+                Name.Identifier.Text: "Add"
+            });
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Equal("ImmutableList", symbol.ContainingType?.Name);
+        Assert.Equal("Person", symbol.Parameters[0].Type.Name);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.ToString().Contains("Cannot convert from 'ImmutableList<Person>' to 'Person'", StringComparison.Ordinal));
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.ToString().Contains("Cannot convert from 'collection expression' to 'Person'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void InterfaceTypedReceiver_CanResolveExplicitInterfaceMember()
+    {
+        var source = """
+        import System.Collections.*
+        import System.Collections.Immutable.*
+
+        record Person(val Name: string)
+
+        func Test() -> int {
+            val people = [Person("Alice")]
+            val values: IList = people
+            return values.Add(Person("Test"))
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static i => i.Expression is MemberAccessExpressionSyntax
+            {
+                Name.Identifier.Text: "Add"
+            });
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Equal("IList", symbol.ContainingType?.Name);
+        Assert.Equal("object?", symbol.Parameters[0].Type.Name);
+        Assert.Equal(SpecialType.System_Int32, symbol.ReturnType.SpecialType);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1014");
+    }
+
+    [Fact]
+    public void ConcreteReceiver_DoesNotSeeSourceDefinedExplicitInterfaceMember()
+    {
+        var source = """
+        interface ILogger {
+            func Log(message: string) -> string
+        }
+
+        class QuietLogger : ILogger {
+            func ILogger.Log(message: string) -> string {
+                return "[quiet]"
+            }
+        }
+
+        func Test() -> string {
+            val logger = QuietLogger()
+            return logger.Log("hi")
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static i => i.Expression is MemberAccessExpressionSyntax
+            {
+                Name.Identifier.Text: "Log"
+            });
+
+        var info = model.GetSymbolInfo(invocation);
+        Assert.Null(info.Symbol);
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0117");
+    }
+
+    [Fact]
     public void OverloadResolutionPriority_PrefersHigherPrioritySourceMethod()
     {
         var source = """
