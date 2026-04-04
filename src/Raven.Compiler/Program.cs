@@ -1032,8 +1032,8 @@ if (!noEmit)
     else
     {
         var pdbFilePath = Path.ChangeExtension(outputFilePath, ".pdb");
-        var tempOutputFilePath = outputFilePath + ".tmp";
-        var tempPdbFilePath = pdbFilePath + ".tmp";
+        var tempOutputFilePath = CreateTemporaryOutputPath(outputFilePath);
+        var tempPdbFilePath = CreateTemporaryOutputPath(pdbFilePath);
 
         TryDeleteFile(tempOutputFilePath);
         TryDeleteFile(tempPdbFilePath);
@@ -1074,6 +1074,16 @@ static void ReplaceFile(string sourcePath, string destinationPath)
         File.Delete(destinationPath);
         File.Move(sourcePath, destinationPath);
     }
+}
+
+static string CreateTemporaryOutputPath(string destinationPath)
+{
+    var directory = Path.GetDirectoryName(destinationPath);
+    var fileName = Path.GetFileName(destinationPath);
+    var uniqueSuffix = $".{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
+    return directory is null
+        ? fileName + uniqueSuffix
+        : Path.Combine(directory, fileName + uniqueSuffix);
 }
 
 static void TryDeleteFile(string path)

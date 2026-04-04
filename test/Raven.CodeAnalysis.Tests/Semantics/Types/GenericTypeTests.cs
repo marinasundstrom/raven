@@ -151,4 +151,56 @@ public class GenericTypeTests : CompilationTestBase
         Assert.Same(inner.TypeParameters[0], bField.Type);
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void LookupType_PrefersNonGenericTypeWhenSameNameExistsWithDifferentArities()
+    {
+        var source = """
+            class Test {}
+            class Test<T> {}
+            class Test<T, U> {}
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.GetSemanticModel(compilation.SyntaxTrees.Single());
+
+        var resolved = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SourceGlobalNamespace.LookupType("Test"));
+
+        Assert.Equal(0, resolved.Arity);
+        Assert.Equal("Test", resolved.MetadataName);
+    }
+
+    [Fact]
+    public void LookupType_ReturnsGenericTypeWhenItIsTheOnlyMatchingArity()
+    {
+        var source = """
+            class List<T> {
+                init() {}
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.GetSemanticModel(compilation.SyntaxTrees.Single());
+
+        var resolved = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SourceGlobalNamespace.LookupType("List"));
+
+        Assert.Equal(1, resolved.Arity);
+        Assert.Equal("List`1", resolved.MetadataName);
+    }
+
+    [Fact]
+    public void LookupType_ReturnsNullWhenOnlyMultipleGenericAritiesExist()
+    {
+        var source = """
+            class Test<T> {}
+            class Test<T, U> {}
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.GetSemanticModel(compilation.SyntaxTrees.Single());
+
+        Assert.Null(compilation.SourceGlobalNamespace.LookupType("Test"));
+    }
 }

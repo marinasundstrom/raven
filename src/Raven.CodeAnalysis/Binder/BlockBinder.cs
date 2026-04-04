@@ -8452,8 +8452,8 @@ partial class BlockBinder : Binder
         }
         else if (syntax.Expression is IdentifierNameSyntax id)
         {
-            var symbol = LookupSymbol(id.Identifier.ValueText);
-            if (symbol is null)
+            var boundIdentifier = BindIdentifierName(id, allowEventAccess: true);
+            if (IsErrorExpression(boundIdentifier))
             {
                 var unionCaseCandidates = LookupUnionCaseTypeCandidates(id.Identifier.ValueText);
                 if (unionCaseCandidates.Length > 1)
@@ -8473,12 +8473,6 @@ partial class BlockBinder : Binder
                 methodName = id.Identifier.ValueText;
                 return BindInvocationExpressionCore(receiver, methodName, syntax.ArgumentList, syntax.Expression, syntax);
             }
-
-            var boundIdentifier = BindIdentifierName(id, allowEventAccess: true);
-            if (IsErrorExpression(boundIdentifier))
-                return boundIdentifier is BoundErrorExpression boundError
-                    ? boundError
-                    : new BoundErrorExpression(boundIdentifier.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
 
             if (boundIdentifier is BoundMethodGroupExpression methodGroup)
                 return BindInvocationOnMethodGroup(methodGroup, syntax);
@@ -8505,7 +8499,7 @@ partial class BlockBinder : Binder
 
                 return BindInvokedUnionCaseExpression(unionCaseCallee, syntax);
             }
-            else if (boundIdentifier is BoundLocalAccess or BoundParameterAccess or BoundFieldAccess or BoundPropertyAccess)
+            else if (IsInvocableValueReceiver(boundIdentifier))
             {
                 receiver = boundIdentifier;
                 methodName = "Invoke";
@@ -8608,6 +8602,16 @@ partial class BlockBinder : Binder
         }
 
         return BindInvocationExpressionCore(receiver, methodName, syntax.ArgumentList, syntax.Expression, syntax);
+    }
+
+    private static bool IsInvocableValueReceiver(BoundExpression expression)
+    {
+        return expression switch
+        {
+            BoundLocalAccess or BoundParameterAccess or BoundFieldAccess or BoundPropertyAccess => true,
+            BoundConversionExpression { Expression: BoundExpression inner } => IsInvocableValueReceiver(inner),
+            _ => false,
+        };
     }
 
     private BoundExpression BindInvokedUnionCaseExpression(BoundUnionCaseExpression unionCaseCallee, InvocationExpressionSyntax syntax)

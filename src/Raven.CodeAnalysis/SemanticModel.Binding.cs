@@ -232,10 +232,11 @@ public partial class SemanticModel
             GetTypeParameterList(classDecl)?.Parameters.Count ?? 0,
             _declarationDiagnostics);
 
-        if (parentSourceNamespace is not null &&
-            parentSourceNamespace.IsMemberDefined(classDecl.Identifier.ValueText, out var existingMember) &&
-            existingMember is SourceNamedTypeSymbol existingType &&
-            existingType.TypeKind == declaredTypeKind)
+        var existingType = parentSourceNamespace is not null
+            ? FindExistingDeclaredType(parentSourceNamespace, classDecl.Identifier.ValueText, declaredTypeKind, GetDeclaredTypeParameterArity(classDecl))
+            : null;
+
+        if (existingType is not null)
         {
             var hadPartial = existingType.HasPartialModifier;
             var hadNonPartial = existingType.HasNonPartialDeclaration;
@@ -365,6 +366,28 @@ public partial class SemanticModel
         return true;
     }
 
+    private static int GetDeclaredTypeParameterArity(SyntaxNode declaration)
+    {
+        if (declaration is InterfaceDeclarationSyntax interfaceDeclaration)
+            return interfaceDeclaration.TypeParameterList?.Parameters.Count ?? 0;
+
+        if (declaration is TypeDeclarationSyntax typeDeclaration)
+            return GetTypeParameterList(typeDeclaration)?.Parameters.Count ?? 0;
+
+        return 0;
+    }
+
+    private static SourceNamedTypeSymbol? FindExistingDeclaredType(
+        INamespaceOrTypeSymbol container,
+        string name,
+        TypeKind typeKind,
+        int arity)
+    {
+        return container.GetMembers(name)
+            .OfType<SourceNamedTypeSymbol>()
+            .FirstOrDefault(type => type.TypeKind == typeKind && type.Arity == arity);
+    }
+
     private readonly record struct EffectiveMemberDeclaration(
         MemberDeclarationSyntax EffectiveSyntax,
         MemberDeclarationSyntax? OriginalSyntax = null);
@@ -484,9 +507,11 @@ public partial class SemanticModel
                         SourceNamedTypeSymbol nestedSymbol;
                         var isNewNestedSymbol = true;
 
-                        var existingNested = parentType.GetMembers(nestedClass.Identifier.ValueText)
-                            .OfType<SourceNamedTypeSymbol>()
-                            .FirstOrDefault(t => t.TypeKind == nestedTypeKind);
+                        var existingNested = FindExistingDeclaredType(
+                            parentType,
+                            nestedClass.Identifier.ValueText,
+                            nestedTypeKind,
+                            GetDeclaredTypeParameterArity(nestedClass));
 
                         if (existingNested is not null)
                         {
@@ -584,9 +609,11 @@ public partial class SemanticModel
                         var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             nestedInterface.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
-                        var existingNested = parentType.GetMembers(nestedInterface.Identifier.ValueText)
-                            .OfType<SourceNamedTypeSymbol>()
-                            .FirstOrDefault(t => t.TypeKind == TypeKind.Interface);
+                        var existingNested = FindExistingDeclaredType(
+                            parentType,
+                            nestedInterface.Identifier.ValueText,
+                            TypeKind.Interface,
+                            GetDeclaredTypeParameterArity(nestedInterface));
                         SourceNamedTypeSymbol nestedInterfaceSymbol;
 
                         if (existingNested is not null)
@@ -801,10 +828,11 @@ public partial class SemanticModel
             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
 
         var parentSourceNamespace = parentNamespace.AsSourceNamespace();
-        if (parentSourceNamespace is not null &&
-            parentSourceNamespace.IsMemberDefined(interfaceDecl.Identifier.ValueText, out var existingMember) &&
-            existingMember is SourceNamedTypeSymbol existingType &&
-            existingType.TypeKind == TypeKind.Interface)
+        var existingType = parentSourceNamespace is not null
+            ? FindExistingDeclaredType(parentSourceNamespace, interfaceDecl.Identifier.ValueText, TypeKind.Interface, GetDeclaredTypeParameterArity(interfaceDecl))
+            : null;
+
+        if (existingType is not null)
         {
             var hadPartial = existingType.HasPartialModifier;
             var hadNonPartial = existingType.HasNonPartialDeclaration;

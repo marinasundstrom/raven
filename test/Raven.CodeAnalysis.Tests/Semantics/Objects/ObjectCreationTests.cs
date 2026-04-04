@@ -236,6 +236,36 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void GenericTypeInvocation_WithCompetingNonGenericType_DoesNotInferGenericFromTargetType()
+    {
+        string testCode =
+            """
+            func Main() -> () {
+                val concrete = Test()
+                val generic: Test<int> = Test()
+            }
+
+            class Test {
+                init() {}
+            }
+
+            class Test<T> {
+                init() {}
+            }
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id)
+                    .WithAnySpan()
+                    .WithArguments("Test", "Test<int>")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void GenericUnionInvocation_WithoutTargetType_DoesNotInferUnusedTypeArguments()
     {
         string testCode =

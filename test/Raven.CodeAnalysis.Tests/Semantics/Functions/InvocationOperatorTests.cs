@@ -110,4 +110,36 @@ class VirtualDerived : VirtualBase {
         Assert.True(virtualBaseSymbol.IsVirtual);
         Assert.False(virtualBaseSymbol.IsOverride);
     }
+
+    [Fact]
+    public void InvocationOperator_AfterNotNullCheck_BindsToInvokeMethod()
+    {
+        var source = """
+class Foo {
+    public func self(value: int) -> int {
+        return value + 1;
+    }
+}
+
+func test(foo: Foo?) -> int {
+    if foo is not null {
+        return foo(2)
+    }
+
+    return 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal("Invoke", symbol.Name);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            d => d.Severity == DiagnosticSeverity.Error &&
+                 d.Descriptor != CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
+    }
 }

@@ -46,7 +46,7 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
         _members.OfType<INamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
 
     public ITypeSymbol? LookupType(string name) =>
-        _members.OfType<ITypeSymbol>().FirstOrDefault(t => t.Name == name);
+        TypeLookupUtilities.SelectBestTypeByName(_members.OfType<ITypeSymbol>().Where(t => t.Name == name));
 
     public override string ToString() => IsGlobalNamespace ? "<global>" : ToMetadataName();
 

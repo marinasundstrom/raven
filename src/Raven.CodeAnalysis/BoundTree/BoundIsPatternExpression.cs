@@ -903,25 +903,24 @@ internal partial class BlockBinder
             return false;
         }
 
-        var candidateSymbol = LookupType(identifier.Identifier.ValueText);
-        if (candidateSymbol is not INamedTypeSymbol candidateNamed)
-            return false;
-
-        var candidateDefinition = NormalizeDefinition(candidateNamed);
         var inputDefinition = (inputNamed.OriginalDefinition as INamedTypeSymbol) ?? inputNamed;
-
-        if (!SymbolEqualityComparer.Default.Equals(candidateDefinition, inputDefinition))
-            return false;
-
-        if (candidateDefinition.Arity == 0 ||
-            inputNamed.TypeArguments.IsDefaultOrEmpty ||
-            inputNamed.TypeArguments.Length != candidateDefinition.Arity)
+        foreach (var candidateDefinition in LookupNamedTypeCandidates(identifier.Identifier.ValueText))
         {
-            return false;
+            if (!SymbolEqualityComparer.Default.Equals(candidateDefinition, inputDefinition))
+                continue;
+
+            if (candidateDefinition.Arity == 0 ||
+                inputNamed.TypeArguments.IsDefaultOrEmpty ||
+                inputNamed.TypeArguments.Length != candidateDefinition.Arity)
+            {
+                return false;
+            }
+
+            inferredType = inputNamed;
+            return true;
         }
 
-        inferredType = inputNamed;
-        return true;
+        return false;
     }
 
     private ITypeSymbol InferDeclarationPatternTypeFromInput(ITypeSymbol declaredType, ITypeSymbol inputType)

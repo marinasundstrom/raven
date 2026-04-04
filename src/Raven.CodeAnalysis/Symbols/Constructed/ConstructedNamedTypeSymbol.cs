@@ -1058,13 +1058,11 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
     public ITypeSymbol? LookupType(string name)
     {
-        foreach (var member in _originalDefinition.GetMembers(name))
-        {
-            if (member is INamedTypeSymbol namedType)
-                return SubstituteNamedType(namedType);
-        }
-
-        return null;
+        return TypeLookupUtilities.SelectBestTypeByName(
+            _originalDefinition.GetMembers(name)
+                .OfType<INamedTypeSymbol>()
+                .Select(SubstituteNamedType)
+                .Cast<ITypeSymbol>());
     }
 
     public string ToFullyQualifiedMetadataName()

@@ -151,4 +151,65 @@ public union Result<T> {
         Assert.NotNull(conversion.ConstructorSymbol);
 
     }
+
+    [Fact]
+    public void LocalGenericUnion_ShadowsImportedMetadataUnionOfSameArity()
+    {
+        const string metadataSource = """
+namespace System {
+    public union Result<TOk, TError> {
+        Ok(value: TOk)
+        Error(error: TError)
+    }
+}
+""";
+
+        var metadataTree = SyntaxTree.ParseText(metadataSource);
+        var metadataCompilation = CreateCompilation(
+            metadataTree,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            assemblyName: "MetadataResult2");
+
+        metadataCompilation.EnsureSetup();
+
+        using var metadataStream = new MemoryStream();
+        var metadataEmit = metadataCompilation.Emit(metadataStream);
+        Assert.True(metadataEmit.Success, string.Join(Environment.NewLine, metadataEmit.Diagnostics.Select(d => d.ToString())));
+
+        var metadataReference = MetadataReference.CreateFromImage(metadataStream.ToArray());
+
+        const string source = """
+import System.*
+
+val first : Result<int, string> = .Success(1)
+val second : Result<int, string> = .Error(2, "Bang!")
+
+func describe(result: Result<int, string>) -> string {
+    return result match {
+        Success(42) => "Yay!"
+        Success(val value) => "Result: '$value'"
+        Error(2, val error) => "$error (!!!)"
+        Error(val code, val error) => "$error ($code)"
+    }
+}
+
+public union Result<TSuccess, TError> {
+    Success(success: TSuccess)
+    Error(code: int, error: TError)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication),
+            references: [.. TestMetadataReferences.Default, metadataReference]);
+
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(static d => d.Severity == DiagnosticSeverity.Error)
+            .ToArray();
+
+        Assert.Empty(diagnostics);
+    }
 }

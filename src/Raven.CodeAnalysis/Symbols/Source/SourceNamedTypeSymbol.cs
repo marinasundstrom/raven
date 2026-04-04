@@ -194,7 +194,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     }
 
     public ITypeSymbol? LookupType(string name) =>
-        _members.OfType<INamedTypeSymbol>().FirstOrDefault(t => t.Name == name);
+        TypeLookupUtilities.SelectBestTypeByName(_members.OfType<ITypeSymbol>().Where(t => t.Name == name));
 
     internal void AddMember(ISymbol member)
     {

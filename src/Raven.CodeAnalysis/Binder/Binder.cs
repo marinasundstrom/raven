@@ -325,6 +325,28 @@ internal abstract partial class Binder
         return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
     }
 
+    protected IEnumerable<INamedTypeSymbol> LookupNamedTypeCandidates(string name)
+    {
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var symbol in LookupSymbols(name))
+        {
+            if (symbol is not INamedTypeSymbol named)
+                continue;
+
+            var normalized = NormalizeDefinition(named);
+            if (IsSymbolAccessible(normalized) && seen.Add(normalized))
+                yield return normalized;
+        }
+
+        if (LookupType(name) is INamedTypeSymbol fallback)
+        {
+            var normalized = NormalizeDefinition(fallback);
+            if (IsSymbolAccessible(normalized) && seen.Add(normalized))
+                yield return normalized;
+        }
+    }
+
     protected static IEnumerable<ISymbol> EnumerateTypeAndBaseMembers(INamedTypeSymbol containingType, string name)
     {
         for (var current = containingType; current is not null; current = current.BaseType)
@@ -1878,24 +1900,7 @@ internal abstract partial class Binder
 
     protected INamedTypeSymbol? FindAccessibleNamedType(string name, int arity)
     {
-        foreach (var symbol in LookupSymbols(name))
-        {
-            if (symbol is INamedTypeSymbol named)
-            {
-                var candidate = NormalizeDefinition(named);
-                if (candidate.Arity == arity && IsSymbolAccessible(candidate))
-                    return candidate;
-            }
-        }
-
-        if (LookupType(name) is INamedTypeSymbol fallback)
-        {
-            var candidate = NormalizeDefinition(fallback);
-            if (candidate.Arity == arity && IsSymbolAccessible(candidate))
-                return candidate;
-        }
-
-        return null;
+        return TypeLookupUtilities.SelectBestNamedTypeByArity(LookupNamedTypeCandidates(name), arity);
     }
 
     protected static INamedTypeSymbol NormalizeDefinition(INamedTypeSymbol named)
@@ -2240,19 +2245,7 @@ internal abstract partial class Binder
 
     private INamedTypeSymbol? FindNamedTypeForGeneric(GenericNameSyntax generic, int arity)
     {
-        var symbol = LookupType(generic.Identifier.ValueText) as INamedTypeSymbol;
-        if (symbol is not null)
-        {
-            symbol = NormalizeDefinition(symbol);
-            if (symbol.Arity != arity)
-                symbol = FindAccessibleNamedType(generic.Identifier.ValueText, arity);
-        }
-        else
-        {
-            symbol = FindAccessibleNamedType(generic.Identifier.ValueText, arity);
-        }
-
-        return symbol;
+        return FindAccessibleNamedType(generic.Identifier.ValueText, arity);
     }
 
     protected bool IsValidAsyncReturnType(ITypeSymbol? type)

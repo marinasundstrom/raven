@@ -77,7 +77,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
         EnsureMembersLoaded();
         ITypeSymbol? type;
         lock (_membersGate)
-            type = _members.OfType<ITypeSymbol>().FirstOrDefault(t => t.Name == name);
+            type = TypeLookupUtilities.SelectBestTypeByName(_members.OfType<ITypeSymbol>().Where(t => t.Name == name));
         if (type != null)
             return type;
 

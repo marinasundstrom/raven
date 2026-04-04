@@ -144,14 +144,11 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 
     public ITypeSymbol? LookupType(string name)
     {
-        foreach (var ns in _namespaces)
-        {
-            var type = ns.LookupType(name);
-            if (type is not null)
-                return type;
-        }
-
-        return null;
+        return TypeLookupUtilities.SelectBestTypeByName(
+            _namespaces
+                .Select(ns => ns.LookupType(name))
+                .Where(static type => type is not null)!
+                .Cast<ITypeSymbol>());
     }
 
     public string ToMetadataName()
