@@ -153,26 +153,45 @@ internal sealed class WorkspaceManager
         }
 
         var stack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            foreach (var projectFilePath in projectFilePaths)
-                _ = OpenProjectWithReferences(projectFilePath, projectSystem, loadedProjects, stack);
+        var loadedProjectPathsForRoot = new List<string>();
 
-            var primaryProjectPath = SelectPrimaryProjectPath(root, projectFilePaths);
-            projectId = loadedProjects[NormalizePath(primaryProjectPath)];
-            _logger.LogInformation(
-                "Opened {ProjectCount} Raven project(s) for root '{Root}'. Primary project: '{ProjectFilePath}'.",
-                loadedProjects.Count,
-                root,
-                primaryProjectPath);
-            return true;
-        }
-        catch (Exception ex)
+        foreach (var projectFilePath in projectFilePaths)
         {
-            _logger.LogWarning(ex, "Failed to open Raven project(s) for root '{Root}'. Falling back to inferred workspace.", root);
+            try
+            {
+                _ = OpenProjectWithReferences(projectFilePath, projectSystem, loadedProjects, stack);
+                loadedProjectPathsForRoot.Add(projectFilePath);
+            }
+            catch (Exception ex)
+            {
+                stack.Remove(NormalizePath(projectFilePath));
+                _logger.LogWarning(
+                    ex,
+                    "Failed to open Raven project '{ProjectFilePath}' for root '{Root}'. Continuing with remaining projects.",
+                    projectFilePath,
+                    root);
+            }
+        }
+
+        var successfullyLoadedCandidates = projectFilePaths
+            .Where(path => loadedProjects.ContainsKey(NormalizePath(path)))
+            .ToArray();
+
+        if (successfullyLoadedCandidates.Length == 0)
+        {
+            _logger.LogWarning("Failed to open any Raven project(s) for root '{Root}'. Falling back to inferred workspace.", root);
             projectId = default;
             return false;
         }
+
+        var primaryProjectPath = SelectPrimaryProjectPath(root, successfullyLoadedCandidates);
+        projectId = loadedProjects[NormalizePath(primaryProjectPath)];
+        _logger.LogInformation(
+            "Opened {ProjectCount} Raven project(s) for root '{Root}'. Primary project: '{ProjectFilePath}'.",
+            successfullyLoadedCandidates.Length,
+            root,
+            primaryProjectPath);
+        return true;
     }
 
     private ProjectId OpenProjectWithReferences(

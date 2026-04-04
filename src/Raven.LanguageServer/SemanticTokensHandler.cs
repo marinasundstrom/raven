@@ -51,7 +51,6 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
     private readonly DocumentStore _documents;
     private readonly ILogger<SemanticTokensHandler> _logger;
-    private readonly ConcurrentDictionary<string, SemanticTokensDocument> _tokenDocuments = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<SemanticTokensCacheKey, SemanticTokenEntry[]> _tokenEntryCache = new();
 
     public SemanticTokensHandler(DocumentStore documents, ILogger<SemanticTokensHandler> logger)
@@ -72,9 +71,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
     protected override async Task<SemanticTokensDocument> GetSemanticTokensDocument(ITextDocumentIdentifierParams @params, CancellationToken cancellationToken)
     {
         await Task.CompletedTask.ConfigureAwait(false);
-        return _tokenDocuments.GetOrAdd(
-            @params.TextDocument.Uri.ToString(),
-            static _ => new SemanticTokensDocument(Legend));
+        return new SemanticTokensDocument(Legend);
     }
 
     protected override async Task Tokenize(SemanticTokensBuilder builder, ITextDocumentIdentifierParams identifier, CancellationToken cancellationToken)

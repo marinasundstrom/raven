@@ -237,6 +237,63 @@ class MacroPlugin { }
     }
 
     [Fact]
+    public async Task Initialize_ProjectOpenFailureInSiblingProject_DoesNotPreventDiagnosticsForHealthyProjectAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var appProjectPath = WriteProject(Path.Combine(_tempRoot, "app"), "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(_tempRoot, "app", "src", "main.rvn"), """
+func Main() -> unit {
+    WriteLine(test)
+}
+""");
+
+        _ = WriteProject(Path.Combine(_tempRoot, "broken"), "Broken", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(_tempRoot, "broken", "src", "main.rvn"), """
+func Main() -> unit { }
+""");
+
+        var projectSystem = new ThrowingProjectSystemService(
+            new RavenProjectSystemService(),
+            failingProjectPath: Path.Combine(_tempRoot, "broken", "Broken.rvnproj"));
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var appUri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "app", "src", "main.rvn"));
+        _ = store.UpsertDocument(appUri, File.ReadAllText(Path.Combine(_tempRoot, "app", "src", "main.rvn")));
+
+        var diagnostics = await store.GetDiagnosticsAsync(appUri, CancellationToken.None);
+        diagnostics.Any(d => d.Code?.String == "RAV0103").ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task UpdatingMacroProjectDocument_RefreshesConsumingProjectMacroExpansionAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -772,5 +829,34 @@ class AnswerMacro: IFreestandingExpressionMacro {
         {
             context.RegisterRefactoring(CodeFixAction.Create("Test refactoring", static (solution, _) => solution));
         }
+    }
+
+    private sealed class ThrowingProjectSystemService : IProjectSystemService
+    {
+        private readonly IProjectSystemService _inner;
+        private readonly string _failingProjectPath;
+
+        public ThrowingProjectSystemService(IProjectSystemService inner, string failingProjectPath)
+        {
+            _inner = inner;
+            _failingProjectPath = Path.GetFullPath(failingProjectPath);
+        }
+
+        public bool CanOpenProject(string projectFilePath)
+            => _inner.CanOpenProject(projectFilePath);
+
+        public IReadOnlyList<string> GetProjectReferencePaths(string projectFilePath)
+            => _inner.GetProjectReferencePaths(projectFilePath);
+
+        public ProjectId OpenProject(Workspace workspace, string projectFilePath)
+        {
+            if (string.Equals(Path.GetFullPath(projectFilePath), _failingProjectPath, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Synthetic project open failure.");
+
+            return _inner.OpenProject(workspace, projectFilePath);
+        }
+
+        public void SaveProject(Project project, string filePath)
+            => _inner.SaveProject(project, filePath);
     }
 }

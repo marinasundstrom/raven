@@ -172,6 +172,117 @@ func Main(value) -> unit {
         }
     }
 
+    [Fact]
+    public async Task SemanticTokens_RangeRequest_AfterDocumentUpdate_DoesNotReturnShiftedTokensAsync()
+    {
+        const string initialCode = """
+func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
+    val dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
+
+    if dtoResult is Ok(val value) {
+        if value is not null {
+            return ValidateBatch(value)
+        }
+    }
+
+    if dtoResult is Error(Exception ex) {
+        return InvalidFeedResult("Feed JSON could not be parsed: ${ex.Message}")
+    }
+
+    return InvalidFeedResult("Feed JSON resolved to null")
+}
+""";
+
+        const string updatedCode = """
+func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
+    val dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
+
+    // inserted comment to shift later token positions
+    if dtoResult is Ok(val value) {
+        if value is not null {
+            return ValidateBatch(value)
+        }
+    }
+
+    if dtoResult is Error(Exception ex) {
+        return InvalidFeedResult("Feed JSON could not be parsed: ${ex.Message}")
+    }
+
+    return InvalidFeedResult("Feed JSON resolved to null")
+}
+""";
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-semantic-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var projectPath = Path.Combine(tempRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+            var documentPath = Path.Combine(tempRoot, "src", "main.rvn");
+            Directory.CreateDirectory(Path.GetDirectoryName(documentPath)!);
+            File.WriteAllText(documentPath, initialCode);
+
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "temp",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
+
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(documentPath);
+            store.UpsertDocument(uri, initialCode);
+
+            var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+            var initialResult = await handler.Handle(new SemanticTokensRangeParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(0, 0), new Position(13, 0))
+            }, CancellationToken.None);
+
+            initialResult.ShouldNotBeNull();
+
+            store.UpsertDocument(uri, updatedCode);
+
+            var updatedResult = await handler.Handle(new SemanticTokensRangeParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(0, 0), new Position(14, 0))
+            }, CancellationToken.None);
+
+            updatedResult.ShouldNotBeNull();
+
+            var decoded = Decode(updatedCode, updatedResult.Data, SemanticTokensHandler.Legend);
+
+            Find(decoded, 4, "if").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 4, "is").Type.ShouldBe(SemanticTokenType.Operator);
+            Find(decoded, 5, "if").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 5, "is").Type.ShouldBe(SemanticTokenType.Operator);
+            Find(decoded, 10, "if").Type.ShouldBe(SemanticTokenType.Keyword);
+            decoded.Any(token => token.Text == "}" && token.Line is 7 or 8 or 13).ShouldBeFalse();
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
     private static DecodedToken Find(ImmutableArray<DecodedToken> tokens, int line, string text)
     {
         var token = tokens.FirstOrDefault(token => token.Line == line && token.Text == text);
