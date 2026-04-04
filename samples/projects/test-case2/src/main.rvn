@@ -1,13 +1,13 @@
 import System.*
 import System.Console.*
 
-val people = [
+var people = [
     Person("Alice", 25, [ "Horse", "Saddle" ])
     Person("John", 18, [ "Keys", "Wallet" ])
     Person("Jane", 15, [ "Sunglasses", "Purse" ])
 ]
 
-people.Add([Person("Test", 30, [])])
+people = people.Add(Person("Test", 30, ["A", "B"]))
 
 for val (name, age when > 15, [ item1, item2 ]) in people {
     WriteLine("$name ($age) has $item1 and $item2")
