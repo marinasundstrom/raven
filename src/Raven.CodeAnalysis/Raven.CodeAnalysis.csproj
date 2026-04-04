@@ -6,6 +6,7 @@
     <!-- <WarningsAsErrors>Nullable</WarningsAsErrors> -->
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <NoWarn>CS8669,CS1591,CS1574</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup>
