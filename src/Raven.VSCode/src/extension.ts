@@ -8,6 +8,7 @@ import { CloseAction, ErrorAction, LanguageClient, LanguageClientOptions, Server
 
 let client: LanguageClient | undefined;
 let clientStopPromise: Promise<void> | undefined;
+let clientStartPromise: Promise<void> | undefined;
 const execFileAsync = promisify(execFile);
 const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
@@ -78,6 +79,161 @@ async function stopClient(reason: string): Promise<void> {
   });
 
   return clientStopPromise;
+}
+
+function createLanguageClient(context: vscode.ExtensionContext): LanguageClient {
+  let serverPath: string;
+  try {
+    serverPath = resolveServerPath(context, output);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    output.appendLine(message);
+    output.show(true);
+    throw new Error(`Raven: ${message}`);
+  }
+
+  let isolatedServerPath: string;
+  try {
+    isolatedServerPath = stageServerForIsolatedLaunch(context, serverPath);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    output.appendLine(`Failed to stage isolated language server: ${message}`);
+    output.show(true);
+    throw new Error(`Raven: Failed to stage isolated language server: ${message}`);
+  }
+
+  output.appendLine(`Using language server: ${serverPath}`);
+  output.appendLine(`Using isolated language server: ${isolatedServerPath}`);
+
+  const runCommand = {
+    command: 'dotnet',
+    args: [isolatedServerPath],
+    options: {
+      cwd: path.dirname(isolatedServerPath)
+    }
+  };
+
+  const serverOptions: ServerOptions = {
+    run: runCommand,
+    debug: runCommand
+  };
+
+  const clientOptions: LanguageClientOptions = {
+    documentSelector: [{ scheme: 'file', language: 'raven' }],
+    synchronize: {
+      configurationSection: 'raven',
+      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav,rvnproj,csproj,fsproj}')
+    },
+    outputChannel: output,
+    traceOutputChannel: output,
+    errorHandler: {
+      error(error, message, count) {
+        const errorMessage = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+        const messageSummary = message ? JSON.stringify(message) : '<none>';
+        appendLifecycleLog(
+          `Language client transport error: error=${errorMessage} message=${messageSummary} count=${count ?? '<none>'}`
+        );
+        return { action: ErrorAction.Continue };
+      },
+      closed() {
+        appendLifecycleLog('Language client transport closed.');
+        return { action: CloseAction.DoNotRestart };
+      }
+    },
+    middleware: {
+      async sendRequest(type, param, token, next) {
+        const method = formatRequestType(type);
+        const interesting =
+          method === 'textDocument/hover' ||
+          method === 'textDocument/semanticTokens/full' ||
+          method === 'textDocument/semanticTokens/range' ||
+          method === 'textDocument/documentSymbol' ||
+          method === 'textDocument/documentDiagnostic' ||
+          method === 'workspace/diagnostic';
+
+        const startedAt = Date.now();
+        if (interesting) {
+          appendLifecycleLog(`Request started: ${method}`);
+        }
+
+        try {
+          const result = await next(type, param, token);
+          if (interesting) {
+            appendLifecycleLog(`Request completed: ${method} in ${Date.now() - startedAt}ms.`);
+          }
+
+          return result;
+        } catch (error) {
+          const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+          if (interesting) {
+            appendLifecycleLog(`Request failed: ${method} after ${Date.now() - startedAt}ms: ${message}`);
+          }
+
+          throw error;
+        }
+      },
+      async sendNotification(type, next, params) {
+        const method = formatRequestType(type);
+        const interesting =
+          method === 'textDocument/didOpen' ||
+          method === 'textDocument/didChange' ||
+          method === 'textDocument/didSave' ||
+          method === 'textDocument/didClose';
+
+        if (interesting) {
+          appendLifecycleLog(`Notification sent: ${method}`);
+        }
+
+        return next(type, params);
+      }
+    }
+  };
+
+  const createdClient = new LanguageClient(
+    'ravenLanguageServer',
+    'Raven Language Server',
+    serverOptions,
+    clientOptions
+  );
+  createdClient.onDidChangeState(logStateChange);
+  createdClient.setTrace(Trace.Verbose);
+  appendLifecycleLog('Language client trace level set to Verbose.');
+  return createdClient;
+}
+
+async function startClient(context: vscode.ExtensionContext, reason: string): Promise<void> {
+  if (clientStartPromise) {
+    appendLifecycleLog(`startClient(${reason}) joined existing start operation.`);
+    return clientStartPromise;
+  }
+
+  clientStartPromise = (async () => {
+    if (client) {
+      appendLifecycleLog(`startClient(${reason}) skipped: client already active.`);
+      return;
+    }
+
+    try {
+      client = createLanguageClient(context);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(message);
+      throw error;
+    }
+
+    appendLifecycleLog(`Starting language client (${reason}).`);
+    await client.start();
+  })().finally(() => {
+    clientStartPromise = undefined;
+  });
+
+  return clientStartPromise;
+}
+
+async function restartClient(context: vscode.ExtensionContext, reason: string): Promise<void> {
+  appendLifecycleLog(`restartClient(${reason}) requested.`);
+  await stopClient(`restart:${reason}`);
+  await startClient(context, `restart:${reason}`);
 }
 
 class RavenDocumentationContentProvider implements vscode.TextDocumentContentProvider {
@@ -719,125 +875,6 @@ export function activate(context: vscode.ExtensionContext): void {
   output.appendLine('Activating Raven VS Code extension...');
   appendLifecycleLog(`Extension activate() called. extensionPath=${context.extensionPath}`);
 
-  let serverPath: string;
-  try {
-    serverPath = resolveServerPath(context, output);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    output.appendLine(message);
-    output.show(true);
-    void vscode.window.showErrorMessage(`Raven: ${message}`);
-    return;
-  }
-
-  let isolatedServerPath: string;
-  try {
-    isolatedServerPath = stageServerForIsolatedLaunch(context, serverPath);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    output.appendLine(`Failed to stage isolated language server: ${message}`);
-    output.show(true);
-    void vscode.window.showErrorMessage(`Raven: Failed to stage isolated language server: ${message}`);
-    return;
-  }
-
-  output.appendLine(`Using language server: ${serverPath}`);
-  output.appendLine(`Using isolated language server: ${isolatedServerPath}`);
-
-  const runCommand = {
-    command: 'dotnet',
-    args: [isolatedServerPath],
-    options: {
-      cwd: path.dirname(isolatedServerPath)
-    }
-  };
-
-  const serverOptions: ServerOptions = {
-    run: runCommand,
-    debug: runCommand
-  };
-
-  const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ scheme: 'file', language: 'raven' }],
-    synchronize: {
-      configurationSection: 'raven',
-      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav,rvnproj,csproj,fsproj}')
-    },
-    outputChannel: output,
-    traceOutputChannel: output,
-    errorHandler: {
-      error(error, message, count) {
-        const errorMessage = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-        const messageSummary = message ? JSON.stringify(message) : '<none>';
-        appendLifecycleLog(
-          `Language client transport error: error=${errorMessage} message=${messageSummary} count=${count ?? '<none>'}`
-        );
-        return { action: ErrorAction.Continue };
-      },
-      closed() {
-        appendLifecycleLog('Language client transport closed.');
-        return { action: CloseAction.DoNotRestart };
-      }
-    },
-    middleware: {
-      async sendRequest(type, param, token, next) {
-        const method = formatRequestType(type);
-        const interesting =
-          method === 'textDocument/hover' ||
-          method === 'textDocument/semanticTokens/full' ||
-          method === 'textDocument/semanticTokens/range' ||
-          method === 'textDocument/documentSymbol' ||
-          method === 'textDocument/documentDiagnostic' ||
-          method === 'workspace/diagnostic';
-
-        const startedAt = Date.now();
-        if (interesting) {
-          appendLifecycleLog(`Request started: ${method}`);
-        }
-
-        try {
-          const result = await next(type, param, token);
-          if (interesting) {
-            appendLifecycleLog(`Request completed: ${method} in ${Date.now() - startedAt}ms.`);
-          }
-
-          return result;
-        } catch (error) {
-          const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-          if (interesting) {
-            appendLifecycleLog(`Request failed: ${method} after ${Date.now() - startedAt}ms: ${message}`);
-          }
-
-          throw error;
-        }
-      },
-      async sendNotification(type, next, params) {
-        const method = formatRequestType(type);
-        const interesting =
-          method === 'textDocument/didOpen' ||
-          method === 'textDocument/didChange' ||
-          method === 'textDocument/didSave' ||
-          method === 'textDocument/didClose';
-
-        if (interesting) {
-          appendLifecycleLog(`Notification sent: ${method}`);
-        }
-
-        return next(type, params);
-      }
-    }
-  };
-
-  client = new LanguageClient(
-    'ravenLanguageServer',
-    'Raven Language Server',
-    serverOptions,
-    clientOptions
-  );
-  client.onDidChangeState(logStateChange);
-  client.setTrace(Trace.Verbose);
-  appendLifecycleLog('Language client trace level set to Verbose.');
-
   // Ensure VS Code disposes the client on shutdown.
   context.subscriptions.push({
     dispose: () => {
@@ -846,9 +883,16 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   });
 
-  // Start the language client.
-  appendLifecycleLog('Starting language client.');
-  void client.start();
+  void startClient(context, 'activate');
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(event => {
+      const added = event.added.map(folder => folder.uri.fsPath).join(', ') || '<none>';
+      const removed = event.removed.map(folder => folder.uri.fsPath).join(', ') || '<none>';
+      appendLifecycleLog(`Workspace folders changed. added=${added} removed=${removed}`);
+      void restartClient(context, 'workspace folders changed');
+    })
+  );
 
   const debugConfigurationProvider = new RavenDebugConfigurationProvider();
   context.subscriptions.push(
