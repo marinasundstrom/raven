@@ -254,6 +254,11 @@
           "default": "",
           "description": "Full path to Raven.LanguageServer.dll. Leave empty to auto-discover a sibling 'server/Raven.LanguageServer.dll' next to the extension or a workspace copy under src/Raven.LanguageServer/bin/Debug/net10.0."
         },
+        "raven.sdkPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional path to a Raven SDK directory containing bundled tools and assemblies such as Raven.LanguageServer.dll, rvn.dll, and Raven.Core.dll. When set, the extension prefers this SDK for language-server and compiler resolution."
+        },
         "raven.compilerProjectPath": {
           "type": "string",
           "default": "",

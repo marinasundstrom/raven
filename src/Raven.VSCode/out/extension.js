@@ -124,11 +124,13 @@ function createLanguageClient(context) {
     }
     output.appendLine(`Using language server: ${serverPath}`);
     output.appendLine(`Using isolated language server: ${isolatedServerPath}`);
+    const languageServerWorkingDirectory = tryFindRepositoryRoot(serverPath) ?? path.dirname(isolatedServerPath);
+    output.appendLine(`Using language server working directory: ${languageServerWorkingDirectory}`);
     const runCommand = {
         command: 'dotnet',
         args: [isolatedServerPath],
         options: {
-            cwd: path.dirname(isolatedServerPath)
+            cwd: languageServerWorkingDirectory
         }
     };
     const serverOptions = {
@@ -271,6 +273,17 @@ function parseDocumentationUriArgument(value) {
     }
     return undefined;
 }
+function resolveConfiguredSdkPath() {
+    const configuration = vscode.workspace.getConfiguration('raven');
+    const configuredPath = configuration.get('sdkPath')?.trim();
+    if (!configuredPath) {
+        return undefined;
+    }
+    const absolutePath = path.isAbsolute(configuredPath)
+        ? configuredPath
+        : path.resolve(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? extensionInstallPath, configuredPath);
+    return fs.existsSync(absolutePath) ? absolutePath : undefined;
+}
 function resolveServerPath(context, output) {
     const configuration = vscode.workspace.getConfiguration('raven');
     const configuredPath = configuration.get('languageServerPath')?.trim();
@@ -279,6 +292,21 @@ function resolveServerPath(context, output) {
         attempts.push(configuredPath);
         if (fs.existsSync(configuredPath)) {
             return configuredPath;
+        }
+    }
+    const sdkPath = resolveConfiguredSdkPath();
+    if (sdkPath) {
+        const sdkCandidates = [
+            path.join(sdkPath, 'Raven.LanguageServer.dll'),
+            path.join(sdkPath, 'server', 'Raven.LanguageServer.dll'),
+            path.join(sdkPath, 'net10.0', 'Raven.LanguageServer.dll'),
+            path.join(sdkPath, 'net11.0', 'Raven.LanguageServer.dll')
+        ];
+        for (const candidate of sdkCandidates) {
+            attempts.push(candidate);
+            if (fs.existsSync(candidate)) {
+                return candidate;
+            }
         }
     }
     // 1) Dev/workspace copy next to the extension folder.
@@ -331,6 +359,21 @@ function stageServerForIsolatedLaunch(context, sourceServerPath) {
     }
     return targetServerPath;
 }
+function tryFindRepositoryRoot(startPath) {
+    let current = fs.statSync(startPath).isDirectory()
+        ? path.resolve(startPath)
+        : path.dirname(path.resolve(startPath));
+    while (true) {
+        if (fs.existsSync(path.join(current, 'Raven.sln'))) {
+            return current;
+        }
+        const parent = path.dirname(current);
+        if (parent === current) {
+            return undefined;
+        }
+        current = parent;
+    }
+}
 function resolveCompilerProjectPath() {
     const configuration = vscode.workspace.getConfiguration('raven');
     const configuredPath = configuration.get('compilerProjectPath')?.trim();
@@ -359,6 +402,7 @@ function resolveCompilerProjectPath() {
     return undefined;
 }
 function resolveCompilerInvocation(targetFramework) {
+    const sdkPath = resolveConfiguredSdkPath();
     const bundledRoots = extensionInstallPath.length > 0
         ? [
             path.join(extensionInstallPath, 'compiler'),
@@ -368,6 +412,33 @@ function resolveCompilerInvocation(targetFramework) {
     const preferredTfms = targetFramework
         ? [targetFramework, 'net10.0', 'net11.0']
         : ['net10.0', 'net11.0'];
+    if (sdkPath) {
+        const sdkRoots = [
+            sdkPath,
+            path.join(sdkPath, 'compiler'),
+            path.join(sdkPath, 'server')
+        ];
+        for (const root of sdkRoots) {
+            for (const tfm of preferredTfms) {
+                const tfmCandidate = path.join(root, tfm, 'rvn.dll');
+                if (fs.existsSync(tfmCandidate)) {
+                    return {
+                        executable: 'dotnet',
+                        args: [tfmCandidate],
+                        description: tfmCandidate
+                    };
+                }
+            }
+            const flatCandidate = path.join(root, 'rvn.dll');
+            if (fs.existsSync(flatCandidate)) {
+                return {
+                    executable: 'dotnet',
+                    args: [flatCandidate],
+                    description: flatCandidate
+                };
+            }
+        }
+    }
     for (const root of bundledRoots) {
         for (const tfm of preferredTfms) {
             const tfmCandidate = path.join(root, tfm, 'rvn.dll');

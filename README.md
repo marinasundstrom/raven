@@ -230,7 +230,7 @@ Repository launch presets are included in [`.vscode/launch.json`](.vscode/launch
 - `Raven: Compile and Debug (project)`
 
 The debug flow compiles with `Raven.Compiler` into `${workspaceFolder}/.raven-debug`, then launches `dotnet <output.dll>` under the debugger.
-For details and configuration options (`raven.compilerProjectPath`, `raven.languageServerPath`, `raven.targetFramework`), see [docs/compiler/raven-vscode-extension.md](docs/compiler/raven-vscode-extension.md).
+For details and configuration options (`raven.sdkPath`, `raven.compilerProjectPath`, `raven.languageServerPath`, `raven.targetFramework`), see [docs/compiler/raven-vscode-extension.md](docs/compiler/raven-vscode-extension.md).
 
 ---
 
