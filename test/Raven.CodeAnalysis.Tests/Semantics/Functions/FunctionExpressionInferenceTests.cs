@@ -374,6 +374,70 @@ class Container {
     }
 
     [Fact]
+    public void FuncLambda_WithoutReturnType_InferredFromIteratorBody()
+    {
+        const string code = """
+import System.*
+import System.Collections.Generic.*
+
+class Container {
+    func Provide() -> unit {
+        val values = func () => {
+            yield return 1
+            yield return 2
+        }
+
+        values()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+
+        var enumerableType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.ReturnType);
+        Assert.Equal(SpecialType.System_Collections_Generic_IEnumerable_T, enumerableType.OriginalDefinition.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, enumerableType.TypeArguments[0].SpecialType);
+    }
+
+    [Fact]
+    public void AsyncFuncLambda_WithoutReturnType_InferredFromIteratorBody()
+    {
+        const string code = """
+import System.*
+import System.Collections.Generic.*
+
+class Container {
+    func Provide() -> unit {
+        val values = async func () => {
+            yield return 1
+            yield return 2
+        }
+
+        values()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+
+        var enumerableType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.ReturnType);
+        Assert.Equal("IAsyncEnumerable`1", enumerableType.OriginalDefinition.MetadataName);
+        Assert.Equal(SpecialType.System_Int32, enumerableType.TypeArguments[0].SpecialType);
+    }
+
+    [Fact]
     public void FuncLambda_BlockBodyWithoutArrow_CapturesOuterVariable()
     {
         const string code = """

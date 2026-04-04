@@ -395,6 +395,90 @@ class C {
     }
 
     [Fact]
+    public void Rewrite_AttachesStateMachineMetadata_ForIteratorLambda()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+
+class C {
+    func Make() -> Func<IEnumerable<int>> {
+        val iterator: Func<IEnumerable<int>> = () -> IEnumerable<int> => {
+            yield return 1
+            yield return 2
+        }
+
+        iterator
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaSymbol = Assert.IsType<SourceLambdaSymbol>(boundLambda.Symbol);
+
+        Assert.True(lambdaSymbol.IsIterator);
+        Assert.Equal(IteratorMethodKind.Enumerable, lambdaSymbol.IteratorKind);
+
+        var owner = lambdaSymbol.ContainingSymbol ?? compilation.Assembly.GlobalNamespace;
+        _ = FunctionExpressionLowerer.Rewrite(boundLambda, owner);
+
+        var stateMachine = Assert.IsType<SynthesizedIteratorTypeSymbol>(lambdaSymbol.IteratorStateMachine);
+        Assert.Equal(lambdaSymbol.IteratorElementType, stateMachine.ElementType);
+        Assert.NotNull(stateMachine.GenericGetEnumeratorMethod);
+        Assert.NotNull(stateMachine.MoveNextBody);
+    }
+
+    [Fact]
+    public void Rewrite_AttachesStateMachineMetadata_ForAsyncIteratorLambda()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+
+class C {
+    func Make() -> Func<IAsyncEnumerable<int>> {
+        val iterator: Func<IAsyncEnumerable<int>> = async () -> IAsyncEnumerable<int> => {
+            yield return 1
+            yield return 2
+        }
+
+        iterator
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaSymbol = Assert.IsType<SourceLambdaSymbol>(boundLambda.Symbol);
+
+        Assert.True(lambdaSymbol.IsIterator);
+        Assert.Equal(IteratorMethodKind.AsyncEnumerable, lambdaSymbol.IteratorKind);
+
+        var owner = lambdaSymbol.ContainingSymbol ?? compilation.Assembly.GlobalNamespace;
+        _ = FunctionExpressionLowerer.Rewrite(boundLambda, owner);
+
+        var stateMachine = Assert.IsType<SynthesizedIteratorTypeSymbol>(lambdaSymbol.IteratorStateMachine);
+        Assert.NotNull(stateMachine.AsyncMoveNextMethod);
+        Assert.NotNull(stateMachine.AsyncGetEnumeratorMethod);
+        Assert.NotNull(stateMachine.MoveNextBody);
+    }
+
+    [Fact]
     public void Rewrite_PopulatesIteratorHelperBodies_ForEnumerableIterator()
     {
         const string source = """

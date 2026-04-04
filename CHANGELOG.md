@@ -489,3 +489,7 @@ Impact:
 - Removed the legacy `new Foo(...)` object-creation syntax. Raven object construction now uses direct type invocation (`Foo(...)`) consistently across parsing, samples, and tests.
 - Top-level type declarations are now hoisted for binding, so console-app file-scope code can be interleaved with `class`, `struct`, `record`, `enum`, `union`, `interface`, and `delegate` declarations without triggering ordering diagnostics.
 - Parenthesized unions now support nominal deconstruction patterns over their declared member types, so matches like `Cash(val amount)` and `Card(val reference)` lower through the same `TryGetValue` carrier extraction path as `Cash cash` and `Card card`.
+- Function expressions can now be iterator generators both with declared iterator return types and with inferred iterator return types. Raven now lowers `yield` inside lambda/function-expression bodies to the same synthesized iterator state machines used for ordinary functions, including `IEnumerable<T>` and `IAsyncEnumerable<T>` shapes.
+
+Impact:
+- Higher-order Raven APIs can now keep generator logic inline in function expressions instead of forcing local helper functions just to use `yield`.

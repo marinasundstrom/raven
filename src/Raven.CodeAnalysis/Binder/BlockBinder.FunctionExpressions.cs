@@ -10,6 +10,44 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder
 {
+    private sealed class IteratorYieldCollector : BoundTreeWalker
+    {
+        private readonly List<ITypeSymbol> _yieldTypes = [];
+
+        public bool HasYield { get; private set; }
+
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
+        {
+        }
+
+        public override void VisitYieldReturnStatement(BoundYieldReturnStatement node)
+        {
+            HasYield = true;
+
+            if (node.Expression.Type is ITypeSymbol { TypeKind: not TypeKind.Error } type)
+                _yieldTypes.Add(TypeSymbolNormalization.NormalizeForInference(type));
+
+            base.VisitYieldReturnStatement(node);
+        }
+
+        public override void VisitYieldBreakStatement(BoundYieldBreakStatement node)
+        {
+            HasYield = true;
+            base.VisitYieldBreakStatement(node);
+        }
+
+        public ITypeSymbol InferElementType(Compilation compilation)
+        {
+            if (_yieldTypes.Count == 0)
+                return compilation.GetSpecialType(SpecialType.System_Object);
+
+            if (_yieldTypes.Count == 1)
+                return _yieldTypes[0];
+
+            return TypeSymbolNormalization.NormalizeUnion(_yieldTypes);
+        }
+    }
+
     private BoundExpression BindLambdaExpression(FunctionExpressionSyntax syntax)
     {
         var parameterSyntaxes = syntax switch
@@ -115,7 +153,7 @@ partial class BlockBinder
             _ => SyntaxList<TypeParameterConstraintClauseSyntax>.Empty
         };
 
-        var initialReturnType = Compilation.ErrorTypeSymbol;
+        var initialReturnType = targetSignature?.ReturnType ?? Compilation.ErrorTypeSymbol;
         var lambdaSymbol = new SourceLambdaSymbol(
             parameters: [],
             initialReturnType,
@@ -307,11 +345,23 @@ partial class BlockBinder
             hasInvalidAsyncReturnType = true;
         }
 
-        initialReturnType = annotatedReturnType ?? Compilation.ErrorTypeSymbol;
+        initialReturnType = annotatedReturnType ?? targetSignature?.ReturnType ?? Compilation.ErrorTypeSymbol;
         lambdaSymbol.SetReturnType(initialReturnType);
 
         if (hasInvalidAsyncReturnType)
             lambdaSymbol.MarkAsyncReturnTypeError();
+
+        if (isAsyncLambda &&
+            returnTypeSyntax is null &&
+            lambdaSymbol is SourceLambdaSymbol asyncLambdaSymbol)
+        {
+            var shouldDeferAsyncReturnDiagnostics =
+                targetSignature?.ReturnType is null ||
+                LambdaReturnContainsTypeParameter(targetSignature.ReturnType) ||
+                (!candidateDelegates.IsDefaultOrEmpty && candidateDelegates.Length > 1);
+
+            asyncLambdaSymbol.SetShouldDeferAsyncReturnDiagnostics(shouldDeferAsyncReturnDiagnostics);
+        }
 
         foreach (var param in parameterSymbols)
             lambdaBinder.DeclareParameter(param);
@@ -358,6 +408,43 @@ partial class BlockBinder
         {
             destructuringPrologue.Add(new BoundExpressionStatement(bodyExpr));
             bodyExpr = new BoundBlockExpression(destructuringPrologue, Compilation.GetSpecialType(SpecialType.System_Unit));
+        }
+
+        var iteratorYieldCollector = new IteratorYieldCollector();
+        iteratorYieldCollector.Visit(bodyExpr);
+
+        var hasIteratorBody = iteratorYieldCollector.HasYield;
+        ITypeSymbol? inferredIteratorReturn = null;
+
+        BoundExpression RebindLambdaBody(ITypeSymbol updatedReturnType)
+        {
+            lambdaSymbol.SetReturnType(updatedReturnType);
+
+            var reboundBody = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
+            if (lambdaBodyTargetType is not null)
+                reboundBody = RetargetLambdaBodyUnionCase(reboundBody, lambdaBodyTargetType);
+
+            if (destructuringPrologue.Count > 0)
+            {
+                var reboundPrologue = new List<BoundStatement>(destructuringPrologue);
+                reboundPrologue.Add(new BoundExpressionStatement(reboundBody));
+                reboundBody = new BoundBlockExpression(reboundPrologue, Compilation.GetSpecialType(SpecialType.System_Unit));
+            }
+
+            return reboundBody;
+        }
+
+        if (returnTypeSyntax is null &&
+            hasIteratorBody &&
+            !lambdaSymbol.IsIterator)
+        {
+            var inferredIteratorElementType = iteratorYieldCollector.InferElementType(Compilation);
+            inferredIteratorReturn = CreateInferredIteratorReturnType(isAsyncLambda, inferredIteratorElementType);
+            bodyExpr = RebindLambdaBody(inferredIteratorReturn);
+
+            iteratorYieldCollector = new IteratorYieldCollector();
+            iteratorYieldCollector.Visit(bodyExpr);
+            hasIteratorBody = iteratorYieldCollector.HasYield;
         }
 
         var inferred = bodyExpr.Type;
@@ -446,7 +533,7 @@ partial class BlockBinder
 
         INamedTypeSymbol? SelectBestDelegate(ITypeSymbol? inferredReturn)
         {
-            if (isAsyncLambda)
+            if (isAsyncLambda && !hasIteratorBody)
             {
                 var taskGeneric = candidateDelegates.FirstOrDefault(candidate =>
                 {
@@ -464,11 +551,11 @@ partial class BlockBinder
                     return taskGeneric;
             }
 
-            var asyncResult = isAsyncLambda
+            var asyncResult = isAsyncLambda && !hasIteratorBody
                 ? inferredAsyncResult ?? inferred
                 : null;
 
-            var returnForSelection = inferredReturn ?? asyncResult;
+            var returnForSelection = inferredIteratorReturn ?? inferredReturn ?? asyncResult;
 
             if (primaryDelegate is null)
                 return null;
@@ -482,10 +569,13 @@ partial class BlockBinder
             if (returnForSelection is null || returnForSelection.TypeKind == TypeKind.Error)
                 return primaryDelegate ?? candidateDelegates.FirstOrDefault();
 
-            bool IsAsyncDelegateReturn(ITypeSymbol? candidateReturn)
+            bool IsCompatibleAsyncLikeDelegateReturn(ITypeSymbol? candidateReturn)
             {
                 if (!isAsyncLambda || candidateReturn is null)
                     return false;
+
+                if (hasIteratorBody)
+                    return IsIteratorReturnType(candidateReturn);
 
                 if (candidateReturn is NullableTypeSymbol nullable)
                     candidateReturn = nullable.UnderlyingType;
@@ -516,12 +606,12 @@ partial class BlockBinder
                 var candidateReturn = invoke.ReturnType;
                 if (isAsyncLambda &&
                     candidateReturn.SpecialType != SpecialType.System_Void &&
-                    !IsAsyncDelegateReturn(candidateReturn))
+                    !IsCompatibleAsyncLikeDelegateReturn(candidateReturn))
                 {
                     continue;
                 }
 
-                var expectedBody = isAsyncLambda
+                var expectedBody = isAsyncLambda && !hasIteratorBody
                     ? AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, candidateReturn) ?? candidateReturn
                     : candidateReturn;
 
@@ -555,7 +645,7 @@ partial class BlockBinder
                         bestAsyncByResult ??= candidate;
                         asyncMatch ??= candidate;
                     }
-                    else if (IsAsyncDelegateReturn(candidateReturn))
+                    else if (IsCompatibleAsyncLikeDelegateReturn(candidateReturn))
                     {
                         asyncMatch ??= candidate;
                     }
@@ -570,7 +660,7 @@ partial class BlockBinder
                 if (!IsConvertibleToExpected(expectedBody))
                     continue;
 
-                if (IsAsyncDelegateReturn(candidateReturn))
+                if (IsCompatibleAsyncLikeDelegateReturn(candidateReturn))
                     asyncMatch ??= candidate;
                 else
                     syncMatch ??= candidate;
@@ -588,16 +678,39 @@ partial class BlockBinder
             return primaryDelegate;
         }
 
-        var delegateSelectionType = isAsyncLambda
+        var delegateSelectionType = hasIteratorBody
+            ? inferredIteratorReturn ?? inferred
+            : isAsyncLambda
             ? inferredAsyncResult ?? inferred
             : inferred;
 
         primaryDelegate = SelectBestDelegate(delegateSelectionType);
         targetSignature = primaryDelegate?.GetDelegateInvokeMethod();
+        var isIteratorLambda = lambdaSymbol is SourceLambdaSymbol { IsIterator: true };
 
         var targetReturn = targetSignature?.ReturnType;
         if (targetReturn is not null && targetReturn.TypeKind == TypeKind.Error)
             targetReturn = null;
+
+        bool IsIteratorReturnType(ITypeSymbol? type)
+        {
+            if (type is null || type.TypeKind == TypeKind.Error)
+                return false;
+
+            if (type.SpecialType is SpecialType.System_Collections_IEnumerable or SpecialType.System_Collections_IEnumerator)
+                return true;
+
+            if (type is not INamedTypeSymbol namedType)
+                return false;
+
+            var definition = namedType.OriginalDefinition as INamedTypeSymbol
+                ?? namedType.ConstructedFrom as INamedTypeSymbol
+                ?? namedType;
+
+            return definition.SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T or SpecialType.System_Collections_Generic_IEnumerator_T ||
+                   IsGenericIAsyncEnumerableType(definition) ||
+                   IsGenericIAsyncEnumeratorType(definition);
+        }
 
         ITypeSymbol returnType;
         bool IsAsyncReturnCompatibleWithLambda(ITypeSymbol? candidateReturn)
@@ -617,6 +730,14 @@ partial class BlockBinder
         if (annotatedReturnType is { TypeKind: not TypeKind.Error })
         {
             returnType = annotatedReturnType;
+        }
+        else if (inferredIteratorReturn is { TypeKind: not TypeKind.Error })
+        {
+            returnType = inferredIteratorReturn;
+        }
+        else if (isIteratorLambda && IsIteratorReturnType(targetReturn))
+        {
+            returnType = targetReturn;
         }
         else if (isAsyncLambda)
         {
@@ -658,12 +779,13 @@ partial class BlockBinder
         }
 
         ITypeSymbol? expectedBodyType = returnType;
-        if (isAsyncLambda)
+        if (isAsyncLambda && !hasIteratorBody)
         {
             expectedBodyType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType) ?? expectedBodyType;
         }
 
-        if (expectedBodyType is not null &&
+        if (!isIteratorLambda &&
+            expectedBodyType is not null &&
             expectedBodyType is not ITypeParameterSymbol &&
             inferred is not null &&
             inferred.TypeKind != TypeKind.Error &&
@@ -742,7 +864,7 @@ partial class BlockBinder
                 Compilation.ContainsAwaitExpressionOutsideNestedFunctions(lambdaBodySyntaxNode);
             asyncLambda.SetContainsAwait(containsAwait);
 
-            if (!containsAwait)
+            if (!containsAwait && !asyncLambda.IsIterator)
             {
                 var description = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncLambda);
                 var location = asyncKeywordToken?.GetLocation() ?? syntax.GetLocation();
@@ -1745,6 +1867,16 @@ partial class BlockBinder
             ? ReturnTypeCollector.InferAsync(Compilation, body)
             : ReturnTypeCollector.Infer(body);
 
+        var iteratorYieldCollector = new IteratorYieldCollector();
+        iteratorYieldCollector.Visit(body);
+        var hasIteratorBody = iteratorYieldCollector.HasYield;
+
+        if (hasIteratorBody && !lambdaSymbol.IsIterator)
+        {
+            instrumentation.RecordBindingFailure();
+            return null;
+        }
+
         var inferred = body.Type;
         if (inferred is null || SymbolEqualityComparer.Default.Equals(inferred, unitType))
             inferred = collectedReturn;
@@ -1778,8 +1910,9 @@ partial class BlockBinder
 
         var returnType = invoke.ReturnType;
         ITypeSymbol? inferredAsyncReturn = null;
+        var isIteratorLambda = lambdaSymbol.IsIterator;
 
-        if (unbound.LambdaSymbol.IsAsync)
+        if (unbound.LambdaSymbol.IsAsync && !hasIteratorBody)
         {
             inferredAsyncReturn = collectedReturn ??
                 AsyncReturnTypeUtilities.InferAsyncReturnType(
@@ -1817,15 +1950,16 @@ partial class BlockBinder
         }
 
         var expectedBodyType = returnType;
-        if (unbound.LambdaSymbol.IsAsync)
+        if (unbound.LambdaSymbol.IsAsync && !hasIteratorBody)
             expectedBodyType = ExtractAsyncResultTypeForReplay(returnType) ?? expectedBodyType;
 
         var conversionSource = inferred;
 
-        if (unbound.LambdaSymbol.IsAsync && conversionSource is not null)
+        if (unbound.LambdaSymbol.IsAsync && !hasIteratorBody && conversionSource is not null)
             conversionSource = ExtractAsyncResultTypeForReplay(conversionSource) ?? conversionSource;
 
         var shouldApplyConversion =
+            !isIteratorLambda &&
             conversionSource is not null &&
             conversionSource.TypeKind != TypeKind.Error &&
             expectedBodyType is not null &&
@@ -1974,6 +2108,39 @@ partial class BlockBinder
 
     private static SyntaxNode GetLambdaBodySyntaxNode(FunctionExpressionSyntax syntax)
         => (SyntaxNode?)syntax.Body ?? (SyntaxNode?)syntax.ExpressionBody ?? syntax;
+
+    private static bool LambdaReturnContainsTypeParameter(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol:
+                return true;
+            case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+                return named.TypeArguments.Any(LambdaReturnContainsTypeParameter);
+            case IArrayTypeSymbol array:
+                return LambdaReturnContainsTypeParameter(array.ElementType);
+            case RefTypeSymbol refType:
+                return LambdaReturnContainsTypeParameter(refType.ElementType);
+            case NullableTypeSymbol nullable:
+                return LambdaReturnContainsTypeParameter(nullable.UnderlyingType);
+            case ITupleTypeSymbol tuple:
+                return tuple.TupleElements.Any(e => LambdaReturnContainsTypeParameter(e.Type));
+            default:
+                return false;
+        }
+    }
+
+    private ITypeSymbol CreateInferredIteratorReturnType(bool isAsync, ITypeSymbol elementType)
+    {
+        var definition = isAsync
+            ? Compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1") as INamedTypeSymbol
+            : Compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T) as INamedTypeSymbol;
+
+        if (definition is null || definition.TypeKind == TypeKind.Error)
+            return Compilation.ErrorTypeSymbol;
+
+        return definition.Construct(elementType);
+    }
 
     private bool HasCachedLambdaBodyBindings(FunctionExpressionSyntax syntax)
     {

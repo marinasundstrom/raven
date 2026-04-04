@@ -34,6 +34,7 @@ Available endpoints:
 - `GET /` -> `Hello from Raven Minimal API`
 - `GET /ping` -> `pong`
 - `GET /async` -> `Hello from async MapGet`
+- `GET /stream` -> streamed JSON array `[1,2,3]`
 - `POST /submit` -> `submitted`
 - `POST /submit-async` -> `submitted async`
 
@@ -43,6 +44,7 @@ Quick smoke test:
 curl http://localhost:5000/
 curl http://localhost:5000/ping
 curl http://localhost:5000/async
+curl http://localhost:5000/stream
 curl -X POST http://localhost:5000/submit
 curl -X POST http://localhost:5000/submit-async
 ```

@@ -22,6 +22,18 @@ internal static class IteratorLowerer
         return finder.FoundYield;
     }
 
+    public static bool ShouldRewrite(SourceLambdaSymbol lambda, BoundBlockStatement block)
+    {
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (block is null)
+            throw new ArgumentNullException(nameof(block));
+
+        var finder = new YieldStatementFinder();
+        finder.VisitBlockStatement(block);
+        return finder.FoundYield;
+    }
+
     public static BoundBlockStatement Rewrite(SourceMethodSymbol method, BoundBlockStatement block)
     {
         if (method is null)
@@ -56,6 +68,42 @@ internal static class IteratorLowerer
         EnsureIteratorHelpers(compilation, iteratorType);
 
         return RewriteIteratorMethodBody(compilation, method, iteratorType);
+    }
+
+    public static BoundBlockStatement Rewrite(SourceLambdaSymbol lambda, BoundBlockStatement block)
+    {
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (block is null)
+            throw new ArgumentNullException(nameof(block));
+
+        var compilation = GetCompilation(lambda);
+
+        var signature = DetermineIteratorSignature(compilation, lambda.ReturnType);
+        if (signature.Kind == IteratorMethodKind.None)
+            return block;
+
+        lambda.MarkIterator(signature.Kind, signature.ElementType);
+
+        if (lambda.IteratorStateMachine is null)
+        {
+            var stateMachine = compilation.CreateIteratorStateMachine(lambda, signature.Kind, signature.ElementType);
+            lambda.SetIteratorStateMachine(stateMachine);
+        }
+
+        var iteratorType = lambda.IteratorStateMachine;
+        if (iteratorType is null)
+            throw new InvalidOperationException("Iterator state machine not created.");
+
+        if (iteratorType.MoveNextBody is null)
+        {
+            var moveNextBody = CreateMoveNextBody(compilation, iteratorType, block);
+            iteratorType.SetMoveNextBody(moveNextBody);
+        }
+
+        EnsureIteratorHelpers(compilation, iteratorType);
+
+        return RewriteIteratorMethodBody(compilation, lambda, iteratorType);
     }
 
     private static BoundBlockStatement CreateMoveNextBody(
@@ -338,7 +386,7 @@ internal static class IteratorLowerer
 
     private static BoundBlockStatement RewriteIteratorMethodBody(
         Compilation compilation,
-        SourceMethodSymbol method,
+        IMethodSymbol method,
         SynthesizedIteratorTypeSymbol stateMachine)
     {
         var statements = new List<BoundStatement>();
@@ -394,7 +442,7 @@ internal static class IteratorLowerer
         return new BoundBlockStatement(statements);
     }
 
-    private static Compilation GetCompilation(SourceMethodSymbol method)
+    private static Compilation GetCompilation(IMethodSymbol method)
     {
         if (method.ContainingAssembly is SourceAssemblySymbol sourceAssembly)
             return sourceAssembly.Compilation;

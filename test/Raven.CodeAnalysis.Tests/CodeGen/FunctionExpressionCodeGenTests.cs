@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -764,6 +765,101 @@ func Main() -> int {
         var main = programType.GetMethod("Main", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
         var value = (int)main.Invoke(null, Array.Empty<object>())!;
         Assert.Equal(55, value);
+    }
+
+    [Fact]
+    public void IteratorLambda_BlockBody_EnumeratesExpectedValues()
+    {
+        var code = """
+import System.*
+import System.Collections.Generic.*
+
+class Counter {
+    func Sum() -> int {
+        val values: Func<IEnumerable<int>> = () -> IEnumerable<int> => {
+            yield return 1
+            yield return 2
+            yield return 3
+        }
+
+        var sum = 0
+        for val value in values() {
+            sum = sum + value
+        }
+
+        return sum
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Counter", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Sum", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var value = (int)method.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal(6, value);
+    }
+
+    [Fact]
+    public async Task AsyncIteratorLambda_BlockBody_Emits()
+    {
+        var code = """
+import System.*
+import System.Collections.Generic.*
+
+class Counter {
+    func MakeValues() -> Func<IAsyncEnumerable<int>> {
+        val values: Func<IAsyncEnumerable<int>> = async () => {
+            yield return 1
+            yield return 2
+            yield return 3
+        }
+
+        return values
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Counter", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("MakeValues", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var factory = (Delegate)method.Invoke(instance, Array.Empty<object>())!;
+        var values = (IAsyncEnumerable<int>)factory.DynamicInvoke()!;
+        var sum = 0;
+
+        await foreach (var value in values)
+        {
+            sum += value;
+        }
+
+        Assert.Equal(6, sum);
     }
 
 }

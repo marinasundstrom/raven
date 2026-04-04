@@ -2114,17 +2114,24 @@ func parse(text: string) -> int {
 
 ### Iterator statements (`yield return`, `yield break`)
 
-Iterator methods produce lazily-evaluated sequences by using `yield` statements.
+Iterator methods and function expressions produce lazily-evaluated sequences by
+using `yield` statements.
 `yield return expression` publishes the next element of the sequence; the
 expression is converted to the iterator's element type before emission.
 `yield break` terminates the sequence early. Both forms may only appear in
-methods whose return type implements `System.Collections.Generic.IEnumerable<T>`,
+methods or function expressions whose return type implements
+`System.Collections.Generic.IEnumerable<T>`,
 `System.Collections.Generic.IEnumerator<T>`,
 `System.Collections.Generic.IAsyncEnumerable<T>`,
 `System.Collections.Generic.IAsyncEnumerator<T>`, or their non-generic
-counterparts.
-When such a method contains `yield`, the compiler rewrites it into a state
-machine that implements the appropriate enumerator pattern. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L489-L527】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L25-L58】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L302-L340】
+counterparts. When such a method or function expression contains `yield`, the
+compiler rewrites it into a state machine that implements the appropriate
+enumerator pattern. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L489-L527】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L25-L58】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L302-L340】
+
+For function expressions, the iterator return type may be written explicitly or
+inferred from the presence of `yield`. Unannotated synchronous iterator lambdas
+infer `IEnumerable<T>`; unannotated async iterator lambdas infer
+`IAsyncEnumerable<T>`.
 
 ```raven
 import System.Collections.Generic.*
@@ -2138,6 +2145,22 @@ class Counter {
         }
 
         yield break
+    }
+}
+```
+
+```raven
+import System.*
+import System.Collections.Generic.*
+
+class Counter {
+    func Numbers() -> Func<IEnumerable<int>> {
+        val factory: Func<IEnumerable<int>> = () => {
+            yield return 1
+            yield return 2
+        }
+
+        factory
     }
 }
 ```

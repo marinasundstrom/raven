@@ -15,7 +15,12 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     private bool _hasAsyncReturnTypeError;
     private bool _containsAwait;
     private bool _isExpressionTreeLambda;
+    private bool _shouldDeferAsyncReturnDiagnostics;
+    private bool _isIterator;
+    private IteratorMethodKind _iteratorKind;
+    private ITypeSymbol? _iteratorElementType;
     private SynthesizedAsyncStateMachineTypeSymbol? _asyncStateMachine;
+    private SynthesizedIteratorTypeSymbol? _iteratorStateMachine;
     private SourceNamedTypeSymbol? _closureFrameType;
 
     public SourceLambdaSymbol(
@@ -56,6 +61,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public MethodKind MethodKind => MethodKind.LambdaMethod;
 
     internal bool HasAsyncReturnTypeError => _hasAsyncReturnTypeError;
+    internal bool ShouldDeferAsyncReturnDiagnostics => _shouldDeferAsyncReturnDiagnostics;
 
     public IMethodSymbol? OriginalDefinition => this;
 
@@ -77,9 +83,10 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public bool IsReadOnly => false;
     public bool IsFinal => false;
     public bool IsVirtual => false;
-    public bool IsIterator => false;
-    public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
-    public ITypeSymbol? IteratorElementType => null;
+    public bool IsIterator => _isIterator;
+    public IteratorMethodKind IteratorKind => _iteratorKind;
+    public ITypeSymbol? IteratorElementType => _iteratorElementType;
+    public SynthesizedIteratorTypeSymbol? IteratorStateMachine => _iteratorStateMachine;
 
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
 
@@ -111,6 +118,11 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     internal void MarkAsyncReturnTypeError()
     {
         _hasAsyncReturnTypeError = true;
+    }
+
+    internal void SetShouldDeferAsyncReturnDiagnostics(bool shouldDefer)
+    {
+        _shouldDeferAsyncReturnDiagnostics = shouldDefer;
     }
 
     public ITypeSymbol? DelegateType { get; private set; }
@@ -150,6 +162,27 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     internal void SetAsyncStateMachine(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
         _asyncStateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
+    }
+
+    internal void MarkIterator(IteratorMethodKind kind, ITypeSymbol elementType)
+    {
+        if (kind == IteratorMethodKind.None)
+            return;
+
+        _isIterator = true;
+        _iteratorKind = kind;
+        _iteratorElementType = elementType;
+    }
+
+    internal void SetIteratorStateMachine(SynthesizedIteratorTypeSymbol stateMachine)
+    {
+        if (stateMachine is null)
+            throw new ArgumentNullException(nameof(stateMachine));
+
+        if (_iteratorStateMachine is not null && !ReferenceEquals(_iteratorStateMachine, stateMachine))
+            throw new InvalidOperationException("Iterator state machine already assigned.");
+
+        _iteratorStateMachine = stateMachine;
     }
 
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)

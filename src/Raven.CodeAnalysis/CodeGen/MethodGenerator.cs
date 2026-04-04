@@ -168,84 +168,84 @@ internal class MethodGenerator
                     MethodBase = methodBuilder;
                 }
 
-            var liftedTypeParameters = TypeGenerator.GetExtensionTypeParameters();
-            var methodTypeParameters = MethodSymbol.TypeParameters;
-            if (!liftedTypeParameters.IsDefaultOrEmpty &&
-                methodTypeParameters.Length >= liftedTypeParameters.Length &&
-                methodTypeParameters.Take(liftedTypeParameters.Length)
-                    .Select(tp => tp.Name)
-                    .SequenceEqual(liftedTypeParameters.Select(tp => tp.Name), StringComparer.Ordinal))
-            {
-                liftedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
-            }
-            if (!liftedTypeParameters.IsDefaultOrEmpty &&
-                MethodSymbol.ContainingType is INamedTypeSymbol containingType &&
-                containingType.IsGenericType &&
-                containingType.TypeParameters.Length >= liftedTypeParameters.Length &&
-                containingType.TypeParameters.Take(liftedTypeParameters.Length)
-                    .Select(tp => tp.Name)
-                    .SequenceEqual(liftedTypeParameters.Select(tp => tp.Name), StringComparer.Ordinal))
-            {
-                liftedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
-            }
-            if (!liftedTypeParameters.IsDefaultOrEmpty || !methodTypeParameters.IsDefaultOrEmpty)
-            {
-                var allParameters = liftedTypeParameters.AddRange(methodTypeParameters);
-                var genericBuilders = methodBuilder.DefineGenericParameters(allParameters.Select(tp => tp.Name).ToArray());
-
-                if (!liftedTypeParameters.IsDefaultOrEmpty)
+                var liftedTypeParameters = TypeGenerator.GetExtensionTypeParameters();
+                var methodTypeParameters = MethodSymbol.TypeParameters;
+                if (!liftedTypeParameters.IsDefaultOrEmpty &&
+                    methodTypeParameters.Length >= liftedTypeParameters.Length &&
+                    methodTypeParameters.Take(liftedTypeParameters.Length)
+                        .Select(tp => tp.Name)
+                        .SequenceEqual(liftedTypeParameters.Select(tp => tp.Name), StringComparer.Ordinal))
                 {
-                    var liftedBuilders = genericBuilders.Take(liftedTypeParameters.Length).ToArray();
-                    _liftedExtensionParameters = liftedTypeParameters;
-                    _liftedExtensionBuilders = liftedBuilders;
-                    TypeGenerator.CodeGen.RegisterGenericParameters(liftedTypeParameters, liftedBuilders);
+                    liftedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+                }
+                if (!liftedTypeParameters.IsDefaultOrEmpty &&
+                    MethodSymbol.ContainingType is INamedTypeSymbol containingType &&
+                    containingType.IsGenericType &&
+                    containingType.TypeParameters.Length >= liftedTypeParameters.Length &&
+                    containingType.TypeParameters.Take(liftedTypeParameters.Length)
+                        .Select(tp => tp.Name)
+                        .SequenceEqual(liftedTypeParameters.Select(tp => tp.Name), StringComparer.Ordinal))
+                {
+                    liftedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+                }
+                if (!liftedTypeParameters.IsDefaultOrEmpty || !methodTypeParameters.IsDefaultOrEmpty)
+                {
+                    var allParameters = liftedTypeParameters.AddRange(methodTypeParameters);
+                    var genericBuilders = methodBuilder.DefineGenericParameters(allParameters.Select(tp => tp.Name).ToArray());
+
+                    if (!liftedTypeParameters.IsDefaultOrEmpty)
+                    {
+                        var liftedBuilders = genericBuilders.Take(liftedTypeParameters.Length).ToArray();
+                        _liftedExtensionParameters = liftedTypeParameters;
+                        _liftedExtensionBuilders = liftedBuilders;
+                        TypeGenerator.CodeGen.RegisterGenericParameters(liftedTypeParameters, liftedBuilders);
+                    }
+
+                    if (!methodTypeParameters.IsDefaultOrEmpty)
+                    {
+                        var methodBuilders = genericBuilders.Skip(liftedTypeParameters.Length).ToArray();
+                        _methodTypeParameters = methodTypeParameters;
+                        _methodTypeBuilders = methodBuilders;
+                        TypeGenerator.CodeGen.RegisterGenericParameters(methodTypeParameters, methodBuilders);
+                    }
                 }
 
-                if (!methodTypeParameters.IsDefaultOrEmpty)
+                try
                 {
-                    var methodBuilders = genericBuilders.Skip(liftedTypeParameters.Length).ToArray();
-                    _methodTypeParameters = methodTypeParameters;
-                    _methodTypeBuilders = methodBuilders;
-                    TypeGenerator.CodeGen.RegisterGenericParameters(methodTypeParameters, methodBuilders);
-                }
-            }
+                    if (!hasPInvokeSignature)
+                    {
+                        var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
+                            ? TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Void), TypeGenerator.CodeGen)
+                            : ResolveClrType(MethodSymbol.ReturnType);
 
-            try
-            {
-                if (!hasPInvokeSignature)
+                        parameterTypes = BuildParameterTypes();
+
+                        Type[]? requiredReturnMods =
+                            MethodSymbol.MethodKind == MethodKind.InitOnly
+                                ? new[] { typeof(System.Runtime.CompilerServices.IsExternalInit) }
+                                : null;
+
+                        methodBuilder.SetSignature(
+                            returnType,
+                            requiredReturnMods,
+                            null,
+                            parameterTypes,
+                            null,
+                            null);
+                    }
+
+                    if (MethodSymbol.IsExtern && !hasPInvokeSignature)
+                    {
+                        methodBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+                    }
+                }
+                finally
                 {
-                    var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
-                        ? TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Void), TypeGenerator.CodeGen)
-                        : ResolveClrType(MethodSymbol.ReturnType);
-
-                    parameterTypes = BuildParameterTypes();
-
-                    Type[]? requiredReturnMods =
-                        MethodSymbol.MethodKind == MethodKind.InitOnly
-                            ? new[] { typeof(System.Runtime.CompilerServices.IsExternalInit) }
-                            : null;
-
-                    methodBuilder.SetSignature(
-                        returnType,
-                        requiredReturnMods,
-                        null,
-                        parameterTypes,
-                        null,
-                        null);
+                    if (!_liftedExtensionParameters.IsDefaultOrEmpty)
+                        TypeGenerator.CodeGen.UnregisterGenericParameters(_liftedExtensionParameters);
+                    if (!_methodTypeParameters.IsDefaultOrEmpty)
+                        TypeGenerator.CodeGen.UnregisterGenericParameters(_methodTypeParameters);
                 }
-
-                if (MethodSymbol.IsExtern && !hasPInvokeSignature)
-                {
-                    methodBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
-                }
-            }
-            finally
-            {
-                if (!_liftedExtensionParameters.IsDefaultOrEmpty)
-                    TypeGenerator.CodeGen.UnregisterGenericParameters(_liftedExtensionParameters);
-                if (!_methodTypeParameters.IsDefaultOrEmpty)
-                    TypeGenerator.CodeGen.UnregisterGenericParameters(_methodTypeParameters);
-            }
             }
 
             ParameterBuilder? returnParamBuilder = MethodBase is MethodBuilder methodBuilderInstance
@@ -717,20 +717,25 @@ internal class MethodGenerator
         BoundBlockStatement? rewrittenBody = null;
         ITypeSymbol? closureSelfType = null;
 
-        if (!Compilation.Options.UseRuntimeAsync &&
-            lambda.Symbol is SourceLambdaSymbol sourceLambda &&
-            sourceLambda.IsAsync)
+        if (lambda.Symbol is SourceLambdaSymbol sourceLambda && sourceLambda.IsIterator)
         {
             var block = ConvertToBlockStatement(sourceLambda, lambda.Body);
+            rewrittenBody = IteratorLowerer.Rewrite(sourceLambda, block);
+        }
+        else if (!Compilation.Options.UseRuntimeAsync &&
+                 lambda.Symbol is SourceLambdaSymbol sourceAsyncLambda &&
+                 sourceAsyncLambda.IsAsync)
+        {
+            var block = ConvertToBlockStatement(sourceAsyncLambda, lambda.Body);
             if (closure is not null)
             {
                 closureSelfType = closure.Symbol;
             }
 
             var rewritten = AsyncLowerer.Rewrite(
-                sourceLambda,
+                sourceAsyncLambda,
                 block,
-                sourceLambda.AsyncStateMachine,
+                sourceAsyncLambda.AsyncStateMachine,
                 closureSelfType);
             if (rewritten.StateMachine is not null)
             {

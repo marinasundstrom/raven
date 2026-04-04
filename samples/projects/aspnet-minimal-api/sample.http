@@ -45,6 +45,11 @@ GET {{base}}/async
 
 ###
 
+### stream endpoint
+GET {{base}}/stream
+
+###
+
 ### submit plain string
 POST {{base}}/submit
 Content-Type: text/plain

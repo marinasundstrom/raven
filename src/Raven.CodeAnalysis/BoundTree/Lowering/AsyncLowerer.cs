@@ -712,7 +712,7 @@ internal static class AsyncLowerer
         if (body is null)
             throw new ArgumentNullException(nameof(body));
 
-        return lambda.IsAsync;
+        return lambda.IsAsync && !lambda.IsIterator;
     }
 
     private static BoundBlockStatement CreateMoveNextBody(

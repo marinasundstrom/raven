@@ -1806,6 +1806,7 @@ partial class BlockBinder
                 SourceMethodSymbol { HasAsyncReturnTypeError: true } => true,
                 SourceMethodSymbol { ShouldDeferAsyncReturnDiagnostics: true } => true,
                 SourceLambdaSymbol { HasAsyncReturnTypeError: true } => true,
+                SourceLambdaSymbol { ShouldDeferAsyncReturnDiagnostics: true } => true,
                 _ => false,
             };
 
@@ -2281,8 +2282,18 @@ partial class BlockBinder
 
         var result = ResolveIteratorInfo(method);
 
-        if (result.Kind != IteratorMethodKind.None && _containingSymbol is SourceMethodSymbol sourceMethod)
-            sourceMethod.MarkIterator(result.Kind, result.ElementType);
+        if (result.Kind != IteratorMethodKind.None)
+        {
+            switch (_containingSymbol)
+            {
+                case SourceMethodSymbol sourceMethod:
+                    sourceMethod.MarkIterator(result.Kind, result.ElementType);
+                    break;
+                case SourceLambdaSymbol sourceLambda:
+                    sourceLambda.MarkIterator(result.Kind, result.ElementType);
+                    break;
+            }
+        }
 
         return result;
     }

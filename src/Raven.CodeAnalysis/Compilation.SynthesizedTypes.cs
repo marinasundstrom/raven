@@ -10,7 +10,7 @@ public partial class Compilation
 {
     private readonly Dictionary<DelegateSignature, SynthesizedDelegateTypeSymbol> _synthesizedDelegates = new(new DelegateSignatureComparer());
     private readonly Dictionary<IMethodSymbol, SynthesizedAsyncStateMachineTypeSymbol> _synthesizedAsyncStateMachines = new(SymbolEqualityComparer.Default);
-    private readonly Dictionary<SourceMethodSymbol, SynthesizedIteratorTypeSymbol> _synthesizedIterators = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<IMethodSymbol, SynthesizedIteratorTypeSymbol> _synthesizedIterators = new(SymbolEqualityComparer.Default);
     private int _synthesizedDelegateOrdinal;
     private int _synthesizedAsyncStateMachineOrdinal;
     private int _synthesizedIteratorOrdinal;
@@ -84,10 +84,33 @@ public partial class Compilation
     internal IEnumerable<SynthesizedAsyncStateMachineTypeSymbol> GetSynthesizedAsyncStateMachineTypes()
         => _synthesizedAsyncStateMachines.Values;
 
-    internal SynthesizedIteratorTypeSymbol CreateIteratorStateMachine(SourceMethodSymbol method, IteratorMethodKind iteratorKind, ITypeSymbol elementType)
+    internal SynthesizedIteratorTypeSymbol CreateIteratorStateMachine(IMethodSymbol method, IteratorMethodKind iteratorKind, ITypeSymbol elementType)
     {
         if (_synthesizedIterators.TryGetValue(method, out var existing))
             return existing;
+
+        existing = _synthesizedIterators.Values
+            .FirstOrDefault(machine => SymbolEqualityComparer.Default.Equals(machine.IteratorMethod, method));
+
+        if (existing is not null)
+        {
+            _synthesizedIterators[method] = existing;
+            return existing;
+        }
+
+        var syntaxReference = method.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference is not null)
+        {
+            existing = _synthesizedIterators.Values
+                .FirstOrDefault(machine => machine.IteratorMethod.DeclaringSyntaxReferences
+                    .Any(reference => reference.SyntaxTree == syntaxReference.SyntaxTree && reference.Span == syntaxReference.Span));
+
+            if (existing is not null)
+            {
+                _synthesizedIterators[method] = existing;
+                return existing;
+            }
+        }
 
         var name = $"<>c__Iterator{_synthesizedIteratorOrdinal++}";
         var stateMachine = new SynthesizedIteratorTypeSymbol(this, method, name, iteratorKind, elementType);

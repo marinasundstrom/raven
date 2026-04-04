@@ -6,12 +6,11 @@ internal sealed partial class Lowerer
 {
     private static BoundBlockStatement RewriteIteratorsIfNeeded(ISymbol containingSymbol, BoundBlockStatement block)
     {
-        if (containingSymbol is not SourceMethodSymbol method)
-            return block;
-
-        if (!IteratorLowerer.ShouldRewrite(method, block))
-            return block;
-
-        return IteratorLowerer.Rewrite(method, block);
+        return containingSymbol switch
+        {
+            SourceMethodSymbol method when IteratorLowerer.ShouldRewrite(method, block) => IteratorLowerer.Rewrite(method, block),
+            SourceLambdaSymbol lambda when IteratorLowerer.ShouldRewrite(lambda, block) => IteratorLowerer.Rewrite(lambda, block),
+            _ => block,
+        };
     }
 }
