@@ -209,9 +209,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 return SyntaxKind.GreaterThanOrEqualsExpression;
 
             case SyntaxKind.AmpersandAmpersandToken:
+            case SyntaxKind.AndToken:
                 return SyntaxKind.LogicalAndExpression;
 
             case SyntaxKind.BarBarToken:
+            case SyntaxKind.OrToken:
                 return SyntaxKind.LogicalOrExpression;
         }
 

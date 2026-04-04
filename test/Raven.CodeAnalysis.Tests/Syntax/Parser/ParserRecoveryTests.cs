@@ -186,6 +186,18 @@ public class ParserRecoveryTests
     }
 
     [Fact]
+    public void CompilationUnit_IncompleteKeywordLogicalOperator_DoesNotThrow()
+    {
+        var source = """
+            val flag = true and
+            """;
+
+        var exception = Record.Exception(() => SyntaxTree.ParseText(source));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public void CompilationUnit_CollectionComprehensionBeforeDeclaration_RemainsGlobalStatement()
     {
         var source = """
