@@ -801,7 +801,7 @@ public partial class Compilation
                 var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
                 ITypeParameterSymbol? unionTypeParameter = null;
 
-                if (caseDefinition is SourceDiscriminatedUnionCaseTypeSymbol sourceCaseDefinition &&
+                if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
                     sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
                 {
                     unionTypeParameter = mapped;

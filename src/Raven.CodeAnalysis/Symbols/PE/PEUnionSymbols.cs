@@ -7,14 +7,14 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IUnionSymbol
+internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
 {
     private ImmutableArray<IUnionCaseTypeSymbol>? _cases;
     private ImmutableArray<ITypeSymbol>? _memberTypes;
     private IFieldSymbol? _discriminatorField;
     private IFieldSymbol? _payloadField;
 
-    public PEDiscriminatedUnionSymbol(
+    public PEUnionSymbol(
         ReflectionTypeLoader reflectionTypeLoader,
         System.Reflection.TypeInfo typeInfo,
         ISymbol containingSymbol,
@@ -78,7 +78,7 @@ internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IUnionSymb
     }
 }
 
-internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IUnionCaseTypeSymbol
+internal sealed class PEUnionCaseSymbol : PENamedTypeSymbol, IUnionCaseTypeSymbol
 {
     private IUnionSymbol? _union;
     private readonly IUnionSymbol? _unionFromAttribute;
@@ -86,7 +86,7 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IUnion
     private ImmutableArray<IParameterSymbol>? _constructorParameters;
     private int? _ordinal;
 
-    public PEDiscriminatedUnionCaseSymbol(
+    public PEUnionCaseSymbol(
         ReflectionTypeLoader reflectionTypeLoader,
         System.Reflection.TypeInfo typeInfo,
         ISymbol containingSymbol,

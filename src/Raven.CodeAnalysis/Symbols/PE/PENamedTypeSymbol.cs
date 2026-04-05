@@ -115,7 +115,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (attributeName is "System.Runtime.CompilerServices.UnionAttribute" or "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
             {
                 // Do not eagerly load members during construction; keep loading lazy to avoid re-entrancy/duplication.
-                return new PEDiscriminatedUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
+                return new PEUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
             }
 
             if (attributeName is
@@ -134,7 +134,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                     unionSymbol = reflectionTypeLoader.ResolveType(unionType) as IUnionSymbol;
                 }
 
-                return new PEDiscriminatedUnionCaseSymbol(
+                return new PEUnionCaseSymbol(
                     reflectionTypeLoader,
                     typeInfo,
                     containingSymbol,
@@ -149,12 +149,12 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         if (LooksLikeDiscriminatedUnion(typeInfo))
         {
             // Do not eagerly load members during construction; keep loading lazy to avoid re-entrancy/duplication.
-            return new PEDiscriminatedUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
+            return new PEUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
         }
 
         if (containingType is IUnionSymbol parentUnion)
         {
-            return new PEDiscriminatedUnionCaseSymbol(
+            return new PEUnionCaseSymbol(
                 reflectionTypeLoader,
                 typeInfo,
                 containingSymbol,

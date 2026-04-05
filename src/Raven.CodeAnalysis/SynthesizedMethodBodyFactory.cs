@@ -14,11 +14,11 @@ internal static partial class SynthesizedMethodBodyFactory
         {
             switch (method.ContainingType)
             {
-                case SourceDiscriminatedUnionSymbol unionSymbol:
+                case SourceUnionSymbol unionSymbol:
                     body = CreateUnionDisplayNameHelperBody(compilation, unionSymbol);
                     return true;
 
-                case SourceDiscriminatedUnionCaseTypeSymbol caseSymbol:
+                case SourceUnionCaseTypeSymbol caseSymbol:
                     body = CreateUnionDisplayNameHelperBody(compilation, method, caseSymbol);
                     return true;
             }
@@ -32,8 +32,8 @@ internal static partial class SynthesizedMethodBodyFactory
         {
             switch (method.ContainingType)
             {
-                case SourceDiscriminatedUnionSymbol:
-                case SourceDiscriminatedUnionCaseTypeSymbol:
+                case SourceUnionSymbol:
+                case SourceUnionCaseTypeSymbol:
                 case SourceNamedTypeSymbol { IsRecord: true }:
                     body = CreateFriendlyTypeNameHelperBody(compilation, method);
                     return true;
@@ -136,11 +136,11 @@ internal static partial class SynthesizedMethodBodyFactory
                     body = CreateRecordToStringBody(compilation, method, recordType);
                     return true;
 
-                case SourceDiscriminatedUnionSymbol unionSymbol:
+                case SourceUnionSymbol unionSymbol:
                     body = CreateUnionToStringBody(compilation, method, unionSymbol);
                     return true;
 
-                case SourceDiscriminatedUnionCaseTypeSymbol caseSymbol:
+                case SourceUnionCaseTypeSymbol caseSymbol:
                     body = CreateUnionCaseToStringBody(compilation, method, caseSymbol);
                     return true;
             }

@@ -1624,7 +1624,7 @@ internal partial class BlockBinder
     {
         if (syntax.ArgumentList is not null)
         {
-            _diagnostics.ReportCasePatternRequiresDiscriminatedUnion(
+            _diagnostics.ReportCasePatternRequiresUnion(
                 syntax.Path.Identifier.ValueText,
                 syntax.GetLocation());
             return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);

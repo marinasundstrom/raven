@@ -101,7 +101,7 @@ internal class TypeGenerator
                 }
             }
 
-            if (TypeSymbol is SourceDiscriminatedUnionSymbol unionSymbol)
+            if (TypeSymbol is SourceUnionSymbol unionSymbol)
             {
                 var unionNamed = (INamedTypeSymbol)unionSymbol;
                 if (unionNamed.TypeKind == TypeKind.Struct)
@@ -327,14 +327,14 @@ internal class TypeGenerator
 
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
 
-        if (TypeSymbol is SourceDiscriminatedUnionSymbol discriminatedUnionSymbol)
+        if (TypeSymbol is SourceUnionSymbol discriminatedUnionSymbol)
         {
             if (discriminatedUnionSymbol.TypeKind == TypeKind.Struct)
                 ApplyDiscriminatedUnionLayout();
             var discriminatedUnionAttribute = CodeGen.CreateDiscriminatedUnionAttribute();
             TypeBuilder!.SetCustomAttribute(discriminatedUnionAttribute);
         }
-        else if (TypeSymbol is SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
+        else if (TypeSymbol is SourceUnionCaseTypeSymbol caseSymbol)
         {
             var unionType = TypeSymbolExtensionsForCodeGen.GetClrType(caseSymbol.Union, CodeGen);
             var discriminatedUnionCaseAttribute = CodeGen.CreateUnionCaseAttribute(unionType);
@@ -375,7 +375,7 @@ internal class TypeGenerator
 
         var layoutKind = LayoutKind.Sequential;
 
-        if (TypeSymbol is SourceDiscriminatedUnionSymbol unionSymbol && ShouldUseExplicitUnionLayout(unionSymbol))
+        if (TypeSymbol is SourceUnionSymbol unionSymbol && ShouldUseExplicitUnionLayout(unionSymbol))
             layoutKind = LayoutKind.Explicit;
         var layoutCtor = typeof(StructLayoutAttribute).GetConstructor(new[] { typeof(LayoutKind) });
         if (layoutCtor is null)
@@ -388,7 +388,7 @@ internal class TypeGenerator
         TypeBuilder.SetCustomAttribute(attribute);
     }
 
-    private bool ShouldUseExplicitUnionLayout(SourceDiscriminatedUnionSymbol unionSymbol)
+    private bool ShouldUseExplicitUnionLayout(SourceUnionSymbol unionSymbol)
     {
         var named = (INamedTypeSymbol)unionSymbol;
         if (named.IsGenericType)
@@ -397,7 +397,7 @@ internal class TypeGenerator
         return !UnionHasManagedReferences(unionSymbol);
     }
 
-    private bool UnionHasManagedReferences(SourceDiscriminatedUnionSymbol unionSymbol)
+    private bool UnionHasManagedReferences(SourceUnionSymbol unionSymbol)
     {
         var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
 
@@ -639,7 +639,7 @@ internal class TypeGenerator
 
         var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, fieldType, attributes);
 
-        if (TypeSymbol is SourceDiscriminatedUnionSymbol unionSymbol)
+        if (TypeSymbol is SourceUnionSymbol unionSymbol)
         {
             if (ShouldUseExplicitUnionLayout(unionSymbol))
             {

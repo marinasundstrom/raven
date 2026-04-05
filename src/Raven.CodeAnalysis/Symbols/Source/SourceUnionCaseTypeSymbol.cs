@@ -3,13 +3,13 @@ using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SourceDiscriminatedUnionCaseTypeSymbol : SourceNamedTypeSymbol, IUnionCaseTypeSymbol
+internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, IUnionCaseTypeSymbol
 {
     private readonly IUnionSymbol _union;
     private readonly string _metadataBaseName;
     private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _projectedUnionTypeParameters = ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty.WithComparers(SymbolEqualityComparer.Default);
 
-    public SourceDiscriminatedUnionCaseTypeSymbol(
+    public SourceUnionCaseTypeSymbol(
         string name,
         string metadataBaseName,
         int ordinal,

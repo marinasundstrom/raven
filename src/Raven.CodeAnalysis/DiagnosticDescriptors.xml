@@ -620,7 +620,8 @@
   <Descriptor Id="RAV1504" Identifier="CannotAssignFromTypeToType" Title="Cannot assign to type"
     Message="Cannot assign '{fromType}' to '{toType}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV1509" Identifier="CannotAssignNullToType" Title="Cannot assign null to non-nullable type"
+  <Descriptor Id="RAV1509" Identifier="CannotAssignNullToType"
+    Title="Cannot assign null to non-nullable type"
     Message="Cannot assign null to '{toType}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1505" Identifier="MultipleContentEntriesNotAllowed"
@@ -685,7 +686,8 @@
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1919" Identifier="FixedExpressionRequiresAddressOfOperand"
     Title="Fixed expression requires address-of operand"
-    Message="'fixed' requires an explicit address-of operand written as '&amp;expr'." Category="compiler"
+    Message="'fixed' requires an explicit address-of operand written as '&amp;expr'."
+    Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1917" Identifier="UnsafeModeEnabled"
     Title="Unsafe mode is enabled" Message="Unsafe mode is enabled" Category="compiler"
@@ -769,13 +771,13 @@
   <Descriptor Id="RAV2103" Identifier="MatchExpressionCatchAllRedundant"
     Title="Match catch-all is redundant" Message="This catch-all never matches." Category="compiler"
     Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV2104" Identifier="CasePatternRequiresDiscriminatedUnion"
-    Title="Case pattern requires discriminated union"
-    Message="Case pattern '{caseName}' requires a discriminated union target" Category="compiler"
+  <Descriptor Id="RAV2104" Identifier="CasePatternRequiresUnion"
+    Title="Case pattern requires union"
+    Message="Case pattern '{caseName}' requires a union target" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2105" Identifier="CasePatternCaseNotFound"
-    Title="Case not found on discriminated union"
-    Message="Discriminated union '{unionName}' does not contain a case named '{caseName}'"
+    Title="Case not found on union"
+    Message="Union '{unionName}' does not contain a case named '{caseName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2106" Identifier="CasePatternArgumentCountMismatch"
     Title="Case pattern payload count mismatch"
@@ -811,7 +813,8 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1610" Identifier="NominalDeconstructionPatternRequiresDeconstructableType"
     Title="Nominal deconstruction pattern requires a deconstructable type"
-    Message="Nominal deconstruction pattern requires a deconstructable type; '{type}' does not support deconstruction" Category="compiler"
+    Message="Nominal deconstruction pattern requires a deconstructable type; '{type}' does not support deconstruction"
+    Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1611" Identifier="NominalDeconstructionPatternTypeMismatch"
     Title="Nominal deconstruction pattern type mismatch"

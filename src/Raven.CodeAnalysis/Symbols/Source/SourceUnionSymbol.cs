@@ -2,12 +2,12 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SourceDiscriminatedUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
+internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
 {
     private ImmutableArray<IUnionCaseTypeSymbol> _cases = ImmutableArray<IUnionCaseTypeSymbol>.Empty;
     private ImmutableArray<ITypeSymbol> _memberTypes = ImmutableArray<ITypeSymbol>.Empty;
 
-    public SourceDiscriminatedUnionSymbol(
+    public SourceUnionSymbol(
         string name,
         INamedTypeSymbol baseType,
         TypeKind typeKind,

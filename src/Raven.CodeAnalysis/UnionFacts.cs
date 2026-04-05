@@ -143,7 +143,7 @@ internal static class UnionFacts
     }
 
     private static bool TryGetSourceMappedUnionTypeParameter(
-        SourceDiscriminatedUnionCaseTypeSymbol sourceCaseDefinition,
+        SourceUnionCaseTypeSymbol sourceCaseDefinition,
         ITypeParameterSymbol caseTypeParameter,
         out ITypeParameterSymbol unionTypeParameter)
     {
@@ -162,13 +162,13 @@ internal static class UnionFacts
         return false;
     }
 
-    private static SourceDiscriminatedUnionCaseTypeSymbol? TryGetSourceCaseDefinition(IUnionCaseTypeSymbol caseSymbol)
+    private static SourceUnionCaseTypeSymbol? TryGetSourceCaseDefinition(IUnionCaseTypeSymbol caseSymbol)
     {
-        if (caseSymbol is SourceDiscriminatedUnionCaseTypeSymbol sourceCase)
+        if (caseSymbol is SourceUnionCaseTypeSymbol sourceCase)
             return sourceCase;
 
         if (caseSymbol is INamedTypeSymbol namedCase &&
-            namedCase.OriginalDefinition is SourceDiscriminatedUnionCaseTypeSymbol sourceDefinition)
+            namedCase.OriginalDefinition is SourceUnionCaseTypeSymbol sourceDefinition)
         {
             return sourceDefinition;
         }

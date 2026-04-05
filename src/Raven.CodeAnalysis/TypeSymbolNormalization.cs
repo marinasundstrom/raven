@@ -321,7 +321,7 @@ internal static class TypeSymbolNormalization
             var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
             var unionTypeParameter = default(ITypeParameterSymbol);
 
-            if (caseDefinition is SourceDiscriminatedUnionCaseTypeSymbol sourceCaseDefinition &&
+            if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
                 sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
             {
                 unionTypeParameter = mapped;

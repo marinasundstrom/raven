@@ -13533,7 +13533,7 @@ partial class BlockBinder : Binder
             var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
             ITypeParameterSymbol? mappedUnionTypeParameter = null;
 
-            if (caseDefinition is SourceDiscriminatedUnionCaseTypeSymbol sourceCaseDefinition &&
+            if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
                 sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
             {
                 mappedUnionTypeParameter = mapped;

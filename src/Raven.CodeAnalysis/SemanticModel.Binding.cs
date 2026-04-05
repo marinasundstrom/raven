@@ -709,7 +709,7 @@ public partial class SemanticModel
                         var nestedUnionTypeKind = GetUnionTypeKind(nestedUnion);
                         var nestedUnionBaseType = GetUnionBaseType(nestedUnionTypeKind);
 
-                        var unionSymbol = new SourceDiscriminatedUnionSymbol(
+                        var unionSymbol = new SourceUnionSymbol(
                             nestedUnion.Identifier.ValueText,
                             nestedUnionBaseType,
                             nestedUnionTypeKind,
@@ -989,7 +989,7 @@ public partial class SemanticModel
             unionDecl.TypeParameterList?.Parameters.Count ?? 0,
             _declarationDiagnostics);
 
-        var unionSymbol = new SourceDiscriminatedUnionSymbol(
+        var unionSymbol = new SourceUnionSymbol(
             unionDecl.Identifier.ValueText,
             unionBaseType,
             unionTypeKind,
@@ -1728,7 +1728,7 @@ public partial class SemanticModel
         var classBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
         var interfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
         var extensionBinders = new List<(ExtensionDeclarationSyntax Syntax, ExtensionDeclarationBinder Binder)>();
-        var unionBinders = new List<(UnionDeclarationSyntax Syntax, UnionDeclarationBinder Binder, SourceDiscriminatedUnionSymbol Symbol)>();
+        var unionBinders = new List<(UnionDeclarationSyntax Syntax, UnionDeclarationBinder Binder, SourceUnionSymbol Symbol)>();
 
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
 
@@ -1761,7 +1761,7 @@ public partial class SemanticModel
                     {
                         var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
                         var namespaceSymbol = parentNamespace.AsSourceNamespace();
-                        var unionSymbol = (SourceDiscriminatedUnionSymbol)GetDeclaredTypeSymbol(unionDecl);
+                        var unionSymbol = (SourceUnionSymbol)GetDeclaredTypeSymbol(unionDecl);
                         var (unionBinder, resolvedSymbol) = RegisterUnionDeclaration(
                             unionDecl,
                             parentBinder,
@@ -2420,7 +2420,7 @@ public partial class SemanticModel
         RegisterMember(delegateSymbol, invoke);
     }
 
-    private void RegisterUnionCases(UnionDeclarationSyntax unionDecl, UnionDeclarationBinder unionBinder, SourceDiscriminatedUnionSymbol unionSymbol)
+    private void RegisterUnionCases(UnionDeclarationSyntax unionDecl, UnionDeclarationBinder unionBinder, SourceUnionSymbol unionSymbol)
     {
         if (unionDecl.MemberTypes is not null && !unionSymbol.MemberTypes.IsDefaultOrEmpty && unionSymbol.MemberTypes.Length > 0)
             return;
@@ -2681,7 +2681,7 @@ public partial class SemanticModel
                 ? TypeKind.Struct
                 : TypeKind.Class;
 
-            var caseSymbol = new SourceDiscriminatedUnionCaseTypeSymbol(
+            var caseSymbol = new SourceUnionCaseTypeSymbol(
                 caseClause.Identifier.ValueText,
                 UnionFacts.GetCaseMetadataBaseName(unionSymbol.Name, caseClause.Identifier.ValueText),
                 ordinal++,
@@ -3082,12 +3082,12 @@ public partial class SemanticModel
         }
     }
 
-    private (UnionDeclarationBinder Binder, SourceDiscriminatedUnionSymbol Symbol) RegisterUnionDeclaration(
+    private (UnionDeclarationBinder Binder, SourceUnionSymbol Symbol) RegisterUnionDeclaration(
         UnionDeclarationSyntax unionDecl,
         Binder parentBinder,
         ISymbol declaringSymbol,
         SourceNamespaceSymbol? namespaceSymbol,
-        SourceDiscriminatedUnionSymbol? existingSymbol = null)
+        SourceUnionSymbol? existingSymbol = null)
     {
         var containingType = declaringSymbol as INamedTypeSymbol;
         var containingNamespace = declaringSymbol switch
@@ -3103,7 +3103,7 @@ public partial class SemanticModel
             unionDecl.Modifiers,
             AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol));
 
-        var unionSymbol = existingSymbol ?? new SourceDiscriminatedUnionSymbol(
+        var unionSymbol = existingSymbol ?? new SourceUnionSymbol(
             unionDecl.Identifier.ValueText,
             baseTypeSymbol!,
             unionTypeKind,
@@ -3492,7 +3492,7 @@ public partial class SemanticModel
                     {
                         var declaringSymbol = (ISymbol)classBinder.ContainingSymbol;
                         var namespaceSymbol = classBinder.CurrentNamespace?.AsSourceNamespace();
-                        var unionSymbol = (SourceDiscriminatedUnionSymbol)GetDeclaredTypeSymbol(nestedUnion);
+                        var unionSymbol = (SourceUnionSymbol)GetDeclaredTypeSymbol(nestedUnion);
                         var (unionBinder, resolvedSymbol) = RegisterUnionDeclaration(
                             nestedUnion,
                             classBinder,
@@ -5364,7 +5364,7 @@ public partial class SemanticModel
 
         if (node is TypeDeclarationSyntax typeDecl)
             RegisterClassSymbol(typeDecl, symbol);
-        else if (node is UnionDeclarationSyntax unionDecl && symbol is SourceDiscriminatedUnionSymbol unionSymbol)
+        else if (node is UnionDeclarationSyntax unionDecl && symbol is SourceUnionSymbol unionSymbol)
             RegisterUnionSymbol(unionDecl, unionSymbol);
     }
 
@@ -5410,25 +5410,25 @@ public partial class SemanticModel
     internal bool TryGetClassSymbol(TypeDeclarationSyntax node, out SourceNamedTypeSymbol symbol)
         => _classSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
 
-    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceDiscriminatedUnionSymbol> _unionSymbols = new();
-    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceDiscriminatedUnionCaseTypeSymbol> _unionCaseSymbols = new();
+    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceUnionSymbol> _unionSymbols = new();
+    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceUnionCaseTypeSymbol> _unionCaseSymbols = new();
 
-    internal void RegisterUnionSymbol(UnionDeclarationSyntax node, SourceDiscriminatedUnionSymbol symbol)
+    internal void RegisterUnionSymbol(UnionDeclarationSyntax node, SourceUnionSymbol symbol)
         => _unionSymbols[GetSyntaxNodeMapKey(node)] = symbol;
 
-    internal SourceDiscriminatedUnionSymbol GetUnionSymbol(UnionDeclarationSyntax node)
+    internal SourceUnionSymbol GetUnionSymbol(UnionDeclarationSyntax node)
         => _unionSymbols[GetSyntaxNodeMapKey(node)];
 
-    internal bool TryGetUnionSymbol(UnionDeclarationSyntax node, out SourceDiscriminatedUnionSymbol symbol)
+    internal bool TryGetUnionSymbol(UnionDeclarationSyntax node, out SourceUnionSymbol symbol)
         => _unionSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
 
-    internal void RegisterUnionCaseSymbol(UnionCaseClauseSyntax node, SourceDiscriminatedUnionCaseTypeSymbol symbol)
+    internal void RegisterUnionCaseSymbol(UnionCaseClauseSyntax node, SourceUnionCaseTypeSymbol symbol)
         => _unionCaseSymbols[GetSyntaxNodeMapKey(node)] = symbol;
 
-    internal SourceDiscriminatedUnionCaseTypeSymbol GetUnionCaseSymbol(UnionCaseClauseSyntax node)
+    internal SourceUnionCaseTypeSymbol GetUnionCaseSymbol(UnionCaseClauseSyntax node)
         => _unionCaseSymbols[GetSyntaxNodeMapKey(node)];
 
-    internal bool TryGetUnionCaseSymbol(UnionCaseClauseSyntax node, out SourceDiscriminatedUnionCaseTypeSymbol symbol)
+    internal bool TryGetUnionCaseSymbol(UnionCaseClauseSyntax node, out SourceUnionCaseTypeSymbol symbol)
         => _unionCaseSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
 
     private readonly ConcurrentDictionary<SyntaxNodeMapKey, IMethodSymbol> _methodSymbols = new();

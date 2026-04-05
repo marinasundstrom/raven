@@ -12,7 +12,7 @@ internal static partial class SynthesizedMethodBodyFactory
 {
     private static BoundBlockStatement CreateUnionDisplayNameHelperBody(
         Compilation compilation,
-        SourceDiscriminatedUnionSymbol unionSymbol)
+        SourceUnionSymbol unionSymbol)
     {
         var parts = new List<BoundExpression>
         {
@@ -42,7 +42,7 @@ internal static partial class SynthesizedMethodBodyFactory
     private static BoundBlockStatement CreateUnionDisplayNameHelperBody(
         Compilation compilation,
         IMethodSymbol method,
-        SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
+        SourceUnionCaseTypeSymbol caseSymbol)
     {
         if (caseSymbol.Arity == 0 && caseSymbol.Union.Arity == 0)
         {
@@ -60,13 +60,13 @@ internal static partial class SynthesizedMethodBodyFactory
     private static BoundBlockStatement CreateUnionToStringBody(
         Compilation compilation,
         IMethodSymbol method,
-        SourceDiscriminatedUnionSymbol unionSymbol)
+        SourceUnionSymbol unionSymbol)
     {
         var statements = new List<BoundStatement>();
 
         if (!unionSymbol.CaseTypes.IsDefaultOrEmpty && unionSymbol.CaseTypes.Length > 0)
         {
-            foreach (var caseType in unionSymbol.CaseTypes.OfType<SourceDiscriminatedUnionCaseTypeSymbol>())
+            foreach (var caseType in unionSymbol.CaseTypes.OfType<SourceUnionCaseTypeSymbol>())
             {
                 var payloadField = (SourceFieldSymbol)UnionFieldUtilities.GetRequiredPayloadField(unionSymbol, caseType);
                 var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadField);
@@ -107,7 +107,7 @@ internal static partial class SynthesizedMethodBodyFactory
     private static BoundBlockStatement CreateUnionCaseToStringBody(
         Compilation compilation,
         IMethodSymbol method,
-        SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
+        SourceUnionCaseTypeSymbol caseSymbol)
     {
         var statements = new List<BoundStatement>();
         BoundExpression unionDisplayName;
@@ -518,7 +518,7 @@ internal static partial class SynthesizedMethodBodyFactory
     private static BoundExpression CreateUnionTagEquality(
         Compilation compilation,
         IMethodSymbol method,
-        SourceDiscriminatedUnionSymbol unionSymbol,
+        SourceUnionSymbol unionSymbol,
         int ordinal)
     {
         var tagAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), unionSymbol.DiscriminatorField);
@@ -763,7 +763,7 @@ internal static partial class SynthesizedMethodBodyFactory
     private static BoundBlockStatement CreateUnionTryGetValueBody(
         Compilation compilation,
         IMethodSymbol method,
-        SourceDiscriminatedUnionSymbol unionSymbol,
+        SourceUnionSymbol unionSymbol,
         IParameterSymbol targetParameter)
     {
         var statements = new List<BoundStatement>();
@@ -795,7 +795,7 @@ internal static partial class SynthesizedMethodBodyFactory
     private static BoundBlockStatement CreateUnionCarrierConstructorBody(
         Compilation compilation,
         IMethodSymbol method,
-        SourceDiscriminatedUnionSymbol unionSymbol)
+        SourceUnionSymbol unionSymbol)
     {
         var statements = new List<BoundStatement>();
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit)
@@ -901,7 +901,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static List<(string Name, SourcePropertySymbol Property, ITypeSymbol DeclaredType)> CollectUnionCaseParameters(
         INamedTypeSymbol? containingType,
-        SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
+        SourceUnionCaseTypeSymbol caseSymbol)
     {
         var parameters = new List<(string Name, SourcePropertySymbol Property, ITypeSymbol DeclaredType)>();
         var constructorParameters = containingType is IUnionCaseTypeSymbol constructedCaseType &&
@@ -938,12 +938,12 @@ internal static partial class SynthesizedMethodBodyFactory
         return (INamedTypeSymbol)containingType.Construct(containingType.TypeParameters.Cast<ITypeSymbol>().ToArray());
     }
 
-    private static SourceDiscriminatedUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(INamedTypeSymbol? typeSymbol)
+    private static SourceUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(INamedTypeSymbol? typeSymbol)
     {
         return typeSymbol switch
         {
-            SourceDiscriminatedUnionSymbol sourceUnion => sourceUnion,
-            ConstructedNamedTypeSymbol { OriginalDefinition: SourceDiscriminatedUnionSymbol sourceUnion } => sourceUnion,
+            SourceUnionSymbol sourceUnion => sourceUnion,
+            ConstructedNamedTypeSymbol { OriginalDefinition: SourceUnionSymbol sourceUnion } => sourceUnion,
             _ => null
         };
     }
@@ -952,8 +952,8 @@ internal static partial class SynthesizedMethodBodyFactory
     {
         return typeSymbol switch
         {
-            SourceDiscriminatedUnionCaseTypeSymbol sourceCase => sourceCase,
-            ConstructedNamedTypeSymbol { OriginalDefinition: SourceDiscriminatedUnionCaseTypeSymbol } constructedCase => constructedCase,
+            SourceUnionCaseTypeSymbol sourceCase => sourceCase,
+            ConstructedNamedTypeSymbol { OriginalDefinition: SourceUnionCaseTypeSymbol } constructedCase => constructedCase,
             _ => null
         };
     }
@@ -998,7 +998,7 @@ internal static partial class SynthesizedMethodBodyFactory
     }
 
     private static bool TryGetUnionPayloadSlot(
-        SourceDiscriminatedUnionSymbol unionSymbol,
+        SourceUnionSymbol unionSymbol,
         ITypeSymbol memberType,
         out int ordinal,
         out SourceFieldSymbol payloadFieldSymbol)

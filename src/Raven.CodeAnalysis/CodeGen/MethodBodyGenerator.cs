@@ -2038,13 +2038,13 @@ internal class MethodBodyGenerator
     {
         return typeSymbol switch
         {
-            SourceDiscriminatedUnionCaseTypeSymbol sourceCase => sourceCase,
-            ConstructedNamedTypeSymbol { OriginalDefinition: SourceDiscriminatedUnionCaseTypeSymbol sourceCase } => sourceCase,
+            SourceUnionCaseTypeSymbol sourceCase => sourceCase,
+            ConstructedNamedTypeSymbol { OriginalDefinition: SourceUnionCaseTypeSymbol sourceCase } => sourceCase,
             _ => null,
         };
     }
 
-    private void EmitDiscriminatedUnionCarrierConstructorPrelude(SourceDiscriminatedUnionSymbol unionSymbol)
+    private void EmitDiscriminatedUnionCarrierConstructorPrelude(SourceUnionSymbol unionSymbol)
     {
         var unionClrType = Generator.InstantiateType(
             MethodGenerator.TypeGenerator.TypeBuilder
@@ -2103,13 +2103,13 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Call, GetBaseConstructor());
     }
 
-    private static SourceDiscriminatedUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(INamedTypeSymbol? typeSymbol)
+    private static SourceUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(INamedTypeSymbol? typeSymbol)
     {
         switch (typeSymbol)
         {
-            case SourceDiscriminatedUnionSymbol sourceUnion:
+            case SourceUnionSymbol sourceUnion:
                 return sourceUnion;
-            case ConstructedNamedTypeSymbol { OriginalDefinition: SourceDiscriminatedUnionSymbol sourceUnion }:
+            case ConstructedNamedTypeSymbol { OriginalDefinition: SourceUnionSymbol sourceUnion }:
                 return sourceUnion;
             default:
                 return null;
