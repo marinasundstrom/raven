@@ -38,32 +38,59 @@ internal sealed partial class Lowerer
 
     private BoundExpression LowerDiscriminatedUnionConversion(BoundConversionExpression node, BoundExpression rewrittenExpression)
     {
-        var caseDefinition = rewrittenExpression.Type?.TryGetUnionCase()
-            ?? throw new InvalidOperationException("Missing discriminated union case information.");
-        var unionType = (INamedTypeSymbol)node.Type!;
-        if (unionType.IsGenericType &&
-            unionType.TypeArguments.Any(static arg => arg is ITypeParameterSymbol))
+        var caseDefinition = rewrittenExpression.Type?.TryGetUnionCase();
+        if (caseDefinition is null)
         {
-            unionType = (INamedTypeSymbol)caseDefinition.Union;
+            var unionType = (INamedTypeSymbol)node.Type!;
+            var unionCtor = node.Conversion.ConstructorSymbol;
+            if (unionCtor is null &&
+                rewrittenExpression.Type is INamedTypeSymbol sourceType &&
+                !unionType.TryGetUnionCarrierConstructor(sourceType, out unionCtor))
+            {
+                return ReferenceEquals(rewrittenExpression, node.Expression)
+                    ? node
+                    : new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion);
+            }
+
+            if (unionCtor is null)
+            {
+                return ReferenceEquals(rewrittenExpression, node.Expression)
+                    ? node
+                    : new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion);
+            }
+
+            return new BoundObjectCreationExpression(
+                unionCtor,
+                [rewrittenExpression]);
         }
-
-        // Reproject the case via the target union to keep synthesized case locals concrete.
-        var projectedCase = unionType is IUnionSymbol projectedUnion
-            ? projectedUnion.CaseTypes.FirstOrDefault(c => c.Ordinal == caseDefinition.Ordinal) ?? caseDefinition
-            : caseDefinition;
-
-        var projectedCaseType = (INamedTypeSymbol)projectedCase;
-
-        var unionCtor = node.Conversion.ConstructorSymbol;
-        if (unionCtor is null &&
-            !unionType.TryGetUnionCarrierConstructor(projectedCaseType, out unionCtor))
+        else
         {
-            throw new InvalidOperationException(
-                $"Missing union constructor for DU conversion from '{projectedCaseType.Name}' to '{unionType.Name}'.");
-        }
 
-        return new BoundObjectCreationExpression(
-            unionCtor,
-            ImmutableArray.Create(rewrittenExpression));
+            var unionType = (INamedTypeSymbol)node.Type!;
+            if (unionType.IsGenericType &&
+                unionType.TypeArguments.Any(static arg => arg is ITypeParameterSymbol))
+            {
+                unionType = (INamedTypeSymbol)caseDefinition.Union;
+            }
+
+            // Reproject the case via the target union to keep synthesized case locals concrete.
+            var projectedCase = unionType is IUnionSymbol projectedUnion
+                ? projectedUnion.CaseTypes.FirstOrDefault(c => c.Ordinal == caseDefinition.Ordinal) ?? caseDefinition
+                : caseDefinition;
+
+            var projectedCaseType = (INamedTypeSymbol)projectedCase;
+
+            var unionCtor = node.Conversion.ConstructorSymbol;
+            if (unionCtor is null &&
+                !unionType.TryGetUnionCarrierConstructor(projectedCaseType, out unionCtor))
+            {
+                throw new InvalidOperationException(
+                    $"Missing union constructor for DU conversion from '{projectedCaseType.Name}' to '{unionType.Name}'.");
+            }
+
+            return new BoundObjectCreationExpression(
+                unionCtor,
+                [rewrittenExpression]);
+        }
     }
 }

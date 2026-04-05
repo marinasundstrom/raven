@@ -1,0 +1,10 @@
+import System.Console.*
+
+val value: Payment = 42
+
+match value {
+    int no => WriteLine("no $no")
+    string str => WriteLine("str $str")
+}
+
+union Payment(int, string)
