@@ -3,18 +3,15 @@ import System.Console.*
 import System.Globalization.*
 
 func Main() -> Result<(), IError> {
-    val test = int.parse("foo").WithContext("test")
+    val test = int.parse("42")?
 
+    /*
     match test {
         Ok(val v) => WriteLine(v)
-        Error(val e) => {
-            match e.Cause {
-                //(.InvalidFormat, _, _) => WriteLine("Ouch! Invalid format")
-                //(val kind, _, _) => WriteLine("Error kind $kind")
-                _ => WriteLine(e.Message)
-            }
-        }
+        Error(ParseIntError(.InvalidFormat, _, _) => WriteLine("Ouch! Invalid format")
+        _ => WriteLine("Unhandled error")
     }
+    */
 
     WriteLine("Value: $test")
 
