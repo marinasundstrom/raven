@@ -11452,12 +11452,6 @@ partial class BlockBinder : Binder
             elementNodes.Add(elementNode);
         }
 
-        if (targetType is not null &&
-            TryBindCollectionBuilderInvocation(syntax, targetType, elements, elementNodes, out var builderBasedCollection))
-        {
-            return builderBasedCollection;
-        }
-
         if (targetType is IArrayTypeSymbol arrayType)
         {
             if (arrayType.Rank != 1)
@@ -11525,69 +11519,10 @@ partial class BlockBinder : Binder
             return new BoundCollectionExpression(arrayType, converted.ToImmutable());
         }
 
-        // Bind to IEnumerable<T> targets by producing a T[] and relying on the implicit conversion
-        // from array to IEnumerable<T> (and other compatible interfaces).
-        if (targetType is INamedTypeSymbol { TypeKind: TypeKind.Interface } enumerableTarget &&
-            TryGetIEnumerableElementType(enumerableTarget, out var enumerableElementType))
+        if (targetType is not null &&
+            TryBindCollectionBuilderInvocation(syntax, targetType, elements, elementNodes, out var builderBasedCollection))
         {
-            var arrayElementType = enumerableElementType;
-            var arrayType2 = Compilation.CreateArrayTypeSymbol(arrayElementType);
-
-            var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
-
-            for (var i = 0; i < elements.Count; i++)
-            {
-                var element = elements[i];
-                var elementSyntax = elementNodes[i];
-
-                if (element is BoundSpreadElement spread)
-                {
-                    var sourceType = GetSpreadElementType(spread.Expression.Type!);
-                    if (!IsAssignable(arrayElementType, sourceType, out _))
-                    {
-                        ReportCannotConvertFromTypeToType(
-                            sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            arrayElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            syntax.GetLocation());
-                    }
-
-                    converted.Add(element);
-                    continue;
-                }
-
-                if (arrayElementType.TypeKind != TypeKind.Error &&
-                    ShouldAttemptConversion(element))
-                {
-                    if (!IsAssignable(arrayElementType, element.Type!, out var conversion2))
-                    {
-                        ReportCannotConvertFromTypeToType(
-                            element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            arrayElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            syntax.GetLocation());
-                    }
-                    else
-                    {
-                        converted.Add(ApplyConversion(element, arrayElementType, conversion2, elementSyntax));
-                        continue;
-                    }
-                }
-
-                converted.Add(element);
-            }
-
-            BoundExpression arrayExpr = new BoundCollectionExpression(arrayType2, converted.ToImmutable());
-
-            var conversion = Compilation.ClassifyConversion(arrayType2, enumerableTarget);
-            if (conversion.Exists && conversion.IsImplicit)
-                return ApplyConversion(arrayExpr, enumerableTarget, conversion, syntax);
-
-            return arrayExpr;
-        }
-
-        if (targetType is INamedTypeSymbol builderBackedTarget &&
-            TryBindCollectionExpressionToBuilderBackedTarget(syntax, builderBackedTarget, elements, elementNodes, out var builderBackedCollection))
-        {
-            return builderBackedCollection;
+            return builderBasedCollection;
         }
 
         if (targetType is INamedTypeSymbol namedType)
@@ -11646,6 +11581,12 @@ partial class BlockBinder : Binder
 
                 return new BoundCollectionExpression(namedType, converted.ToImmutable(), addMethod);
             }
+        }
+
+        if (targetType is not null &&
+            TryBindCollectionExpressionViaImplicitEnumerableConversion(syntax, targetType, elements, elementNodes, out var implicitlyConvertedCollection))
+        {
+            return implicitlyConvertedCollection;
         }
 
         // Fallback to array if target type couldn't be determined
@@ -11711,67 +11652,6 @@ partial class BlockBinder : Binder
 
         var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType);
         return new BoundCollectionExpression(fallbackArray, convertedFallback.ToImmutable());
-    }
-
-    private bool TryBindCollectionExpressionToBuilderBackedTarget(
-        SyntaxNode syntax,
-        INamedTypeSymbol targetType,
-        IReadOnlyList<BoundExpression> elements,
-        IReadOnlyList<SyntaxNode> elementNodes,
-        out BoundExpression result)
-    {
-        result = null!;
-
-        if (!string.Equals(targetType.OriginalDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableArray`1", StringComparison.Ordinal) ||
-            !TryGetCollectionBuilderElementType(targetType, out var elementType))
-        {
-            return false;
-        }
-
-        var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
-
-        for (var i = 0; i < elements.Count; i++)
-        {
-            var element = elements[i];
-            var elementSyntax = elementNodes[i];
-
-            if (element is BoundSpreadElement spread)
-            {
-                var sourceType = GetSpreadElementType(spread.Expression.Type!);
-                if (!IsAssignable(elementType, sourceType, out _))
-                {
-                    ReportCannotConvertFromTypeToType(
-                        sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        syntax.GetLocation());
-                }
-
-                converted.Add(element);
-                continue;
-            }
-
-            if (elementType.TypeKind != TypeKind.Error &&
-                ShouldAttemptConversion(element))
-            {
-                if (!IsAssignable(elementType, element.Type!, out var conversion))
-                {
-                    ReportCannotConvertFromTypeToType(
-                        element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        syntax.GetLocation());
-                }
-                else
-                {
-                    converted.Add(ApplyConversion(element, elementType, conversion, elementSyntax));
-                    continue;
-                }
-            }
-
-            converted.Add(element);
-        }
-
-        result = new BoundCollectionExpression(targetType, converted.ToImmutable());
-        return true;
     }
 
     private BoundExpression BindDictionaryExpressionCore(
@@ -12199,9 +12079,9 @@ partial class BlockBinder : Binder
         if (accessibleCandidates.IsDefaultOrEmpty)
             return false;
 
-        var arguments = new BoundArgument[elements.Count];
-        for (var i = 0; i < elements.Count; i++)
-            arguments[i] = new BoundArgument(elements[i], RefKind.None, null, elementNodes[i]);
+        accessibleCandidates = PreferCollectionBuilderTargetTypeCandidates(accessibleCandidates, namedTarget);
+
+        var arguments = CreateCollectionBuilderArguments(syntax, namedTarget, elements, elementNodes);
 
         var resolution = OverloadResolver.ResolveOverload(
             accessibleCandidates,
@@ -12232,6 +12112,83 @@ partial class BlockBinder : Binder
         ReportObsoleteIfNeeded(method, syntax.GetLocation());
         result = invocation;
         return true;
+    }
+
+    private BoundArgument[] CreateCollectionBuilderArguments(
+        SyntaxNode syntax,
+        INamedTypeSymbol targetType,
+        IReadOnlyList<BoundExpression> elements,
+        IReadOnlyList<SyntaxNode> elementNodes)
+    {
+        var arguments = new BoundArgument[elements.Count];
+        var hasTargetElementType = TryGetCollectionBuilderElementType(targetType, out var targetElementType);
+
+        for (var i = 0; i < elements.Count; i++)
+        {
+            var element = elements[i];
+            var elementSyntax = elementNodes[i];
+
+            if (hasTargetElementType &&
+                element.Type is not null &&
+                targetElementType.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(element) &&
+                IsAssignable(targetElementType, element.Type, out var conversion))
+            {
+                element = ApplyConversion(element, targetElementType, conversion, elementSyntax);
+            }
+
+            arguments[i] = new BoundArgument(element, RefKind.None, null, elementSyntax);
+        }
+
+        return arguments;
+    }
+
+    private ImmutableArray<IMethodSymbol> PreferCollectionBuilderTargetTypeCandidates(
+        ImmutableArray<IMethodSymbol> candidates,
+        INamedTypeSymbol targetType)
+    {
+        if (candidates.IsDefaultOrEmpty || targetType.TypeArguments.IsDefaultOrEmpty)
+            return candidates;
+
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>(candidates.Length);
+
+        foreach (var candidate in candidates)
+        {
+            if (TryConstructCollectionBuilderMethodFromTargetType(candidate, targetType, out var constructed))
+                builder.Add(constructed);
+            else
+                builder.Add(candidate);
+        }
+
+        return DistinctMethodCandidates(builder.ToImmutable());
+    }
+
+    private bool TryConstructCollectionBuilderMethodFromTargetType(
+        IMethodSymbol candidate,
+        INamedTypeSymbol targetType,
+        out IMethodSymbol constructed)
+    {
+        constructed = null!;
+
+        if (candidate.TypeParameters.Length != targetType.TypeArguments.Length ||
+            candidate.ReturnType is not INamedTypeSymbol returnType ||
+            !string.Equals(
+                returnType.OriginalDefinition.ToFullyQualifiedMetadataName(),
+                targetType.OriginalDefinition.ToFullyQualifiedMetadataName(),
+                StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            constructed = candidate.Construct(targetType.TypeArguments.ToArray());
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private IMethodSymbol? SelectCollectionBuilderMethodFallback(
@@ -12370,14 +12327,6 @@ partial class BlockBinder : Binder
     {
         var targetDefinition = (targetType.OriginalDefinition as INamedTypeSymbol) ?? targetType;
 
-        if (string.Equals(targetDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableArray`1", StringComparison.Ordinal) &&
-            Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableArray") is INamedTypeSymbol immutableArrayBuilder)
-        {
-            builderType = immutableArrayBuilder;
-            methodName = "Create";
-            return true;
-        }
-
         if (TryGetCollectionBuilderInfoFromAttributes(targetDefinition.GetAttributes(), out builderType, out methodName))
             return true;
 
@@ -12427,6 +12376,12 @@ partial class BlockBinder : Binder
             }
         }
 
+        if (TryGetRuntimeCollectionBuilderInfo(targetDefinition, out builderType, out methodName))
+            return true;
+
+        if (TryGetCollectionBuilderInfoByConvention(targetDefinition, out builderType, out methodName))
+            return true;
+
         builderType = null!;
         methodName = string.Empty;
         return false;
@@ -12441,6 +12396,176 @@ partial class BlockBinder : Binder
         }
 
         elementType = null!;
+        return false;
+    }
+
+    private bool TryGetRuntimeCollectionBuilderInfo(
+        INamedTypeSymbol targetDefinition,
+        out INamedTypeSymbol builderType,
+        out string methodName)
+    {
+        builderType = null!;
+        methodName = string.Empty;
+
+        if (!TryGetRuntimeTypeByMetadataName(targetDefinition.ToFullyQualifiedMetadataName(), out var runtimeTargetType))
+            return false;
+
+        foreach (var attribute in runtimeTargetType.GetCustomAttributesData())
+        {
+            if (!string.Equals(attribute.AttributeType.FullName, "System.Runtime.CompilerServices.CollectionBuilderAttribute", StringComparison.Ordinal))
+                continue;
+
+            if (attribute.ConstructorArguments.Count < 2)
+                continue;
+
+            if (attribute.ConstructorArguments[0].Value is not Type runtimeBuilderType ||
+                attribute.ConstructorArguments[1].Value is not string runtimeMethodName)
+            {
+                continue;
+            }
+
+            var builderMetadataName = GetRuntimeMetadataName(runtimeBuilderType);
+            if (Compilation.GetTypeByMetadataName(builderMetadataName) is not INamedTypeSymbol namedBuilder)
+                continue;
+
+            builderType = namedBuilder;
+            methodName = runtimeMethodName;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryBindCollectionExpressionViaImplicitEnumerableConversion(
+        SyntaxNode syntax,
+        ITypeSymbol targetType,
+        IReadOnlyList<BoundExpression> elements,
+        IReadOnlyList<SyntaxNode> elementNodes,
+        out BoundExpression result)
+    {
+        result = null!;
+
+        if (targetType is not INamedTypeSymbol namedTarget ||
+            !TryGetIEnumerableElementType(namedTarget, out var enumerableElementType))
+        {
+            return false;
+        }
+
+        var arrayType = Compilation.CreateArrayTypeSymbol(enumerableElementType);
+        var conversion = Compilation.ClassifyConversion(arrayType, targetType);
+        if (!conversion.Exists || !conversion.IsImplicit)
+            return false;
+
+        var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
+
+        for (var i = 0; i < elements.Count; i++)
+        {
+            var element = elements[i];
+            var elementSyntax = elementNodes[i];
+
+            if (element is BoundSpreadElement spread)
+            {
+                var sourceType = GetSpreadElementType(spread.Expression.Type!);
+                if (!IsAssignable(enumerableElementType, sourceType, out _))
+                {
+                    ReportCannotConvertFromTypeToType(
+                        sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        enumerableElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.GetLocation());
+                }
+
+                converted.Add(element);
+                continue;
+            }
+
+            if (enumerableElementType.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(element))
+            {
+                if (!IsAssignable(enumerableElementType, element.Type!, out var elementConversion))
+                {
+                    ReportCannotConvertFromTypeToType(
+                        element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        enumerableElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.GetLocation());
+                }
+                else
+                {
+                    converted.Add(ApplyConversion(element, enumerableElementType, elementConversion, elementSyntax));
+                    continue;
+                }
+            }
+
+            converted.Add(element);
+        }
+
+        var arrayExpression = new BoundCollectionExpression(arrayType, converted.ToImmutable());
+        result = ApplyConversion(arrayExpression, targetType, conversion, syntax);
+        return true;
+    }
+
+    private bool TryGetCollectionBuilderInfoByConvention(
+        INamedTypeSymbol targetDefinition,
+        out INamedTypeSymbol builderType,
+        out string methodName)
+    {
+        builderType = null!;
+        methodName = string.Empty;
+
+        if (!TryGetCollectionBuilderElementType(targetDefinition, out _))
+            return false;
+
+        if (string.IsNullOrEmpty(targetDefinition.ContainingNamespace?.ToDisplayString()))
+            return false;
+
+        var builderMetadataName = $"{targetDefinition.ContainingNamespace.ToDisplayString()}.{targetDefinition.Name}";
+        if (Compilation.GetTypeByMetadataName(builderMetadataName) is not INamedTypeSymbol candidateBuilder)
+            return false;
+
+        var createMethods = candidateBuilder
+            .GetMembers("Create")
+            .OfType<IMethodSymbol>()
+            .Where(static method => method.IsStatic);
+
+        foreach (var method in createMethods)
+        {
+            var returnType = method.ReturnType as INamedTypeSymbol;
+            if (returnType is null)
+                continue;
+
+            if (string.Equals(
+                    returnType.OriginalDefinition.ToFullyQualifiedMetadataName(),
+                    targetDefinition.ToFullyQualifiedMetadataName(),
+                    StringComparison.Ordinal))
+            {
+                builderType = candidateBuilder;
+                methodName = "Create";
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetRuntimeTypeByMetadataName(string metadataName, out Type runtimeType)
+    {
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try
+            {
+                var candidate = assembly.GetType(metadataName, throwOnError: false, ignoreCase: false);
+                if (candidate is not null)
+                {
+                    runtimeType = candidate;
+                    return true;
+                }
+            }
+            catch
+            {
+                // Ignore reflection load failures and continue probing loaded assemblies.
+            }
+        }
+
+        runtimeType = null!;
         return false;
     }
 
