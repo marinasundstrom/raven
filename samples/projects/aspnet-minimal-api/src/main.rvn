@@ -33,18 +33,18 @@ app.MapGet("/ping", func (name: string) => "pong $name")
 
 app.MapGet("/ping2", func (no: int = 2) => "pong $no")
 
-app.MapGet("/async", async func () => {
+app.MapGet("/async", async func () {
     await Task.Delay(1)
     return "Hello from async MapGet"
 })
 
-app.MapGet("/stream", async func () => {
+app.MapGet("/stream", async func () {
     yield return 1
     yield return 2
     yield return 3
 })
 
-app.MapPost("/submit", async func (context: HttpContext) => {
+app.MapPost("/submit", async func (context: HttpContext) {
     use reader = StreamReader(context.Request.Body, encoding: .UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false)
     val content = await reader.ReadToEndAsync()
     return "submitted: $content"
@@ -52,7 +52,7 @@ app.MapPost("/submit", async func (context: HttpContext) => {
 
 app.MapPost("/submit2", func (data: Data) => "submitted: ${data.Value}")
 
-app.MapPost("/submit-async", async func (content: string) => {
+app.MapPost("/submit-async", async func (content: string) {
     await Task.Delay(1)
     return "submitted async: $content"
 })
