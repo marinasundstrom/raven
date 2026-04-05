@@ -2,6 +2,14 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 
+## 2026-04-05
+
+### Changed
+- Collection expressions now continue to honor builder-backed target types such as `ImmutableArray<T>` in ordinary assignments, expression-bodied returns, and object-initializer property assignments. Non-empty `[...]` still reject non-collection targets, but they no longer fall back to `ImmutableList<T>` when the target is a supported builder-backed collection.
+
+Impact:
+- Samples and APIs that expose `ImmutableArray<T>` regain target-typed `[]` behavior, including macro expansion results and object-initializer assignments, while the earlier overload-resolution fix still preserves the intended `Cannot convert from 'ImmutableList<T>' to 'T'` diagnostic for non-collection targets.
+
 ## 2026-04-04
 
 ### Changed

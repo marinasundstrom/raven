@@ -417,7 +417,7 @@ val values: ImmutableArray<int> = [1, 2, 3]
         var model = run.Compilation.GetSemanticModel(tree);
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
-        var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
+        var bound = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(collection));
         var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableArray`1", targetType.MetadataName);
         Assert.Equal("Int32", targetType.TypeArguments.Single().MetadataName);
@@ -444,10 +444,59 @@ class Factory {
         var model = run.Compilation.GetSemanticModel(tree);
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
-        var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
+        var bound = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(collection));
         var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableArray`1", targetType.MetadataName);
         Assert.Equal("Int32", targetType.TypeArguments.Single().MetadataName);
+    }
+
+    [Fact]
+    public void ImmutableArrayTarget_ObjectInitializerPropertyCollectionExpression_BindsToImmutableArray()
+    {
+        const string source = """
+import System.Collections.Immutable.*
+
+class Box {
+    var Values: ImmutableArray<int> = []
+}
+
+val box = Box {
+    Values = [1, 2, 3]
+}
+""";
+
+        CreateVerifier(source).Verify();
+    }
+
+    [Fact]
+    public void ImmutableArrayTarget_PlainCollectionExpression_UsesTargetElementType()
+    {
+        const string source = """
+import System.Collections.Immutable.*
+
+interface IBase {}
+class Derived : IBase {}
+
+val values: ImmutableArray<IBase> = [Derived()]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<CollectionExpressionSyntax>()
+            .Single(static expression => expression.Elements.Count == 1);
+
+        var bound = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(collection));
+        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        Assert.Equal("ImmutableArray`1", targetType.MetadataName);
+        Assert.Equal("IBase", targetType.TypeArguments.Single().MetadataName);
     }
 
     [Fact]

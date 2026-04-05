@@ -11584,6 +11584,12 @@ partial class BlockBinder : Binder
             return arrayExpr;
         }
 
+        if (targetType is INamedTypeSymbol builderBackedTarget &&
+            TryBindCollectionExpressionToBuilderBackedTarget(syntax, builderBackedTarget, elements, elementNodes, out var builderBackedCollection))
+        {
+            return builderBackedCollection;
+        }
+
         if (targetType is INamedTypeSymbol namedType)
         {
             var addMethod = new SymbolQuery("Add", namedType, IsStatic: false)
@@ -11705,6 +11711,67 @@ partial class BlockBinder : Binder
 
         var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType);
         return new BoundCollectionExpression(fallbackArray, convertedFallback.ToImmutable());
+    }
+
+    private bool TryBindCollectionExpressionToBuilderBackedTarget(
+        SyntaxNode syntax,
+        INamedTypeSymbol targetType,
+        IReadOnlyList<BoundExpression> elements,
+        IReadOnlyList<SyntaxNode> elementNodes,
+        out BoundExpression result)
+    {
+        result = null!;
+
+        if (!string.Equals(targetType.OriginalDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableArray`1", StringComparison.Ordinal) ||
+            !TryGetCollectionBuilderElementType(targetType, out var elementType))
+        {
+            return false;
+        }
+
+        var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
+
+        for (var i = 0; i < elements.Count; i++)
+        {
+            var element = elements[i];
+            var elementSyntax = elementNodes[i];
+
+            if (element is BoundSpreadElement spread)
+            {
+                var sourceType = GetSpreadElementType(spread.Expression.Type!);
+                if (!IsAssignable(elementType, sourceType, out _))
+                {
+                    ReportCannotConvertFromTypeToType(
+                        sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.GetLocation());
+                }
+
+                converted.Add(element);
+                continue;
+            }
+
+            if (elementType.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(element))
+            {
+                if (!IsAssignable(elementType, element.Type!, out var conversion))
+                {
+                    ReportCannotConvertFromTypeToType(
+                        element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.GetLocation());
+                }
+                else
+                {
+                    converted.Add(ApplyConversion(element, elementType, conversion, elementSyntax));
+                    continue;
+                }
+            }
+
+            converted.Add(element);
+        }
+
+        result = new BoundCollectionExpression(targetType, converted.ToImmutable());
+        return true;
     }
 
     private BoundExpression BindDictionaryExpressionCore(
@@ -12303,6 +12370,14 @@ partial class BlockBinder : Binder
     {
         var targetDefinition = (targetType.OriginalDefinition as INamedTypeSymbol) ?? targetType;
 
+        if (string.Equals(targetDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableArray`1", StringComparison.Ordinal) &&
+            Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableArray") is INamedTypeSymbol immutableArrayBuilder)
+        {
+            builderType = immutableArrayBuilder;
+            methodName = "Create";
+            return true;
+        }
+
         if (TryGetCollectionBuilderInfoFromAttributes(targetDefinition.GetAttributes(), out builderType, out methodName))
             return true;
 
@@ -12354,6 +12429,18 @@ partial class BlockBinder : Binder
 
         builderType = null!;
         methodName = string.Empty;
+        return false;
+    }
+
+    private static bool TryGetCollectionBuilderElementType(INamedTypeSymbol targetType, out ITypeSymbol elementType)
+    {
+        if (targetType.Arity == 1 && targetType.TypeArguments.Length == 1)
+        {
+            elementType = targetType.TypeArguments[0];
+            return true;
+        }
+
+        elementType = null!;
         return false;
     }
 
