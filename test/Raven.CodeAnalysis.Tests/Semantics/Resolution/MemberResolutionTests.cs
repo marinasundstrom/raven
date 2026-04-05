@@ -2,12 +2,12 @@ using System;
 
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class Issue84_MemberResolutionBug : DiagnosticTestBase
+public class MemberResolutionTests : DiagnosticTestBase
 {
     [Fact]
-    public void CanResolveMember()
+    public void StaticParseResult_MemberAccess_ResolvesMember()
     {
         string testCode =
             """
@@ -22,7 +22,7 @@ public class Issue84_MemberResolutionBug : DiagnosticTestBase
     }
 
     [Fact]
-    public void CanResolveMember2()
+    public void PropertyAccessFollowedByInvocation_ResolvesMember()
     {
         string testCode =
             """

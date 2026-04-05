@@ -2,10 +2,11 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class ConstrainedSealedHierarchyRegressionTests : Raven.CodeAnalysis.Semantics.Tests.CompilationTestBase
+public class ConstrainedSealedHierarchyTests : CompilationTestBase
 {
     [Fact]
     public void NestedGenericSealedCases_UseOwnTypeParameterInBaseInterface()

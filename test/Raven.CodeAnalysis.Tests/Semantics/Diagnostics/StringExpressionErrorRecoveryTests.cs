@@ -1,8 +1,8 @@
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Tests.Semantics.Diagnostics;
 
-public class StringConcatenationErrorTests : DiagnosticTestBase
+public class StringExpressionErrorRecoveryTests : DiagnosticTestBase
 {
     [Fact]
     public void InterpolatedString_WithUndefinedExpression_ProducesDiagnostic()

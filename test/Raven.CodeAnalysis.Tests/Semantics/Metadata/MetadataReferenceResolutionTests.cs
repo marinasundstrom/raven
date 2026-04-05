@@ -8,11 +8,12 @@ using System.Text.Json;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class MetadataReferenceLoadingTests
+public class MetadataReferenceResolutionTests
 {
     [Fact]
     public void GetTypeByMetadataName_LoadsReferences_WhenNoSyntaxTrees()

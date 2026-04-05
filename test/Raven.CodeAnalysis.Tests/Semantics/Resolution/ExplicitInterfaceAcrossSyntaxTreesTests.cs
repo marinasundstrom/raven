@@ -1,9 +1,9 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class ExplicitInterfaceBindingAcrossSyntaxTreesTests : Raven.CodeAnalysis.Semantics.Tests.CompilationTestBase
+public class ExplicitInterfaceAcrossSyntaxTreesTests : CompilationTestBase
 {
     [Fact]
     public void ExplicitInterfacePropertyImplementation_ResolvesAcrossSyntaxTrees()

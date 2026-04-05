@@ -1,8 +1,8 @@
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Tests.Semantics.Diagnostics;
 
-public sealed class FinalizeInvocationTests : DiagnosticTestBase
+public sealed class FinalizeInvocationDiagnosticsTests : DiagnosticTestBase
 {
     [Fact]
     public void Finalize_IsNotInvocableViaMemberAccess()

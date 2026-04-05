@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public sealed class SignatureHelpRegressionTests : CompilationTestBase
+public sealed class IncompleteExtensionInvocationTests : CompilationTestBase
 {
     [Fact]
     public void GetSymbolInfo_IncompleteExtensionInvocation_DoesNotThrow()

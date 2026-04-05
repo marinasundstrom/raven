@@ -1,8 +1,8 @@
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Tests.Semantics.Diagnostics;
 
-public class ErrorTypeSymbolAssignmentTests : DiagnosticTestBase
+public class ErrorTypeAssignmentDiagnosticsTests : DiagnosticTestBase
 {
     [Fact]
     public void UndefinedIdentifierAssignedToExplicitType_DoesNotProduceAssignmentDiagnostic()

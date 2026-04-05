@@ -1,8 +1,8 @@
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class ResultExtensionPropertyResolutionTests : DiagnosticTestBase
+public class ResultExtensionPropertyTests : DiagnosticTestBase
 {
     [Fact]
     public void ResultIsErrorBindsToSingleTypeResultExtension()

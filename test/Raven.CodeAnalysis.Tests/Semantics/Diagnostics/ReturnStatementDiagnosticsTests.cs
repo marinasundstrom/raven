@@ -1,9 +1,9 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Tests.Semantics.Diagnostics;
 
-public class ReturnStatementUnitTests : DiagnosticTestBase
+public class ReturnStatementDiagnosticsTests : DiagnosticTestBase
 {
     [Fact]
     public void UnitMethod_ExplicitReturn_NoDiagnostics()

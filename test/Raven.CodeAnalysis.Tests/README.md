@@ -25,3 +25,15 @@ For semantic/symbol test failures:
 1. Verify whether failure is representational (`ToDisplayString()`, diagnostic message text, symbol formatting) vs behavioral.
 2. If representational only, update expected assertion values to the new canonical output.
 3. If behavioral, add/adjust coverage and fix compiler behavior before changing expected values.
+
+## Targeted regression runs
+
+Use `scripts/test-feature-suite.sh --list` to see the curated feature suites.
+
+Example:
+
+```bash
+scripts/test-feature-suite.sh overload-resolution
+```
+
+This is intended to answer "what do I run if this feature regressed?" without having to manually compose long `dotnet test --filter` expressions.

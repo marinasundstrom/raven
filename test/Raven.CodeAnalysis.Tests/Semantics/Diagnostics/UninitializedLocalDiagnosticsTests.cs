@@ -1,8 +1,8 @@
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Tests.Semantics.Diagnostics;
 
-public class UninitializedLocalTests : DiagnosticTestBase
+public class UninitializedLocalDiagnosticsTests : DiagnosticTestBase
 {
     [Fact]
     public void VarDeclarationWithoutInitializer_ProducesDiagnostic()

@@ -1,6 +1,6 @@
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
 public class MemberAccessMissingIdentifierTests : DiagnosticTestBase
 {

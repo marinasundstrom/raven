@@ -1,8 +1,8 @@
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Tests.Semantics.Diagnostics;
 
-public class BindingErrorCascadeSuppressionTests : DiagnosticTestBase
+public class ErrorRecoveryDiagnosticSuppressionTests : DiagnosticTestBase
 {
     [Fact]
     public void CastWithMissingTargetType_DoesNotReportConversionDiagnostic()
