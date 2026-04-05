@@ -254,6 +254,11 @@
           "default": "",
           "description": "Full path to Raven.LanguageServer.dll. Leave empty to auto-discover a sibling 'server/Raven.LanguageServer.dll' next to the extension or a workspace copy under src/Raven.LanguageServer/bin/Debug/net10.0."
         },
+        "raven.autoBuildLanguageServerOnActivate": {
+          "type": "boolean",
+          "default": true,
+          "description": "When the extension can find src/Raven.LanguageServer/Raven.LanguageServer.csproj in the current workspace or extension ancestors, build it on activation before launching the language server. Ignored when raven.languageServerPath is set."
+        },
         "raven.sdkPath": {
           "type": "string",
           "default": "",

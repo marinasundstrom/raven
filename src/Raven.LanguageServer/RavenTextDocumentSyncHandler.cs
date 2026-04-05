@@ -99,6 +99,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             _documents.UpsertDocument(notification.TextDocument.Uri, updatedText);
             if (notification.TextDocument.Version is { } appliedVersion)
                 _documentVersions[notification.TextDocument.Uri] = appliedVersion;
+            _logger.LogInformation(
+                "DidChange applied for {Uri} (version={Version}, changeCount={ChangeCount}, previousLength={PreviousLength}, updatedLength={UpdatedLength}).",
+                notification.TextDocument.Uri,
+                notification.TextDocument.Version?.ToString() ?? "<none>",
+                notification.ContentChanges.Count(),
+                currentText.Length,
+                updatedText.Length);
             _logger.LogDebug(
                 "DidChange {Uri} version={Version} changes={ChangeCount} currentLength={CurrentLength} updatedLength={UpdatedLength}.",
                 notification.TextDocument.Uri,
@@ -248,6 +255,12 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         int? expectedVersion = _documentVersions.TryGetValue(uri, out var currentVersion)
             ? currentVersion
             : null;
+        _logger.LogInformation(
+            "Scheduling diagnostics for {Uri} (expectedVersion={ExpectedVersion}, warmupDelay={WarmupDelayMs}ms, diagnosticsDelay={DiagnosticsDelayMs}ms).",
+            uri,
+            expectedVersion?.ToString() ?? "<none>",
+            warmupDelayMilliseconds,
+            diagnosticsDelayMilliseconds);
         var current = _pendingDiagnostics.AddOrUpdate(
             uri,
             source,
@@ -383,6 +396,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 Uri = uri,
                 Diagnostics = new Container<Diagnostic>(diagnostics)
             });
+            _logger.LogInformation(
+                "Published diagnostics for {Uri} (expectedVersion={ExpectedVersion}, count={Count}).",
+                uri,
+                expectedVersion?.ToString() ?? "<none>",
+                diagnostics.Count);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

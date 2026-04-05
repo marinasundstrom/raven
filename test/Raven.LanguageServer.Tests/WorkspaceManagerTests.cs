@@ -164,6 +164,73 @@ class MacroPlugin { }
     }
 
     [Fact]
+    public void TryGetCodeFixes_StaleOwnedDocumentWithExistingDocumentIdButDeadProjectId_RebindsToCurrentProject()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectPath = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var filePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(filePath, """
+val x = 1
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        _ = manager.UpsertDocument(uri, File.ReadAllText(filePath));
+
+        manager.TryGetDocument(uri, out var originalDocument).ShouldBeTrue();
+        originalDocument.ShouldNotBeNull();
+
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var newProjectId = manager.GetProjectsSnapshot().Single().Id;
+        var staleProjectId = ProjectId.CreateNew(workspace.CurrentSolution.Id);
+
+        var documentsField = typeof(WorkspaceManager).GetField("_documents", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var documents = documentsField.GetValue(manager)!;
+        var itemProperty = documents.GetType().GetProperty("Item")!;
+        itemProperty.SetValue(
+            documents,
+            Activator.CreateInstance(
+                itemProperty.PropertyType,
+                originalDocument!.Id,
+                staleProjectId,
+                originalDocument.Version,
+                true),
+            [uri]);
+
+        Should.NotThrow(() => manager.TryGetCodeFixes(uri, out _));
+        manager.TryGetDocument(uri, out var reboundDocument).ShouldBeTrue();
+        reboundDocument.ShouldNotBeNull();
+        reboundDocument.Project.Id.ShouldBe(newProjectId);
+    }
+
+    [Fact]
     public async Task SwitchingBetweenSiblingProjectDocuments_DoesNotDetachAppDocumentFromCompilationAsync()
     {
         Directory.CreateDirectory(_tempRoot);

@@ -45,6 +45,7 @@ const node_1 = require("vscode-languageclient/node");
 let client;
 let clientStopPromise;
 let clientStartPromise;
+let languageServerBuildPromise;
 const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
@@ -100,6 +101,73 @@ async function stopClient(reason) {
         clientStopPromise = undefined;
     });
     return clientStopPromise;
+}
+function resolveLanguageServerProjectPath() {
+    const searchRoots = new Set();
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        searchRoots.add(folder.uri.fsPath);
+    }
+    if (extensionInstallPath.length > 0) {
+        searchRoots.add(extensionInstallPath);
+    }
+    searchRoots.add(process.cwd());
+    for (const root of searchRoots) {
+        for (const dir of enumerateAncestorDirectories(root)) {
+            const candidate = path.join(dir, 'src', 'Raven.LanguageServer', 'Raven.LanguageServer.csproj');
+            if (fs.existsSync(candidate)) {
+                return candidate;
+            }
+        }
+    }
+    return undefined;
+}
+async function ensureLanguageServerBuilt() {
+    const configuration = vscode.workspace.getConfiguration('raven');
+    if (!configuration.get('autoBuildLanguageServerOnActivate', true)) {
+        return;
+    }
+    if (configuration.get('languageServerPath')?.trim()) {
+        return;
+    }
+    const projectPath = resolveLanguageServerProjectPath();
+    if (!projectPath) {
+        return;
+    }
+    if (languageServerBuildPromise) {
+        return languageServerBuildPromise;
+    }
+    languageServerBuildPromise = (async () => {
+        const projectDirectory = path.dirname(projectPath);
+        const args = ['build', projectPath, '/property:WarningLevel=0'];
+        appendLifecycleLog(`Building language server: dotnet ${args.join(' ')}`);
+        try {
+            const { stdout, stderr } = await execFileAsync('dotnet', args, {
+                cwd: projectDirectory,
+                maxBuffer: 10 * 1024 * 1024
+            });
+            if (stdout.trim().length > 0) {
+                output.appendLine(stdout);
+            }
+            if (stderr.trim().length > 0) {
+                output.appendLine(stderr);
+            }
+            appendLifecycleLog('Language server build completed.');
+        }
+        catch (error) {
+            const e = error;
+            if (e.stdout)
+                output.appendLine(e.stdout);
+            if (e.stderr)
+                output.appendLine(e.stderr);
+            const message = `Failed to build Raven language server before activation. ${e.message}`;
+            appendLifecycleLog(message);
+            void vscode.window.showErrorMessage(message);
+            throw new Error(message);
+        }
+    })().finally(() => {
+        languageServerBuildPromise = undefined;
+    });
+    return languageServerBuildPromise;
 }
 function createLanguageClient(context) {
     let serverPath;
@@ -214,6 +282,7 @@ async function startClient(context, reason) {
             appendLifecycleLog(`startClient(${reason}) skipped: client already active.`);
             return;
         }
+        await ensureLanguageServerBuilt();
         try {
             client = createLanguageClient(context);
         }

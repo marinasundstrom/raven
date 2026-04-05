@@ -329,9 +329,11 @@ internal sealed class WorkspaceManager
                 {
                     solution = solution.WithDocumentText(existing.DocumentId, sourceText);
                     _workspace.TryApplyChanges(solution);
+                    var updatedDocument = _workspace.CurrentSolution.GetDocument(existing.DocumentId)!;
+                    _documents[uri] = new OwnedDocument(updatedDocument.Id, ownerProject, updatedDocument.Version, IsProjectDocument: existing.IsProjectDocument);
                     _diagnosticsCache.TryRemove(ownerProject, out _);
                     RefreshMacroConsumersForProject(ownerProject);
-                    return _workspace.CurrentSolution.GetDocument(existing.DocumentId)!;
+                    return updatedDocument;
                 }
 
                 staleOwnedDocument = existing;
@@ -349,12 +351,13 @@ internal sealed class WorkspaceManager
                     solution = solution.RemoveDocument(stale.DocumentId);
                 }
                 _workspace.TryApplyChanges(solution);
-                _documents[uri] = new OwnedDocument(existingDocument.Id, existingOwnerProject, IsProjectDocument: true);
+                var updatedDocument = _workspace.CurrentSolution.GetDocument(existingDocument.Id)!;
+                _documents[uri] = new OwnedDocument(updatedDocument.Id, existingOwnerProject, updatedDocument.Version, IsProjectDocument: true);
                 _diagnosticsCache.TryRemove(existingOwnerProject, out _);
                 if (staleOwnedDocument is { } staleOwner && staleOwner.ProjectId != existingOwnerProject)
                     _diagnosticsCache.TryRemove(staleOwner.ProjectId, out _);
                 RefreshMacroConsumersForProject(existingOwnerProject);
-                return _workspace.CurrentSolution.GetDocument(existingDocument.Id)!;
+                return updatedDocument;
             }
 
             if (staleOwnedDocument is { IsProjectDocument: false } staleDocument
@@ -366,10 +369,11 @@ internal sealed class WorkspaceManager
             var documentId = DocumentId.CreateNew(ownerProject);
             solution = solution.AddDocument(documentId, name, sourceText, filePath);
             _workspace.TryApplyChanges(solution);
-            _documents[uri] = new OwnedDocument(documentId, ownerProject, IsProjectDocument: false);
+            var addedDocument = _workspace.CurrentSolution.GetDocument(documentId)!;
+            _documents[uri] = new OwnedDocument(documentId, ownerProject, addedDocument.Version, IsProjectDocument: false);
             _diagnosticsCache.TryRemove(ownerProject, out _);
 
-            return _workspace.CurrentSolution.GetDocument(documentId)!;
+            return addedDocument;
         }
     }
 
@@ -662,7 +666,11 @@ internal sealed class WorkspaceManager
         if (_documents.TryGetValue(uri, out ownedDocument))
         {
             var currentDocument = _workspace.CurrentSolution.GetDocument(ownedDocument.DocumentId);
-            if (currentDocument is not null)
+            var currentProject = _workspace.CurrentSolution.GetProject(ownedDocument.ProjectId);
+            if (currentDocument is not null &&
+                currentProject is not null &&
+                currentDocument.Project.Id == ownedDocument.ProjectId &&
+                currentDocument.Version == ownedDocument.Version)
                 return true;
 
             _documents.TryRemove(uri, out _);
@@ -683,7 +691,7 @@ internal sealed class WorkspaceManager
             if (preferredProjectId != default &&
                 TryFindExistingDocument(_workspace.CurrentSolution, preferredProjectId, normalizedFilePath, out var existingDocument, out var ownerProjectId))
             {
-                ownedDocument = new OwnedDocument(existingDocument.Id, ownerProjectId, IsProjectDocument: true);
+                ownedDocument = new OwnedDocument(existingDocument.Id, ownerProjectId, existingDocument.Version, IsProjectDocument: true);
                 _documents[uri] = ownedDocument;
                 return true;
             }
@@ -696,7 +704,7 @@ internal sealed class WorkspaceManager
                 if (match is null)
                     continue;
 
-                ownedDocument = new OwnedDocument(match.Id, project.Id, IsProjectDocument: true);
+                ownedDocument = new OwnedDocument(match.Id, project.Id, match.Version, IsProjectDocument: true);
                 _documents[uri] = ownedDocument;
                 return true;
             }
@@ -921,7 +929,7 @@ internal sealed class WorkspaceManager
             .Length;
     }
 
-    private readonly record struct OwnedDocument(DocumentId DocumentId, ProjectId ProjectId, bool IsProjectDocument);
+    private readonly record struct OwnedDocument(DocumentId DocumentId, ProjectId ProjectId, VersionStamp Version, bool IsProjectDocument);
     private readonly record struct ReloadDocumentState(DocumentUri Uri, string Text, bool IsProjectDocument);
     private readonly record struct CachedDiagnostics(VersionStamp Version, ImmutableArray<CodeDiagnostic> Diagnostics);
 }

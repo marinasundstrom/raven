@@ -12,6 +12,7 @@ It also adds Raven debug integration: F5 can compile and launch either a single 
   1. A packaged `server/Raven.LanguageServer.dll` folder inside the extension.
   2. A workspace build output at `src/Raven.LanguageServer/bin/Debug/net10.0/Raven.LanguageServer.dll`.
 - Alternatively, point the extension at a Raven SDK directory via `raven.sdkPath`, or set the full path explicitly via `raven.languageServerPath`.
+- In a Raven source workspace, the extension can build `src/Raven.LanguageServer/Raven.LanguageServer.csproj` on activation before launching the server. This is enabled by default via `raven.autoBuildLanguageServerOnActivate`.
 
 ## Building
 Install dependencies and compile the extension output:
@@ -33,6 +34,7 @@ npm run compile
 ## Configuration
 - `raven.sdkPath`: optional path to a Raven SDK directory containing bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, and `Raven.Core.dll`. This is the easiest way to test different Raven builds with the same VS Code extension.
 - `raven.languageServerPath`: override the resolved server assembly path when the defaults do not apply.
+- `raven.autoBuildLanguageServerOnActivate`: when enabled, the extension builds `src/Raven.LanguageServer/Raven.LanguageServer.csproj` on activation if it can find that project in the current workspace or extension ancestors. Ignored when `raven.languageServerPath` is set.
 - `raven.compilerProjectPath`: optional fallback override used to locate a prebuilt `rvn.dll` under `src/Raven.Compiler/bin/Debug/<tfm>` when no bundled compiler host can be found.
 - `raven.targetFramework`: optional target framework (for example, `net10.0`) passed to Raven debug compilation.
 
