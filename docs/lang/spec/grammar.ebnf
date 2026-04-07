@@ -132,7 +132,14 @@ InterfaceDeclaration     ::= TypeModifiers? 'interface' Identifier TypeParameter
 
 UnionDeclaration         ::= TypeModifiers? 'union' Identifier TypeParameterList?
                              WhereClauseList?
-                             '{' UnionCaseList '}' TypeTerminator? ;
+                             UnionDeclarationBody
+                             TypeTerminator? ;
+
+UnionDeclarationBody     ::= UnionPrimaryList | '{' UnionCaseList '}' ;
+
+UnionPrimaryList.        ::= '(' UnionAlternativeTypeList ')' ;
+
+UnionAlternativeTypeList ::= TypeSyntax ('|' TypeSyntax)* ;
 
 DelegateDeclaration      ::= TypeModifiers? 'delegate' Identifier TypeParameterList?
                              '(' ParameterList? ')'

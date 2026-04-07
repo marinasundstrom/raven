@@ -1,0 +1,48 @@
+import System.*
+import System.Console.*
+
+// Feature: type-pattern matching over a sealed class hierarchy.
+val animal: Animal = Wolf()
+
+animal.SaySound()
+
+match animal {
+    Dog dog => WriteLine(dog)
+    Cat cat => {
+         WriteLine(cat)
+         cat.Knead()
+    }
+    Wolf wolf => WriteLine(wolf)
+}
+
+val pet: Pet = Dog()
+
+match pet {
+    Dog dog => WriteLine(dog)
+    Cat cat => WriteLine(cat)
+}
+
+sealed class Animal {
+    abstract func SaySound()
+}
+class Dog : Animal {
+    override func SaySound() {
+        WriteLine("Woof!")
+    }
+}
+class Cat : Animal {
+    override func SaySound() {
+        WriteLine("Miaow!")
+    }
+
+    func Knead() {
+        WriteLine("Kneaded")
+    }
+}
+class Wolf : Animal {
+    override func SaySound() {
+        WriteLine("Wooooh!!")
+    }
+}
+
+union Pet(Dog | Cat)

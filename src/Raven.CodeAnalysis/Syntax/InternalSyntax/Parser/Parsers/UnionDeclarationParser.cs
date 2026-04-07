@@ -129,7 +129,7 @@ internal class UnionDeclarationParser : SyntaxParser
 
                 if (parsedTypes > 0)
                 {
-                    if (current.IsKind(SyntaxKind.CommaToken))
+                    if (current.IsKind(SyntaxKind.BarToken))
                     {
                         types.Add(ReadToken());
                         current = PeekToken();
@@ -137,7 +137,7 @@ internal class UnionDeclarationParser : SyntaxParser
                     else if (!current.IsKind(SyntaxKind.CloseParenToken) &&
                              !current.IsKind(SyntaxKind.EndOfFileToken))
                     {
-                        types.Add(MissingToken(SyntaxKind.CommaToken));
+                        types.Add(MissingToken(SyntaxKind.BarBarToken));
                     }
                 }
 
