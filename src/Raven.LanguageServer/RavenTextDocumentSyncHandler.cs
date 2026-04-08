@@ -50,19 +50,20 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     {
         try
         {
-            using (await _documents.EnterCompilerAccessAsync(cancellationToken, "didOpen", notification.TextDocument.Uri).ConfigureAwait(false))
-            {
-                _documents.UpsertDocument(notification.TextDocument.Uri, notification.TextDocument.Text);
-                if (notification.TextDocument.Version is { } openVersion)
-                    _documentVersions[notification.TextDocument.Uri] = openVersion;
-                _logger.LogDebug(
-                    "DidOpen {Uri} (version={Version}, length={Length}).",
-                    notification.TextDocument.Uri,
-                    notification.TextDocument.Version,
-                    notification.TextDocument.Text?.Length ?? 0);
-            }
+            _documents.UpsertDocument(notification.TextDocument.Uri, notification.TextDocument.Text);
+            if (notification.TextDocument.Version is { } openVersion)
+                _documentVersions[notification.TextDocument.Uri] = openVersion;
+            _logger.LogDebug(
+                "DidOpen {Uri} (version={Version}, length={Length}).",
+                notification.TextDocument.Uri,
+                notification.TextDocument.Version,
+                notification.TextDocument.Text?.Length ?? 0);
 
             return await ScheduleDiagnosticsPublishAsync(notification.TextDocument.Uri).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return Unit.Value;
         }
         catch (Exception ex)
         {
@@ -76,23 +77,16 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     private async Task<Unit> HandleDidChangeAsync(DidChangeTextDocumentParams notification, CancellationToken cancellationToken)
     {
+        if (IsStaleChange(notification.TextDocument.Uri, notification.TextDocument.Version))
+            return Unit.Value;
+
         var gate = _documentUpdateGates.GetOrAdd(notification.TextDocument.Uri, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "didChange", notification.TextDocument.Uri).ConfigureAwait(false);
-            if (notification.TextDocument.Version is { } incomingVersion &&
-                _documentVersions.TryGetValue(notification.TextDocument.Uri, out var currentVersion) &&
-                incomingVersion < currentVersion)
-            {
-                _logger.LogDebug(
-                    "DidChange ignored for {Uri}: stale version {IncomingVersion} < {CurrentVersion}.",
-                    notification.TextDocument.Uri,
-                    incomingVersion,
-                    currentVersion);
+            if (IsStaleChange(notification.TextDocument.Uri, notification.TextDocument.Version))
                 return Unit.Value;
-            }
 
             var currentText = await GetCurrentDocumentTextAsync(notification.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             var updatedText = ApplyContentChanges(currentText, notification.ContentChanges);
@@ -115,6 +109,10 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 updatedText.Length);
             return await ScheduleDiagnosticsPublishAsync(notification.TextDocument.Uri).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return Unit.Value;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "DidChange handling failed for {Uri}.", notification.TextDocument.Uri);
@@ -124,6 +122,23 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             gate.Release();
         }
+    }
+
+    private bool IsStaleChange(DocumentUri uri, int? incomingVersion)
+    {
+        if (incomingVersion is not { } version ||
+            !_documentVersions.TryGetValue(uri, out var currentVersion) ||
+            version >= currentVersion)
+        {
+            return false;
+        }
+
+        _logger.LogDebug(
+            "DidChange ignored for {Uri}: stale version {IncomingVersion} < {CurrentVersion}.",
+            uri,
+            version,
+            currentVersion);
+        return true;
     }
 
     private async Task<string> GetCurrentDocumentTextAsync(DocumentUri uri, CancellationToken cancellationToken)
@@ -189,7 +204,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             {
                 try
                 {
-                    using var lease = await _documents.EnterCompilerAccessAsync(CancellationToken.None, "didCloseCleanup", notification.TextDocument.Uri).ConfigureAwait(false);
                     _documents.RemoveDocument(notification.TextDocument.Uri);
                     _logger.LogInformation("Deferred DidClose cleanup completed for {Uri}.", notification.TextDocument.Uri);
                 }
@@ -238,7 +252,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         => new()
         {
             DocumentSelector = TextDocumentSelector.ForLanguage("raven"),
-            Change = TextDocumentSyncKind.Full,
+            Change = TextDocumentSyncKind.Incremental,
             Save = new SaveOptions
             {
                 IncludeText = true
@@ -299,7 +313,10 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     expectedVersion?.ToString() ?? "<none>",
                     warmupDelayMilliseconds,
                     diagnosticsDelayMilliseconds);
-                await _documents.WarmAnalysisAsync(uri, token).ConfigureAwait(false);
+                await _documents.WarmAnalysisAsync(
+                    uri,
+                    shouldSkipWork: () => token.IsCancellationRequested || ShouldSkipVersion(uri, expectedVersion),
+                    token).ConfigureAwait(false);
                 _logger.LogInformation(
                     "Completed analysis warmup for {Uri} (expectedVersion={ExpectedVersion}).",
                     uri,
@@ -377,7 +394,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     {
         try
         {
-            var diagnostics = await _documents.GetDiagnosticsAsync(uri, cancellationToken).ConfigureAwait(false);
+            if (ShouldSkipVersion(uri, expectedVersion))
+                return Unit.Value;
+
+            var diagnostics = await _documents.GetDiagnosticsAsync(
+                uri,
+                shouldSkipWork: () => cancellationToken.IsCancellationRequested || ShouldSkipVersion(uri, expectedVersion),
+                cancellationToken).ConfigureAwait(false);
 
             if (expectedVersion is { } expected &&
                 _documentVersions.TryGetValue(uri, out var latestVersion) &&

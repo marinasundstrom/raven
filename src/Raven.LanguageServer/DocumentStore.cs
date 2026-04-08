@@ -1,6 +1,6 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Diagnostics;
 
 using Microsoft.Extensions.Logging;
 
@@ -133,7 +133,40 @@ internal sealed class DocumentStore
         return new CompilerAccessLease(_compilerAccessGate);
     }
 
-    public async Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken)
+    public async ValueTask<IDisposable?> TryEnterCompilerAccessAsync(
+        CancellationToken cancellationToken,
+        string? purpose = null,
+        DocumentUri? uri = null)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var acquired = await _compilerAccessGate.WaitAsync(0, cancellationToken).ConfigureAwait(false);
+        stopwatch.Stop();
+
+        if (!acquired)
+        {
+            _logger.LogDebug(
+                "Skipped compiler gate acquisition for {Purpose} {Uri}: gate busy.",
+                purpose ?? "unknown",
+                uri?.ToString() ?? "<none>");
+            return null;
+        }
+
+        if (stopwatch.Elapsed.TotalMilliseconds >= SlowCompilerGateThresholdMs)
+        {
+            _logger.LogInformation(
+                "Slow compiler gate wait for {Purpose} {Uri}: wait={WaitMs:F1}ms.",
+                purpose ?? "unknown",
+                uri?.ToString() ?? "<none>",
+                stopwatch.Elapsed.TotalMilliseconds);
+        }
+
+        return new CompilerAccessLease(_compilerAccessGate);
+    }
+
+    public async Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(
+        DocumentUri uri,
+        Func<bool>? shouldSkipWork,
+        CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         double gateWaitMs = 0;
@@ -142,8 +175,13 @@ internal sealed class DocumentStore
 
         try
         {
+            if (shouldSkipWork?.Invoke() == true)
+                return Array.Empty<LspDiagnostic>();
+
             using var _ = await EnterCompilerAccessAsync(cancellationToken, "diagnostics", uri).ConfigureAwait(false);
             gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
+            if (shouldSkipWork?.Invoke() == true)
+                return Array.Empty<LspDiagnostic>();
             if (!TryGetDocument(uri, out var document))
                 return Array.Empty<LspDiagnostic>();
 
@@ -151,10 +189,14 @@ internal sealed class DocumentStore
             if (syntaxTree is null)
                 return Array.Empty<LspDiagnostic>();
             syntaxTreeMs = stopwatch.Elapsed.TotalMilliseconds - gateWaitMs;
+            if (shouldSkipWork?.Invoke() == true)
+                return Array.Empty<LspDiagnostic>();
 
             if (!_workspaceManager.TryGetDiagnostics(uri, out var diagnosticsForProject, cancellationToken: cancellationToken))
                 return Array.Empty<LspDiagnostic>();
             diagnosticsFetchMs = stopwatch.Elapsed.TotalMilliseconds - gateWaitMs - syntaxTreeMs;
+            if (shouldSkipWork?.Invoke() == true)
+                return Array.Empty<LspDiagnostic>();
 
             var diagnostics = diagnosticsForProject
                 .Where(d => ShouldReport(d, syntaxTree))
@@ -187,7 +229,10 @@ internal sealed class DocumentStore
         }
     }
 
-    public async Task WarmAnalysisAsync(DocumentUri uri, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken)
+        => GetDiagnosticsAsync(uri, shouldSkipWork: null, cancellationToken);
+
+    public async Task WarmAnalysisAsync(DocumentUri uri, Func<bool>? shouldSkipWork, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         double gateWaitMs = 0;
@@ -196,13 +241,21 @@ internal sealed class DocumentStore
 
         try
         {
-            using var lease = await EnterCompilerAccessAsync(cancellationToken, "warmAnalysis", uri).ConfigureAwait(false);
+            if (shouldSkipWork?.Invoke() == true)
+                return;
+
+            using var lease = await TryEnterCompilerAccessAsync(cancellationToken, "warmAnalysis", uri).ConfigureAwait(false);
+            if (lease is null)
+                return;
             gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
 
             var stageStopwatch = Stopwatch.StartNew();
             var context = await GetAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
+                return;
+
+            if (shouldSkipWork?.Invoke() == true)
                 return;
 
             var compilation = context.Value.Compilation;

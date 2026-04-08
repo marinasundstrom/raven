@@ -1919,7 +1919,7 @@ public partial class Compilation
 
     private void EnsureSourceTypesInitialized()
     {
-        if (_sourceTypesInitialized || _isPopulatingSourceTypes)
+        if (_sourceTypesInitialized || _isPopulatingSourceTypes || _isDeclaringSourceTypes)
             return;
 
         try

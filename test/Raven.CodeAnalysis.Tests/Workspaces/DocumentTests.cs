@@ -1,9 +1,10 @@
+using System.Reflection;
 using System.Threading.Tasks;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
-using Raven.CodeAnalysis.Text;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Text;
 
 using Xunit;
 
@@ -123,6 +124,39 @@ public class DocumentTests
     }
 
     [Fact]
+    public async Task WithText_ShouldSeedIncrementalSyntaxTreeWhenOriginalTreeWasCached()
+    {
+        var source = SourceText.From(
+            """
+            val x = 1
+            val y = 2
+            """);
+        var solution = new Solution(HostServices.Default);
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+        var docId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(docId, "Test.rvn", source);
+        var document = solution.GetDocument(docId)!;
+
+        var originalTree = await document.GetSyntaxTreeAsync();
+        Assert.NotNull(originalTree);
+
+        var updatedText = SourceText.From(
+            """
+            val x = 3
+            val y = 2
+            """);
+        var updatedDocument = document.WithText(updatedText);
+
+        var cachedTree = GetCachedSyntaxTree(updatedDocument);
+        Assert.NotNull(cachedTree);
+        Assert.Equal(updatedText.ToString(), cachedTree!.GetText().ToString());
+
+        var updatedTree = await updatedDocument.GetSyntaxTreeAsync();
+        Assert.Same(cachedTree, updatedTree);
+    }
+
+    [Fact]
     public async Task GetTextVersionAsync_ShouldReturnVersion()
     {
         var source = SourceText.From("x = 1");
@@ -135,5 +169,53 @@ public class DocumentTests
 
         var version = await document.GetTextVersionAsync();
         Assert.Equal(document.Version, version);
+    }
+
+    [Fact]
+    public async Task GetSemanticModelAsync_StaleWorkspaceDocument_RebindsToCurrentCompilationTree()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestTargetFramework.Default);
+        var projectId = workspace.AddProject("App");
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        var document = project.AddDocument("test.rvn", SourceText.From("val x = 1"));
+        workspace.TryApplyChanges(document.Project.Solution);
+
+        var staleDocument = workspace.CurrentSolution.GetDocument(document.Id)!;
+        _ = await staleDocument.GetSyntaxTreeAsync();
+
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(document.Id, SourceText.From("val y = 2"));
+        workspace.TryApplyChanges(updatedSolution);
+
+        var model = await staleDocument.GetSemanticModelAsync();
+        model.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task GetExpandedSyntaxRootAsync_StaleWorkspaceDocument_RebindsToCurrentCompilationTree()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestTargetFramework.Default);
+        var projectId = workspace.AddProject("App");
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        var document = project.AddDocument("test.rvn", SourceText.From("val x = 1"));
+        workspace.TryApplyChanges(document.Project.Solution);
+
+        var staleDocument = workspace.CurrentSolution.GetDocument(document.Id)!;
+        _ = await staleDocument.GetSyntaxTreeAsync();
+
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(document.Id, SourceText.From("val y = 2"));
+        workspace.TryApplyChanges(updatedSolution);
+
+        var root = await staleDocument.GetExpandedSyntaxRootAsync();
+        root.ShouldNotBeNull();
+    }
+
+    private static SyntaxTree? GetCachedSyntaxTree(Document document)
+    {
+        var documentInfoField = typeof(Document).GetField("_info", BindingFlags.Instance | BindingFlags.NonPublic);
+        var documentInfo = documentInfoField?.GetValue(document);
+        Assert.NotNull(documentInfo);
+
+        var syntaxTreeField = documentInfo!.GetType().GetField("_syntaxTree", BindingFlags.Instance | BindingFlags.NonPublic);
+        return syntaxTreeField?.GetValue(documentInfo) as SyntaxTree;
     }
 }

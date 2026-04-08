@@ -1,5 +1,5 @@
-using Raven.CodeAnalysis.Text;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
@@ -8,7 +8,16 @@ public sealed class DocumentInfo
 {
     private SyntaxTree? _syntaxTree;
 
-    public DocumentInfo(DocumentAttributes attributes) => Attributes = attributes;
+    public DocumentInfo(DocumentAttributes attributes)
+        : this(attributes, syntaxTree: null)
+    {
+    }
+
+    private DocumentInfo(DocumentAttributes attributes, SyntaxTree? syntaxTree)
+    {
+        Attributes = attributes;
+        _syntaxTree = syntaxTree;
+    }
 
     public DocumentAttributes Attributes { get; }
 
@@ -22,7 +31,15 @@ public sealed class DocumentInfo
     public static DocumentInfo Create(DocumentId id, string name, SourceText text, string? filePath = null) =>
         new(new DocumentAttributes(id, name, text, VersionStamp.Create(), filePath));
 
-    public DocumentInfo WithText(SourceText newText) => new(Attributes.WithText(newText));
+    public DocumentInfo WithText(SourceText newText)
+    {
+        var updatedAttributes = Attributes.WithText(newText);
+        if (ReferenceEquals(updatedAttributes, Attributes))
+            return this;
+
+        var updatedSyntaxTree = _syntaxTree?.WithChangedText(newText);
+        return new DocumentInfo(updatedAttributes, updatedSyntaxTree);
+    }
 
     public DocumentInfo WithName(string newName) => new(Attributes.WithName(newName));
 

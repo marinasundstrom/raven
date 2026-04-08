@@ -88,22 +88,10 @@ public sealed class Document
         if (tree is null)
             return Task.FromResult<SemanticModel?>(null);
 
-        Compilation compilation;
-        var workspace = Solution.Workspace;
-        if (workspace is not null)
-        {
-            compilation = workspace.GetCompilation(Project.Id);
-        }
-        else
-        {
-            var trees = Project.Documents
-                .Select(d => d.SyntaxTree)
-                .Where(t => t is not null)
-                .Cast<SyntaxTree>()
-                .ToArray();
-
-            compilation = Compilation.Create(Project.Name, trees, [.. Project.MetadataReferences], [.. Project.MacroReferences]);
-        }
+        var compilation = CreateCompilation();
+        tree = GetCompilationSyntaxTree(compilation, tree);
+        if (tree is null)
+            return Task.FromResult<SemanticModel?>(null);
 
         var model = compilation.GetSemanticModel(tree);
         return Task.FromResult<SemanticModel?>(model);
@@ -119,25 +107,51 @@ public sealed class Document
         if (tree is null)
             return Task.FromResult<CompilationUnitSyntax?>(null);
 
-        Compilation compilation;
-        var workspace = Solution.Workspace;
-        if (workspace is not null)
-        {
-            compilation = workspace.GetCompilation(Project.Id);
-        }
-        else
-        {
-            var trees = Project.Documents
-                .Select(d => d.SyntaxTree)
-                .Where(t => t is not null)
-                .Cast<SyntaxTree>()
-                .ToArray();
-
-            compilation = Compilation.Create(Project.Name, trees, [.. Project.MetadataReferences], [.. Project.MacroReferences]);
-        }
+        var compilation = CreateCompilation();
+        tree = GetCompilationSyntaxTree(compilation, tree);
+        if (tree is null)
+            return Task.FromResult<CompilationUnitSyntax?>(null);
 
         var model = compilation.GetSemanticModel(tree);
         return Task.FromResult(model?.GetExpandedRoot(cancellationToken));
+    }
+
+    private Compilation CreateCompilation()
+    {
+        var workspace = Solution.Workspace;
+        if (workspace is not null)
+            return workspace.GetCompilation(Project.Id);
+
+        var trees = Project.Documents
+            .Select(d => d.SyntaxTree)
+            .Where(t => t is not null)
+            .Cast<SyntaxTree>()
+            .ToArray();
+
+        return Compilation.Create(Project.Name, trees, [.. Project.MetadataReferences], [.. Project.MacroReferences]);
+    }
+
+    private SyntaxTree? GetCompilationSyntaxTree(Compilation compilation, SyntaxTree tree)
+    {
+        if (compilation.SyntaxTrees.Contains(tree))
+            return tree;
+
+        var currentDocument = Solution.Workspace?.CurrentSolution.GetDocument(Id);
+        var currentTree = currentDocument?.SyntaxTree;
+        if (currentTree is not null && compilation.SyntaxTrees.Contains(currentTree))
+            return currentTree;
+
+        if (!string.IsNullOrWhiteSpace(FilePath))
+        {
+            var match = compilation.SyntaxTrees.FirstOrDefault(compilationTree =>
+                !string.IsNullOrWhiteSpace(compilationTree.FilePath) &&
+                string.Equals(compilationTree.FilePath, FilePath, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+                return match;
+        }
+
+        return compilation.SyntaxTrees.FirstOrDefault(compilationTree =>
+            string.Equals(compilationTree.GetText()?.ToString(), Text.ToString(), StringComparison.Ordinal));
     }
 
     /// <summary>Creates a new document with updated text using the owning solution.</summary>
