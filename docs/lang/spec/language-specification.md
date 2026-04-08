@@ -2120,12 +2120,13 @@ func parse(text: string) -> int {
 }
 ```
 
-### Iterator statements (`yield return`, `yield break`)
+### Iterator statements (`yield`, `yield return`, `yield break`)
 
 Iterator methods and function expressions produce lazily-evaluated sequences by
 using `yield` statements.
-`yield return expression` publishes the next element of the sequence; the
-expression is converted to the iterator's element type before emission.
+`yield expression` and `yield return expression` publish the next element of the
+sequence; the expression is converted to the iterator's element type before
+emission.
 `yield break` terminates the sequence early. Both forms may only appear in
 methods or function expressions whose return type implements
 `System.Collections.Generic.IEnumerable<T>`,
@@ -2148,7 +2149,7 @@ class Counter {
     func Numbers(max: int) -> IEnumerable<int> {
         var current = 0
         while current < max {
-            yield return current
+            yield current
             current = current + 1
         }
 
@@ -2164,8 +2165,8 @@ import System.Collections.Generic.*
 class Counter {
     func Numbers() -> Func<IEnumerable<int>> {
         val factory: Func<IEnumerable<int>> = () => {
-            yield return 1
-            yield return 2
+            yield 1
+            yield 2
         }
 
         factory
@@ -2177,7 +2178,8 @@ The generated state machine preserves captured locals and surfaces the expected
 metadata shape for the declared iterator kind. Synchronous iterators expose
 `Current`, `MoveNext`, `Dispose`, and `GetEnumerator`; async iterators expose
 `Current`, `MoveNextAsync`, `DisposeAsync`, and `GetAsyncEnumerator`.
-Each `yield return` resumes exactly where it left off on the next move call.
+Each `yield` / `yield return` resumes exactly where it left off on the next move
+call.
 For async iterators, a `CancellationToken` parameter only receives the token
 passed to `GetAsyncEnumerator(...)` when that parameter is marked with
 `[EnumeratorCancellation]`. If an async iterator has `CancellationToken`
@@ -2195,10 +2197,10 @@ import System.Threading.Tasks.*
 
 class Streams {
     async func People([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<Person> {
-        yield return Person("Bob", 30)
+        yield Person("Bob", 30)
 
         await Task.Delay(1000, cancellationToken)
-        yield return Person("Alice", 20)
+        yield Person("Alice", 20)
     }
 }
 ```

@@ -750,6 +750,7 @@ partial class BlockBinder : Binder
             GotoStatementSyntax gotoStatement => BindGotoStatement(gotoStatement),
             BreakStatementSyntax breakStatement => BindBreakStatement(breakStatement),
             ContinueStatementSyntax continueStatement => BindContinueStatement(continueStatement),
+            YieldStatementSyntax yieldStatement => BindYieldStatement(yieldStatement),
             YieldReturnStatementSyntax yieldReturn => BindYieldReturnStatement(yieldReturn),
             YieldBreakStatementSyntax yieldBreak => BindYieldBreakStatement(yieldBreak),
             EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(BoundFactory.UnitExpression()),

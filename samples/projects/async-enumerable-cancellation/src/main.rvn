@@ -7,7 +7,7 @@ import System.Threading.Tasks.*
 class Sample {
     static async func Count([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
         for i in 1..5 {
-            yield return i
+            yield i
 
             if cancellationToken.IsCancellationRequested {
                 yield break

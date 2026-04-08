@@ -550,7 +550,7 @@ import System.Threading.Tasks.*
 class C {
     static async func Values() -> IAsyncEnumerable<int> {
         for i in 1..3 {
-            yield return i
+            yield i
             await Task.Delay(1)
         }
     }

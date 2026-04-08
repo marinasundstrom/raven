@@ -331,7 +331,12 @@ internal sealed class YieldReturnOperation : Operation, IYieldReturnOperation
         _bound = bound;
     }
 
-    public IOperation? ReturnedValue => _returnedValue ??= ((YieldReturnStatementSyntax)Syntax).Expression is { } expression ? SemanticModel.GetOperation(expression) : null;
+    public IOperation? ReturnedValue => _returnedValue ??= Syntax switch
+    {
+        YieldReturnStatementSyntax yieldReturn when yieldReturn.Expression is { } expression => SemanticModel.GetOperation(expression),
+        YieldStatementSyntax yieldStatement when yieldStatement.Expression is { } expression => SemanticModel.GetOperation(expression),
+        _ => null,
+    };
 
     public ITypeSymbol ElementType => _bound.ElementType;
 

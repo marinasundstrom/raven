@@ -1972,15 +1972,25 @@ partial class BlockBinder
         return _containingSymbol is SynthesizedMainMethodSymbol or SynthesizedMainAsyncMethodSymbol;
     }
 
+    private BoundStatement BindYieldStatement(YieldStatementSyntax yieldStatement)
+    {
+        return BindYieldValueExpression(yieldStatement.Expression);
+    }
+
     private BoundStatement BindYieldReturnStatement(YieldReturnStatementSyntax yieldReturn)
+    {
+        return BindYieldValueExpression(yieldReturn.Expression);
+    }
+
+    private BoundStatement BindYieldValueExpression(ExpressionSyntax expressionSyntax)
     {
         if (_expressionContextDepth > 0)
         {
-            var exprInExpressionContext = BindExpression(yieldReturn.Expression);
+            var exprInExpressionContext = BindExpression(expressionSyntax);
             return new BoundExpressionStatement(exprInExpressionContext);
         }
 
-        var expression = BindExpression(yieldReturn.Expression);
+        var expression = BindExpression(expressionSyntax);
         var (kind, elementType) = ResolveIteratorInfoForCurrentMethod();
 
         if (elementType.TypeKind == TypeKind.Error)
@@ -1991,7 +2001,7 @@ partial class BlockBinder
             elementType.TypeKind != TypeKind.Error &&
             IsAssignable(elementType, expressionType, out var conversion))
         {
-            expression = ApplyConversion(expression, elementType, conversion, yieldReturn.Expression);
+            expression = ApplyConversion(expression, elementType, conversion, expressionSyntax);
         }
 
         return new BoundYieldReturnStatement(expression, elementType, kind);

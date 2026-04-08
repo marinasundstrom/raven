@@ -342,14 +342,13 @@ func firstCharOrFail(name: string?) -> Result<int, string> {
 }
 ```
 
-## `yield return` statements
+## `yield` and `yield return` statements
 
-Iterator-like members may suspend execution with `yield return expression`.
-Each `yield return` produces the next element in the enumerator sequence while
-preserving the generator's state so execution can resume on the next
-iteration. The `yield` keyword must be immediately followed by `return`, and an
-expression is required. Async iterators returning `IAsyncEnumerable<T>` or
-`IAsyncEnumerator<T>` also participate in enumeration cancellation through
+Iterator-like members may suspend execution with either `yield expression` or
+`yield return expression`. Each form produces the next element in the
+enumerator sequence while preserving the generator's state so execution can
+resume on the next iteration. Async iterators returning `IAsyncEnumerable<T>`
+or `IAsyncEnumerator<T>` also participate in enumeration cancellation through
 `GetAsyncEnumerator(CancellationToken)`. To make that enumerator token visible
 inside the iterator body, mark the intended `CancellationToken` parameter with
 `[EnumeratorCancellation]`.
@@ -358,7 +357,7 @@ inside the iterator body, mark the intended `CancellationToken` parameter with
 func numbers() -> IEnumerable<int> {
     var i = 0
     while i < 3 {
-        yield return i
+        yield i
         i += 1
     }
 }
@@ -371,14 +370,16 @@ import System.Threading.*
 import System.Threading.Tasks.*
 
 async func numbers([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
-    yield return 1
+    yield 1
     await Task.Delay(1000, cancellationToken)
-    yield return 2
+    yield 2
 }
 ```
 
-Like explicit `return` statements, `yield return` is limited to statement
-positions and cannot appear in expression context.
+`yield expression` is shorthand for `yield return expression`. Raven continues
+to support the explicit `yield return` spelling as well. Like explicit `return`
+statements, both yield-value forms are limited to statement positions and
+cannot appear in expression context.
 
 ## `yield break` statements
 
@@ -389,7 +390,7 @@ values.
 ```raven
 func firstOrNone(values: IEnumerable<int>) -> IEnumerable<int> {
     for value in values {
-        yield return value
+        yield value
         yield break
     }
 

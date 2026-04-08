@@ -8,11 +8,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 - Statement-form `if`, `if val`, `while`, and `for` bodies can now be written without braces when the body statement starts on the next line. Raven now rejects same-line non-block forms such as `if flag return`, while still allowing block bodies and `else if` chaining on one line.
 - Parenthesized union declarations now use `|` between member types instead of `,`, and compiler-facing displays such as symbol formatting, hover text, signature help, samples, and spec examples now reflect the bar-separated form consistently.
 - Async iterators now support C#-style enumeration cancellation. `CancellationToken` parameters marked with `[EnumeratorCancellation]` receive the token passed to `GetAsyncEnumerator(...)`, Raven warns when async iterators declare `CancellationToken` parameters without marking one, and parenthesized async lambdas accept the inline parameter-attribute form `async ([EnumeratorCancellation] token: CancellationToken) => ...`.
+- Iterator statements now accept the shorthand `yield expression` in addition to `yield return expression`. Both spellings lower identically, while `yield break` remains the early-termination form.
 
 Impact:
 - Control-flow statements read more naturally in Raven’s newline-sensitive style without reopening the same-line ambiguity that previously made single-statement bodies look like adjacent tokens instead of a structured body.
 - Parenthesized unions now align their declaration syntax with Raven’s broader union-type notation, so authored code and tooling output present the same shape for unions like `union Payment(Cash | Card)`.
 - Async streaming code now follows the same cancellation model as C# async iterators, including Minimal API-style handlers that expose the request cancellation token through an attributed lambda parameter.
+- Iterator code can now use the shorter `yield value` spelling without changing semantics, which better matches the fact that iterator elements are produced rather than returned from the method.
 
 ## 2026-04-05
 

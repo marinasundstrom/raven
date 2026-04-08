@@ -472,6 +472,11 @@
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
   </Node>
+  <Node Name="YieldStatement" Inherits="Statement">
+    <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
+  </Node>
   <Node Name="YieldBreakStatement" Inherits="Statement">
     <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword" />
     <Slot Name="BreakKeyword" Type="Token" DefaultToken="BreakKeyword" />

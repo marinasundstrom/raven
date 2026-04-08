@@ -313,11 +313,13 @@ internal class StatementSyntaxParser : SyntaxParser
             return ParseYieldBreakStatementSyntax(yieldKeyword);
         }
 
-        var returnKeyword = next.Kind == SyntaxKind.ReturnKeyword
-            ? ReadToken()
-            : ExpectToken(SyntaxKind.ReturnKeyword);
+        if (next.Kind == SyntaxKind.ReturnKeyword)
+        {
+            var returnKeyword = ReadToken();
+            return ParseYieldReturnStatementSyntax(yieldKeyword, returnKeyword);
+        }
 
-        return ParseYieldReturnStatementSyntax(yieldKeyword, returnKeyword);
+        return ParseYieldStatementSyntax(yieldKeyword);
     }
 
     private YieldReturnStatementSyntax ParseYieldReturnStatementSyntax(SyntaxToken yieldKeyword, SyntaxToken returnKeyword)
@@ -351,6 +353,30 @@ internal class StatementSyntaxParser : SyntaxParser
         var terminatorToken = ConsumeTerminator();
 
         return YieldBreakStatement(yieldKeyword, breakKeyword, terminatorToken);
+    }
+
+    private YieldStatementSyntax ParseYieldStatementSyntax(SyntaxToken yieldKeyword)
+    {
+        SetTreatNewlinesAsTokens(false);
+
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+        SetTreatNewlinesAsTokens(true);
+
+        SyntaxToken? terminatorToken = null;
+        if (PeekToken().Kind != SyntaxKind.ElseKeyword)
+        {
+            if (!TryConsumeTerminator(out terminatorToken))
+            {
+                SkipUntil(SyntaxKind.LineFeedToken, SyntaxKind.CarriageReturnToken, SyntaxKind.CarriageReturnLineFeedToken, SyntaxKind.SemicolonToken);
+            }
+        }
+        else
+        {
+            terminatorToken = Token(SyntaxKind.None);
+        }
+
+        return YieldStatement(yieldKeyword, expression, terminatorToken);
     }
 
     private StatementSyntax ParseIfStatementSyntax()

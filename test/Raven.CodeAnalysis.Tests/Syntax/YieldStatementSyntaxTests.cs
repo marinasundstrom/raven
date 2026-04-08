@@ -19,6 +19,16 @@ public class YieldStatementSyntaxTests
     }
 
     [Fact]
+    public void ParsesYieldStatementShorthand()
+    {
+        var tree = SyntaxTree.ParseText("yield value\n");
+        var yieldStatement = tree.GetRoot().DescendantNodes().OfType<YieldStatementSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.YieldStatement, yieldStatement.Kind);
+        Assert.Equal("value", ((IdentifierNameSyntax)yieldStatement.Expression).Identifier.Text);
+    }
+
+    [Fact]
     public void ParsesYieldBreakStatement()
     {
         var tree = SyntaxTree.ParseText("yield break\n");
