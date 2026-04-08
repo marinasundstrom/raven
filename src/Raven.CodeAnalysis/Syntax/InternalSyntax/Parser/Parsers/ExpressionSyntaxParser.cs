@@ -2246,9 +2246,37 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private List<GreenNode> ParseCollectionElements(SyntaxKind closeTokenKind)
     {
         List<GreenNode> elementList = new List<GreenNode>();
+        var parsedElements = 0;
 
         while (true)
         {
+            if (parsedElements > 0)
+            {
+                if (TryConsumeCollectionElementSeparator(closeTokenKind, out var separatorToken, out var invalidSeparatorToken))
+                {
+                    elementList.Add(separatorToken);
+
+                    if (invalidSeparatorToken is not null)
+                    {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ","));
+                    }
+                }
+                else if (!PeekToken().IsKind(closeTokenKind) &&
+                         !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                {
+                    elementList.Add(MissingToken(SyntaxKind.CommaToken));
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.CharacterExpected,
+                            GetSpanOfPeekedToken(),
+                            ","));
+                }
+            }
+
             var t = PeekToken();
 
             if (t.IsKind(closeTokenKind) || t.IsKind(SyntaxKind.EndOfFileToken))
@@ -2301,14 +2329,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
 
             elementList.Add(element);
-
-            var separatorToken = PeekToken();
-            if (separatorToken.IsKind(SyntaxKind.CommaToken) ||
-                separatorToken.IsKind(SyntaxKind.SemicolonToken))
-            {
-                ReadToken();
-                elementList.Add(separatorToken);
-            }
+            parsedElements++;
 
             if (Position == elementStart)
             {
@@ -2332,6 +2353,47 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         return elementList;
     }
+
+    private bool TryConsumeCollectionElementSeparator(
+        SyntaxKind closingKind,
+        out SyntaxToken separatorToken,
+        out SyntaxToken? invalidSeparatorToken)
+    {
+        var current = PeekToken();
+
+        if (current.IsKind(SyntaxKind.CommaToken))
+        {
+            invalidSeparatorToken = null;
+            separatorToken = ReadToken();
+            return true;
+        }
+
+        if (HasLineBreakBeforePeekToken())
+        {
+            invalidSeparatorToken = null;
+            separatorToken = Token(SyntaxKind.None);
+            return true;
+        }
+
+        if (current.IsKind(SyntaxKind.SemicolonToken))
+        {
+            invalidSeparatorToken = ReadToken();
+            separatorToken = invalidSeparatorToken;
+            return true;
+        }
+
+        if (current.IsKind(closingKind) || current.IsKind(SyntaxKind.EndOfFileToken))
+        {
+            invalidSeparatorToken = null;
+            separatorToken = Token(SyntaxKind.None);
+            return false;
+        }
+
+        invalidSeparatorToken = null;
+        separatorToken = Token(SyntaxKind.None);
+        return false;
+    }
+
     private CollectionElementSyntax ParseCollectionComprehensionElement()
     {
         var forKeyword = ReadToken();

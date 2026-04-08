@@ -125,7 +125,11 @@ When no target type is present:
 * If you want another collection type, add an explicit target type.
 
 ```raven
-let list: ImmutableList<int> = [2; 3; 4]
+let list: ImmutableList<int> = [
+    2
+    3
+    4
+]
 let inferred = [7, ...list, 5] // ImmutableList<int>
 
 let a: ImmutableList<int> = [1]

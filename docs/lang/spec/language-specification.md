@@ -1033,8 +1033,10 @@ Additional encodings may be introduced by adding new suffixes.
 ### Collection expressions
 
 Collection expressions use bracket syntax `[element0, element1, ...]` (with an optional
-trailing comma) to build list-like collection types. Raven also supports an explicit
-array form `[|element0, element1, ...|]`. Elements are evaluated from left to right.
+trailing comma) to build list-like collection types. Adjacent elements may also be
+separated by a newline, in which case the syntax tree records `SyntaxKind.None` in the
+separator slot. Raven also supports an explicit array form `[|element0, element1, ...|]`
+with the same separator rules. Elements are evaluated from left to right.
 In addition to ordinary expressions, an element may be written as
 `...expression`—called a *spread*. Spreads enumerate the runtime value and insert each
 item into the resulting collection in order. The spread source must be convertible to
@@ -1128,15 +1130,21 @@ When no explicit target type is present, bare collection expressions fall back t
 expressions fall back to CLR arrays.
 If code wants another concrete collection type such as `Queue<T>` or `Stack<T>`, it must
 provide an explicit target type so Raven can bind the literal through the normal array or
-collection-builder rules. The choice of comma or semicolon separators does not affect the
-inferred collection kind.
+collection-builder rules. The choice between explicit commas and implicit newline separators
+does not affect the inferred collection kind.
 
 The current targetless default matrix is therefore:
 
 * `[a, b]` -> `ImmutableList<T>`
-* `[a; b]` -> `ImmutableList<T>`
+* `[
+      a
+      b
+  ]` -> `ImmutableList<T>`
 * `![a, b]` -> `List<T>`
-* `![a; b]` -> `List<T>`
+* `![
+      a
+      b
+  ]` -> `List<T>`
 * `[|a, b|]` -> `T[N]` / `T[]`
 
 An empty collection expression `[]` must be used in a context that supplies a target type;

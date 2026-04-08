@@ -668,9 +668,12 @@ Interpolation            ::= '${' Expression '}' ;
 
 ObjectCreationExpression ::= 'new' Type ArgumentList ObjectInitializer? ;
 
+(* Collection elements may also be separated by an implicit newline boundary.
+   In the syntax tree that boundary is represented by `SyntaxKind.None`,
+   not a concrete newline token. *)
 CollectionExpression     ::= ['!'] '[' [CollectionElement {CollectionSeparator CollectionElement} [CollectionSeparator]] ']' ;
 ArrayExpression          ::= '[|' [CollectionElement {CollectionSeparator CollectionElement} [CollectionSeparator]] '|]' ;
-CollectionSeparator      ::= ',' | ';' ;
+CollectionSeparator      ::= ',' ;
 CollectionElement        ::= Expression
                            | Expression ':' Expression
                            | '...' Expression

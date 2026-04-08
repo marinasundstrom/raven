@@ -171,30 +171,67 @@ public class CollectionComprehensionSyntaxTests
     }
 
     [Fact]
-    public void CollectionExpression_SemicolonSeparated_Parses()
+    public void CollectionExpression_NewlineSeparated_UsesImplicitSeparators()
     {
-        var tree = SyntaxTree.ParseText("val xs = [1; 2; 3]");
+        var tree = SyntaxTree.ParseText(
+            """
+            val xs = [
+                1
+                2
+                3
+            ]
+            """);
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
+        Assert.Empty(tree.GetDiagnostics());
         Assert.Equal(3, collection.Elements.Count);
+        Assert.Equal(SyntaxKind.None, collection.Elements.GetSeparator(0).Kind);
+        Assert.Equal(SyntaxKind.None, collection.Elements.GetSeparator(1).Kind);
         Assert.True(collection.IsImmutableByDefault);
     }
 
     [Fact]
-    public void CollectionExpression_Separatorless_Parses()
+    public void ArrayExpression_NewlineSeparated_UsesImplicitSeparators()
     {
-        var tree = SyntaxTree.ParseText("val xs = [1]");
-        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+        var tree = SyntaxTree.ParseText(
+            """
+            val xs = [|
+                1
+                2
+                3
+            |]
+            """);
+        var array = tree.GetRoot().DescendantNodes().OfType<ArrayExpressionSyntax>().Single();
 
-        Assert.Single(collection.Elements);
+        Assert.Empty(tree.GetDiagnostics());
+        Assert.Equal(3, array.Elements.Count);
+        Assert.Equal(SyntaxKind.None, array.Elements.GetSeparator(0).Kind);
+        Assert.Equal(SyntaxKind.None, array.Elements.GetSeparator(1).Kind);
     }
 
     [Fact]
-    public void CollectionExpression_MixedSeparators_Parses()
+    public void CollectionExpression_SemicolonSeparated_ProducesDiagnostic()
     {
-        var tree = SyntaxTree.ParseText("val xs = [1, 2; 3]");
+        var tree = SyntaxTree.ParseText("val xs = [1; 2; 3]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
+        Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CharacterExpected);
         Assert.Equal(3, collection.Elements.Count);
+        Assert.Equal(SyntaxKind.SemicolonToken, collection.Elements.GetSeparator(0).Kind);
+        Assert.Equal(SyntaxKind.SemicolonToken, collection.Elements.GetSeparator(1).Kind);
+    }
+
+    [Fact]
+    public void CollectionExpression_SameLineWithoutComma_ProducesDiagnostic()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [1 2 3]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CharacterExpected);
+        Assert.Equal(3, collection.Elements.Count);
+        Assert.Equal(SyntaxKind.CommaToken, collection.Elements.GetSeparator(0).Kind);
+        Assert.True(collection.Elements.GetSeparator(0).IsMissing);
+        Assert.Equal(SyntaxKind.CommaToken, collection.Elements.GetSeparator(1).Kind);
+        Assert.True(collection.Elements.GetSeparator(1).IsMissing);
     }
 }
