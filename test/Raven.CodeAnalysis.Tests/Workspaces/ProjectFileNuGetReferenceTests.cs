@@ -352,4 +352,99 @@ public sealed class ProjectFileNuGetReferenceTests
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
+    [Fact]
+    public void OpenProject_FrameworkReference_AsyncIteratorLambdaCancellationTokenWithoutEnumeratorCancellation_WarnsButBinds()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        var sourceDir = Path.Combine(projectDir, "src");
+
+        Directory.CreateDirectory(projectDir);
+        Directory.CreateDirectory(sourceDir);
+
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
+        File.WriteAllText(
+            sourcePath,
+            """
+            import Microsoft.AspNetCore.Builder.*
+            import System.Threading.*
+            import System.Threading.Tasks.*
+
+            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            val app = builder.Build()
+
+            app.MapGet("/stream", async (cancellationToken: CancellationToken) => {
+                yield return 1
+                await Task.Delay(1, cancellationToken)
+                yield return 2
+            })
+
+            app.Run()
+            """);
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App">
+              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            </Project>
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var diagnostics = workspace.GetDiagnostics(projectId);
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == CompilerDiagnostics.EnumeratorCancellationAttributeMissing.Id);
+    }
+
+    [Fact]
+    public void OpenProject_FrameworkReference_AsyncIteratorLambdaEnumeratorCancellation_SuppressesWarning()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        var sourceDir = Path.Combine(projectDir, "src");
+
+        Directory.CreateDirectory(projectDir);
+        Directory.CreateDirectory(sourceDir);
+
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
+        File.WriteAllText(
+            sourcePath,
+            """
+            import Microsoft.AspNetCore.Builder.*
+            import System.Runtime.CompilerServices.*
+            import System.Threading.*
+            import System.Threading.Tasks.*
+
+            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            val app = builder.Build()
+
+            app.MapGet("/stream", async ([EnumeratorCancellation] cancellationToken: CancellationToken) => {
+                yield return 1
+                await Task.Delay(1, cancellationToken)
+                yield return 2
+            })
+
+            app.Run()
+            """);
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App">
+              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            </Project>
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var diagnostics = workspace.GetDiagnostics(projectId);
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == CompilerDiagnostics.EnumeratorCancellationAttributeMissing.Id);
+    }
+
 }

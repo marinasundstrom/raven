@@ -376,8 +376,11 @@ internal class MethodBodyGenerator
         };
     }
 
-    private SyntaxNode? TryGetSyntax(BoundNode node)
+    private SyntaxNode? TryGetSyntax(BoundNode? node)
     {
+        if (node is null)
+            return null;
+
         // Prefer syntax mapped from the original (unlowered) bound tree. Lowered
         // syntax propagation can pick sibling arm spans for synthesized control-flow
         // nodes and produce debugger hops across match arms.
@@ -389,11 +392,14 @@ internal class MethodBodyGenerator
         return TryGetSyntaxCore(node, static (model, n) => model.GetSyntax(n));
     }
 
-    private SyntaxNode? TryGetOriginalSyntax(BoundNode node)
+    private SyntaxNode? TryGetOriginalSyntax(BoundNode? node)
         => TryGetSyntaxCore(node, static (model, n) => model.GetOriginalSyntax(n));
 
-    private SyntaxNode? TryGetSyntaxCore(BoundNode node, Func<SemanticModel, BoundNode, SyntaxNode?> resolve)
+    private SyntaxNode? TryGetSyntaxCore(BoundNode? node, Func<SemanticModel, BoundNode, SyntaxNode?> resolve)
     {
+        if (node is null)
+            return null;
+
         var syntaxRef = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxRef is not null)
         {

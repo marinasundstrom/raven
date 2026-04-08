@@ -191,13 +191,15 @@ class MethodBodyBinder : BlockBinder
             Compilation.ContainsAwaitExpressionOutsideNestedFunctions(bodySyntax);
         asyncMethod.SetContainsAwait(containsAwait);
 
-        if (containsAwait)
-            return;
+        if (!containsAwait)
+        {
+            var memberDescription = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncMethod);
+            var location = AsyncDiagnosticUtilities.GetAsyncKeywordLocation(asyncMethod, bodySyntax);
 
-        var memberDescription = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncMethod);
-        var location = AsyncDiagnosticUtilities.GetAsyncKeywordLocation(asyncMethod, bodySyntax);
+            _diagnostics.ReportAsyncLacksAwait(memberDescription, location);
+        }
 
-        _diagnostics.ReportAsyncLacksAwait(memberDescription, location);
+        ReportAsyncIteratorCancellationDiagnostics(asyncMethod);
     }
 
     private bool ShouldSkipTrailingExpressionCheck(ITypeSymbol unitType)
@@ -243,6 +245,42 @@ class MethodBodyBinder : BlockBinder
             ArrowExpressionClauseSyntax arrow => arrow.GetLocation(),
             _ => _methodSymbol.Locations.FirstOrDefault() ?? Location.None
         };
+    }
+
+    private void ReportAsyncIteratorCancellationDiagnostics(SourceMethodSymbol asyncMethod)
+    {
+        if (asyncMethod.IteratorKind != IteratorMethodKind.AsyncEnumerable)
+            return;
+
+        var attributedParameters = AsyncIteratorCancellationUtilities.GetEnumeratorCancellationParameters(Compilation, asyncMethod);
+        var memberName = asyncMethod.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        if (attributedParameters.Length > 1)
+        {
+            _diagnostics.ReportMultipleEnumeratorCancellationParameters(
+                memberName,
+                attributedParameters[1].Locations.FirstOrDefault() ?? asyncMethod.Locations.FirstOrDefault() ?? Location.None);
+            return;
+        }
+
+        if (!AsyncIteratorCancellationUtilities.ShouldWarnAboutMissingEnumeratorCancellation(
+                Compilation,
+                asyncMethod,
+                asyncMethod.IteratorKind))
+        {
+            return;
+        }
+
+        var firstCancellationToken = AsyncIteratorCancellationUtilities
+            .GetCancellationTokenParameters(Compilation, asyncMethod)
+            .FirstOrDefault();
+        if (firstCancellationToken is null)
+            return;
+
+        _diagnostics.ReportEnumeratorCancellationAttributeMissing(
+            memberName,
+            firstCancellationToken.Name,
+            firstCancellationToken.Locations.FirstOrDefault() ?? asyncMethod.Locations.FirstOrDefault() ?? Location.None);
     }
 
     private sealed class OutParameterAssignmentAnalyzer

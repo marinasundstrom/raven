@@ -756,7 +756,8 @@ internal class StatementSyntaxParser : SyntaxParser
 
                 var parameterStart = Position;
                 var canStartDestructuringPattern = allowDestructuringPatterns &&
-                    (PeekToken().IsKind(SyntaxKind.OpenParenToken) || PeekToken().IsKind(SyntaxKind.OpenBracketToken));
+                    (PeekToken().IsKind(SyntaxKind.OpenParenToken) ||
+                     (PeekToken().IsKind(SyntaxKind.OpenBracketToken) && !LooksLikeParameterAttributeList()));
                 var attributeLists = canStartDestructuringPattern
                     ? SyntaxList.Empty
                     : AttributeDeclarationParser.ParseAttributeLists(this);
@@ -859,6 +860,34 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return ParameterList(openParenTokenValue, List(parameterList.ToArray()), closeParenToken);
+    }
+
+    private bool LooksLikeParameterAttributeList()
+    {
+        if (!PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+            return false;
+
+        var checkpoint = CreateCheckpoint("parameter-attribute-list");
+        try
+        {
+            var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+            if (attributeLists.SlotCount == 0)
+                return false;
+
+            return PeekToken().Kind is SyntaxKind.RefKeyword
+                or SyntaxKind.OutKeyword
+                or SyntaxKind.InKeyword
+                or SyntaxKind.ParamsKeyword
+                or SyntaxKind.LetKeyword
+                or SyntaxKind.ValKeyword
+                or SyntaxKind.VarKeyword
+                or SyntaxKind.ConstKeyword
+                or SyntaxKind.IdentifierToken;
+        }
+        finally
+        {
+            checkpoint.Rewind();
+        }
     }
 
     private bool TryConsumeParameterSeparator(SyntaxKind closingKind, out SyntaxToken separatorToken)

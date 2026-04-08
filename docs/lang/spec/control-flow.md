@@ -348,7 +348,11 @@ Iterator-like members may suspend execution with `yield return expression`.
 Each `yield return` produces the next element in the enumerator sequence while
 preserving the generator's state so execution can resume on the next
 iteration. The `yield` keyword must be immediately followed by `return`, and an
-expression is required.
+expression is required. Async iterators returning `IAsyncEnumerable<T>` or
+`IAsyncEnumerator<T>` also participate in enumeration cancellation through
+`GetAsyncEnumerator(CancellationToken)`. To make that enumerator token visible
+inside the iterator body, mark the intended `CancellationToken` parameter with
+`[EnumeratorCancellation]`.
 
 ```raven
 func numbers() -> IEnumerable<int> {
@@ -357,6 +361,19 @@ func numbers() -> IEnumerable<int> {
         yield return i
         i += 1
     }
+}
+```
+
+```raven
+import System.Collections.Generic.*
+import System.Runtime.CompilerServices.*
+import System.Threading.*
+import System.Threading.Tasks.*
+
+async func numbers([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
+    yield return 1
+    await Task.Delay(1000, cancellationToken)
+    yield return 2
 }
 ```
 

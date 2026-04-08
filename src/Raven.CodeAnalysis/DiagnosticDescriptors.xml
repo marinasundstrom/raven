@@ -164,6 +164,14 @@
   <Descriptor Id="RAV2706" Identifier="AsyncLacksAwait" Title="Async body lacks await"
     Message="This async {memberDescription} has no 'await' and will run synchronously."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2707" Identifier="EnumeratorCancellationAttributeMissing"
+    Title="Async iterator cancellation token is not consumed"
+    Message="Async iterator '{memberName}' has a CancellationToken parameter '{parameterName}' but no parameter is marked with 'EnumeratorCancellation', so the cancellation token passed to 'GetAsyncEnumerator' will be ignored."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2708" Identifier="MultipleEnumeratorCancellationParameters"
+    Title="Only one EnumeratorCancellation parameter is allowed"
+    Message="Async iterator '{memberName}' has multiple parameters marked with 'EnumeratorCancellation'. Only one CancellationToken parameter can consume the token passed to 'GetAsyncEnumerator'."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0234" Identifier="TypeOrNamespaceNameDoesNotExistInTheNamespace"
     Title="Type or namespace does not exist in namespace"
     Message="'{typeOrNs}' was not found in '{container}'." Category="compiler" Severity="Error"

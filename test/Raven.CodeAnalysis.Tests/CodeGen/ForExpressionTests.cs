@@ -356,6 +356,137 @@ class C {
     }
 
     [Fact]
+    public void AwaitFor_InsideTryCatch_Emits()
+    {
+        var code = """
+import System.*
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+class C {
+    static async func Values() -> IAsyncEnumerable<int> {
+        yield return 1
+        yield return 2
+    }
+
+    static async func Run() -> Task {
+        try {
+            await for value in Values() {
+                _ = value
+            }
+        } catch (OperationCanceledException) {
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("await-for-try-catch", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+    }
+
+    [Fact]
+    public async Task AwaitFor_InAsyncMethod_Runs()
+    {
+        var code = """
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+class C {
+    static async func Values() -> IAsyncEnumerable<int> {
+        yield return 1
+        yield return 2
+        yield return 3
+    }
+
+    static async func Sum() -> Task<int> {
+        var total: int = 0
+
+        await for value in Values() {
+            total = total + value
+        }
+
+        return total
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("await-for-runs", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("C", throwOnError: true)!;
+        var method = type.GetMethod("Sum", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var task = (Task<int>)method.Invoke(null, Array.Empty<object>())!;
+        var sum = await task.ConfigureAwait(false);
+        Assert.Equal(6, sum);
+    }
+
+    [Fact]
+    public async Task AwaitFor_OverAsyncIteratorWithEnumeratorCancellationParameter_Runs()
+    {
+        var code = """
+import System.Collections.Generic.*
+import System.Runtime.CompilerServices.*
+import System.Threading.*
+import System.Threading.Tasks.*
+
+class C {
+    static async func Values([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
+        yield return 1
+        yield return 2
+        yield return 3
+    }
+
+    static async func Sum() -> Task<int> {
+        var total: int = 0
+
+        await for value in Values(default(CancellationToken)) {
+            total = total + value
+        }
+
+        return total
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("await-for-cancellation-runs", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("C", throwOnError: true)!;
+        var method = type.GetMethod("Sum", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var task = (Task<int>)method.Invoke(null, Array.Empty<object>())!;
+        var sum = await task.ConfigureAwait(false);
+        Assert.Equal(6, sum);
+    }
+
+    [Fact]
     public void For_OverGenericIEnumerable_UsesTypedCurrentGetter()
     {
         // Regression test: IEnumerator<T>.Current was resolved to the non-generic

@@ -162,6 +162,36 @@ internal static class IteratorLowerer
     {
         var statements = new List<BoundStatement>();
 
+        if (stateMachine.CombinedTokensField is { } combinedTokensField)
+        {
+            var combinedTokensAccess = new BoundFieldAccess(combinedTokensField);
+            var disposeMethod = (combinedTokensField.Type as INamedTypeSymbol)?
+                .GetMembers("Dispose")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(method => !method.IsStatic && method.Parameters.Length == 0);
+
+            if (disposeMethod is not null)
+            {
+                var nullLiteral = new BoundLiteralExpression(
+                    BoundLiteralExpressionKind.NullLiteral,
+                    null!,
+                    combinedTokensField.Type);
+                var hasCombinedTokens = CreateBinaryExpression(
+                    stateMachine.Compilation,
+                    SyntaxKind.NotEqualsToken,
+                    combinedTokensAccess,
+                    nullLiteral);
+
+                var disposeInvocation = new BoundInvocationExpression(
+                    disposeMethod,
+                    Array.Empty<BoundExpression>(),
+                    receiver: combinedTokensAccess);
+                var disposeStatement = new BoundExpressionStatement(disposeInvocation);
+
+                statements.Add(new BoundIfStatement(hasCombinedTokens, disposeStatement));
+            }
+        }
+
         var literal = new BoundLiteralExpression(
             BoundLiteralExpressionKind.NumericLiteral,
             -1,
@@ -299,6 +329,19 @@ internal static class IteratorLowerer
             compilation.GetSpecialType(SpecialType.System_Unit));
         statements.Add(new BoundAssignmentStatement(assignment));
 
+        if (stateMachine.EnumeratorCancellationParameter is { } cancellationParameter &&
+            stateMachine.EnumeratorCancellationOriginalParameterField is { } originalCancellationField &&
+            stateMachine.ParameterFieldMap.TryGetValue(cancellationParameter, out var effectiveCancellationField))
+        {
+            var enumeratorCancellationToken = stateMachine.AsyncGetEnumeratorMethod!.Parameters[0];
+            statements.AddRange(CreateEnumeratorCancellationAssignments(
+                compilation,
+                originalCancellationField,
+                effectiveCancellationField,
+                stateMachine.CombinedTokensField,
+                enumeratorCancellationToken));
+        }
+
         BoundExpression result = new BoundSelfExpression(stateMachine);
         var method = stateMachine.AsyncGetEnumeratorMethod!;
         result = ConvertIfNeeded(compilation, result, method.ReturnType);
@@ -416,7 +459,14 @@ internal static class IteratorLowerer
 
         foreach (var parameter in method.Parameters)
         {
-            if (!stateMachine.ParameterFieldMap.TryGetValue(parameter, out var field))
+            SourceFieldSymbol? field = null;
+            if (stateMachine.EnumeratorCancellationParameter is not null &&
+                SymbolEqualityComparer.Default.Equals(parameter, stateMachine.EnumeratorCancellationParameter))
+            {
+                field = stateMachine.EnumeratorCancellationOriginalParameterField;
+            }
+
+            if (field is null && !stateMachine.ParameterFieldMap.TryGetValue(parameter, out field))
                 continue;
 
             var receiver = new BoundLocalAccess(stateMachineLocal);
@@ -518,6 +568,120 @@ internal static class IteratorLowerer
 
     private readonly record struct IteratorSignature(IteratorMethodKind Kind, ITypeSymbol ElementType);
 
+    private static IEnumerable<BoundStatement> CreateEnumeratorCancellationAssignments(
+        Compilation compilation,
+        SourceFieldSymbol originalCancellationField,
+        SourceFieldSymbol effectiveCancellationField,
+        SourceFieldSymbol? combinedTokensField,
+        IParameterSymbol enumeratorCancellationParameter)
+    {
+        var statements = new List<BoundStatement>();
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+        var originalToken = new BoundFieldAccess(originalCancellationField);
+        var effectiveToken = new BoundFieldAccess(effectiveCancellationField);
+        var enumeratorToken = new BoundParameterAccess(enumeratorCancellationParameter);
+        var defaultToken = new BoundDefaultValueExpression(originalCancellationField.Type);
+
+        var assignEffectiveToEnumerator = new BoundAssignmentStatement(
+            new BoundFieldAssignmentExpression(
+                null,
+                effectiveCancellationField,
+                enumeratorToken,
+                unitType));
+
+        var assignEffectiveToOriginal = new BoundAssignmentStatement(
+            new BoundFieldAssignmentExpression(
+                null,
+                effectiveCancellationField,
+                originalToken,
+                unitType));
+
+        var originalIsDefault = CreateCancellationTokenEquals(
+            compilation,
+            originalCancellationField.Type,
+            originalToken,
+            defaultToken);
+
+        var enumeratorIsDefault = CreateCancellationTokenEquals(
+            compilation,
+            enumeratorCancellationParameter.Type,
+            enumeratorToken,
+            defaultToken);
+
+        var enumeratorEqualsOriginal = CreateCancellationTokenEquals(
+            compilation,
+            enumeratorCancellationParameter.Type,
+            enumeratorToken,
+            originalToken);
+
+        BoundStatement combinedAssignment = assignEffectiveToOriginal;
+        if (combinedTokensField is not null)
+        {
+            var cancellationTokenSourceType = combinedTokensField.Type as INamedTypeSymbol;
+            if (cancellationTokenSourceType is not null)
+            {
+                var createLinkedTokenSource = cancellationTokenSourceType
+                    .GetMembers("CreateLinkedTokenSource")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(method =>
+                        method.IsStatic &&
+                        method.Parameters.Length == 2 &&
+                        SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, originalCancellationField.Type) &&
+                        SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type, enumeratorCancellationParameter.Type));
+                var tokenProperty = cancellationTokenSourceType
+                    .GetMembers("Token")
+                    .OfType<IPropertySymbol>()
+                    .FirstOrDefault(property =>
+                        !property.IsStatic &&
+                        SymbolEqualityComparer.Default.Equals(property.Type, originalCancellationField.Type) &&
+                        property.GetMethod is not null);
+
+                if (createLinkedTokenSource is not null && tokenProperty?.GetMethod is not null)
+                {
+                    var createLinkedInvocation = new BoundInvocationExpression(
+                        createLinkedTokenSource,
+                        new BoundExpression[] { originalToken, enumeratorToken });
+                    var assignCombinedTokens = new BoundAssignmentStatement(
+                        new BoundFieldAssignmentExpression(
+                            null,
+                            combinedTokensField,
+                            createLinkedInvocation,
+                            unitType));
+                    var combinedTokenAccess = new BoundFieldAccess(combinedTokensField);
+                    var getCombinedToken = new BoundInvocationExpression(
+                        tokenProperty.GetMethod,
+                        Array.Empty<BoundExpression>(),
+                        receiver: combinedTokenAccess);
+                    var assignEffectiveToCombined = new BoundAssignmentStatement(
+                        new BoundFieldAssignmentExpression(
+                            null,
+                            effectiveCancellationField,
+                            getCombinedToken,
+                            unitType));
+
+                    combinedAssignment = new BoundBlockStatement(new BoundStatement[]
+                    {
+                        assignCombinedTokens,
+                        assignEffectiveToCombined,
+                    });
+                }
+            }
+        }
+
+        statements.Add(new BoundIfStatement(
+            originalIsDefault,
+            assignEffectiveToEnumerator,
+            new BoundIfStatement(
+                enumeratorIsDefault,
+                assignEffectiveToOriginal,
+                new BoundIfStatement(
+                    enumeratorEqualsOriginal,
+                    assignEffectiveToOriginal,
+                    combinedAssignment))));
+
+        return statements;
+    }
+
     private static bool MatchesMetadata(INamedTypeSymbol candidate, INamedTypeSymbol target)
     {
         if (candidate.MetadataName != target.MetadataName)
@@ -541,6 +705,44 @@ internal static class IteratorLowerer
             return false;
 
         return NamespaceEquals(left.ContainingNamespace, right.ContainingNamespace);
+    }
+
+    private static BoundExpression CreateCancellationTokenEquals(
+        Compilation compilation,
+        ITypeSymbol receiverType,
+        BoundExpression receiver,
+        BoundExpression argument)
+    {
+        var equalsMethod = (receiverType as INamedTypeSymbol)?
+            .GetMembers("Equals")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(method =>
+                !method.IsStatic &&
+                method.Parameters.Length == 1 &&
+                SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, argument.Type) &&
+                method.ReturnType.SpecialType == SpecialType.System_Boolean);
+
+        if (equalsMethod is not null)
+        {
+            return new BoundInvocationExpression(
+                equalsMethod,
+                new[] { argument },
+                receiver: receiver);
+        }
+
+        return CreateBinaryExpression(compilation, SyntaxKind.EqualsEqualsToken, receiver, argument);
+    }
+
+    private static BoundExpression CreateBinaryExpression(
+        Compilation compilation,
+        SyntaxKind operatorKind,
+        BoundExpression left,
+        BoundExpression right)
+    {
+        if (BoundBinaryOperator.TryLookup(compilation, operatorKind, left.Type, right.Type, out var op))
+            return new BoundBinaryExpression(left, op, right);
+
+        throw new InvalidOperationException($"Iterator lowering requires operator '{operatorKind}'.");
     }
 
     private sealed class YieldStatementFinder : BoundTreeWalker
@@ -708,6 +910,17 @@ internal static class IteratorLowerer
                 return null;
 
             if (_hoistedLocals.TryGetValue(node.Variable, out var field))
+                return new BoundFieldAccess(field, node.Reason);
+
+            return node;
+        }
+
+        public override BoundNode? VisitParameterAccess(BoundParameterAccess node)
+        {
+            if (node is null)
+                return null;
+
+            if (_stateMachine.ParameterFieldMap.TryGetValue(node.Parameter, out var field))
                 return new BoundFieldAccess(field, node.Reason);
 
             return node;

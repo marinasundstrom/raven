@@ -13,6 +13,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
 
     private ImmutableArray<SourceFieldSymbol> _hoistedLocals;
     private readonly ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
+    private readonly IParameterSymbol? _enumeratorCancellationParameter;
 
     public SynthesizedIteratorTypeSymbol(
         Compilation compilation,
@@ -50,7 +51,21 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         if (!iteratorMethod.IsStatic)
             ThisField = CreateField("_this", iteratorMethod.ContainingType ?? compilation.GetSpecialType(SpecialType.System_Object));
 
-        ParameterFields = CreateParameterFields(iteratorMethod, out _parameterFieldMap);
+        _enumeratorCancellationParameter = AsyncIteratorCancellationUtilities.GetEffectiveEnumeratorCancellationParameter(
+            compilation,
+            iteratorMethod,
+            iteratorKind);
+
+        ParameterFields = CreateParameterFields(iteratorMethod, _enumeratorCancellationParameter, out _parameterFieldMap);
+        if (_enumeratorCancellationParameter is not null)
+        {
+            EnumeratorCancellationOriginalParameterField = CreateField($"_{_enumeratorCancellationParameter.Name}Original", _enumeratorCancellationParameter.Type);
+
+            var cancellationTokenSourceType = compilation.GetTypeByMetadataName("System.Threading.CancellationTokenSource");
+            if (cancellationTokenSourceType is not null)
+                CombinedTokensField = CreateField("_combinedTokens", cancellationTokenSourceType);
+        }
+
         _hoistedLocals = ImmutableArray<SourceFieldSymbol>.Empty;
 
         Constructor = CreateConstructor(compilation, iteratorMethod);
@@ -99,6 +114,12 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     public ImmutableArray<SourceFieldSymbol> ParameterFields { get; }
 
     public ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> ParameterFieldMap => _parameterFieldMap;
+
+    public IParameterSymbol? EnumeratorCancellationParameter => _enumeratorCancellationParameter;
+
+    public SourceFieldSymbol? EnumeratorCancellationOriginalParameterField { get; }
+
+    public SourceFieldSymbol? CombinedTokensField { get; }
 
     public ImmutableArray<SourceFieldSymbol> HoistedLocals => _hoistedLocals;
 
@@ -268,6 +289,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
 
     private ImmutableArray<SourceFieldSymbol> CreateParameterFields(
         IMethodSymbol iteratorMethod,
+        IParameterSymbol? enumeratorCancellationParameter,
         out ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> parameterFieldMap)
     {
         if (iteratorMethod.Parameters.IsDefaultOrEmpty)

@@ -2178,7 +2178,30 @@ metadata shape for the declared iterator kind. Synchronous iterators expose
 `Current`, `MoveNext`, `Dispose`, and `GetEnumerator`; async iterators expose
 `Current`, `MoveNextAsync`, `DisposeAsync`, and `GetAsyncEnumerator`.
 Each `yield return` resumes exactly where it left off on the next move call.
-【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L46-L128】
+For async iterators, a `CancellationToken` parameter only receives the token
+passed to `GetAsyncEnumerator(...)` when that parameter is marked with
+`[EnumeratorCancellation]`. If an async iterator has `CancellationToken`
+parameters but none is marked, Raven warns that the enumerator token will be
+ignored. If both a direct method argument token and a `GetAsyncEnumerator(...)`
+token are present for the marked parameter, Raven combines them so cancellation
+from either source is observed inside the iterator body.
+【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L46-L128】【F:src/Raven.CodeAnalysis/Binder/MethodBodyBinder.cs†L255-L280】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.FunctionExpressions.cs†L2140-L2165】
+
+```raven
+import System.Collections.Generic.*
+import System.Runtime.CompilerServices.*
+import System.Threading.*
+import System.Threading.Tasks.*
+
+class Streams {
+    async func People([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<Person> {
+        yield return Person("Bob", 30)
+
+        await Task.Delay(1000, cancellationToken)
+        yield return Person("Alice", 20)
+    }
+}
+```
 
 ## Pattern matching
 

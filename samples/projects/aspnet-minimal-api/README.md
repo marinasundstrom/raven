@@ -34,7 +34,7 @@ Available endpoints:
 - `GET /` -> `Hello from Raven Minimal API`
 - `GET /ping` -> `pong`
 - `GET /async` -> `Hello from async MapGet`
-- `GET /stream` -> streamed JSON array `[1,2,3]`
+- `GET /stream` -> streamed JSON array of `Person` values; the handler uses `async func ([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<Person>` so ASP.NET Core request cancellation flows into the iterator body
 - `POST /submit` -> `submitted`
 - `POST /submit-async` -> `submitted async`
 

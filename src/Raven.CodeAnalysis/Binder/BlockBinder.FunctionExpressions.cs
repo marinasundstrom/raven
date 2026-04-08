@@ -870,6 +870,8 @@ partial class BlockBinder
                 var location = asyncKeywordToken?.GetLocation() ?? syntax.GetLocation();
                 _diagnostics.ReportAsyncLacksAwait(description, location);
             }
+
+            ReportAsyncIteratorCancellationDiagnostics(asyncLambda);
         }
 
         var boundLambda = new BoundFunctionExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables, candidateDelegates);
@@ -2128,6 +2130,42 @@ partial class BlockBinder
             default:
                 return false;
         }
+    }
+
+    private void ReportAsyncIteratorCancellationDiagnostics(SourceLambdaSymbol asyncLambda)
+    {
+        if (asyncLambda.IteratorKind != IteratorMethodKind.AsyncEnumerable)
+            return;
+
+        var attributedParameters = AsyncIteratorCancellationUtilities.GetEnumeratorCancellationParameters(Compilation, asyncLambda);
+        var memberName = asyncLambda.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        if (attributedParameters.Length > 1)
+        {
+            _diagnostics.ReportMultipleEnumeratorCancellationParameters(
+                memberName,
+                attributedParameters[1].Locations.FirstOrDefault() ?? asyncLambda.Locations.FirstOrDefault() ?? Location.None);
+            return;
+        }
+
+        if (!AsyncIteratorCancellationUtilities.ShouldWarnAboutMissingEnumeratorCancellation(
+                Compilation,
+                asyncLambda,
+                asyncLambda.IteratorKind))
+        {
+            return;
+        }
+
+        var firstCancellationToken = AsyncIteratorCancellationUtilities
+            .GetCancellationTokenParameters(Compilation, asyncLambda)
+            .FirstOrDefault();
+        if (firstCancellationToken is null)
+            return;
+
+        _diagnostics.ReportEnumeratorCancellationAttributeMissing(
+            memberName,
+            firstCancellationToken.Name,
+            firstCancellationToken.Locations.FirstOrDefault() ?? asyncLambda.Locations.FirstOrDefault() ?? Location.None);
     }
 
     private ITypeSymbol CreateInferredIteratorReturnType(bool isAsync, ITypeSymbol elementType)

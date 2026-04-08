@@ -234,6 +234,28 @@ public class FunctionExpressionSyntaxTests
     }
 
     [Fact]
+    public void ParenthesizedLambda_WithInlineParameterAttribute_ParsesAndAppliesToParameter()
+    {
+        var lambda = ParseLambdaInitializer("([EnumeratorCancellation] cancellationToken: CancellationToken) => cancellationToken");
+        var parameter = Assert.Single(lambda.ParameterList.Parameters);
+        var attributeList = Assert.Single(parameter.AttributeLists);
+        var attribute = Assert.Single(attributeList.Attributes);
+        var attributeName = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
+        Assert.Equal("EnumeratorCancellation", attributeName.Identifier.Text);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithAsyncInlineParameterAttribute_ParsesAndAppliesToParameter()
+    {
+        var lambda = ParseLambdaInitializer("async ([EnumeratorCancellation] cancellationToken: CancellationToken) => cancellationToken");
+        var parameter = Assert.Single(lambda.ParameterList.Parameters);
+        var attributeList = Assert.Single(parameter.AttributeLists);
+        var attribute = Assert.Single(attributeList.Attributes);
+        var attributeName = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
+        Assert.Equal("EnumeratorCancellation", attributeName.Identifier.Text);
+    }
+
+    [Fact]
     public void ParenthesizedLambda_WithLeadingReturnAttribute_ParsesAndAppliesToReturnType()
     {
         var lambda = ParseLambdaInitializer("[return: ReturnAttr] (x: int) -> int => x");

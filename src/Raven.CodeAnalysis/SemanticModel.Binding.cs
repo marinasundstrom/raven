@@ -5344,15 +5344,17 @@ public partial class SemanticModel
             _binderCacheByKey.TryRemove(GetSyntaxNodeMapKey(node), out _);
     }
 
-    internal SyntaxNode? GetSyntax(BoundNode node)
-        => _syntaxCache.TryGetValue(node, out var syntax)
-            ? syntax
-            : _loweredSyntaxCache.TryGetValue(node, out var loweredSyntax)
-                ? loweredSyntax
-                : null;
+    internal SyntaxNode? GetSyntax(BoundNode? node)
+        => node is null
+            ? null
+            : _syntaxCache.TryGetValue(node, out var syntax)
+                ? syntax
+                : _loweredSyntaxCache.TryGetValue(node, out var loweredSyntax)
+                    ? loweredSyntax
+                    : null;
 
-    internal SyntaxNode? GetOriginalSyntax(BoundNode node)
-        => _syntaxCache.TryGetValue(node, out var syntax)
+    internal SyntaxNode? GetOriginalSyntax(BoundNode? node)
+        => node is not null && _syntaxCache.TryGetValue(node, out var syntax)
             ? syntax
             : null;
 

@@ -122,6 +122,55 @@ class C {
     }
 
     [Fact]
+    public void Rewrite_AwaitFor_ProducesAsyncStateMachineWithLoopControl()
+    {
+        const string source = """
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+class C {
+    static async func Values() -> IAsyncEnumerable<int> {
+        yield return 1
+        yield return 2
+    }
+
+    static async func Sum() -> Task<int> {
+        var total: int = 0
+
+        await for value in Values() {
+            total = total + value
+        }
+
+        return total
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.Text == "Sum");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        var rewritten = AsyncLowerer.Rewrite(methodSymbol, boundBody);
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+        var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
+
+        var allStatements = FlattenStatements(moveNextBody).ToArray();
+        Assert.Contains(allStatements, static statement => statement is BoundLabeledStatement);
+        Assert.Contains(allStatements, static statement => statement is BoundGotoStatement);
+        Assert.Contains(allStatements, static statement => statement is BoundConditionalGotoStatement);
+
+        Assert.NotEmpty(rewritten.Statements);
+    }
+
+    [Fact]
     public void Analyze_TopLevelAsyncFunction_RequiresStateMachine()
     {
         const string source = """
@@ -1478,5 +1527,48 @@ class C {
             BoundExpression expression => new BoundBlockStatement(new BoundStatement[] { new BoundReturnStatement(expression) }),
             _ => throw new InvalidOperationException("Unsupported async body shape."),
         };
+    }
+
+    private static IEnumerable<BoundStatement> FlattenStatements(BoundStatement root)
+    {
+        yield return root;
+
+        switch (root)
+        {
+            case BoundBlockStatement block:
+                foreach (var statement in block.Statements)
+                {
+                    foreach (var nested in FlattenStatements(statement))
+                        yield return nested;
+                }
+                break;
+            case BoundLabeledStatement labeled:
+                foreach (var nested in FlattenStatements(labeled.Statement))
+                    yield return nested;
+                break;
+            case BoundIfStatement ifStatement:
+                foreach (var nested in FlattenStatements(ifStatement.ThenNode))
+                    yield return nested;
+                if (ifStatement.ElseNode is not null)
+                {
+                    foreach (var nested in FlattenStatements(ifStatement.ElseNode))
+                        yield return nested;
+                }
+                break;
+            case BoundTryStatement tryStatement:
+                foreach (var nested in FlattenStatements(tryStatement.TryBlock))
+                    yield return nested;
+                foreach (var catchClause in tryStatement.CatchClauses)
+                {
+                    foreach (var nested in FlattenStatements(catchClause.Block))
+                        yield return nested;
+                }
+                if (tryStatement.FinallyBlock is not null)
+                {
+                    foreach (var nested in FlattenStatements(tryStatement.FinallyBlock))
+                        yield return nested;
+                }
+                break;
+        }
     }
 }

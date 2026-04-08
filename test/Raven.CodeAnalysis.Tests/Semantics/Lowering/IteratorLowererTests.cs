@@ -176,6 +176,47 @@ class C {
     }
 
     [Fact]
+    public void Rewrite_AsyncIteratorWithEnumeratorCancellation_CapturesOriginalTokenAndSynthesizesLinkedTokenField()
+    {
+        const string source = """
+import System.Collections.Generic.*
+import System.Runtime.CompilerServices.*
+import System.Threading.*
+
+class C {
+    async func Iterator([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
+        yield return 1
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        _ = IteratorLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedIteratorTypeSymbol>(methodSymbol.IteratorStateMachine);
+        Assert.NotNull(stateMachine.EnumeratorCancellationParameter);
+        Assert.NotNull(stateMachine.EnumeratorCancellationOriginalParameterField);
+        Assert.NotNull(stateMachine.CombinedTokensField);
+        Assert.NotNull(stateMachine.AsyncGetEnumeratorBody);
+
+        Assert.Contains(stateMachine.ParameterFields, field => field.Name == "_cancellationToken");
+        Assert.Equal("_cancellationToken", stateMachine.ParameterFieldMap[stateMachine.EnumeratorCancellationParameter!].Name);
+        Assert.Equal("_cancellationTokenOriginal", stateMachine.EnumeratorCancellationOriginalParameterField!.Name);
+        Assert.Equal("_combinedTokens", stateMachine.CombinedTokensField!.Name);
+    }
+
+    [Fact]
     public void Rewrite_RewritesMethodBodyToInstantiateStateMachine()
     {
         const string source = """

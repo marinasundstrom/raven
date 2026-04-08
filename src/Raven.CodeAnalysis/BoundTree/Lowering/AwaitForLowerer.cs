@@ -34,6 +34,7 @@ internal static class AwaitForLowerer
         private readonly Compilation _compilation;
         private readonly ITypeSymbol _unitType;
         private int _tempCounter;
+        private int _labelCounter;
 
         public Rewriter(ISymbol containingSymbol, Compilation compilation)
         {
@@ -65,7 +66,9 @@ internal static class AwaitForLowerer
 
             var enumeratorType = getAsyncEnumeratorMethod.ReturnType;
             var enumeratorLocal = CreateTempLocal("asyncEnumerator", enumeratorType);
-            var enumeratorAccess = new BoundLocalAccess(enumeratorLocal);
+            var hasNextLocal = CreateTempLocal("asyncHasNext", _compilation.GetSpecialType(SpecialType.System_Boolean));
+            var continueLabel = CreateLabel("awaitfor_continue");
+            var breakLabel = CreateLabel("awaitfor_break");
 
             BoundExpression getEnumeratorInvocation;
             var optionalArguments = getAsyncEnumeratorMethod.Parameters
@@ -93,14 +96,27 @@ internal static class AwaitForLowerer
 
             statements.Add(new BoundLocalDeclarationStatement(
                 new[] { new BoundVariableDeclarator(enumeratorLocal, getEnumeratorInvocation) }));
+            statements.Add(new BoundLocalDeclarationStatement(
+                new[] { new BoundVariableDeclarator(hasNextLocal, initializer: null) }));
 
             var moveNextInvocation = new BoundInvocationExpression(
                 moveNextAsyncMethod,
                 Array.Empty<BoundExpression>(),
                 receiver: new BoundLocalAccess(enumeratorLocal));
             var moveNextAwait = ConvertToBoolIfNeeded(CreateAwaitExpression(moveNextInvocation));
+            var assignHasNext = new BoundAssignmentStatement(
+                new BoundLocalAssignmentExpression(
+                    hasNextLocal,
+                    new BoundLocalAccess(hasNextLocal),
+                    moveNextAwait,
+                    _unitType));
 
-            var loopBodyStatements = new List<BoundStatement>();
+            var loopBodyStatements = new List<BoundStatement>
+            {
+                assignHasNext,
+                new BoundConditionalGotoStatement(breakLabel, new BoundLocalAccess(hasNextLocal), jumpIfTrue: false),
+            };
+
             if (node.Local is not null)
             {
                 var currentInvocation = new BoundInvocationExpression(
@@ -121,21 +137,10 @@ internal static class AwaitForLowerer
             }
 
             loopBodyStatements.Add(body);
+            loopBodyStatements.Add(new BoundGotoStatement(continueLabel, isBackward: true));
 
-            var whileBody = new BoundIfStatement(
-                moveNextAwait,
-                new BoundBlockStatement(loopBodyStatements),
-                new BoundBlockStatement(new BoundStatement[] { new BoundBreakStatement() }));
-
-            var trueLiteral = new BoundLiteralExpression(
-                BoundLiteralExpressionKind.TrueLiteral,
-                true,
-                _compilation.GetSpecialType(SpecialType.System_Boolean));
-            var whileStatement = new BoundWhileStatement(trueLiteral, whileBody);
-
-            // TODO: re-enable awaited DisposeAsync in finally once async-finally emission is
-            // fully verified for lowered loop-control constructs.
-            statements.Add(whileStatement);
+            statements.Add(new BoundLabeledStatement(continueLabel, new BoundBlockStatement(loopBodyStatements)));
+            statements.Add(new BoundLabeledStatement(breakLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())));
             return new BoundBlockStatement(statements);
         }
 
@@ -148,6 +153,20 @@ internal static class AwaitForLowerer
                 name,
                 type,
                 isMutable: true,
+                _containingSymbol,
+                containingType,
+                containingNamespace,
+                [Location.None],
+                Array.Empty<SyntaxReference>());
+        }
+
+        private ILabelSymbol CreateLabel(string nameHint)
+        {
+            var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
+            var containingNamespace = _containingSymbol.ContainingNamespace;
+            var name = $"<{nameHint}>__awaitfor_{_labelCounter++}";
+            return new LabelSymbol(
+                name,
                 _containingSymbol,
                 containingType,
                 containingNamespace,
