@@ -276,7 +276,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 val test = MyResult(42)
             }
 
-            union MyResult<T>(List<T>, int)
+            union MyResult<T>(List<T> | int)
             """;
 
         var verifier = CreateVerifier(

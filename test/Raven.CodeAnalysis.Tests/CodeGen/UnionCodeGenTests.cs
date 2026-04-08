@@ -355,7 +355,7 @@ union struct Option {
 record Left(value: int)
 record Right(message: string)
 
-union Either(Left, Right)
+union Either(Left | Right)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -398,7 +398,7 @@ class Runner {
     }
 }
 
-union Either<T1, T2>(T1, T2)
+union Either<T1, T2>(T1 | T2)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -435,7 +435,7 @@ class Runner {
     }
 }
 
-union Message(string, int)
+union Message(string | int)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -472,7 +472,7 @@ class Runner {
     }
 }
 
-union MyResult<T>(List<T>, int)
+union MyResult<T>(List<T> | int)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -515,7 +515,7 @@ class Runner {
     }
 }
 
-union Either<T1, T2>(T1, T2)
+union Either<T1, T2>(T1 | T2)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -569,7 +569,7 @@ class Runner {
     }
 }
 
-union Either<T1, T2>(T1, T2)
+union Either<T1, T2>(T1 | T2)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -599,10 +599,10 @@ union Either<T1, T2>(T1, T2)
         const string code = """
 import System.Collections.Generic.*
 
-union MyResult2<T>(List<T>, int)
+union MyResult2<T>(List<T> | int)
     where T : class
 
-union MyResult3(List<int>, string)
+union MyResult3(List<int> | string)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -657,7 +657,7 @@ class Runner {
 record Cash(Amount: decimal)
 record Card(Reference: string)
 
-union Payment(Cash, Card)
+union Payment(Cash | Card)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -1734,7 +1734,7 @@ class Container {
     }
 }
 
-union Either<T1, T2>(T1, T2)
+union Either<T1, T2>(T1 | T2)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);

@@ -405,7 +405,7 @@ func Main() -> unit {
     val invoiceTotal: Either<int, string> = 42
 }
 
-union Either<T1, T2>(T1, T2)
+union Either<T1, T2>(T1 | T2)
 """;
 
         var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-hover-{Guid.NewGuid():N}");

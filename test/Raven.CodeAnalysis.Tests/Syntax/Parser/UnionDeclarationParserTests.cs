@@ -87,7 +87,7 @@ public class UnionDeclarationParserTests
     [Fact]
     public void UnionDeclaration_WithStorageKindAndNominalMembers_ParsesMemberTypes()
     {
-        var source = "union struct Either<T1, T2>(T1, T2)";
+        var source = "union struct Either<T1, T2>(T1 | T2)";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 
@@ -103,7 +103,7 @@ public class UnionDeclarationParserTests
     [Fact]
     public void UnionDeclaration_WithGenericNominalMembers_ParsesMemberTypes()
     {
-        var source = "union MyResult2<T>(List<T>, int)";
+        var source = "union MyResult2<T>(List<T> | int)";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 
@@ -119,7 +119,7 @@ public class UnionDeclarationParserTests
     [Fact]
     public void UnionDeclaration_WithoutStorageKind_DefaultsToNominalMemberFormWhenParenthesized()
     {
-        var source = "union Either(A, B)";
+        var source = "union Either(A | B)";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 

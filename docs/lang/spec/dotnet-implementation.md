@@ -99,7 +99,7 @@ accepts the payload values, a set of get-only properties for those payloads,
 and a `Deconstruct(out ...)` method that mirrors the payload order. The union
 carrier exposes overloaded `TryGetValue(out CaseType value)` helpers to safely
 extract a case instance. For parenthesized unions such as
-`union Either<T1, T2>(T1, T2)`, the carrier is declared over existing member
+`union Either<T1, T2>(T1 | T2)`, the carrier is declared over existing member
 types instead of synthesized case types, so the carrier constructor and
 `TryGetValue` overloads operate directly on those member types.
 
@@ -130,7 +130,7 @@ For a parenthesized union, extraction is performed directly on the member type:
 
 ```csharp
 // Raven
-// union Either<T1, T2>(T1, T2)
+// union Either<T1, T2>(T1 | T2)
 
 Either<int, string> value = 42;
 if (value.TryGetValue(out int left))

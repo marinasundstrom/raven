@@ -132,7 +132,7 @@ class MacroArgument {
 record Cash(amount: decimal)
 record Card(reference: string)
 
-union Payment(Cash, Card)
+union Payment(Cash | Card)
 
 union Response<T> {
     Success(value: T)
@@ -163,16 +163,16 @@ union struct ValueOption<T> {
         response.ToDisplayString(format).ShouldBe("union class Response<T>");
         valueOption.ToDisplayString(format).ShouldBe("union struct ValueOption<T>");
 
-        payment.ToDisplayString(declarationFormat).ShouldBe("union class Payment(Cash, Card)");
-        response.ToDisplayString(declarationFormat).ShouldBe("union class Response<T>(Success<T>, Failure)");
-        valueOption.ToDisplayString(declarationFormat).ShouldBe("union struct ValueOption<T>(Some<T>, None)");
+        payment.ToDisplayString(declarationFormat).ShouldBe("union class Payment(Cash | Card)");
+        response.ToDisplayString(declarationFormat).ShouldBe("union class Response<T>(Success<T> | Failure)");
+        valueOption.ToDisplayString(declarationFormat).ShouldBe("union struct ValueOption<T>(Some<T> | None)");
     }
 
     [Fact]
     public void GenericParenthesizedUnion_ToDisplayString_IncludesTypeArgumentsAndMemberTypes()
     {
         const string source = """
-union Either<T1, T2>(T1, T2)
+union Either<T1, T2>(T1 | T2)
 
 func Test() {
     val value: Either<int, string> = 42
@@ -196,8 +196,8 @@ func Test() {
         either.ToDisplayString(format).ShouldBe("union class Either<T1, T2>");
         value.Type.ToDisplayString(format).ShouldBe("union class Either<int, string>");
 
-        either.ToDisplayString(declarationFormat).ShouldBe("union class Either<T1, T2>(T1, T2)");
-        value.Type.ToDisplayString(declarationFormat).ShouldBe("union class Either<int, string>(int, string)");
+        either.ToDisplayString(declarationFormat).ShouldBe("union class Either<T1, T2>(T1 | T2)");
+        value.Type.ToDisplayString(declarationFormat).ShouldBe("union class Either<int, string>(int | string)");
     }
 
     [Fact]

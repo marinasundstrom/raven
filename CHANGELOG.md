@@ -6,9 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 
 ### Changed
 - Statement-form `if`, `if val`, `while`, and `for` bodies can now be written without braces when the body statement starts on the next line. Raven now rejects same-line non-block forms such as `if flag return`, while still allowing block bodies and `else if` chaining on one line.
+- Parenthesized union declarations now use `|` between member types instead of `,`, and compiler-facing displays such as symbol formatting, hover text, signature help, samples, and spec examples now reflect the bar-separated form consistently.
 
 Impact:
 - Control-flow statements read more naturally in Raven’s newline-sensitive style without reopening the same-line ambiguity that previously made single-statement bodies look like adjacent tokens instead of a structured body.
+- Parenthesized unions now align their declaration syntax with Raven’s broader union-type notation, so authored code and tooling output present the same shape for unions like `union Payment(Cash | Card)`.
 
 ## 2026-04-05
 

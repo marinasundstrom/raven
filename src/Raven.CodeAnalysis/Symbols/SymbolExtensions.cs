@@ -353,7 +353,7 @@ public static partial class SymbolExtensions
                 !unionSymbol.MemberTypes.IsDefaultOrEmpty)
             {
                 var memberFormat = format.WithKindOptions(format.KindOptions & ~SymbolDisplayKindOptions.IncludeTypeKeyword);
-                var members = string.Join(", ", unionSymbol.MemberTypes.Select(member => FormatType(member, memberFormat)));
+                var members = string.Join(" | ", unionSymbol.MemberTypes.Select(member => FormatType(member, memberFormat)));
                 text += $"({members})";
             }
 

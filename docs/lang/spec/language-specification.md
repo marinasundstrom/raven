@@ -2861,7 +2861,7 @@ Parenthesized unions do not synthesize case names. They are matched using the
 ordinary pattern for one of their declared member types:
 
 ```raven
-union Payment(Cash, Card)
+union Payment(Cash | Card)
 
 val description = payment match {
     Cash(val amount) => "cash $amount"
@@ -4303,7 +4303,7 @@ For non-normative rationale and interop notes, see
 
 | Form | Syntax | Cases | Typical pattern form |
 | --- | --- | --- | --- |
-| Parenthesized | `union Payment(Cash, Card)` | existing member types | `Cash(...)`, `Card(...)` |
+| Parenthesized | `union Payment(Cash | Card)` | existing member types | `Cash(...)`, `Card(...)` |
 | Body form | `union LookupResult { Found(id: int) Missing }` | synthesized case types | `Found(...)`, `Missing` |
 
 #### Parenthesized unions
@@ -4319,7 +4319,7 @@ types. Raven does not synthesize additional case types for this form.
 record Cash(amount: decimal)
 record Card(last4: string)
 
-union Payment(Cash, Card)
+union Payment(Cash | Card)
 
 val paidInCash: Payment = Cash(12.50m)
 val paidByCard: Payment = Card("4242")

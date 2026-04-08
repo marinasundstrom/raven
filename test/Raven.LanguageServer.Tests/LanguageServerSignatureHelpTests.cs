@@ -88,7 +88,7 @@ func Main() -> () {
     val x = Foo()
 }
 
-union Foo(int, string)
+union Foo(int | string)
 """;
 
         store.UpsertDocument(uri, code);
@@ -105,9 +105,9 @@ union Foo(int, string)
         result.ShouldNotBeNull();
         result.Signatures.ShouldNotBeNull();
         result.Signatures.Select(signature => signature.Label).Count().ShouldBe(2);
-        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Foo(int, string)(value: int)");
-        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Foo(int, string)(value: string)");
-        result.Signatures.Select(signature => signature.Label).ShouldNotContain("union class Foo(int, string)()");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Foo(int | string)(value: int)");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Foo(int | string)(value: string)");
+        result.Signatures.Select(signature => signature.Label).ShouldNotContain("union class Foo(int | string)()");
     }
 
     [Fact]
@@ -135,7 +135,7 @@ func Main() -> () {
     val x = Either<int, string>()
 }
 
-union Either<T1, T2>(T1, T2)
+union Either<T1, T2>(T1 | T2)
 """;
 
         store.UpsertDocument(uri, code);
@@ -152,8 +152,8 @@ union Either<T1, T2>(T1, T2)
         result.ShouldNotBeNull();
         result.Signatures.ShouldNotBeNull();
         result.Signatures.Select(signature => signature.Label).Count().ShouldBe(2);
-        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Either<int, string>(int, string)(value: int)");
-        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Either<int, string>(int, string)(value: string)");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Either<int, string>(int | string)(value: int)");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Either<int, string>(int | string)(value: string)");
     }
 
     public void Dispose()

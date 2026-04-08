@@ -84,7 +84,7 @@ union struct Option {
 record Left(value: int)
 record Right(message: string)
 
-union Either(Left, Right)
+union Either(Left | Right)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -110,8 +110,8 @@ union Either(Left, Right)
         const string source = """
 import System.Collections.Generic.*
 
-union MyResult2<T>(List<T>, int)
-union MyResult3(List<int>, string)
+union MyResult2<T>(List<T> | int)
+union MyResult3(List<int> | string)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -141,7 +141,7 @@ union MyResult3(List<int>, string)
         const string source = """
 import System.Collections.Generic.*
 
-union MyResult<T>(List<T>, int)
+union MyResult<T>(List<T> | int)
     where T : class
 """;
 

@@ -16,4 +16,4 @@ func PrintPaymentSource(value: Either<int, string>) {
     WriteLine(description)
 }
 
-union Either<T1, T2>(T1, T2)
+union Either<T1, T2>(T1 | T2)

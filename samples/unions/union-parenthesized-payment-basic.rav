@@ -17,6 +17,6 @@ func PrintPaymentSource(value: Payment) {
 record Cash(Amount: decimal)
 record Card(Reference: string)
 
-union Payment(Cash, Card)
+union Payment(Cash | Card)
 
 PrintPaymentSource(Card("invoice"))

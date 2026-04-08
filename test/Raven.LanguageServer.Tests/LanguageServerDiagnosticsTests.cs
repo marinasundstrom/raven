@@ -268,7 +268,7 @@ func Main() {
     val test = MyResult(List<string>())
 }
 
-union MyResult<T>(List<T>, int)
+union MyResult<T>(List<T> | int)
 """;
 
         store.UpsertDocument(uri, code);

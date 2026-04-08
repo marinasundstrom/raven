@@ -1268,7 +1268,7 @@ partial class BlockBinder
         // If the generic type is still open at this point, constructor-argument inference and
         // target typing both failed to determine its type arguments. Do not allow overload
         // resolution to proceed on the open constructors, because that would incorrectly accept
-        // calls like `MyResult(42)` for `union MyResult<T>(List<T>, int)`.
+        // calls like `MyResult(42)` for `union MyResult<T>(List<T> | int)`.
         if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol))
         {
             _diagnostics.ReportTypeRequiresTypeArguments(typeSymbol.Name, typeSymbol.Arity, receiverSyntax.GetLocation());

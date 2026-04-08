@@ -315,7 +315,7 @@ func Main() {
     }
 }
 
-union MyResult(string, int)
+union MyResult(string | int)
 """;
 
         var tree = SyntaxTree.ParseText(code);

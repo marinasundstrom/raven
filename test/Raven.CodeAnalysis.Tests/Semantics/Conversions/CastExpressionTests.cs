@@ -67,7 +67,7 @@ public class CastExpressionTests : DiagnosticTestBase
         val value: Either<int, string> = 42
         val left = (int)value
 
-        union Either<T1, T2>(T1, T2)
+        union Either<T1, T2>(T1 | T2)
         """;
 
         var verifier = CreateVerifier(code);

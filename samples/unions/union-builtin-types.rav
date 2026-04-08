@@ -7,4 +7,4 @@ match value {
     string str => WriteLine("str $str")
 }
 
-union Payment(int, string)
+union Payment(int | string)
