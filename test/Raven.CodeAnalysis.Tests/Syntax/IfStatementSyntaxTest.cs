@@ -74,6 +74,34 @@ else
     }
 
     [Fact]
+    public void IfStatement_SingleStatementBodyOnSameLine_ReportsNewlineDiagnostic()
+    {
+        const string testCode = """
+if x return 0
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var diagnostic = Assert.Single(tree.GetDiagnostics());
+
+        diagnostic.Descriptor.ShouldBe(CompilerDiagnostics.EmbeddedStatementMustBeginOnNextLine);
+    }
+
+    [Fact]
+    public void IfStatement_ElseIfOnSameLine_DoesNotReportNewlineDiagnostic()
+    {
+        const string testCode = """
+if x
+    return 0
+else if y
+    return 1
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+
+        Assert.DoesNotContain(tree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.EmbeddedStatementMustBeginOnNextLine);
+    }
+
+    [Fact]
     public void IfPatternStatement_ParsesAsDedicatedNode()
     {
         const string testCode = """

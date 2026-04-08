@@ -169,4 +169,29 @@ class C {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void VarLocal_ReassignedInsideStatementBodiedLoops_NoDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M(values: int[]) -> unit {
+        var total = 0
+
+        for value in values
+            total += value
+
+        while total < 100
+            total += 1
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
 }

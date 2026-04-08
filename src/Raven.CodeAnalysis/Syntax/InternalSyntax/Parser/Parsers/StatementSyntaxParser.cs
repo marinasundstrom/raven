@@ -362,7 +362,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var condition = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
 
-        var thenStatement = ParseStatement();
+        var thenStatement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true);
 
         SyntaxToken? elseKeyword = null;
         StatementSyntax? elseStatement = null;
@@ -373,7 +373,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             elseKeyword = elseTok;
 
-            elseStatement = ParseStatement();
+            elseStatement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true, allowAdjacentIfStatement: true);
 
             elseClause = ElseClause(elseKeyword, elseStatement);
         }
@@ -393,12 +393,12 @@ internal class StatementSyntaxParser : SyntaxParser
             allowWholePatternDesignation: true).ParsePattern();
         var operatorToken = ExpectToken(SyntaxKind.EqualsToken);
         var expression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
-        var thenStatement = ParseStatement();
+        var thenStatement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true);
 
         ElseClauseSyntax? elseClause = null;
         if (ConsumeToken(SyntaxKind.ElseKeyword, out var elseKeyword))
         {
-            var elseStatement = ParseStatement();
+            var elseStatement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true, allowAdjacentIfStatement: true);
             elseClause = ElseClause(elseKeyword, elseStatement);
         }
 
@@ -421,7 +421,7 @@ internal class StatementSyntaxParser : SyntaxParser
         var whileKeyword = ReadToken();
 
         var condition = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
-        var statement = ParseStatement();
+        var statement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true);
 
         SetTreatNewlinesAsTokens(true);
         TryConsumeTerminator(out var terminatorToken);
@@ -550,12 +550,38 @@ internal class StatementSyntaxParser : SyntaxParser
             stepExpression = null;
         }
 
-        var body = ParseStatement();
+        var body = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true);
 
         SetTreatNewlinesAsTokens(true);
         TryConsumeTerminator(out var terminatorToken);
 
         return ForStatement(awaitKeyword, forKeyword, bindingKeyword, target, inKeyword, expression!, byKeyword, stepExpression, body!, terminatorToken);
+    }
+
+    private StatementSyntax ParseEmbeddedStatement(bool requireNewLineForNonBlockBody, bool allowAdjacentIfStatement = false)
+    {
+        if (requireNewLineForNonBlockBody && RequiresEmbeddedStatementLineBreak(PeekToken(), allowAdjacentIfStatement))
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.EmbeddedStatementMustBeginOnNextLine,
+                GetInsertionSpanBeforePeekedToken()));
+        }
+
+        return ParseStatement();
+    }
+
+    private bool RequiresEmbeddedStatementLineBreak(SyntaxToken token, bool allowAdjacentIfStatement)
+    {
+        if (HasLineBreakBeforePeekToken())
+            return false;
+
+        if (token.Kind == SyntaxKind.OpenBraceToken)
+            return false;
+
+        if (allowAdjacentIfStatement && token.Kind == SyntaxKind.IfKeyword)
+            return false;
+
+        return true;
     }
 
     private StatementSyntax? ParseFunctionSyntax(SyntaxList attributeLists, SyntaxList modifiers)

@@ -139,6 +139,35 @@ func Main() {
     }
 
     [Fact]
+    public void AnalyzeControlFlow_IfStatementWithSingleStatementBody_TracksReturn()
+    {
+        const string source = """
+func Main(flag: bool) -> int {
+    if flag
+        return 1
+
+    return 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var ifStatement = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IfStatementSyntax>()
+            .Single();
+
+        var analysis = model.AnalyzeControlFlow(ifStatement);
+
+        analysis.Succeeded.ShouldBeTrue();
+        analysis.StartPointIsReachable.ShouldBeTrue();
+        analysis.EndPointIsReachable.ShouldBeTrue();
+        var returnStatement = analysis.ReturnStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<ReturnStatementSyntax>();
+        returnStatement.Expression.ShouldBeOfType<LiteralExpressionSyntax>();
+    }
+
+    [Fact]
     public void GetDiagnostics_UnreachableStatement_ProducesWarning()
     {
         const string source = """

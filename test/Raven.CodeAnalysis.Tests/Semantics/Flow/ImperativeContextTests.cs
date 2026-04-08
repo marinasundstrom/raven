@@ -105,7 +105,10 @@ class C {
         var code = """
 class C {
     func Test(flag: bool) {
-        if flag return else return
+        if flag
+            return
+        else
+            return
     }
 }
 """;
@@ -118,6 +121,48 @@ class C {
 
         Assert.IsType<BoundReturnStatement>(bound.ThenNode);
         Assert.IsType<BoundReturnStatement>(bound.ElseNode);
+    }
+
+    [Fact]
+    public void WhileStatement_SingleStatementBody_BindsAsStatement()
+    {
+        var code = """
+class C {
+    func Test(flag: bool) {
+        while flag
+            return
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var whileStmt = tree.GetRoot().DescendantNodes().OfType<WhileStatementSyntax>().First();
+        var bound = (BoundWhileStatement)model.GetBoundNode(whileStmt);
+
+        Assert.IsType<BoundReturnStatement>(bound.Body);
+    }
+
+    [Fact]
+    public void ForStatement_SingleStatementBody_BindsAsStatement()
+    {
+        var code = """
+class C {
+    func Test(values: int[]) {
+        for x in values
+            return
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var forStmt = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().First();
+        var bound = (BoundForStatement)model.GetBoundNode(forStmt);
+
+        Assert.IsType<BoundReturnStatement>(bound.Body);
     }
 
     [Fact]

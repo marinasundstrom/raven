@@ -185,7 +185,10 @@ var value = if flag 1 else 2
         const string source = """
 class C {
     func Test(flag: bool) {
-        if flag return else return
+        if flag
+            return
+        else
+            return
     }
 }
 """;
@@ -204,6 +207,58 @@ class C {
         operation.WhenFalse.ShouldNotBeNull();
         operation.WhenTrue!.Kind.ShouldBe(OperationKind.Return);
         operation.WhenFalse!.Kind.ShouldBe(OperationKind.Return);
+    }
+
+    [Fact]
+    public void GetOperation_WhileStatement_ReturnsLoopWithStatementBody()
+    {
+        const string source = """
+class C {
+    func Test(flag: bool) {
+        while flag
+            return
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var whileSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<WhileStatementSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IWhileLoopOperation>(model.GetOperation(whileSyntax));
+
+        operation.Condition.ShouldNotBeNull();
+        operation.Body.ShouldNotBeNull();
+        operation.Body!.Kind.ShouldBe(OperationKind.Return);
+    }
+
+    [Fact]
+    public void GetOperation_ForStatement_ReturnsLoopWithStatementBody()
+    {
+        const string source = """
+class C {
+    func Test(values: int[]) {
+        for x in values
+            return
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var forSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ForStatementSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IForLoopOperation>(model.GetOperation(forSyntax));
+
+        operation.Collection.ShouldNotBeNull();
+        operation.Body.ShouldNotBeNull();
+        operation.Body!.Kind.ShouldBe(OperationKind.Return);
     }
 
     [Fact]
@@ -352,7 +407,7 @@ var result = tuple match {
     [Fact]
     public void GetOperation_NominalDeconstructionPattern_ExposesRecursivePatternShape()
     {
-const string source = """
+        const string source = """
 val value: object = Person("Ada", 42)
 val result = value match {
     Person(val name, val age) => name
@@ -432,7 +487,7 @@ val result = value match {
     [Fact]
     public void GetOperation_PropertyPattern_ExposesMembersAndSubpatterns()
     {
-const string source = """
+        const string source = """
 val value: object = Person("Ada", 42)
 val result = value match {
     Person { Name: "Ada", Age: _ } => 1

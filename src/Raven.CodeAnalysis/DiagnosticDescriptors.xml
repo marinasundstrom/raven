@@ -512,6 +512,10 @@
   <Descriptor Id="RAV1023" Identifier="ExpectedNewLineBetweenDeclarations"
     Title="Expected newline between declarations" Message="Expected newline between declarations."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1025" Identifier="EmbeddedStatementMustBeginOnNextLine"
+    Title="Embedded statement must begin on the next line"
+    Message="A non-block control-flow body must begin on the next line." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1051" Identifier="PreferNewLineBetweenDeclarations"
     Title="Prefer newline between declarations" Message="Prefer newline between declarations."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />

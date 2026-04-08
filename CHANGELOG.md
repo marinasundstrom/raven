@@ -2,6 +2,14 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 
+## 2026-04-08
+
+### Changed
+- Statement-form `if`, `if val`, `while`, and `for` bodies can now be written without braces when the body statement starts on the next line. Raven now rejects same-line non-block forms such as `if flag return`, while still allowing block bodies and `else if` chaining on one line.
+
+Impact:
+- Control-flow statements read more naturally in Raven’s newline-sensitive style without reopening the same-line ambiguity that previously made single-statement bodies look like adjacent tokens instead of a structured body.
+
 ## 2026-04-05
 
 ### Changed

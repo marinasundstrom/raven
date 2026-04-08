@@ -1121,6 +1121,44 @@ class Test {
         Assert.IsType<ClassDeclarationSyntax>(fileScopedNamespace.Members.Last());
     }
 
+    [Fact]
+    public void WhileStatement_SingleStatementBodyOnNextLine_ParsesWithoutDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+while x < 10
+    x += 1
+""");
+
+        Assert.DoesNotContain(syntaxTree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.EmbeddedStatementMustBeginOnNextLine);
+    }
+
+    [Fact]
+    public void WhileStatement_SingleStatementBodyOnSameLine_ReportsDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("while x < 10 x += 1");
+
+        Assert.Contains(syntaxTree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.EmbeddedStatementMustBeginOnNextLine);
+    }
+
+    [Fact]
+    public void ForStatement_SingleStatementBodyOnNextLine_ParsesWithoutDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+for x in values
+    sum += x
+""");
+
+        Assert.DoesNotContain(syntaxTree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.EmbeddedStatementMustBeginOnNextLine);
+    }
+
+    [Fact]
+    public void ForStatement_SingleStatementBodyOnSameLine_ReportsDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("for x in values sum += x");
+
+        Assert.Contains(syntaxTree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.EmbeddedStatementMustBeginOnNextLine);
+    }
+
     private static void AssertSkippedTokensAreLeadingTriviaOnToken(SyntaxToken token, SyntaxKind expectedSkippedTokenKind)
     {
         var skipped = token.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);

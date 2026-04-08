@@ -341,17 +341,21 @@ FunctionStatement        ::= {AttributeList | MacroAttributeList}
 
 ExpressionStatement      ::= Expression ;
 
-IfStatement              ::= 'if' Expression Statement ['else' Statement] ;
-IfPatternStatement       ::= 'if' BindingKeyword Pattern '=' Expression Statement ['else' Statement] ;
+IfStatement              ::= 'if' Expression EmbeddedStatement ['else' ElseEmbeddedStatement] ;
+IfPatternStatement       ::= 'if' BindingKeyword Pattern '=' Expression EmbeddedStatement ['else' ElseEmbeddedStatement] ;
 
 (* NOTE: In statement contexts, '{' that starts a new statement (for example after a newline,
    or after headers such as if/while/for) begins a block statement/body and is not parsed as an ObjectInitializer trailer.
    This disambiguation is performed by the parser (context-sensitive), not by this EBNF. *)
-WhileStatement           ::= 'while' Expression Statement ;
-ForStatement             ::= 'await'? 'for' ForBindingKeyword? ForIterationTarget? 'in' Expression ForStepClause? Statement ;
+WhileStatement           ::= 'while' Expression EmbeddedStatement ;
+ForStatement             ::= 'await'? 'for' ForBindingKeyword? ForIterationTarget? 'in' Expression ForStepClause? EmbeddedStatement ;
 ForBindingKeyword        ::= 'val' | 'let' | 'var' ;
 ForIterationTarget       ::= Identifier | Pattern ;
 ForStepClause            ::= 'by' Expression ;
+(* Parser rule: a non-block embedded statement must start on the next line.
+   `else if` remains a dedicated exception and may stay on the same line. *)
+EmbeddedStatement        ::= Block | Statement ;
+ElseEmbeddedStatement    ::= Block | IfStatement | Statement ;
 
 TryStatement             ::= 'try' Block (CatchClauseList [FinallyClause] | FinallyClause) ;
 CatchClauseList          ::= CatchClause {CatchClause} ;
