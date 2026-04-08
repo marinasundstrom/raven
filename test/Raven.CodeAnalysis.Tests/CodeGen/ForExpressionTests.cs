@@ -487,6 +487,87 @@ class C {
     }
 
     [Fact]
+    public void Iterator_ForRange_YieldsLoopValues()
+    {
+        var code = """
+import System.Console.*
+import System.Collections.Generic.*
+
+class C {
+    static func Values() -> IEnumerable<int> {
+        for i in 1..3 {
+            yield return i
+        }
+    }
+
+    static func Main() {
+        for value in Values() {
+            WriteLine(value)
+        }
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["1", "2", "3"], output);
+    }
+
+    [Fact]
+    public void Iterator_ForEnumerable_YieldsLoopValues()
+    {
+        var code = """
+import System.Console.*
+import System.Collections.Generic.*
+
+class C {
+    static func Values() -> IEnumerable<int> {
+        val items: IEnumerable<int> = [1, 2, 3]
+        for i in items {
+            yield return i
+        }
+    }
+
+    static func Main() {
+        for value in Values() {
+            WriteLine(value)
+        }
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["1", "2", "3"], output);
+    }
+
+    [Fact]
+    public void AsyncIterator_ForRange_YieldsLoopValues()
+    {
+        var code = """
+import System.Console.*
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+class C {
+    static async func Values() -> IAsyncEnumerable<int> {
+        for i in 1..3 {
+            yield return i
+            await Task.Delay(1)
+        }
+    }
+
+    static async func Main() -> Task {
+        await for value in Values() {
+            WriteLine(value)
+        }
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["1", "2", "3"], output);
+    }
+
+    [Fact]
     public void For_OverGenericIEnumerable_UsesTypedCurrentGetter()
     {
         // Regression test: IEnumerator<T>.Current was resolved to the non-generic

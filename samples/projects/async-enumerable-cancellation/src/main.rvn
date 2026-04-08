@@ -6,33 +6,20 @@ import System.Threading.Tasks.*
 
 class Sample {
     static async func Count([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
-        yield return 1
+        for i in 1..5 {
+            yield return i
 
-        if cancellationToken.IsCancellationRequested {
-            yield break
+            if cancellationToken.IsCancellationRequested {
+                yield break
+            }
+
+            await Task.Delay(250)
         }
-
-        await Task.Delay(250)
-        yield return 2
-
-        if cancellationToken.IsCancellationRequested {
-            yield break
-        }
-
-        await Task.Delay(250)
-        yield return 3
-
-        if cancellationToken.IsCancellationRequested {
-            yield break
-        }
-
-        await Task.Delay(250)
-        yield return 4
     }
 
     static async func Run() -> Task {
         val cts = CancellationTokenSource()
-        cts.CancelAfter(100)
+        cts.CancelAfter(700)
 
         await for value in Count(cts.Token) {
             Console.WriteLine(value)

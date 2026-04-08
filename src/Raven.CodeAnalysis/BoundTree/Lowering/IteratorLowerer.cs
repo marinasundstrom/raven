@@ -1124,6 +1124,20 @@ internal static class IteratorLowerer
             return new BoundGotoStatement(continueLabel, isBackward: true);
         }
 
+        public override BoundNode? VisitForStatement(BoundForStatement node)
+        {
+            if (node is null)
+                return null;
+
+            return node.Iteration.Kind switch
+            {
+                ForIterationKind.Range => RewriteRangeForStatement(node),
+                ForIterationKind.Array => RewriteArrayForStatement(node),
+                ForIterationKind.Generic or ForIterationKind.NonGeneric => RewriteEnumeratorForStatement(node),
+                _ => base.VisitForStatement(node),
+            };
+        }
+
         private BoundBlockStatement? BuildDisposeBody()
         {
             if (_pendingFinallyStates.Count == 0)
@@ -1299,6 +1313,190 @@ internal static class IteratorLowerer
             return entry;
         }
 
+        private BoundBlockStatement RewriteRangeForStatement(BoundForStatement node)
+        {
+            var breakLabel = CreateLabel("for_break");
+            var continueLabel = CreateLabel("for_continue");
+            var beginLabel = CreateLabel("for_begin");
+            var positiveStepLabel = CreateLabel("for_positive");
+            var negativeStepLabel = CreateLabel("for_negative");
+            var bodyLabel = CreateLabel("for_body");
+
+            var currentLocal = CreateHoistedTempLocal("forCurrent", node.Iteration.ElementType);
+            var endLocal = CreateHoistedTempLocal("forEnd", node.Iteration.ElementType);
+            var stepLocal = CreateHoistedTempLocal("forStep", node.Iteration.ElementType);
+
+            var start = VisitExpression(node.Iteration.RangeStart!) ?? node.Iteration.RangeStart!;
+            var end = VisitExpression(node.Iteration.RangeEnd!) ?? node.Iteration.RangeEnd!;
+            var step = VisitExpression(node.Iteration.RangeStep!) ?? node.Iteration.RangeStep!;
+
+            _loopLabels.Push((breakLabel, continueLabel));
+            var body = (BoundStatement)VisitStatement(node.Body)!;
+            _loopLabels.Pop();
+
+            var statements = new List<BoundStatement>
+            {
+                CreateHoistedAssignment(currentLocal, start),
+                CreateHoistedAssignment(endLocal, end),
+                CreateHoistedAssignment(stepLocal, step),
+                new BoundConditionalGotoStatement(
+                    breakLabel,
+                    CreateBinaryExpression(_compilation, SyntaxKind.EqualsEqualsToken, CreateHoistedAccess(stepLocal), CreateZeroLiteral(node.Iteration.ElementType)),
+                    jumpIfTrue: true),
+                new BoundLabeledStatement(beginLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())),
+                new BoundConditionalGotoStatement(
+                    positiveStepLabel,
+                    CreateBinaryExpression(_compilation, SyntaxKind.GreaterThanToken, CreateHoistedAccess(stepLocal), CreateZeroLiteral(node.Iteration.ElementType)),
+                    jumpIfTrue: true),
+                new BoundConditionalGotoStatement(
+                    negativeStepLabel,
+                    CreateBinaryExpression(_compilation, SyntaxKind.LessThanToken, CreateHoistedAccess(stepLocal), CreateZeroLiteral(node.Iteration.ElementType)),
+                    jumpIfTrue: true),
+                new BoundGotoStatement(breakLabel),
+                new BoundLabeledStatement(
+                    positiveStepLabel,
+                    new BoundBlockStatement(new BoundStatement[]
+                    {
+                        new BoundConditionalGotoStatement(
+                            breakLabel,
+                            CreateRangeBreakCondition(CreateHoistedAccess(currentLocal), CreateHoistedAccess(endLocal), positiveStep: true, node.Iteration.RangeUpperExclusive),
+                            jumpIfTrue: true),
+                        new BoundGotoStatement(bodyLabel),
+                    })),
+                new BoundLabeledStatement(
+                    negativeStepLabel,
+                    new BoundBlockStatement(new BoundStatement[]
+                    {
+                        new BoundConditionalGotoStatement(
+                            breakLabel,
+                            CreateRangeBreakCondition(CreateHoistedAccess(currentLocal), CreateHoistedAccess(endLocal), positiveStep: false, node.Iteration.RangeUpperExclusive),
+                            jumpIfTrue: true),
+                    })),
+                new BoundLabeledStatement(
+                    bodyLabel,
+                    new BoundBlockStatement(CreateLoopBodyStatements(node.Local, CreateHoistedAccess(currentLocal), body))),
+                new BoundLabeledStatement(
+                    continueLabel,
+                    new BoundBlockStatement(new BoundStatement[]
+                    {
+                        CreateHoistedAssignment(
+                            currentLocal,
+                            CreateBinaryExpression(_compilation, SyntaxKind.PlusToken, CreateHoistedAccess(currentLocal), CreateHoistedAccess(stepLocal))),
+                        new BoundGotoStatement(beginLabel, isBackward: true),
+                    })),
+                new BoundLabeledStatement(breakLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())),
+            };
+
+            return new BoundBlockStatement(statements);
+        }
+
+        private BoundBlockStatement RewriteArrayForStatement(BoundForStatement node)
+        {
+            var arrayType = node.Iteration.ArrayType
+                ?? throw new InvalidOperationException("Array for-loop rewrite requires array type.");
+
+            var breakLabel = CreateLabel("for_break");
+            var continueLabel = CreateLabel("for_continue");
+            var beginLabel = CreateLabel("for_begin");
+
+            var collection = VisitExpression(node.Collection) ?? node.Collection;
+            var collectionLocal = CreateHoistedTempLocal("forArray", arrayType);
+            var indexLocal = CreateHoistedTempLocal("forIndex", _compilation.GetSpecialType(SpecialType.System_Int32));
+
+            var lengthProperty = arrayType.GetMembers("Length").OfType<IPropertySymbol>().FirstOrDefault()
+                ?? arrayType.BaseType?.GetMembers("Length").OfType<IPropertySymbol>().FirstOrDefault()
+                ?? throw new InvalidOperationException("Array for-loop rewrite requires Length property.");
+
+            _loopLabels.Push((breakLabel, continueLabel));
+            var body = (BoundStatement)VisitStatement(node.Body)!;
+            _loopLabels.Pop();
+
+            var arrayAccess = new BoundArrayAccessExpression(
+                CreateHoistedAccess(collectionLocal),
+                new[] { (BoundExpression)CreateHoistedAccess(indexLocal) },
+                node.Iteration.ElementType);
+
+            var statements = new List<BoundStatement>
+            {
+                CreateHoistedAssignment(collectionLocal, collection),
+                CreateHoistedAssignment(indexLocal, CreateIntLiteral(0)),
+                new BoundLabeledStatement(beginLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())),
+                new BoundConditionalGotoStatement(
+                    breakLabel,
+                    CreateBinaryExpression(
+                        _compilation,
+                        SyntaxKind.GreaterThanOrEqualsToken,
+                        CreateHoistedAccess(indexLocal),
+                        new BoundMemberAccessExpression(CreateHoistedAccess(collectionLocal), lengthProperty)),
+                    jumpIfTrue: true),
+                new BoundBlockStatement(CreateLoopBodyStatements(node.Local, arrayAccess, body)),
+                new BoundLabeledStatement(
+                    continueLabel,
+                    new BoundBlockStatement(new BoundStatement[]
+                    {
+                        CreateHoistedAssignment(
+                            indexLocal,
+                            CreateBinaryExpression(_compilation, SyntaxKind.PlusToken, CreateHoistedAccess(indexLocal), CreateIntLiteral(1))),
+                        new BoundGotoStatement(beginLabel, isBackward: true),
+                    })),
+                new BoundLabeledStatement(breakLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())),
+            };
+
+            return new BoundBlockStatement(statements);
+        }
+
+        private BoundBlockStatement RewriteEnumeratorForStatement(BoundForStatement node)
+        {
+            var getEnumeratorMethod = node.Iteration.GetEnumeratorMethod
+                ?? throw new InvalidOperationException("Enumerator for-loop rewrite requires GetEnumerator.");
+            var moveNextMethod = node.Iteration.MoveNextMethod
+                ?? throw new InvalidOperationException("Enumerator for-loop rewrite requires MoveNext.");
+            var currentGetter = node.Iteration.CurrentGetter
+                ?? throw new InvalidOperationException("Enumerator for-loop rewrite requires Current getter.");
+
+            var breakLabel = CreateLabel("for_break");
+            var continueLabel = CreateLabel("for_continue");
+            var beginLabel = CreateLabel("for_begin");
+
+            var collection = VisitExpression(node.Collection) ?? node.Collection;
+            var enumeratorLocal = CreateHoistedTempLocal("forEnumerator", getEnumeratorMethod.ReturnType);
+
+            _loopLabels.Push((breakLabel, continueLabel));
+            var body = (BoundStatement)VisitStatement(node.Body)!;
+            _loopLabels.Pop();
+
+            var currentValue = new BoundInvocationExpression(
+                currentGetter,
+                Array.Empty<BoundExpression>(),
+                receiver: CreateHoistedAccess(enumeratorLocal));
+
+            var statements = new List<BoundStatement>
+            {
+                CreateHoistedAssignment(enumeratorLocal, CreateGetEnumeratorInvocation(collection, getEnumeratorMethod)),
+                new BoundLabeledStatement(beginLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())),
+                new BoundConditionalGotoStatement(
+                    breakLabel,
+                    ConvertIfNeeded(
+                        _compilation,
+                        new BoundInvocationExpression(
+                            moveNextMethod,
+                            Array.Empty<BoundExpression>(),
+                            receiver: CreateHoistedAccess(enumeratorLocal)),
+                        _boolType),
+                    jumpIfTrue: false),
+                new BoundBlockStatement(CreateLoopBodyStatements(node.Local, currentValue, body)),
+                new BoundLabeledStatement(
+                    continueLabel,
+                    new BoundBlockStatement(new BoundStatement[]
+                    {
+                        new BoundGotoStatement(beginLabel, isBackward: true),
+                    })),
+                new BoundLabeledStatement(breakLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())),
+            };
+
+            return new BoundBlockStatement(statements);
+        }
+
         private readonly record struct StateEntry(int Value, ILabelSymbol Label);
 
         private void HoistLocals(BoundBlockStatement body)
@@ -1307,15 +1505,7 @@ internal static class IteratorLowerer
             collector.VisitBlockStatement(body);
 
             foreach (var local in collector.Locals)
-            {
-                if (_hoistedLocals.ContainsKey(local))
-                    continue;
-
-                var type = local.Type ?? _compilation.ErrorTypeSymbol;
-                var fieldName = CreateHoistedLocalFieldName();
-                var field = _stateMachine.AddHoistedLocal(fieldName, type);
-                _hoistedLocals.Add(local, field);
-            }
+                EnsureHoistedLocal(local);
         }
 
         private string CreateHoistedLocalFieldName()
@@ -1327,6 +1517,91 @@ internal static class IteratorLowerer
             } while (!_hoistedFieldNames.Add(candidate));
 
             return candidate;
+        }
+
+        private SourceLocalSymbol CreateHoistedTempLocal(string nameHint, ITypeSymbol type)
+        {
+            var local = new SourceLocalSymbol(
+                $"<{nameHint}>__iterator_{_nextHoistedLocalId}",
+                type,
+                isMutable: true,
+                _moveNextMethod,
+                _stateMachine,
+                _stateMachine.ContainingNamespace,
+                new[] { Location.None },
+                Array.Empty<SyntaxReference>());
+
+            EnsureHoistedLocal(local);
+            return local;
+        }
+
+        private void EnsureHoistedLocal(ILocalSymbol local)
+        {
+            if (_hoistedLocals.ContainsKey(local))
+                return;
+
+            var type = local.Type ?? _compilation.ErrorTypeSymbol;
+            var fieldName = CreateHoistedLocalFieldName();
+            var field = _stateMachine.AddHoistedLocal(fieldName, type);
+            _hoistedLocals.Add(local, field);
+        }
+
+        private BoundFieldAccess CreateHoistedAccess(ILocalSymbol local)
+        {
+            EnsureHoistedLocal(local);
+            return new BoundFieldAccess(_hoistedLocals[local]);
+        }
+
+        private BoundAssignmentStatement CreateHoistedAssignment(ILocalSymbol local, BoundExpression value)
+        {
+            EnsureHoistedLocal(local);
+            return new BoundAssignmentStatement(new BoundFieldAssignmentExpression(null, _hoistedLocals[local], value, _unitType));
+        }
+
+        private IEnumerable<BoundStatement> CreateLoopBodyStatements(ILocalSymbol? loopLocal, BoundExpression valueExpression, BoundStatement body)
+        {
+            if (loopLocal is not null)
+            {
+                var convertedValue = ConvertIfNeeded(_compilation, valueExpression, loopLocal.Type);
+                yield return CreateHoistedAssignment(loopLocal, convertedValue);
+            }
+
+            yield return body;
+        }
+
+        private BoundExpression CreateRangeBreakCondition(BoundExpression current, BoundExpression end, bool positiveStep, bool upperExclusive)
+        {
+            var operatorKind = positiveStep
+                ? upperExclusive ? SyntaxKind.GreaterThanOrEqualsToken : SyntaxKind.GreaterThanToken
+                : upperExclusive ? SyntaxKind.LessThanOrEqualsToken : SyntaxKind.LessThanToken;
+
+            return CreateBinaryExpression(_compilation, operatorKind, current, end);
+        }
+
+        private BoundExpression CreateZeroLiteral(ITypeSymbol type)
+        {
+            var targetType = type.UnwrapLiteralType() ?? type;
+            return targetType.SpecialType switch
+            {
+                SpecialType.System_Int64 or SpecialType.System_UInt64 => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0L, targetType),
+                SpecialType.System_Single => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0f, targetType),
+                SpecialType.System_Double => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0d, targetType),
+                SpecialType.System_Decimal => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0m, targetType),
+                _ => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0, targetType),
+            };
+        }
+
+        private BoundInvocationExpression CreateGetEnumeratorInvocation(BoundExpression collection, IMethodSymbol getEnumeratorMethod)
+        {
+            if (getEnumeratorMethod.IsExtensionMethod)
+            {
+                var arguments = new List<BoundExpression> { collection };
+                arguments.AddRange(getEnumeratorMethod.Parameters.Skip(1).Select(parameter => (BoundExpression)new BoundDefaultValueExpression(parameter.Type)));
+                return new BoundInvocationExpression(getEnumeratorMethod, arguments, receiver: null, extensionReceiver: collection);
+            }
+
+            var optionalArguments = getEnumeratorMethod.Parameters.Select(parameter => (BoundExpression)new BoundDefaultValueExpression(parameter.Type));
+            return new BoundInvocationExpression(getEnumeratorMethod, optionalArguments, receiver: collection);
         }
 
         private sealed class HoistableLocalCollector : BoundTreeWalker

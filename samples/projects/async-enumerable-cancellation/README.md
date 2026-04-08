@@ -32,8 +32,10 @@ example:
 ```text
 1
 2
+3
+4
 done
 ```
 
 `CancellationTokenSource.CancelAfter(...)` stops the iterator before it yields
-the full sequence.
+the full sequence. The exact cutoff depends on timing.
