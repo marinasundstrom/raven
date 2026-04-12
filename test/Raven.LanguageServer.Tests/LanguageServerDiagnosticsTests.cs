@@ -464,6 +464,50 @@ record Person(
         diagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, ThisValueIsNotMutableDiagnosticId, StringComparison.Ordinal)).ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_FullMode_WaitsForDocumentSemanticGateInsteadOfSkippingAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> () {
+    fb
+}
+""";
+
+        store.UpsertDocument(uri, code);
+
+        using var heldLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+        var diagnosticsTask = store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DocumentDiagnosticsMode.Full,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        await Task.Delay(100);
+        diagnosticsTask.IsCompleted.ShouldBeFalse();
+
+        heldLease.Dispose();
+
+        var result = await diagnosticsTask;
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.Any(d => string.Equals(d.Code?.String, "RAV0103", StringComparison.Ordinal)).ShouldBeTrue();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))

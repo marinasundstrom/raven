@@ -45,6 +45,8 @@ internal static class MacroExpansionService
 
         foreach (var attribute in GetAttachedMacroAttributes(targetDeclaration))
         {
+            compilation.PerformanceInstrumentation.Macros.RecordAttachedExpansionInvocation();
+
             if (!MacroSemanticValidator.TryResolveAttachedMacro(compilation, attribute, targetDeclaration, diagnostics, out var loaded))
             {
                 builder[attribute] = null;
@@ -97,6 +99,8 @@ internal static class MacroExpansionService
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken = default)
     {
+        compilation.PerformanceInstrumentation.Macros.RecordFreestandingExpansionInvocation();
+
         if (!MacroSemanticValidator.TryResolveFreestandingMacro(compilation, expression, diagnostics, out var loaded))
             return null;
 

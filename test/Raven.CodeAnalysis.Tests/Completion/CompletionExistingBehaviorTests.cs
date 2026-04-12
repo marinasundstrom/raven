@@ -259,9 +259,71 @@ factory.Create().Len
         var length = Assert.Single(items.Where(i => i.DisplayText == "Length"));
 
         Assert.Equal("Length", length.InsertionText);
+        Assert.Null(length.CursorOffset);
 
         var updated = ApplyCompletion(code, length);
         Assert.EndsWith("factory.Create().Length", updated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetCompletions_OnPropertyMemberAccessPrefix_DoesNotPlaceCaretInsideIdentifier()
+    {
+        var code = """
+class DbLike {
+    val Database: string = ""
+}
+
+val db = DbLike();
+db.Databas
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var database = Assert.Single(items.Where(i => i.DisplayText == "Database"));
+
+        Assert.Equal("Database", database.InsertionText);
+        Assert.Null(database.CursorOffset);
+
+        var updated = ApplyCompletion(code, database);
+        Assert.EndsWith("db.Database", updated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetCompletions_OnPropertyMemberAccessWithoutPrefix_DoesNotUseSnippetCursor()
+    {
+        var code = """
+class DbLike {
+    val Database: string = ""
+}
+
+val db = DbLike();
+db.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var database = Assert.Single(items.Where(i => i.DisplayText == "Database"));
+
+        Assert.Equal("Database", database.InsertionText);
+        Assert.Null(database.CursorOffset);
+        Assert.Equal(new TextSpan(position, 0), database.ReplacementSpan);
+
+        var updated = ApplyCompletion(code, database);
+        Assert.EndsWith("db.Database", updated, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -16,8 +16,14 @@ public static class SourceTextWriter
             var leadingTrivia = node.GetLeadingTrivia();
             var trailingTrivia = node.GetTrailingTrivia();
 
-            builder.Remove(0, leadingTrivia.Width);
-            builder.Remove(node.Width, trailingTrivia.Width);
+            var leadingWidth = Math.Min(leadingTrivia.Width, builder.Length);
+            if (leadingWidth > 0)
+                builder.Remove(0, leadingWidth);
+
+            var trailingLength = Math.Min(trailingTrivia.Width, builder.Length);
+            var trailingStart = builder.Length - trailingLength;
+            if (trailingLength > 0)
+                builder.Remove(trailingStart, trailingLength);
         }
         return builder.ToString();
     }

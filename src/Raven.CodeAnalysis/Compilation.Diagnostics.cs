@@ -15,12 +15,7 @@ public partial class Compilation
 
         foreach (var syntaxTree in SyntaxTrees)
         {
-            foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
-                Add(diagnostic);
-
-            var model = GetSemanticModel(syntaxTree);
-            foreach (var diagnostic in model.GetDiagnostics(cancellationToken))
-                Add(diagnostic);
+            AddTreeDiagnostics(syntaxTree);
         }
 
         foreach (var diagnostic in GetMacroRegistry().Diagnostics)
@@ -46,6 +41,16 @@ public partial class Compilation
             Add(Diagnostic.Create(CompilerDiagnostics.ExplicitPublicAccessibilityRequired, Location.None));
 
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
+
+        void AddTreeDiagnostics(SyntaxTree syntaxTree)
+        {
+            foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
+                Add(diagnostic);
+
+            var model = GetSemanticModel(syntaxTree);
+            foreach (var diagnostic in model.GetDiagnostics(cancellationToken))
+                Add(diagnostic);
+        }
 
         void Add(Diagnostic diagnostic)
         {
@@ -89,6 +94,120 @@ public partial class Compilation
 
             return hasAwaitSyntax || hasAwaitBound;
         }
+    }
+
+    public ImmutableArray<Diagnostic> GetDiagnostics(
+        SyntaxTree syntaxTree,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+
+        if (!SyntaxTrees.Contains(syntaxTree))
+            throw new ArgumentException("Syntax tree is not part of compilation", nameof(syntaxTree));
+
+        var diagnostics = new List<Diagnostic>();
+
+        EnsureSetup();
+
+        foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
+            Add(diagnostic);
+
+        var model = GetSemanticModel(syntaxTree);
+        foreach (var diagnostic in model.GetDiagnostics(cancellationToken))
+            Add(diagnostic);
+
+        foreach (var diagnostic in GetMacroRegistry().Diagnostics)
+        {
+            if (BelongsToTree(diagnostic, syntaxTree))
+                Add(diagnostic);
+        }
+
+        foreach (var diagnostic in GetEntryPointDiagnostics(cancellationToken))
+        {
+            if (BelongsToTree(diagnostic, syntaxTree))
+                Add(diagnostic);
+        }
+
+        diagnostics.RemoveAll(ShouldSuppressAsyncLacksAwait);
+        return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
+
+        void Add(Diagnostic diagnostic)
+        {
+            var mapped = ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false, cancellationToken);
+            if (mapped is not null)
+                diagnostics.Add(mapped);
+        }
+
+        bool ShouldSuppressAsyncLacksAwait(Diagnostic diagnostic)
+        {
+            if (diagnostic.Id != CompilerDiagnostics.AsyncLacksAwait.Id)
+                return false;
+
+            var sourceTree = diagnostic.Location.SourceTree;
+            if (sourceTree is null || !ReferenceEquals(sourceTree, syntaxTree))
+                return false;
+
+            var root = sourceTree.GetRoot(cancellationToken);
+            var node = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
+
+            var asyncNode = node.AncestorsAndSelf()
+                .FirstOrDefault(n => n is FunctionStatementSyntax or MethodDeclarationSyntax or AccessorDeclarationSyntax);
+
+            if (asyncNode is null)
+                return false;
+
+            SyntaxNode? bodySyntax = asyncNode switch
+            {
+                FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody?.Expression,
+                MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody?.Expression,
+                AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody?.Expression,
+                _ => null,
+            };
+
+            if (bodySyntax is null)
+                return false;
+
+            var hasAwaitSyntax = ContainsAwaitExpressionOutsideNestedFunctions(bodySyntax);
+            var hasAwaitBound = model.GetBoundNode(bodySyntax) is BoundNode bound && AsyncLowerer.ContainsAwait(bound);
+
+            return hasAwaitSyntax || hasAwaitBound;
+        }
+
+        static bool BelongsToTree(Diagnostic diagnostic, SyntaxTree syntaxTree)
+        {
+            if (ReferenceEquals(diagnostic.Location.SourceTree, syntaxTree))
+                return true;
+
+            var diagnosticPath = diagnostic.Location.GetLineSpan().Path;
+            return !string.IsNullOrWhiteSpace(diagnosticPath) &&
+                   !string.IsNullOrWhiteSpace(syntaxTree.FilePath) &&
+                   string.Equals(diagnosticPath, syntaxTree.FilePath, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    public ImmutableArray<Diagnostic> GetSyntaxDiagnostics(
+        SyntaxTree syntaxTree,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+
+        if (!SyntaxTrees.Contains(syntaxTree))
+            throw new ArgumentException("Syntax tree is not part of compilation", nameof(syntaxTree));
+
+        var diagnostics = new List<Diagnostic>();
+
+        EnsureSetup();
+
+        foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
+        {
+            var mapped = ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false, cancellationToken);
+            if (mapped is not null)
+                diagnostics.Add(mapped);
+        }
+
+        return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
     }
 
     internal Diagnostic? ApplyCompilationOptions(

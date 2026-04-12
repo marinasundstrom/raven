@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 using Microsoft.Extensions.Logging;
 
@@ -9,9 +9,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
-using VersionStamp = Raven.CodeAnalysis.VersionStamp;
 
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
+using VersionStamp = Raven.CodeAnalysis.VersionStamp;
 
 namespace Raven.LanguageServer;
 
@@ -43,51 +43,54 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
     public async Task<SymbolInformationOrDocumentSymbolContainer?> Handle(DocumentSymbolParams request, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        double documentLookupMs = 0;
-        double syntaxTreeMs = 0;
-        double sourceTextMs = 0;
+        double analysisContextMs = 0;
         double rootMs = 0;
         double symbolBuildMs = 0;
+        var cacheHit = false;
+        var symbolCount = 0;
 
         try
         {
-            if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document))
+            var stageStopwatch = Stopwatch.StartNew();
+            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (context is null)
                 return new SymbolInformationOrDocumentSymbolContainer();
-            documentLookupMs = stopwatch.Elapsed.TotalMilliseconds;
+
+            var document = context.Value.Document;
+            var syntaxTree = context.Value.SyntaxTree;
+            var text = context.Value.SourceText;
 
             var cacheKey = new DocumentSymbolCacheKey(request.TextDocument.Uri.ToString(), document.Version);
             if (_cache.TryGetValue(cacheKey, out var cachedSymbols))
+            {
+                cacheHit = true;
+                symbolCount = cachedSymbols.Length;
                 return new SymbolInformationOrDocumentSymbolContainer(cachedSymbols);
+            }
 
-            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-            if (syntaxTree is null)
-                return new SymbolInformationOrDocumentSymbolContainer();
-            syntaxTreeMs = stopwatch.Elapsed.TotalMilliseconds - documentLookupMs;
-
-            var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-            sourceTextMs = stopwatch.Elapsed.TotalMilliseconds - documentLookupMs - syntaxTreeMs;
             var root = syntaxTree.GetRoot(cancellationToken);
-            rootMs = stopwatch.Elapsed.TotalMilliseconds - documentLookupMs - syntaxTreeMs - sourceTextMs;
+            rootMs = stopwatch.Elapsed.TotalMilliseconds - analysisContextMs;
 
             var symbols = BuildMemberSymbols(root.Members, text)
                 .Select(symbol => (SymbolInformationOrDocumentSymbol)symbol)
                 .ToArray();
-            symbolBuildMs = stopwatch.Elapsed.TotalMilliseconds - documentLookupMs - syntaxTreeMs - sourceTextMs - rootMs;
+            symbolBuildMs = stopwatch.Elapsed.TotalMilliseconds - analysisContextMs - rootMs;
+            symbolCount = symbols.Length;
             CacheSymbols(cacheKey, symbols);
 
             stopwatch.Stop();
             if (stopwatch.Elapsed.TotalMilliseconds >= SlowDocumentSymbolsThresholdMs)
             {
                 _logger.LogInformation(
-                    "Slow document symbols for {Uri}: total={TotalMs:F1}ms lookup={LookupMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms sourceText={SourceTextMs:F1}ms root={RootMs:F1}ms build={BuildMs:F1}ms count={Count}.",
+                    "Slow document symbols for {Uri}: total={TotalMs:F1}ms analysisContext={AnalysisContextMs:F1}ms root={RootMs:F1}ms build={BuildMs:F1}ms count={Count} cacheHit={CacheHit}.",
                     request.TextDocument.Uri,
                     stopwatch.Elapsed.TotalMilliseconds,
-                    documentLookupMs,
-                    syntaxTreeMs,
-                    sourceTextMs,
+                    analysisContextMs,
                     rootMs,
                     symbolBuildMs,
-                    symbols.Length);
+                    symbols.Length,
+                    cacheHit);
             }
 
             return new SymbolInformationOrDocumentSymbolContainer(symbols);
@@ -100,6 +103,22 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
         {
             _logger.LogError(ex, "Document symbols request failed for {Uri}.", request.TextDocument.Uri);
             return new SymbolInformationOrDocumentSymbolContainer();
+        }
+        finally
+        {
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "documentSymbols",
+                request.TextDocument.Uri,
+                null,
+                stopwatch.Elapsed.TotalMilliseconds,
+                cacheHit: cacheHit,
+                resultCount: symbolCount,
+                stages:
+                [
+                    new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", analysisContextMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("root", rootMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("buildSymbols", symbolBuildMs)
+                ]);
         }
     }
 

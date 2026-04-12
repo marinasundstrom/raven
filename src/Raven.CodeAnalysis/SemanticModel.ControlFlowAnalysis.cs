@@ -11,7 +11,7 @@ public partial class SemanticModel
 {
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax statement)
     {
-        EnsureDiagnosticsCollected();
+        EnsureDiagnosticBindingCompleted();
 
         var region = new ControlFlowRegion(statement);
         return AnalyzeControlFlowInternal(region, statement);
@@ -19,7 +19,7 @@ public partial class SemanticModel
 
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax firstStatement, StatementSyntax lastStatement)
     {
-        EnsureDiagnosticsCollected();
+        EnsureDiagnosticBindingCompleted();
 
         var region = new ControlFlowRegion(firstStatement, lastStatement);
         return AnalyzeControlFlowInternal(region, region.EnclosingBlock ?? firstStatement);
@@ -357,7 +357,7 @@ public partial class SemanticModel
 {
     public LabeledStatementSyntax? GetLabelTarget(GotoStatementSyntax gotoStatement)
     {
-        EnsureDiagnosticsCollected();
+        EnsureDiagnosticBindingCompleted();
 
         if (_gotoTargets.TryGetValue(gotoStatement, out var symbol))
         {
@@ -383,7 +383,7 @@ public partial class SemanticModel
 
     public bool HasExternalGotoToLabel(LabeledStatementSyntax labeledStatement, ControlFlowRegion region)
     {
-        EnsureDiagnosticsCollected();
+        EnsureDiagnosticBindingCompleted();
 
         if (!_labelDeclarations.TryGetValue(labeledStatement, out var labelSymbol))
             return false;

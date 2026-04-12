@@ -165,8 +165,12 @@ public class Workspace
     private Compilation BuildCompilation(Project project, ProjectCompilationState? state, HashSet<ProjectId> building)
     {
         state ??= new ProjectCompilationState();
+        var previousCompilation = state.Compilation;
 
         var syntaxTrees = new List<SyntaxTree>();
+        var reusedSyntaxTrees = ImmutableArray.CreateBuilder<SyntaxTree>();
+        var changedExecutableOwners = new List<(SyntaxTree Tree, ImmutableArray<Compilation.ExecutableOwnerDescriptor> Descriptors)>();
+        var matchedExecutableOwners = new List<(SyntaxTree Tree, ImmutableArray<Compilation.MatchedExecutableOwner> Matches, ImmutableDictionary<Compilation.ExecutableOwnerDescriptor, Compilation.OwnerRelativeTextChange> OwnerChanges)>();
         var documentStates = state.DocumentStates;
         var presentDocs = new HashSet<DocumentId>();
 
@@ -179,10 +183,18 @@ public class Workspace
             if (documentStates.TryGetValue(doc.Id, out var docState) && docState.Version == doc.Version)
             {
                 syntaxTrees.Add(docState.SyntaxTree);
+                reusedSyntaxTrees.Add(docState.SyntaxTree);
             }
             else
             {
                 syntaxTrees.Add(tree);
+                if (docState is not null)
+                {
+                    var (changedOwners, matchedOwners, ownerChanges) = AnalyzeExecutableOwnerChanges(docState.SyntaxTree, tree);
+                    changedExecutableOwners.Add((tree, changedOwners));
+                    matchedExecutableOwners.Add((tree, matchedOwners, ownerChanges));
+                }
+
                 documentStates[doc.Id] = new DocumentState(doc.Version, tree);
             }
         }
@@ -206,6 +218,23 @@ public class Workspace
         var compilation = Compilation.Create(project.AssemblyName ?? project.Name,
             syntaxTrees.ToArray(), references.ToArray(), [.. project.MacroReferences], project.CompilationOptions);
 
+        if (previousCompilation is not null)
+        {
+            compilation.InitializeIncrementalState(previousCompilation.CreateIncrementalState(
+                reusedSyntaxTrees.ToImmutable(),
+                matchedExecutableOwners
+                    .Where(static entry => !entry.Matches.IsDefaultOrEmpty)
+                    .Select(static entry => new Compilation.IncrementalMatchedSyntaxTree(entry.Tree, entry.Matches[0].PreviousSyntaxTree, entry.Matches, entry.OwnerChanges))
+                    .ToImmutableArray()));
+            compilation.AdoptIncrementalReuseFrom(previousCompilation);
+        }
+
+        foreach (var (tree, descriptors) in changedExecutableOwners)
+            compilation.RegisterChangedExecutableOwnerDescriptors(tree, descriptors);
+
+        foreach (var (tree, matches, _) in matchedExecutableOwners)
+            compilation.RegisterMatchedExecutableOwners(tree, matches);
+
         state.Version = project.Version;
         state.Compilation = compilation;
 
@@ -216,11 +245,188 @@ public class Workspace
     private sealed class ProjectCompilationState
     {
         public VersionStamp Version;
-        public Compilation Compilation = null!;
+        public Compilation? Compilation;
         public Dictionary<DocumentId, DocumentState> DocumentStates { get; } = new();
     }
 
     private sealed record DocumentState(VersionStamp Version, SyntaxTree SyntaxTree);
+
+    private static (ImmutableArray<Compilation.ExecutableOwnerDescriptor> ChangedOwners, ImmutableArray<Compilation.MatchedExecutableOwner> MatchedOwners, ImmutableDictionary<Compilation.ExecutableOwnerDescriptor, Compilation.OwnerRelativeTextChange> OwnerChanges)
+        AnalyzeExecutableOwnerChanges(
+        SyntaxTree previousTree,
+        SyntaxTree currentTree)
+    {
+        var previousOwners = GetExecutableOwners(previousTree.GetRoot()).ToArray();
+        var currentOwners = GetExecutableOwners(currentTree.GetRoot()).ToArray();
+        var previousOwnersByKey = previousOwners
+            .GroupBy(CreateReusableOwnerMatchKey)
+            .ToDictionary(
+                static group => group.Key,
+                static group => new List<SyntaxNode>(group));
+        var matchedCurrentToPrevious = new Dictionary<Compilation.ExecutableOwnerDescriptor, Compilation.ExecutableOwnerDescriptor>();
+        var usedPreviousOwners = new HashSet<Compilation.ExecutableOwnerDescriptor>();
+        var partiallyChangedMatchedOwners = new HashSet<Compilation.ExecutableOwnerDescriptor>();
+
+        var changedBuilder = ImmutableArray.CreateBuilder<Compilation.ExecutableOwnerDescriptor>();
+        var matchedBuilder = ImmutableArray.CreateBuilder<Compilation.MatchedExecutableOwner>();
+        var ownerChanges = ImmutableDictionary.CreateBuilder<Compilation.ExecutableOwnerDescriptor, Compilation.OwnerRelativeTextChange>();
+
+        foreach (var owner in currentOwners)
+        {
+            var descriptor = new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind);
+            var matchKey = CreateReusableOwnerMatchKey(owner);
+            if (!previousOwnersByKey.TryGetValue(matchKey, out var candidates))
+            {
+                changedBuilder.Add(descriptor);
+                continue;
+            }
+
+            Compilation.ExecutableOwnerDescriptor? currentParentDescriptor =
+                TryGetReusableContainingExecutableOwnerDescriptor(owner, out var parentDescriptor)
+                    ? parentDescriptor
+                    : null;
+            SyntaxNode? previousOwner = null;
+
+            foreach (var candidate in candidates)
+            {
+                var candidateDescriptor = new Compilation.ExecutableOwnerDescriptor(candidate.Span, candidate.Kind);
+                if (usedPreviousOwners.Contains(candidateDescriptor))
+                    continue;
+
+                if (currentParentDescriptor is { } requiredParentDescriptor)
+                {
+                    if (!matchedCurrentToPrevious.TryGetValue(requiredParentDescriptor, out var matchedPreviousParentDescriptor))
+                        continue;
+
+                    if (partiallyChangedMatchedOwners.Contains(requiredParentDescriptor))
+                        continue;
+
+                    if (!TryGetReusableContainingExecutableOwnerDescriptor(candidate, out var candidateParentDescriptor) ||
+                        candidateParentDescriptor != matchedPreviousParentDescriptor)
+                    {
+                        continue;
+                    }
+                }
+
+                previousOwner = candidate;
+                usedPreviousOwners.Add(candidateDescriptor);
+                break;
+            }
+
+            if (previousOwner is null)
+            {
+                changedBuilder.Add(descriptor);
+                continue;
+            }
+
+            var previousDescriptor = new Compilation.ExecutableOwnerDescriptor(previousOwner.Span, previousOwner.Kind);
+            matchedCurrentToPrevious[descriptor] = previousDescriptor;
+            matchedBuilder.Add(new Compilation.MatchedExecutableOwner(
+                previousTree,
+                descriptor,
+                previousDescriptor));
+
+            if (TryComputeOwnerRelativeTextChange(previousOwner, owner, out var ownerChange))
+            {
+                ownerChanges[descriptor] = ownerChange;
+                partiallyChangedMatchedOwners.Add(descriptor);
+                changedBuilder.Add(descriptor);
+            }
+        }
+
+        return (changedBuilder.ToImmutable(), matchedBuilder.ToImmutable(), ownerChanges.ToImmutable());
+    }
+
+    private static (SyntaxKind Kind, string Identity) CreateReusableOwnerMatchKey(SyntaxNode owner)
+    {
+        return owner switch
+        {
+            MethodDeclarationSyntax method => (owner.Kind, $"method:{method.Identifier.ValueText}:{method.ParameterList?.Parameters.Count ?? 0}:{method.TypeParameterList?.Parameters.Count ?? 0}"),
+            ConstructorDeclarationSyntax ctor => (owner.Kind, $"ctor:{ctor.ParameterList?.Parameters.Count ?? 0}"),
+            ParameterlessConstructorDeclarationSyntax => (owner.Kind, "ctor:0"),
+            PropertyDeclarationSyntax property => (owner.Kind, $"property:{property.Identifier.ValueText}"),
+            EventDeclarationSyntax @event => (owner.Kind, $"event:{@event.Identifier.ValueText}"),
+            AccessorDeclarationSyntax accessor => (owner.Kind, $"accessor:{accessor.Keyword.Kind}"),
+            _ => (owner.Kind, owner.ToFullString())
+        };
+    }
+
+    private static bool TryComputeOwnerRelativeTextChange(
+        SyntaxNode previousOwner,
+        SyntaxNode currentOwner,
+        out Compilation.OwnerRelativeTextChange ownerChange)
+    {
+        var previousText = previousOwner.ToFullString();
+        var currentText = currentOwner.ToFullString();
+
+        var start = 0;
+        while (start < previousText.Length &&
+               start < currentText.Length &&
+               previousText[start] == currentText[start])
+        {
+            start++;
+        }
+
+        if (start == previousText.Length && start == currentText.Length)
+        {
+            ownerChange = default;
+            return false;
+        }
+
+        var previousEnd = previousText.Length - 1;
+        var currentEnd = currentText.Length - 1;
+
+        while (previousEnd >= start &&
+               currentEnd >= start &&
+               previousText[previousEnd] == currentText[currentEnd])
+        {
+            previousEnd--;
+            currentEnd--;
+        }
+
+        ownerChange = new Compilation.OwnerRelativeTextChange(
+            new Text.TextSpan(start, previousEnd - start + 1),
+            new Text.TextSpan(start, currentEnd - start + 1));
+        return true;
+    }
+
+    private static IEnumerable<SyntaxNode> GetExecutableOwners(SyntaxNode root)
+    {
+        return root.DescendantNodesAndSelf().Where(static node =>
+            node is FunctionExpressionSyntax
+                or BaseMethodDeclarationSyntax
+                or BaseConstructorDeclarationSyntax
+                or ParameterlessConstructorDeclarationSyntax
+                or AccessorDeclarationSyntax
+                or PropertyDeclarationSyntax
+                or EventDeclarationSyntax
+                or GlobalStatementSyntax
+                or CompilationUnitSyntax);
+    }
+
+    private static bool TryGetReusableContainingExecutableOwnerDescriptor(
+        SyntaxNode node,
+        out Compilation.ExecutableOwnerDescriptor descriptor)
+    {
+        var parentOwner = node.Ancestors().FirstOrDefault(static current =>
+            current is FunctionExpressionSyntax
+                or BaseMethodDeclarationSyntax
+                or BaseConstructorDeclarationSyntax
+                or ParameterlessConstructorDeclarationSyntax
+                or AccessorDeclarationSyntax
+                or PropertyDeclarationSyntax
+                or EventDeclarationSyntax
+                or GlobalStatementSyntax);
+
+        if (parentOwner is null)
+        {
+            descriptor = default;
+            return false;
+        }
+
+        descriptor = new Compilation.ExecutableOwnerDescriptor(parentOwner.Span, parentOwner.Kind);
+        return true;
+    }
 
     /// <summary>
     /// Gets diagnostics for the specified project, including analyzer diagnostics.
@@ -271,6 +477,44 @@ public class Workspace
         }
 
         return diagnostics.OrderBy(d => d.Location).ToImmutableArray();
+    }
+
+    public ImmutableArray<Diagnostic> GetDocumentDiagnostics(
+        ProjectId projectId,
+        DocumentId documentId,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        var project = CurrentSolution.GetProject(projectId)
+            ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        var document = project.GetDocument(documentId)
+            ?? throw new ArgumentException("Document not found", nameof(documentId));
+
+        var syntaxTree = document.SyntaxTree
+            ?? throw new InvalidOperationException("Document does not have a syntax tree.");
+
+        var compilation = GetCompilation(projectId);
+        return compilation.GetDiagnostics(syntaxTree, analyzerOptions, cancellationToken);
+    }
+
+    public ImmutableArray<Diagnostic> GetDocumentSyntaxDiagnostics(
+        ProjectId projectId,
+        DocumentId documentId,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        var project = CurrentSolution.GetProject(projectId)
+            ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        var document = project.GetDocument(documentId)
+            ?? throw new ArgumentException("Document not found", nameof(documentId));
+
+        var syntaxTree = document.SyntaxTree
+            ?? throw new InvalidOperationException("Document does not have a syntax tree.");
+
+        var compilation = GetCompilation(projectId);
+        return compilation.GetSyntaxDiagnostics(syntaxTree, analyzerOptions, cancellationToken);
     }
 
     /// <summary>

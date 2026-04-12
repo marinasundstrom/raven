@@ -1500,8 +1500,11 @@ internal partial class TypeMemberBinder : Binder
                 continue;
 
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
-            semanticModel.EnsureDeclarations();
-            semanticModel.EnsureRootBinderCreated();
+            if (!semanticModel.DeclarationsComplete)
+                semanticModel.EnsureDeclarations();
+
+            if (!semanticModel.RootBinderCreated)
+                semanticModel.EnsureRootBinderCreated();
             ensured = true;
         }
 

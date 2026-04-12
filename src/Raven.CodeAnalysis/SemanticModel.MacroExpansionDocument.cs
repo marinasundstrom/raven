@@ -13,13 +13,23 @@ public partial class SemanticModel
     public CompilationUnitSyntax GetExpandedRoot(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        EnsureDiagnosticsCollected();
+        EnsureDiagnosticBindingCompleted();
 
-        var root = SyntaxTree.GetRoot(cancellationToken);
-        var rewrittenMembers = RewriteMemberList(root.Members, this, cancellationToken);
-        var expandedRoot = root.WithMembers(rewrittenMembers);
-        expandedRoot = (CompilationUnitSyntax)RewriteFreestandingMacros(expandedRoot, this, cancellationToken);
-        return Formatter.Format(expandedRoot);
+        if (_expandedRoot is not null)
+            return _expandedRoot;
+
+        lock (_expandedRootGate)
+        {
+            if (_expandedRoot is not null)
+                return _expandedRoot;
+
+            var root = SyntaxTree.GetRoot(cancellationToken);
+            var rewrittenMembers = RewriteMemberList(root.Members, this, cancellationToken);
+            var expandedRoot = root.WithMembers(rewrittenMembers);
+            expandedRoot = (CompilationUnitSyntax)RewriteFreestandingMacros(expandedRoot, this, cancellationToken);
+            _expandedRoot = Formatter.Format(expandedRoot);
+            return _expandedRoot;
+        }
     }
 
     public ImmutableArray<SyntaxNode> GetExpandedDeclaration(
@@ -28,8 +38,23 @@ public partial class SemanticModel
     {
         ArgumentNullException.ThrowIfNull(attribute);
         cancellationToken.ThrowIfCancellationRequested();
-        EnsureDiagnosticsCollected();
+        EnsureDiagnosticBindingCompleted();
 
+        if (_expandedDeclarationCache.TryGetValue(attribute, out var cached))
+            return cached;
+
+        var expandedDeclaration = ComputeExpandedDeclaration(attribute, cancellationToken);
+        _expandedDeclarationCache.TryAdd(attribute, expandedDeclaration);
+        return expandedDeclaration;
+    }
+
+    private ImmutableArray<SyntaxNode> ComputeExpandedDeclaration(
+        AttributeSyntax attribute,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(attribute);
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureDiagnosticBindingCompleted();
         if (TryGetMacroTarget(attribute) is not { } targetDeclaration)
             return ImmutableArray<SyntaxNode>.Empty;
 

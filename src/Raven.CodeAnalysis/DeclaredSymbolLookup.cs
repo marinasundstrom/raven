@@ -25,8 +25,14 @@ internal sealed class DeclaredSymbolLookup
             node = containingTypeReplacement;
         }
 
-        _semanticModel.EnsureDeclarations();
-        _semanticModel.EnsureRootBinderCreated();
+        if (TryLookupKnownDeclaredSymbolFast(node, out var fastSymbol))
+            return fastSymbol;
+
+        if (!_semanticModel.DeclarationsComplete)
+            _semanticModel.EnsureDeclarations();
+
+        if (!_semanticModel.RootBinderCreated)
+            _semanticModel.EnsureRootBinderCreated();
 
         if (node is MethodDeclarationSyntax methodDeclarationByContainingType &&
             methodDeclarationByContainingType.Parent is TypeDeclarationSyntax containingTypeSyntax &&
@@ -205,6 +211,12 @@ internal sealed class DeclaredSymbolLookup
             }
         }
 
+        if (node is FunctionExpressionSyntax functionExpressionSyntax &&
+            _semanticModel.TryGetFunctionExpressionSymbol(functionExpressionSyntax, out var functionExpressionSymbol))
+        {
+            return functionExpressionSymbol;
+        }
+
         var binder = _semanticModel.GetBinder(node);
 
         if (_semanticModel.Compilation.DeclarationTable.TryGetDeclKey(node, out var key))
@@ -224,6 +236,33 @@ internal sealed class DeclaredSymbolLookup
         }
 
         return binder.BindDeclaredSymbol(node);
+    }
+
+    private bool TryLookupKnownDeclaredSymbolFast(SyntaxNode node, out ISymbol? symbol)
+    {
+        switch (node)
+        {
+            case UnionCaseClauseSyntax caseClause when _semanticModel.TryGetUnionCaseSymbol(caseClause, out var caseSymbol):
+                symbol = caseSymbol;
+                return true;
+
+            case TypeDeclarationSyntax typeDeclaration when _semanticModel.TryGetClassSymbol(typeDeclaration, out var typeSymbol):
+                symbol = typeSymbol;
+                return true;
+
+            case UnionDeclarationSyntax unionDeclaration when _semanticModel.TryGetUnionSymbol(unionDeclaration, out var unionSymbol):
+                symbol = unionSymbol;
+                return true;
+
+            case MethodDeclarationSyntax methodDeclaration when _semanticModel.TryGetMethodSymbol(methodDeclaration, out var methodSymbol):
+                _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodDeclaration, methodSymbol);
+                symbol = methodSymbol;
+                return true;
+
+            default:
+                symbol = null;
+                return false;
+        }
     }
 
     private IMethodSymbol? LookupMethodByContainingType(

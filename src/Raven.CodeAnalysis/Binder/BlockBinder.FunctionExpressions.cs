@@ -1580,8 +1580,7 @@ partial class BlockBinder
 
     private BoundFunctionExpression? ReplayLambda(BoundFunctionExpression lambda, INamedTypeSymbol delegateType)
     {
-        var instrumentation = Compilation.PerformanceInstrumentation.LambdaReplay;
-        instrumentation.RecordReplayAttempt();
+        Compilation.PerformanceInstrumentation.LambdaReplay.RecordReplayAttempt();
 
         // Unwrap Expression<TDelegate> so the lambda can be replayed against the inner delegate type.
         if (delegateType.TypeKind != TypeKind.Delegate)
@@ -1590,7 +1589,7 @@ partial class BlockBinder
                 delegateType = innerDelegate;
             else
             {
-                instrumentation.RecordReplayFailure();
+                Compilation.PerformanceInstrumentation.LambdaReplay.RecordReplayFailure();
                 return null;
             }
         }
@@ -1608,13 +1607,13 @@ partial class BlockBinder
                 }
                 else
                 {
-                    instrumentation.RecordCacheHit();
-                    instrumentation.RecordReplaySuccess();
+                    Compilation.PerformanceInstrumentation.LambdaReplay.RecordCacheHit();
+                    Compilation.PerformanceInstrumentation.LambdaReplay.RecordReplaySuccess();
                     return cached;
                 }
             }
 
-            instrumentation.RecordCacheMiss();
+            Compilation.PerformanceInstrumentation.LambdaReplay.RecordCacheMiss();
         }
 
         BoundFunctionExpression? rebound;
@@ -1623,20 +1622,20 @@ partial class BlockBinder
             rebound = ReplayLambda(unbound, delegateType);
             if (rebound is null)
             {
-                instrumentation.RecordReplayFailure();
+                Compilation.PerformanceInstrumentation.LambdaReplay.RecordReplayFailure();
                 return null;
             }
 
-            instrumentation.RecordReplaySuccess();
+            Compilation.PerformanceInstrumentation.LambdaReplay.RecordReplaySuccess();
         }
         else if (lambda.IsCompatibleWithDelegate(delegateType, Compilation))
         {
             rebound = lambda;
-            instrumentation.RecordReplaySuccess();
+            Compilation.PerformanceInstrumentation.LambdaReplay.RecordReplaySuccess();
         }
         else
         {
-            instrumentation.RecordReplayFailure();
+            Compilation.PerformanceInstrumentation.LambdaReplay.RecordReplayFailure();
             return null;
         }
 
@@ -1648,13 +1647,12 @@ partial class BlockBinder
 
     private BoundFunctionExpression? ReplayLambda(BoundUnboundFunctionExpression unbound, INamedTypeSymbol delegateType)
     {
-        var instrumentation = Compilation.PerformanceInstrumentation.LambdaReplay;
-        instrumentation.RecordBindingInvocation();
+        Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingInvocation();
 
         var invoke = delegateType.GetDelegateInvokeMethod();
         if (invoke is null)
         {
-            instrumentation.RecordBindingFailure();
+            Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
             return null;
         }
 
@@ -1668,7 +1666,7 @@ partial class BlockBinder
 
         if (invoke.Parameters.Length != parameterSyntaxes.Length)
         {
-            instrumentation.RecordBindingFailure();
+            Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
             return null;
         }
 
@@ -1724,14 +1722,14 @@ partial class BlockBinder
                     delegateParameter.Type.TypeKind != TypeKind.Error &&
                     !SymbolEqualityComparer.Default.Equals(parameterType, delegateParameter.Type))
                 {
-                    instrumentation.RecordBindingFailure();
+                    Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
                     return null;
                 }
 
                 // Explicitly annotated ref-kind must match the candidate delegate ref-kind.
                 if (explicitRefKind != delegateParameter.RefKind)
                 {
-                    instrumentation.RecordBindingFailure();
+                    Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
                     return null;
                 }
 
@@ -1768,7 +1766,7 @@ partial class BlockBinder
             // Keep the replay order rule: once we saw an optional parameter, later parameters must be optional.
             if (seenOptionalParameter && !hasExplicitDefaultValue)
             {
-                instrumentation.RecordBindingFailure();
+                Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
                 return null;
             }
 
@@ -1860,7 +1858,7 @@ partial class BlockBinder
                 invoke.ReturnType.TypeKind != TypeKind.Error &&
                 !SymbolEqualityComparer.Default.Equals(annotatedReturnType, invoke.ReturnType))
             {
-                instrumentation.RecordBindingFailure();
+                Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
                 return null;
             }
         }
@@ -1875,7 +1873,7 @@ partial class BlockBinder
 
         if (hasIteratorBody && !lambdaSymbol.IsIterator)
         {
-            instrumentation.RecordBindingFailure();
+            Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
             return null;
         }
 
@@ -1972,7 +1970,7 @@ partial class BlockBinder
         {
             if (!IsAssignable(expectedBodyType, conversionSource!, out var conversion))
             {
-                instrumentation.RecordBindingFailure();
+                Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
                 return null;
             }
 
@@ -2016,7 +2014,7 @@ partial class BlockBinder
             candidateDelegates);
         rebound.AttachUnbound(unbound);
         CacheBoundNode(syntax, rebound);
-        instrumentation.RecordBindingSuccess();
+        Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingSuccess();
         return rebound;
     }
 

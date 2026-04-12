@@ -15,6 +15,8 @@ public partial class Compilation
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new();
     private readonly Dictionary<SyntaxTree, SemanticModel> _generatedSemanticModels = new();
 
+    internal bool SourceDeclarationsComplete => _sourceDeclarationsComplete;
+
     /// <summary>
     /// Gets completion items available at a position in a syntax tree within this compilation.
     /// </summary>
@@ -84,6 +86,7 @@ public partial class Compilation
     internal void EnsureSourceDeclarationsComplete()
     {
         EnsureSetup();
+        PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsCompleteCall();
 
         if (_sourceDeclarationsComplete || _isDeclaringSourceTypes)
             return;
@@ -97,13 +100,14 @@ public partial class Compilation
             try
             {
                 EnsureSemanticModelsCreated();
+                var semanticModels = _semanticModels.Values.ToArray();
 
-                foreach (var model in _semanticModels.Values)
+                foreach (var model in semanticModels)
                     model.EnsureDeclarations();
 
                 EnsureDefaultConstructorsDeclared();
 
-                foreach (var model in _semanticModels.Values)
+                foreach (var model in semanticModels)
                     model.EnsureRootBinderCreated();
 
                 _sourceDeclarationsComplete = true;
@@ -117,6 +121,8 @@ public partial class Compilation
 
     private void EnsureSemanticModelsCreated()
     {
+        PerformanceInstrumentation.Setup.RecordEnsureSemanticModelsCreatedCall();
+
         if (_sourceTypesInitialized || _isPopulatingSourceTypes)
             return;
 
@@ -131,6 +137,7 @@ public partial class Compilation
 
                 var model = new SemanticModel(this, syntaxTree);
                 _semanticModels[syntaxTree] = model;
+                PerformanceInstrumentation.Setup.RecordSemanticModelCreated();
             }
 
             _sourceTypesInitialized = true;

@@ -171,6 +171,9 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
     {
         foreach (var ns in namespaces)
         {
+            if (ns is null)
+                continue;
+
             if (ns is MergedNamespaceSymbol merged)
             {
                 foreach (var inner in merged._namespaces)

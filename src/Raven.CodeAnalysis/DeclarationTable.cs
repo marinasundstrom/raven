@@ -13,10 +13,20 @@ internal sealed class DeclarationTable
 {
     private readonly ConcurrentDictionary<SyntaxNodeMapKey, DeclKey> _map = new();
 
-    public DeclarationTable(IEnumerable<SyntaxTree> syntaxTrees)
+    public DeclarationTable(IEnumerable<SyntaxTree> syntaxTrees, DeclarationTable? previous = null)
     {
+        var treesToBuild = new HashSet<SyntaxTree>(syntaxTrees);
+
+        if (previous is not null)
+            previous.CopyEntriesForTrees(treesToBuild, _map);
+
         foreach (var tree in syntaxTrees)
+        {
+            if (!treesToBuild.Contains(tree))
+                continue;
+
             Build(tree.GetRoot());
+        }
     }
 
     private void Build(SyntaxNode node)
@@ -93,6 +103,27 @@ internal sealed class DeclarationTable
 
     private static SyntaxNodeMapKey GetKey(SyntaxNode node)
         => new(node.SyntaxTree, node.Span, node.Kind);
+
+    private void CopyEntriesForTrees(
+        HashSet<SyntaxTree> treesToReuse,
+        ConcurrentDictionary<SyntaxNodeMapKey, DeclKey> destination)
+    {
+        if (treesToReuse.Count == 0)
+            return;
+
+        var reusedTrees = new HashSet<SyntaxTree>();
+
+        foreach (var (key, value) in _map)
+        {
+            if (!treesToReuse.Contains(key.SyntaxTree))
+                continue;
+
+            destination[key] = value;
+            reusedTrees.Add(key.SyntaxTree);
+        }
+
+        treesToReuse.ExceptWith(reusedTrees);
+    }
 
     private readonly record struct SyntaxNodeMapKey(SyntaxTree SyntaxTree, TextSpan Span, SyntaxKind Kind);
 }

@@ -64,9 +64,12 @@ public sealed class RavenProjectSystemService : IProjectSystemService
 
         foreach (var macroReferencePath in projInfo.MacroReferences)
         {
+            var projectDirectory = Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory;
             var sourceProjectFilePath = string.Equals(Path.GetExtension(macroReferencePath), RavenFileExtensions.LegacyProject, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Path.GetExtension(macroReferencePath), ".rvnproj", StringComparison.OrdinalIgnoreCase)
-                ? macroReferencePath
+                ? (Path.IsPathRooted(macroReferencePath)
+                    ? macroReferencePath
+                    : Path.GetFullPath(Path.Combine(projectDirectory, macroReferencePath)))
                 : null;
             solution = solution.AddMacroReference(projectId, MacroReference.CreateFromFile(macroReferencePath, sourceProjectFilePath));
         }

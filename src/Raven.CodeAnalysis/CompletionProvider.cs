@@ -76,6 +76,12 @@ public static class CompletionProvider
             if (string.IsNullOrWhiteSpace(name))
                 return null;
 
+            if (token.Parent is { } contextNode &&
+                model.TryLookupVisibleValueSymbol(contextNode, name) is { } visibleSymbol)
+            {
+                return visibleSymbol;
+            }
+
             var candidates = binder.LookupAvailableSymbols()
                 .Where(symbol => string.Equals(symbol.Name, name, StringComparison.Ordinal))
                 .ToArray();
@@ -85,9 +91,37 @@ public static class CompletionProvider
                    ?? candidates.FirstOrDefault();
         }
 
+        bool TryGetPreferredSymbolInfo(SyntaxNode node, out SymbolInfo symbolInfo)
+        {
+            if (model.TryGetNodeInterestSymbolInfo(node, out symbolInfo) &&
+                (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty))
+            {
+                return true;
+            }
+
+            try
+            {
+                symbolInfo = model.GetSymbolInfo(node);
+                return true;
+            }
+            catch
+            {
+                symbolInfo = default;
+                return false;
+            }
+        }
+
         INamespaceOrTypeSymbol? TryResolveNamespaceOrType(NameSyntax name)
         {
-            var resolved = model.GetSymbolInfo(name).Symbol?.UnderlyingSymbol as INamespaceOrTypeSymbol;
+            INamespaceOrTypeSymbol? resolved = null;
+            try
+            {
+                resolved = model.GetSymbolInfo(name).Symbol?.UnderlyingSymbol as INamespaceOrTypeSymbol;
+            }
+            catch
+            {
+            }
+
             if (resolved is not null)
                 return resolved;
 
@@ -171,36 +205,45 @@ public static class CompletionProvider
 
         ISymbol? TryResolveReceiverSymbol(ExpressionSyntax receiverExpression)
         {
-            if (receiverExpression is not IdentifierNameSyntax receiverIdentifier)
-                return null;
+            string? receiverName = null;
+            if (receiverExpression is IdentifierNameSyntax receiverIdentifier)
+            {
+                receiverName = receiverIdentifier.Identifier.ValueText;
+                if (string.IsNullOrWhiteSpace(receiverName))
+                    return null;
 
-            var name = receiverIdentifier.Identifier.ValueText;
-            if (string.IsNullOrWhiteSpace(name))
-                return null;
-
-            var symbol = binder.LookupSymbol(name)
-                ?? TryLookupValueSymbolByName(name);
-            if (symbol is not null)
-                return symbol;
+                var symbol = model.TryLookupVisibleValueSymbol(receiverExpression, receiverName)
+                    ?? binder.LookupSymbol(receiverName)
+                    ?? TryLookupValueSymbolByName(receiverName);
+                if (symbol is not null)
+                    return symbol;
+            }
 
             var receiverBinder = model.GetBinder(receiverExpression);
-            symbol = receiverBinder.LookupSymbol(name)
-                ?? receiverBinder.LookupSymbols(name).FirstOrDefault();
-            if (symbol is not null)
-                return symbol;
+            var binderResolvedSymbol = receiverName is not null
+                ? receiverBinder.LookupSymbol(receiverName) ?? receiverBinder.LookupSymbols(receiverName).FirstOrDefault()
+                : null;
+            if (binderResolvedSymbol is not null)
+                return binderResolvedSymbol;
 
-            if (TryResolveEnclosingPatternOrLoopLocalSymbol(receiverExpression, name) is { } enclosingSymbol)
+            if (receiverExpression is IdentifierNameSyntax receiverIdentifier2 &&
+                TryResolveEnclosingPatternOrLoopLocalSymbol(receiverExpression, receiverIdentifier2.Identifier.ValueText) is { } enclosingSymbol)
                 return enclosingSymbol;
 
             var containingBlock = receiverExpression.GetAncestor<BlockStatementSyntax>();
             if (containingBlock is null)
                 return null;
 
+            if (receiverExpression is not IdentifierNameSyntax receiverIdentifier3)
+                return null;
+
+            receiverName = receiverIdentifier3.Identifier.ValueText;
+
             var localDeclarator = containingBlock
                 .DescendantNodes()
                 .OfType<VariableDeclaratorSyntax>()
                 .Where(declarator =>
-                    declarator.Identifier.ValueText == name &&
+                    declarator.Identifier.ValueText == receiverName &&
                     declarator.Span.Start <= receiverExpression.Span.Start)
                 .OrderByDescending(static declarator => declarator.Span.Start)
                 .FirstOrDefault();
@@ -268,7 +311,7 @@ public static class CompletionProvider
             {
                 var iterationType = TryGetForIterationElementType(forStatement.Expression);
                 return iterationType is not null
-                    ? CreateSyntheticReceiverLocalSymbol(name, iterationType)
+                    ? CreateSyntheticReceiverLocalSymbol(name, iterationType, receiverExpression)
                     : null;
             }
 
@@ -297,16 +340,16 @@ public static class CompletionProvider
                 : null;
         }
 
-        ILocalSymbol CreateSyntheticReceiverLocalSymbol(string name, ITypeSymbol type)
+        ILocalSymbol CreateSyntheticReceiverLocalSymbol(string name, ITypeSymbol type, ExpressionSyntax receiverExpression)
         {
-            var containingSymbol = binder.ContainingSymbol;
+            var containingSymbol = model.GetBinder(receiverExpression).ContainingSymbol ?? model.Compilation.GlobalNamespace;
             return new SourceLocalSymbol(
                 name,
                 type,
                 isMutable: false,
                 containingSymbol,
                 containingSymbol.ContainingType,
-                containingSymbol.ContainingNamespace,
+                containingSymbol as INamespaceSymbol ?? containingSymbol.ContainingNamespace,
                 locations: [],
                 declaringSyntaxReferences: []);
         }
@@ -445,8 +488,6 @@ public static class CompletionProvider
             return symbol switch
             {
                 IMethodSymbol => insertionText.Length - 1,
-                IPropertySymbol => insertionText.Length - 1,
-                ITypeSymbol => insertionText.Length - 1,
                 _ => (int?)null
             };
         }
@@ -579,15 +620,70 @@ public static class CompletionProvider
         }
 
         static ITypeSymbol? GetTypeFromSymbol(ISymbol? symbol)
-            => symbol switch
+        {
+            while (symbol is not null)
             {
-                ILocalSymbol local => local.Type,
-                IFieldSymbol field => field.Type,
-                IPropertySymbol property => property.Type,
-                IEventSymbol @event => @event.Type,
-                IParameterSymbol parameter => parameter.Type,
-                _ => null
-            };
+                switch (symbol)
+                {
+                    case ILocalSymbol local:
+                        return local.Type;
+                    case IFieldSymbol field:
+                        return field.Type;
+                    case IPropertySymbol property:
+                        return property.Type;
+                    case IEventSymbol @event:
+                        return @event.Type;
+                    case IParameterSymbol parameter:
+                        return parameter.Type;
+                    case IMethodSymbol method:
+                        return method.ReturnType;
+                }
+
+                var underlying = symbol.UnderlyingSymbol;
+                if (ReferenceEquals(underlying, symbol))
+                    break;
+
+                symbol = underlying;
+            }
+
+            return null;
+        }
+
+        (ISymbol? Symbol, ITypeSymbol? Type) ResolveReceiver(ExpressionSyntax expression)
+        {
+            var symbol = TryGetPreferredSymbolInfo(expression, out var symbolInfo)
+                ? symbolInfo.Symbol?.UnderlyingSymbol
+                : null;
+
+            if (expression is InvocationExpressionSyntax &&
+                symbol is IMethodSymbol invokedMethod)
+            {
+                return (symbol, invokedMethod.ReturnType);
+            }
+
+            if (symbol is null &&
+                expression is IdentifierNameSyntax receiverIdentifier &&
+                model.TryLookupVisibleValueSymbol(expression, receiverIdentifier.Identifier.ValueText) is { } visibleSymbol)
+            {
+                symbol = visibleSymbol;
+            }
+
+            var type = GetTypeFromSymbol(symbol);
+            if (type is not null && type.TypeKind != TypeKind.Error)
+                return (symbol, type);
+
+            var binderSymbol = model.GetBinder(expression).BindSymbol(expression).Symbol?.UnderlyingSymbol;
+            if (binderSymbol is not null)
+            {
+                symbol = binderSymbol;
+                type = GetTypeFromSymbol(symbol);
+                if (type is not null && type.TypeKind != TypeKind.Error)
+                    return (symbol, type);
+            }
+
+            type = model.GetTypeInfo(expression).Type;
+            return (symbol, type);
+        }
 
         static bool NeedsReceiverFallback(ISymbol? symbol, ITypeSymbol? type)
         {
@@ -597,7 +693,10 @@ public static class CompletionProvider
             if (symbol.Kind is SymbolKind.Error or SymbolKind.ErrorType)
                 return true;
 
-            return type is { TypeKind: TypeKind.Error };
+            if (type is null)
+                return true;
+
+            return type.TypeKind == TypeKind.Error;
         }
 
         IEnumerable<ISymbol> GetTypeAccessMembers(ITypeSymbol typeAccessSymbol)
@@ -1334,10 +1433,7 @@ public static class CompletionProvider
 
             if (position >= operatorToken.Span.End)
             {
-                var symbolInfo = model.GetSymbolInfo(conditionalAccess.Expression);
-                var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
-                var typeInfo = model.GetTypeInfo(conditionalAccess.Expression).Type;
-                var type = typeInfo?.UnderlyingSymbol as ITypeSymbol;
+                var (symbol, type) = ResolveReceiver(conditionalAccess.Expression);
                 IEnumerable<ISymbol>? members = null;
                 ITypeSymbol? instanceTypeForExtensions = null;
 
@@ -1421,12 +1517,21 @@ public static class CompletionProvider
 
             if (position >= dotToken.Span.End)
             {
-                var symbolInfo = model.GetSymbolInfo(memberAccess.Expression);
-                var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
-                var typeInfo = model.GetTypeInfo(memberAccess.Expression).Type;
-                var type = typeInfo?.UnderlyingSymbol as ITypeSymbol;
+                ISymbol? symbol = null;
+                ITypeSymbol? type = null;
                 IEnumerable<ISymbol>? members = null;
                 ITypeSymbol? instanceTypeForExtensions = null;
+
+                if (memberAccess.Expression is NameSyntax nameReceiver &&
+                    TryResolveNamespaceOrType(nameReceiver) is { } namespaceOrTypeReceiver)
+                {
+                    symbol = namespaceOrTypeReceiver;
+                    type = namespaceOrTypeReceiver as ITypeSymbol;
+                }
+                else
+                {
+                    (symbol, type) = ResolveReceiver(memberAccess.Expression);
+                }
 
                 if (NeedsReceiverFallback(symbol, type) && memberAccess.Expression is IdentifierNameSyntax receiverIdentifier)
                 {

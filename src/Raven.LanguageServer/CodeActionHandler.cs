@@ -53,7 +53,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
     {
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "codeAction", request.TextDocument.Uri).ConfigureAwait(false);
+            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "codeAction").ConfigureAwait(false);
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return new CommandOrCodeActionContainer();

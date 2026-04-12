@@ -67,7 +67,7 @@ public partial class SemanticModel
         if (node is null)
             return ImmutableArray<ISymbol>.Empty;
 
-        EnsureDiagnosticsCollected();
+        EnsureDiagnosticBindingCompleted();
 
         if (node is FunctionStatementSyntax function &&
             GetDeclaredSymbol(function) is ISymbol functionSymbol)
@@ -101,7 +101,7 @@ public partial class SemanticModel
         if (symbol is not ILocalSymbol and not IParameterSymbol and not ITypeSymbol)
             return false;
 
-        EnsureDiagnosticsCollected();
+        EnsureDiagnosticBindingCompleted();
 
         var root = SyntaxTree.GetRoot();
         foreach (var function in root.DescendantNodes().OfType<FunctionStatementSyntax>())

@@ -116,6 +116,34 @@ class C {
     }
 
     [Fact]
+    public void GetCompletionsAsync_WithExistingSemanticModel_ReusesResolvedModel()
+    {
+        const string code = """
+class C {
+    func Run(values: int[]) -> int {
+        for x in values {
+            x.
+        }
+
+        return 0
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var service = new CompletionService();
+        var position = code.IndexOf("x.", StringComparison.Ordinal) + 2;
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+
+        var items = service.GetCompletionsAsync(semanticModel, position).GetAwaiter().GetResult();
+
+        items.ShouldContain(item => item.DisplayText == "CompareTo");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnIsPatternDeclarationLocal_ReturnsInstanceMembers()
     {
         const string code = """

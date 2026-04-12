@@ -35,6 +35,21 @@ public partial class Compilation
     private readonly ConcurrentDictionary<string, object> _metadataTypeCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, object> _preferredMetadataTypeCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, object> _scopedMetadataTypeCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<VisibleValueScopeKey, ImmutableArray<VisibleValueDeclarationDescriptor>>> _visibleValueScopeDeclarations = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, ImmutableArray<VisibleValueDeclarationDescriptor>>> _visibleValueScopeDeclarationsByOwner = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<NodeInterestSymbolKey, NodeInterestSymbolDescriptor>> _nodeInterestSymbolDescriptors = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, NodeInterestSymbolDescriptor>> _nodeInterestSymbolDescriptorsByOwner = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<ContextualBindingRootKey, ContextualBindingRootDescriptor>> _contextualBindingRootDescriptors = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, ContextualBindingRootDescriptor>> _contextualBindingRootDescriptorsByOwner = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<InterestBindingRootKey, InterestBindingRootDescriptor>> _interestBindingRootDescriptors = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, InterestBindingRootDescriptor>> _interestBindingRootDescriptorsByOwner = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<ExecutableOwnerKey, ExecutableOwnerDescriptor>> _executableOwnerDescriptors = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<FunctionExpressionRebindRootKey, FunctionExpressionRebindRootDescriptor>> _functionExpressionRebindRootDescriptors = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, FunctionExpressionRebindRootDescriptor>> _functionExpressionRebindRootDescriptorsByOwner = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<BinderParentAnchorKey, BinderParentAnchorDescriptor>> _binderParentAnchorDescriptors = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, BinderParentAnchorDescriptor>> _binderParentAnchorDescriptorsByOwner = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ImmutableHashSet<ExecutableOwnerDescriptor>> _changedExecutableOwnerDescriptors = new();
+    private readonly ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<ExecutableOwnerDescriptor, MatchedExecutableOwner>> _matchedExecutableOwners = new();
     private static readonly ConcurrentDictionary<string, string> s_globalAssemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, Assembly> s_globalRuntimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object s_missingMetadataType = new();
@@ -56,8 +71,10 @@ public partial class Compilation
     private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
     private BoundNodeFactory? _boundNodeFactory;
     private DeclarationTable? _declarationTable;
+    private Compilation? _previousCompilationForReuse;
     private ErrorSymbol _errorSymbol;
     private bool isSettingUp;
+    private int _setupThreadId;
     private MacroRegistry? _macroRegistry;
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, MacroReference[] macroReferences, CompilationOptions? options = null)
@@ -103,7 +120,10 @@ public partial class Compilation
 
             return _globalNamespace ??=
                 new MergedNamespaceSymbol(
-                    new INamespaceSymbol[] { SourceGlobalNamespace }.Concat(_metadataReferenceSymbols.Select(x => x.Value.GlobalNamespace)),
+                    new INamespaceSymbol?[] { SourceGlobalNamespace }
+                        .Concat(_metadataReferenceSymbols.Select(x => x.Value.GlobalNamespace))
+                        .Where(static ns => ns is not null)
+                        .Cast<INamespaceSymbol>(),
                     null);
         }
     }
@@ -121,6 +141,306 @@ public partial class Compilation
     internal DeclarationTable DeclarationTable => _declarationTable ?? EnsureDeclarationTableCreated();
 
     internal SymbolFactory SymbolFactory { get; } = new SymbolFactory();
+
+    internal bool TryGetVisibleValueScopeDeclarations(
+        SyntaxNode scopeNode,
+        out ImmutableArray<VisibleValueDeclarationDescriptor> declarations)
+    {
+        declarations = default;
+        var key = new VisibleValueScopeKey(scopeNode.Span, scopeNode.Kind);
+
+        if (_visibleValueScopeDeclarations.TryGetValue(scopeNode.SyntaxTree, out var scopes) &&
+            scopes.TryGetValue(key, out declarations))
+        {
+            return true;
+        }
+
+        if (TryGetTransferredVisibleValueScopeDeclarations(scopeNode, out declarations))
+        {
+            StoreVisibleValueScopeDeclarations(scopeNode, declarations);
+            return true;
+        }
+
+        return false;
+    }
+
+    internal void StoreVisibleValueScopeDeclarations(
+        SyntaxNode scopeNode,
+        ImmutableArray<VisibleValueDeclarationDescriptor> declarations)
+    {
+        var scopes = _visibleValueScopeDeclarations.GetOrAdd(scopeNode.SyntaxTree, _ => new());
+        scopes[new VisibleValueScopeKey(scopeNode.Span, scopeNode.Kind)] = declarations;
+
+        if (TryGetSyntaxOnlyExecutableOwnerDescriptor(scopeNode, out var ownerDescriptor))
+        {
+            var ownerScopes = _visibleValueScopeDeclarationsByOwner.GetOrAdd(scopeNode.SyntaxTree, _ => new());
+            ownerScopes[CreateOwnerRelativeDescriptorKey(ownerDescriptor, scopeNode)] = declarations;
+        }
+    }
+
+    internal bool TryGetNodeInterestSymbolDescriptor(
+        SyntaxNode node,
+        out NodeInterestSymbolDescriptor descriptor)
+    {
+        descriptor = default;
+        var key = new NodeInterestSymbolKey(node.Span, node.Kind);
+
+        if (_nodeInterestSymbolDescriptors.TryGetValue(node.SyntaxTree, out var descriptors) &&
+            descriptors.TryGetValue(key, out descriptor))
+        {
+            return true;
+        }
+
+        if (TryGetTransferredNodeInterestSymbolDescriptor(node, out descriptor))
+        {
+            StoreNodeInterestSymbolDescriptor(node, descriptor);
+            return true;
+        }
+
+        return false;
+    }
+
+    internal void StoreNodeInterestSymbolDescriptor(
+        SyntaxNode node,
+        NodeInterestSymbolDescriptor descriptor)
+    {
+        var descriptors = _nodeInterestSymbolDescriptors.GetOrAdd(node.SyntaxTree, _ => new());
+        descriptors[new NodeInterestSymbolKey(node.Span, node.Kind)] = descriptor;
+
+        if (TryGetSyntaxOnlyExecutableOwnerDescriptor(node, out var ownerDescriptor))
+        {
+            var ownerDescriptors = _nodeInterestSymbolDescriptorsByOwner.GetOrAdd(node.SyntaxTree, _ => new());
+            ownerDescriptors[CreateOwnerRelativeDescriptorKey(ownerDescriptor, node)] = descriptor;
+        }
+    }
+
+    internal bool TryGetContextualBindingRootDescriptor(
+        SyntaxNode node,
+        out ContextualBindingRootDescriptor descriptor)
+    {
+        descriptor = default;
+        var key = new ContextualBindingRootKey(node.Span, node.Kind);
+
+        if (_contextualBindingRootDescriptors.TryGetValue(node.SyntaxTree, out var descriptors) &&
+            descriptors.TryGetValue(key, out descriptor))
+        {
+            return true;
+        }
+
+        if (TryGetTransferredContextualBindingRootDescriptor(node, out descriptor))
+        {
+            StoreContextualBindingRootDescriptor(node, descriptor);
+            return true;
+        }
+
+        return false;
+    }
+
+    internal void StoreContextualBindingRootDescriptor(
+        SyntaxNode node,
+        ContextualBindingRootDescriptor descriptor)
+    {
+        var descriptors = _contextualBindingRootDescriptors.GetOrAdd(node.SyntaxTree, _ => new());
+        descriptors[new ContextualBindingRootKey(node.Span, node.Kind)] = descriptor;
+
+        if (TryGetSyntaxOnlyExecutableOwnerDescriptor(node, out var ownerDescriptor))
+        {
+            var ownerDescriptors = _contextualBindingRootDescriptorsByOwner.GetOrAdd(node.SyntaxTree, _ => new());
+            ownerDescriptors[CreateOwnerRelativeDescriptorKey(ownerDescriptor, node)] = descriptor;
+        }
+    }
+
+    internal bool TryGetInterestBindingRootDescriptor(
+        SyntaxNode node,
+        out InterestBindingRootDescriptor descriptor)
+    {
+        descriptor = default;
+        var key = new InterestBindingRootKey(node.Span, node.Kind);
+
+        if (_interestBindingRootDescriptors.TryGetValue(node.SyntaxTree, out var descriptors) &&
+            descriptors.TryGetValue(key, out descriptor))
+        {
+            return true;
+        }
+
+        if (TryGetTransferredInterestBindingRootDescriptor(node, out descriptor))
+        {
+            StoreInterestBindingRootDescriptor(node, descriptor);
+            return true;
+        }
+
+        return false;
+    }
+
+    internal void StoreInterestBindingRootDescriptor(
+        SyntaxNode node,
+        InterestBindingRootDescriptor descriptor)
+    {
+        var descriptors = _interestBindingRootDescriptors.GetOrAdd(node.SyntaxTree, _ => new());
+        descriptors[new InterestBindingRootKey(node.Span, node.Kind)] = descriptor;
+
+        if (TryGetSyntaxOnlyExecutableOwnerDescriptor(node, out var ownerDescriptor))
+        {
+            var ownerDescriptors = _interestBindingRootDescriptorsByOwner.GetOrAdd(node.SyntaxTree, _ => new());
+            ownerDescriptors[CreateOwnerRelativeDescriptorKey(ownerDescriptor, node)] = descriptor;
+        }
+    }
+
+    internal bool TryGetExecutableOwnerDescriptor(
+        SyntaxNode node,
+        out ExecutableOwnerDescriptor descriptor)
+    {
+        descriptor = default;
+        var key = new ExecutableOwnerKey(node.Span, node.Kind);
+
+        if (_executableOwnerDescriptors.TryGetValue(node.SyntaxTree, out var descriptors) &&
+            descriptors.TryGetValue(key, out descriptor))
+        {
+            return true;
+        }
+
+        if (TryGetTransferredExecutableOwnerDescriptor(node, out descriptor))
+        {
+            StoreExecutableOwnerDescriptor(node, descriptor);
+            return true;
+        }
+
+        return false;
+    }
+
+    internal void StoreExecutableOwnerDescriptor(
+        SyntaxNode node,
+        ExecutableOwnerDescriptor descriptor)
+    {
+        var descriptors = _executableOwnerDescriptors.GetOrAdd(node.SyntaxTree, _ => new());
+        descriptors[new ExecutableOwnerKey(node.Span, node.Kind)] = descriptor;
+    }
+
+    internal bool TryGetFunctionExpressionRebindRootDescriptor(
+        FunctionExpressionSyntax functionExpression,
+        out FunctionExpressionRebindRootDescriptor descriptor)
+    {
+        descriptor = default;
+        var key = new FunctionExpressionRebindRootKey(functionExpression.Span, functionExpression.Kind);
+
+        if (_functionExpressionRebindRootDescriptors.TryGetValue(functionExpression.SyntaxTree, out var descriptors) &&
+            descriptors.TryGetValue(key, out descriptor))
+        {
+            return true;
+        }
+
+        if (TryGetTransferredFunctionExpressionRebindRootDescriptor(functionExpression, out descriptor))
+        {
+            StoreFunctionExpressionRebindRootDescriptor(functionExpression, descriptor);
+            return true;
+        }
+
+        return false;
+    }
+
+    internal void StoreFunctionExpressionRebindRootDescriptor(
+        FunctionExpressionSyntax functionExpression,
+        FunctionExpressionRebindRootDescriptor descriptor)
+    {
+        var descriptors = _functionExpressionRebindRootDescriptors.GetOrAdd(functionExpression.SyntaxTree, _ => new());
+        descriptors[new FunctionExpressionRebindRootKey(functionExpression.Span, functionExpression.Kind)] = descriptor;
+
+        if (TryGetSyntaxOnlyExecutableOwnerDescriptor(functionExpression, out var ownerDescriptor))
+        {
+            var ownerDescriptors = _functionExpressionRebindRootDescriptorsByOwner.GetOrAdd(functionExpression.SyntaxTree, _ => new());
+            ownerDescriptors[CreateOwnerRelativeDescriptorKey(ownerDescriptor, functionExpression)] = descriptor;
+        }
+    }
+
+    internal bool TryGetBinderParentAnchorDescriptor(
+        SyntaxNode node,
+        out BinderParentAnchorDescriptor descriptor)
+    {
+        descriptor = default;
+        var key = new BinderParentAnchorKey(node.Span, node.Kind);
+
+        if (_binderParentAnchorDescriptors.TryGetValue(node.SyntaxTree, out var descriptors) &&
+            descriptors.TryGetValue(key, out descriptor))
+        {
+            return true;
+        }
+
+        if (TryGetTransferredBinderParentAnchorDescriptor(node, out descriptor))
+        {
+            StoreBinderParentAnchorDescriptor(node, descriptor);
+            return true;
+        }
+
+        return false;
+    }
+
+    internal void StoreBinderParentAnchorDescriptor(
+        SyntaxNode node,
+        BinderParentAnchorDescriptor descriptor)
+    {
+        var descriptors = _binderParentAnchorDescriptors.GetOrAdd(node.SyntaxTree, _ => new());
+        descriptors[new BinderParentAnchorKey(node.Span, node.Kind)] = descriptor;
+
+        if (TryGetSyntaxOnlyExecutableOwnerDescriptor(node, out var ownerDescriptor))
+        {
+            var ownerDescriptors = _binderParentAnchorDescriptorsByOwner.GetOrAdd(node.SyntaxTree, _ => new());
+            ownerDescriptors[CreateOwnerRelativeDescriptorKey(ownerDescriptor, node)] = descriptor;
+        }
+    }
+
+    internal void RegisterChangedExecutableOwnerDescriptors(
+        SyntaxTree syntaxTree,
+        ImmutableArray<ExecutableOwnerDescriptor> descriptors)
+    {
+        _changedExecutableOwnerDescriptors[syntaxTree] = descriptors.IsDefaultOrEmpty
+            ? ImmutableHashSet<ExecutableOwnerDescriptor>.Empty
+            : descriptors.ToImmutableHashSet();
+    }
+
+    internal void RegisterMatchedExecutableOwners(
+        SyntaxTree syntaxTree,
+        ImmutableArray<MatchedExecutableOwner> matches)
+    {
+        if (matches.IsDefaultOrEmpty)
+            return;
+
+        var map = _matchedExecutableOwners.GetOrAdd(syntaxTree, _ => new());
+        foreach (var match in matches)
+            map[match.CurrentOwner] = match;
+    }
+
+    internal bool IsChangedExecutableOwner(SyntaxNode node)
+    {
+        return _changedExecutableOwnerDescriptors.TryGetValue(node.SyntaxTree, out var descriptors) &&
+               descriptors.Contains(new ExecutableOwnerDescriptor(node.Span, node.Kind));
+    }
+
+    internal ImmutableArray<ExecutableOwnerDescriptor> GetChangedExecutableOwnerDescriptorsForTesting(SyntaxTree syntaxTree)
+    {
+        return _changedExecutableOwnerDescriptors.TryGetValue(syntaxTree, out var descriptors)
+            ? descriptors.ToImmutableArray()
+            : ImmutableArray<ExecutableOwnerDescriptor>.Empty;
+    }
+
+    internal MatchedExecutableOwner? GetMatchedExecutableOwnerForTesting(SyntaxNode node)
+    {
+        return TryGetMatchedExecutableOwner(node, out var match)
+            ? match
+            : null;
+    }
+
+    internal bool TryGetMatchedExecutableOwner(
+        SyntaxNode node,
+        out MatchedExecutableOwner match)
+    {
+        match = default;
+
+        if (!TryGetSyntaxOnlyExecutableOwnerDescriptor(node, out var ownerDescriptor))
+            return false;
+
+        return _matchedExecutableOwners.TryGetValue(node.SyntaxTree, out var matches) &&
+               matches.TryGetValue(ownerDescriptor, out match);
+    }
 
     internal BoundNodeFactory BoundNodeFactory => _boundNodeFactory ??= new BoundNodeFactory(this);
 
@@ -194,17 +514,35 @@ public partial class Compilation
 
     public MetadataReference ToMetadataReference() => new CompilationReference(this);
 
+    internal void AdoptIncrementalReuseFrom(Compilation previousCompilation)
+    {
+        ArgumentNullException.ThrowIfNull(previousCompilation);
+
+        if (ReferenceEquals(this, previousCompilation))
+            return;
+
+        _previousCompilationForReuse = previousCompilation;
+    }
+
     internal void EnsureSetup()
     {
-        if (setup || isSettingUp)
+        if (setup)
+            return;
+
+        var currentThreadId = Environment.CurrentManagedThreadId;
+        if (isSettingUp && _setupThreadId == currentThreadId)
             return;
 
         lock (_setupLock)
         {
+            while (isSettingUp && _setupThreadId != currentThreadId)
+                Monitor.Wait(_setupLock);
+
             if (setup || isSettingUp)
                 return;
 
             isSettingUp = true;
+            _setupThreadId = currentThreadId;
 
             try
             {
@@ -213,7 +551,9 @@ public partial class Compilation
             }
             finally
             {
+                _setupThreadId = 0;
                 isSettingUp = false;
+                Monitor.PulseAll(_setupLock);
             }
         }
     }
@@ -274,7 +614,9 @@ public partial class Compilation
 
         lock (_declarationTableGate)
         {
-            return _declarationTable ??= new DeclarationTable(SyntaxTrees);
+            return _declarationTable ??= new DeclarationTable(
+                SyntaxTrees,
+                _previousCompilationForReuse?._declarationTable);
         }
     }
 
@@ -282,6 +624,137 @@ public partial class Compilation
     {
         EnsureSetup();
         return _macroRegistry ??= MacroRegistry.Create(_macroReferences);
+    }
+
+    private bool TryGetVisibleValueScopeDeclarations(
+        SyntaxTree syntaxTree,
+        VisibleValueScopeKey key,
+        out ImmutableArray<VisibleValueDeclarationDescriptor> declarations)
+    {
+        declarations = default;
+        return _visibleValueScopeDeclarations.TryGetValue(syntaxTree, out var scopes) &&
+               scopes.TryGetValue(key, out declarations);
+    }
+
+    private bool TryGetVisibleValueScopeDeclarations(
+        SyntaxTree syntaxTree,
+        OwnerRelativeDescriptorKey key,
+        out ImmutableArray<VisibleValueDeclarationDescriptor> declarations)
+    {
+        declarations = default;
+        return _visibleValueScopeDeclarationsByOwner.TryGetValue(syntaxTree, out var scopes) &&
+               scopes.TryGetValue(key, out declarations);
+    }
+
+
+    private bool TryGetNodeInterestSymbolDescriptor(
+        SyntaxTree syntaxTree,
+        NodeInterestSymbolKey key,
+        out NodeInterestSymbolDescriptor descriptor)
+    {
+        descriptor = default;
+        return _nodeInterestSymbolDescriptors.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private bool TryGetNodeInterestSymbolDescriptor(
+        SyntaxTree syntaxTree,
+        OwnerRelativeDescriptorKey key,
+        out NodeInterestSymbolDescriptor descriptor)
+    {
+        descriptor = default;
+        return _nodeInterestSymbolDescriptorsByOwner.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private bool TryGetContextualBindingRootDescriptor(
+        SyntaxTree syntaxTree,
+        ContextualBindingRootKey key,
+        out ContextualBindingRootDescriptor descriptor)
+    {
+        descriptor = default;
+        return _contextualBindingRootDescriptors.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private bool TryGetContextualBindingRootDescriptor(
+        SyntaxTree syntaxTree,
+        OwnerRelativeDescriptorKey key,
+        out ContextualBindingRootDescriptor descriptor)
+    {
+        descriptor = default;
+        return _contextualBindingRootDescriptorsByOwner.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private bool TryGetInterestBindingRootDescriptor(
+        SyntaxTree syntaxTree,
+        InterestBindingRootKey key,
+        out InterestBindingRootDescriptor descriptor)
+    {
+        descriptor = default;
+        return _interestBindingRootDescriptors.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private bool TryGetInterestBindingRootDescriptor(
+        SyntaxTree syntaxTree,
+        OwnerRelativeDescriptorKey key,
+        out InterestBindingRootDescriptor descriptor)
+    {
+        descriptor = default;
+        return _interestBindingRootDescriptorsByOwner.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private bool TryGetExecutableOwnerDescriptor(
+        SyntaxTree syntaxTree,
+        ExecutableOwnerKey key,
+        out ExecutableOwnerDescriptor descriptor)
+    {
+        descriptor = default;
+        return _executableOwnerDescriptors.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private bool TryGetFunctionExpressionRebindRootDescriptor(
+        SyntaxTree syntaxTree,
+        FunctionExpressionRebindRootKey key,
+        out FunctionExpressionRebindRootDescriptor descriptor)
+    {
+        descriptor = default;
+        return _functionExpressionRebindRootDescriptors.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private bool TryGetFunctionExpressionRebindRootDescriptor(
+        SyntaxTree syntaxTree,
+        OwnerRelativeDescriptorKey key,
+        out FunctionExpressionRebindRootDescriptor descriptor)
+    {
+        descriptor = default;
+        return _functionExpressionRebindRootDescriptorsByOwner.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private bool TryGetBinderParentAnchorDescriptor(
+        SyntaxTree syntaxTree,
+        BinderParentAnchorKey key,
+        out BinderParentAnchorDescriptor descriptor)
+    {
+        descriptor = default;
+        return _binderParentAnchorDescriptors.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private bool TryGetBinderParentAnchorDescriptor(
+        SyntaxTree syntaxTree,
+        OwnerRelativeDescriptorKey key,
+        out BinderParentAnchorDescriptor descriptor)
+    {
+        descriptor = default;
+        return _binderParentAnchorDescriptorsByOwner.TryGetValue(syntaxTree, out var descriptors) &&
+               descriptors.TryGetValue(key, out descriptor);
     }
 
     private static MetadataLoadContext CreateMetadataLoadContext(IEnumerable<string> paths, string? coreAssemblyName)
@@ -642,6 +1115,70 @@ public partial class Compilation
         var unit = new UnitTypeSymbol(this, system);
         system.AddMember(unit);
         return unit;
+    }
+
+    internal readonly record struct VisibleValueScopeKey(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct VisibleValueDeclarationNodeDescriptor(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct VisibleValueDeclarationDescriptor(string Name, int Start, VisibleValueDeclarationNodeDescriptor Declaration);
+    internal readonly record struct VisibleValueDeclaration(string Name, int Start, SyntaxNode DeclarationNode);
+    internal readonly record struct NodeInterestSymbolKey(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct NodeInterestSymbolDescriptor(TextSpan ReferencedSpan, SyntaxKind ReferencedKind);
+    internal readonly record struct ContextualBindingRootKey(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct ContextualBindingRootDescriptor(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct InterestBindingRootKey(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct InterestBindingRootDescriptor(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct ExecutableOwnerKey(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct ExecutableOwnerDescriptor(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct FunctionExpressionRebindRootKey(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct FunctionExpressionRebindRootDescriptor(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct BinderParentAnchorKey(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct BinderParentAnchorDescriptor(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct OwnerRelativeDescriptorKey(
+        ExecutableOwnerDescriptor Owner,
+        int RelativeStart,
+        int Length,
+        SyntaxKind Kind);
+    internal readonly record struct MatchedExecutableOwner(
+        SyntaxTree PreviousSyntaxTree,
+        ExecutableOwnerDescriptor CurrentOwner,
+        ExecutableOwnerDescriptor PreviousOwner);
+
+    private static OwnerRelativeDescriptorKey CreateOwnerRelativeDescriptorKey(
+        ExecutableOwnerDescriptor owner,
+        SyntaxNode node,
+        ExecutableOwnerDescriptor? ownerOverride = null)
+    {
+        var effectiveOwner = ownerOverride ?? owner;
+        return new OwnerRelativeDescriptorKey(
+            owner,
+            node.Span.Start - effectiveOwner.Span.Start,
+            node.Span.Length,
+            node.Kind);
+    }
+
+    private static bool TryGetSyntaxOnlyExecutableOwnerDescriptor(
+        SyntaxNode node,
+        out ExecutableOwnerDescriptor descriptor)
+    {
+        var owner = node.AncestorsAndSelf().FirstOrDefault(static current =>
+            current is FunctionExpressionSyntax
+                or BaseMethodDeclarationSyntax
+                or BaseConstructorDeclarationSyntax
+                or ParameterlessConstructorDeclarationSyntax
+                or AccessorDeclarationSyntax
+                or PropertyDeclarationSyntax
+                or EventDeclarationSyntax
+                or GlobalStatementSyntax
+                or CompilationUnitSyntax);
+
+        if (owner is null)
+        {
+            descriptor = default;
+            return false;
+        }
+
+        descriptor = new ExecutableOwnerDescriptor(owner.Span, owner.Kind);
+        return true;
     }
 
     internal INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)

@@ -96,8 +96,11 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         foreach (var macroReferencePath in evaluation.MacroReferencePaths)
         {
             var resolvedMacroReferencePath = ResolveMacroReferencePath(macroReferencePath, evaluation, raven);
+            var sourceProjectDirectory = Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory;
             var sourceProjectFilePath = IsProjectFileExtension(Path.GetExtension(macroReferencePath))
-                ? macroReferencePath
+                ? (Path.IsPathRooted(macroReferencePath)
+                    ? macroReferencePath
+                    : Path.GetFullPath(Path.Combine(sourceProjectDirectory, macroReferencePath)))
                 : null;
             solution = solution.AddMacroReference(projectId, MacroReference.CreateFromFile(resolvedMacroReferencePath, sourceProjectFilePath));
         }

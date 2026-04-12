@@ -14,6 +14,13 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 public class CompletionService
 {
+    internal readonly record struct CompletionComputation(
+        ImmutableArray<CompletionItem> Items,
+        double SemanticModelMs,
+        double ProviderMs,
+        bool UsedFallback,
+        string? FailureType);
+
     internal static readonly ImmutableArray<string> BasicKeywords =
     [
         "if", "else", "while", "for", "return", "let", "var", "const", "new", "true", "false", "null"
@@ -47,16 +54,37 @@ public class CompletionService
         {
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-            return CompletionProvider.GetCompletions(
-                token,
-                semanticModel,
-                position,
-                forceInsertionAtCaret: isWhitespaceOnlyLinePosition);
+            return GetCompletions(token, semanticModel, position, isWhitespaceOnlyLinePosition);
         }
         catch
         {
             // Keep completion usable in lightweight/editor scenarios where semantic setup
             // may fail (for example, missing metadata references).
+            return GetBasicKeywordCompletions(token, position);
+        }
+    }
+
+    public IEnumerable<CompletionItem> GetCompletions(SemanticModel semanticModel, int position)
+    {
+        var syntaxTree = semanticModel.SyntaxTree;
+        var searchPosition = Math.Max(0, position - 1);
+        var sourceText = syntaxTree.GetText();
+        var content = sourceText.ToString();
+        var isWhitespaceOnlyLinePosition = IsWhitespaceOnlyLinePosition(content, position);
+        while (searchPosition > 0 &&
+               searchPosition < content.Length &&
+               char.IsWhiteSpace(content[searchPosition]))
+        {
+            searchPosition--;
+        }
+
+        var token = syntaxTree.GetRoot().FindToken(searchPosition);
+        try
+        {
+            return GetCompletions(token, semanticModel, position, isWhitespaceOnlyLinePosition);
+        }
+        catch
+        {
             return GetBasicKeywordCompletions(token, position);
         }
     }
@@ -95,10 +123,105 @@ public class CompletionService
         int position,
         CancellationToken cancellationToken = default)
     {
+        return (await GetCompletionsWithMetricsAsync(compilation, syntaxTree, position, cancellationToken).ConfigureAwait(false)).Items;
+    }
+
+    public async Task<ImmutableArray<CompletionItem>> GetCompletionsAsync(
+        SemanticModel semanticModel,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        return (await GetCompletionsWithMetricsAsync(semanticModel, position, cancellationToken).ConfigureAwait(false)).Items;
+    }
+
+    internal async Task<CompletionComputation> GetCompletionsWithMetricsAsync(
+        Compilation compilation,
+        SyntaxTree syntaxTree,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
         return await Task.Run(
-                () => GetCompletions(compilation, syntaxTree, position).ToImmutableArray(),
+                () => GetCompletionsWithMetrics(compilation, syntaxTree, position),
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    internal async Task<CompletionComputation> GetCompletionsWithMetricsAsync(
+        SemanticModel semanticModel,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        return await Task.Run(
+                () => GetCompletionsWithMetrics(semanticModel, position),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    internal CompletionComputation GetCompletionsWithMetrics(Compilation compilation, SyntaxTree syntaxTree, int position)
+    {
+        var semanticModelMs = 0d;
+        var semanticModelStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        semanticModelStopwatch.Stop();
+        semanticModelMs = semanticModelStopwatch.Elapsed.TotalMilliseconds;
+
+        return GetCompletionsWithMetrics(semanticModel, position, semanticModelMs);
+    }
+
+    internal CompletionComputation GetCompletionsWithMetrics(SemanticModel semanticModel, int position)
+        => GetCompletionsWithMetrics(semanticModel, position, semanticModelMs: 0d);
+
+    private CompletionComputation GetCompletionsWithMetrics(
+        SemanticModel semanticModel,
+        int position,
+        double semanticModelMs)
+    {
+        var searchPosition = Math.Max(0, position - 1);
+        var syntaxTree = semanticModel.SyntaxTree;
+        var sourceText = syntaxTree.GetText();
+        var content = sourceText.ToString();
+        var isWhitespaceOnlyLinePosition = IsWhitespaceOnlyLinePosition(content, position);
+        while (searchPosition > 0 &&
+               searchPosition < content.Length &&
+               char.IsWhiteSpace(content[searchPosition]))
+        {
+            searchPosition--;
+        }
+
+        var token = syntaxTree.GetRoot().FindToken(searchPosition);
+        var providerMs = 0d;
+
+        try
+        {
+            var providerStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var items = GetCompletions(token, semanticModel, position, isWhitespaceOnlyLinePosition)
+                .ToImmutableArray();
+            providerStopwatch.Stop();
+            providerMs = providerStopwatch.Elapsed.TotalMilliseconds;
+
+            return new CompletionComputation(items, semanticModelMs, providerMs, UsedFallback: false, FailureType: null);
+        }
+        catch (Exception ex)
+        {
+            var fallbackStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var items = GetBasicKeywordCompletions(token, position).ToImmutableArray();
+            fallbackStopwatch.Stop();
+            providerMs += fallbackStopwatch.Elapsed.TotalMilliseconds;
+            return new CompletionComputation(items, semanticModelMs, providerMs, UsedFallback: true, ex.GetType().Name);
+        }
+    }
+
+    private static IEnumerable<CompletionItem> GetCompletions(
+        SyntaxToken token,
+        SemanticModel semanticModel,
+        int position,
+        bool forceInsertionAtCaret)
+    {
+        return CompletionProvider.GetCompletions(
+            token,
+            semanticModel,
+            position,
+            forceInsertionAtCaret: forceInsertionAtCaret);
     }
 
     internal static IEnumerable<CompletionItem> GetBasicKeywordCompletions(SyntaxToken token, int position)

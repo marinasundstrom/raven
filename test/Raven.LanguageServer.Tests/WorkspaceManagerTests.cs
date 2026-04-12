@@ -385,11 +385,23 @@ func Main() -> unit { }
         _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
         _ = manager.UpsertDocument(macroUri, File.ReadAllText(macroPath));
 
+        manager.TryGetDocumentContext(appUri, out var initialDocument, out _).ShouldBeTrue();
+        var initialMacroReferenceInfo = initialDocument!.Project.MacroReferences.Single();
+        initialMacroReferenceInfo.SourceProjectFilePath.ShouldBe(Path.Combine(_tempRoot, "macros", "FreestandingMacros.rvnproj"));
+        var initialMacroReference = initialMacroReferenceInfo.Display;
+
         var initialExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
         initialExpansion.ShouldBe("1");
 
         var updatedMacroSource = CreateFreestandingMacroExpansionSource("2");
         _ = manager.UpsertDocument(macroUri, updatedMacroSource);
+
+        manager.TryGetDocumentContext(macroUri, out var refreshedMacroDocument, out _).ShouldBeTrue();
+        refreshedMacroDocument!.Project.FilePath.ShouldBe(Path.Combine(_tempRoot, "macros", "FreestandingMacros.rvnproj"));
+
+        manager.TryGetDocumentContext(appUri, out var refreshedDocument, out _).ShouldBeTrue();
+        var refreshedMacroReference = refreshedDocument!.Project.MacroReferences.Single().Display;
+        refreshedMacroReference.ShouldNotBe(initialMacroReference);
 
         var refreshedExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
         refreshedExpansion.ShouldBe("2");
@@ -789,6 +801,49 @@ func Main() -> unit {
         itemProperty.SetValue(documents, staleOwnedDocument, [uri]);
 
         Should.NotThrow(() => manager.TryGetCodeFixes(uri, out _));
+    }
+
+    [Fact]
+    public void MacroShadowOutputDirectory_DoesNotChangeAcrossProjectVersions()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var projectId = workspace.AddProject("Macros", targetFramework: "net10.0");
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        var getShadowMacroOutputDirectory = typeof(WorkspaceManager)
+            .GetMethod("GetShadowMacroOutputDirectory", BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var firstPath = (string)getShadowMacroOutputDirectory.Invoke(null, [project])!;
+
+        var documentId = DocumentId.CreateNew(projectId);
+        var updatedSolution = workspace.CurrentSolution.AddDocument(
+            documentId,
+            "macro.rvn",
+            SourceText.From("func Main() -> unit { }"),
+            Path.Combine(_tempRoot, "macro.rvn"));
+        workspace.TryApplyChanges(updatedSolution);
+        var updatedProject = workspace.CurrentSolution.GetProject(projectId)!;
+
+        var secondPath = (string)getShadowMacroOutputDirectory.Invoke(null, [updatedProject])!;
+
+        secondPath.ShouldBe(firstPath);
+    }
+
+    [Fact]
+    public void MacroShadowOutputPath_ChangesWhenContentHashChanges()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var projectId = workspace.AddProject("Macros", targetFramework: "net10.0");
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        var getShadowMacroOutputPath = typeof(WorkspaceManager)
+            .GetMethod("GetShadowMacroOutputPath", BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var firstPath = (string)getShadowMacroOutputPath.Invoke(null, [project, "Macros", "aaaaaaaaaaaaaaaa"])!;
+        var secondPath = (string)getShadowMacroOutputPath.Invoke(null, [project, "Macros", "bbbbbbbbbbbbbbbb"])!;
+
+        firstPath.ShouldNotBe(secondPath);
+        Path.GetDirectoryName(firstPath).ShouldBe(Path.GetDirectoryName(secondPath));
     }
 
     public void Dispose()

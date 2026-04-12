@@ -63,4 +63,58 @@ counter.
         Assert.DoesNotContain(items, i => i.DisplayText == "if");
     }
 
+    [Fact]
+    public void GetCompletions_AfterDot_OnParameterReceiver_ReturnsInstanceMembers()
+    {
+        var code = """
+class Counter {
+    public func Increment() -> unit { }
+}
+
+func Touch(counter: Counter) -> unit {
+    counter.
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Increment");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnForLoopReceiver_ReturnsInstanceMembers()
+    {
+        var code = """
+class Counter {
+    public func Increment() -> unit { }
+}
+
+val counters = [Counter()]
+
+for counter in counters {
+    counter.
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Increment");
+    }
+
 }

@@ -56,7 +56,7 @@ public partial class SemanticModel
         if (_attributeCache.TryGetValue(attribute, out var cached))
             return cached;
 
-        EnsureDiagnosticsCollected();
+        EnsureDiagnosticBindingCompleted();
 
         BoundExpression? boundExpression = TryGetCachedBoundNode(attribute) as BoundExpression;
         var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
@@ -97,14 +97,27 @@ public partial class SemanticModel
 
     internal void EnsureDeclarations()
     {
+        Compilation.PerformanceInstrumentation.Setup.RecordEnsureDeclarationsCall();
+
         if (_declarationsComplete)
             return;
 
-        if (SyntaxTree.GetRoot() is CompilationUnitSyntax cu)
-            DeclareCompilationUnit(cu);
+        lock (_bindingSetupGate)
+        {
+            if (_declarationsComplete)
+                return;
 
-        _declarationsComplete = true;
+            if (SyntaxTree.GetRoot() is CompilationUnitSyntax cu)
+            {
+                Compilation.PerformanceInstrumentation.Setup.RecordDeclarationPass();
+                DeclareCompilationUnit(cu);
+            }
+
+            _declarationsComplete = true;
+        }
     }
+
+    internal bool DeclarationsComplete => _declarationsComplete;
 
     private void DeclareCompilationUnit(CompilationUnitSyntax cu)
     {
@@ -1515,7 +1528,7 @@ public partial class SemanticModel
 
     internal SourceNamedTypeSymbol EnsureLocalTypeDeclarationBound(BaseTypeDeclarationSyntax declaration, BlockBinder parentBinder)
     {
-        if (_declaredTypeSymbols.TryGetValue(GetSyntaxNodeMapKey(declaration), out var existing))
+        if (Compilation.TryGetDeclaredTypeSymbol(declaration, out var existing))
             return existing;
 
         var declaringSymbol = parentBinder.ContainingSymbol;
@@ -5358,11 +5371,9 @@ public partial class SemanticModel
             ? syntax
             : null;
 
-    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceNamedTypeSymbol> _declaredTypeSymbols = new();
-
     private void RegisterDeclaredTypeSymbol(SyntaxNode node, SourceNamedTypeSymbol symbol)
     {
-        _declaredTypeSymbols[GetSyntaxNodeMapKey(node)] = symbol;
+        Compilation.RegisterDeclaredTypeSymbol(node, symbol);
 
         if (node is TypeDeclarationSyntax typeDecl)
             RegisterClassSymbol(typeDecl, symbol);
@@ -5378,13 +5389,13 @@ public partial class SemanticModel
             node = containingType;
         }
 
-        if (_declaredTypeSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out var symbol))
+        if (Compilation.TryGetDeclaredTypeSymbol(node, out var symbol))
             return symbol;
 
         // Defensive recovery: in some re-entrant binder flows, declarations may not
         // have been materialized for this semantic model yet.
         EnsureDeclarations();
-        if (_declaredTypeSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol))
+        if (Compilation.TryGetDeclaredTypeSymbol(node, out symbol))
             return symbol;
 
         if (node is BaseTypeDeclarationSyntax localTypeDeclaration &&
@@ -5401,45 +5412,38 @@ public partial class SemanticModel
     internal SourceNamedTypeSymbol GetDeclaredTypeSymbolForDeclaration(SyntaxNode node)
         => GetDeclaredTypeSymbol(node);
 
-    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceNamedTypeSymbol> _classSymbols = new();
-
     internal void RegisterClassSymbol(TypeDeclarationSyntax node, SourceNamedTypeSymbol symbol)
-        => _classSymbols[GetSyntaxNodeMapKey(node)] = symbol;
+        => Compilation.RegisterClassSymbol(node, symbol);
 
     internal SourceNamedTypeSymbol GetClassSymbol(TypeDeclarationSyntax node)
-        => _classSymbols[GetSyntaxNodeMapKey(node)];
+        => Compilation.GetClassSymbol(node);
 
     internal bool TryGetClassSymbol(TypeDeclarationSyntax node, out SourceNamedTypeSymbol symbol)
-        => _classSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
-
-    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceUnionSymbol> _unionSymbols = new();
-    private readonly ConcurrentDictionary<SyntaxNodeMapKey, SourceUnionCaseTypeSymbol> _unionCaseSymbols = new();
+        => Compilation.TryGetClassSymbol(node, out symbol!);
 
     internal void RegisterUnionSymbol(UnionDeclarationSyntax node, SourceUnionSymbol symbol)
-        => _unionSymbols[GetSyntaxNodeMapKey(node)] = symbol;
+        => Compilation.RegisterUnionSymbol(node, symbol);
 
     internal SourceUnionSymbol GetUnionSymbol(UnionDeclarationSyntax node)
-        => _unionSymbols[GetSyntaxNodeMapKey(node)];
+        => Compilation.GetUnionSymbol(node);
 
     internal bool TryGetUnionSymbol(UnionDeclarationSyntax node, out SourceUnionSymbol symbol)
-        => _unionSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
+        => Compilation.TryGetUnionSymbol(node, out symbol!);
 
     internal void RegisterUnionCaseSymbol(UnionCaseClauseSyntax node, SourceUnionCaseTypeSymbol symbol)
-        => _unionCaseSymbols[GetSyntaxNodeMapKey(node)] = symbol;
+        => Compilation.RegisterUnionCaseSymbol(node, symbol);
 
     internal SourceUnionCaseTypeSymbol GetUnionCaseSymbol(UnionCaseClauseSyntax node)
-        => _unionCaseSymbols[GetSyntaxNodeMapKey(node)];
+        => Compilation.GetUnionCaseSymbol(node);
 
     internal bool TryGetUnionCaseSymbol(UnionCaseClauseSyntax node, out SourceUnionCaseTypeSymbol symbol)
-        => _unionCaseSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
-
-    private readonly ConcurrentDictionary<SyntaxNodeMapKey, IMethodSymbol> _methodSymbols = new();
+        => Compilation.TryGetUnionCaseSymbol(node, out symbol!);
 
     internal void RegisterMethodSymbol(MethodDeclarationSyntax node, IMethodSymbol symbol)
-        => _methodSymbols[GetSyntaxNodeMapKey(node)] = symbol;
+        => Compilation.RegisterMethodSymbol(node, symbol);
 
     internal bool TryGetMethodSymbol(MethodDeclarationSyntax node, out IMethodSymbol symbol)
-        => _methodSymbols.TryGetValue(GetSyntaxNodeMapKey(node), out symbol!);
+        => Compilation.TryGetMethodSymbol(node, out symbol!);
 
     private static SyntaxNodeMapKey GetSyntaxNodeMapKey(SyntaxNode node)
         => new(node.SyntaxTree, node.Span, node.Kind);

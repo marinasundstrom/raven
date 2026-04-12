@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Linq;
 
 using Microsoft.Extensions.Logging;
@@ -38,9 +39,21 @@ internal sealed class CompletionHandler : ICompletionHandler
 
     public async Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
     {
+        var totalStopwatch = Stopwatch.StartNew();
+        var gateWaitStopwatch = Stopwatch.StartNew();
+        double gateWaitMs = 0;
+        double analysisContextMs = 0;
+        double semanticModelMs = 0;
+        double providerMs = 0;
+        double completionMaterializationMs = 0;
+        int itemCount = 0;
+        var usedFallback = false;
+        string? failureType = null;
+
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "completion", request.TextDocument.Uri).ConfigureAwait(false);
+            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "completion").ConfigureAwait(false);
+            gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
             _logger.LogDebug(
                 "Completion request for {Uri} at {Line}:{Character}. Trigger={TriggerKind}/{TriggerCharacter}",
                 request.TextDocument.Uri,
@@ -49,23 +62,41 @@ internal sealed class CompletionHandler : ICompletionHandler
                 request.Context?.TriggerKind,
                 request.Context?.TriggerCharacter);
 
+            var stageStopwatch = Stopwatch.StartNew();
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return new CompletionList();
-
-            var compilation = context.Value.Compilation;
             var syntaxTree = context.Value.SyntaxTree;
             var text = context.Value.SourceText;
             var position = Math.Clamp(PositionHelper.ToOffset(text, request.Position), 0, syntaxTree.GetRoot(cancellationToken).FullSpan.End);
 
-            var items = (await _completionService.GetCompletionsAsync(compilation, syntaxTree, position, cancellationToken).ConfigureAwait(false))
+            stageStopwatch.Restart();
+            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (semanticModel is null)
+                return new CompletionList();
+
+            stageStopwatch.Restart();
+            var completion = await _completionService.GetCompletionsWithMetricsAsync(semanticModel, position, cancellationToken).ConfigureAwait(false);
+            semanticModelMs += completion.SemanticModelMs;
+            providerMs = completion.ProviderMs;
+            usedFallback = completion.UsedFallback;
+            failureType = completion.FailureType;
+
+            stageStopwatch.Restart();
+            var items = completion.Items
                 .Select(item => CompletionItemMapper.ToLspCompletion(item, text))
                 .ToList();
+            completionMaterializationMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            itemCount = items.Count;
 
             _logger.LogDebug(
-                "Completion produced {Count} items for {Uri}.",
+                "Completion produced {Count} items for {Uri}. fallback={Fallback} failureType={FailureType}",
                 items.Count,
-                request.TextDocument.Uri);
+                request.TextDocument.Uri,
+                usedFallback,
+                failureType ?? "<none>");
 
             return new CompletionList(items, isIncomplete: false);
         }
@@ -82,6 +113,24 @@ internal sealed class CompletionHandler : ICompletionHandler
                 request.Position.Line,
                 request.Position.Character);
             return new CompletionList();
+        }
+        finally
+        {
+            totalStopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "completion",
+                request.TextDocument.Uri,
+                null,
+                totalStopwatch.Elapsed.TotalMilliseconds,
+                resultCount: itemCount,
+                stages:
+                [
+                    new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", analysisContextMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("provider", providerMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("materializeItems", completionMaterializationMs)
+                ]);
         }
     }
 

@@ -105,7 +105,7 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
             if (resolution is null)
                 return null;
 
-            var targetSymbol = ReferenceSearchService.NormalizeSymbol(resolution.Value.Symbol);
+            var targetSymbol = SymbolResolutionHelpers.GetReferenceTargetSymbol(resolution.Value);
             return await RenameService.BuildWorkspaceEditAsync(
                 _workspaceManager.GetProjectsSnapshot(),
                 targetSymbol,

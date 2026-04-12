@@ -108,6 +108,77 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         Assert.DoesNotContain("var Second_Value: int", expandedText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void GetExpandedRoot_ReusesCachedExpandedDocument()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class Harness {
+                #[Observable]
+                var Title: string
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(MacroCodeGenTests.EmitMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+
+        var first = model.GetExpandedRoot();
+        var second = model.GetExpandedRoot();
+
+        Assert.Same(first, second);
+    }
+
+    [Fact]
+    public void GetExpandedDeclaration_ReusesCachedExpandedSections()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class Harness {
+                #[Observable]
+                var Title: string
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(MacroCodeGenTests.EmitMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AttributeSyntax>()
+            .Single();
+
+        var first = model.GetExpandedDeclaration(attribute);
+        var second = model.GetExpandedDeclaration(attribute);
+
+        Assert.Equal(first.Length, second.Length);
+        for (var i = 0; i < first.Length; i++)
+            Assert.Same(first[i], second[i]);
+    }
+
+    [Fact]
+    public void MacroInstrumentation_TracksExpansionCountsWithoutDoubleCountingCachedExpansion()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => #wrap(21)
+            """);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options)
+            .AddMacroReferences(new MacroReference(typeof(FormattingMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+
+        _ = model.GetMacroExpansion(expression);
+        _ = model.GetMacroExpansion(expression);
+
+        Assert.Equal(1, instrumentation.Macros.FreestandingExpansionInvocations);
+        Assert.Equal(0, instrumentation.Macros.AttachedExpansionInvocations);
+    }
+
     private static int AssertContainsAndGetIndex(string text, string value)
     {
         var index = text.IndexOf(value, StringComparison.Ordinal);

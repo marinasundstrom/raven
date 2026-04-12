@@ -41,15 +41,16 @@ internal sealed class ReferencesHandler : IReferencesHandler
     {
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "references", request.TextDocument.Uri).ConfigureAwait(false);
+            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "references").ConfigureAwait(false);
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return new LocationContainer();
 
-            var compilation = context.Value.Compilation;
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            if (semanticModel is null)
+                return new LocationContainer();
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 
@@ -57,7 +58,7 @@ internal sealed class ReferencesHandler : IReferencesHandler
             if (resolution is null)
                 return new LocationContainer();
 
-            var targetSymbol = ReferenceSearchService.NormalizeSymbol(resolution.Value.Symbol);
+            var targetSymbol = SymbolResolutionHelpers.GetReferenceTargetSymbol(resolution.Value);
             var references = await ReferenceSearchService.FindReferencesAsync(
                     _workspaceManager.GetProjectsSnapshot(),
                     targetSymbol,
@@ -153,7 +154,8 @@ internal static class ReferenceSearchService
                 foreach (var node in root.DescendantNodes().Where(IsReferenceCandidate))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var symbolInfo = semanticModel.GetSymbolInfo(node);
+                    if (!SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, node, out var symbolInfo))
+                        continue;
                     if (!TryMatchesSymbol(symbolInfo, targetSymbol, node, out var referenceSpan))
                         continue;
 

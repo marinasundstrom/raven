@@ -87,7 +87,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "semanticTokens", identifier.TextDocument.Uri).ConfigureAwait(false);
+            using var _ = await _documents.EnterDocumentSemanticAccessAsync(identifier.TextDocument.Uri, cancellationToken, "semanticTokens").ConfigureAwait(false);
             gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
 
             var stageStopwatch = Stopwatch.StartNew();
@@ -96,7 +96,6 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             if (context is null)
                 return;
 
-            var compilation = context.Value.Compilation;
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
             var cacheKey = new SemanticTokensCacheKey(identifier.TextDocument.Uri.ToString(), context.Value.Document.Version);
@@ -116,8 +115,10 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             rootMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var semanticModel = await _documents.GetSemanticModelAsync(identifier.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (semanticModel is null)
+                return;
 
             stageStopwatch.Restart();
             var classification = SemanticClassifier.Classify(root, semanticModel);

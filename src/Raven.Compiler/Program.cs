@@ -809,6 +809,13 @@ var ravenCodeAnalysisPath = ResolveAndCopyLocalDependency(
 
 var useRuntimeAsync = runtimeAsyncOverride
     ?? (version.Moniker.Framework == FrameworkId.NetCoreApp && version.Moniker.Version.Major >= 11);
+#if RAVEN_INSTRUMENTATION
+var performanceInstrumentation = FindDebugDirectory() is not null
+    ? new PerformanceInstrumentation()
+    : PerformanceInstrumentation.Disabled;
+#else
+var performanceInstrumentation = PerformanceInstrumentation.Disabled;
+#endif
 
 var executionOptions = new CompilerExecutionOptions(
     outputKind,
@@ -822,7 +829,8 @@ var executionOptions = new CompilerExecutionOptions(
     asyncInvestigationScope,
     embedCoreTypes,
     enableOverloadLog,
-    overloadLogPath);
+    overloadLogPath,
+    performanceInstrumentation);
 var optionsResult = CreateCompilationOptions(executionOptions);
 var options = optionsResult.Options;
 overloadResolutionLog = optionsResult.OverloadResolutionLog;
@@ -1167,6 +1175,20 @@ if (debugDir is not null)
 {
     Directory.CreateDirectory(debugDir);
 
+#if RAVEN_INSTRUMENTATION
+    File.WriteAllText(
+        Path.Combine(debugDir, "binder-reentry.compile.txt"),
+        compilation.PerformanceInstrumentation.BinderReentry.GetSummary());
+    compilation.PerformanceInstrumentation.BinderReentry.Reset();
+    File.WriteAllText(
+        Path.Combine(debugDir, "macro-performance.compile.txt"),
+        compilation.PerformanceInstrumentation.Macros.GetSummary());
+    compilation.PerformanceInstrumentation.Macros.Reset();
+    File.WriteAllText(
+        Path.Combine(debugDir, "compiler-setup.compile.txt"),
+        compilation.PerformanceInstrumentation.Setup.GetSummary());
+    compilation.PerformanceInstrumentation.Setup.Reset();
+
     foreach (var document in project.Documents)
     {
         var syntaxTree = document.GetSyntaxTreeAsync().Result!;
@@ -1240,6 +1262,17 @@ if (debugDir is not null)
             File.WriteAllText(Path.Combine(debugDir, $"{name}.bound-tree.txt"), sw.ToString());
         }
     }
+
+    File.WriteAllText(
+        Path.Combine(debugDir, "binder-reentry.debug-artifacts.txt"),
+        compilation.PerformanceInstrumentation.BinderReentry.GetSummary());
+    File.WriteAllText(
+        Path.Combine(debugDir, "macro-performance.debug-artifacts.txt"),
+        compilation.PerformanceInstrumentation.Macros.GetSummary());
+    File.WriteAllText(
+        Path.Combine(debugDir, "compiler-setup.debug-artifacts.txt"),
+        compilation.PerformanceInstrumentation.Setup.GetSummary());
+#endif
 
     AnsiConsole.MarkupLine($"[yellow]Debug output written to '{debugDir}'.[/]");
 }
@@ -1512,7 +1545,8 @@ static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog
         .WithAllowGlobalStatements(executionOptions.AllowGlobalStatements)
         .WithRuntimeAsync(executionOptions.UseRuntimeAsync)
         .WithEmbedCoreTypes(executionOptions.EmbedCoreTypes)
-        .WithEnableSuggestions(executionOptions.EnableSuggestions);
+        .WithEnableSuggestions(executionOptions.EnableSuggestions)
+        .WithPerformanceInstrumentation(executionOptions.PerformanceInstrumentation);
 
     if (executionOptions.MembersPublicByDefault is bool membersPublicByDefault)
         options = options.WithMembersPublicByDefault(membersPublicByDefault);
@@ -2522,4 +2556,5 @@ readonly record struct CompilerExecutionOptions(
     AsyncInvestigationPointerLabelScope AsyncInvestigationScope,
     bool EmbedCoreTypes,
     bool EnableOverloadLog,
-    string? OverloadLogPath);
+    string? OverloadLogPath,
+    PerformanceInstrumentation PerformanceInstrumentation);

@@ -1838,8 +1838,13 @@ internal abstract partial class Binder
 
     public virtual BoundNode GetOrBind(SyntaxNode node)
     {
+        SemanticModel?.Compilation.PerformanceInstrumentation.BinderReentry.RecordInvocation(node);
+
         if (TryGetCachedBoundNode(node) is BoundNode cached)
+        {
+            SemanticModel?.Compilation.PerformanceInstrumentation.BinderReentry.RecordCacheHit(node);
             return cached;
+        }
 
         if (node is FunctionExpressionSyntax lambdaSyntax &&
             lambdaSyntax.Parent is ArgumentSyntax argument &&
@@ -1849,8 +1854,13 @@ internal abstract partial class Binder
             _ = BindExpression(invocation);
 
             if (TryGetCachedBoundNode(node) is BoundNode rebound)
+            {
+                SemanticModel?.Compilation.PerformanceInstrumentation.BinderReentry.RecordCacheHit(node);
                 return rebound;
+            }
         }
+
+        SemanticModel?.Compilation.PerformanceInstrumentation.BinderReentry.RecordBindExecution(node);
 
         BoundNode result = node switch
         {

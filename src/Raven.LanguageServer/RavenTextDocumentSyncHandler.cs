@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 
@@ -24,18 +25,25 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
     private const int AnalysisWarmupDebounceMilliseconds = 75;
     private const int DiagnosticsDebounceMilliseconds = 250;
+    private const int FullDiagnosticsAfterEditDelayMilliseconds = 250;
+    private const int FullDiagnosticsAfterSaveDelayMilliseconds = 350;
+    private const int DiagnosticsRetryDelayMilliseconds = 150;
     private const double DidCloseLogThresholdMs = 50;
 
     private readonly DocumentStore _documents;
+    private readonly HoverHandler _hoverHandler;
     private readonly ILanguageServerFacade _languageServer;
     private readonly ILogger<RavenTextDocumentSyncHandler> _logger;
     private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingDiagnostics = new();
     private readonly ConcurrentDictionary<DocumentUri, SemaphoreSlim> _documentUpdateGates = new();
     private readonly ConcurrentDictionary<DocumentUri, int> _documentVersions = new();
+    private readonly ConcurrentDictionary<DocumentUri, int> _lastPublishedDiagnosticVersions = new();
+    private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<PublishedDiagnosticValue>> _lastPublishedDiagnostics = new();
 
-    public RavenTextDocumentSyncHandler(DocumentStore documents, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
+    public RavenTextDocumentSyncHandler(DocumentStore documents, HoverHandler hoverHandler, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
     {
         _documents = documents;
+        _hoverHandler = hoverHandler;
         _languageServer = languageServer;
         _logger = logger;
     }
@@ -48,18 +56,32 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     private async Task<Unit> HandleDidOpenAsync(DidOpenTextDocumentParams notification, CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
+
         try
         {
+            _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
             _documents.UpsertDocument(notification.TextDocument.Uri, notification.TextDocument.Text);
             if (notification.TextDocument.Version is { } openVersion)
                 _documentVersions[notification.TextDocument.Uri] = openVersion;
+            LanguageServerPerformanceInstrumentation.RecordDocumentEdit(
+                notification.TextDocument.Uri,
+                notification.TextDocument.Version,
+                "didOpen");
             _logger.LogDebug(
                 "DidOpen {Uri} (version={Version}, length={Length}).",
                 notification.TextDocument.Uri,
                 notification.TextDocument.Version,
                 notification.TextDocument.Text?.Length ?? 0);
 
-            return await ScheduleDiagnosticsPublishAsync(notification.TextDocument.Uri).ConfigureAwait(false);
+            var result = await ScheduleDiagnosticsPublishAsync(notification.TextDocument.Uri).ConfigureAwait(false);
+            stopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "didOpen",
+                notification.TextDocument.Uri,
+                notification.TextDocument.Version,
+                stopwatch.Elapsed.TotalMilliseconds);
+            return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -80,19 +102,40 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         if (IsStaleChange(notification.TextDocument.Uri, notification.TextDocument.Version))
             return Unit.Value;
 
+        var totalStopwatch = Stopwatch.StartNew();
+        var gateWaitStopwatch = Stopwatch.StartNew();
+        double gateWaitMs = 0;
+        double getCurrentTextMs = 0;
+        double applyChangesMs = 0;
+        double updateDocumentMs = 0;
+        double scheduleMs = 0;
         var gate = _documentUpdateGates.GetOrAdd(notification.TextDocument.Uri, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
 
         try
         {
             if (IsStaleChange(notification.TextDocument.Uri, notification.TextDocument.Version))
                 return Unit.Value;
 
+            var stageStopwatch = Stopwatch.StartNew();
             var currentText = await GetCurrentDocumentTextAsync(notification.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            getCurrentTextMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            stageStopwatch.Restart();
             var updatedText = ApplyContentChanges(currentText, notification.ContentChanges);
+            applyChangesMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            stageStopwatch.Restart();
+            _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
             _documents.UpsertDocument(notification.TextDocument.Uri, updatedText);
             if (notification.TextDocument.Version is { } appliedVersion)
                 _documentVersions[notification.TextDocument.Uri] = appliedVersion;
+            updateDocumentMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            LanguageServerPerformanceInstrumentation.RecordDocumentEdit(
+                notification.TextDocument.Uri,
+                notification.TextDocument.Version,
+                "didChange");
             _logger.LogInformation(
                 "DidChange applied for {Uri} (version={Version}, changeCount={ChangeCount}, previousLength={PreviousLength}, updatedLength={UpdatedLength}).",
                 notification.TextDocument.Uri,
@@ -107,7 +150,17 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 notification.ContentChanges.Count(),
                 currentText.Length,
                 updatedText.Length);
-            return await ScheduleDiagnosticsPublishAsync(notification.TextDocument.Uri).ConfigureAwait(false);
+            var policy = GetEditDiagnosticsPolicy();
+            stageStopwatch.Restart();
+            var result = await ScheduleDiagnosticsPublishAsync(
+                notification.TextDocument.Uri,
+                includeWarmup: policy.IncludeWarmup,
+                warmupDelayMilliseconds: AnalysisWarmupDebounceMilliseconds,
+                initialDiagnosticsMode: policy.InitialMode,
+                fullDiagnosticsDelayMilliseconds: policy.FullDiagnosticsDelayMilliseconds,
+                diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
+            scheduleMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -120,6 +173,20 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         }
         finally
         {
+            totalStopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "didChange",
+                notification.TextDocument.Uri,
+                notification.TextDocument.Version,
+                totalStopwatch.Elapsed.TotalMilliseconds,
+                stages:
+                [
+                    new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("getCurrentText", getCurrentTextMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("applyChanges", applyChangesMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("updateDocument", updateDocumentMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("scheduleDiagnostics", scheduleMs)
+                ]);
             gate.Release();
         }
     }
@@ -181,15 +248,18 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override Task<Unit> Handle(DidCloseTextDocumentParams notification, CancellationToken cancellationToken)
         => HandleDidCloseAsync(notification, cancellationToken);
 
-    private async Task<Unit> HandleDidCloseAsync(DidCloseTextDocumentParams notification, CancellationToken cancellationToken)
+    private Task<Unit> HandleDidCloseAsync(DidCloseTextDocumentParams notification, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
 
         try
         {
             _logger.LogInformation("DidClose started for {Uri}.", notification.TextDocument.Uri);
+            _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
             CancelPendingDiagnostics(notification.TextDocument.Uri);
             _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
+            _lastPublishedDiagnosticVersions.TryRemove(notification.TextDocument.Uri, out _);
+            _lastPublishedDiagnostics.TryRemove(notification.TextDocument.Uri, out _);
 
             if (_documentUpdateGates.TryRemove(notification.TextDocument.Uri, out var gate))
                 gate.Dispose();
@@ -200,18 +270,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 Diagnostics = new Container<Diagnostic>()
             });
 
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    _documents.RemoveDocument(notification.TextDocument.Uri);
-                    _logger.LogInformation("Deferred DidClose cleanup completed for {Uri}.", notification.TextDocument.Uri);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Deferred DidClose cleanup failed for {Uri}.", notification.TextDocument.Uri);
-                }
-            }, CancellationToken.None);
+            _documents.RemoveDocument(notification.TextDocument.Uri);
+            _logger.LogInformation("DidClose cleanup completed for {Uri}.", notification.TextDocument.Uri);
         }
         catch (Exception ex)
         {
@@ -236,17 +296,35 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             }
         }
 
-        return Unit.Value;
+        return Task.FromResult(Unit.Value);
     }
 
     public override async Task<Unit> Handle(DidSaveTextDocumentParams notification, CancellationToken cancellationToken)
     {
         _logger.LogDebug("DidSave {Uri}.", notification.TextDocument.Uri);
+        var policy = GetSaveDiagnosticsPolicy();
         return await ScheduleDiagnosticsPublishAsync(
             notification.TextDocument.Uri,
+            includeWarmup: policy.IncludeWarmup,
             warmupDelayMilliseconds: 0,
-            diagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds).ConfigureAwait(false);
+            initialDiagnosticsMode: policy.InitialMode,
+            fullDiagnosticsDelayMilliseconds: policy.FullDiagnosticsDelayMilliseconds,
+            diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
     }
+
+    internal static SaveDiagnosticsPolicy GetSaveDiagnosticsPolicy()
+        => new(
+            IncludeWarmup: false,
+            InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
+            FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterSaveDelayMilliseconds,
+            DiagnosticsDelayMilliseconds: 0);
+
+    internal static SaveDiagnosticsPolicy GetEditDiagnosticsPolicy()
+        => new(
+            IncludeWarmup: true,
+            InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
+            FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterEditDelayMilliseconds,
+            DiagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds);
 
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)
         => new()
@@ -261,7 +339,10 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     private Task<Unit> ScheduleDiagnosticsPublishAsync(
         DocumentUri uri,
+        bool includeWarmup = true,
         int warmupDelayMilliseconds = AnalysisWarmupDebounceMilliseconds,
+        DocumentStore.DocumentDiagnosticsMode initialDiagnosticsMode = DocumentStore.DocumentDiagnosticsMode.Full,
+        int? fullDiagnosticsDelayMilliseconds = null,
         int diagnosticsDelayMilliseconds = DiagnosticsDebounceMilliseconds)
     {
         var source = new CancellationTokenSource();
@@ -269,6 +350,16 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         int? expectedVersion = _documentVersions.TryGetValue(uri, out var currentVersion)
             ? currentVersion
             : null;
+        if (ShouldClearStaleDiagnostics(expectedVersion, _lastPublishedDiagnosticVersions.TryGetValue(uri, out var lastPublishedVersion) ? lastPublishedVersion : null))
+        {
+            _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
+            {
+                Uri = uri,
+                Diagnostics = new Container<Diagnostic>()
+            });
+            _lastPublishedDiagnostics[uri] = ImmutableArray<PublishedDiagnosticValue>.Empty;
+        }
+
         _logger.LogInformation(
             "Scheduling diagnostics for {Uri} (expectedVersion={ExpectedVersion}, warmupDelay={WarmupDelayMs}ms, diagnosticsDelay={DiagnosticsDelayMs}ms).",
             uri,
@@ -301,35 +392,53 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             try
             {
-                if (warmupDelayMilliseconds > 0)
-                    await Task.Delay(warmupDelayMilliseconds, token).ConfigureAwait(false);
+                if (includeWarmup)
+                {
+                    if (warmupDelayMilliseconds > 0)
+                        await Task.Delay(warmupDelayMilliseconds, token).ConfigureAwait(false);
+
+                    if (ShouldSkipVersion(uri, expectedVersion))
+                        return;
+
+                    _logger.LogInformation(
+                        "Starting analysis warmup for {Uri} (expectedVersion={ExpectedVersion}, warmupDelay={WarmupDelayMs}ms, diagnosticsDelay={DiagnosticsDelayMs}ms).",
+                        uri,
+                        expectedVersion?.ToString() ?? "<none>",
+                        warmupDelayMilliseconds,
+                        diagnosticsDelayMilliseconds);
+                    await _documents.WarmAnalysisAsync(
+                        uri,
+                        shouldSkipWork: () => token.IsCancellationRequested || ShouldSkipVersion(uri, expectedVersion),
+                        token).ConfigureAwait(false);
+                    _logger.LogInformation(
+                        "Completed analysis warmup for {Uri} (expectedVersion={ExpectedVersion}).",
+                        uri,
+                        expectedVersion?.ToString() ?? "<none>");
+
+                    var remainingDiagnosticsDelay = diagnosticsDelayMilliseconds - warmupDelayMilliseconds;
+                    if (remainingDiagnosticsDelay > 0)
+                        await Task.Delay(remainingDiagnosticsDelay, token).ConfigureAwait(false);
+                }
+                else if (diagnosticsDelayMilliseconds > 0)
+                {
+                    await Task.Delay(diagnosticsDelayMilliseconds, token).ConfigureAwait(false);
+                }
 
                 if (ShouldSkipVersion(uri, expectedVersion))
                     return;
 
-                _logger.LogInformation(
-                    "Starting analysis warmup for {Uri} (expectedVersion={ExpectedVersion}, warmupDelay={WarmupDelayMs}ms, diagnosticsDelay={DiagnosticsDelayMs}ms).",
-                    uri,
-                    expectedVersion?.ToString() ?? "<none>",
-                    warmupDelayMilliseconds,
-                    diagnosticsDelayMilliseconds);
-                await _documents.WarmAnalysisAsync(
-                    uri,
-                    shouldSkipWork: () => token.IsCancellationRequested || ShouldSkipVersion(uri, expectedVersion),
-                    token).ConfigureAwait(false);
-                _logger.LogInformation(
-                    "Completed analysis warmup for {Uri} (expectedVersion={ExpectedVersion}).",
-                    uri,
-                    expectedVersion?.ToString() ?? "<none>");
+                await PublishDiagnosticsAsync(uri, token, expectedVersion, initialDiagnosticsMode).ConfigureAwait(false);
 
-                var remainingDiagnosticsDelay = diagnosticsDelayMilliseconds - warmupDelayMilliseconds;
-                if (remainingDiagnosticsDelay > 0)
-                    await Task.Delay(remainingDiagnosticsDelay, token).ConfigureAwait(false);
+                if (fullDiagnosticsDelayMilliseconds is { } followUpDelay &&
+                    initialDiagnosticsMode != DocumentStore.DocumentDiagnosticsMode.Full)
+                {
+                    await Task.Delay(followUpDelay, token).ConfigureAwait(false);
 
-                if (ShouldSkipVersion(uri, expectedVersion))
-                    return;
+                    if (ShouldSkipVersion(uri, expectedVersion))
+                        return;
 
-                await PublishDiagnosticsAsync(uri, token, expectedVersion).ConfigureAwait(false);
+                    await PublishDiagnosticsAsync(uri, token, expectedVersion, DocumentStore.DocumentDiagnosticsMode.Full).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -390,17 +499,35 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         }
     }
 
-    private async Task<Unit> PublishDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken, int? expectedVersion = null)
+    private async Task<Unit> PublishDiagnosticsAsync(
+        DocumentUri uri,
+        CancellationToken cancellationToken,
+        int? expectedVersion = null,
+        DocumentStore.DocumentDiagnosticsMode mode = DocumentStore.DocumentDiagnosticsMode.Full)
     {
+        var stopwatch = Stopwatch.StartNew();
+        int diagnosticsCount = 0;
+        var wasSkipped = false;
+
         try
         {
             if (ShouldSkipVersion(uri, expectedVersion))
                 return Unit.Value;
 
-            var diagnostics = await _documents.GetDiagnosticsAsync(
+            var result = await _documents.TryGetDiagnosticsAsync(
                 uri,
+                mode,
                 shouldSkipWork: () => cancellationToken.IsCancellationRequested || ShouldSkipVersion(uri, expectedVersion),
                 cancellationToken).ConfigureAwait(false);
+            if (result.WasSkipped)
+            {
+                wasSkipped = true;
+                RequeueDiagnosticsPublish(uri, expectedVersion, mode, DiagnosticsRetryDelayMilliseconds);
+                return Unit.Value;
+            }
+
+            var diagnostics = result.Diagnostics;
+            var diagnosticValues = CreatePublishedDiagnosticValues(diagnostics);
 
             if (expectedVersion is { } expected &&
                 _documentVersions.TryGetValue(uri, out var latestVersion) &&
@@ -414,16 +541,40 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 return Unit.Value;
             }
 
+            if (_lastPublishedDiagnostics.TryGetValue(uri, out var lastPublishedDiagnostics) &&
+                lastPublishedDiagnostics.SequenceEqual(diagnosticValues))
+            {
+                diagnosticsCount = diagnostics.Count;
+                if (expectedVersion is { } stableVersion)
+                    _lastPublishedDiagnosticVersions[uri] = stableVersion;
+
+                var diagnosticSummary = SummarizeDiagnosticsForLog(diagnostics);
+
+                _logger.LogDebug(
+                    "Skipped diagnostics publish for {Uri}: diagnostic set unchanged (expectedVersion={ExpectedVersion}, count={Count}, summary={Summary}).",
+                    uri,
+                    expectedVersion?.ToString() ?? "<none>",
+                    diagnostics.Count,
+                    diagnosticSummary);
+                return Unit.Value;
+            }
+
             _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
                 Uri = uri,
                 Diagnostics = new Container<Diagnostic>(diagnostics)
             });
+            diagnosticsCount = diagnostics.Count;
+            _lastPublishedDiagnostics[uri] = diagnosticValues;
+            if (expectedVersion is { } publishedVersion)
+                _lastPublishedDiagnosticVersions[uri] = publishedVersion;
+            var publishedDiagnosticSummary = SummarizeDiagnosticsForLog(diagnostics);
             _logger.LogInformation(
-                "Published diagnostics for {Uri} (expectedVersion={ExpectedVersion}, count={Count}).",
+                "Published diagnostics for {Uri} (expectedVersion={ExpectedVersion}, count={Count}, summary={Summary}).",
                 uri,
                 expectedVersion?.ToString() ?? "<none>",
-                diagnostics.Count);
+                diagnostics.Count,
+                publishedDiagnosticSummary);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -433,7 +584,150 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             _logger.LogError(ex, "Publishing diagnostics failed for {Uri}.", uri);
         }
+        finally
+        {
+            stopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                wasSkipped
+                    ? mode == DocumentStore.DocumentDiagnosticsMode.SyntaxOnly
+                        ? "publishSyntaxDiagnosticsSkipped"
+                        : "publishDiagnosticsSkipped"
+                    : mode == DocumentStore.DocumentDiagnosticsMode.SyntaxOnly
+                        ? "publishSyntaxDiagnostics"
+                        : "publishDiagnostics",
+                uri,
+                expectedVersion,
+                stopwatch.Elapsed.TotalMilliseconds,
+                resultCount: diagnosticsCount);
+        }
 
         return Unit.Value;
+    }
+
+    private void RequeueDiagnosticsPublish(
+        DocumentUri uri,
+        int? expectedVersion,
+        DocumentStore.DocumentDiagnosticsMode mode,
+        int delayMilliseconds)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(delayMilliseconds).ConfigureAwait(false);
+                if (ShouldSkipVersion(uri, expectedVersion))
+                    return;
+
+                using var retryCancellation = new CancellationTokenSource();
+                await PublishDiagnosticsAsync(uri, retryCancellation.Token, expectedVersion, mode).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Deferred diagnostics retry failed for {Uri}.", uri);
+            }
+        }, CancellationToken.None);
+    }
+
+    internal static bool ShouldClearStaleDiagnostics(int? expectedVersion, int? lastPublishedVersion)
+        => expectedVersion is { } expected &&
+           lastPublishedVersion is { } published &&
+           published != expected;
+
+    internal static ImmutableArray<PublishedDiagnosticValue> CreatePublishedDiagnosticValues(IReadOnlyList<Diagnostic> diagnostics)
+        => diagnostics
+            .Select(static diagnostic => PublishedDiagnosticValue.From(diagnostic))
+            .OrderBy(static diagnostic => diagnostic)
+            .ToImmutableArray();
+
+    internal static string SummarizeDiagnosticsForLog(IReadOnlyList<Diagnostic> diagnostics)
+    {
+        if (diagnostics.Count == 0)
+            return "none";
+
+        return string.Join(
+            ", ",
+            diagnostics
+                .GroupBy(static diagnostic => GetDiagnosticCodeForLog(diagnostic))
+                .OrderByDescending(static group => group.Count())
+                .ThenBy(static group => group.Key, StringComparer.Ordinal)
+                .Select(static group => $"{group.Key}x{group.Count()}"));
+    }
+
+    private static string GetDiagnosticCodeForLog(Diagnostic diagnostic)
+    {
+        var code = diagnostic.Code?.String;
+        return string.IsNullOrWhiteSpace(code) ? "<no-code>" : code;
+    }
+
+    internal readonly record struct SaveDiagnosticsPolicy(
+        bool IncludeWarmup,
+        DocumentStore.DocumentDiagnosticsMode InitialMode,
+        int? FullDiagnosticsDelayMilliseconds,
+        int DiagnosticsDelayMilliseconds);
+
+    internal readonly record struct PublishedDiagnosticValue(
+        int StartLine,
+        int StartCharacter,
+        int EndLine,
+        int EndCharacter,
+        string Message,
+        string? Code,
+        DiagnosticSeverity? Severity,
+        string? Source,
+        string TagsKey) : IComparable<PublishedDiagnosticValue>
+    {
+        public static PublishedDiagnosticValue From(Diagnostic diagnostic)
+            => new(
+                diagnostic.Range.Start.Line,
+                diagnostic.Range.Start.Character,
+                diagnostic.Range.End.Line,
+                diagnostic.Range.End.Character,
+                diagnostic.Message ?? string.Empty,
+                diagnostic.Code?.String,
+                diagnostic.Severity,
+                diagnostic.Source,
+                diagnostic.Tags is null || !diagnostic.Tags.Any()
+                    ? string.Empty
+                    : string.Join("|", diagnostic.Tags.OrderBy(static tag => (int)tag).Select(static tag => ((int)tag).ToString())));
+
+        public int CompareTo(PublishedDiagnosticValue other)
+        {
+            var comparison = StartLine.CompareTo(other.StartLine);
+            if (comparison != 0)
+                return comparison;
+
+            comparison = StartCharacter.CompareTo(other.StartCharacter);
+            if (comparison != 0)
+                return comparison;
+
+            comparison = EndLine.CompareTo(other.EndLine);
+            if (comparison != 0)
+                return comparison;
+
+            comparison = EndCharacter.CompareTo(other.EndCharacter);
+            if (comparison != 0)
+                return comparison;
+
+            comparison = string.Compare(Code, other.Code, StringComparison.Ordinal);
+            if (comparison != 0)
+                return comparison;
+
+            comparison = Severity.GetValueOrDefault().CompareTo(other.Severity.GetValueOrDefault());
+            if (comparison != 0)
+                return comparison;
+
+            comparison = string.Compare(Source, other.Source, StringComparison.Ordinal);
+            if (comparison != 0)
+                return comparison;
+
+            comparison = string.Compare(Message, other.Message, StringComparison.Ordinal);
+            if (comparison != 0)
+                return comparison;
+
+            return string.Compare(TagsKey, other.TagsKey, StringComparison.Ordinal);
+        }
     }
 }

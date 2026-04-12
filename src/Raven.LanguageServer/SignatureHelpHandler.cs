@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 
 using Microsoft.Extensions.Logging;
@@ -42,20 +43,34 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
     public async Task<SignatureHelp?> Handle(SignatureHelpParams request, CancellationToken cancellationToken)
     {
+        var totalStopwatch = Stopwatch.StartNew();
+        var gateWaitStopwatch = Stopwatch.StartNew();
+        double gateWaitMs = 0;
+        double analysisContextMs = 0;
+        double semanticModelMs = 0;
+        double resolutionMs = 0;
+        int resultCount = 0;
+
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "signatureHelp", request.TextDocument.Uri).ConfigureAwait(false);
+            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "signatureHelp").ConfigureAwait(false);
+            gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
+            var stageStopwatch = Stopwatch.StartNew();
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return null;
-
-            var compilation = context.Value.Compilation;
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            stageStopwatch.Restart();
+            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (semanticModel is null)
+                return null;
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 
+            stageStopwatch.Restart();
             var invocation = TryGetInvocationAtPosition(root, offset);
             var plainTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
                 .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
@@ -75,6 +90,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 var signatures = methods
                     .Select(method => CreateSignatureInformation(method, plainTypeFormat))
                     .ToArray();
+                resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+                resultCount = signatures.Length;
 
                 return new SignatureHelp
                 {
@@ -100,6 +117,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             var indexerSignatures = indexers
                 .Select(indexer => CreateSignatureInformation(indexer, plainTypeFormat))
                 .ToArray();
+            resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            resultCount = indexerSignatures.Length;
 
             return new SignatureHelp
             {
@@ -121,6 +140,23 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 request.Position.Line,
                 request.Position.Character);
             return null;
+        }
+        finally
+        {
+            totalStopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "signatureHelp",
+                request.TextDocument.Uri,
+                null,
+                totalStopwatch.Elapsed.TotalMilliseconds,
+                resultCount: resultCount,
+                stages:
+                [
+                    new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", analysisContextMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("resolution", resolutionMs)
+                ]);
         }
     }
 

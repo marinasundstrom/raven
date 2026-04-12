@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 using Microsoft.Extensions.Logging;
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -37,34 +39,53 @@ internal sealed class DefinitionHandler : IDefinitionHandler
 
     public async Task<LocationOrLocationLinks?> Handle(DefinitionParams request, CancellationToken cancellationToken)
     {
+        var totalStopwatch = Stopwatch.StartNew();
+        var gateWaitStopwatch = Stopwatch.StartNew();
+        double gateWaitMs = 0;
+        double analysisContextMs = 0;
+        double semanticModelMs = 0;
+        double resolutionMs = 0;
+        int resultCount = 0;
+
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "definition", request.TextDocument.Uri).ConfigureAwait(false);
+            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "definition").ConfigureAwait(false);
+            gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
+            var stageStopwatch = Stopwatch.StartNew();
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return new LocationOrLocationLinks();
-
             var document = context.Value.Document;
-            var compilation = context.Value.Compilation;
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            stageStopwatch.Restart();
+            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (semanticModel is null)
+                return new LocationOrLocationLinks();
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 
             if (TryResolveMacroDefinition(document.Project, root, offset, sourceText, out var macroLinks))
+            {
+                resultCount = macroLinks.Length;
                 return new LocationOrLocationLinks(macroLinks);
+            }
 
+            stageStopwatch.Restart();
             var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
+            resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (resolution is null)
                 return new LocationOrLocationLinks();
 
             var links = DefinitionLocationMapper.BuildLocationLinks(
-                    resolution.Value.Symbol,
+                    SymbolResolutionHelpers.GetNavigationTargetSymbol(resolution.Value),
                     sourceText,
                     resolution.Value.Node.Span)
                 .Select(location => (LocationOrLocationLink)location)
                 .ToArray();
+            resultCount = links.Length;
 
             return new LocationOrLocationLinks(links);
         }
@@ -81,6 +102,23 @@ internal sealed class DefinitionHandler : IDefinitionHandler
                 request.Position.Line,
                 request.Position.Character);
             return new LocationOrLocationLinks();
+        }
+        finally
+        {
+            totalStopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "definition",
+                request.TextDocument.Uri,
+                null,
+                totalStopwatch.Elapsed.TotalMilliseconds,
+                resultCount: resultCount,
+                stages:
+                [
+                    new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", analysisContextMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("resolution", resolutionMs)
+                ]);
         }
     }
 

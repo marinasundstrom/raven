@@ -1547,6 +1547,83 @@ class C {
     }
 
     [Fact]
+    public void SymbolResolver_MemberReceiverHover_ResolvesParameterFromNodeInterestPath()
+    {
+        const string code = """
+class Counter {
+    func Value() -> int => 0
+}
+
+class C {
+    func Run(counter: Counter) -> int {
+        counter.Value()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var memberAccess = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single();
+        var token = memberAccess.Expression
+            .DescendantTokens()
+            .Single(t => t.Kind == SyntaxKind.IdentifierToken && t.ValueText == "counter");
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.MemberReceiver);
+        resolution.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>().Name.ShouldBe("counter");
+    }
+
+    [Fact]
+    public void SymbolResolver_MemberReceiverHover_ResolvesLocalFromNodeInterestPath()
+    {
+        const string code = """
+class Counter {
+    func Value() -> int => 0
+}
+
+class C {
+    func Run() -> int {
+        val counter = Counter()
+        counter.Value()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var memberAccess = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single();
+        var token = memberAccess.Expression
+            .DescendantTokens()
+            .Single(t => t.Kind == SyntaxKind.IdentifierToken && t.ValueText == "counter");
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.MemberReceiver);
+        resolution.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("counter");
+    }
+
+    [Fact]
     public void SymbolResolver_IfPatternStatementHover_DoesNotThrow()
     {
         const string code = """
@@ -1614,4 +1691,178 @@ class C {
 
         Should.NotThrow(() => SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1));
     }
+
+    [Fact]
+    public void PipeInvocationTargetHover_UsesResolvedMethodSignature()
+    {
+        const string code = """
+import System.*
+
+class Runner {
+    static func Where(value: Int32, predicate: (Int32) -> bool) -> Int32 {
+        return value
+    }
+
+    static func Main() -> unit {
+        val query = 5
+            |> Where(x => x > 1)
+
+        query
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var whereIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(id => id.Identifier.ValueText == "Where");
+        var buildDisplaySignatureForResolvedHover = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        foreach (var hoverOffset in Enumerable.Range(whereIdentifier.Identifier.SpanStart, whereIdentifier.Identifier.Span.Length + 1))
+        {
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+            resolution.ShouldNotBeNull();
+            resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.InvocationTarget);
+            resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>().Name.ShouldBe("Where");
+
+            var signature = (string)buildDisplaySignatureForResolvedHover.Invoke(null, [resolution.Value, semanticModel, root, hoverOffset])!;
+            signature.ShouldContain("Where");
+            signature.ShouldNotContain("val query");
+            signature.ShouldNotContain("Error");
+        }
+    }
+
+    [Fact]
+    public void ConstructorInvocationTypeHover_UsesNamedTypeSignatureInsteadOfUnitFallback()
+    {
+        const string code = """
+class Api {
+    func ping(name: string) -> PingResult {
+        PingResult("pong $name")
+    }
+}
+
+record PingResult(val Message: string)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var token = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "PingResult" &&
+            t.Parent?.Parent is InvocationExpressionSyntax);
+        var hoverOffset = token.SpanStart + 1;
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().Name.ShouldBe("PingResult");
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignatureForHover.Invoke(null, [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
+        signature.ShouldContain("PingResult");
+        signature.ShouldNotBe("()");
+    }
+
+    [Fact]
+    public void ReturnTypeIdentifierHover_UsesNamedTypeSignature()
+    {
+        const string code = """
+class Api {
+    func ping(name: string) -> PingResult {
+        PingResult("pong $name")
+    }
+}
+
+record PingResult(val Message: string)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var token = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "PingResult" &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is ArrowTypeClauseSyntax) == true);
+        var hoverOffset = token.SpanStart + 1;
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().Name.ShouldBe("PingResult");
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignatureForHover.Invoke(null, [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
+        signature.ShouldContain("PingResult");
+        signature.ShouldNotBe("()");
+    }
+
+    [Fact]
+    public void GenericTypeArgumentHover_UsesNamedTypeSignature()
+    {
+        const string code = """
+record PingResult(val Message: string)
+record CustomError(val Message: string)
+
+class Api {
+    func ping(name: string) -> Result<PingResult, CustomError> {
+        Error(CustomError("bad"))
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var token = root.DescendantTokens().First(t =>
+            t.Kind == SyntaxKind.IdentifierToken &&
+            t.ValueText == "CustomError" &&
+            t.Parent?.AncestorsAndSelf().Any(static n => n is ArrowTypeClauseSyntax) == true);
+        var hoverOffset = token.SpanStart + 1;
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().Name.ShouldBe("CustomError");
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignatureForHover.Invoke(null, [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
+        signature.ShouldContain("CustomError");
+        signature.ShouldNotBe("()");
+    }
+
 }

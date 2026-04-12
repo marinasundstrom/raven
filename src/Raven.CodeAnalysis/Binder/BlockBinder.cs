@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -15,6 +16,7 @@ namespace Raven.CodeAnalysis;
 partial class BlockBinder : Binder
 {
     private readonly ISymbol _containingSymbol;
+    private readonly object _executionGate = new();
     protected readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals = new();
     private readonly Dictionary<string, (SourceNamedTypeSymbol Symbol, int Depth)> _localTypes = new();
     private readonly List<(ILocalSymbol Local, int Depth)> _localsToDispose = new();
@@ -63,6 +65,7 @@ partial class BlockBinder : Binder
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
     {
+        using var _ = EnterExecutionScope();
         return node switch
         {
             VariableDeclaratorSyntax
@@ -106,6 +109,7 @@ partial class BlockBinder : Binder
 
     public override SymbolInfo BindReferencedSymbol(SyntaxNode node)
     {
+        using var _ = EnterExecutionScope();
         return node switch
         {
             ExpressionSyntax expr => BindExpression(expr).GetSymbolInfo(),
@@ -724,6 +728,8 @@ partial class BlockBinder : Binder
 
     public override BoundStatement BindStatement(StatementSyntax statement)
     {
+        using var _ = EnterExecutionScope();
+
         if (TryGetCachedBoundNode(statement) is BoundStatement cached)
             return cached;
 
@@ -975,8 +981,10 @@ partial class BlockBinder : Binder
 
     public TargetTypeScope PushTargetType(ITypeSymbol? targetType)
     {
+        Monitor.Enter(_executionGate);
+        var depthBeforePush = _targetTypeStack.Count;
         _targetTypeStack.Push(targetType);
-        return new TargetTypeScope(this);
+        return new TargetTypeScope(this, depthBeforePush);
     }
 
     private BoundExpression BindExpressionWithTargetType(
@@ -994,6 +1002,8 @@ partial class BlockBinder : Binder
 
     public override BoundExpression BindExpression(ExpressionSyntax syntax)
     {
+        using var _ = EnterExecutionScope();
+
         // Collection literals are target-type-sensitive. Reusing a cached node can
         // apply a previous context (for example, inferred array) in a later binding
         // that has an explicit target type.
@@ -1057,6 +1067,8 @@ partial class BlockBinder : Binder
 
     public override BoundNode GetOrBind(SyntaxNode node)
     {
+        using var _ = EnterExecutionScope();
+
         if (node is ArrowExpressionClauseSyntax arrow)
         {
             if (TryGetCachedBoundNode(arrow) is BoundNode cached)
@@ -1072,6 +1084,12 @@ partial class BlockBinder : Binder
         }
 
         return base.GetOrBind(node);
+    }
+
+    private ExecutionScope EnterExecutionScope()
+    {
+        Monitor.Enter(_executionGate);
+        return new ExecutionScope(_executionGate);
     }
 
     private BoundExpression BindReceiverBindingExpression(ReceiverBindingExpressionSyntax syntax)
@@ -11291,15 +11309,40 @@ partial class BlockBinder : Binder
     public readonly struct TargetTypeScope : IDisposable
     {
         private readonly BlockBinder _binder;
+        private readonly int _depthBeforePush;
 
-        public TargetTypeScope(BlockBinder binder)
+        public TargetTypeScope(BlockBinder binder, int depthBeforePush)
         {
             _binder = binder;
+            _depthBeforePush = depthBeforePush;
         }
 
         public void Dispose()
         {
-            _binder._targetTypeStack.Pop();
+            try
+            {
+                if (_binder._targetTypeStack.Count > _depthBeforePush)
+                    _binder._targetTypeStack.Pop();
+            }
+            finally
+            {
+                Monitor.Exit(_binder._executionGate);
+            }
+        }
+    }
+
+    private readonly struct ExecutionScope : IDisposable
+    {
+        private readonly object _gate;
+
+        public ExecutionScope(object gate)
+        {
+            _gate = gate;
+        }
+
+        public void Dispose()
+        {
+            Monitor.Exit(_gate);
         }
     }
 

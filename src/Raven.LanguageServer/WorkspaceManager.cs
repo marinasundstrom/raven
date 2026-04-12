@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 
 using Microsoft.Extensions.Logging;
 
@@ -498,6 +499,38 @@ internal sealed class WorkspaceManager
         return false;
     }
 
+    public bool TryGetDocumentDiagnostics(
+        DocumentUri uri,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (TryResolveOwnedDocument(uri, out var ownedDocument))
+        {
+            diagnostics = _workspace.GetDocumentDiagnostics(ownedDocument.ProjectId, ownedDocument.DocumentId, analyzerOptions, cancellationToken);
+            return true;
+        }
+
+        diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+        return false;
+    }
+
+    public bool TryGetDocumentSyntaxDiagnostics(
+        DocumentUri uri,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (TryResolveOwnedDocument(uri, out var ownedDocument))
+        {
+            diagnostics = _workspace.GetDocumentSyntaxDiagnostics(ownedDocument.ProjectId, ownedDocument.DocumentId, analyzerOptions, cancellationToken);
+            return true;
+        }
+
+        diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+        return false;
+    }
+
     public bool TryGetCodeFixes(
         DocumentUri uri,
         out ImmutableArray<CodeFix> codeFixes,
@@ -570,6 +603,8 @@ internal sealed class WorkspaceManager
         if (changedProject?.FilePath is null)
             return;
 
+        var compilation = _workspace.GetCompilation(changedProject.Id);
+
         var sourceProjectPath = NormalizePath(changedProject.FilePath);
         var consumers = _workspace.CurrentSolution.Projects
             .Where(project => project.MacroReferences.Any(reference =>
@@ -584,6 +619,7 @@ internal sealed class WorkspaceManager
         {
             var outputPath = EmitMacroProjectOutput(changedProject);
             var solution = _workspace.CurrentSolution;
+            var updatedConsumers = 0;
 
             foreach (var consumer in consumers)
             {
@@ -595,11 +631,16 @@ internal sealed class WorkspaceManager
                             : reference)
                     .ToArray();
 
-                solution = solution.WithMacroReferences(consumer.Id, updatedReferences);
-                _diagnosticsCache.TryRemove(consumer.Id, out _);
+                if (!MacroReferencesMatch(consumer.MacroReferences, updatedReferences))
+                {
+                    solution = solution.WithMacroReferences(consumer.Id, updatedReferences);
+                    _diagnosticsCache.TryRemove(consumer.Id, out _);
+                    updatedConsumers++;
+                }
             }
 
             _workspace.TryApplyChanges(solution);
+            compilation.PerformanceInstrumentation.Macros.RecordConsumerRefreshRun(updatedConsumers);
         }
         catch (Exception ex)
         {
@@ -616,37 +657,82 @@ internal sealed class WorkspaceManager
             throw new InvalidOperationException("Macro project file path is required.");
 
         var evaluation = MsBuildProjectEvaluator.Evaluate(macroProject.FilePath, RavenProjectConventions.Default, macroProject.TargetFramework);
-        var outputPath = GetShadowMacroOutputPath(macroProject, evaluation.AssemblyName);
+        var outputDirectory = GetShadowMacroOutputDirectory(macroProject);
+        var tempOutputPath = Path.Combine(
+            outputDirectory,
+            $"{evaluation.AssemblyName}.{Guid.NewGuid():N}.tmp.dll");
+        var tempPdbPath = Path.ChangeExtension(tempOutputPath, ".pdb");
 
-        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+        Directory.CreateDirectory(outputDirectory);
 
         try
         {
-            using var peStream = File.Create(outputPath);
-            using var pdbStream = File.Create(Path.ChangeExtension(outputPath, ".pdb"));
-            var emitResult = _workspace.GetCompilation(macroProject.Id).Emit(peStream, pdbStream);
+            EmitResult emitResult;
+            using (var peStream = File.Create(tempOutputPath))
+            using (var pdbStream = File.Create(tempPdbPath))
+            {
+                emitResult = _workspace.GetCompilation(macroProject.Id).Emit(peStream, pdbStream);
+            }
+
             if (!emitResult.Success)
                 throw new InvalidOperationException(string.Join(Environment.NewLine, emitResult.Diagnostics.Select(static diagnostic => diagnostic.ToString())));
+
+            var contentHash = ComputeFileHash(tempOutputPath);
+            var outputPath = GetShadowMacroOutputPath(macroProject, evaluation.AssemblyName, contentHash);
+            var outputPdbPath = Path.ChangeExtension(outputPath, ".pdb");
+            if (!File.Exists(outputPath))
+            {
+                _workspace.GetCompilation(macroProject.Id).PerformanceInstrumentation.Macros.RecordShadowOutputCacheMiss();
+                File.Move(tempOutputPath, outputPath);
+                File.Move(tempPdbPath, outputPdbPath);
+            }
+            else
+            {
+                _workspace.GetCompilation(macroProject.Id).PerformanceInstrumentation.Macros.RecordShadowOutputCacheHit();
+                TryDeleteFile(tempOutputPath);
+                TryDeleteFile(tempPdbPath);
+            }
+
+            return outputPath;
         }
         catch
         {
-            TryDeleteFile(outputPath);
-            TryDeleteFile(Path.ChangeExtension(outputPath, ".pdb"));
+            TryDeleteFile(tempOutputPath);
+            TryDeleteFile(tempPdbPath);
             throw;
         }
-
-        return outputPath;
     }
 
-    private static string GetShadowMacroOutputPath(Project macroProject, string assemblyName)
+    private static string GetShadowMacroOutputDirectory(Project macroProject)
     {
         var projectIdentity = Path.GetFileNameWithoutExtension(macroProject.FilePath)
             ?? macroProject.Id.ToString();
-        var versionSegment = macroProject.Version.ToString().Replace(Path.DirectorySeparatorChar, '_')
-            .Replace(Path.AltDirectorySeparatorChar, '_')
-            .Replace(':', '_');
-        var directory = Path.Combine(MacroShadowOutputRoot, projectIdentity, versionSegment);
-        return Path.Combine(directory, $"{assemblyName}.dll");
+        return Path.Combine(MacroShadowOutputRoot, projectIdentity);
+    }
+
+    private static string GetShadowMacroOutputPath(Project macroProject, string assemblyName, string contentHash)
+    {
+        var directory = GetShadowMacroOutputDirectory(macroProject);
+        return Path.Combine(directory, $"{assemblyName}.{contentHash}.dll");
+    }
+
+    private static bool MacroReferencesMatch(
+        IReadOnlyList<MacroReference> current,
+        IReadOnlyList<MacroReference> updated)
+    {
+        if (current.Count != updated.Count)
+            return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (!string.Equals(current[i].Display, updated[i].Display, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (!string.Equals(current[i].SourceProjectFilePath, updated[i].SourceProjectFilePath, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        return true;
     }
 
     private static void TryDeleteFile(string path)
@@ -659,6 +745,13 @@ internal sealed class WorkspaceManager
         catch
         {
         }
+    }
+
+    private static string ComputeFileHash(string path)
+    {
+        using var stream = File.OpenRead(path);
+        var hash = SHA256.HashData(stream);
+        return Convert.ToHexString(hash[..8]).ToLowerInvariant();
     }
 
     private bool TryResolveOwnedDocument(DocumentUri uri, out OwnedDocument ownedDocument)

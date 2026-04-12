@@ -24,7 +24,7 @@ public partial class SemanticModel
         if (_operationCache.TryGetValue(node, out var cached))
             return cached;
 
-        EnsureDiagnosticsCollected();
+        EnsureDiagnosticBindingCompleted();
 
         BoundNode? bound = TryGetCachedBoundNode(node);
 

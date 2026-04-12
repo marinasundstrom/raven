@@ -15,6 +15,8 @@ internal static class Program
     static async Task Main(string[] args)
     {
         var logPath = ResolveLogPath();
+        var performanceReportPath = Path.Combine(Path.GetDirectoryName(logPath) ?? Directory.GetCurrentDirectory(), "raven-lsp-performance.txt");
+        LanguageServerPerformanceInstrumentation.ConfigureReportPath(performanceReportPath);
         var fileLoggerProvider = new RavenFileLoggerProvider(logPath);
         WriteStartupMarker(fileLoggerProvider, logPath, args);
         AppDomain.CurrentDomain.ProcessExit += (_, _) => WriteProcessExitMarker(fileLoggerProvider, "AppDomain.ProcessExit");
@@ -33,6 +35,7 @@ internal static class Program
                 services.AddSingleton(_ => RavenWorkspace.Create());
                 services.AddSingleton<WorkspaceManager>();
                 services.AddSingleton<DocumentStore>();
+                services.AddSingleton<HoverHandler>();
             })
             .OnInitialize((server, request, _) =>
             {
@@ -66,6 +69,7 @@ internal static class Program
         }
         finally
         {
+            WritePerformanceReport(fileLoggerProvider, logPath);
             WriteProcessExitMarker(fileLoggerProvider, "Main.Finally");
         }
     }
@@ -90,6 +94,25 @@ internal static class Program
         loggerProvider.WriteLine(
             $"{DateTimeOffset.UtcNow:O} [Information] Raven.LanguageServer.Shutdown: " +
             $"Raven language server exiting. pid={Environment.ProcessId} source={source}");
+    }
+
+    private static void WritePerformanceReport(RavenFileLoggerProvider loggerProvider, string logPath)
+    {
+#if RAVEN_INSTRUMENTATION
+        try
+        {
+            var logsDirectory = Path.GetDirectoryName(logPath) ?? Directory.GetCurrentDirectory();
+            var reportPath = Path.Combine(logsDirectory, "raven-lsp-performance.txt");
+            LanguageServerPerformanceInstrumentation.FlushToDisk();
+            loggerProvider.WriteLine(
+                $"{DateTimeOffset.UtcNow:O} [Information] Raven.LanguageServer.Performance: Wrote performance report to {reportPath}");
+        }
+        catch (Exception ex)
+        {
+            loggerProvider.WriteLine(
+                $"{DateTimeOffset.UtcNow:O} [Warning] Raven.LanguageServer.Performance: Failed to write performance report.{Environment.NewLine}{ex}");
+        }
+#endif
     }
 
     private static string ResolveLogPath()
