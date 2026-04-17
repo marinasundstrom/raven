@@ -48,9 +48,7 @@ internal sealed class ReferencesHandler : IReferencesHandler
 
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
-            if (semanticModel is null)
-                return new LocationContainer();
+            var semanticModel = context.Value.Compilation.GetSemanticModel(syntaxTree);
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 

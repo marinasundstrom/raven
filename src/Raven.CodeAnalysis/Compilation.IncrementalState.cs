@@ -10,6 +10,25 @@ public partial class Compilation
 {
     private IncrementalCompilationState? _incrementalState;
 
+    internal sealed class DescriptorState
+    {
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<VisibleValueScopeKey, ImmutableArray<VisibleValueDeclarationDescriptor>>> VisibleValueScopeDeclarations { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, ImmutableArray<VisibleValueDeclarationDescriptor>>> VisibleValueScopeDeclarationsByOwner { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<NodeInterestSymbolKey, NodeInterestSymbolDescriptor>> NodeInterestSymbolDescriptors { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, NodeInterestSymbolDescriptor>> NodeInterestSymbolDescriptorsByOwner { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<ContextualBindingRootKey, ContextualBindingRootDescriptor>> ContextualBindingRootDescriptors { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, ContextualBindingRootDescriptor>> ContextualBindingRootDescriptorsByOwner { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<InterestBindingRootKey, InterestBindingRootDescriptor>> InterestBindingRootDescriptors { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, InterestBindingRootDescriptor>> InterestBindingRootDescriptorsByOwner { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<ExecutableOwnerKey, ExecutableOwnerDescriptor>> ExecutableOwnerDescriptors { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<FunctionExpressionRebindRootKey, FunctionExpressionRebindRootDescriptor>> FunctionExpressionRebindRootDescriptors { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, FunctionExpressionRebindRootDescriptor>> FunctionExpressionRebindRootDescriptorsByOwner { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<BinderParentAnchorKey, BinderParentAnchorDescriptor>> BinderParentAnchorDescriptors { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, BinderParentAnchorDescriptor>> BinderParentAnchorDescriptorsByOwner { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ImmutableHashSet<ExecutableOwnerDescriptor>> ChangedExecutableOwnerDescriptors { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<ExecutableOwnerDescriptor, MatchedExecutableOwner>> MatchedExecutableOwners { get; } = new();
+    }
+
     internal readonly record struct IncrementalMatchedSyntaxTree(
         SyntaxTree CurrentTree,
         SyntaxTree PreviousTree,
@@ -101,41 +120,34 @@ public partial class Compilation
 
         foreach (var syntaxTree in reusedSyntaxTrees)
         {
-            CopyExactState(_visibleValueScopeDeclarations, state.VisibleValueScopeDeclarations, syntaxTree);
-            CopyExactState(_nodeInterestSymbolDescriptors, state.NodeInterestSymbolDescriptors, syntaxTree);
-            CopyExactState(_contextualBindingRootDescriptors, state.ContextualBindingRootDescriptors, syntaxTree);
-            CopyExactState(_interestBindingRootDescriptors, state.InterestBindingRootDescriptors, syntaxTree);
-            CopyExactState(_executableOwnerDescriptors, state.ExecutableOwnerDescriptors, syntaxTree);
-            CopyExactState(_functionExpressionRebindRootDescriptors, state.FunctionExpressionRebindRootDescriptors, syntaxTree);
-            CopyExactState(_binderParentAnchorDescriptors, state.BinderParentAnchorDescriptors, syntaxTree);
+            CopyExactState(_descriptorState.VisibleValueScopeDeclarations, state.VisibleValueScopeDeclarations, syntaxTree);
+            CopyExactState(_descriptorState.NodeInterestSymbolDescriptors, state.NodeInterestSymbolDescriptors, syntaxTree);
+            CopyExactState(_descriptorState.ContextualBindingRootDescriptors, state.ContextualBindingRootDescriptors, syntaxTree);
+            CopyExactState(_descriptorState.InterestBindingRootDescriptors, state.InterestBindingRootDescriptors, syntaxTree);
+            CopyExactState(_descriptorState.ExecutableOwnerDescriptors, state.ExecutableOwnerDescriptors, syntaxTree);
+            CopyExactState(_descriptorState.FunctionExpressionRebindRootDescriptors, state.FunctionExpressionRebindRootDescriptors, syntaxTree);
+            CopyExactState(_descriptorState.BinderParentAnchorDescriptors, state.BinderParentAnchorDescriptors, syntaxTree);
         }
 
         foreach (var matchedTree in matchedSyntaxTrees)
         {
             foreach (var match in matchedTree.Matches)
             {
+                if (matchedTree.OwnerChanges.ContainsKey(match.CurrentOwner))
+                {
+                    // Any edit within an executable owner can invalidate semantic anchors
+                    // anywhere else in that owner through local declaration order,
+                    // contextual lambda binding, or symbol-interest mappings.
+                    // Rebind the owner from scratch instead of trying to preserve
+                    // owner-relative semantic descriptors around the edited span.
+                    continue;
+                }
+
+                // Visible value scopes and node-interest symbol descriptors encode semantic state.
+                // Reusing them across an edited executable owner can preserve stale symbol mappings
+                // even when spans remap cleanly. Let the next compilation recompute them.
                 CopyOwnerRelativeState(
-                    _visibleValueScopeDeclarationsByOwner,
-                    state.VisibleValueScopeDeclarationsByOwner,
-                    matchedTree.PreviousTree,
-                    matchedTree.CurrentTree,
-                    match.PreviousOwner,
-                    match.CurrentOwner,
-                    TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var visibleValueOwnerChange)
-                        ? visibleValueOwnerChange
-                        : null);
-                CopyOwnerRelativeState(
-                    _nodeInterestSymbolDescriptorsByOwner,
-                    state.NodeInterestSymbolDescriptorsByOwner,
-                    matchedTree.PreviousTree,
-                    matchedTree.CurrentTree,
-                    match.PreviousOwner,
-                    match.CurrentOwner,
-                    TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var nodeInterestOwnerChange)
-                        ? nodeInterestOwnerChange
-                        : null);
-                CopyOwnerRelativeState(
-                    _contextualBindingRootDescriptorsByOwner,
+                    _descriptorState.ContextualBindingRootDescriptorsByOwner,
                     state.ContextualBindingRootDescriptorsByOwner,
                     matchedTree.PreviousTree,
                     matchedTree.CurrentTree,
@@ -145,7 +157,7 @@ public partial class Compilation
                         ? contextualOwnerChange
                         : null);
                 CopyOwnerRelativeState(
-                    _interestBindingRootDescriptorsByOwner,
+                    _descriptorState.InterestBindingRootDescriptorsByOwner,
                     state.InterestBindingRootDescriptorsByOwner,
                     matchedTree.PreviousTree,
                     matchedTree.CurrentTree,
@@ -155,7 +167,7 @@ public partial class Compilation
                         ? interestOwnerChange
                         : null);
                 CopyOwnerRelativeState(
-                    _functionExpressionRebindRootDescriptorsByOwner,
+                    _descriptorState.FunctionExpressionRebindRootDescriptorsByOwner,
                     state.FunctionExpressionRebindRootDescriptorsByOwner,
                     matchedTree.PreviousTree,
                     matchedTree.CurrentTree,
@@ -165,7 +177,7 @@ public partial class Compilation
                         ? rebindOwnerChange
                         : null);
                 CopyOwnerRelativeState(
-                    _binderParentAnchorDescriptorsByOwner,
+                    _descriptorState.BinderParentAnchorDescriptorsByOwner,
                     state.BinderParentAnchorDescriptorsByOwner,
                     matchedTree.PreviousTree,
                     matchedTree.CurrentTree,

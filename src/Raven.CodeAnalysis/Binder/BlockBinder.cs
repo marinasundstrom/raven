@@ -240,7 +240,8 @@ partial class BlockBinder : Binder
             if (isSameDeclarator)
                 return new BoundVariableDeclarator(existing.Symbol, null);
 
-            isShadowingExistingInScope = true;
+            if (!isSameDeclarator)
+                isShadowingExistingInScope = true;
         }
 
         if (!isShadowingExistingInScope && LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)

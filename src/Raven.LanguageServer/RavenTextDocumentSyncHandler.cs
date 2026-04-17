@@ -25,7 +25,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
     private const int AnalysisWarmupDebounceMilliseconds = 75;
     private const int DiagnosticsDebounceMilliseconds = 250;
-    private const int FullDiagnosticsAfterEditDelayMilliseconds = 250;
     private const int FullDiagnosticsAfterSaveDelayMilliseconds = 350;
     private const int DiagnosticsRetryDelayMilliseconds = 150;
     private const double DidCloseLogThresholdMs = 50;
@@ -36,6 +35,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ILogger<RavenTextDocumentSyncHandler> _logger;
     private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingDiagnostics = new();
     private readonly ConcurrentDictionary<DocumentUri, SemaphoreSlim> _documentUpdateGates = new();
+    private readonly ConcurrentDictionary<DocumentUri, long> _documentSessions = new();
     private readonly ConcurrentDictionary<DocumentUri, int> _documentVersions = new();
     private readonly ConcurrentDictionary<DocumentUri, int> _lastPublishedDiagnosticVersions = new();
     private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<PublishedDiagnosticValue>> _lastPublishedDiagnostics = new();
@@ -60,6 +60,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
         try
         {
+            _ = AdvanceDocumentSession(notification.TextDocument.Uri);
             _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
             _documents.UpsertDocument(notification.TextDocument.Uri, notification.TextDocument.Text);
             if (notification.TextDocument.Version is { } openVersion)
@@ -255,6 +256,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         try
         {
             _logger.LogInformation("DidClose started for {Uri}.", notification.TextDocument.Uri);
+            _ = AdvanceDocumentSession(notification.TextDocument.Uri);
             _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
             CancelPendingDiagnostics(notification.TextDocument.Uri);
             _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
@@ -323,7 +325,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         => new(
             IncludeWarmup: true,
             InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
-            FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterEditDelayMilliseconds,
+            FullDiagnosticsDelayMilliseconds: null,
             DiagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds);
 
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)
@@ -347,6 +349,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     {
         var source = new CancellationTokenSource();
         var token = source.Token;
+        var expectedSession = GetOrCreateDocumentSession(uri);
         int? expectedVersion = _documentVersions.TryGetValue(uri, out var currentVersion)
             ? currentVersion
             : null;
@@ -397,7 +400,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     if (warmupDelayMilliseconds > 0)
                         await Task.Delay(warmupDelayMilliseconds, token).ConfigureAwait(false);
 
-                    if (ShouldSkipVersion(uri, expectedVersion))
+                    if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
                         return;
 
                     _logger.LogInformation(
@@ -408,7 +411,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                         diagnosticsDelayMilliseconds);
                     await _documents.WarmAnalysisAsync(
                         uri,
-                        shouldSkipWork: () => token.IsCancellationRequested || ShouldSkipVersion(uri, expectedVersion),
+                        shouldSkipWork: () => token.IsCancellationRequested || ShouldSkipRequest(uri, expectedSession, expectedVersion),
                         token).ConfigureAwait(false);
                     _logger.LogInformation(
                         "Completed analysis warmup for {Uri} (expectedVersion={ExpectedVersion}).",
@@ -424,20 +427,20 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     await Task.Delay(diagnosticsDelayMilliseconds, token).ConfigureAwait(false);
                 }
 
-                if (ShouldSkipVersion(uri, expectedVersion))
+                if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
                     return;
 
-                await PublishDiagnosticsAsync(uri, token, expectedVersion, initialDiagnosticsMode).ConfigureAwait(false);
+                await PublishDiagnosticsAsync(uri, token, expectedSession, expectedVersion, initialDiagnosticsMode).ConfigureAwait(false);
 
                 if (fullDiagnosticsDelayMilliseconds is { } followUpDelay &&
                     initialDiagnosticsMode != DocumentStore.DocumentDiagnosticsMode.Full)
                 {
                     await Task.Delay(followUpDelay, token).ConfigureAwait(false);
 
-                    if (ShouldSkipVersion(uri, expectedVersion))
+                    if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
                         return;
 
-                    await PublishDiagnosticsAsync(uri, token, expectedVersion, DocumentStore.DocumentDiagnosticsMode.Full).ConfigureAwait(false);
+                    await PublishDiagnosticsAsync(uri, token, expectedSession, expectedVersion, DocumentStore.DocumentDiagnosticsMode.Full).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)
@@ -466,22 +469,41 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Task.FromResult(Unit.Value);
     }
 
-    private bool ShouldSkipVersion(DocumentUri uri, int? expectedVersion)
+    private long AdvanceDocumentSession(DocumentUri uri)
+        => _documentSessions.AddOrUpdate(uri, 1, static (_, current) => current + 1);
+
+    private long GetOrCreateDocumentSession(DocumentUri uri)
+        => _documentSessions.GetOrAdd(uri, 1);
+
+    private bool ShouldSkipRequest(DocumentUri uri, long expectedSession, int? expectedVersion)
     {
-        if (expectedVersion is not { } expected ||
-            !_documentVersions.TryGetValue(uri, out var latestVersion))
+        var latestSession = _documentSessions.TryGetValue(uri, out var currentSession)
+            ? currentSession
+            : (long?)null;
+        var latestVersion = _documentVersions.TryGetValue(uri, out var currentVersion)
+            ? currentVersion
+            : (int?)null;
+
+        if (!ShouldSkipDiagnosticRequest(expectedSession, latestSession, expectedVersion, latestVersion))
         {
             return false;
         }
 
-        if (latestVersion == expected)
-            return false;
+        if (latestSession != expectedSession)
+        {
+            _logger.LogDebug(
+                "Skipping background analysis for {Uri}: computed for session {ExpectedSession}, latest is {LatestSession}.",
+                uri,
+                expectedSession,
+                latestSession?.ToString() ?? "<none>");
+            return true;
+        }
 
         _logger.LogDebug(
             "Skipping background analysis for {Uri}: computed for version {ExpectedVersion}, latest is {LatestVersion}.",
             uri,
-            expected,
-            latestVersion);
+            expectedVersion?.ToString() ?? "<none>",
+            latestVersion?.ToString() ?? "<none>");
         return true;
     }
 
@@ -502,42 +524,45 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private async Task<Unit> PublishDiagnosticsAsync(
         DocumentUri uri,
         CancellationToken cancellationToken,
+        long expectedSession,
         int? expectedVersion = null,
         DocumentStore.DocumentDiagnosticsMode mode = DocumentStore.DocumentDiagnosticsMode.Full)
     {
         var stopwatch = Stopwatch.StartNew();
         int diagnosticsCount = 0;
-        var wasSkipped = false;
+        var outcome = PublishDiagnosticsOutcome.Published;
 
         try
         {
-            if (ShouldSkipVersion(uri, expectedVersion))
+            if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
+            {
+                outcome = PublishDiagnosticsOutcome.SkippedVersionMismatch;
                 return Unit.Value;
+            }
 
             var result = await _documents.TryGetDiagnosticsAsync(
                 uri,
                 mode,
-                shouldSkipWork: () => cancellationToken.IsCancellationRequested || ShouldSkipVersion(uri, expectedVersion),
+                shouldSkipWork: () => cancellationToken.IsCancellationRequested || ShouldSkipRequest(uri, expectedSession, expectedVersion),
                 cancellationToken).ConfigureAwait(false);
             if (result.WasSkipped)
             {
-                wasSkipped = true;
-                RequeueDiagnosticsPublish(uri, expectedVersion, mode, DiagnosticsRetryDelayMilliseconds);
+                outcome = PublishDiagnosticsOutcome.SkippedRequeued;
+                RequeueDiagnosticsPublish(uri, expectedSession, expectedVersion, mode, DiagnosticsRetryDelayMilliseconds);
                 return Unit.Value;
             }
 
             var diagnostics = result.Diagnostics;
             var diagnosticValues = CreatePublishedDiagnosticValues(diagnostics);
 
-            if (expectedVersion is { } expected &&
-                _documentVersions.TryGetValue(uri, out var latestVersion) &&
-                latestVersion != expected)
+            if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
             {
-                _logger.LogDebug(
-                    "Skipping diagnostics publish for {Uri}: computed for version {ExpectedVersion}, latest is {LatestVersion}.",
+                outcome = PublishDiagnosticsOutcome.SkippedVersionMismatch;
+                _logger.LogInformation(
+                    "Skipped diagnostics publish for {Uri}: request is stale (expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}).",
                     uri,
-                    expected,
-                    latestVersion);
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>");
                 return Unit.Value;
             }
 
@@ -549,8 +574,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     _lastPublishedDiagnosticVersions[uri] = stableVersion;
 
                 var diagnosticSummary = SummarizeDiagnosticsForLog(diagnostics);
+                outcome = PublishDiagnosticsOutcome.SkippedUnchanged;
 
-                _logger.LogDebug(
+                _logger.LogInformation(
                     "Skipped diagnostics publish for {Uri}: diagnostic set unchanged (expectedVersion={ExpectedVersion}, count={Count}, summary={Summary}).",
                     uri,
                     expectedVersion?.ToString() ?? "<none>",
@@ -588,13 +614,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             stopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
-                wasSkipped
-                    ? mode == DocumentStore.DocumentDiagnosticsMode.SyntaxOnly
-                        ? "publishSyntaxDiagnosticsSkipped"
-                        : "publishDiagnosticsSkipped"
-                    : mode == DocumentStore.DocumentDiagnosticsMode.SyntaxOnly
-                        ? "publishSyntaxDiagnostics"
-                        : "publishDiagnostics",
+                GetPublishDiagnosticsOperationName(mode, outcome),
                 uri,
                 expectedVersion,
                 stopwatch.Elapsed.TotalMilliseconds,
@@ -606,6 +626,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     private void RequeueDiagnosticsPublish(
         DocumentUri uri,
+        long expectedSession,
         int? expectedVersion,
         DocumentStore.DocumentDiagnosticsMode mode,
         int delayMilliseconds)
@@ -615,11 +636,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             try
             {
                 await Task.Delay(delayMilliseconds).ConfigureAwait(false);
-                if (ShouldSkipVersion(uri, expectedVersion))
+                if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
                     return;
 
                 using var retryCancellation = new CancellationTokenSource();
-                await PublishDiagnosticsAsync(uri, retryCancellation.Token, expectedVersion, mode).ConfigureAwait(false);
+                await PublishDiagnosticsAsync(uri, retryCancellation.Token, expectedSession, expectedVersion, mode).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -635,6 +656,20 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         => expectedVersion is { } expected &&
            lastPublishedVersion is { } published &&
            published != expected;
+
+    internal static bool ShouldSkipDiagnosticRequest(
+        long expectedSession,
+        long? latestSession,
+        int? expectedVersion,
+        int? latestVersion)
+    {
+        if (latestSession is not { } currentSession || currentSession != expectedSession)
+            return true;
+
+        return expectedVersion is { } expected &&
+               latestVersion is { } currentVersion &&
+               currentVersion != expected;
+    }
 
     internal static ImmutableArray<PublishedDiagnosticValue> CreatePublishedDiagnosticValues(IReadOnlyList<Diagnostic> diagnostics)
         => diagnostics
@@ -662,11 +697,34 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return string.IsNullOrWhiteSpace(code) ? "<no-code>" : code;
     }
 
+    internal static string GetPublishDiagnosticsOperationName(
+        DocumentStore.DocumentDiagnosticsMode mode,
+        PublishDiagnosticsOutcome outcome)
+        => (mode, outcome) switch
+        {
+            (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.Published) => "publishSyntaxDiagnostics",
+            (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.SkippedRequeued) => "publishSyntaxDiagnosticsSkipped",
+            (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishSyntaxDiagnosticsUnchanged",
+            (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.SkippedVersionMismatch) => "publishSyntaxDiagnosticsVersionMismatch",
+            (_, PublishDiagnosticsOutcome.Published) => "publishDiagnostics",
+            (_, PublishDiagnosticsOutcome.SkippedRequeued) => "publishDiagnosticsSkipped",
+            (_, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishDiagnosticsUnchanged",
+            _ => "publishDiagnosticsVersionMismatch"
+        };
+
     internal readonly record struct SaveDiagnosticsPolicy(
         bool IncludeWarmup,
         DocumentStore.DocumentDiagnosticsMode InitialMode,
         int? FullDiagnosticsDelayMilliseconds,
         int DiagnosticsDelayMilliseconds);
+
+    internal enum PublishDiagnosticsOutcome
+    {
+        Published,
+        SkippedRequeued,
+        SkippedUnchanged,
+        SkippedVersionMismatch
+    }
 
     internal readonly record struct PublishedDiagnosticValue(
         int StartLine,

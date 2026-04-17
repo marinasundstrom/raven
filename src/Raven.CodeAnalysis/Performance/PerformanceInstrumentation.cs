@@ -390,6 +390,15 @@ public sealed class MacroInstrumentation
 
 public sealed class CompilerSetupInstrumentation
 {
+    public readonly record struct Snapshot(
+        long EnsureSemanticModelsCreatedCalls,
+        long SemanticModelsCreated,
+        long EnsureSourceDeclarationsCompleteCalls,
+        long EnsureDeclarationsCalls,
+        long DeclarationPasses,
+        long EnsureRootBinderCreatedCalls,
+        long RootBinderCreations);
+
     private readonly bool _isEnabled;
     private long _ensureSemanticModelsCreatedCalls;
     private long _semanticModelsCreated;
@@ -411,6 +420,35 @@ public sealed class CompilerSetupInstrumentation
     public long DeclarationPasses => Volatile.Read(ref _declarationPasses);
     public long EnsureRootBinderCreatedCalls => Volatile.Read(ref _ensureRootBinderCreatedCalls);
     public long RootBinderCreations => Volatile.Read(ref _rootBinderCreations);
+
+    public Snapshot CaptureSnapshot()
+        => new(
+            EnsureSemanticModelsCreatedCalls,
+            SemanticModelsCreated,
+            EnsureSourceDeclarationsCompleteCalls,
+            EnsureDeclarationsCalls,
+            DeclarationPasses,
+            EnsureRootBinderCreatedCalls,
+            RootBinderCreations);
+
+    public static Snapshot Subtract(Snapshot end, Snapshot start)
+        => new(
+            end.EnsureSemanticModelsCreatedCalls - start.EnsureSemanticModelsCreatedCalls,
+            end.SemanticModelsCreated - start.SemanticModelsCreated,
+            end.EnsureSourceDeclarationsCompleteCalls - start.EnsureSourceDeclarationsCompleteCalls,
+            end.EnsureDeclarationsCalls - start.EnsureDeclarationsCalls,
+            end.DeclarationPasses - start.DeclarationPasses,
+            end.EnsureRootBinderCreatedCalls - start.EnsureRootBinderCreatedCalls,
+            end.RootBinderCreations - start.RootBinderCreations);
+
+    public static string FormatDelta(Snapshot delta)
+        => $"ensureModels={delta.EnsureSemanticModelsCreatedCalls}, " +
+           $"modelsCreated={delta.SemanticModelsCreated}, " +
+           $"ensureSourceDecls={delta.EnsureSourceDeclarationsCompleteCalls}, " +
+           $"ensureDecls={delta.EnsureDeclarationsCalls}, " +
+           $"declarationPasses={delta.DeclarationPasses}, " +
+           $"ensureRootBinders={delta.EnsureRootBinderCreatedCalls}, " +
+           $"rootBindersCreated={delta.RootBinderCreations}";
 
     [Conditional("RAVEN_INSTRUMENTATION")]
     public void Reset()

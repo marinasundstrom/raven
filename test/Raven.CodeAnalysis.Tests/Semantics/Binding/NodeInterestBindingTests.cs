@@ -225,4 +225,99 @@ class C {
         Assert.Equal(MethodKind.LambdaMethod, method.MethodKind);
         Assert.Equal("Step", functionExpression.Identifier.ValueText);
     }
+
+    [Fact]
+    public void TryGetFunctionExpressionSymbol_UpgradesShallowErrorSymbol_AfterContextualBinding()
+    {
+        const string source = """
+class User(var Name: string)
+
+class C {
+    func Run() -> unit {
+        val project: (User) -> string = user => user.Name
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "node-interest-binding-tests",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var lambda = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleFunctionExpressionSyntax>()
+            .Single();
+        var parameterSyntax = lambda.Parameter;
+        parameterSyntax.ShouldNotBeNull();
+
+        model.TryGetFunctionExpressionSymbol(lambda, out var initialSymbol).ShouldBeTrue();
+        initialSymbol.ShouldNotBeNull();
+        initialSymbol!.Parameters.Length.ShouldBe(1);
+        initialSymbol.Parameters[0].Type.TypeKind.ShouldBe(TypeKind.Error);
+
+        var reboundParameter = model.GetFunctionExpressionParameterSymbol(parameterSyntax!);
+        reboundParameter.ShouldNotBeNull();
+        reboundParameter!.Type.Name.ShouldBe("User");
+
+        model.TryGetFunctionExpressionSymbol(lambda, out var upgradedSymbol).ShouldBeTrue();
+        upgradedSymbol.ShouldNotBeNull();
+        upgradedSymbol!.Parameters.Length.ShouldBe(1);
+        upgradedSymbol.Parameters[0].Type.Name.ShouldBe("User");
+        upgradedSymbol.Parameters[0].Type.TypeKind.ShouldNotBe(TypeKind.Error);
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_OnLambdaDependentLocal_UpgradesStickyErrorLocalAfterContextualBinding()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+import System.Linq.Expressions.*
+
+class User(var Name: string, var IsActive: bool)
+
+class C {
+    func Run(users: IQueryable<User>) -> unit {
+        val onlyActiveAdults: Expression<System.Func<User, bool>> = user => user.IsActive
+        val query = users
+            |> Where(onlyActiveAdults)
+            |> OrderBy(user => user.Name)
+            |> Select(user => user.Name)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "node-interest-binding-tests",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var queryDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(node => node.Identifier.ValueText == "query");
+        var nameLambdaParameter = root.DescendantNodes()
+            .OfType<SimpleFunctionExpressionSyntax>()
+            .Last()
+            .Parameter;
+
+        var initialLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(queryDeclarator));
+        Assert.Equal(TypeKind.Error, initialLocal.Type.TypeKind);
+
+        var contextualParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(nameLambdaParameter));
+        Assert.Equal("User", contextualParameter.Type.Name);
+
+        var upgradedLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(queryDeclarator));
+        Assert.NotEqual(TypeKind.Error, upgradedLocal.Type.TypeKind);
+
+        var queryType = Assert.IsAssignableFrom<INamedTypeSymbol>(upgradedLocal.Type);
+        Assert.Equal("IQueryable", queryType.Name);
+        Assert.Equal("String", Assert.Single(queryType.TypeArguments).Name);
+    }
 }

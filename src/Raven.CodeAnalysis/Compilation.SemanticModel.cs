@@ -88,15 +88,21 @@ public partial class Compilation
         EnsureSetup();
         PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsCompleteCall();
 
-        if (_sourceDeclarationsComplete || _isDeclaringSourceTypes)
+        if (_sourceDeclarationsComplete)
             return;
+
+        var currentThreadId = Environment.CurrentManagedThreadId;
 
         lock (_declarationGate)
         {
+            while (_isDeclaringSourceTypes && _sourceDeclarationThreadId != currentThreadId)
+                Monitor.Wait(_declarationGate);
+
             if (_sourceDeclarationsComplete || _isDeclaringSourceTypes)
                 return;
 
             _isDeclaringSourceTypes = true;
+            _sourceDeclarationThreadId = currentThreadId;
             try
             {
                 EnsureSemanticModelsCreated();
@@ -114,7 +120,9 @@ public partial class Compilation
             }
             finally
             {
+                _sourceDeclarationThreadId = 0;
                 _isDeclaringSourceTypes = false;
+                Monitor.PulseAll(_declarationGate);
             }
         }
     }
@@ -123,28 +131,42 @@ public partial class Compilation
     {
         PerformanceInstrumentation.Setup.RecordEnsureSemanticModelsCreatedCall();
 
-        if (_sourceTypesInitialized || _isPopulatingSourceTypes)
+        if (_sourceTypesInitialized)
             return;
 
-        try
+        var currentThreadId = Environment.CurrentManagedThreadId;
+
+        lock (_semanticModelSetupGate)
         {
+            while (_isPopulatingSourceTypes && _semanticModelSetupThreadId != currentThreadId)
+                Monitor.Wait(_semanticModelSetupGate);
+
+            if (_sourceTypesInitialized || _isPopulatingSourceTypes)
+                return;
+
             _isPopulatingSourceTypes = true;
+            _semanticModelSetupThreadId = currentThreadId;
 
-            foreach (var syntaxTree in _syntaxTrees)
+            try
             {
-                if (_semanticModels.ContainsKey(syntaxTree))
-                    continue;
+                foreach (var syntaxTree in _syntaxTrees)
+                {
+                    if (_semanticModels.ContainsKey(syntaxTree))
+                        continue;
 
-                var model = new SemanticModel(this, syntaxTree);
-                _semanticModels[syntaxTree] = model;
-                PerformanceInstrumentation.Setup.RecordSemanticModelCreated();
+                    var model = new SemanticModel(this, syntaxTree);
+                    _semanticModels[syntaxTree] = model;
+                    PerformanceInstrumentation.Setup.RecordSemanticModelCreated();
+                }
+
+                _sourceTypesInitialized = true;
             }
-
-            _sourceTypesInitialized = true;
-        }
-        finally
-        {
-            _isPopulatingSourceTypes = false;
+            finally
+            {
+                _semanticModelSetupThreadId = 0;
+                _isPopulatingSourceTypes = false;
+                Monitor.PulseAll(_semanticModelSetupGate);
+            }
         }
     }
 

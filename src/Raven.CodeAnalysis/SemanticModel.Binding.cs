@@ -102,18 +102,35 @@ public partial class SemanticModel
         if (_declarationsComplete)
             return;
 
+        var currentThreadId = Environment.CurrentManagedThreadId;
+
         lock (_bindingSetupGate)
         {
-            if (_declarationsComplete)
+            while (_isEnsuringDeclarations && _declarationSetupThreadId != currentThreadId)
+                Monitor.Wait(_bindingSetupGate);
+
+            if (_declarationsComplete || _isEnsuringDeclarations)
                 return;
 
-            if (SyntaxTree.GetRoot() is CompilationUnitSyntax cu)
-            {
-                Compilation.PerformanceInstrumentation.Setup.RecordDeclarationPass();
-                DeclareCompilationUnit(cu);
-            }
+            _isEnsuringDeclarations = true;
+            _declarationSetupThreadId = currentThreadId;
 
-            _declarationsComplete = true;
+            try
+            {
+                if (SyntaxTree.GetRoot() is CompilationUnitSyntax cu)
+                {
+                    Compilation.PerformanceInstrumentation.Setup.RecordDeclarationPass();
+                    DeclareCompilationUnit(cu);
+                }
+
+                _declarationsComplete = true;
+            }
+            finally
+            {
+                _declarationSetupThreadId = 0;
+                _isEnsuringDeclarations = false;
+                Monitor.PulseAll(_bindingSetupGate);
+            }
         }
     }
 

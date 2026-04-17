@@ -833,7 +833,8 @@ internal class CodeGenerator
                 Version = new Version(1, 0, 0, 0)
             };
 
-            AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.EmitCoreAssembly);
+            var coreAssembly = _compilation.EmitCoreAssembly ?? typeof(object).Assembly;
+            AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, coreAssembly);
             ModuleBuilder = DefineDynamicModuleWithSymbols(AssemblyBuilder, _compilation.AssemblyName);
             ApplyCustomAttributes(_compilation.Assembly.GetAttributes(), attribute => AssemblyBuilder.SetCustomAttribute(attribute));
 
@@ -851,6 +852,10 @@ internal class CodeGenerator
             DefineTypeBuilders();
             PrintDebug("Type builders defined.");
 
+            // Entry-point bridge synthesis mutates the containing source type by adding a
+            // synthesized method (for example <Main>_EntryPoint). Compute the entry point
+            // before defining members so TypeGenerator sees the final member set.
+            var entryPointSymbol = _compilation.GetEntryPoint();
             DefineMemberBuilders();
             PrintDebug("Member builders defined.");
 
@@ -907,7 +912,6 @@ internal class CodeGenerator
                 }
             }
 
-            var entryPointSymbol = _compilation.GetEntryPoint();
             MethodGenerator? entryPointGenerator = null;
 
             if (entryPointSymbol is not null)

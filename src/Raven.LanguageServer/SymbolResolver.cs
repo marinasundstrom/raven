@@ -22,6 +22,12 @@ internal static partial class SymbolResolver
         if (TryResolveMemberAccessAtOffset(semanticModel, root, offset, out var memberAccessResolution))
             return memberAccessResolution;
 
+        if (TryResolveInvocationIdentifierAtOffset(semanticModel, root, offset, out var invocationIdentifierResolution))
+            return invocationIdentifierResolution;
+
+        if (TryResolveInvocationTargetDirectAtOffset(semanticModel, root, offset, out var directInvocationResolution))
+            return directInvocationResolution;
+
         if (TryResolvePipeInvocationTargetAtOffset(semanticModel, root, offset, out var pipeInvocationResolution))
             return pipeInvocationResolution;
 
@@ -96,10 +102,20 @@ internal static partial class SymbolResolver
 
         foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
-            var invocation = root.DescendantNodes()
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var invocation = token.Parent?
+                .AncestorsAndSelf()
                 .OfType<InvocationExpressionSyntax>()
-                .Where(invocation => invocation.Expression.Span.Contains(normalizedOffset) || invocation.Expression.Span.End == normalizedOffset)
-                .OrderBy(invocation => invocation.Span.Length)
+                .Where(invocation => invocation.Expression.Span.Contains(token.Span) || invocation.Expression.Span.End == token.Span.End)
                 .FirstOrDefault(invocation => invocation.Ancestors()
                     .OfType<InfixOperatorExpressionSyntax>()
                     .Any(pipe => pipe.Kind == SyntaxKind.PipeExpression && pipe.Right == invocation));
@@ -114,6 +130,97 @@ internal static partial class SymbolResolver
 
             resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, symbol.UnderlyingSymbol, invocation.Expression);
             return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveInvocationIdentifierAtOffset(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Parent is not IdentifierNameSyntax identifier)
+                continue;
+
+            var isInvocationIdentifier = identifier.Parent is InvocationExpressionSyntax ||
+                                         identifier.Parent is MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax };
+            if (!isInvocationIdentifier)
+                continue;
+
+            if (!TryGetSymbolInfo(semanticModel, identifier, out var symbolInfo))
+                continue;
+
+            var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
+            if (symbol is null || symbol is ILocalSymbol)
+                continue;
+
+            resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, symbol, identifier);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveInvocationTargetDirectAtOffset(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Parent is not IdentifierNameSyntax identifier)
+                continue;
+
+            var invocation = identifier.Parent switch
+            {
+                InvocationExpressionSyntax direct => direct,
+                MemberAccessExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
+                    when ReferenceEquals(name, identifier) => parent,
+                _ => null
+            };
+            if (invocation is null || !invocation.Expression.Span.Contains(token.Span))
+                continue;
+
+            if (TryResolveInvocationTargetSymbol(semanticModel, identifier, token, out var symbol) && symbol is not null)
+            {
+                resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, symbol, identifier);
+                return true;
+            }
+
+            if (TryResolvePipeBoundInvocationTargetSymbol(semanticModel, invocation, out symbol) && symbol is not null)
+            {
+                resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, symbol, identifier);
+                return true;
+            }
         }
 
         return false;
@@ -222,6 +329,9 @@ internal static partial class SymbolResolver
         var clamped = Math.Clamp(offset, 0, maxOffset);
         yield return clamped;
 
+        if (clamped < maxOffset)
+            yield return clamped + 1;
+
         if (clamped > 0)
             yield return clamped - 1;
     }
@@ -312,6 +422,9 @@ internal static partial class SymbolResolver
             if (IsTypeContext(node))
                 chosen = ProjectTypeContextSymbol(chosen);
 
+            if (ShouldSkipProvisionalLocalFallback(chosen, token))
+                return null;
+
             return chosen;
         }
 
@@ -347,6 +460,13 @@ internal static partial class SymbolResolver
             return ProjectSymbolForDisplay(declaringReferenceSymbol);
 
         return null;
+    }
+
+    private static bool ShouldSkipProvisionalLocalFallback(ISymbol symbol, SyntaxToken token)
+    {
+        return symbol is ILocalSymbol local &&
+               local.Type.ContainsErrorType() &&
+               !TryMatchDeclaringSpan(local, token);
     }
 
     private static bool TryResolveCompoundEventAssignmentSymbol(

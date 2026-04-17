@@ -398,6 +398,68 @@ class Functions {
     }
 
     [Fact]
+    public void LocalHover_WithErrorType_UsesAngleBracketPlaceholder()
+    {
+        const string code = """
+class Broken {
+    func Test() -> unit {
+        val value: MissingType = 42
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var localDeclarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "value");
+        var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignature.Invoke(null, [localSymbol, localDeclarator, semanticModel])!;
+        signature.ShouldBe("val value: <Error>");
+    }
+
+    [Fact]
+    public void ParameterHover_WithErrorType_UsesAngleBracketPlaceholder()
+    {
+        const string code = """
+class Broken {
+    func Test(value: MissingType) -> unit {}
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var parameterSyntax = root.DescendantNodes().OfType<ParameterSyntax>().Single();
+        var parameterSymbol = semanticModel.GetDeclaredSymbol(parameterSyntax).ShouldBeAssignableTo<IParameterSymbol>();
+
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignature.Invoke(null, [parameterSymbol, parameterSyntax, semanticModel])!;
+        signature.ShouldBe("value: <Error>");
+    }
+
+    [Fact]
     public async Task LocalHover_UsesCompactUnionTypeSignatureAsync()
     {
         const string code = """

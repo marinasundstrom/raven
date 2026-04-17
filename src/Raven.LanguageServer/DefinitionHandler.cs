@@ -60,10 +60,8 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
             stageStopwatch.Restart();
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModel = context.Value.Compilation.GetSemanticModel(syntaxTree);
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            if (semanticModel is null)
-                return new LocationOrLocationLinks();
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 

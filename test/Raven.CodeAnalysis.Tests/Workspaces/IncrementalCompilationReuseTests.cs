@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -7,6 +8,15 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public sealed class IncrementalCompilationReuseTests
 {
+    private static object GetDescriptorState(Compilation compilation)
+    {
+        var field = typeof(Compilation).GetField("_descriptorState", BindingFlags.Instance | BindingFlags.NonPublic);
+        field.ShouldNotBeNull();
+        var value = field!.GetValue(compilation);
+        value.ShouldNotBeNull();
+        return value!;
+    }
+
     [Fact]
     public void WorkspaceCompilation_ReusesDeclarationKeys_ForUnchangedSyntaxTreesAcrossDocumentEdit()
     {
@@ -76,6 +86,84 @@ public sealed class IncrementalCompilationReuseTests
 
         updatedStableTree.ShouldBeSameAs(initialStableTree);
         updatedStableKey.ShouldBeSameAs(initialStableKey);
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_UsesDistinctDescriptorStatePerCompilationIncrement()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                class Edited {
+                    func Changed() -> int {
+                        1
+                    }
+
+                    func Stable(value: int) -> int {
+                        return value
+                    }
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialState = GetDescriptorState(initialCompilation);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var initialStableIdentifier = initialTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.ValueText == "Stable")
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(node => node.Identifier.ValueText == "value");
+        var initialModel = initialCompilation.GetSemanticModel(initialTree);
+        initialModel.GetSymbolInfo(initialStableIdentifier).Symbol?.Name.ShouldBe("value");
+        initialModel.GetNodeInterestSymbolDescriptorForTesting(initialStableIdentifier).ShouldNotBeNull();
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(
+                """
+                class Edited {
+                    func Changed() -> int {
+                        2
+                    }
+
+                    func Stable(value: int) -> int {
+                        return value
+                    }
+                }
+                """));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedState = GetDescriptorState(updatedCompilation);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedStableIdentifier = updatedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.ValueText == "Stable")
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(node => node.Identifier.ValueText == "value");
+
+        ReferenceEquals(initialState, updatedState).ShouldBeFalse();
+        updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedStableIdentifier).ShouldBeTrue();
     }
 
     [Fact]
@@ -778,6 +866,7 @@ public sealed class IncrementalCompilationReuseTests
 
         updatedInfo.Symbol?.Name.ShouldBe("value");
         updatedModel.GetMatchedExecutableOwnerForTesting(updatedStableIdentifier).ShouldNotBeNull();
+        updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedStableIdentifier).ShouldBeTrue();
         instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
         instrumentation.BinderReentry.GetBindExecutionCount(updatedStableIdentifier).ShouldBe(0);
     }
@@ -863,6 +952,7 @@ public sealed class IncrementalCompilationReuseTests
 
         updatedInfo.Symbol?.Name.ShouldBe("Name");
         updatedModel.GetMatchedExecutableOwnerForTesting(updatedMemberName).ShouldNotBeNull();
+        updatedCompilation.HasTransferredBinderParentAnchorDescriptorForTesting(updatedMemberName).ShouldBeTrue();
         instrumentation.BinderReentry.GetBindExecutionCount(updatedMemberName).ShouldBe(0);
         instrumentation.BinderReentry.TotalBindExecutions.ShouldBeLessThanOrEqualTo(1);
         instrumentation.BinderReentry.GetBindExecutionCount(updatedMemberAccess).ShouldBeLessThanOrEqualTo(1);
@@ -1445,6 +1535,83 @@ public sealed class IncrementalCompilationReuseTests
         updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedFirstValueIdentifier).ShouldBeTrue();
         updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedSecondValueIdentifier).ShouldBeTrue();
         updatedCompilation.HasTransferredBinderParentAnchorDescriptorForTesting(updatedSecondValueIdentifier).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_DiagnosticsAfterEdit_DoNotPoisonQueryableInvocationBinding()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "main.rav",
+            SourceText.From(
+                """
+                import System.Linq.*
+
+                func Main() -> () {
+                    val minAge = 22
+                    val query = [1, 2, 3]
+                        .AsQueryable()
+                        |> Where(value => value > minAge)
+                        |> Select(value => value.ToString())
+
+                    _ = query
+                }
+                """),
+            "/tmp/main.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        _ = workspace.GetCompilation(projectId);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(doc => doc.FilePath == "/tmp/main.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(
+                """
+                import System.Linq.*
+
+                func Main() -> () {
+                    val minAge = 24
+                    val query = [1, 2, 3]
+                        .AsQueryable()
+                        |> Where(value => value > minAge)
+                        |> Select(value => value.ToString())
+
+                    _ = query
+                }
+                """));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedDiagnostics = updatedCompilation.GetDiagnostics();
+        updatedDiagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/main.rav");
+        var updatedRoot = updatedTree.GetRoot();
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+
+        var queryDeclarator = updatedRoot.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(node => node.Identifier.ValueText == "query");
+        var queryLocal = Assert.IsAssignableFrom<ILocalSymbol>(updatedModel.GetDeclaredSymbol(queryDeclarator));
+        queryLocal.Type.TypeKind.ShouldNotBe(TypeKind.Error);
+
+        var whereIdentifier = updatedRoot.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(node => node.Identifier.ValueText == "Where");
+        var whereSymbolInfo = updatedModel.GetSymbolInfo(whereIdentifier);
+        var whereSymbol = whereSymbolInfo.Symbol ?? whereSymbolInfo.CandidateSymbols.FirstOrDefault();
+        Assert.IsAssignableFrom<IMethodSymbol>(whereSymbol);
     }
 
 }

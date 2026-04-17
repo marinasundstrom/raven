@@ -24,6 +24,7 @@ internal sealed class DocumentStore
 {
     private const double SlowCompilerGateThresholdMs = 100;
     private const double SlowAnalysisContextThresholdMs = 100;
+    private const double SlowSemanticModelMaterializationThresholdMs = 100;
     private const double SlowDiagnosticsThresholdMs = 150;
     private const double SlowWarmAnalysisThresholdMs = 250;
 
@@ -84,8 +85,27 @@ internal sealed class DocumentStore
 
     internal async Task<SemanticModel?> GetSemanticModelAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
-        var analysis = await GetOrCreateDocumentAnalysisAsync(uri, cancellationToken).ConfigureAwait(false);
-        return analysis?.GetSemanticModel();
+        var context = await GetAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+        if (context is null)
+            return null;
+
+        var stopwatch = Stopwatch.StartNew();
+        var setupBefore = context.Value.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+        var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+        stopwatch.Stop();
+
+        if (stopwatch.Elapsed.TotalMilliseconds >= SlowSemanticModelMaterializationThresholdMs)
+        {
+            var setupAfter = context.Value.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+            var setupDelta = CompilerSetupInstrumentation.Subtract(setupAfter, setupBefore);
+            _logger.LogInformation(
+                "Slow semantic model materialization for {Uri}: total={TotalMs:F1}ms setupDelta=[{SetupDelta}].",
+                uri,
+                stopwatch.Elapsed.TotalMilliseconds,
+                CompilerSetupInstrumentation.FormatDelta(setupDelta));
+        }
+
+        return semanticModel;
     }
 
     private async Task<CachedDocumentAnalysis?> GetOrCreateDocumentAnalysisAsync(DocumentUri uri, CancellationToken cancellationToken)
@@ -103,7 +123,12 @@ internal sealed class DocumentStore
         }
         compilationLookupMs = stopwatch.Elapsed.TotalMilliseconds;
 
-        var cacheKey = new DocumentAnalysisCacheKey(uri.ToString(), document.Project.Id, document.Id, document.Version);
+        var cacheKey = new DocumentAnalysisCacheKey(
+            uri.ToString(),
+            document.Project.Id,
+            document.Id,
+            document.Version,
+            document.Project.Version);
         if (_documentAnalysisCache.TryGetValue(cacheKey, out var cachedAnalysis))
             return cachedAnalysis;
 
@@ -426,10 +451,6 @@ internal sealed class DocumentStore
                 return;
             gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
 
-            using var semanticLease = await TryEnterDocumentSemanticAccessAsync(uri, cancellationToken, "warmAnalysis").ConfigureAwait(false);
-            if (semanticLease is null)
-                return;
-
             var stageStopwatch = Stopwatch.StartNew();
             var analysis = await GetOrCreateDocumentAnalysisAsync(uri, cancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -440,8 +461,19 @@ internal sealed class DocumentStore
                 return;
 
             stageStopwatch.Restart();
+            var setupBefore = analysis.Context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
             _ = analysis.GetSemanticModel();
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (semanticModelMs >= SlowSemanticModelMaterializationThresholdMs)
+            {
+                var setupAfter = analysis.Context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+                var setupDelta = CompilerSetupInstrumentation.Subtract(setupAfter, setupBefore);
+                _logger.LogInformation(
+                    "Warm analysis semantic model setup for {Uri}: semanticModel={SemanticModelMs:F1}ms setupDelta=[{SetupDelta}].",
+                    uri,
+                    semanticModelMs,
+                    CompilerSetupInstrumentation.FormatDelta(setupDelta));
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -605,7 +637,12 @@ internal sealed class DocumentStore
         }
     }
 
-    private readonly record struct DocumentAnalysisCacheKey(string Uri, ProjectId ProjectId, DocumentId DocumentId, VersionStamp Version);
+    private readonly record struct DocumentAnalysisCacheKey(
+        string Uri,
+        ProjectId ProjectId,
+        DocumentId DocumentId,
+        VersionStamp DocumentVersion,
+        VersionStamp ProjectVersion);
 
     private sealed class CachedDocumentAnalysis
     {

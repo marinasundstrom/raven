@@ -48,6 +48,26 @@ public sealed class RavenTextDocumentSyncHandlerTests
         RavenTextDocumentSyncHandler.ShouldClearStaleDiagnostics(queuedVersion, publishedVersion).ShouldBe(expected);
     }
 
+    [Theory]
+    [InlineData(true, 1, null, null, null)]
+    [InlineData(true, 2, 1, null, null)]
+    [InlineData(false, 2, 2, null, null)]
+    [InlineData(false, 2, 2, 5, 5)]
+    [InlineData(true, 2, 2, 5, 4)]
+    public void ShouldSkipDiagnosticRequest_UsesSessionBeforeVersion(
+        bool expected,
+        long expectedSession,
+        long? latestSession,
+        int? expectedVersion,
+        int? latestVersion)
+    {
+        RavenTextDocumentSyncHandler.ShouldSkipDiagnosticRequest(
+            expectedSession,
+            latestSession,
+            expectedVersion,
+            latestVersion).ShouldBe(expected);
+    }
+
     [Fact]
     public void GetSaveDiagnosticsPolicy_UsesDeferredFullDiagnosticsWithoutWarmup()
     {
@@ -61,14 +81,13 @@ public sealed class RavenTextDocumentSyncHandlerTests
     }
 
     [Fact]
-    public void GetEditDiagnosticsPolicy_UsesWarmupBeforeDeferredFullDiagnostics()
+    public void GetEditDiagnosticsPolicy_UsesWarmupWithoutDeferredFullDiagnostics()
     {
         var policy = RavenTextDocumentSyncHandler.GetEditDiagnosticsPolicy();
 
         policy.IncludeWarmup.ShouldBeTrue();
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
-        policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
-        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(0);
+        policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
         policy.DiagnosticsDelayMilliseconds.ShouldBeGreaterThan(0);
     }
 
@@ -130,6 +149,27 @@ public sealed class RavenTextDocumentSyncHandlerTests
 
         RavenTextDocumentSyncHandler.SummarizeDiagnosticsForLog(diagnostics)
             .ShouldBe("RAV0168x2, <no-code>x1, RAV0103x1");
+    }
+
+    [Theory]
+    [InlineData(0, 0, "publishDiagnostics")]
+    [InlineData(0, 1, "publishDiagnosticsSkipped")]
+    [InlineData(0, 2, "publishDiagnosticsUnchanged")]
+    [InlineData(0, 3, "publishDiagnosticsVersionMismatch")]
+    [InlineData(1, 0, "publishSyntaxDiagnostics")]
+    [InlineData(1, 1, "publishSyntaxDiagnosticsSkipped")]
+    [InlineData(1, 2, "publishSyntaxDiagnosticsUnchanged")]
+    [InlineData(1, 3, "publishSyntaxDiagnosticsVersionMismatch")]
+    public void GetPublishDiagnosticsOperationName_UsesOutcomeSpecificNames(
+        int modeValue,
+        int outcomeValue,
+        string expected)
+    {
+        var mode = (DocumentStore.DocumentDiagnosticsMode)modeValue;
+        var outcome = (RavenTextDocumentSyncHandler.PublishDiagnosticsOutcome)outcomeValue;
+
+        RavenTextDocumentSyncHandler.GetPublishDiagnosticsOperationName(mode, outcome)
+            .ShouldBe(expected);
     }
 
     private static Diagnostic CreateDiagnostic(

@@ -44,6 +44,10 @@ public partial class SemanticModel
     private readonly object _expandedRootGate = new();
     private bool _declarationsComplete;
     private bool _rootBinderCreated;
+    private bool _isEnsuringDeclarations;
+    private int _declarationSetupThreadId;
+    private bool _isCreatingRootBinder;
+    private int _rootBinderThreadId;
     private CompilationUnitSyntax? _expandedRoot;
 
     public bool IsDebuggingEnabled { get; set; } = true;
@@ -659,6 +663,56 @@ public partial class SemanticModel
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
         => _declaredSymbolLookup.Lookup(node);
 
+    internal bool TryGetStableLocalDeclarationSymbol(
+        VariableDeclaratorSyntax variableDeclarator,
+        out ILocalSymbol? localSymbol)
+    {
+        if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator cachedDeclarator &&
+            !cachedDeclarator.Local.Type.ContainsErrorType())
+        {
+            localSymbol = cachedDeclarator.Local;
+            return true;
+        }
+
+        if (variableDeclarator.TypeAnnotation is not null ||
+            variableDeclarator.Initializer?.Value.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any() != true)
+        {
+            localSymbol = null;
+            return false;
+        }
+
+        var interestRoot = GetInterestBindingRoot(variableDeclarator, includeExtendedExecutableRoots: true);
+        if (interestRoot is null)
+        {
+            localSymbol = null;
+            return false;
+        }
+
+        PrimeContextualFunctionExpressions(interestRoot);
+        ClearCachedBoundNodes(interestRoot);
+        _ = GetBoundNode(interestRoot, BoundTreeView.Original);
+
+        if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
+            !reboundDeclarator.Local.Type.ContainsErrorType())
+        {
+            localSymbol = reboundDeclarator.Local;
+            return true;
+        }
+
+        localSymbol = null;
+        return false;
+    }
+
+    private void PrimeContextualFunctionExpressions(SyntaxNode root)
+    {
+        foreach (var parameter in root.DescendantNodes()
+                     .OfType<ParameterSyntax>()
+                     .Where(static parameter => parameter.Ancestors().OfType<FunctionExpressionSyntax>().Any()))
+        {
+            _ = GetFunctionExpressionParameterSymbol(parameter);
+        }
+    }
+
     public MacroExpansionResult? GetMacroExpansion(
         AttributeSyntax attribute,
         CancellationToken cancellationToken = default)
@@ -879,6 +933,21 @@ public partial class SemanticModel
     {
         if (_functionExpressionSymbolCache.TryGetValue(functionExpression, out var cachedSymbol))
         {
+            if (!FunctionExpressionSymbolContainsError(cachedSymbol))
+            {
+                functionSymbol = cachedSymbol;
+                return true;
+            }
+
+            if (TryGetUpgradedFunctionExpressionSymbol(functionExpression, out var upgradedSymbol))
+            {
+                functionSymbol = _functionExpressionSymbolCache.AddOrUpdate(
+                    functionExpression,
+                    upgradedSymbol,
+                    (_, _) => upgradedSymbol);
+                return true;
+            }
+
             functionSymbol = cachedSymbol;
             return true;
         }
@@ -899,11 +968,29 @@ public partial class SemanticModel
             }
         }
 
+        if (TryGetUpgradedFunctionExpressionSymbol(functionExpression, out var functionExpressionMethod))
+        {
+            functionSymbol = functionExpressionMethod;
+            return true;
+        }
+
+        functionSymbol = null;
+        return false;
+    }
+
+    private bool TryGetUpgradedFunctionExpressionSymbol(
+        FunctionExpressionSyntax functionExpression,
+        out IMethodSymbol? functionSymbol)
+    {
         if (TryGetCachedBoundNode(functionExpression) is BoundFunctionExpression cachedFunction &&
             !IsLikelyStaleFunctionBodyNode(cachedFunction) &&
             cachedFunction.Symbol is IMethodSymbol cachedMethod)
         {
             functionSymbol = cachedMethod;
+            _functionExpressionSymbolCache.AddOrUpdate(
+                functionExpression,
+                cachedMethod,
+                (_, _) => cachedMethod);
             return true;
         }
 
@@ -911,10 +998,28 @@ public partial class SemanticModel
             contextualFunction.Symbol is IMethodSymbol contextualMethod)
         {
             functionSymbol = contextualMethod;
+            _functionExpressionSymbolCache.AddOrUpdate(
+                functionExpression,
+                contextualMethod,
+                (_, _) => contextualMethod);
             return true;
         }
 
         functionSymbol = null;
+        return false;
+    }
+
+    private static bool FunctionExpressionSymbolContainsError(IMethodSymbol method)
+    {
+        if (method.ReturnType.ContainsErrorType())
+            return true;
+
+        foreach (var parameter in method.Parameters)
+        {
+            if (parameter.Type.ContainsErrorType())
+                return true;
+        }
+
         return false;
     }
 
@@ -2952,15 +3057,32 @@ public partial class SemanticModel
         if (_rootBinderCreated)
             return;
 
+        var currentThreadId = Environment.CurrentManagedThreadId;
+
         lock (_bindingSetupGate)
         {
-            if (_rootBinderCreated)
+            while (_isCreatingRootBinder && _rootBinderThreadId != currentThreadId)
+                Monitor.Wait(_bindingSetupGate);
+
+            if (_rootBinderCreated || _isCreatingRootBinder)
                 return;
 
-            var root = SyntaxTree.GetRoot();
-            _ = GetBinder(root);
-            _rootBinderCreated = true;
-            Compilation.PerformanceInstrumentation.Setup.RecordRootBinderCreated();
+            _isCreatingRootBinder = true;
+            _rootBinderThreadId = currentThreadId;
+
+            try
+            {
+                var root = SyntaxTree.GetRoot();
+                _ = GetBinder(root);
+                _rootBinderCreated = true;
+                Compilation.PerformanceInstrumentation.Setup.RecordRootBinderCreated();
+            }
+            finally
+            {
+                _rootBinderThreadId = 0;
+                _isCreatingRootBinder = false;
+                Monitor.PulseAll(_bindingSetupGate);
+            }
         }
     }
 

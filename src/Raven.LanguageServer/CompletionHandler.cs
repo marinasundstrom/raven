@@ -72,10 +72,8 @@ internal sealed class CompletionHandler : ICompletionHandler
             var position = Math.Clamp(PositionHelper.ToOffset(text, request.Position), 0, syntaxTree.GetRoot(cancellationToken).FullSpan.End);
 
             stageStopwatch.Restart();
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModel = context.Value.Compilation.GetSemanticModel(syntaxTree);
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            if (semanticModel is null)
-                return new CompletionList();
 
             stageStopwatch.Restart();
             var completion = await _completionService.GetCompletionsWithMetricsAsync(semanticModel, position, cancellationToken).ConfigureAwait(false);

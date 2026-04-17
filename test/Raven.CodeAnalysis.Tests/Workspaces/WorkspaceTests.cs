@@ -159,6 +159,71 @@ public class WorkspaceTest
     }
 
     [Fact]
+    public async Task GetCompilation_ConcurrentIncrementalRebuild_ProducesStableSemanticModelsAsync()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+
+        var docA = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(docA, "A.rvn", SourceText.From("""
+class A {
+    func Use(b: B) -> int {
+        return b.Value()
+    }
+}
+"""), "A.rvn");
+
+        var docB = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(docB, "B.rvn", SourceText.From("""
+class B {
+    func Value() -> int {
+        return 1
+    }
+}
+"""), "B.rvn");
+
+        workspace.TryApplyChanges(solution);
+
+        _ = workspace.GetCompilation(projectId);
+
+        var updatedSolution = workspace.CurrentSolution.WithDocument(
+            workspace.CurrentSolution.GetDocument(docA)!.WithText(SourceText.From("""
+class A {
+    func Use(b: B) -> int {
+        return b.Value() + 1
+    }
+}
+""")));
+        workspace.TryApplyChanges(updatedSolution);
+
+        var start = new ManualResetEventSlim(false);
+        var tasks = Enumerable.Range(0, 8)
+            .Select(_ => Task.Run(() =>
+            {
+                start.Wait();
+                var compilation = workspace.GetCompilation(projectId);
+
+                foreach (var syntaxTree in compilation.SyntaxTrees)
+                {
+                    var semanticModel = compilation.GetSemanticModel(syntaxTree);
+                    semanticModel.GetDiagnostics().ShouldNotContain(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+                }
+
+                return compilation;
+            }))
+            .ToArray();
+
+        start.Set();
+        var compilations = await Task.WhenAll(tasks);
+
+        compilations.Distinct(ReferenceEqualityComparer.Instance).Count().ShouldBe(1);
+        compilations[0].SyntaxTrees.Length.ShouldBe(2);
+    }
+
+    [Fact]
     public void WorkspaceEvents_ShouldRaiseOnProjectAdded()
     {
         WorkspaceChangeEventArgs? args = null;

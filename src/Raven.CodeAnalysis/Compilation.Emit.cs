@@ -16,6 +16,9 @@ public partial class Compilation
         Stream? pdbStream,
         ImmutableArray<Diagnostic>? diagnostics)
     {
+        EnsureSetup();
+        EnsureSourceDeclarationsComplete();
+
         var effectiveDiagnostics = diagnostics ?? GetDiagnostics();
 
         if (effectiveDiagnostics.Any(x => x.Severity == DiagnosticSeverity.Error))

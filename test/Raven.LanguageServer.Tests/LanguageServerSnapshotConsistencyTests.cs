@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -6,6 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Raven.LanguageServer;
 
 namespace Raven.Editor.Tests;
@@ -204,7 +206,7 @@ val payment = Payment(42)
     }
 
     [Fact]
-    public async Task GetSemanticModelAsync_ReusesCachedAnalysisForSameDocumentVersion_AndInvalidatesOnUpdateAsync()
+    public async Task GetSemanticModelAsync_ReturnsCurrentDocumentSemanticModel_AndInvalidatesOnUpdateAsync()
     {
         var (store, _, uri) = CreateWorkspace("""
 func Main() -> () {
@@ -222,7 +224,8 @@ func Main() -> () {
         firstModel.ShouldNotBeNull();
         secondModel.ShouldNotBeNull();
         ReferenceEquals(firstContext.Value.SyntaxTree, secondContext.Value.SyntaxTree).ShouldBeTrue();
-        ReferenceEquals(firstModel, secondModel).ShouldBeTrue();
+        Should.NotThrow(() => firstModel.GetDiagnostics());
+        Should.NotThrow(() => secondModel.GetDiagnostics());
 
         store.UpsertDocument(uri, """
 func Main() -> () {
@@ -237,7 +240,7 @@ func Main() -> () {
         updatedModel.ShouldNotBeNull();
         updatedContext.Value.SourceText.ToString().ShouldContain("value = 100");
         ReferenceEquals(firstContext.Value.SyntaxTree, updatedContext.Value.SyntaxTree).ShouldBeFalse();
-        ReferenceEquals(firstModel, updatedModel).ShouldBeFalse();
+        Should.NotThrow(() => updatedModel.GetDiagnostics());
     }
 
     [Fact]
@@ -338,6 +341,110 @@ func Main() -> () {
     }
 
     [Fact]
+    public async Task GetSemanticModelAsync_ProjectVersionChangeWithoutDocumentEdit_InvalidatesCachedAnalysisAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var projectPath = Path.Combine(_tempRoot, "App.rvnproj");
+        File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var mainFilePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var helperFilePath = Path.Combine(_tempRoot, "src", "helper.rvn");
+        Directory.CreateDirectory(Path.GetDirectoryName(mainFilePath)!);
+        File.WriteAllText(mainFilePath, """
+func Main() -> () {
+    Helper()
+}
+""");
+        File.WriteAllText(helperFilePath, """
+func Helper() -> () { }
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var mainUri = DocumentUri.FromFileSystemPath(mainFilePath);
+        var helperUri = DocumentUri.FromFileSystemPath(helperFilePath);
+
+        var firstContext = await store.GetAnalysisContextAsync(mainUri, CancellationToken.None);
+        var firstModel = await store.GetSemanticModelAsync(mainUri, CancellationToken.None);
+
+        firstContext.ShouldNotBeNull();
+        firstModel.ShouldNotBeNull();
+
+        store.UpsertDocument(helperUri, """
+func Helper() -> () {
+    val answer = 42
+}
+""");
+
+        var secondContext = await store.GetAnalysisContextAsync(mainUri, CancellationToken.None);
+        var secondModel = await store.GetSemanticModelAsync(mainUri, CancellationToken.None);
+
+        secondContext.ShouldNotBeNull();
+        secondModel.ShouldNotBeNull();
+        secondContext.Value.Document.Version.ShouldBe(firstContext.Value.Document.Version);
+        secondContext.Value.Document.Project.Version.ShouldNotBe(firstContext.Value.Document.Project.Version);
+        ReferenceEquals(firstContext.Value.Compilation, secondContext.Value.Compilation).ShouldBeFalse();
+        secondContext.Value.Compilation.SyntaxTrees.ShouldContain(secondContext.Value.SyntaxTree);
+    }
+
+    [Fact]
+    public async Task WarmAnalysisAsync_CanPopulateSemanticModelWhileDocumentSemanticGateIsHeldAsync()
+    {
+        var (store, _, uri) = CreateWorkspace("""
+func Main() -> () {
+    val number = 42
+}
+""");
+
+        _ = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+        await store.WarmAnalysisAsync(uri, shouldSkipWork: null, CancellationToken.None);
+
+        var cacheField = typeof(DocumentStore).GetField("_documentAnalysisCache", BindingFlags.Instance | BindingFlags.NonPublic);
+        cacheField.ShouldNotBeNull();
+
+        var cache = cacheField!.GetValue(store);
+        cache.ShouldNotBeNull();
+
+        var entriesProperty = cache!.GetType().GetProperty("Values");
+        entriesProperty.ShouldNotBeNull();
+
+        var entries = ((System.Collections.IEnumerable)entriesProperty!.GetValue(cache)!).Cast<object>().ToArray();
+        entries.Length.ShouldBe(1);
+
+        var semanticModelField = entries[0].GetType().GetField("_semanticModel", BindingFlags.Instance | BindingFlags.NonPublic);
+        semanticModelField.ShouldNotBeNull();
+
+        var lazySemanticModel = semanticModelField!.GetValue(entries[0]);
+        lazySemanticModel.ShouldNotBeNull();
+
+        var isValueCreatedProperty = lazySemanticModel!.GetType().GetProperty("IsValueCreated");
+        isValueCreatedProperty.ShouldNotBeNull();
+        isValueCreatedProperty!.GetValue(lazySemanticModel).ShouldBe(true);
+    }
+
+    [Fact]
     public async Task HoverHandler_ProjectBackedExplicitTypeIdentifiers_ShowNamedTypeSignaturesAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -392,6 +499,24 @@ record CustomError(val Message: string)
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
+
+        var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+        var root = context.Value.SyntaxTree.GetRoot();
+        var queryDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(node => node.Identifier.ValueText == "query");
+        var queryLocal = Assert.IsAssignableFrom<ILocalSymbol>(semanticModel.GetDeclaredSymbol(queryDeclarator));
+        queryLocal.Type.TypeKind.ShouldNotBe(TypeKind.Error);
+
+        var whereIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(node => node.Identifier.ValueText == "Where");
+        var whereSymbolInfo = semanticModel.GetSymbolInfo(whereIdentifier);
+        var whereSymbol = whereSymbolInfo.Symbol ?? whereSymbolInfo.CandidateSymbols.FirstOrDefault();
+        var retrySemanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+        var retryWhereSymbolInfo = retrySemanticModel.GetSymbolInfo(whereIdentifier);
+        var retryWhereSymbol = retryWhereSymbolInfo.Symbol ?? retryWhereSymbolInfo.CandidateSymbols.FirstOrDefault();
+        Assert.True(whereSymbol is IMethodSymbol || retryWhereSymbol is IMethodSymbol);
 
         var sourceText = context.Value.SourceText;
         var pingResultOffset = text.IndexOf("-> PingResult", StringComparison.Ordinal);
@@ -454,6 +579,8 @@ record CustomError(val Message: string)
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
+        var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+        var root = context.Value.SyntaxTree.GetRoot();
 
         var sourceText = context.Value.SourceText;
         var pingResultOffset = text.IndexOf("-> PingResult", StringComparison.Ordinal);
@@ -512,6 +639,8 @@ record CustomError(val Message: string)
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
+        var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+        var root = context.Value.SyntaxTree.GetRoot();
 
         var sourceText = context.Value.SourceText;
         var okOffset = text.IndexOf("Ok(PingResult", StringComparison.Ordinal);
@@ -621,9 +750,14 @@ record CustomError(val Message: string)
         File.Exists(filePath).ShouldBeTrue();
 
         var originalText = File.ReadAllText(filePath);
-        originalText.ShouldContain("val minAge = 22");
-        var updatedText = originalText.Replace("val minAge = 22", "val minAge = 24", StringComparison.Ordinal);
-        updatedText.ShouldContain("val minAge = 24");
+        var minAgeMatch = Regex.Match(originalText, @"val minAge = (?<value>\d+)");
+        minAgeMatch.Success.ShouldBeTrue();
+        var currentMinAge = int.Parse(minAgeMatch.Groups["value"].Value);
+        var updatedText = string.Concat(
+            originalText.AsSpan(0, minAgeMatch.Index),
+            $"val minAge = {currentMinAge + 1}",
+            originalText.AsSpan(minAgeMatch.Index + minAgeMatch.Length));
+        updatedText.ShouldNotBe(originalText);
 
         var uri = DocumentUri.FromFileSystemPath(filePath);
 
@@ -650,6 +784,8 @@ record CustomError(val Message: string)
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
+        var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+        var root = context.Value.SyntaxTree.GetRoot();
 
         var sourceText = context.Value.SourceText;
         var whereLineText = "        |> Where(onlyActiveAdults)";
@@ -657,12 +793,22 @@ record CustomError(val Message: string)
         whereLineOffset.ShouldBeGreaterThanOrEqualTo(0);
         var whereColumn = whereLineText.IndexOf("Where", StringComparison.Ordinal);
         whereColumn.ShouldBeGreaterThanOrEqualTo(0);
+        var whereOffset = whereLineOffset + whereColumn;
+        var whereIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(node => node.Identifier.ValueText == "Where");
+        var whereSymbolInfo = semanticModel.GetSymbolInfo(whereIdentifier);
+        var whereSymbol = whereSymbolInfo.Symbol ?? whereSymbolInfo.CandidateSymbols.FirstOrDefault();
+        var retrySemanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+        var retryWhereSymbolInfo = retrySemanticModel.GetSymbolInfo(whereIdentifier);
+        var retryWhereSymbol = retryWhereSymbolInfo.Symbol ?? retryWhereSymbolInfo.CandidateSymbols.FirstOrDefault();
+        Assert.True(whereSymbol is IMethodSymbol || retryWhereSymbol is IMethodSymbol);
 
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
 
         foreach (var delta in new[] { 0, 2, 4 })
         {
-            var whereOffset = whereLineOffset + whereColumn + delta;
+            whereOffset = whereLineOffset + whereColumn + delta;
             var hover = await handler.Handle(new HoverParams
             {
                 TextDocument = new TextDocumentIdentifier(uri),

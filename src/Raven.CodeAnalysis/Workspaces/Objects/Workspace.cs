@@ -15,6 +15,7 @@ namespace Raven.CodeAnalysis;
 public class Workspace
 {
     private Solution _currentSolution;
+    private readonly object _compilationGate = new();
     private readonly Dictionary<ProjectId, ProjectCompilationState> _projectCompilations = new();
 
     protected Workspace(string kind)
@@ -129,6 +130,14 @@ public class Workspace
         return GetCompilation(project, new HashSet<ProjectId>());
     }
 
+    public Compilation CreateAnalysisCompilation(ProjectId projectId)
+    {
+        var project = CurrentSolution.GetProject(projectId)
+            ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        return CreateAnalysisCompilation(project, new HashSet<ProjectId>());
+    }
+
     private Compilation GetCompilation(ProjectId projectId, HashSet<ProjectId> building)
     {
         var project = CurrentSolution.GetProject(projectId)
@@ -141,28 +150,51 @@ public class Workspace
     {
         var projectId = project.Id;
 
-        if (!building.Add(projectId))
-            throw new InvalidOperationException("Circular project reference detected.");
-
-        try
+        lock (_compilationGate)
         {
-            if (!_projectCompilations.TryGetValue(projectId, out var state))
+            if (!building.Add(projectId))
+                throw new InvalidOperationException("Circular project reference detected.");
+
+            try
             {
-                return BuildCompilation(project, null, building);
+                if (!_projectCompilations.TryGetValue(projectId, out var state))
+                {
+                    return BuildCompilation(project, null, building, storeInCache: true);
+                }
+
+                if (state.Version == project.Version)
+                    return state.Compilation;
+
+                return BuildCompilation(project, state, building, storeInCache: true);
             }
-
-            if (state.Version == project.Version)
-                return state.Compilation;
-
-            return BuildCompilation(project, state, building);
-        }
-        finally
-        {
-            building.Remove(projectId);
+            finally
+            {
+                building.Remove(projectId);
+            }
         }
     }
 
-    private Compilation BuildCompilation(Project project, ProjectCompilationState? state, HashSet<ProjectId> building)
+    private Compilation CreateAnalysisCompilation(Project project, HashSet<ProjectId> building)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+
+        lock (_compilationGate)
+        {
+            if (!building.Add(project.Id))
+                throw new InvalidOperationException("Circular project reference detected.");
+
+            try
+            {
+                return BuildCompilation(project, state: null, building, storeInCache: false);
+            }
+            finally
+            {
+                building.Remove(project.Id);
+            }
+        }
+    }
+
+    private Compilation BuildCompilation(Project project, ProjectCompilationState? state, HashSet<ProjectId> building, bool storeInCache)
     {
         state ??= new ProjectCompilationState();
         var previousCompilation = state.Compilation;
@@ -211,14 +243,20 @@ public class Workspace
         {
             var referencedProject = project.Solution.GetProject(projRef.ProjectId)
                 ?? throw new ArgumentException("Project not found", nameof(projRef.ProjectId));
-            var compRef = GetCompilation(referencedProject, building).ToMetadataReference();
+            var referencedCompilation = storeInCache
+                ? GetCompilation(referencedProject, building)
+                : CreateAnalysisCompilation(referencedProject, building);
+            var compRef = referencedCompilation.ToMetadataReference();
             references.Add(compRef);
         }
 
         var compilation = Compilation.Create(project.AssemblyName ?? project.Name,
             syntaxTrees.ToArray(), references.ToArray(), [.. project.MacroReferences], project.CompilationOptions);
 
-        if (previousCompilation is not null)
+        var canReuseSemanticIncrementalState = previousCompilation is not null &&
+                                               changedExecutableOwners.Count == 0;
+
+        if (canReuseSemanticIncrementalState)
         {
             compilation.InitializeIncrementalState(previousCompilation.CreateIncrementalState(
                 reusedSyntaxTrees.ToImmutable(),
@@ -235,10 +273,13 @@ public class Workspace
         foreach (var (tree, matches, _) in matchedExecutableOwners)
             compilation.RegisterMatchedExecutableOwners(tree, matches);
 
-        state.Version = project.Version;
-        state.Compilation = compilation;
+        if (storeInCache)
+        {
+            state.Version = project.Version;
+            state.Compilation = compilation;
+            _projectCompilations[project.Id] = state;
+        }
 
-        _projectCompilations[project.Id] = state;
         return compilation;
     }
 
@@ -439,7 +480,7 @@ public class Workspace
         var project = CurrentSolution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
-        var compilation = GetCompilation(projectId);
+        var compilation = CreateAnalysisCompilation(projectId);
         var diagnostics = compilation.GetDiagnostics(analyzerOptions, cancellationToken).ToHashSet();
 
         if (project.CompilationOptions?.RunAnalyzers != false)
@@ -494,7 +535,7 @@ public class Workspace
         var syntaxTree = document.SyntaxTree
             ?? throw new InvalidOperationException("Document does not have a syntax tree.");
 
-        var compilation = GetCompilation(projectId);
+        var compilation = CreateAnalysisCompilation(projectId);
         return compilation.GetDiagnostics(syntaxTree, analyzerOptions, cancellationToken);
     }
 

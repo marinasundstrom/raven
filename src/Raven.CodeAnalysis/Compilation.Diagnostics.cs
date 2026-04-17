@@ -184,6 +184,7 @@ public partial class Compilation
                    !string.IsNullOrWhiteSpace(syntaxTree.FilePath) &&
                    string.Equals(diagnosticPath, syntaxTree.FilePath, StringComparison.OrdinalIgnoreCase);
         }
+
     }
 
     public ImmutableArray<Diagnostic> GetSyntaxDiagnostics(

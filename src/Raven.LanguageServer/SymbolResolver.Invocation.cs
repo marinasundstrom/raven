@@ -57,14 +57,22 @@ internal static partial class SymbolResolver
         {
             if (symbolInfo.Symbol is not null)
             {
-                symbol = ProjectInvocationSymbolForDisplay(symbolInfo.Symbol, semanticModel, invocation);
-                return true;
+                var projectedSymbol = ProjectInvocationSymbolForDisplay(symbolInfo.Symbol, semanticModel, invocation);
+                if (projectedSymbol is not ILocalSymbol)
+                {
+                    symbol = projectedSymbol;
+                    return true;
+                }
             }
 
             if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                symbol = ProjectInvocationSymbolForDisplay(symbolInfo.CandidateSymbols[0], semanticModel, invocation);
-                return true;
+                var projectedCandidate = ProjectInvocationSymbolForDisplay(symbolInfo.CandidateSymbols[0], semanticModel, invocation);
+                if (projectedCandidate is not ILocalSymbol)
+                {
+                    symbol = projectedCandidate;
+                    return true;
+                }
             }
         }
 
@@ -82,7 +90,8 @@ internal static partial class SymbolResolver
         var invocationExpressionSymbol = invocationExpressionOperation is null
             ? null
             : ProjectSymbolForDisplay(GetOperationSymbol(invocationExpressionOperation));
-        if (invocationExpressionSymbol is not null)
+        if (invocationExpressionSymbol is not null &&
+            invocationExpressionSymbol is not ILocalSymbol)
         {
             symbol = ProjectInvocationSymbolForDisplay(invocationExpressionSymbol, semanticModel, invocation);
             return true;
@@ -102,6 +111,12 @@ internal static partial class SymbolResolver
     {
         symbol = null;
 
+        if (TryResolveInvocationExpressionSymbol(semanticModel, invocation, out var invocationSymbol))
+        {
+            symbol = invocationSymbol;
+            return true;
+        }
+
         var pipeExpr = invocation.Ancestors()
             .OfType<InfixOperatorExpressionSyntax>()
             .FirstOrDefault(pipe => pipe.Kind == SyntaxKind.PipeExpression && pipe.Right == invocation);
@@ -112,14 +127,22 @@ internal static partial class SymbolResolver
         {
             if (pipeInfo.Symbol is not null)
             {
-                symbol = ProjectInvocationSymbolForDisplay(pipeInfo.Symbol, semanticModel, invocation);
-                return true;
+                var projectedSymbol = ProjectInvocationSymbolForDisplay(pipeInfo.Symbol, semanticModel, invocation);
+                if (projectedSymbol is not ILocalSymbol)
+                {
+                    symbol = projectedSymbol;
+                    return true;
+                }
             }
 
             if (!pipeInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                symbol = ProjectInvocationSymbolForDisplay(pipeInfo.CandidateSymbols[0], semanticModel, invocation);
-                return true;
+                var projectedCandidate = ProjectInvocationSymbolForDisplay(pipeInfo.CandidateSymbols[0], semanticModel, invocation);
+                if (projectedCandidate is not ILocalSymbol)
+                {
+                    symbol = projectedCandidate;
+                    return true;
+                }
             }
         }
 
@@ -137,10 +160,103 @@ internal static partial class SymbolResolver
         var invocationExpressionSymbol = invocationExpressionOperation is null
             ? null
             : ProjectSymbolForDisplay(GetOperationSymbol(invocationExpressionOperation));
-        if (invocationExpressionSymbol is not null)
+        if (invocationExpressionSymbol is not null &&
+            invocationExpressionSymbol is not ILocalSymbol)
         {
             symbol = ProjectInvocationSymbolForDisplay(invocationExpressionSymbol, semanticModel, invocation);
             return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveInvocationExpressionSymbol(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        [NotNullWhen(true)] out ISymbol? symbol)
+    {
+        symbol = null;
+
+        switch (invocation.Expression)
+        {
+            case IdentifierNameSyntax identifier:
+                {
+                    if (TryGetSymbolInfo(semanticModel, identifier, out var identifierInfo))
+                    {
+                        if (identifierInfo.Symbol is not null)
+                        {
+                            var projectedSymbol = ProjectInvocationSymbolForDisplay(identifierInfo.Symbol, semanticModel, invocation);
+                            if (projectedSymbol is not ILocalSymbol)
+                            {
+                                symbol = projectedSymbol;
+                                return true;
+                            }
+                        }
+
+                        if (!identifierInfo.CandidateSymbols.IsDefaultOrEmpty)
+                        {
+                            var projectedCandidate = ProjectInvocationSymbolForDisplay(identifierInfo.CandidateSymbols[0], semanticModel, invocation);
+                            if (projectedCandidate is not ILocalSymbol)
+                            {
+                                symbol = projectedCandidate;
+                                return true;
+                            }
+                        }
+                    }
+
+                    break;
+                }
+
+            case MemberAccessExpressionSyntax memberAccess:
+                {
+                    if (TryGetSymbolInfo(semanticModel, memberAccess.Name, out var memberInfo))
+                    {
+                        if (memberInfo.Symbol is not null)
+                        {
+                            var projectedSymbol = ProjectInvocationSymbolForDisplay(memberInfo.Symbol, semanticModel, invocation);
+                            if (projectedSymbol is not ILocalSymbol)
+                            {
+                                symbol = projectedSymbol;
+                                return true;
+                            }
+                        }
+
+                        if (!memberInfo.CandidateSymbols.IsDefaultOrEmpty)
+                        {
+                            var projectedCandidate = ProjectInvocationSymbolForDisplay(memberInfo.CandidateSymbols[0], semanticModel, invocation);
+                            if (projectedCandidate is not ILocalSymbol)
+                            {
+                                symbol = projectedCandidate;
+                                return true;
+                            }
+                        }
+                    }
+
+                    break;
+                }
+        }
+
+        if (TryGetSymbolInfo(semanticModel, invocation.Expression, out var expressionInfo))
+        {
+            if (expressionInfo.Symbol is not null)
+            {
+                var projectedSymbol = ProjectInvocationSymbolForDisplay(expressionInfo.Symbol, semanticModel, invocation);
+                if (projectedSymbol is not ILocalSymbol)
+                {
+                    symbol = projectedSymbol;
+                    return true;
+                }
+            }
+
+            if (!expressionInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                var projectedCandidate = ProjectInvocationSymbolForDisplay(expressionInfo.CandidateSymbols[0], semanticModel, invocation);
+                if (projectedCandidate is not ILocalSymbol)
+                {
+                    symbol = projectedCandidate;
+                    return true;
+                }
+            }
         }
 
         return false;
