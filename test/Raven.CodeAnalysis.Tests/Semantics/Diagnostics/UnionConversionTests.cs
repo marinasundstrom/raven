@@ -151,7 +151,7 @@ union Result<T, E> {
         var verifier = CreateVerifier(code, [
             new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
                 .WithSpan(2, 12, 2, 17)
-                .WithArguments("Ok<int>", "Result<(), string>")
+                .WithArguments("Result<int, E>", "Result<(), string>")
         ]);
         verifier.Verify();
     }
@@ -175,7 +175,7 @@ union Result<T, E> {
         var verifier = CreateVerifier(code, [
             new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
                 .WithSpan(2, 5, 2, 10)
-                .WithArguments("Ok<int>", "Result<(), string>")
+                .WithArguments("Result<int, E>", "Result<(), string>")
         ]);
         verifier.Verify();
     }

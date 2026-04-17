@@ -78,8 +78,8 @@ import System.Globalization.*
 
 func Wrap() -> string {
     val error = ParseIntError(.InvalidFormat, "foo", NumberStyles.Integer)
-    val wrapped = error.WithMessage("wrapped")
-    return if wrapped.Cause.Kind == .InvalidFormat { "ok" } else { "bad" }
+    val wrapped = error.WithContext("wrapped")
+    return if wrapped.Cause.Kind == IntErrorKind.InvalidFormat { "ok" } else { "bad" }
 }
 """;
 
@@ -94,7 +94,7 @@ import System.*
 import System.Globalization.*
 
 func Wrap() -> string {
-    val wrapped = ParseIntError(.InvalidFormat, "foo", NumberStyles.Integer).WithMessage("wrapped")
+    val wrapped = ParseIntError(.InvalidFormat, "foo", NumberStyles.Integer).WithContext("wrapped")
     val erased: IError = wrapped
     return "$wrapped.Cause.Kind|$erased.Cause?.Message"
 }
@@ -110,7 +110,7 @@ func Wrap() -> string {
 import System.*
 
 func Wrap(text: string) -> Result<int, ContextError<ParseIntError>> {
-    return int.parse(text).WithMessage("wrapped")
+    return int.parse(text).WithContext("wrapped")
 }
 """;
 

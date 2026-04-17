@@ -2486,6 +2486,7 @@ public partial class SemanticModel
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
         var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
         var objectToString = GetObjectToStringMethod();
         int ordinal = 0;
 
@@ -2499,6 +2500,72 @@ public partial class SemanticModel
         {
             RegisterMember(unionSymbol, member);
             RegisterMember((SourceNamedTypeSymbol)member.ContainingType!, member);
+        }
+
+        void EnsureUnionValueProperty(ITypeSymbol valuePropertyType, Location location, SyntaxReference reference)
+        {
+            if (unionSymbol.GetMembers("Value").OfType<IPropertySymbol>().Any())
+                return;
+
+            var valueProperty = new SourcePropertySymbol(
+                "Value",
+                valuePropertyType,
+                unionSymbol,
+                unionSymbol,
+                namespaceSymbol,
+                [location],
+                [reference],
+                declaredAccessibility: Accessibility.Public);
+
+            var getter = new SourceMethodSymbol(
+                "get_Value",
+                valuePropertyType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                valueProperty,
+                unionSymbol,
+                namespaceSymbol,
+                [location],
+                Array.Empty<SyntaxReference>(),
+                isStatic: false,
+                methodKind: MethodKind.PropertyGet,
+                declaredAccessibility: Accessibility.Public);
+
+            valueProperty.SetAccessors(getter, null);
+            RegisterMember(unionSymbol, valueProperty);
+            RegisterMember(unionSymbol, getter);
+        }
+
+        void EnsureUnionHasValueProperty(Location location, SyntaxReference reference)
+        {
+            if (unionSymbol.GetMembers("HasValue").OfType<IPropertySymbol>().Any())
+                return;
+
+            var hasValueProperty = new SourcePropertySymbol(
+                "HasValue",
+                boolType!,
+                unionSymbol,
+                unionSymbol,
+                namespaceSymbol,
+                [location],
+                [reference],
+                declaredAccessibility: Accessibility.Public);
+
+            var getter = new SourceMethodSymbol(
+                "get_HasValue",
+                boolType!,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                hasValueProperty,
+                unionSymbol,
+                namespaceSymbol,
+                [location],
+                Array.Empty<SyntaxReference>(),
+                isStatic: false,
+                methodKind: MethodKind.PropertyGet,
+                declaredAccessibility: Accessibility.Public);
+
+            hasValueProperty.SetAccessors(getter, null);
+            RegisterMember(unionSymbol, hasValueProperty);
+            RegisterMember(unionSymbol, getter);
         }
 
         void RegisterUnionMemberArtifacts(ITypeSymbol memberType, Location location, SyntaxReference reference)
@@ -2687,20 +2754,39 @@ public partial class SemanticModel
 
         var unionAccessibility = unionSymbol.DeclaredAccessibility;
         var knownUnionTypeParameters = new HashSet<ITypeParameterSymbol>(unionSymbol.TypeParameters, SymbolEqualityComparer.Default);
+        var unionValuePropertyType = unionSymbol.TypeKind == TypeKind.Struct
+            ? objectType!.MakeNullable()
+            : objectType!;
 
         if (unionDecl.MemberTypes is { } memberTypeList)
         {
+            var boundMemberTypes = new List<(ITypeSymbol Type, Location Location, SyntaxReference Reference)>();
+            var hasNullableMember = false;
+
             foreach (var memberTypeSyntax in memberTypeList.Types)
             {
                 var memberType = unionBinder.BindTypeSyntaxAndReport(memberTypeSyntax);
-                RegisterUnionMemberArtifacts(memberType, memberTypeSyntax.GetLocation(), memberTypeSyntax.GetReference());
+                hasNullableMember |= memberType.IsNullable;
+                boundMemberTypes.Add((memberType, memberTypeSyntax.GetLocation(), memberTypeSyntax.GetReference()));
             }
+
+            if (unionSymbol.TypeKind != TypeKind.Struct && hasNullableMember)
+                unionValuePropertyType = objectType!.MakeNullable();
+
+            EnsureUnionValueProperty(unionValuePropertyType, unionDecl.GetLocation(), unionDecl.GetReference());
+            EnsureUnionHasValueProperty(unionDecl.GetLocation(), unionDecl.GetReference());
+
+            foreach (var (memberType, location, reference) in boundMemberTypes)
+                RegisterUnionMemberArtifacts(memberType, location, reference);
 
             unionSymbol.SetCases(caseSymbols);
             unionSymbol.SetMemberTypes(memberTypes);
             unionSymbol.SetPayloadFields(payloadFields);
             return;
         }
+
+        EnsureUnionValueProperty(unionValuePropertyType, unionDecl.GetLocation(), unionDecl.GetReference());
+        EnsureUnionHasValueProperty(unionDecl.GetLocation(), unionDecl.GetReference());
 
         foreach (var caseClause in unionDecl.CaseTypes)
         {

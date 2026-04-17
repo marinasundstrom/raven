@@ -1311,12 +1311,8 @@ internal partial class ExpressionGenerator
             targetType = lt.UnderlyingType;
 
         if (targetType.TypeKind == TypeKind.Enum)
-        {
-            // TODO: once EnumUnderlyingType is available, emit using that.
-            // For now, treat as Int32 which matches the most common underlying type.
-            ILGenerator.Emit(OpCodes.Ldc_I4, Convert.ToInt32(value, CultureInfo.InvariantCulture));
-            return;
-        }
+            targetType = ((INamedTypeSymbol)targetType).EnumUnderlyingType
+                ?? Compilation.GetSpecialType(SpecialType.System_Int32);
 
         switch (targetType.SpecialType)
         {
@@ -1789,8 +1785,17 @@ internal partial class ExpressionGenerator
 
     private void EmitConstantPattern(BoundConstantPattern constantPattern, ITypeSymbol inputType, IILocal? scrutineeLocal2)
     {
+        if (constantPattern.Expression is BoundUnitExpression &&
+            inputType.SpecialType == SpecialType.System_Unit)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            return;
+        }
+
         // Runtime "value pattern" (e.g. identifier/member access) – compare by object.Equals.
-        if (constantPattern.Expression is not null
+        if (constantPattern.ConstantValue is not null
+            && constantPattern.Expression is not null
             && constantPattern.Expression is not BoundTypeExpression { Type: NullTypeSymbol })
         {
             EmitRuntimeValueConstantCompare(constantPattern.Expression, inputType, scrutineeLocal2);
@@ -1854,8 +1859,35 @@ internal partial class ExpressionGenerator
 
     private void EmitNullConstantPattern(ITypeSymbol scrutineeType, Type scrutineeClr, IILocal? scrutineeLocal2)
     {
+        if (scrutineeType.TryGetUnion() is IUnionSymbol { TypeKind: TypeKind.Struct } &&
+            scrutineeType is INamedTypeSymbol scrutineeNamedType)
+        {
+            var hasValueGetter = scrutineeNamedType
+                .GetMembers("HasValue")
+                .OfType<IPropertySymbol>()
+                .Where(static property => property.GetMethod is not null)
+                .Select(property => property.GetMethod!)
+                .FirstOrDefault(method => SymbolEqualityComparer.Default.Equals(method.ContainingType, scrutineeNamedType))
+                ?? scrutineeNamedType
+                    .GetMembers("HasValue")
+                    .OfType<IPropertySymbol>()
+                    .Where(static property => property.GetMethod is not null)
+                    .Select(property => property.GetMethod!)
+                    .First();
+
+            var unionLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(scrutineeClr);
+            ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+            ILGenerator.Emit(OpCodes.Ldloca_S, unionLocal);
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(hasValueGetter));
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Ceq);
+            return;
+        }
+
         if (scrutineeType.IsValueType && !scrutineeType.IsNullable)
         {
+            if (scrutineeLocal2 is null)
+                ILGenerator.Emit(OpCodes.Pop);
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
             return;
         }
@@ -1958,10 +1990,12 @@ internal partial class ExpressionGenerator
 
         // Enums compare via underlying integral type
         if (targetType.TypeKind == TypeKind.Enum)
-            targetType = ((INamedTypeSymbol)targetType); //.EnumUnderlyingType!;
+            targetType = ((INamedTypeSymbol)targetType).EnumUnderlyingType
+                ?? Compilation.GetSpecialType(SpecialType.System_Int32);
 
         if (litUnderlying.TypeKind == TypeKind.Enum)
-            litUnderlying = ((INamedTypeSymbol)litUnderlying); //.EnumUnderlyingType!;
+            litUnderlying = ((INamedTypeSymbol)litUnderlying).EnumUnderlyingType
+                ?? Compilation.GetSpecialType(SpecialType.System_Int32);
 
         switch (targetType.SpecialType)
         {

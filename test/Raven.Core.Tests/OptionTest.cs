@@ -54,6 +54,44 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     }
 
     [Fact]
+    public void CarrierProperties_ReportActiveCase_ForSome()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var someType = GetCaseTypeFromTryGetValue(optionType, "Some");
+        var some = Activator.CreateInstance(someType, 42)!;
+        var option = ConvertCaseToCarrier(optionType, some);
+
+        var hasValue = optionType.GetProperty("HasValue", BindingFlags.Public | BindingFlags.Instance);
+        var valueProperty = optionType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.NotNull(hasValue);
+        Assert.NotNull(valueProperty);
+        Assert.Equal(true, hasValue!.GetValue(option));
+        Assert.NotNull(valueProperty!.GetValue(option));
+        Assert.Equal(someType, valueProperty.GetValue(option)!.GetType());
+    }
+
+    [Fact]
+    public void CarrierProperties_ReportActiveCase_ForNone()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var noneType = GetCaseTypeFromTryGetValue(optionType, "None");
+        var none = Activator.CreateInstance(noneType)!;
+        var option = ConvertCaseToCarrier(optionType, none);
+
+        var hasValue = optionType.GetProperty("HasValue", BindingFlags.Public | BindingFlags.Instance);
+        var valueProperty = optionType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.NotNull(hasValue);
+        Assert.NotNull(valueProperty);
+        Assert.Equal(true, hasValue!.GetValue(option));
+        Assert.NotNull(valueProperty!.GetValue(option));
+        Assert.Equal(noneType, valueProperty.GetValue(option)!.GetType());
+    }
+
+    [Fact]
     public void MapThenWhere_BindsFromRavenCore()
     {
         const string code = """
@@ -132,9 +170,13 @@ val _ = input.Map((v: string) => v)
                 m.GetParameters().Length == 1 &&
                 m.GetParameters()[0].ParameterType == caseValue.GetType());
 
-        if (conversion is null)
-            throw new InvalidOperationException($"Missing implicit conversion from '{caseValue.GetType()}' to '{carrierType}'.");
+        if (conversion is not null)
+            return conversion.Invoke(null, [caseValue])!;
 
-        return conversion.Invoke(null, [caseValue])!;
+        var constructor = carrierType.GetConstructor([caseValue.GetType()]);
+        if (constructor is not null)
+            return constructor.Invoke([caseValue]);
+
+        throw new InvalidOperationException($"Missing conversion or constructor from '{caseValue.GetType()}' to '{carrierType}'.");
     }
 }

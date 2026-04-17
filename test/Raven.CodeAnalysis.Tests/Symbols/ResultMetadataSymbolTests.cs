@@ -236,11 +236,12 @@ class Container {
     {
         var coreDirectory = Path.GetFullPath(Path.Combine(
             "..", "..", "..", "..", "..", "src", "Raven.Core"));
+        var errorTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Error.rav")));
         var optionTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Option.rav")));
         var resultTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Result.rav")));
         var compilation = Compilation.Create(
             "raven-core-result-fixture",
-            [optionTree, resultTree],
+            [errorTree, optionTree, resultTree],
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 

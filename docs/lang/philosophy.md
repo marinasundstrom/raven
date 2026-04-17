@@ -51,6 +51,11 @@ Raven therefore leans toward:
 - modeling expected failures with `Result<T, E>` instead of exceptions alone
 - using `match` when a decision deserves to be seen, not hidden
 
+In the standard library, those carriers are intentionally `union class`
+surfaces rather than `union struct` surfaces. That keeps their runtime shape
+compatible with the expected .NET union contract while avoiding an extra
+default/uninitialized state in the common path.
+
 `null` is still part of the language because .NET interop demands it, but Raven’s
 preferred design direction is explicit domain flow through `Option<T>` and
 `Result<T, E>`, not nullable-heavy application logic.
@@ -132,6 +137,11 @@ At the same time, Raven should not blindly mirror C# syntax or semantics when a 
 That is why Raven is comfortable borrowing ecosystem expectations from C# when
 they help interoperability, while still choosing Swift/F#/Rust-like surface
 decisions when they produce a clearer language model.
+
+Union carriers are one example of that boundary. Raven follows the conventional
+`.NET` contract by exposing a `Value` property and compatible carrier behavior,
+but it keeps Raven-native case construction, pattern matching, and extension
+driven helper APIs instead of copying C# surface syntax wholesale.
 
 ## Extensions over special cases
 

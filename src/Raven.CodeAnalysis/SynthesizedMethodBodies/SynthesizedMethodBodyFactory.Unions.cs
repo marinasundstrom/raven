@@ -104,6 +104,68 @@ internal static partial class SynthesizedMethodBodyFactory
         return new BoundBlockStatement(statements);
     }
 
+    private static BoundBlockStatement CreateUnionValuePropertyGetterBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceUnionSymbol unionSymbol)
+    {
+        var statements = new List<BoundStatement>();
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object)
+            ?? throw new InvalidOperationException("Failed to resolve System.Object.");
+
+        if (!unionSymbol.CaseTypes.IsDefaultOrEmpty && unionSymbol.CaseTypes.Length > 0)
+        {
+            foreach (var caseType in unionSymbol.CaseTypes.OfType<SourceUnionCaseTypeSymbol>())
+            {
+                var payloadField = (SourceFieldSymbol)UnionFieldUtilities.GetRequiredPayloadField(unionSymbol, caseType);
+                var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadField);
+                var boxedValue = CreateConversion(compilation, payloadAccess, objectType);
+                statements.Add(new BoundIfStatement(
+                    CreateUnionTagEquality(compilation, method, unionSymbol, caseType.Ordinal),
+                    new BoundReturnStatement(
+                        SymbolEqualityComparer.Default.Equals(method.ReturnType, objectType)
+                            ? boxedValue
+                            : CreateConversion(compilation, boxedValue, method.ReturnType))));
+            }
+        }
+        else
+        {
+            var payloadFields = unionSymbol.PayloadFields.OfType<SourceFieldSymbol>().ToArray();
+            for (var index = 0; index < payloadFields.Length; index++)
+            {
+                var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadFields[index]);
+                var boxedValue = CreateConversion(compilation, payloadAccess, objectType);
+                statements.Add(new BoundIfStatement(
+                    CreateUnionTagEquality(compilation, method, unionSymbol, index),
+                    new BoundReturnStatement(
+                        SymbolEqualityComparer.Default.Equals(method.ReturnType, objectType)
+                            ? boxedValue
+                            : CreateConversion(compilation, boxedValue, method.ReturnType))));
+            }
+        }
+
+        statements.Add(new BoundReturnStatement(CreateNullLiteral(compilation)));
+        return new BoundBlockStatement(statements);
+    }
+
+    private static BoundBlockStatement CreateUnionHasValuePropertyGetterBody(
+        Compilation compilation,
+        IMethodSymbol method,
+        SourceUnionSymbol unionSymbol)
+    {
+        var tagField = unionSymbol.DiscriminatorField;
+        var tagAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), tagField);
+        var hasValue = CreateBinaryExpression(
+            compilation,
+            SyntaxKind.NotEqualsToken,
+            tagAccess,
+            CreateByteLiteral(compilation, 0));
+
+        return new BoundBlockStatement([
+            new BoundReturnStatement(hasValue)
+        ]);
+    }
+
     private static BoundBlockStatement CreateUnionCaseToStringBody(
         Compilation compilation,
         IMethodSymbol method,
@@ -523,7 +585,7 @@ internal static partial class SynthesizedMethodBodyFactory
     {
         var tagAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), unionSymbol.DiscriminatorField);
         var tagType = unionSymbol.DiscriminatorField.Type;
-        var literal = new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, (byte)ordinal, tagType);
+        var literal = new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, GetStoredUnionTag(ordinal), tagType);
 
         if (!BoundBinaryOperator.TryLookup(compilation, SyntaxKind.EqualsEqualsToken, tagType, tagType, out var equals))
             throw new InvalidOperationException("Failed to bind synthesized union discriminator comparison.");
@@ -808,7 +870,7 @@ internal static partial class SynthesizedMethodBodyFactory
             var tagAssignment = new BoundFieldAssignmentExpression(
                 self,
                 unionSymbol.DiscriminatorField,
-                CreateByteLiteral(compilation, (byte)ordinal),
+                CreateByteLiteral(compilation, GetStoredUnionTag(ordinal)),
                 unitType);
             statements.Add(new BoundAssignmentStatement(tagAssignment));
 
@@ -1025,5 +1087,13 @@ internal static partial class SynthesizedMethodBodyFactory
         ordinal = -1;
         payloadFieldSymbol = null!;
         return false;
+    }
+
+    private static byte GetStoredUnionTag(int ordinal)
+    {
+        checked
+        {
+            return (byte)(ordinal + 1);
+        }
     }
 }

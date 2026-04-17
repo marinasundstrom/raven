@@ -724,6 +724,11 @@ Raven ships `Option<T>`, `Result<T, E>`, and related extension helpers in
 standard language experience and are expected by diagnostics, samples, and
 tooling.
 
+`Option<T>` and `Result<T, E>` are defined in `Raven.Core` as `union class`
+carriers. This is intentional: the standard carriers follow the conventional
+`.NET` union contract without exposing the extra default/uninitialized state
+that exists for `union struct` values.
+
 #### `Option<T>` helpers
 
 - State checks: `HasSome`, `HasNone`
@@ -4414,6 +4419,15 @@ val left = (int)outcome
 * `.Case(...)` resolves the case from the target type's union case set.
 * Unqualified `Case(...)` is valid only when case lookup is unambiguous. Normal
   lexical lookup wins before union-case lookup.
+* Every union carrier exposes a conventional `Value` property whose runtime
+  value is the currently stored member or case value.
+* `Value` has type `object` when the carrier cannot represent a null active
+  value.
+* `Value` has type `object?` when the carrier may legitimately report `null`,
+  including `union struct` default-state carriers and class carriers whose
+  member set includes a nullable member type.
+* Every union carrier also exposes `HasValue: bool`, which reports whether the
+  carrier currently has an active case/member.
 * `TryGetValue(out CaseType)` exposes carrier inspection for each case type.
 * An explicit cast from the carrier to a member or case type succeeds only when
   the carrier currently holds that case; otherwise it throws
@@ -4463,6 +4477,18 @@ Union invariants:
 
 * Case constructors are independent case-type constructors; they are not
   rebound as union constructors.
+* `union struct` reserves its default state as an uninitialized carrier. For
+  `default(U)`, `Value` is `null`, `HasValue` is `false`, and no case is active
+  until a union constructor populates the carrier.
+* In pattern exhaustiveness, that default `union struct` carrier state behaves
+  like an additional `null`-like pseudo-case. A `null` arm or ordinary
+  catch-all arm covers it.
+* `union class` does not have that extra carrier state; a class carrier exists
+  only after construction through one of its union cases or constructors.
+* For ordinary class carriers with no nullable active member state, `null` is
+  not a valid pseudo-case for `Value`.
+* `HasValue` is independent from `Value != null`; an active case may still
+  project `null` through `Value` when the selected member itself is nullable.
 * Union wrapping is represented by carrier construction from a case value.
 * Compatibility is decided by case-to-union conversion rules (including
   payload subtype-to-supertype widening where valid).

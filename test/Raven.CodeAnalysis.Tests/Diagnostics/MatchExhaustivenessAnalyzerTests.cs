@@ -115,4 +115,33 @@ record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void MatchExpression_StructUnionMissingInactiveState_SuggestsNull()
+    {
+        const string code = """
+union struct Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+
+val value: Result<int, string> = Ok(42)
+
+val text = value match {
+    Ok(val payload) => payload.ToString()
+    Error(val message) => message
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MatchExhaustivenessAnalyzer>(
+            code,
+            [
+                new DiagnosticResult(MatchExhaustivenessAnalyzer.MissingCaseDiagnosticId)
+                    .WithLocation(8, 18)
+                    .WithArguments("null")
+            ],
+            [CompilerDiagnostics.MatchExpressionNotExhaustive.Id]);
+
+        verifier.Verify();
+    }
 }

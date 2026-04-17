@@ -61,7 +61,7 @@ val parsed = int.parse("42")
 
         Assert.Equal("Int32Extensions", boundInvocation.Method.ContainingType?.Name);
         Assert.Null(boundInvocation.ExtensionReceiver);
-        Assert.Equal("union struct Result<int, ParseIntError>", boundInvocation.Type.ToDisplayString());
+        Assert.Equal("union class Result<int, ParseIntError>", boundInvocation.Type.ToDisplayString());
     }
 
     [Fact]
@@ -118,10 +118,10 @@ val parsed = int.parse("42")
     [Fact]
     public void RavenInstanceExtensionMethod_FromMetadata_BindsToResultReceiver()
     {
-        const string source = """
+const string source = """
 import System.*
 
-val wrapped = int.parse("42").WithMessage("wrapped")
+val wrapped = int.parse("42").WithContext("wrapped")
 """;
 
         var references = TestMetadataReferences.Default
@@ -136,12 +136,12 @@ val wrapped = int.parse("42").WithMessage("wrapped")
 
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
-            .Single(i => i.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "WithMessage" });
+            .Single(i => i.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "WithContext" });
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
 
         Assert.Equal("ResultErrorContextExtensions", boundInvocation.Method.ContainingType?.Name);
         Assert.NotNull(boundInvocation.ExtensionReceiver);
-        Assert.Equal("union struct Result<int, ContextError<ParseIntError>>", boundInvocation.Type.ToDisplayString());
+        Assert.Equal("union class Result<int, ContextError<ParseIntError>>", boundInvocation.Type.ToDisplayString());
     }
 
     [Fact]

@@ -3763,6 +3763,9 @@ partial class BlockBinder : Binder
         if (type.IsNullable)
             return true;
 
+        if (type.TryGetUnion() is { TypeKind: TypeKind.Struct })
+            return true;
+
         // Union can be null if any member can be null.
         if (type is ITypeUnionSymbol union)
         {
@@ -8219,6 +8222,20 @@ partial class BlockBinder : Binder
         if (nullableType is null)
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
+        if (nullableType.TryGetUnion() is { TypeKind: TypeKind.Struct } &&
+            nullableType is INamedTypeSymbol namedUnionType)
+        {
+            var hasValueProperty = namedUnionType
+                .GetMembers("HasValue")
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(property =>
+                    property.GetMethod is not null &&
+                    SymbolEqualityComparer.Default.Equals(property.ContainingType, namedUnionType));
+
+            if (hasValueProperty?.GetMethod is not null)
+                return new BoundInvocationExpression(hasValueProperty.GetMethod, Array.Empty<BoundExpression>(), nullableOperand);
+        }
+
         var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, nullableType);
         if (!BoundBinaryOperator.TryLookup(Compilation, SyntaxKind.NotEqualsToken, nullableType, nullableType, out var notEquals))
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -8684,6 +8701,14 @@ partial class BlockBinder : Binder
                 caseType = projectedCaseType;
                 constructor = projectedConstructor;
                 arguments = convertedArguments.MoveToImmutable();
+            }
+            else if (caseType.TryGetUnionCase()?.Union is INamedTypeSymbol caseUnion)
+            {
+                // If the target-typed carrier would require reprojecting the inferred case into a
+                // different generic instantiation, only keep that carrier when the constructor can
+                // actually be rebound for the projected case. Otherwise preserve the carrier implied
+                // by the inferred case so normal conversion diagnostics still run.
+                unionType = caseUnion;
             }
         }
 

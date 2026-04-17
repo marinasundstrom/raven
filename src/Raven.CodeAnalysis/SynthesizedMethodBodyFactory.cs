@@ -96,6 +96,22 @@ internal static partial class SynthesizedMethodBodyFactory
         }
 
         if (method.MethodKind == MethodKind.PropertyGet &&
+            method.ContainingSymbol is SourcePropertySymbol { Name: "Value" } &&
+            method.ContainingType is SourceUnionSymbol unionValueType)
+        {
+            body = CreateUnionValuePropertyGetterBody(compilation, method, unionValueType);
+            return true;
+        }
+
+        if (method.MethodKind == MethodKind.PropertyGet &&
+            method.ContainingSymbol is SourcePropertySymbol { Name: "HasValue" } &&
+            method.ContainingType is SourceUnionSymbol unionHasValueType)
+        {
+            body = CreateUnionHasValuePropertyGetterBody(compilation, method, unionHasValueType);
+            return true;
+        }
+
+        if (method.MethodKind == MethodKind.PropertyGet &&
             TryGetSynthesizableUnionCaseProperty(method) is { } unionCaseProperty)
         {
             body = CreateUnionCasePropertyGetterBody(method, unionCaseProperty);

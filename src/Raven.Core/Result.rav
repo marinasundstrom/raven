@@ -40,7 +40,7 @@ import System.Text.Json.Serialization.*
 /// }
 /// ```
 [JsonConverter(typeof(ResultJsonConverterFactory))]
-union struct Result<T, E> {
+union class Result<T, E> {
     /// Represents a result value
     Ok(value: T)
 

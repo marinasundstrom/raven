@@ -60,6 +60,44 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
     }
 
     [Fact]
+    public void CarrierProperties_ReportActiveCase_ForOk()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
+        var okType = GetCaseTypeFromTryGetValue(resultType, "Ok");
+        var okCase = Activator.CreateInstance(okType, 123)!;
+        var result = ConvertCaseToCarrier(resultType, okCase);
+
+        var hasValue = resultType.GetProperty("HasValue", BindingFlags.Public | BindingFlags.Instance);
+        var valueProperty = resultType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.NotNull(hasValue);
+        Assert.NotNull(valueProperty);
+        Assert.Equal(true, hasValue!.GetValue(result));
+        Assert.NotNull(valueProperty!.GetValue(result));
+        Assert.Equal(okType, valueProperty.GetValue(result)!.GetType());
+    }
+
+    [Fact]
+    public void CarrierProperties_ReportActiveCase_ForError()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
+        var errorType = GetCaseTypeFromTryGetValue(resultType, "Error");
+        var errorCase = Activator.CreateInstance(errorType, "boom")!;
+        var result = ConvertCaseToCarrier(resultType, errorCase);
+
+        var hasValue = resultType.GetProperty("HasValue", BindingFlags.Public | BindingFlags.Instance);
+        var valueProperty = resultType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.NotNull(hasValue);
+        Assert.NotNull(valueProperty);
+        Assert.Equal(true, hasValue!.GetValue(result));
+        Assert.NotNull(valueProperty!.GetValue(result));
+        Assert.Equal(errorType, valueProperty.GetValue(result)!.GetType());
+    }
+
+    [Fact]
     public void MapErrorAndUnwrapError_BindFromRavenCore()
     {
         const string code = """
@@ -106,7 +144,7 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 extension TestExt<T> for IEnumerable<T> {
-    ToArrayOrError2<E>(errorFactory: Exception -> E) -> Result<T[], E> {
+    func ToArrayOrError2<E>(errorFactory: Exception -> E) -> Result<T[], E> {
         val result: Result<T[], Exception> = .Ok([])
         result.MapError(errorFactory)
     }
@@ -126,13 +164,13 @@ extension TestExt<T> for IEnumerable<T> {
 
         var caseText = okCase.ToString();
         Assert.NotNull(caseText);
-        Assert.Contains("Result<String, InvalidOperationException>.Ok(\"Foo\")", caseText!, StringComparison.Ordinal);
+        Assert.Contains("Result<String>.Ok(\"Foo\")", caseText!, StringComparison.Ordinal);
         Assert.DoesNotContain(".Ok(Foo)", caseText!, StringComparison.Ordinal);
 
         var carrier = ConvertCaseToCarrier(resultType, okCase);
         var carrierText = carrier.ToString();
         Assert.NotNull(carrierText);
-        Assert.Contains("Result<String, InvalidOperationException>.Ok(\"Foo\")", carrierText!, StringComparison.Ordinal);
+        Assert.Contains("Result<String>.Ok(\"Foo\")", carrierText!, StringComparison.Ordinal);
         Assert.DoesNotContain(".Ok(Foo)", carrierText!, StringComparison.Ordinal);
     }
 
@@ -158,7 +196,7 @@ extension TestExt<T> for IEnumerable<T> {
         Assert.NotNull(caseText);
         Assert.Contains("Result<ContextError<ParseIntError>>.Error(", caseText!, StringComparison.Ordinal);
         Assert.Contains("ContextError<ParseIntError> { Message = \"test\"", caseText!, StringComparison.Ordinal);
-        Assert.Contains("Cause = ParseIntError { Kind = InvalidFormat, Input = \"foo\", Style = Integer }", caseText!, StringComparison.Ordinal);
+        Assert.Contains("Cause = ParseIntError { Kind = IntErrorKind.InvalidFormat, Input = \"foo\", Style = NumberStyles.Integer }", caseText!, StringComparison.Ordinal);
         Assert.DoesNotContain("Result<E>", caseText!, StringComparison.Ordinal);
         Assert.DoesNotContain("ContextError<TError>", caseText!, StringComparison.Ordinal);
         Assert.DoesNotContain(".Error(<ContextError<ParseIntError>>)", caseText!, StringComparison.Ordinal);
@@ -219,9 +257,13 @@ extension TestExt<T> for IEnumerable<T> {
                 m.GetParameters().Length == 1 &&
                 m.GetParameters()[0].ParameterType == caseValue.GetType());
 
-        if (conversion is null)
-            throw new InvalidOperationException($"Missing implicit conversion from '{caseValue.GetType()}' to '{carrierType}'.");
+        if (conversion is not null)
+            return conversion.Invoke(null, [caseValue])!;
 
-        return conversion.Invoke(null, [caseValue])!;
+        var constructor = carrierType.GetConstructor([caseValue.GetType()]);
+        if (constructor is not null)
+            return constructor.Invoke([caseValue]);
+
+        throw new InvalidOperationException($"Missing conversion or constructor from '{caseValue.GetType()}' to '{carrierType}'.");
     }
 }

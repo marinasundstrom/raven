@@ -168,6 +168,7 @@ internal sealed class MatchExhaustivenessEvaluator
         MatchExhaustivenessOptions options)
     {
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.CaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutineeType, union);
 
         foreach (var arm in arms)
         {
@@ -178,15 +179,22 @@ internal sealed class MatchExhaustivenessEvaluator
                 continue;
 
             RemoveCoveredCases(remaining, arm.Pattern, union);
+            inactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
 
-            if (remaining.Count == 0)
+            if (remaining.Count == 0 && !inactiveStructStateRemaining)
                 break;
         }
 
-        return remaining
+        var builder = ImmutableArray.CreateBuilder<string>();
+
+        if (inactiveStructStateRemaining)
+            builder.Add("null");
+
+        builder.AddRange(remaining
             .Select(MatchCaseDisplay.ForDiscriminatedUnionCase)
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToImmutableArray();
+            .OrderBy(name => name, StringComparer.Ordinal));
+
+        return builder.ToImmutable();
     }
 
     private ImmutableArray<string> GetMissingEnumCases(
@@ -858,6 +866,9 @@ internal sealed class MatchExhaustivenessEvaluator
         if (type.IsNullable)
             return true;
 
+        if (type.TryGetUnion() is { TypeKind: TypeKind.Struct })
+            return true;
+
         if (type is ITypeUnionSymbol union)
         {
             foreach (var member in union.Types)
@@ -868,6 +879,34 @@ internal sealed class MatchExhaustivenessEvaluator
         }
 
         return false;
+    }
+
+    private static bool RequiresInactiveStructUnionStateCoverage(ITypeSymbol scrutineeType, IUnionSymbol union)
+    {
+        if (union.TypeKind != TypeKind.Struct)
+            return false;
+
+        return scrutineeType.TryGetUnion() is not null;
+    }
+
+    private static bool PatternCoversInactiveStructUnionState(
+        ITypeSymbol scrutineeType,
+        BoundPattern pattern,
+        IUnionSymbol union)
+    {
+        if (union.TypeKind != TypeKind.Struct)
+            return false;
+
+        if (IsCatchAllPattern(scrutineeType, pattern))
+            return true;
+
+        return pattern switch
+        {
+            BoundConstantPattern { ConstantValue: null } => true,
+            BoundOrPattern orPattern => PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Left, union) ||
+                                        PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union),
+            _ => false
+        };
     }
 
     private bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)

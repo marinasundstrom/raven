@@ -349,6 +349,210 @@ union struct Option {
     }
 
     [Fact]
+    public void Union_EmitsConventionalValueProperty()
+    {
+        var code = """
+union Option {
+    None
+    Some(value: int)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var valueProperty = unionType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
+
+        Assert.NotNull(valueProperty);
+        Assert.Equal(typeof(object), valueProperty!.PropertyType);
+        var nullability = new NullabilityInfoContext().Create(valueProperty);
+        Assert.Equal(NullabilityState.NotNull, nullability.ReadState);
+    }
+
+    [Fact]
+    public void DefaultStructUnion_ValuePropertyReturnsNull()
+    {
+        var code = """
+union struct Maybe<T> {
+    None
+    Some(value: T)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionTypeDefinition = runtimeAssembly.GetType("Maybe`1", throwOnError: true)!;
+        var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
+        var instance = Activator.CreateInstance(closedUnionType)!;
+        var valueProperty = closedUnionType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public)!;
+        var hasValueProperty = closedUnionType.GetProperty("HasValue", BindingFlags.Instance | BindingFlags.Public)!;
+        var nullability = new NullabilityInfoContext().Create(valueProperty);
+        var value = valueProperty.GetValue(instance);
+
+        Assert.Equal(NullabilityState.Nullable, nullability.ReadState);
+        Assert.Equal(false, hasValueProperty.GetValue(instance));
+        Assert.Null(value);
+    }
+
+    [Fact]
+    public void ClassUnion_WithNullableMember_EmitsNullableValueProperty()
+    {
+        var code = """
+union Maybe(string? | int)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Maybe", throwOnError: true)!;
+        var valueProperty = unionType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public)!;
+        var nullability = new NullabilityInfoContext().Create(valueProperty);
+        var instance = Activator.CreateInstance(unionType, [null])!;
+
+        Assert.Equal(typeof(object), valueProperty.PropertyType);
+        Assert.Equal(NullabilityState.Nullable, nullability.ReadState);
+        Assert.Null(valueProperty.GetValue(instance));
+    }
+
+    [Fact]
+    public void StructUnion_ConstructedWithNullablePayload_HasValueIsTrueWhenValueIsNull()
+    {
+        var code = """
+union struct Maybe<T>(T)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionTypeDefinition = runtimeAssembly.GetType("Maybe`1", throwOnError: true)!;
+        var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(string));
+        var instance = Activator.CreateInstance(closedUnionType, [null])!;
+        var valueProperty = closedUnionType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public)!;
+        var hasValueProperty = closedUnionType.GetProperty("HasValue", BindingFlags.Instance | BindingFlags.Public)!;
+
+        Assert.Equal(true, hasValueProperty.GetValue(instance));
+        Assert.Null(valueProperty.GetValue(instance));
+    }
+
+    [Fact]
+    public void DefaultStructUnion_NullPatternMatchesInactiveState()
+    {
+        var code = """
+class Runner {
+    public static func DescribeDefault() -> string {
+        val value: Maybe<int> = default
+        return value match {
+            null => "inactive"
+            Some(val payload) => payload.ToString()
+            None => "none"
+        }
+    }
+
+    public static func DescribeSome() -> string {
+        val value: Maybe<int> = Some(42)
+        return value match {
+            null => "inactive"
+            Some(val payload) => payload.ToString()
+            None => "none"
+        }
+    }
+}
+
+union struct Maybe<T> {
+    None
+    Some(value: T)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var runnerType = runtimeAssembly.GetType("Runner", throwOnError: true)!;
+        var defaultMethod = runnerType.GetMethod("DescribeDefault", BindingFlags.Public | BindingFlags.Static)!;
+        var someMethod = runnerType.GetMethod("DescribeSome", BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.Equal("inactive", defaultMethod.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal("42", someMethod.Invoke(null, Array.Empty<object?>()));
+    }
+
+    [Fact]
     public void NominalUnion_EmitsConstructorsForMemberTypes()
     {
         var code = """

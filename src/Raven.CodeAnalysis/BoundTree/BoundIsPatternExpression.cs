@@ -401,6 +401,12 @@ internal sealed class BoundConstantPattern : BoundPattern
         {
             BoundLiteralExpression literal => literal.Value,
             BoundConversionExpression conversion => TryGetExpressionConstantValue(conversion.Expression),
+            BoundFieldAccess fieldAccess => fieldAccess.Field.GetConstantValue(),
+            BoundMemberAccessExpression memberAccess => memberAccess.Member switch
+            {
+                IFieldSymbol field => field.GetConstantValue(),
+                _ => null
+            },
             _ => null
         };
     }
