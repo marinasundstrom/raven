@@ -63,6 +63,72 @@ first + second
     }
 
     [Fact]
+    public void LetPositionalPatternAssignment_WithNamedElements_BindsDeconstructArgumentsByName()
+    {
+        const string source = """
+record class Person(Name: string, Age: int, Items: string[])
+
+val person = Person("Ada", 42, ["tea"])
+val (Items: items, Name: name, Age: age) = person
+name.Length + age + items.Length
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
+            .Last();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var deconstructPattern = Assert.IsType<BoundDeconstructPattern>(patternAssignment.Pattern);
+
+        Assert.Equal(3, deconstructPattern.Arguments.Length);
+
+        var namePattern = Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[0]);
+        var nameDesignator = Assert.IsType<BoundSingleVariableDesignator>(namePattern.Designator);
+        Assert.Equal("name", nameDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_String, nameDesignator.Local.Type.SpecialType);
+
+        var agePattern = Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[1]);
+        var ageDesignator = Assert.IsType<BoundSingleVariableDesignator>(agePattern.Designator);
+        Assert.Equal("age", ageDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, ageDesignator.Local.Type.SpecialType);
+
+        var itemsPattern = Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[2]);
+        var itemsDesignator = Assert.IsType<BoundSingleVariableDesignator>(itemsPattern.Designator);
+        Assert.Equal("items", itemsDesignator.Local.Name);
+        Assert.True(itemsDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_String });
+    }
+
+    [Fact]
+    public void LetPositionalPatternAssignment_WithUnknownNamedElement_ReportsDiagnostic()
+    {
+        const string source = """
+record class Person(Name: string, Age: int)
+
+val person = Person("Ada", 42)
+val (Height: height, Name: name) = person
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+        var diagnostics = run.Compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PropertyPatternMemberNotFound);
+    }
+
+    [Fact]
     public void LetCollectionPatternAssignment_BindsLocals()
     {
         const string source = """

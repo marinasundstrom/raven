@@ -433,6 +433,35 @@ record class Person(Name: string, Age: int)
     }
 
     [Fact]
+    public void GetOperation_NominalDeconstructionPattern_WithNamedArguments_ExposesRecursivePatternShape()
+    {
+        const string source = """
+val value: object = Person("Ada", 42, ["tea"])
+val result = value match {
+    Person(Items: val items, Name: val name, Age: 42) => name
+    _ => ""
+}
+
+record class Person(Name: string, Age: int, Items: string[])
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var patternSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<NominalDeconstructionPatternSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IRecursivePatternOperation>(model.GetOperation(patternSyntax));
+        operation.Kind.ShouldBe(OperationKind.RecursivePattern);
+        operation.DeconstructMethod.Name.ShouldBe("Deconstruct");
+        operation.Arguments.Length.ShouldBe(3);
+        operation.Arguments[0].Kind.ShouldBe(OperationKind.DeclarationPattern);
+        operation.Arguments[1].Kind.ShouldBe(OperationKind.ConstantPattern);
+        operation.Arguments[2].Kind.ShouldBe(OperationKind.DeclarationPattern);
+    }
+
+    [Fact]
     public void GetOperation_RangePattern_ExposesBoundsAndExclusivity()
     {
         const string source = """

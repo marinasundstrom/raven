@@ -2700,6 +2700,11 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
 
   An element may optionally include a name before the colon (`name: pattern`) to
   bind the element value while still applying a nested pattern.
+  When the positional pattern is backed by `Deconstruct` rather than a tuple,
+  named elements bind by `Deconstruct` parameter name and may appear in any
+  order. Unnamed elements continue to consume the remaining unmatched
+  parameters in declaration order. If a supplied name does not match any
+  supported deconstruction member/parameter, the pattern is invalid.
 
 #### Sequence patterns
 
@@ -2842,10 +2847,17 @@ Rules:
   * Each positional element is a pattern, so bindings still require `val`/`var`
     unless an outer construct such as `if val pattern = expr` supplies the
     binding mode.
+  * An element may optionally include a name before the colon
+    (`Name: pattern`). Named elements bind by `Deconstruct` parameter name
+    rather than source position and may appear in any order. Unnamed elements
+    continue to fill the remaining unmatched parameters in declaration order.
   * A trailing whole-pattern designation may capture the successfully matched
     nominal value: `Person(1, name, _) person`.
   * The number of positional elements must match the selected `Deconstruct`
     parameters; mismatches are errors.
+  * If a named element does not match any supported deconstruction
+    member/parameter on the target type, the pattern is invalid and reports the
+    member-not-found diagnostic.
   * When the scrutinee is a discriminated union, `CaseName(...)` in nominal-deconstruction-pattern
     syntax is interpreted as a discriminated-union case pattern and binds the case
     payload positionally.
@@ -3963,6 +3975,10 @@ uses a designation (possibly nested) to capture or discard the corresponding val
 Elements may include inline type annotations. Positional deconstruction works with
 tuples and with any type that exposes a compatible `Deconstruct` method (including
 as an extension method).
+Elements may also be named as `Name: pattern`. For `Deconstruct`-based
+deconstruction, named elements bind by parameter name and may be written in any
+order; unnamed elements continue to consume the remaining unmatched parameters
+in declaration order. Unknown names are diagnosed.
 
 This is a **deconstruction** surface, not a full general pattern-matching
 surface. The left-hand side must start with positional syntax (`(...)`) or
@@ -3998,6 +4014,7 @@ var (head, tail: double, _) = numbers()
 (int id, string name) = getTuple()
 (val id: int, val name: string) = getTuple()
 (lhs, == expectedRhs) = evaluate()
+val (Items: items, Name: name, Age: age) = person
 ```
 
 Existing locals can participate in positional assignments alongside new

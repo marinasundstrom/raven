@@ -1228,26 +1228,72 @@ internal partial class BlockBinder
         var parameterOffset = GetDeconstructParameterOffset(deconstructMethod);
         var parameters = deconstructMethod.Parameters;
         var parameterCount = parameters.Length - parameterOffset;
-        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(parameterCount);
-        var elementCount = Math.Min(elements.Count, parameterCount);
+        var receiverType = GetDeconstructReceiverType(deconstructMethod);
+        var boundElements = new BoundPattern?[parameterCount];
+        var matchedParameters = new bool[parameterCount];
+        var nextUnnamedParameter = 0;
 
-        for (var i = 0; i < elementCount; i++)
+        for (var i = 0; i < elements.Count; i++)
         {
             var elementSyntax = elements[i];
-            var expectedType = EnsureTypeAccessible(parameters[i + parameterOffset].Type, elementSyntax.GetLocation());
+            var parameterIndex = -1;
+
+            if (TryGetPositionalPatternElementName(elementSyntax, out var elementName))
+            {
+                parameterIndex = FindDeconstructParameterIndex(parameters, parameterOffset, elementName);
+                if (parameterIndex < 0)
+                {
+                    _diagnostics.ReportPropertyPatternMemberNotFound(
+                        elementName,
+                        receiverType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        elementSyntax.NameColon!.Name.GetLocation());
+
+                    _ = BindPositionalPatternElement(elementSyntax.Pattern, Compilation.ErrorTypeSymbol);
+                    continue;
+                }
+
+                if (matchedParameters[parameterIndex])
+                {
+                    _diagnostics.Report(Diagnostic.Create(
+                        CompilerDiagnostics.DuplicatePropertyPatternMember,
+                        elementSyntax.NameColon!.Name.GetLocation(),
+                        elementName));
+
+                    var duplicateType = EnsureTypeAccessible(parameters[parameterIndex + parameterOffset].Type, elementSyntax.GetLocation());
+                    _ = BindPositionalPatternElement(elementSyntax.Pattern, duplicateType);
+                    continue;
+                }
+            }
+            else
+            {
+                while (nextUnnamedParameter < parameterCount && matchedParameters[nextUnnamedParameter])
+                    nextUnnamedParameter++;
+
+                if (nextUnnamedParameter >= parameterCount)
+                {
+                    _ = BindPositionalPatternElement(elementSyntax.Pattern, null);
+                    continue;
+                }
+
+                parameterIndex = nextUnnamedParameter++;
+            }
+
+            var expectedType = EnsureTypeAccessible(parameters[parameterIndex + parameterOffset].Type, elementSyntax.GetLocation());
             var boundElement = BindPositionalPatternElement(elementSyntax.Pattern, expectedType);
             boundElement = BindPositionalPatternElementDesignation(elementSyntax, boundElement);
-            boundElements.Add(boundElement);
+            boundElements[parameterIndex] = boundElement;
+            matchedParameters[parameterIndex] = true;
         }
 
-        for (var i = elementCount; i < parameterCount; i++)
+        var orderedElements = ImmutableArray.CreateBuilder<BoundPattern>(parameterCount);
+        for (var i = 0; i < parameterCount; i++)
         {
-            var parameterType = EnsureTypeAccessible(parameters[i + parameterOffset].Type, fallbackLocation);
-            boundElements.Add(new BoundDiscardPattern(parameterType, BoundExpressionReason.TypeMismatch));
+            orderedElements.Add(
+                boundElements[i] ??
+                new BoundDiscardPattern(
+                    EnsureTypeAccessible(parameters[i + parameterOffset].Type, fallbackLocation),
+                    BoundExpressionReason.TypeMismatch));
         }
-
-        for (var i = elementCount; i < elements.Count; i++)
-            _ = BindPositionalPatternElement(elements[i].Pattern, null);
 
         var designator = BindWholePatternDesignation(designation, narrowedType ?? inputType);
 
@@ -1256,12 +1302,12 @@ internal partial class BlockBinder
             receiverType: GetDeconstructReceiverType(deconstructMethod),
             narrowedType: narrowedType,
             deconstructMethod: deconstructMethod,
-            arguments: boundElements.ToImmutable(),
+            arguments: orderedElements.ToImmutable(),
             designator: designator);
     }
 
     private BoundPattern BindDeconstructPattern(
-        SeparatedSyntaxList<PatternSyntax> arguments,
+        ImmutableArray<PatternSyntax> arguments,
         IMethodSymbol deconstructMethod,
         ITypeSymbol inputType,
         ITypeSymbol? narrowedType,
@@ -1271,7 +1317,7 @@ internal partial class BlockBinder
         var parameters = deconstructMethod.Parameters;
         var parameterCount = parameters.Length - parameterOffset;
         var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(parameterCount);
-        var elementCount = Math.Min(arguments.Count, parameterCount);
+        var elementCount = Math.Min(arguments.Length, parameterCount);
 
         for (var i = 0; i < elementCount; i++)
         {
@@ -1286,7 +1332,7 @@ internal partial class BlockBinder
             boundElements.Add(new BoundDiscardPattern(parameterType, BoundExpressionReason.TypeMismatch));
         }
 
-        for (var i = elementCount; i < arguments.Count; i++)
+        for (var i = elementCount; i < arguments.Length; i++)
             _ = BindPattern(arguments[i]);
 
         var designator = BindWholePatternDesignation(designation, narrowedType ?? inputType);
@@ -1562,7 +1608,7 @@ internal partial class BlockBinder
                 caseName: syntax.Path.Identifier.ValueText,
                 qualifierType: qualifierType,
                 inputType: inputType,
-                arguments: syntax.ArgumentList is null ? SeparatedSyntaxList<PatternSyntax>.Empty : syntax.ArgumentList.Arguments,
+                arguments: syntax.ArgumentList is null ? ImmutableArray<PatternSyntax>.Empty : syntax.ArgumentList.Arguments.ToImmutableArray(),
                 designation: syntax.Designation,
                 caseNameLocation: syntax.Path.Identifier.GetLocation(),
                 argumentListLocation: syntax.ArgumentList?.GetLocation() ?? syntax.Path.GetLocation(),
@@ -1575,7 +1621,7 @@ internal partial class BlockBinder
                 caseName: syntax.Path.Identifier.ValueText,
                 qualifierType: qualifierType,
                 inputType: inputType,
-                arguments: syntax.ArgumentList is null ? SeparatedSyntaxList<PatternSyntax>.Empty : syntax.ArgumentList.Arguments,
+                arguments: syntax.ArgumentList is null ? ImmutableArray<PatternSyntax>.Empty : syntax.ArgumentList.Arguments.ToImmutableArray(),
                 designation: syntax.Designation,
                 caseNameLocation: syntax.Path.Identifier.GetLocation(),
                 argumentListLocation: syntax.ArgumentList?.GetLocation() ?? syntax.Path.GetLocation(),
@@ -1896,7 +1942,7 @@ internal partial class BlockBinder
             caseName: caseName!,
             qualifierType: qualifierType,
             inputType: inputType,
-            arguments: syntax.ArgumentList.Arguments,
+            arguments: syntax.ArgumentList.Arguments.Select(argument => argument.Pattern).ToImmutableArray(),
             designation: syntax.Designation,
             caseNameLocation: caseNameLocation,
             argumentListLocation: syntax.ArgumentList.GetLocation(),
@@ -1905,7 +1951,7 @@ internal partial class BlockBinder
                 caseName: caseName!,
                 qualifierType: qualifierType,
                 inputType: inputType,
-                arguments: syntax.ArgumentList.Arguments,
+                arguments: syntax.ArgumentList.Arguments.Select(argument => argument.Pattern).ToImmutableArray(),
                 designation: syntax.Designation,
                 caseNameLocation: caseNameLocation,
                 argumentListLocation: syntax.ArgumentList.GetLocation(),
@@ -1917,7 +1963,7 @@ internal partial class BlockBinder
         string caseName,
         ITypeSymbol? qualifierType,
         ITypeSymbol? inputType,
-        SeparatedSyntaxList<PatternSyntax> arguments,
+        ImmutableArray<PatternSyntax> arguments,
         VariableDesignationSyntax? designation,
         Location caseNameLocation,
         Location argumentListLocation,
@@ -1950,7 +1996,7 @@ internal partial class BlockBinder
         var effectiveInputType = inputType ?? lookupType;
         var designator = BindWholePatternDesignation(designation, accessibleCaseType);
 
-        if (arguments.Count == 0)
+        if (arguments.Length == 0)
         {
             pattern = new BoundPropertyPattern(
                 inputType: effectiveInputType,
@@ -1961,7 +2007,7 @@ internal partial class BlockBinder
             return true;
         }
 
-        var deconstructMethod = FindDeconstructMethod(accessibleCaseType, arguments.Count);
+        var deconstructMethod = FindDeconstructMethod(accessibleCaseType, arguments.Length);
         if (deconstructMethod is null)
         {
             _diagnostics.ReportNominalDeconstructionPatternRequiresDeconstructableType(
@@ -2019,7 +2065,7 @@ internal partial class BlockBinder
         string caseName,
         ITypeSymbol? qualifierType,
         ITypeSymbol? inputType,
-        SeparatedSyntaxList<PatternSyntax> arguments,
+        ImmutableArray<PatternSyntax> arguments,
         VariableDesignationSyntax? designation,
         Location caseNameLocation,
         Location argumentListLocation,
@@ -2064,7 +2110,7 @@ internal partial class BlockBinder
         }
 
         var parameters = caseSymbol.ConstructorParameters;
-        var argumentCount = arguments.Count;
+        var argumentCount = arguments.Length;
         var implicitUnitArgument = argumentCount == 0 && parameters.Length == 1;
 
         if (!implicitUnitArgument && argumentCount != parameters.Length)
@@ -2238,6 +2284,34 @@ internal partial class BlockBinder
         return deconstructMethod.IsExtensionMethod
             ? deconstructMethod.Parameters[0].Type
             : deconstructMethod.ContainingType;
+    }
+
+    private static bool TryGetPositionalPatternElementName(PositionalPatternElementSyntax elementSyntax, out string name)
+    {
+        name = string.Empty;
+
+        if (elementSyntax.NameColon?.Name is not IdentifierNameSyntax identifierName ||
+            identifierName.Identifier.IsMissing)
+        {
+            return false;
+        }
+
+        name = identifierName.Identifier.ValueText;
+        return !string.IsNullOrEmpty(name);
+    }
+
+    private static int FindDeconstructParameterIndex(
+        ImmutableArray<IParameterSymbol> parameters,
+        int parameterOffset,
+        string name)
+    {
+        for (var i = parameterOffset; i < parameters.Length; i++)
+        {
+            if (string.Equals(parameters[i].Name, name, StringComparison.Ordinal))
+                return i - parameterOffset;
+        }
+
+        return -1;
     }
 
     private IMethodSymbol? FindTryGetMethod(

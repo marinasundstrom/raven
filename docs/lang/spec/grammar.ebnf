@@ -447,7 +447,7 @@ VariablePattern          ::= BindingKeyword VariableDesignation ;
 DeclarationPattern       ::= Type [VariableDesignation] ;
 
 PositionalPattern        ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' [PatternWholeDesignation] ;
-PatternElement           ::= [PositionalPatternElementDesignation] Pattern ;
+PatternElement           ::= [PatternElementName] Pattern ;
 
 SequencePattern          ::= '[' SequencePatternElementList? ']' [PatternWholeDesignation] ;
 SequencePatternElementList
@@ -462,11 +462,15 @@ DictionaryPatternEntryList
                          ::= DictionaryPatternEntry {',' DictionaryPatternEntry} ;
 DictionaryPatternEntry   ::= Expression ':' Pattern ;
 
-(* Positional element designations introduce a new binding for the element.
-   To avoid ambiguity with value/constant patterns, the binding keyword is required.
-   For example: (val a: bool, _) is permitted, but (a: bool, _) is an error. *)
-PositionalPatternElementDesignation
-                         ::= BindingKeyword Identifier ':' ;
+(* Pattern elements may be named with `name: pattern`.
+   When the pattern is a declaration/capture pattern, the nested pattern still
+   controls whether a binding keyword is required. Examples:
+   - (Age: 42, Name: val name)
+   - Person(Items: val items, Name: val name, Age: 42)
+   For tuple-backed positional patterns, the name is descriptive metadata.
+   For `Deconstruct`-backed positional/nominal patterns, the binder matches
+   named elements against deconstruction parameters/members by name. *)
+PatternElementName       ::= Identifier ':' ;
 
 (* Binder note: at most one open-ended rest segment (`.. pattern`, `... pattern`,
    or bare `...`) is permitted in a sequence pattern. Fixed-length array
@@ -480,9 +484,10 @@ MemberPath               ::= '.' Identifier
                            | Type '.' Identifier ;
 
 PatternList              ::= Pattern {',' Pattern} ;
+PatternElementList       ::= PatternElement {',' PatternElement} ;
 
 NominalDeconstructionPattern
-                         ::= Type '(' PatternList? ')' [PatternWholeDesignation] ;
+                         ::= Type '(' PatternElementList? ')' [PatternWholeDesignation] ;
 (* Binder note: when Type resolves to a discriminated-union case name for the
    current scrutinee, this form is interpreted as a DU case deconstruction
    pattern rather than a regular nominal deconstruction pattern. Otherwise the type must be

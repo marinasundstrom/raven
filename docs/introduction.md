@@ -346,6 +346,14 @@ still distinguishing between:
   `for val pattern in values`
 - deconstruction surfaces such as `val (a, b) = expr` and `[head, ..tail] = values`
 
+When deconstruction uses a `Deconstruct` shape, Raven also supports named
+elements so existing code can stay stable as new properties are added. Both
+matching and declaration/assignment deconstruction may spell element names in
+any order, for example `Person(Items: val items, Name: val name, Age: 42)` or
+`val (Items: items, Name: name, Age: age) = person`. Named elements bind by the
+selected `Deconstruct` parameter name; unknown names report the same
+member-not-found diagnostic Raven uses for property patterns.
+
 ---
 
 ## Extensions

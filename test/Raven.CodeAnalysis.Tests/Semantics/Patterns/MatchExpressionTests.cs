@@ -213,6 +213,29 @@ val result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithUnknownNamedNominalDeconstructionMember_ReportsDiagnostic()
+    {
+        const string code = """
+val value: object = Person("Ada", 42)
+
+val result = value match {
+    Person(Height: 170, Name: val name) => name
+    _ => ""
+}
+
+record class Person(Name: string, Age: int)
+""";
+
+        var verifier = CreateVerifier(code);
+        var run = verifier.GetResult();
+        var diagnostics = run.Compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PropertyPatternMemberNotFound);
+    }
+
+    [Fact]
     public void MatchExpression_WithUndefinedNestedNominalDeconstructionPattern_ReportsInvalidArmPattern()
     {
         const string code = """

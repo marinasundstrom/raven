@@ -911,7 +911,7 @@
   </Node>
   <Node Name="NominalDeconstructionPatternArgumentList" Inherits="Node">
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
-    <Slot Name="Arguments" Type="SeparatedList" ElementType="Pattern" />
+    <Slot Name="Arguments" Type="SeparatedList" ElementType="PositionalPatternElement" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
   <Node Name="PropertyPattern" Inherits="Pattern">

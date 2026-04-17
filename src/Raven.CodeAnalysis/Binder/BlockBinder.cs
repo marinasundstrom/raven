@@ -3463,7 +3463,7 @@ partial class BlockBinder : Binder
                         {
                             EnsureMatchArmPatternValid(
                                 parameterTypes[i].Type,
-                                nominalSyntax.ArgumentList.Arguments[i],
+                                nominalSyntax.ArgumentList.Arguments[i].Pattern,
                                 deconstructPattern.Arguments[i]);
                         }
                     }
@@ -10429,40 +10429,93 @@ partial class BlockBinder : Binder
         var parameterOffset = GetDeconstructParameterOffset(deconstructMethod);
         var parameters = deconstructMethod.Parameters;
         var parameterCount = parameters.Length - parameterOffset;
-        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(parameterCount);
-        var elementCount = Math.Min(elements.Count, parameterCount);
+        var receiverType = GetDeconstructReceiverType(deconstructMethod);
+        var boundElements = new BoundPattern?[parameterCount];
+        var matchedParameters = new bool[parameterCount];
+        var nextUnnamedParameter = 0;
 
-        for (var i = 0; i < elementCount; i++)
+        for (var i = 0; i < elements.Count; i++)
         {
             var elementSyntax = elements[i];
-            var expectedType = EnsureTypeAccessible(parameters[i + parameterOffset].Type, elementSyntax.GetLocation());
-            var boundElement = BindPatternForAssignment(
+            var parameterIndex = -1;
+
+            if (TryGetPositionalPatternElementName(elementSyntax, out var elementName))
+            {
+                parameterIndex = FindDeconstructParameterIndex(parameters, parameterOffset, elementName);
+                if (parameterIndex < 0)
+                {
+                    _diagnostics.ReportPropertyPatternMemberNotFound(
+                        elementName,
+                        receiverType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        elementSyntax.NameColon!.Name.GetLocation());
+
+                    _ = BindPatternForAssignment(
+                        elementSyntax.Pattern,
+                        Compilation.ErrorTypeSymbol,
+                        elementSyntax.Pattern,
+                        declarationBindingKeywordKind);
+                    continue;
+                }
+
+                if (matchedParameters[parameterIndex])
+                {
+                    _diagnostics.Report(Diagnostic.Create(
+                        CompilerDiagnostics.DuplicatePropertyPatternMember,
+                        elementSyntax.NameColon!.Name.GetLocation(),
+                        elementName));
+
+                    var duplicateType = EnsureTypeAccessible(parameters[parameterIndex + parameterOffset].Type, elementSyntax.GetLocation());
+                    _ = BindPatternForAssignment(
+                        elementSyntax.Pattern,
+                        duplicateType,
+                        elementSyntax.Pattern,
+                        declarationBindingKeywordKind);
+                    continue;
+                }
+            }
+            else
+            {
+                while (nextUnnamedParameter < parameterCount && matchedParameters[nextUnnamedParameter])
+                    nextUnnamedParameter++;
+
+                if (nextUnnamedParameter >= parameterCount)
+                {
+                    _ = BindPatternForAssignment(
+                        elementSyntax.Pattern,
+                        Compilation.ErrorTypeSymbol,
+                        elementSyntax.Pattern,
+                        declarationBindingKeywordKind);
+                    continue;
+                }
+
+                parameterIndex = nextUnnamedParameter++;
+            }
+
+            var expectedType = EnsureTypeAccessible(parameters[parameterIndex + parameterOffset].Type, elementSyntax.GetLocation());
+            boundElements[parameterIndex] = BindPatternForAssignment(
                 elementSyntax.Pattern,
                 expectedType,
                 elementSyntax.Pattern,
                 declarationBindingKeywordKind);
-            boundElements.Add(boundElement);
+            matchedParameters[parameterIndex] = true;
         }
 
-        for (var i = elementCount; i < parameterCount; i++)
+        var orderedElements = ImmutableArray.CreateBuilder<BoundPattern>(parameterCount);
+        for (var i = 0; i < parameterCount; i++)
         {
-            var parameterType = EnsureTypeAccessible(parameters[i + parameterOffset].Type, fallbackLocation);
-            boundElements.Add(new BoundDiscardPattern(parameterType, BoundExpressionReason.TypeMismatch));
+            orderedElements.Add(
+                boundElements[i] ??
+                new BoundDiscardPattern(
+                    EnsureTypeAccessible(parameters[i + parameterOffset].Type, fallbackLocation),
+                    BoundExpressionReason.TypeMismatch));
         }
-
-        for (var i = elementCount; i < elements.Count; i++)
-            _ = BindPatternForAssignment(
-                elements[i].Pattern,
-                Compilation.ErrorTypeSymbol,
-                elements[i].Pattern,
-                declarationBindingKeywordKind);
 
         return new BoundDeconstructPattern(
             inputType: valueType,
             receiverType: GetDeconstructReceiverType(deconstructMethod),
             narrowedType: null,
             deconstructMethod: deconstructMethod,
-            arguments: boundElements.ToImmutable());
+            arguments: orderedElements.ToImmutable());
     }
 
     private BoundPattern BindDeconstructPatternForAssignment(

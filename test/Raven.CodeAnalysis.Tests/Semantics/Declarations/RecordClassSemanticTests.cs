@@ -424,6 +424,62 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void PositionalPattern_WithNamedElements_BindsDeconstructArgumentsByName()
+    {
+        var source = """
+            val value: Person = Person("Ada", 42, ["tea"]);
+
+            val result = value match {
+                (Age: 42, Items: val items, Name: val name) => name + items[0]
+                _ => ""
+            };
+
+            record class Person(Name: string, Age: int, Items: string[]);
+            """;
+
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var model = compilation.GetSemanticModel(tree);
+
+        var positionalPattern = tree.GetRoot().DescendantNodes().OfType<PositionalPatternSyntax>().Single();
+        var boundPattern = Assert.IsType<BoundDeconstructPattern>(model.GetBoundNode(positionalPattern));
+
+        Assert.Equal(3, boundPattern.Arguments.Length);
+        Assert.IsType<BoundDeclarationPattern>(boundPattern.Arguments[0]);
+        Assert.IsType<BoundConstantPattern>(boundPattern.Arguments[1]);
+        Assert.IsType<BoundDeclarationPattern>(boundPattern.Arguments[2]);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void NominalDeconstructionPattern_WithNamedArguments_BindsDeconstructArgumentsByName()
+    {
+        var source = """
+            val value: object = Person("Ada", 42, ["tea"]);
+
+            val result = value match {
+                Person(Items: val items, Name: val name, Age: 42) => name + items[0]
+                _ => ""
+            };
+
+            record class Person(Name: string, Age: int, Items: string[]);
+            """;
+
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var model = compilation.GetSemanticModel(tree);
+
+        var nominalPattern = tree.GetRoot().DescendantNodes().OfType<NominalDeconstructionPatternSyntax>().Single();
+        var boundPattern = Assert.IsType<BoundDeconstructPattern>(model.GetBoundNode(nominalPattern));
+
+        Assert.Equal(3, boundPattern.Arguments.Length);
+        Assert.IsType<BoundDeclarationPattern>(boundPattern.Arguments[0]);
+        Assert.IsType<BoundConstantPattern>(boundPattern.Arguments[1]);
+        Assert.IsType<BoundDeclarationPattern>(boundPattern.Arguments[2]);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void RecordClass_WithPrimaryConstructorAndNoBody_Binds()
     {
         var source = """

@@ -5,6 +5,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 ## 2026-04-08
 
 ### Changed
+- Deconstruction patterns now support named elements for `Deconstruct`-backed shapes in both matching and declaration/assignment forms. Raven accepts forms such as `Person(Items: val items, Name: val name, Age: 42)` and `val (Items: items, Name: name, Age: age) = person`, binds named elements by `Deconstruct` parameter name in any order, and now reports `RAV1602` when a supplied deconstruction name does not exist on the target shape.
 - Union carriers now expose a conventional union-root `Value` property, and `union struct` carriers reserve discriminator `0` as an uninitialized/default state so `default(U).Value` is `null` until a real case is assigned.
 - `Raven.Core` now declares `Option<T>` and `Result<T, E>` as `union class` carriers instead of `union struct`, removing the implicit default/uninitialized state from the standard library’s primary algebraic carriers.
 - Synthesized union `Value` now follows the carrier nullability contract more closely: `union struct` exposes `Value: object?`, ordinary class carriers expose `Value: object`, and class carriers with nullable member payloads expose `Value: object?`.

@@ -116,7 +116,8 @@ public class PatternSyntaxParserTests
         Assert.Equal("Token.Identifier", recordPattern.Type.ToString());
 
         var argument = Assert.Single(recordPattern.ArgumentList.Arguments);
-        Assert.IsType<VariablePatternSyntax>(argument);
+        Assert.Null(argument.NameColon);
+        Assert.IsType<VariablePatternSyntax>(argument.Pattern);
 
         AssertNoErrors(tree);
     }
@@ -133,7 +134,41 @@ public class PatternSyntaxParserTests
 
         var argumentList = recordPattern.ArgumentList;
         Assert.Equal(2, argumentList.Arguments.Count);
-        Assert.All(argumentList.Arguments, argument => Assert.IsType<VariablePatternSyntax>(argument));
+        Assert.All(argumentList.Arguments, argument =>
+        {
+            Assert.Null(argument.NameColon);
+            Assert.IsType<VariablePatternSyntax>(argument.Pattern);
+        });
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void NominalDeconstructionPattern_WithNamedArguments_Parses()
+    {
+        var (pattern, tree) = ParsePattern("Person(Items: let items, Name: let name, Age: 42)");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var recordPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(pattern);
+        Assert.Equal("Person(Items: let items, Name: let name, Age: 42)", sourceText.ToString(recordPattern.Span));
+
+        Assert.Collection(
+            recordPattern.ArgumentList.Arguments,
+            argument =>
+            {
+                Assert.Equal("Items", argument.NameColon?.Name.Identifier.ValueText);
+                Assert.IsType<VariablePatternSyntax>(argument.Pattern);
+            },
+            argument =>
+            {
+                Assert.Equal("Name", argument.NameColon?.Name.Identifier.ValueText);
+                Assert.IsType<VariablePatternSyntax>(argument.Pattern);
+            },
+            argument =>
+            {
+                Assert.Equal("Age", argument.NameColon?.Name.Identifier.ValueText);
+                Assert.IsType<ConstantPatternSyntax>(argument.Pattern);
+            });
 
         AssertNoErrors(tree);
     }
@@ -150,7 +185,8 @@ public class PatternSyntaxParserTests
 
         var argumentList = recordPattern.ArgumentList;
         Assert.Equal(2, argumentList.Arguments.Count);
-        Assert.IsType<PositionalPatternSyntax>(argumentList.Arguments[1]);
+        Assert.Null(argumentList.Arguments[1].NameColon);
+        Assert.IsType<PositionalPatternSyntax>(argumentList.Arguments[1].Pattern);
 
         AssertNoErrors(tree);
     }
@@ -165,11 +201,11 @@ public class PatternSyntaxParserTests
         Assert.Equal("Error(ParseIntError(kind, _))", sourceText.ToString(outerPattern.Span));
         Assert.Equal("Error", Assert.IsType<IdentifierNameSyntax>(outerPattern.Type).Identifier.ValueText);
 
-        var innerPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(Assert.Single(outerPattern.ArgumentList.Arguments));
+        var innerPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(Assert.Single(outerPattern.ArgumentList.Arguments).Pattern);
         Assert.Equal("ParseIntError", Assert.IsType<IdentifierNameSyntax>(innerPattern.Type).Identifier.ValueText);
         Assert.Equal(2, innerPattern.ArgumentList.Arguments.Count);
-        Assert.IsType<VariablePatternSyntax>(innerPattern.ArgumentList.Arguments[0]);
-        Assert.IsType<DiscardPatternSyntax>(innerPattern.ArgumentList.Arguments[1]);
+        Assert.IsType<VariablePatternSyntax>(innerPattern.ArgumentList.Arguments[0].Pattern);
+        Assert.IsType<DiscardPatternSyntax>(innerPattern.ArgumentList.Arguments[1].Pattern);
 
         AssertNoErrors(tree);
     }
@@ -402,7 +438,9 @@ public class PatternSyntaxParserTests
         var recordPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(pattern);
         Assert.Equal("Foo(name)", sourceText.ToString(recordPattern.Span));
 
-        var argument = Assert.IsType<ConstantPatternSyntax>(Assert.Single(recordPattern.ArgumentList.Arguments));
+        var element = Assert.Single(recordPattern.ArgumentList.Arguments);
+        Assert.Null(element.NameColon);
+        var argument = Assert.IsType<ConstantPatternSyntax>(element.Pattern);
         var identifier = Assert.IsType<IdentifierNameSyntax>(argument.Expression);
         Assert.Equal("name", identifier.Identifier.ValueText);
 

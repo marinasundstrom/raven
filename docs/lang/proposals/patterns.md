@@ -111,7 +111,9 @@ if val (id, name when name.Length > 5) = customer {
 
 Nominal `Type(...)` patterns are driven by `Deconstruct`. Records support this
 directly, and primary-constructor classes/structs with promoted public
-parameters synthesize `Deconstruct` in declaration order.
+parameters synthesize `Deconstruct` in declaration order. Elements may be named
+as `Name: pattern`; named elements bind by `Deconstruct` parameter name and may
+appear in any order, while unknown names diagnose as missing members.
 
 ### Property patterns
 

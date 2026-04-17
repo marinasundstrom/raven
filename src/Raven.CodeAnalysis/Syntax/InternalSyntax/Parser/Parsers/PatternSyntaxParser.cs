@@ -562,12 +562,12 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
         {
-            arguments.Add(ParseDeconstructionElementPattern());
+            arguments.Add(ParsePositionalPatternElement());
 
             while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
             {
                 arguments.Add(commaToken);
-                arguments.Add(ParseDeconstructionElementPattern());
+                arguments.Add(ParsePositionalPatternElement());
             }
         }
 
