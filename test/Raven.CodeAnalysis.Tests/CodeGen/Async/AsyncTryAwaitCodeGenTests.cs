@@ -33,7 +33,7 @@ class Program {
 """;
 
         var output = CompileAndRun(code);
-        Assert.Equal(new[] { "Result.Ok(42)" }, output);
+        Assert.Equal(new[] { "Result<Int32>.Ok(42)" }, output);
     }
 
     [Fact]
@@ -151,6 +151,37 @@ class Program {
 """;
 
         EmitOnly(code);
+    }
+
+    [Fact]
+    public void TryAwaitExpression_WithReferenceTypeOkPayload_DereferencesAfterAwait()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+record class Payload(Text: string)
+
+class Program {
+    static async func FetchPayload() -> Task<Result<Payload, Exception>> {
+        await Task.Delay(1)
+        return .Ok(Payload("hello"))
+    }
+
+    static async func FetchTextLength() -> Task<Result<int, Exception>> {
+        val payload = try? await Program.FetchPayload()
+        await Task.Delay(1)
+        return .Ok(payload.Text.Length)
+    }
+
+    static async func Main() -> Task {
+        Console.WriteLine(await Program.FetchTextLength())
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "Result<Int32>.Ok(5)" }, output);
     }
 
     [Fact]
@@ -360,7 +391,7 @@ class Program {
 """;
 
         var output = CompileAndRun(code);
-        Assert.Equal(new[] { "Option.Some(42)", "Option.None" }, output);
+        Assert.Equal(new[] { "Option<Int32>.Some(42)", "Option.None" }, output);
     }
 
     [Fact]

@@ -1,0 +1,44 @@
+Raven Language Server Performance Report
+Generated: 2026-04-17T14:08:48.9196790+00:00
+Operation: computeDocumentDiagnostics
+  Count: 1
+  TotalMs: 3489,7
+  AvgMs: 3489,7
+  MaxMs: 3489,7
+  Stages:
+    diagnosticsFetch: count=1 total=3487,4ms avg=3487,4ms max=3487,4ms
+    syntaxTree: count=1 total=0,9ms avg=0,9ms max=0,9ms
+    gateWait: count=1 total=0,4ms avg=0,4ms max=0,4ms
+
+Operation: warmAnalysis
+  Count: 1
+  TotalMs: 2422,2
+  AvgMs: 2422,2
+  MaxMs: 2422,2
+  Stages:
+    semanticModel: count=1 total=2421,2ms avg=2421,2ms max=2421,2ms
+    gateWait: count=1 total=0,6ms avg=0,6ms max=0,6ms
+    analysisContext: count=1 total=0,0ms avg=0,0ms max=0,0ms
+
+Operation: didOpen
+  Count: 1
+  TotalMs: 21,4
+  AvgMs: 21,4
+  MaxMs: 21,4
+
+Operation: documentSymbols
+  Count: 1
+  TotalMs: 16,6
+  AvgMs: 16,6
+  MaxMs: 16,6
+  AvgResultCount: 4,0
+  FirstLookupAfterEditCount: 1
+  FirstLookupAfterEditAvgMs: 24,5
+  FirstLookupAfterEditMaxMs: 24,5
+  FirstLookupAfterEditSources:
+    didOpen: 1
+  Stages:
+    buildSymbols: count=1 total=12,3ms avg=12,3ms max=12,3ms
+    analysisContext: count=1 total=3,0ms avg=3,0ms max=3,0ms
+    root: count=1 total=0,6ms avg=0,6ms max=0,6ms
+

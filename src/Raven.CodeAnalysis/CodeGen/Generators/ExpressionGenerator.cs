@@ -1658,10 +1658,17 @@ internal partial class ExpressionGenerator : Generator
             else if (expr.OkValueProperty?.GetMethod is not null)
             {
                 var valueGetter = GetMethodInfo(expr.OkValueProperty.GetMethod);
-                // Ok-case is a value type; call the getter on the managed address to avoid copies
-                // and to prevent decompilers from emitting unsafe pointer casts.
-                ILGenerator.Emit(OpCodes.Ldloca_S, okCaseLocal);
-                ILGenerator.Emit(OpCodes.Call, valueGetter);
+                if (okCaseClrType.IsValueType)
+                {
+                    // Value-type case: call the getter on the managed address to avoid copies.
+                    ILGenerator.Emit(OpCodes.Ldloca_S, okCaseLocal);
+                    ILGenerator.Emit(OpCodes.Call, valueGetter);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Ldloc, okCaseLocal);
+                    ILGenerator.Emit(OpCodes.Callvirt, valueGetter);
+                }
             }
             else
             {
@@ -1670,10 +1677,16 @@ internal partial class ExpressionGenerator : Generator
                 if (valueProp?.GetMethod is null)
                     throw new InvalidOperationException($"Missing Ok Value getter on '{okCaseClrType}'.");
 
-                // Ok-case is a value type; call the getter on the managed address to avoid copies
-                // and to prevent decompilers from emitting unsafe pointer casts.
-                ILGenerator.Emit(OpCodes.Ldloca_S, okCaseLocal);
-                ILGenerator.Emit(OpCodes.Call, valueProp.GetMethod);
+                if (okCaseClrType.IsValueType)
+                {
+                    ILGenerator.Emit(OpCodes.Ldloca_S, okCaseLocal);
+                    ILGenerator.Emit(OpCodes.Call, valueProp.GetMethod);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Ldloc, okCaseLocal);
+                    ILGenerator.Emit(OpCodes.Callvirt, valueProp.GetMethod);
+                }
             }
 
             if (!_preserveResult)
