@@ -72,6 +72,20 @@ public partial class Compilation
         return semanticModel;
     }
 
+    internal SemanticModel CreateTransientSemanticModel(SyntaxTree syntaxTree)
+    {
+        EnsureSetup();
+        EnsureSourceDeclarationsComplete();
+
+        if (_generatedSemanticModels.TryGetValue(syntaxTree, out var generatedSemanticModel))
+            return generatedSemanticModel;
+
+        if (!_syntaxTrees.Contains(syntaxTree))
+            throw new ArgumentNullException(nameof(syntaxTree), "Syntax tree is not part of compilation");
+
+        return new SemanticModel(this, syntaxTree);
+    }
+
     internal void RegisterGeneratedSyntaxTree(SyntaxTree syntaxTree, SemanticModel semanticModel)
     {
         ArgumentNullException.ThrowIfNull(syntaxTree);

@@ -17,6 +17,7 @@ public class Workspace
     private Solution _currentSolution;
     private readonly object _compilationGate = new();
     private readonly Dictionary<ProjectId, ProjectCompilationState> _projectCompilations = new();
+    private readonly Dictionary<ProjectId, ProjectCompilationState> _analysisProjectCompilations = new();
 
     protected Workspace(string kind)
         : this(kind, HostServices.Default)
@@ -72,6 +73,10 @@ public class Workspace
         var removed = _projectCompilations.Keys.Where(id => newSolution.GetProject(id) is null).ToList();
         foreach (var id in removed)
             _projectCompilations.Remove(id);
+
+        removed = _analysisProjectCompilations.Keys.Where(id => newSolution.GetProject(id) is null).ToList();
+        foreach (var id in removed)
+            _analysisProjectCompilations.Remove(id);
 
         OnWorkspaceChanged(new WorkspaceChangeEventArgs(kind, oldSolution, newSolution, projectId, documentId));
         return true;
@@ -143,10 +148,18 @@ public class Workspace
         var project = CurrentSolution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
-        return GetCompilation(project, building);
+        return GetCompilation(project, building, _projectCompilations);
     }
 
     private Compilation GetCompilation(Project project, HashSet<ProjectId> building)
+    {
+        return GetCompilation(project, building, _projectCompilations);
+    }
+
+    private Compilation GetCompilation(
+        Project project,
+        HashSet<ProjectId> building,
+        Dictionary<ProjectId, ProjectCompilationState> compilationCache)
     {
         var projectId = project.Id;
 
@@ -157,15 +170,15 @@ public class Workspace
 
             try
             {
-                if (!_projectCompilations.TryGetValue(projectId, out var state))
+                if (!compilationCache.TryGetValue(projectId, out var state))
                 {
-                    return BuildCompilation(project, null, building, storeInCache: true);
+                    return BuildCompilation(project, null, building, compilationCache);
                 }
 
                 if (state.Version == project.Version)
                     return state.Compilation;
 
-                return BuildCompilation(project, state, building, storeInCache: true);
+                return BuildCompilation(project, state, building, compilationCache);
             }
             finally
             {
@@ -178,23 +191,14 @@ public class Workspace
     {
         ArgumentNullException.ThrowIfNull(project);
 
-        lock (_compilationGate)
-        {
-            if (!building.Add(project.Id))
-                throw new InvalidOperationException("Circular project reference detected.");
-
-            try
-            {
-                return BuildCompilation(project, state: null, building, storeInCache: false);
-            }
-            finally
-            {
-                building.Remove(project.Id);
-            }
-        }
+        return GetCompilation(project, building, _analysisProjectCompilations);
     }
 
-    private Compilation BuildCompilation(Project project, ProjectCompilationState? state, HashSet<ProjectId> building, bool storeInCache)
+    private Compilation BuildCompilation(
+        Project project,
+        ProjectCompilationState? state,
+        HashSet<ProjectId> building,
+        Dictionary<ProjectId, ProjectCompilationState> compilationCache)
     {
         state ??= new ProjectCompilationState();
         var previousCompilation = state.Compilation;
@@ -243,9 +247,7 @@ public class Workspace
         {
             var referencedProject = project.Solution.GetProject(projRef.ProjectId)
                 ?? throw new ArgumentException("Project not found", nameof(projRef.ProjectId));
-            var referencedCompilation = storeInCache
-                ? GetCompilation(referencedProject, building)
-                : CreateAnalysisCompilation(referencedProject, building);
+            var referencedCompilation = GetCompilation(referencedProject, building, compilationCache);
             var compRef = referencedCompilation.ToMetadataReference();
             references.Add(compRef);
         }
@@ -273,12 +275,9 @@ public class Workspace
         foreach (var (tree, matches, _) in matchedExecutableOwners)
             compilation.RegisterMatchedExecutableOwners(tree, matches);
 
-        if (storeInCache)
-        {
-            state.Version = project.Version;
-            state.Compilation = compilation;
-            _projectCompilations[project.Id] = state;
-        }
+        state.Version = project.Version;
+        state.Compilation = compilation;
+        compilationCache[project.Id] = state;
 
         return compilation;
     }

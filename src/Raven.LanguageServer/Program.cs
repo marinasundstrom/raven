@@ -57,6 +57,10 @@ internal static class Program
             .WithHandler<CodeActionHandler>()
             .ConfigureLogging(logging =>
             {
+                // Never allow default console logging providers on the LSP server process:
+                // stdout is the protocol transport, so any console logger will corrupt the
+                // JSON-RPC stream and surface as missing Content-Length/header errors.
+                logging.ClearProviders();
                 logging.AddLanguageProtocolLogging()
                     .AddProvider(fileLoggerProvider)
                     .SetMinimumLevel(LogLevel.Debug);

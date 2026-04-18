@@ -5273,6 +5273,13 @@ public partial class SemanticModel
                     return existing;
                 });
         }
+
+        if (node is FunctionExpressionSyntax functionExpression &&
+            selectedBound is BoundFunctionExpression boundFunction)
+        {
+            RemoveCachedSymbolMapping(functionExpression);
+            _ = TryUpgradeFunctionExpressionSymbolFromBoundFunction(functionExpression, boundFunction, out _);
+        }
     }
 
     private static bool ShouldReplaceCachedBoundNode(BoundNode existing, BoundNode incoming)

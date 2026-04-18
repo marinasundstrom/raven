@@ -15,6 +15,26 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder : Binder
 {
+    private sealed class FunctionExpressionSyntaxStructuralComparer : IEqualityComparer<FunctionExpressionSyntax>
+    {
+        public bool Equals(FunctionExpressionSyntax? x, FunctionExpressionSyntax? y)
+        {
+            if (ReferenceEquals(x, y))
+                return true;
+            if (x is null || y is null)
+                return false;
+
+            return ReferenceEquals(x.SyntaxTree, y.SyntaxTree) &&
+                   x.Kind == y.Kind &&
+                   x.Span == y.Span;
+        }
+
+        public int GetHashCode(FunctionExpressionSyntax obj)
+        {
+            return HashCode.Combine(obj.SyntaxTree, (int)obj.Kind, obj.Span.Start, obj.Span.Length);
+        }
+    }
+
     private readonly ISymbol _containingSymbol;
     private readonly object _executionGate = new();
     protected readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals = new();
@@ -24,7 +44,7 @@ partial class BlockBinder : Binder
     private readonly Dictionary<LabeledStatementSyntax, ILabelSymbol> _labelsBySyntax = new();
     private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _syntaxByLabel = new(SymbolEqualityComparer.Default);
     private readonly HashSet<SyntaxNode> _labelDeclarationNodes = new();
-    private readonly Dictionary<FunctionExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<FunctionExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(new FunctionExpressionSyntaxStructuralComparer());
     private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();

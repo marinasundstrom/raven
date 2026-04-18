@@ -86,6 +86,55 @@ public sealed class DocumentScopedDiagnosticsTests
     }
 
     [Fact]
+    public void WorkspaceCreateAnalysisCompilation_CachesPerProjectVersion()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "a.rav",
+            SourceText.From(
+                """
+                func Main() -> () {
+                    val value: MissingType = 42
+                }
+                """),
+            "/tmp/a.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.CreateAnalysisCompilation(projectId);
+        var cachedCompilation = workspace.CreateAnalysisCompilation(projectId);
+
+        cachedCompilation.ShouldBeSameAs(initialCompilation);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(doc => doc.FilePath == "/tmp/a.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(
+                """
+                func Main() -> () {
+                    val value: MissingType = 43
+                }
+                """));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.CreateAnalysisCompilation(projectId);
+        updatedCompilation.ShouldNotBeSameAs(initialCompilation);
+
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/a.rav");
+        updatedCompilation.GetDiagnostics(updatedTree).ShouldNotBeEmpty();
+    }
+
+    [Fact]
     public void CompilationGetSyntaxDiagnostics_SyntaxTree_ExcludesSemanticDiagnostics()
     {
         var tree = SyntaxTree.ParseText(

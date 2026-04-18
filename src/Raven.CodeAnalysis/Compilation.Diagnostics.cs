@@ -47,7 +47,7 @@ public partial class Compilation
             foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
                 Add(diagnostic);
 
-            var model = GetSemanticModel(syntaxTree);
+            var model = CreateTransientSemanticModel(syntaxTree);
             foreach (var diagnostic in model.GetDiagnostics(cancellationToken))
                 Add(diagnostic);
         }
@@ -77,7 +77,7 @@ public partial class Compilation
             if (asyncNode is null)
                 return false;
 
-            var model = GetSemanticModel(sourceTree);
+            var model = CreateTransientSemanticModel(sourceTree);
             SyntaxNode? bodySyntax = asyncNode switch
             {
                 FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody?.Expression,
@@ -113,7 +113,7 @@ public partial class Compilation
         foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
             Add(diagnostic);
 
-        var model = GetSemanticModel(syntaxTree);
+        var model = CreateTransientSemanticModel(syntaxTree);
         foreach (var diagnostic in model.GetDiagnostics(cancellationToken))
             Add(diagnostic);
 
