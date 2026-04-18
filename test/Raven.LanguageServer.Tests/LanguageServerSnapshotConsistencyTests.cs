@@ -742,6 +742,52 @@ record CustomError(val Message: string)
     }
 
     [Fact]
+    public async Task HoverHandler_RepoEfCoreSample_LambdaParameter_ShowsLambdaContainingSignatureAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
+        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var text = File.ReadAllText(filePath);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-expression-trees",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = store.UpsertDocument(uri, text);
+
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var sourceText = context.Value.SourceText;
+        var lambdaOffset = text.IndexOf("OrderBy(user => user.Name)", StringComparison.Ordinal);
+        lambdaOffset.ShouldBeGreaterThanOrEqualTo(0);
+        lambdaOffset += "OrderBy(".Length + 1;
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new TextSpan(lambdaOffset, 0)).Start
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("user: User");
+        hover.Contents.MarkupContent!.Value.ShouldContain("Parameter in `func (user: User) -> string`");
+    }
+
+    [Fact]
     public async Task GetAnalysisContextAsync_RepoEfCoreSample_MinAgeEdit_DoesNotPoisonDiagnosticsOrHoverAsync()
     {
         var repoRoot = FindRepositoryRoot();

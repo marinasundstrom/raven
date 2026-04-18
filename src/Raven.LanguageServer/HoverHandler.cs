@@ -2205,6 +2205,9 @@ internal sealed class HoverHandler : IHoverHandler
         if (TryGetExtensionContainerDisplay(symbol, out var extensionContaining))
             return extensionContaining;
 
+        if (TryGetLambdaContainingDisplay(symbol, semanticModel, out var lambdaContaining))
+            return lambdaContaining;
+
         if (symbol is IParameterSymbol parameterSymbol &&
             IsPromotedPrimaryConstructorParameter(parameterSymbol) &&
             parameterSymbol.ContainingSymbol is IMethodSymbol constructor &&
@@ -2223,6 +2226,36 @@ internal sealed class HoverHandler : IHoverHandler
         var containing = GetUserFacingContainingSymbol(symbol);
         return containing?.ToDisplayString(
             SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
+    }
+
+    private static bool TryGetLambdaContainingDisplay(ISymbol symbol, SemanticModel semanticModel, out string containingDisplay)
+    {
+        containingDisplay = string.Empty;
+
+        if (symbol.ContainingSymbol is not IMethodSymbol { MethodKind: MethodKind.LambdaMethod } lambdaMethod)
+        {
+            var lambdaSyntax = symbol.DeclaringSyntaxReferences
+                .Select(static reference => reference.GetSyntax())
+                .Select(static syntax => syntax.AncestorsAndSelf().OfType<FunctionExpressionSyntax>().FirstOrDefault())
+                .FirstOrDefault(static syntax => syntax is not null);
+            if (lambdaSyntax is null)
+                return false;
+
+            if (semanticModel.TryGetFunctionExpressionSymbol(lambdaSyntax, out var lambdaSymbol) &&
+                lambdaSymbol is not null)
+            {
+                containingDisplay = FormatLambdaContainingDisplay(lambdaSymbol);
+                return !string.IsNullOrWhiteSpace(containingDisplay);
+            }
+
+            if (TryFormatLambdaContainingDisplay(lambdaSyntax, semanticModel, out containingDisplay))
+                return true;
+
+            return false;
+        }
+
+        containingDisplay = FormatLambdaContainingDisplay(lambdaMethod);
+        return !string.IsNullOrWhiteSpace(containingDisplay);
     }
 
     private static ISymbol? GetUserFacingContainingSymbol(ISymbol symbol)
@@ -2412,6 +2445,35 @@ internal sealed class HoverHandler : IHoverHandler
         var returnType = method.ReturnType.ToDisplayString(plainTypeFormat);
         var staticPrefix = IsMethodDeclaredStaticForDisplay(method) ? "static " : string.Empty;
         return $"{staticPrefix}func {method.Name}({parameters}) -> {returnType}";
+    }
+
+    private static string FormatLambdaContainingDisplay(IMethodSymbol lambdaMethod)
+    {
+        var plainTypeFormat = CreatePlainTypeFormat();
+        var parameters = FormatParameters(lambdaMethod.Parameters, plainTypeFormat);
+        var returnType = FormatType(lambdaMethod.ReturnType, plainTypeFormat);
+        return $"func ({parameters}) -> {returnType}";
+    }
+
+    private static bool TryFormatLambdaContainingDisplay(
+        FunctionExpressionSyntax functionExpression,
+        SemanticModel semanticModel,
+        out string containingDisplay)
+    {
+        containingDisplay = string.Empty;
+
+        var functionType = semanticModel.TryGetFunctionExpressionDelegateType(functionExpression, out var contextualFunctionType)
+            ? contextualFunctionType
+            : semanticModel.GetTypeInfo(functionExpression).ConvertedType
+                ?? semanticModel.GetTypeInfo(functionExpression).Type;
+
+        var delegateType = UnwrapDelegateType(functionType);
+        var invokeMethod = delegateType?.GetDelegateInvokeMethod();
+        if (invokeMethod is null)
+            return false;
+
+        containingDisplay = FormatLambdaContainingDisplay(invokeMethod);
+        return !string.IsNullOrWhiteSpace(containingDisplay);
     }
 
     private static SymbolDisplayFormat CreatePlainTypeFormat()

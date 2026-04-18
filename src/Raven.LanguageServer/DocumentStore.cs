@@ -305,6 +305,8 @@ internal sealed class DocumentStore
         double gateWaitMs = 0;
         double syntaxTreeMs = 0;
         double diagnosticsFetchMs = 0;
+        string? diagnosticsSetupDelta = null;
+        string? diagnosticsBinderDelta = null;
         var busySkipped = false;
         var semanticBusySkipped = false;
         var documentOnlyDiagnostics = false;
@@ -361,9 +363,22 @@ internal sealed class DocumentStore
                 }
 
                 using var __ = semanticLease;
-                diagnosticsForProject = mode == DocumentDiagnosticsMode.SyntaxOnly
-                    ? analysis.GetSyntaxDiagnostics()
-                    : analysis.GetDiagnostics();
+                if (mode == DocumentDiagnosticsMode.SyntaxOnly)
+                {
+                    diagnosticsForProject = analysis.GetSyntaxDiagnostics();
+                }
+                else
+                {
+                    var setupBefore = context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+                    var binderBefore = context.Compilation.PerformanceInstrumentation.BinderReentry.CaptureSnapshot();
+                    diagnosticsForProject = analysis.GetDiagnostics();
+                    var setupAfter = context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+                    var binderAfter = context.Compilation.PerformanceInstrumentation.BinderReentry.CaptureSnapshot();
+                    diagnosticsSetupDelta = CompilerSetupInstrumentation.FormatDelta(
+                        CompilerSetupInstrumentation.Subtract(setupAfter, setupBefore));
+                    diagnosticsBinderDelta = BinderReentryInstrumentation.FormatDelta(
+                        BinderReentryInstrumentation.Subtract(binderAfter, binderBefore));
+                }
                 documentOnlyDiagnostics = true;
             }
             else
@@ -386,14 +401,30 @@ internal sealed class DocumentStore
             stopwatch.Stop();
             if (stopwatch.Elapsed.TotalMilliseconds >= SlowDiagnosticsThresholdMs)
             {
-                _logger.LogInformation(
-                    "Slow diagnostics for {Uri}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms diagnosticsFetch={DiagnosticsFetchMs:F1}ms count={Count}.",
-                    uri,
-                    stopwatch.Elapsed.TotalMilliseconds,
-                    gateWaitMs,
-                    syntaxTreeMs,
-                    diagnosticsFetchMs,
-                    diagnostics.Length);
+                if (diagnosticsSetupDelta is not null || diagnosticsBinderDelta is not null)
+                {
+                    _logger.LogInformation(
+                        "Slow diagnostics for {Uri}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms diagnosticsFetch={DiagnosticsFetchMs:F1}ms count={Count} setupDelta=[{SetupDelta}] binderDelta=[{BinderDelta}].",
+                        uri,
+                        stopwatch.Elapsed.TotalMilliseconds,
+                        gateWaitMs,
+                        syntaxTreeMs,
+                        diagnosticsFetchMs,
+                        diagnostics.Length,
+                        diagnosticsSetupDelta ?? "<none>",
+                        diagnosticsBinderDelta ?? "<none>");
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Slow diagnostics for {Uri}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms diagnosticsFetch={DiagnosticsFetchMs:F1}ms count={Count}.",
+                        uri,
+                        stopwatch.Elapsed.TotalMilliseconds,
+                        gateWaitMs,
+                        syntaxTreeMs,
+                        diagnosticsFetchMs,
+                        diagnostics.Length);
+                }
             }
 
             return new DiagnosticsComputationResult(diagnostics, WasSkipped: false);

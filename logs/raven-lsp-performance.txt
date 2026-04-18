@@ -1,64 +1,64 @@
 Raven Language Server Performance Report
-Generated: 2026-04-18T07:10:16.6285610+00:00
-Operation: warmAnalysis
-  Count: 2
-  TotalMs: 5748,6
-  AvgMs: 2874,3
-  MaxMs: 4068,5
-  Stages:
-    semanticModel: count=2 total=5744,9ms avg=2872,5ms max=4064,9ms
-    gateWait: count=2 total=1,9ms avg=0,9ms max=1,8ms
-    analysisContext: count=2 total=1,4ms avg=0,7ms max=1,4ms
-
-Operation: hover
-  Count: 42
-  TotalMs: 4302,1
-  AvgMs: 102,4
-  MaxMs: 325,8
-  CacheHits: 3
-  Stages:
-    resolution: count=39 total=2913,4ms avg=74,7ms max=233,8ms
-    analysisContext: count=42 total=2,1ms avg=0,0ms max=0,2ms
-    gateWait: count=42 total=0,8ms avg=0,0ms max=0,4ms
-    semanticModel: count=39 total=0,2ms avg=0,0ms max=0,0ms
-
+Generated: 2026-04-18T09:29:10.1298000+00:00
 Operation: publishDiagnostics
-  Count: 2
-  TotalMs: 4084,2
-  AvgMs: 2042,1
-  MaxMs: 2661,9
+  Count: 1
+  TotalMs: 2882,5
+  AvgMs: 2882,5
+  MaxMs: 2882,5
   AvgResultCount: 0,0
 
 Operation: computeDocumentDiagnostics
-  Count: 2
-  TotalMs: 4076,5
-  AvgMs: 2038,3
-  MaxMs: 2654,4
+  Count: 1
+  TotalMs: 2878,6
+  AvgMs: 2878,6
+  MaxMs: 2878,6
   Stages:
-    diagnosticsFetch: count=2 total=4076,0ms avg=2038,0ms max=2653,9ms
-    gateWait: count=2 total=0,4ms avg=0,2ms max=0,4ms
-    syntaxTree: count=2 total=0,0ms avg=0,0ms max=0,0ms
+    diagnosticsFetch: count=1 total=2878,2ms avg=2878,2ms max=2878,2ms
+    gateWait: count=1 total=0,3ms avg=0,3ms max=0,3ms
+    syntaxTree: count=1 total=0,0ms avg=0,0ms max=0,0ms
+
+Operation: hover
+  Count: 20
+  TotalMs: 2272,9
+  AvgMs: 113,6
+  MaxMs: 306,9
+  CacheHits: 3
+  Stages:
+    resolution: count=17 total=1661,8ms avg=97,8ms max=239,8ms
+    analysisContext: count=20 total=0,8ms avg=0,0ms max=0,1ms
+    gateWait: count=20 total=0,6ms avg=0,0ms max=0,4ms
+    semanticModel: count=17 total=0,0ms avg=0,0ms max=0,0ms
+
+Operation: warmAnalysis
+  Count: 1
+  TotalMs: 2061,0
+  AvgMs: 2061,0
+  MaxMs: 2061,0
+  Stages:
+    semanticModel: count=1 total=2059,9ms avg=2059,9ms max=2059,9ms
+    gateWait: count=1 total=0,4ms avg=0,4ms max=0,4ms
+    analysisContext: count=1 total=0,3ms avg=0,3ms max=0,3ms
 
 Operation: didOpen
-  Count: 2
-  TotalMs: 40,3
-  AvgMs: 20,2
-  MaxMs: 36,1
+  Count: 1
+  TotalMs: 25,2
+  AvgMs: 25,2
+  MaxMs: 25,2
 
 Operation: documentSymbols
-  Count: 4
-  TotalMs: 7,4
-  AvgMs: 1,9
-  MaxMs: 6,2
-  CacheHits: 2
+  Count: 2
+  TotalMs: 6,1
+  AvgMs: 3,0
+  MaxMs: 5,9
+  CacheHits: 1
   AvgResultCount: 4,0
-  FirstLookupAfterEditCount: 2
-  FirstLookupAfterEditAvgMs: 5158,6
-  FirstLookupAfterEditMaxMs: 6977,1
+  FirstLookupAfterEditCount: 1
+  FirstLookupAfterEditAvgMs: 5199,3
+  FirstLookupAfterEditMaxMs: 5199,3
   FirstLookupAfterEditSources:
-    didOpen: 2
+    didOpen: 1
   Stages:
-    buildSymbols: count=4 total=5,3ms avg=1,3ms max=4,3ms
-    root: count=4 total=1,2ms avg=0,3ms max=1,2ms
-    analysisContext: count=4 total=0,1ms avg=0,0ms max=0,0ms
+    buildSymbols: count=2 total=4,8ms avg=2,4ms max=4,8ms
+    root: count=2 total=0,3ms avg=0,2ms max=0,3ms
+    analysisContext: count=2 total=0,1ms avg=0,0ms max=0,0ms
 

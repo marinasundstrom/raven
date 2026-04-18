@@ -144,6 +144,12 @@ public sealed class LambdaReplayInstrumentation
 
 public sealed class BinderReentryInstrumentation
 {
+    public readonly record struct Snapshot(
+        long TotalInvocations,
+        long TotalRepeatedNodeInvocations,
+        long TotalCacheHits,
+        long TotalBindExecutions);
+
     private readonly bool _isEnabled;
     private long _totalInvocations;
     private long _totalRepeatedNodeInvocations;
@@ -167,6 +173,26 @@ public sealed class BinderReentryInstrumentation
     public long TotalCacheHits => Volatile.Read(ref _totalCacheHits);
 
     public long TotalBindExecutions => Volatile.Read(ref _totalBindExecutions);
+
+    public Snapshot CaptureSnapshot()
+        => new(
+            TotalInvocations,
+            TotalRepeatedNodeInvocations,
+            TotalCacheHits,
+            TotalBindExecutions);
+
+    public static Snapshot Subtract(Snapshot end, Snapshot start)
+        => new(
+            end.TotalInvocations - start.TotalInvocations,
+            end.TotalRepeatedNodeInvocations - start.TotalRepeatedNodeInvocations,
+            end.TotalCacheHits - start.TotalCacheHits,
+            end.TotalBindExecutions - start.TotalBindExecutions);
+
+    public static string FormatDelta(Snapshot delta)
+        => $"invocations={delta.TotalInvocations}, " +
+           $"repeated={delta.TotalRepeatedNodeInvocations}, " +
+           $"cacheHits={delta.TotalCacheHits}, " +
+           $"bindExecutions={delta.TotalBindExecutions}";
 
     public int GetBindExecutionCount(SyntaxNode node)
         => _nodeBindExecutionCounts.TryGetValue(node, out var count) ? count : 0;
