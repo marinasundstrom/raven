@@ -945,7 +945,6 @@ public partial class Compilation
                 if (constructed is not null)
                     break;
             }
-
             if (constructed is null && !IsOpenGenericConversionMethod(method))
                 constructed = method;
 
@@ -1156,8 +1155,6 @@ public partial class Compilation
             if (TryUnifyNamedType(paramNamed, argNamed, substitutions))
                 return true;
 
-            // NOTE: Problem seems to occur when iterating all interfaces. 
-            // It lazily creates the types. But something is wrong when 
             foreach (var iface in argNamed.AllInterfaces)
             {
                 if (TryUnifyNamedType(paramNamed, iface, substitutions))
@@ -1233,10 +1230,10 @@ public partial class Compilation
             if (SymbolEqualityComparer.Default.Equals(existing, argumentType))
                 return true;
 
-            if (ClassifyConversion(argumentType, existing).IsImplicit)
+            if (ClassifyConversion(argumentType, existing, includeUserDefined: false).IsImplicit)
                 return true;
 
-            if (ClassifyConversion(existing, argumentType).IsImplicit)
+            if (ClassifyConversion(existing, argumentType, includeUserDefined: false).IsImplicit)
             {
                 substitutions[typeParameter] = argumentType;
                 return true;
